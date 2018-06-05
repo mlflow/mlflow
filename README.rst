@@ -53,7 +53,7 @@ To illustrate managing models, the ``mlflow.sklearn`` package can log Scikit-lea
 MLflow artifacts and then load them again for serving. There is an example training application in
 ``example/quickstart/test_sklearn.py`` that you can run as follows::
 
-    $ python example/test_sklearn.py
+    $ python example/quickstart/test_sklearn.py
     Score: 0.666
     Model saved in run <run-id>
 
