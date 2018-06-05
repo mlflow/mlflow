@@ -1,0 +1,55 @@
+.artifact-info {
+  height: 56px;
+  background-color: #fafafa;
+  padding-left: 16px;
+  padding-top: 8px;
+}
+
+.artifact-info-size {
+}
+
+.view-button {
+  margin-top: 6px;
+}
+
+div.artifact-view {
+  height: 558px;
+  border: solid 1px #ccc;
+  display: flex;
+}
+
+.artifact-left {
+  float: left;
+  width: 400px;
+}
+
+.artifact-right {
+  width: 100%;
+}
+
+.empty-artifact-outer-container {
+  height: 558px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: solid 1px #ccc;
+  background-color: #fafafa;
+}
+
+.empty-artifact-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.no-artifacts {
+  width: 255px;
+  font-size: 24px;
+  margin: 0 auto;
+}
+
+.no-artifacts-info {
+  font-size: 16px;
+  padding-top: 8px;
+  color: #888888;
+}

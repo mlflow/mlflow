@@ -1,0 +1,77 @@
+/* BEGIN Header stuff. */
+.experiment-name {
+  display: inline-block;
+}
+.header-container {
+  margin-bottom: 8px;
+}
+
+.separator {
+  font-size: 16px;
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.run-uuid {
+  display: inline-block;
+}
+/* END Header stuff. */
+
+/* BEGIN run-info stuff. */
+.run-info-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: solid 1px #e2e2e2;
+}
+
+.run-info {
+  min-width: 320px;
+  margin-bottom: 12px;
+  margin-right: 12px;
+}
+.metadata-header {
+  font-size: 16px;
+  color: #888;
+}
+.metadata-info {
+  font-size: 16px;
+  color: #333;
+}
+
+/* END run-info stuff. */
+
+/* BEGIN table styling stuff */
+.table-name {
+  padding-top: 6px;
+  width: 112px;
+  cursor: pointer;
+}
+
+i.expander {
+  margin-right: 8px;
+}
+/* END table styling stuff */
+
+
+
+.RunView-label {
+  font-weight: bold;
+}
+
+.RunView-metadata {
+  padding: 5px;
+}
+
+.RunView-metricArea {
+  margin-left: 400px;
+}
+
+.RunView-info {
+  padding-right: 10px;
+}
+
+textarea.run-command {
+  width: 100%;
+  font-family: Menlo, Consolas, monospace;
+}

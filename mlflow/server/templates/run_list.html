@@ -1,0 +1,130 @@
+{% extends "layout.html" %}
+
+{% block title %}
+MLflow Runs
+{% endblock %}
+
+{% block contents %}
+    {% if source_filter %}
+        <h1>Runs Matching '{{ source_filter }}' </h1>
+    {% else %}
+        <h1>All Runs</h1>
+    {% endif %}
+
+    <form action="{{ url_for('show_run_list') }}" method="get">
+        <table class="noborders" style="width: 100%; margin-bottom: 20px; margin-top:15px;">
+            <tr>
+                <td class="text-right">
+                    <label for="source-filter">Sources</label>
+                </td>
+                <td style="width: 100%;">
+                    <input type="text"
+                           class="form-control"
+                           id="source-filter"
+                           name="source"
+                           value="{{ source_filter }}"
+                           placeholder="e.g. test.py, test2.py">
+                </td>
+                <td>
+                    <button type="submit" class="btn btn-primary">Search</button>
+                </td>
+            </tr>
+            <tr>
+                <td class="text-right">
+                    <label for="run-filter">Filters</label>
+                </td>
+                <td style="width: 100%;">
+                    <input type="text" class="form-control" id="run-filter" placeholder="e.g. param1=5">
+                </td>
+                <td></td>
+            </tr>
+        </table>
+    </form>
+
+
+    {% set num_params = params_df.columns|length %}
+    {% set num_metrics = metrics_df.columns|length %}
+
+    {% if runs %}
+        <form action="{{ url_for('compare_runs') }}" method="get">
+        <table style="min-width: 100%; margin-bottom: 20px;">
+            <thead>
+                <tr>
+                    <th rowspan="2"></th>
+                    <th rowspan="2">Start Time</th>
+                    <th rowspan="2">Source</th>
+                    <th rowspan="2">Revision</th>
+                    {% if num_params %}
+                        <th colspan="{{ num_params }}">Parameters</th>
+                    {% endif %}
+                    {% if num_metrics %}
+                        <th colspan="{{ num_metrics }}">Metrics</th>
+                    {% endif %}
+                    <th rowspan="2">Files</th>
+                    <th rowspan="2">Status</th>
+                </tr>
+                <tr>
+                    {% for col in params_df.columns %}
+                        <th>{{ col }}</th>
+                    {% endfor %}
+                    {% for col in metrics_df.columns %}
+                        <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                    {% set i = loop.index0 %}
+                    {% set run_url = url_for('show_run', run_id=run.run_id) %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="runs" value="{{run.run_id}}">
+                        </td>
+                        <td>
+                            <a href="{{ run_url }}">
+                                {{ run.start_date|format_date }}
+                            </a>
+                        </td>
+                        <td>
+                            {{ run.source|default("", true) }}
+                        </td>
+                        <td>
+                            {{ run.git_commit|format_git_commit }}
+                        </td>
+                        {% for col in params_df.columns %}
+                            <td>{{ params_df[col][i]|skip_nan }}</td>
+                        {% endfor %}
+                        {% for col in metrics_df.columns %}
+                            <td class="text-nowrap">
+                                {% if not metrics_df[col][i]|isnan %}
+                                    <a href="{{ url_for('plot_metric', metric=col, run_ids=run.run_id) }}" target="_blank">
+                                        {{ metrics_df[col][i]|sparkline(chart_range=metric_range[col])|safe }}
+                                    </a>
+                                    {{ metrics_df[col][i][-1]|round(2) }}
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td>
+                            {% if run.output_files %}
+                                <a href="{{ run_url }}#files" title="View output files">
+                                    {{ run.output_files|length }}
+                                </a>
+
+                                <a href="{{ url_for('send_output_zip', run_id=run.run_id) }}" title="Download zip">
+                                    <i class="fas fa-file-archive"></i>
+                                </a>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ run.status }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p><button type="submit" class="btn btn-primary">Compare Runs</button></p>
+        </form>
+    {% else %}
+        <p>No runs found.</p>
+    {% endif %}
+{% endblock %}

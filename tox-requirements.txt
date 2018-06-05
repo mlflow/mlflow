@@ -1,0 +1,11 @@
+# Test reqs
+prospector[with_pyroma]==0.12.7
+pylint==1.8.2
+pytest==3.2.1
+mock==2.0.0
+rstcheck==3.2
+pytest-cov
+codecov
+scipy
+pyspark
+pyarrow

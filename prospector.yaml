@@ -1,0 +1,27 @@
+strictness: high
+test-warnings: True
+doc-warnings: false
+
+ignore-paths:
+  - sdk
+  - build
+  - mlflow/protos
+
+max-line-length: 100
+
+mccabe:
+  disable:
+    - MC0001
+
+pylint:
+  disable:
+    - invalid-name
+    - no-else-return
+    - protected-access
+    - too-many-instance-attributes
+    - len-as-condition
+    - too-many-locals
+    - too-many-arguments
+    - too-many-return-statements
+  ignored-modules:
+    - distutils

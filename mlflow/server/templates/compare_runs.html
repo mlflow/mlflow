@@ -1,0 +1,111 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Comparing {{ runs|length }} Runs
+{% endblock %}
+
+{% block contents %}
+    <h1>Comparing {{ runs|length }} Runs</h1>
+
+    <table style="margin-bottom:20px; margin-top:15px; min-width:100%;">
+        <thead>
+            <tr class="thick-bottom-border">
+                <th></th>
+                {% for run in runs %}
+                    <th>
+                        <a href="{{ url_for('show_run', run_id=run.run_id) }}">
+                            Run {{ loop.index }}
+                        </a>
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <tr>
+                <th>Start Date</th>
+                {% for run in runs %}
+                    <td>
+                        <a href="{{ url_for('show_run', run_id=run.run_id) }}">
+                            {{ run.start_date|format_date }}
+                        </a>
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th>Source</th>
+                {% for run in runs %}
+                    <td>{{ run.source|default("", true) }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th>Revision</th>
+                {% for run in runs %}
+                    <td>{{ run.git_commit|format_git_commit }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr class="thick-bottom-border">
+                <th>Run ID</th>
+                {% for run in runs %}
+                    <td>
+                        {{ run.run_id }}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            {% for col in params_df.columns %}
+                <tr {% if loop.last %} class="thick-bottom-border" {% endif %}>
+                    <th>{{ col }}</th>
+                    {% for run in runs %}
+                        <td>
+                            {{ run.parameters[col]|default("", true) }}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+
+            {% for col in metrics_df.columns %}
+                <tr {% if loop.last %} class="thick-bottom-border" {% endif %}>
+                    <th>
+                        {{ col }}
+                        <a href="{{ url_for('plot_metric', metric=col, run_ids=run_ids_str) }}" target="_blank">
+                        <i class="fas fa-chart-line"></i>
+                        </a>
+                    </th>
+                    {% for run in runs %}
+                        <td>
+                            {% if not metrics_df[col][loop.index0]|isnan %}
+                                {{ metrics_df[col][loop.index0][-1]|round(2) }}
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+
+            <tr class="thick-bottom-border">
+                <th>Files</th>
+                {% for run in runs %}
+                    <td>
+                        <p>
+                            {% for key in run.output_files|sort %}
+                                <a href="{{ url_for('show_output_file', run_id=run.run_id, path=key) }}">{{ key }}</a><br/>
+                            {% endfor %}
+                        </p>
+                        {% if run.output_files %}
+                            <p>
+                                <a href="{{ url_for('send_output_zip', run_id=run.run_id) }}">
+                                    Download All <i class="fas fa-file-archive"></i>
+                                </a>
+                            </p>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+
+{% endblock %}

@@ -1,0 +1,44 @@
+div.select-preview-outer-container {
+  height: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+div.select-preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10%;
+}
+
+span.select-preview-header {
+  font-size: 24px;
+  display: block;
+}
+
+span.select-preview-supported-formats {
+  font-size: 16px;
+  padding-top: 8px;
+  color: #888888;
+  display: block;
+}
+
+div.select-preview-image-container {
+  height: 54px;
+  width: 52px;
+  margin-right: 24px;
+}
+
+img.select-preview-image {
+  height: 54px;
+  width: 52px;
+}
+
+div.select-preview-text {
+  vertical-align: middle;
+}
+
+.artifact-info {
+  white-space: nowrap;
+}

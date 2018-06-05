@@ -1,0 +1,21 @@
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      num_dimensions: float
+      regularization: {type: float, default: 0.1}
+    command: "python test.py {num_dimensions} {regularization}"
+  greeter:
+    parameters:
+      greeting: {type: string, default: "hi"}
+      name: string
+    command: "python greeter.py {greeting} {name}"
+  line_count:
+    parameters:
+      path: path
+    command: "cat {path} | wc -l"
+  download_uri:
+    parameters:
+      uri: uri
+    command: "curl {uri} | wc -l"
