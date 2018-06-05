@@ -316,6 +316,6 @@ Example:
 
 .. code:: python
 
-    udf = mlflow.pyfunc.spark_udf(<path-to-model>)
+    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
 
