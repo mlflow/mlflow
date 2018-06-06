@@ -1,11 +1,8 @@
 # Mlflow
-mlruns
+mlruns/
 
 # Mac
 .DS_Store
-
-#VS Code
-.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -33,6 +30,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+node_modules
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -55,42 +53,17 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
+.tox
 
 # Sphinx documentation
 docs/_build/
 
-# PyBuilder
-target/
-
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# pyenv
-.python-version
-
-# celery beat schedule file
-celerybeat-schedule
-
-# SageMath parsed files
-*.sage.py
-
 # Environments
+env
+env3
 .env
 .venv
 env/
@@ -98,13 +71,14 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.python-version
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
+# Editor files
+.*project
+*.swp
+*.swo
+*.idea
+*.vscode
 
 # mkdocs documentation
 /site
