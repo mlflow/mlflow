@@ -197,7 +197,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         env_vars["MLFLOW_GIT_USERNAME"] = git_username
     if git_password is not None:
         env_vars["MLFLOW_GIT_PASSWORD"] = git_password
-    # Pass experiment ID, tracking URI to shell job on Databricks as an environment variable.
+    # Pass experiment ID to shell job on Databricks as an environment variable.
     if experiment_id is not None:
         eprint("=== Using experiment ID %s ===" % experiment_id)
         env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
