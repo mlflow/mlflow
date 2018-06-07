@@ -93,7 +93,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     """ Add pyfunc spec to the model configuration.
 
     Defines pyfunc configuration schema. Caller can use this to create a valid pyfunc model flavor
-    out of an existing directory structure. For example,o ther model flavors can use this to specify
+    out of an existing directory structure. For example, other model flavors can use this to specify
     how to use their output as a pyfunc.
 
     NOTE: all paths are relative to the exported model root directory.
