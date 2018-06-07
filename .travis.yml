@@ -1,0 +1,15 @@
+sudo: true
+language: python
+matrix:
+  include:
+    - python: 2.7
+      env: TOXENV=py27
+    - python: 3.6
+      env: TOXENV=py36
+install:
+  - pip install --upgrade pip
+  - pip install .
+  - pip install -r dev-requirements.txt
+script:
+  - pip list
+  - tox
