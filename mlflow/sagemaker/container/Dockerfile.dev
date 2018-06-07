@@ -22,13 +22,14 @@ RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
 ENV PATH="/miniconda/bin:${PATH}"
 
 # Set up the program in the image
+COPY . /opt/mlflow
+RUN rm -rf $(find /opt/mlflow/mlflow -name __pycache__)
+RUN rm -rf $(find /opt/mlflow/mlflow -name *.pyc)
 
 WORKDIR /opt/mlflow
 
 RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\
-    pip install mlflow
+    pip install /opt/mlflow
 
-RUN echo "#! /bin/bash" > init.sh
-
-ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container; print(sys.argv); container._scoring_server_init(sys.argv[1])"]
+ ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container; print(sys.argv); container._scoring_server_init(sys.argv[1])"]

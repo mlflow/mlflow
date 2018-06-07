@@ -1,5 +1,9 @@
 sudo: true
 language: python
+
+services:
+  - docker
+
 matrix:
   include:
     - python: 2.7

@@ -5,7 +5,9 @@ import shutil
 
 import click
 
+import mlflow
 from mlflow import pyfunc
+from mlflow import version
 
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
@@ -95,14 +97,29 @@ def _export(app_name, model_path, dst_model_path):
     conf = _load_conf(model_path)
     score_py = "score.py"  # NOTE: azure ml requires the main module to be in the current directory
     loader_src = pyfunc.get_module_loader_src(model_path, dst_model_path)
+
     with open(score_py, "w") as f:
         f.write(SCORE_SRC.format(loader=loader_src))
-    shutil.copytree(src=model_path, dst=dst_model_path)
+
     deps = ""
+
+    mlflow_dep = "mlflow=={}".format(version.version)
+
+    if "MLFLOW_DEV" in os.environ:
+        # get mlflow root dir
+        root = os.path.abspath(os.path.dirname(os.path.dirname(mlflow.__file__)))
+        deps = "-d {}".format(root)
+        mlflow_dep = "-e {}".format(os.path.basename(root))
+
+    with open("requirements.txt", "w") as f:
+        f.write(mlflow_dep + "\n")
+
+    shutil.copytree(src=model_path, dst=dst_model_path)
+
     env = "-c {}".format(os.path.join(dst_model_path, conf[pyfunc.ENV])) \
         if pyfunc.ENV in conf else ""
     cmd = "az ml service create realtime -n {name} " + \
-          "--model-file {path} -f {score} {conda_env} {deps} -r python "
+          "--model-file {path} -f {score} {conda_env} {deps} -r python -p requirements.txt"
     return cmd.format(name=app_name, path=dst_model_path, score=score_py, conda_env=env, deps=deps)
 
 
@@ -127,6 +144,7 @@ def init():
 
 def run(s):    
     input_df = pd.read_json(s, orient="records")
-    pred = model.predict(input_df)
-    return json.dumps(pred.tolist())
+    res = model.predict(input_df)
+    # pandas data frame is not directly json-able, turn it into a dict first    
+    return res.to_dict(orient='records') if isinstance(res, type(pd.DataFrame)) else res    
 """

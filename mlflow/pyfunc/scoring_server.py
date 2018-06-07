@@ -55,7 +55,7 @@ def init(model):
             data = pd.read_json(s, orient="records")
         else:
             return flask.Response(
-                response='This predictor only supports CSV of josn  data, got %s' % str(
+                response='This predictor only supports CSV of json  data, got %s' % str(
                     flask.request.content_type), status=415, mimetype='text/plain')
 
         print('Invoked with {} records'.format(data.shape[0]))
@@ -68,4 +68,24 @@ def init(model):
         # TODO: do we always return csv or do we return the same type as the
         # input? or do we add parameter?
         return flask.Response(response=result, status=200, mimetype='text/csv')
+
     return app
+
+
+def predict(model, data, input_data_type="json"):
+    df = None
+    if input_data_type == "json":
+        df = pd.read_json(data, orient="records")
+    elif input_data_type == "csv":
+        df = pd.read_csv(data)
+    elif input_data_type == "pd.DataFrame":
+        if not isinstance(data, type(pd.DataFrame)):
+            raise Exception(
+                "invalid input type, expected {exp} but got {actual}".format(exp=type(pd.DataFrame),
+                                                                             actual=type(data)))
+    else:
+        raise Exception("Unrecognized input data type '{}'".format(input_data_type))
+
+    res = model.predict(df)
+    return res.to_dict(orient='records') if isinstance(res, type(pd.DataFrame)) else res
+
