@@ -29,8 +29,10 @@ def save_tf_model(tf_model, path, conda_env=None, mlflow_model=Model()):
         pickle.dump(tf_model.model_fn, out)
     with open(model_dir_file, "wb") as out:
         pickle.dump(tf_model.model_dir, out)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=conda_env)
-    mlflow_model.add_flavor("tensorflow")
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", data=path, env=conda_env)
+    mlflow_model.add_flavor("tensorflow",
+                            fn="model_fn.pkl",
+                            dir="model_dir.pkl")
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -44,23 +46,27 @@ def log_tf_model(tf_model, artifact_path):
         mlflow.tracking.log_artifacts(local_path, artifact_path)
 
 
-# def _load_model_from_local_file(path):
-#     """Load a SciKit-Learn model saved as an MLflow artifact on the local file system."""
-#     # TODO: we could validate the SciKit-Learn version here
-#     model = Model.load(os.path.join(path, "MLmodel"))
-#     assert "sklearn" in model.flavors
-#     params = model.flavors["sklearn"]
-#     with open(os.path.join(path, params["pickled_model"]), "rb") as f:
-#         return pickle.load(f)
+def _load_model_from_local_file(path):
+    """Load a Tensorflow model saved as an MLflow artifact on the local file system."""
+    model = Model.load(os.path.join(path, "MLmodel"))
+    assert "tensorflow" in model.flavors
+    params = model.flavors["tensorflow"]
+    model_fn = None
+    with open(os.path.join(path, params["fn"]), "rb") as f:
+        model_fn = pickle.load(f)
+    model_dir = None
+    with open(os.path.join(path, params["dir"]), "rb") as f:
+        model_dir = pickle.load(f)
+    return tf.estimator.Estimator(model_fn, model_dir=model_dir)
 
 
-# def load_pyfunc(path):
-#     with open(path, "rb") as f:
-#         return pickle.load(f)
+def load_pyfunc(path):
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
 
 def load_model(path, run_id=None):
-    """Load a SciKit-Learn model from a local file (if run_id is None) or a run."""
+    """Load a Tensorflow model from a local file (if run_id is None) or a run."""
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model_from_local_file(path)
@@ -68,7 +74,7 @@ def load_model(path, run_id=None):
 
 @click.group("tensorflow")
 def commands():
-    """Serve SciKit-Learn models."""
+    """Serve Tensorflow models."""
     pass
 
 
