@@ -1,5 +1,6 @@
 # Mlflow
 mlruns/
+outputs/
 
 # Mac
 .DS_Store
