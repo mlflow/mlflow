@@ -28,14 +28,15 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
         cmd_env.update(env)
 
     if stream_output:
-        child = subprocess.Popen(cmd, env=cmd_env, cwd=cwd, **kwargs)
+        child = subprocess.Popen(cmd, env=cmd_env, cwd=cwd, universal_newlines=True, **kwargs)
         exit_code = child.wait()
         if throw_on_error and exit_code is not 0:
             raise ShellCommandException("Non-zero exitcode: %s" % (exit_code))
         return exit_code
     else:
         child = subprocess.Popen(
-            cmd, env=cmd_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, **kwargs)
+            cmd, env=cmd_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            cwd=cwd, universal_newlines=True, **kwargs)
         (stdout, stderr) = child.communicate()
         exit_code = child.wait()
         if throw_on_error and exit_code is not 0:
