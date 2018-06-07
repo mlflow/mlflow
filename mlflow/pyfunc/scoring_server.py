@@ -65,6 +65,7 @@ def init(model):
         out = StringIO()
         pd.DataFrame({'results': predictions}).to_csv(out, header=True, index=False)
         result = out.getvalue()
+        out.close()
         # TODO: do we always return csv or do we return the same type as the
         # input? or do we add parameter?
         return flask.Response(response=result, status=200, mimetype='text/csv')
