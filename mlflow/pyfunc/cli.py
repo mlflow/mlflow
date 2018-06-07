@@ -59,3 +59,4 @@ def predict(model_path, run_id, input_path, output_path):
     if output_path:
         out_stream = open(output_path, 'w')
     pandas.DataFrame({'results': result}).to_csv(out_stream, header=True, index=False)
+    out_stream.close()
