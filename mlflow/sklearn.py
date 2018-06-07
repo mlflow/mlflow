@@ -96,4 +96,4 @@ def serve_model(model_path, run_id=None, port=None):
         result = json.dumps({"predictions": predictions.tolist()})
         return flask.Response(status=200, response=result + "\n", mimetype='application/json')
 
-    app.run(port=port)
+    app.run("0.0.0.0", port=port)
