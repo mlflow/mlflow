@@ -38,8 +38,9 @@ class TestModelExport(unittest.TestCase):
         self._trainingFeatures = {}
         self._feature_names = iris.feature_names[:2]
         for i in range(0, 2):
-            tab = str.maketrans(dict.fromkeys(' ()'))
-            iris.feature_names[i] = iris.feature_names[i].translate(tab)
+            iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
+            iris.feature_names[i] = iris.feature_names[i].replace("(", "")
+            iris.feature_names[i] = iris.feature_names[i].replace(")", "")
             self._trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
         tf_feat_cols = []
         self._feature_names = iris.feature_names[:2]
