@@ -14,7 +14,7 @@ from mlflow.models import Model
 import mlflow.tracking
 
 
-class TFWrapper:
+class TFWrapper(object):
     """Wrapper class that creates a predict function such that 
     predict(data: pandas.DataFrame) -> pandas.DataFrame"""
     def __init__(self, model_fn, model_dir):
