@@ -3,7 +3,6 @@ from __future__ import print_function
 import os
 import dill as pickle
 import pandas
-import shutil
 import tempfile
 import unittest
 
@@ -13,7 +12,6 @@ import sklearn.datasets as datasets
 
 from mlflow import tensorflow, pyfunc
 from mlflow import tracking
-from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 
 def load_pyfunc(path):

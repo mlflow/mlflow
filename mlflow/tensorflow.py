@@ -14,11 +14,9 @@ from mlflow.models import Model
 import mlflow.tracking
 
 
-
-# Wrapper class that creates a predict function such that
-# predict(data: pandas.DataFrame) -> pandas.DataFrame
 class TFWrapper:
-
+    """Wrapper class that creates a predict function such that 
+    predict(data: pandas.DataFrame) -> pandas.DataFrame"""
     def __init__(self, model_fn, model_dir):
         self.estimator = tf.estimator.Estimator(model_fn, model_dir=model_dir)
 
