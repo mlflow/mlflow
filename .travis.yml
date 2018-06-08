@@ -12,4 +12,5 @@ install:
   - pip install -r dev-requirements.txt
 script:
   - pip list
+  - which mlflow
   - tox
