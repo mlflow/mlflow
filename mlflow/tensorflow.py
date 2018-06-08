@@ -18,7 +18,7 @@ from mlflow.models import Model
 import mlflow.tracking
 
 
-def save_tf_model(tf_model, path, conda_env=None, mlflow_model=Model()):
+def save_model(tf_model, path, conda_env=None, mlflow_model=Model()):
     """Save a Tensorflow model to a directory in the local file system."""
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -29,14 +29,14 @@ def save_tf_model(tf_model, path, conda_env=None, mlflow_model=Model()):
         pickle.dump(tf_model.model_fn, out)
     with open(model_dir_file, "wb") as out:
         pickle.dump(tf_model.model_dir, out)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", data=path, env=conda_env)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=conda_env)
     mlflow_model.add_flavor("tensorflow",
                             fn="model_fn.pkl",
                             dir="model_dir.pkl")
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_tf_model(tf_model, artifact_path):
+def log_model(tf_model, artifact_path):
     """Log a Tensorflow model as an MLflow artifact for the current run."""
     with TempDir() as tmp:
         local_path = tmp.path("model")
@@ -61,9 +61,16 @@ def _load_model_from_local_file(path):
 
 
 def load_pyfunc(path):
-    with open(path, "rb") as f:
-        return pickle.load(f)
-
+    model_fn = None
+    model_dir = None
+    for filename in os.listdir(path):
+        if filename == "model_fn.pkl":
+            with open(os.path.join(path, filename), "rb") as f:
+                model_fn = pickle.load(f)
+        elif filename == "model_dir.pkl":
+            with open(os.path.join(path, filename), "rb") as f:
+                model_dir = pickle.load(f)
+    return tf.estimator.Estimator(model_fn, model_dir=model_dir)
 
 def load_model(path, run_id=None):
     """Load a Tensorflow model from a local file (if run_id is None) or a run."""
