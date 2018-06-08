@@ -129,7 +129,7 @@ def ui(file_store_path):
     Run the MLflow tracking UI. The UI is served at http://localhost:5000.
     """
     server.handlers.store = FileStore(file_store_path)
-    server.app.run()
+    server.app.run("0.0.0.0")
 
 
 cli.add_command(mlflow.sklearn.commands)
