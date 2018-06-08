@@ -71,9 +71,10 @@ def test_path_parameter():
         for i, prefix in enumerate(["dbfs:/", "s3://"]):
             with TempDir() as tmp:
                 dst_dir = tmp.path()
-                entry_point.compute_parameters(
+                params, _ = entry_point.compute_parameters(
                     user_parameters={"path": os.path.join(prefix, "some/path")},
                     storage_dir=dst_dir)
+                assert os.path.dirname(params["path"]) == dst_dir
                 assert download_uri_mock.call_count == i + 1
 
 

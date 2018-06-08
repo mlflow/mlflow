@@ -33,41 +33,46 @@ def test_fetch_project():
 
 def test_run_mode():
     """ Verify that we pick the right run helper given an execution mode """
-    for local_mode in ["local", None]:
-        with mock.patch("mlflow.projects._run_local") as run_local_mock:
-            mlflow.projects.run(uri=TEST_PROJECT_DIR, mode=local_mode)
-            assert run_local_mock.call_count == 1
-    with mock.patch("mlflow.projects._run_databricks") as run_databricks_mock:
-        mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="databricks")
-        assert run_databricks_mock.call_count == 1
-    with pytest.raises(ExecutionException):
-        mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="some unsupported mode")
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tmp.path()
+        for local_mode in ["local", None]:
+            with mock.patch("mlflow.projects._run_local") as run_local_mock:
+                mlflow.projects.run(uri=TEST_PROJECT_DIR, mode=local_mode)
+                assert run_local_mock.call_count == 1
+        with mock.patch("mlflow.projects._run_databricks") as run_databricks_mock:
+            mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="databricks")
+            assert run_databricks_mock.call_count == 1
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="some unsupported mode")
 
 
 def test_use_conda():
     """ Verify that we correctly handle the use_conda argument."""
-    for use_conda, expected_call_count in [(True, 1), (False, 0), (None, 0)]:
-        with mock.patch("mlflow.projects._maybe_create_conda_env") as conda_env_mock:
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=use_conda)
-            assert conda_env_mock.call_count == expected_call_count
-    # Verify we throw an exception when conda is unavailable
-    old_path = os.environ["PATH"]
-    env.unset_variable("PATH")
-    try:
-        with pytest.raises(ExecutionException):
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
-    finally:
-        os.environ["PATH"] = old_path
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tmp.path()
+        for use_conda, expected_call_count in [(True, 1), (False, 0), (None, 0)]:
+            with mock.patch("mlflow.projects._maybe_create_conda_env") as conda_env_mock:
+                mlflow.projects.run(TEST_PROJECT_DIR, use_conda=use_conda)
+                assert conda_env_mock.call_count == expected_call_count
+        # Verify we throw an exception when conda is unavailable
+        old_path = os.environ["PATH"]
+        env.unset_variable("PATH")
+        try:
+            with pytest.raises(ExecutionException):
+                mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
+        finally:
+            os.environ["PATH"] = old_path
 
 
 def test_log_parameters():
     """ Test that we log provided parameters when running a project. """
-    with TempDir() as tmp, mock.patch("mlflow.tracking._get_store") as get_store_mock:
-        store = FileStore(tmp.path())
-        get_store_mock.return_value = store
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
         mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"},
             use_conda=False, experiment_id=0)
+        store = FileStore(tmp_dir)
         run_uuid = store.list_run_infos(experiment_id=0)[0].run_uuid
         run = store.get_run(run_uuid)
         expected_params = {"name": "friend"}
