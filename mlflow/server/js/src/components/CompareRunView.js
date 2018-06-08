@@ -101,13 +101,13 @@ class Private {
       paramKeyValueList.push(curKeyValueObj);
     });
 
-    const mergedParams = Utils.mergeRuns(runInfos.map((r) => r.uuid), paramKeyValueList);
+    const mergedParams = Utils.mergeRuns(runInfos.map((r) => r.run_uuid), paramKeyValueList);
 
     Object.keys(mergedParams).sort().forEach((paramKey) => {
       const curRow = [];
       curRow.push(paramKey);
       runInfos.forEach((r) => {
-        const curUuid = r.uuid;
+        const curUuid = r.run_uuid;
         curRow.push(mergedParams[paramKey][curUuid]);
       });
       rows.push(curRow)
