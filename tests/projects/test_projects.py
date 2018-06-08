@@ -9,6 +9,7 @@ import mlflow
 from mlflow.projects import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils import env
 
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI
 
@@ -49,6 +50,14 @@ def test_use_conda():
         with mock.patch("mlflow.projects._maybe_create_conda_env") as conda_env_mock:
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=use_conda)
             assert conda_env_mock.call_count == expected_call_count
+    # Verify we throw an exception when conda is unavailable
+    old_path = os.environ["PATH"]
+    env.unset_variable("PATH")
+    try:
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
+    finally:
+        os.environ["PATH"] = old_path
 
 
 def test_log_parameters():

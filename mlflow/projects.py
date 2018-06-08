@@ -5,7 +5,6 @@ import json
 import os
 import re
 import shutil
-import sys
 import tempfile
 
 from distutils import dir_util
@@ -358,14 +357,15 @@ def _fetch_git_repo(uri, version, dst_dir):
 
 def _get_conda_env_name(conda_env_path):
     with open(conda_env_path) as conda_env_file:
-        return hashlib.sha1(conda_env_file.read().encode("utf-8")).hexdigest()
+        conda_env_hash = hashlib.sha1(conda_env_file.read().encode("utf-8")).hexdigest()
+    return "mlflow-%s" % conda_env_hash
 
 
 def _maybe_create_conda_env(conda_env_path):
     conda_env = _get_conda_env_name(conda_env_path)
-    (exit_code, _, stderr) = process.exec_cmd(["conda", "--help"], throw_on_error=False)
-    if exit_code != 0:
-        eprint(stderr)
+    try:
+        process.exec_cmd(["conda", "--help"], throw_on_error=False)
+    except (OSError, FileNotFoundError):
         raise ExecutionException('conda is not installed properly. Please follow the instructions '
                                  'on https://conda.io/docs/user-guide/install/index.html')
     (_, stdout, stderr) = process.exec_cmd(["conda", "env", "list", "--json"])
