@@ -184,7 +184,7 @@ def _copy_file_or_tree(src, dst, dst_dir):
     if os.path.isfile(src):
         shutil.copy(src=src, dst=os.path.join(dst, name))
     else:
-        shutil.copytree(src=src, dst=os.path.join(dst, name))
+        shutil.copy_tree(src=src, dst=os.path.join(dst, name))
     return name
 
 
