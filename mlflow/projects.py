@@ -367,7 +367,7 @@ def _maybe_create_conda_env(conda_env_path):
     except EnvironmentError:
         raise ExecutionException('conda is not installed properly. Please follow the instructions '
                                  'on https://conda.io/docs/user-guide/install/index.html')
-    (_, stdout, stderr) = process.exec_cmd(["conda", "env", "list", "--json"])
+    (_, stdout, _) = process.exec_cmd(["conda", "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
     conda_action = 'create'
