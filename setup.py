@@ -3,7 +3,7 @@ import os
 from setuptools import setup, find_packages
 
 version = imp.load_source(
-    'mlflow.version', os.path.join('mlflow', 'version.py')).VERSION
+    'mlflow.version', os.path.join('mlflow', 'version.py')).version
 
 
 # Get a list of all files in the JS directory to include in our module
