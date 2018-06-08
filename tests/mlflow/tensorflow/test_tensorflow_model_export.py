@@ -79,27 +79,11 @@ class TestModelExport(unittest.TestCase):
             np.testing.assert_array_equal(saved, loaded)
 
     def test_model_log(self):
-        with TempDir(chdr=True, remove_on_exit=True) as tmp:
-            path = tmp.path("model")
-            os.makedirs(path)
-            model_fn_file = os.path.join(path, "model_fn.pkl")
-            model_dir_file = os.path.join(path, "model_dir.pkl")
-            with open(model_fn_file, "wb") as out:
-                pickle.dump(self._dnn.model_fn, out)
-            with open(model_dir_file, "wb") as out:
-                pickle.dump(self._dnn.model_dir, out)
-            tracking_dir = os.path.abspath(tmp.path("mlruns"))
-            tracking.set_tracking_uri("file://%s" % tracking_dir)
+        with TempDir(chdr=True, remove_on_exit=True):
             tracking.start_run()
             try:
-                pyfunc.log_model(artifact_path="dnn",
-                                 data_path="model",
-                                 loader_module="mlflow.tensorflow")
-                run_id = tracking.active_run().info.run_uuid
-                path = tracking._get_model_log_dir("dnn", run_id)
-                m = Model.load(os.path.join(path, "MLmodel"))
-                print(m.__dict__)
-                x = pyfunc.load_pyfunc("dnn", run_id=run_id)
+                tensorflow.log_model(tf_model=self._dnn, artifact_path="dnn")
+                x = tensorflow.load_model("dnn", run_id=tracking.active_run().info.run_uuid)
                 xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
                 saved = []
                 for s in self._dnn_predict:
@@ -110,8 +94,6 @@ class TestModelExport(unittest.TestCase):
                 np.testing.assert_array_equal(saved, loaded)
             finally:
                 tracking.end_run()
-                # Remove the log directory in order to avoid adding new tests to pytest...
-                shutil.rmtree(tracking_dir)
 
 
 if __name__ == '__main__':
