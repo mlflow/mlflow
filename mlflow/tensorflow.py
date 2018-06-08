@@ -1,21 +1,34 @@
-"""Sample MLflow integration for Tensorflow."""
+"""MLflow integration for Tensorflow."""
 
 from __future__ import absolute_import
 
-import json
 import os
 import dill as pickle
 
-import click
-import flask
 import pandas
-import sklearn
 import tensorflow as tf
 
 from mlflow.utils.file_utils import TempDir
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+
+
+
+# Wrapper class that creates a predict function such that
+# predict(data: pandas.DataFrame) -> pandas.DataFrame
+class TFWrapper:
+
+    def __init__(self, model_fn, model_dir):
+        self.estimator = tf.estimator.Estimator(model_fn, model_dir=model_dir)
+
+    def predict(self, df):
+        input_fn = tf.estimator.inputs.pandas_input_fn(df, shuffle=False)
+        pred = self.estimator.predict(input_fn)
+        results = []
+        for p in pred:
+            results.append(p['predictions'])
+        return pandas.DataFrame(results)
 
 
 def save_model(tf_model, path, conda_env=None, mlflow_model=Model()):
@@ -42,7 +55,7 @@ def log_model(tf_model, artifact_path):
         local_path = tmp.path("model")
         run_id = mlflow.tracking.active_run().info.run_uuid
         mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
-        save_tf_model(tf_model, local_path, mlflow_model=mlflow_model)
+        save_model(tf_model, local_path, mlflow_model=mlflow_model)
         mlflow.tracking.log_artifacts(local_path, artifact_path)
 
 
@@ -57,7 +70,7 @@ def _load_model_from_local_file(path):
     model_dir = None
     with open(os.path.join(path, params["dir"]), "rb") as f:
         model_dir = pickle.load(f)
-    return tf.estimator.Estimator(model_fn, model_dir=model_dir)
+    return TFWrapper(model_fn, model_dir)
 
 
 def load_pyfunc(path):
@@ -70,43 +83,11 @@ def load_pyfunc(path):
         elif filename == "model_dir.pkl":
             with open(os.path.join(path, filename), "rb") as f:
                 model_dir = pickle.load(f)
-    return tf.estimator.Estimator(model_fn, model_dir=model_dir)
+    return TFWrapper(model_fn, model_dir)
+
 
 def load_model(path, run_id=None):
     """Load a Tensorflow model from a local file (if run_id is None) or a run."""
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model_from_local_file(path)
-
-
-@click.group("tensorflow")
-def commands():
-    """Serve Tensorflow models."""
-    pass
-
-
-@commands.command("serve")
-@click.argument("model_path")
-@click.option("--run_id", "-r", metavar="RUN_ID", help="Run ID to look for the model in.")
-@click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-def serve_model(model_path, run_id=None, port=None):
-    """
-    Serve a SciKit-Learn model saved with MLflow.
-
-    If a run_id is specified, MODEL_PATH is treated as an artifact path within that run;
-    otherwise it is treated as a local path.
-    """
-    model = load_model(run_id=run_id, path=model_path)
-    app = flask.Flask(__name__)
-
-    @app.route('/invocations', methods=['POST'])
-    def predict():  # noqa
-        if flask.request.content_type != 'application/json':
-            return flask.Response(status=415, response='JSON data expected', mimetype='text/plain')
-        data = flask.request.data.decode('utf-8')
-        records = pandas.read_json(data, orient="records")
-        predictions = model.predict(records)
-        result = json.dumps({"predictions": predictions.tolist()})
-        return flask.Response(status=200, response=result + "\n", mimetype='application/json')
-
-    app.run(port=port)
