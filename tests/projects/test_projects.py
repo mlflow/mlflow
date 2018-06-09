@@ -15,7 +15,7 @@ from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI
 
 
 def test_fetch_project():
-    # Fetch local project, verify contents match
+    """ Test fetching a project to be run locally. """
     with TempDir() as tmp:
         dst_dir = tmp.path()
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir)
@@ -47,7 +47,7 @@ def test_run_mode():
 
 
 def test_use_conda():
-    """ Verify that we correctly handle the use_conda argument."""
+    """ Verify that we correctly handle the `use_conda` argument."""
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = tmp.path()
         for use_conda, expected_call_count in [(True, 1), (False, 0), (None, 0)]:
@@ -82,7 +82,7 @@ def test_log_parameters():
 
 
 def test_get_work_dir():
-    """ Test that we correctly determine the working directory """
+    """ Test that we correctly determine the working directory to use when running a project. """
     for use_temp_cwd, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
         work_dir = mlflow.projects._get_work_dir(uri=uri, use_temp_cwd=use_temp_cwd)
         assert work_dir != uri
@@ -92,7 +92,10 @@ def test_get_work_dir():
 
 
 def test_storage_dir():
-    """ Test that we correctly handle the storage dir parameter"""
+    """
+    Test that we correctly handle the `storage_dir` argument, which specifies where to download
+    distributed artifacts passed to arguments of type `path`.
+    """
     with TempDir() as tmp_dir:
         assert os.path.dirname(mlflow.projects._get_storage_dir(tmp_dir.path())) == tmp_dir.path()
     assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()

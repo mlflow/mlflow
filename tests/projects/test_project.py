@@ -7,6 +7,7 @@ from tests.projects.utils import load_project
 
 
 def test_project_get_entry_point():
+    """ Test that `Project` correctly parses entry point information from an MLproject file."""
     project = load_project()
     entry_point = project.get_entry_point("greeter")
     assert entry_point.name == "greeter"
@@ -22,6 +23,7 @@ def test_project_get_entry_point():
 
 
 def test_project_get_unspecified_entry_point():
+    """ Test that `Project` can run Python & bash scripts directly as entry points """
     project = load_project()
     entry_point = project.get_entry_point("my_script.py")
     assert entry_point.name == "my_script.py"
