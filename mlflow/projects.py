@@ -162,8 +162,9 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
     result.extend(["mlflow", "run", uri, "--entry-point", entry_point])
     if version is not None:
         result.extend(["--version", version])
-    for key, value in parameters.items():
-        result.extend(["-P", "%s=%s" % (key, value)])
+    if parameters is not None:
+        for key, value in parameters.items():
+            result.extend(["-P", "%s=%s" % (key, value)])
     return result
 
 
