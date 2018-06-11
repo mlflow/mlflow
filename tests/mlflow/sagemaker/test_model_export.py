@@ -41,8 +41,8 @@ class TestModelExport(unittest.TestCase):
         self._build_container()
 
     def _build_container(self):
-        from mlflow.sagemaker import build_container
-        build_container()
+        from mlflow.sagemaker import build_image
+        build_image()
 
     def test_model_export(self):
         with TempDir(chdr=True, remove_on_exit=True) as tmp:

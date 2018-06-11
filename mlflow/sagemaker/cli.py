@@ -28,7 +28,7 @@ def commands():
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None, container="mlflow_sage"): # noqa
     mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
-                            container=container)
+                            image=container)
 
 
 @commands.command("run-local")
@@ -37,19 +37,19 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None, contai
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--container", "-c", default="mlflow_sage", help="container name")
 def run_local(model_path, run_id=None, port=5000, container="mlflow_sage"):
-    mlflow.sagemaker.run_local(model_path=model_path, run_id=run_id, port=port, container=container)
+    mlflow.sagemaker.run_local(model_path=model_path, run_id=run_id, port=port, image=container)
 
 
 @commands.command("build-and-push-container")
 @click.option("--build/--skip-build", default=True, help="build the container if set")
 @click.option("--push/--skip-push", default=True, help="push the container to amazon ecr if set")
 @click.option("--container", "-c", default="mlflow_sage", help="container name")
-def build_and_push_container(build=False, push=True, container=mlflow.sagemaker.DEFAULT_CONTAINER_NAME):
+def build_and_push_container(build=False, push=True, container=mlflow.sagemaker.DEFAULT_IMAGE_NAME):
     if not (build or push):
         print("skipping both build nad push, have nothing to do!")
     if build:
-        mlflow.sagemaker.build_container(container)
+        mlflow.sagemaker.build_image(container)
     if push:
-        mlflow.sagemaker.push_container(container)
+        mlflow.sagemaker.push_image_to_ecr(container)
 
 

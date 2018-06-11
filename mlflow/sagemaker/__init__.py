@@ -12,11 +12,20 @@ from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
 from mlflow.utils.file_utils import TempDir
 
-DEFAULT_CONTAINER_NAME = "mlflow_sage"
+DEFAULT_IMAGE_NAME = "mlflow_sage"
 DEV_FLAG = "MLFLOW_DEV"
 
 
-def build_container(container=DEFAULT_CONTAINER_NAME):
+def build_image(name=DEFAULT_IMAGE_NAME):
+    """
+    Build new mlflow sagemaker image and assign it given name.
+
+    This function builds a docker image defined in mlflow/sgameker/container/Dockerfile. It requires
+    docker to run. It is intended to build and upload rivate copy of a mlflow sagemaker container.
+
+    :param name: image name
+    :return:
+    """
     dockerfile = resource_filename(__name__, "container/Dockerfile")
     cwd = None
     if DEV_FLAG in os.environ:
@@ -31,7 +40,7 @@ def build_container(container=DEFAULT_CONTAINER_NAME):
                             + " If you do not want to be running in dev mode, please unset the"
                             + " MLFLOW_DEV flag.")
     print("building docker image")
-    proc = Popen(["docker", "build", "-t", container, "-f",
+    proc = Popen(["docker", "build", "-t", name, "-f",
                   dockerfile, "."],
                  cwd=cwd,
                  stdout=PIPE,
@@ -41,30 +50,38 @@ def build_container(container=DEFAULT_CONTAINER_NAME):
         print(x, end='', flush=True)
 
 
-_full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{container}:latest"
+_full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:latest"
 
 
-def push_container(container=DEFAULT_CONTAINER_NAME):
+def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
+    """
+    Push local docker image to ecr.
+
+    The image is pushed under current active aws account and to current active aws region.
+
+    :param image: image name
+    :return:
+    """
     print("pushing image to ecr")
     client = boto3.client("sts")
     caller_id = client.get_caller_identity()
     account = caller_id['Account']
     my_session = boto3.session.Session()
     region = my_session.region_name or "region:-us-west-2"
-    fullname = _full_template.format(account=account, region=region, container=container)
+    fullname = _full_template.format(account=account, region=region, image=image)
     ecr_client = boto3.client('ecr')
-    if not ecr_client.describe_repositories(repositoryNames=[container])['repositories']:
-        ecr_client.create_repository(repositoryName=container)
+    if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
+        ecr_client.create_repository(repositoryName=image)
     x = ecr_client.get_authorization_token()['authorizationData'][0]
     docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken'],
                                                                      url=x['proxyEndpoint'])
     os.system(docker_login_cmd)
-    os.system("docker tag {container} {fullname}".format(container=container, fullname=fullname))
+    os.system("docker tag {image} {fullname}".format(image=image, fullname=fullname))
     os.system("docker push {}".format(fullname))
 
 
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
-           container="mlflow_sage"):  # noqa
+           image="mlflow_sage"):  # noqa
     """ Deploy model on sagemaker.
 
     :param app_name: Name of the deployed app.
@@ -73,7 +90,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
     :param execution_role_arn: Amazon execution role with sagemaker rights
     :param bucket: S3 bucket where model artifacts are gonna be stored
     :param run_id: mlflow run id.
-    :param container: name of the Docker container to be used.
+    :param image: name of the Docker image to be used.
     :return:
     """
     prefix = model_path
@@ -84,27 +101,27 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
     model_s3_path = _upload_s3(local_model_path=model_path, bucket=bucket, prefix=prefix)
     print('model_s3_path', model_s3_path)
     _deploy(role=execution_role_arn,
-            container_name=container,
+            image=image,
             app_name=app_name,
             model_s3_path=model_s3_path,
             run_id=run_id)
 
 
-def run_local(model_path, run_id=None, port=5000, container="mlflow_sage"):
+def run_local(model_path, run_id=None, port=5000, image="mlflow_sage"):
     """
-    Serve model locally in a sagemaker compatible docker container.
+    Serve model locally in a sagemaker compatible docker image.
     :param model_path:  Path to the model.
     Either local if no run_id or mlflow-relative if run_id is specified)
     :param run_id: mlflow run id.
     :param port: local port
-    :param container: name of the Docker container to be used.
+    :param image: name of the Docker image to be used.
     :return:
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
     _check_compatible(model_path)
     model_path = os.path.abspath(model_path)
-    print("launching docker container with path {}".format(model_path))
+    print("launching docker image with path {}".format(model_path))
     if "MLFLOW_DEV" in os.environ:
         proc = Popen(["docker",
                       "run",
@@ -115,7 +132,7 @@ def run_local(model_path, run_id=None, port=5000, container="mlflow_sage"):
                       "-p",
                       "%d:8080" % port,
                       "--rm",
-                      container,
+                      image,
                       "dev_serve"],
                      stdout=PIPE,
                      stderr=STDOUT,
@@ -128,7 +145,7 @@ def run_local(model_path, run_id=None, port=5000, container="mlflow_sage"):
                       "-p",
                       "%d:8080" % port,
                       "--rm",
-                      container,
+                      image,
                       "serve"],
                      stdout=PIPE,
                      stderr=STDOUT,
@@ -180,11 +197,11 @@ def _upload_s3(local_model_path, bucket, prefix):
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
-def _deploy(role, container_name, app_name, model_s3_path, run_id):
+def _deploy(role, image, app_name, model_s3_path, run_id):
     """
     Deploy model on sagemaker.
     :param role:
-    :param container_name:
+    :param image:
     :param app_name:
     :param model_s3_path:
     :param run_id:
@@ -193,7 +210,7 @@ def _deploy(role, container_name, app_name, model_s3_path, run_id):
     sage_client = boto3.client('sagemaker', region_name="us-west-2")
     ecr_client = boto3.client("ecr")
     repository_conf = ecr_client.describe_repositories(
-        repositoryNames=[container_name])['repositories'][0]
+        repositoryNames=[image])['repositories'][0]
     model_name = app_name + '-model'
     model_response = sage_client.create_model(
         ModelName=model_name,
