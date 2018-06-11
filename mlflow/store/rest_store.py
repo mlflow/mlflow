@@ -1,5 +1,6 @@
-from google.protobuf.json_format import MessageToJson, ParseDict
+from datetime import datetime
 
+from google.protobuf.json_format import MessageToJson, ParseDict
 
 from mlflow.store.abstract_store import AbstractStore
 
@@ -78,6 +79,8 @@ class RestStore(AbstractStore):
         :param name: Desired name for an experiment
         :return: experiment_id (integer) for the newly created experiment if successful, else None
         """
+        if name is None:
+            name = "Experiment {}".format(datetime.now().isoformat())
         req_body = MessageToJson(CreateExperiment(name=name))
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id

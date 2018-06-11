@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 
 import uuid
@@ -85,6 +86,8 @@ class FileStore(AbstractStore):
 
     def create_experiment(self, name):
         self._check_root_dir()
+        if name is None:
+            name = "Experiment {}".format(datetime.now().isoformat())
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
             raise Exception("Experiment '%s' already exists." % experiment.name)
