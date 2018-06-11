@@ -162,7 +162,7 @@ def list_experiments():
 
 def create_experiment(experiment_name):
     """
-    Creates an experiment with the specified name and returns its id.
+    Creates an experiment with the specified name and returns its ID.
     """
     if experiment_name is None or experiment_name == "":
         raise Exception("Invalid experiment name '%s'" % experiment_name)
