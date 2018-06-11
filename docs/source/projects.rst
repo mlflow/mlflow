@@ -190,8 +190,8 @@ Remote Execution on Databricks
 Prerequisites
 ~~~~~~~~~~~~~
 Install and configure the `Databricks CLI <https://github.com/databricks/databricks-cli>`_ with
-credentials for your Databricks deployment. Running on Databricks also requires a custom Spark
-image - please contact Databricks if interested.
+credentials for your Databricks deployment. Running on Databricks is not yet available - please
+contact Databricks if interested and we'll reach out as soon as the functionality is available.
 
 
 Launching a Run
