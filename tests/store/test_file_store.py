@@ -157,6 +157,12 @@ class TestFileStore(unittest.TestCase):
         exp2 = fs.get_experiment_by_name(name)
         self.assertEqual(exp2.experiment_id, created_id)
 
+        # test that experiment is given a name if not provided
+        experiment_id = fs.create_experiment(None)
+        exp3 = fs.get_experiment(experiment_id)
+        self.assertIsNotNone(exp3.name)
+        self.assertIsInstance(exp3.name, (str, bytes))
+
     def test_create_duplicate_experiments(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
