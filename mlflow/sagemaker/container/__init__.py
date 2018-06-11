@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import multiprocessing
 import os
+import shutil
 import signal
 import sys
 import subprocess
@@ -48,7 +49,9 @@ def _serve():
     if pyfunc.ENV in conf:
         env = conf[pyfunc.ENV]
         print("activating conda environment {}".format(env))
-        os.system("conda create -n custom_env -f /opt/model/{}".format(env))
+        env_path_dst = os.path.join("/opt/mlflow/", env)
+        shutil.copy(src=os.path.join("/opt/ml/model/", env), dst=env_path_dst)
+        os.system("conda create -n custom_env -f {}".format(env_path_dst))
         os.system("source activate custom_env")
         # make sure we have all dependencies needed to run the server
         _install_server_dependencies()
