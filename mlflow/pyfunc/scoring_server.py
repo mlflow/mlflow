@@ -70,21 +70,3 @@ def init(model):
         return flask.Response(response=result, status=200, mimetype='text/csv')
 
     return app
-
-
-def predict(model, data, input_data_type="json"):
-    df = None
-    if input_data_type == "json":
-        df = pd.read_json(data, orient="records")
-    elif input_data_type == "csv":
-        df = pd.read_csv(data)
-    elif input_data_type == "pd.DataFrame":
-        if not isinstance(data, type(pd.DataFrame)):
-            raise Exception(
-                "invalid input type, expected {exp} but got {actual}".format(exp=type(pd.DataFrame),
-                                                                             actual=type(data)))
-    else:
-        raise Exception("Unrecognized input data type '{}'".format(input_data_type))
-
-    res = model.predict(df)
-    return res.to_dict(orient='records') if isinstance(res, type(pd.DataFrame)) else res
