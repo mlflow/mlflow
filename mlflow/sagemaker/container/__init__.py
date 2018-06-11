@@ -19,12 +19,12 @@ model_server_workers = int(os.environ.get('MODEL_SERVER_WORKERS', cpu_count))
 
 
 def _scoring_server_init(cmd):
-    print("cmd=", cmd)
     if cmd == 'serve':
         _serve()
     elif cmd == 'train':
         _train()
     elif cmd.startswith("dev_"):
+        # dev-mode: re-install mlflow to ensure we have the latest version
         print("re-installing mlflow")
         os.system("pip install -e /opt/mlflow/.")
         _scoring_server_init(cmd[4:])

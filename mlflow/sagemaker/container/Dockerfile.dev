@@ -1,7 +1,5 @@
-# Build an image that can do training and inference in SageMaker
-# This is a Python 2 image that uses the nginx, gunicorn, flask stack
-# for serving inferences in a stable way.
-
+# Build an image that can serve pyfunc model in SageMaker
+# This is a dev version which installs local copy of mlflow rather than the one published at pip.
 FROM ubuntu:16.04
 
 
@@ -26,10 +24,13 @@ COPY . /opt/mlflow
 RUN rm -rf $(find /opt/mlflow/mlflow -name __pycache__)
 RUN rm -rf $(find /opt/mlflow/mlflow -name *.pyc)
 
-WORKDIR /opt/mlflow
 
 RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\
     pip install /opt/mlflow
 
- ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container; print(sys.argv); container._scoring_server_init(sys.argv[1])"]
+# Set up the program in the image
+WORKDIR /opt/mlflow
+
+# start mlflow scoring
+ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container; print(sys.argv); container._scoring_server_init(sys.argv[1])"]
