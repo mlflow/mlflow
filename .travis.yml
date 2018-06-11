@@ -21,6 +21,8 @@ install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
+  # Install virtualenv inside conda env
+  - conda install virtualenv
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
