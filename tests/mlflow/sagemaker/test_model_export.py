@@ -15,14 +15,12 @@ import pandas as pd
 from mlflow.utils.file_utils import TempDir
 from mlflow import pyfunc
 
-from mlflow.sagemaker import cli, DEV_FLAG
+import mlflow.sagemaker
 
 
 def load_pyfunc(path):
     with open(path, "rb") as f:
         return pickle.load(f)
-
-
 
 
 class TestModelExport(unittest.TestCase):
@@ -35,14 +33,10 @@ class TestModelExport(unittest.TestCase):
         self._linear_lr = glm.LogisticRegression()
         self._linear_lr.fit(self._X, self._y)
         self._linear_lr_predict = self._linear_lr.predict(self._X)
-        os.environ[DEV_FLAG] = "1"
-        os.environ["LC_ALL"]= "en_US.UTF-8"
+        os.environ[mlflow.sagemaker.DEV_FLAG] = "1"
+        os.environ["LC_ALL"] = "en_US.UTF-8"
         os.environ["LANG"] = "en_US.UTF-8"
-        self._build_container()
-
-    def _build_container(self):
-        from mlflow.sagemaker import build_image
-        build_image()
+        mlflow.sagemaker.build_image()
 
     def test_model_export(self):
         with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -67,6 +61,7 @@ class TestModelExport(unittest.TestCase):
             y = requests.post(url='http://localhost:5000/invocations', json=x)
             xpred = [int(z) for z in y.text.split("\n")[1:-1]]
             np.testing.assert_array_equal(self._linear_lr_predict, xpred)
+
 
 if __name__ == '__main__':
     unittest.main()

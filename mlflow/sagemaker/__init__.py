@@ -1,8 +1,10 @@
-from pkg_resources import resource_filename
+from __future__ import print_function
 
 import os
 from subprocess import Popen, PIPE, STDOUT
 import tarfile
+
+from pkg_resources import resource_filename
 
 import boto3
 
@@ -72,12 +74,16 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     ecr_client = boto3.client('ecr')
     if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
         ecr_client.create_repository(repositoryName=image)
-    x = ecr_client.get_authorization_token()['authorizationData'][0]
-    docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken'],
-                                                                     url=x['proxyEndpoint'])
-    os.system(docker_login_cmd)
-    os.system("docker tag {image} {fullname}".format(image=image, fullname=fullname))
-    os.system("docker push {}".format(fullname))
+    # TODO: it would be nice to translate the docker login, tag and push to python api.
+    #x = ecr_client.get_authorization_token()['authorizationData'][0]
+    #docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken'],
+    #                                                                url=x['proxyEndpoint'])
+    docker_login_cmd = "$(aws ecr get-login --no-include-email)"
+    docker_tag_cmd = "docker tag {image} {fullname}".format(image=image, fullname=fullname)
+    docker_push_cmd = "docker push {}".format(fullname)
+    cmd = ";\n".join([docker_login_cmd, docker_tag_cmd, docker_push_cmd])
+    print("", "executing:", "", cmd, "", sep="\n")
+    os.system(cmd)
 
 
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,

@@ -88,4 +88,3 @@ def predict(model, data, input_data_type="json"):
 
     res = model.predict(df)
     return res.to_dict(orient='records') if isinstance(res, type(pd.DataFrame)) else res
-

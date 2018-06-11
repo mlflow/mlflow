@@ -1,15 +1,9 @@
-
 from __future__ import print_function
-
-import os
-from subprocess import Popen, PIPE, STDOUT
 
 import click
 
 import mlflow
 import mlflow.sagemaker
-
-
 
 
 @click.group("sagemaker")
@@ -25,7 +19,8 @@ def commands():
 @click.option("--bucket", "-b", help="S3 bucket to store model artifacts", required=True)
 @click.option("--run_id", "-r", default=None, help="Run id")
 @click.option("--container", "-c", default="mlflow_sage", help="container name")
-def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None, container="mlflow_sage"): # noqa
+def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
+           container="mlflow_sage"):  # noqa
     mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
                             image=container)
@@ -51,5 +46,3 @@ def build_and_push_container(build=False, push=True, container=mlflow.sagemaker.
         mlflow.sagemaker.build_image(container)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)
-
-

@@ -45,7 +45,8 @@ class TestModelExport(unittest.TestCase):
                                                                               input_path, '-o',
                                                                               output_path])
             if result.exit_code:
-                print('non-zero return code, output:', result.output, result.exception, result.exc_info)
+                print('non-zero return code, output:', result.output, result.exception,
+                      result.exc_info)
             self.assertEqual(0, result.exit_code)
             os.chdir(output_path)
             import sys
