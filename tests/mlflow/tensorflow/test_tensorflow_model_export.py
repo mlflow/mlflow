@@ -38,6 +38,7 @@ class TestModelExport(unittest.TestCase):
         self._trainingFeatures = {}
         self._feature_names = iris.feature_names[:2]
         for i in range(0, 2):
+            # Tensorflow is fickle about feature names, so we remove offending characters
             iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
             iris.feature_names[i] = iris.feature_names[i].replace("(", "")
             iris.feature_names[i] = iris.feature_names[i].replace(")", "")
@@ -55,33 +56,17 @@ class TestModelExport(unittest.TestCase):
         self._dnn.train(self._input_train, steps=100)
         self._dnn_predict = self._dnn.predict(self._input_train)
 
-    def test_model_save_load(self):
+    def test_log_saved_model(self):
         with TempDir(chdr=True, remove_on_exit=True) as tmp:
-            path = tmp.path("dnn")
-            tensorflow.save_model(tf_model=self._dnn, path=path)
-            x = tensorflow.load_model(path)
-            xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
-            saved = []
-            for s in self._dnn_predict:
-                saved.append(s['predictions'])
-            loaded = []
-            for index, rows in xpred.iterrows():
-                loaded.append(rows)
-            np.testing.assert_array_equal(saved, loaded)
-            # sklearn should also be stored as a valid pyfunc model
-            # test pyfunc compatibility
-            y = pyfunc.load_pyfunc(path)
-            ypred = y.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
-            loaded = []
-            for index, rows in ypred.iterrows():
-                loaded.append(rows)
-            np.testing.assert_array_equal(saved, loaded)
-
-    def test_model_log(self):
-        with TempDir(chdr=True, remove_on_exit=True):
             tracking.start_run()
             try:
-                tensorflow.log_model(tf_model=self._dnn, artifact_path="dnn")
+                feature_spec = {}
+                for name in self._trainingFeatures:
+                    feature_spec[name] = tf.VarLenFeature(dtype=tf.float16)
+                receiver_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(feature_spec)
+                saved_model_path = tmp.path("dnn")
+                self._dnn.export_savedmodel(saved_model_path, receiver_fn)
+                tensorflow.log_saved_model(saved_model_dir=saved_model_path, artifact_path="dnn")
                 x = tensorflow.load_model("dnn", run_id=tracking.active_run().info.run_uuid)
                 xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
                 saved = []
@@ -93,6 +78,45 @@ class TestModelExport(unittest.TestCase):
                 np.testing.assert_array_equal(saved, loaded)
             finally:
                 tracking.end_run()
+
+    # def test_model_save_load(self):
+    #     with TempDir(chdr=True, remove_on_exit=True) as tmp:
+    #         path = tmp.path("dnn")
+    #         tensorflow.save_model(tf_model=self._dnn, path=path)
+    #         x = tensorflow.load_model(path)
+    #         xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
+    #         saved = []
+    #         for s in self._dnn_predict:
+    #             saved.append(s['predictions'])
+    #         loaded = []
+    #         for index, rows in xpred.iterrows():
+    #             loaded.append(rows)
+    #         np.testing.assert_array_equal(saved, loaded)
+    #         # sklearn should also be stored as a valid pyfunc model
+    #         # test pyfunc compatibility
+    #         y = pyfunc.load_pyfunc(path)
+    #         ypred = y.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
+    #         loaded = []
+    #         for index, rows in ypred.iterrows():
+    #             loaded.append(rows)
+    #         np.testing.assert_array_equal(saved, loaded)
+
+    # def test_model_log(self):
+    #     with TempDir(chdr=True, remove_on_exit=True):
+    #         tracking.start_run()
+    #         try:
+    #             tensorflow.log_model(tf_model=self._dnn, artifact_path="dnn")
+    #             x = tensorflow.load_model("dnn", run_id=tracking.active_run().info.run_uuid)
+    #             xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
+    #             saved = []
+    #             for s in self._dnn_predict:
+    #                 saved.append(s['predictions'])
+    #             loaded = []
+    #             for index, rows in xpred.iterrows():
+    #                 loaded.append(rows)
+    #             np.testing.assert_array_equal(saved, loaded)
+    #         finally:
+    #             tracking.end_run()
 
 
 if __name__ == '__main__':
