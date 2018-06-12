@@ -14,6 +14,7 @@ import yaml
 from six.moves import shlex_quote
 from databricks_cli.configure import provider
 
+from mlflow.version import VERSION
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 from mlflow import data
@@ -158,12 +159,12 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
     result = ["/databricks/mlflow-run.sh"]
-    result.extend(["mlflow", "run", uri, "--entry_point", entry_point])
+    result.extend(["mlflow", "run", uri, "--entry-point", entry_point])
     if version is not None:
         result.extend(["--version", version])
-    if len(parameters) > 0:
-        params = ["-P"] + ["%s=%s" % (key, value) for key, value in parameters.items()]
-        result.extend(params)
+    if parameters is not None:
+        for key, value in parameters.items():
+            result.extend(["-P", "%s=%s" % (key, value)])
     return result
 
 
@@ -192,7 +193,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     with open(cluster_spec, 'r') as handle:
         cluster_spec = json.load(handle)
     # Make jobs API request to launch run.
-    env_vars = {"MLFLOW_GIT_URI": uri, tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri()}
+    env_vars = {"MLFLOW_GIT_URI": uri}
     if git_username is not None:
         env_vars["MLFLOW_GIT_USERNAME"] = git_username
     if git_password is not None:
@@ -207,7 +208,8 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         'shell_command_task': {
             'command': _get_databricks_run_cmd(uri, entry_point, version, parameters),
             "env_vars": env_vars
-        }
+        },
+        "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
     }
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     run_submit_res = rest_utils.databricks_api_request(
@@ -215,7 +217,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         req_body_json=req_body_json)
     run_id = run_submit_res["run_id"]
     eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-           "page URL... ===")
+           "page URL... ===" % run_id)
     run_info = rest_utils.databricks_api_request(
         hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
         params={"run_id": run_id})
