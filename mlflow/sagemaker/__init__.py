@@ -26,7 +26,6 @@ def build_image(name=DEFAULT_IMAGE_NAME):
     The image is buitl locally and so it requires docker to run.
 
     :param name: image name
-    :return:
     """
     dockerfile = resource_filename(__name__, "container/Dockerfile")
     cwd = None
@@ -62,7 +61,6 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     The image is pushed under current active aws account and to current active aws region.
 
     :param image: image name
-    :return:
     """
     print("pushing image to ecr")
     client = boto3.client("sts")
@@ -97,7 +95,6 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
     :param bucket: S3 bucket where model artifacts are gonna be stored
     :param run_id: mlflow run id.
     :param image: name of the Docker image to be used.
-    :return:
     """
     prefix = model_path
     if run_id:
@@ -121,7 +118,6 @@ def run_local(model_path, run_id=None, port=5000, image="mlflow_sage"):
     :param run_id: mlflow run id.
     :param port: local port
     :param image: name of the Docker image to be used.
-    :return:
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
@@ -182,7 +178,7 @@ def _upload_s3(local_model_path, bucket, prefix):
     :param local_model_path: local path to a dir.
     :param bucket: S3 bucket where to store the data.
     :param prefix: path within the bucket.
-    :return:
+    :return: s3 path of the uploaded artifact
     """
     sess = boto3.Session()
     with TempDir() as tmp:
@@ -206,12 +202,11 @@ def _upload_s3(local_model_path, bucket, prefix):
 def _deploy(role, image, app_name, model_s3_path, run_id):
     """
     Deploy model on sagemaker.
-    :param role:
-    :param image:
-    :param app_name:
-    :param model_s3_path:
-    :param run_id:
-    :return:
+    :param role: SageMaker execution ARN role
+    :param image: Name of the Docker image the model is being deployed into
+    :param app_name: Name of the deployed app
+    :param model_s3_path: s3 path where we stored the model artifacts
+    :param run_id: RunId that generated this model
     """
     sage_client = boto3.client('sagemaker', region_name="us-west-2")
     ecr_client = boto3.client("ecr")

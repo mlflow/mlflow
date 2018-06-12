@@ -55,7 +55,7 @@ def init(model):
             data = pd.read_json(s, orient="records")
         else:
             return flask.Response(
-                response='This predictor only supports CSV of json  data, got %s' % str(
+                response='This predictor only supports CSV or JSON  data, got %s' % str(
                     flask.request.content_type), status=415, mimetype='text/plain')
 
         print('Invoked with {} records'.format(data.shape[0]))
