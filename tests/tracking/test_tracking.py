@@ -1,3 +1,4 @@
+import random
 from contextlib import contextmanager
 import filecmp
 import os
@@ -12,6 +13,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow import tracking
 import mlflow
 
+
 @contextmanager
 def temp_directory():
     name = tempfile.mkdtemp()
@@ -19,6 +21,22 @@ def temp_directory():
         yield name
     finally:
         shutil.rmtree(name)
+
+
+def test_create_experiment():
+    with pytest.raises(TypeError):
+        tracking.create_experiment()
+
+    with pytest.raises(Exception):
+        tracking.create_experiment(None)
+
+    with pytest.raises(Exception):
+        tracking.create_experiment("")
+
+    with temp_directory() as tmp_dir, mock.patch("mlflow.tracking._get_store") as get_store_mock:
+        get_store_mock.return_value = FileStore(tmp_dir)
+        exp_id = tracking.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
+        assert exp_id is not None
 
 
 def test_start_run_context_manager():
@@ -112,7 +130,7 @@ def test_log_param():
 
 
 def test_log_artifact():
-    with temp_directory() as tmp_dir, temp_directory() as artifact_src_dir,\
+    with temp_directory() as tmp_dir, temp_directory() as artifact_src_dir, \
             mock.patch("mlflow.tracking._get_store") as get_store_mock:
         get_store_mock.return_value = FileStore(tmp_dir)
         # Create artifacts
@@ -128,7 +146,7 @@ def test_log_artifact():
             with tracking.start_run():
                 run_artifact_dir = mlflow.get_artifact_uri()
                 mlflow.log_artifact(path0, parent_dir)
-            expected_dir = os.path.join(run_artifact_dir, parent_dir)\
+            expected_dir = os.path.join(run_artifact_dir, parent_dir) \
                 if parent_dir is not None else run_artifact_dir
             assert os.listdir(expected_dir) == [os.path.basename(path0)]
             logged_artifact_path = os.path.join(expected_dir, path0)
