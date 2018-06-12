@@ -20,7 +20,7 @@ DEV_FLAG = "MLFLOW_DEV"
 
 def build_image(name=DEFAULT_IMAGE_NAME):
     """
-    Build new mlflow sagemaker image and assign it given name.
+    Build new mlflow Sagemaker image and assign it given name.
 
     This function builds a docker image defined in mlflow/sagemaker/container/Dockerfile.
     The image is buitl locally and so it requires docker to run.
