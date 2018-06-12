@@ -7,6 +7,7 @@ matrix:
     - python: 3.6
       env: TOXENV=py36
 install:
+  # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
   - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
@@ -18,7 +19,6 @@ install:
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
   # Install virtualenv inside conda env
@@ -26,7 +26,6 @@ install:
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
-  - sudo apt-get update
 script:
   - pip list
   - which mlflow
