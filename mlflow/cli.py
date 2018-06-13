@@ -125,7 +125,9 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
               help="The root of the backing file store for experiment and run data. Defaults to %s."
                    % file_store._default_root_dir())
 @click.option("--host", default="127.0.0.1",
-              help="The networking interface on which the UI server listens. Defaults to 127.0.0.1.  Use 0.0.0.0 for docker.")
+              help="The networking interface on which the UI server listens. Defaults to "
+                   "127.0.0.1.  Use 0.0.0.0 to bind to all addresses, which is useful for running "
+                   "inside of docker.")
 def ui(file_store_path, host):
     """
     Run the MLflow tracking UI. The UI is served at http://localhost:5000.

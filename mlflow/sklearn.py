@@ -77,7 +77,9 @@ def commands():
 @click.option("--run_id", "-r", metavar="RUN_ID", help="Run ID to look for the model in.")
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--host", default="127.0.0.1",
-              help="The networking interface on which the UI server listens. Defaults to 127.0.0.1.  Use 0.0.0.0 for docker.")
+              help="The networking interface on which the prediction server listens. Defaults to "
+                   "127.0.0.1.  Use 0.0.0.0 to bind to all addresses, which is useful for running "
+                   "inside of docker.")
 def serve_model(model_path, run_id=None, port=None, host="127.0.0.1"):
     """
     Serve a SciKit-Learn model saved with MLflow.
