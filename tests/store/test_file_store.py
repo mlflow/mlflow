@@ -143,6 +143,13 @@ class TestFileStore(unittest.TestCase):
 
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
+
+        # Error cases
+        with self.assertRaises(Exception):
+            fs.create_experiment(None)
+        with self.assertRaises(Exception):
+            fs.create_experiment("")
+
         next_id = max(self.experiments) + 1
         name = random_str(25)  # since existing experiments are 10 chars long
         created_id = fs.create_experiment(name)
