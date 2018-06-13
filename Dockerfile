@@ -1,20 +1,15 @@
+FROM continuumio/miniconda
 
-# Build an image that can serve pyfunc model in SageMaker
-FROM ubuntu:16.04
+WORKDIR /app
 
-RUN apt-get -y update && apt-get install -y --no-install-recommends          wget          curl          nginx          ca-certificates          bzip2          build-essential          cmake          git-core     && rm -rf /var/lib/apt/lists/*
+ADD . /app
 
-# Download and setup miniconda
-RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
-RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
-ENV PATH="/miniconda/bin:${PATH}"
-
-RUN conda install -c anaconda gunicorn;    conda install -c anaconda gevent;
-RUN pip install mlflow==0.1.0
-
-# Set up the program in the image
-WORKDIR /opt/mlflow
-
-# start mlflow scoring
-ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; C._init(sys.argv[1])"]
-
+RUN pip install -r dev-requirements.txt && \
+    pip install -r tox-requirements.txt && \
+    pip install -e . && \
+    apt-get install -y gnupg && \
+    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
+    apt-get install -y nodejs && \
+    cd mlflow/server/js && \
+    npm install && \
+    npm run build
