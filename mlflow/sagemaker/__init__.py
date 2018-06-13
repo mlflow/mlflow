@@ -1,10 +1,9 @@
 from __future__ import print_function
 
 import os
+import shutil
 from subprocess import Popen, PIPE, STDOUT
 import tarfile
-
-from pkg_resources import resource_filename
 
 import boto3
 
@@ -17,6 +16,64 @@ from mlflow.utils.file_utils import TempDir
 DEFAULT_IMAGE_NAME = "mlflow_sage"
 DEV_FLAG = "MLFLOW_DEV"
 
+_DOCKERFILE_TEMPLATE = """
+# Build an image that can serve pyfunc model in SageMaker
+FROM ubuntu:16.04
+
+RUN apt-get -y update && apt-get install -y --no-install-recommends \
+         wget \
+         curl \
+         nginx \
+         ca-certificates \
+         bzip2 \
+         build-essential \
+         cmake \
+         git-core \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and setup miniconda
+RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
+ENV PATH="/miniconda/bin:${PATH}"
+
+RUN conda install -c anaconda gunicorn;\
+    conda install -c anaconda gevent;\
+
+%s
+
+# Set up the program in the image
+WORKDIR /opt/mlflow
+
+# start mlflow scoring
+ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; C._init(sys.argv[1])"]
+
+"""
+
+
+def _docker_ignore(mlflow_root):
+    docker_ignore = os.path.join(mlflow_root, '.dockerignore')
+
+    def strip_slash(x):
+        if x.startswith("/"):
+            x = x[1:]
+        if x.endswith('/'):
+            x = x[:-1]
+        return x
+
+    if os.path.exists(docker_ignore):
+        with open(docker_ignore, "r") as f:
+            patterns = [x.strip() for x in f.readlines()]
+            patterns = [strip_slash(x) for x in patterns if not x.startswith("#")]
+
+    def ignore(_, names):
+        import fnmatch
+        res = set()
+        for p in patterns:
+            res.update(set(fnmatch.filter(names, p)))
+        return list(res)
+
+    return ignore
+
 
 def build_image(name=DEFAULT_IMAGE_NAME):
     """
@@ -27,28 +84,26 @@ def build_image(name=DEFAULT_IMAGE_NAME):
 
     :param name: image name
     """
-    dockerfile = resource_filename(__name__, "container/Dockerfile")
-    cwd = None
-    if DEV_FLAG in os.environ:
-        # if running in the dev mode, build container with the current project instead of the pip
-        # version
-        cwd = os.path.dirname(mlflow._relpath())
-        dockerfile = mlflow._relpath("sagemaker", "container", "Dockerfile.dev")
-        if not os.path.exists(dockerfile):
-            raise Exception("File does not exist, %s. " % dockerfile +
-                            "Note: MLFlow is running in developer mode which assumes it is run from"
-                            + " the dev project and all project files are available on local path."
-                            + " If you do not want to be running in dev mode, please unset the"
-                            + " MLFLOW_DEV flag.")
-    print("building docker image")
-    proc = Popen(["docker", "build", "-t", name, "-f",
-                  dockerfile, "."],
-                 cwd=cwd,
-                 stdout=PIPE,
-                 stderr=STDOUT,
-                 universal_newlines=True)
-    for x in iter(proc.stdout.readline, ""):
-        print(x, end='', flush=True)
+    with TempDir() as tmp:
+        install_mlflow = "RUN pip install mlflow=={version}".format(version=mlflow.version.VERSION)
+        cwd = tmp.path()
+        if DEV_FLAG in os.environ:
+            from mlflow.utils.file_utils import  _copy_mlflow_project
+            mlflow_dir = _copy_mlflow_project(tmp.path())
+            install_mlflow = "COPY {mlflow_dir} /opt/mlflow\n RUN pip install -e /opt/mlflow\n"
+            install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
+
+        with open(os.path.join(cwd, "Dockerfile"), "w") as f:
+            f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
+        print("building docker image")
+        os.system('find {cwd}/'.format(cwd=cwd))
+        proc = Popen(["docker", "build", "-t", name, "-f", "Dockerfile", "."],
+                     cwd=cwd,
+                     stdout=PIPE,
+                     stderr=STDOUT,
+                     universal_newlines=True)
+        for x in iter(proc.stdout.readline, ""):
+            print(x, end='', flush=True)
 
 
 _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:latest"
@@ -73,8 +128,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
         ecr_client.create_repository(repositoryName=image)
     # TODO: it would be nice to translate the docker login, tag and push to python api.
-    #x = ecr_client.get_authorization_token()['authorizationData'][0]
-    #docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken'],
+    # x = ecr_client.get_authorization_token()['authorizationData'][0]
+    # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken'],
     #                                                                url=x['proxyEndpoint'])
     docker_login_cmd = "$(aws ecr get-login --no-include-email)"
     docker_tag_cmd = "docker tag {image} {fullname}".format(image=image, fullname=fullname)

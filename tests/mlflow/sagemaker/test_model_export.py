@@ -60,9 +60,10 @@ class TestModelExport(unittest.TestCase):
             x = self._iris_df.to_dict(orient='records')
             y = requests.post(url='http://localhost:5000/invocations', json=x)
             print('y', y)
+            print ('dir(y)', dir(y))
+            print('y.content', y.content)
             import json
-            y = json.loads(y)
-            xpred = y
+            xpred = json.loads(y.content)
             print('xpred', xpred)
             np.testing.assert_array_equal(self._linear_lr_predict, xpred)
 

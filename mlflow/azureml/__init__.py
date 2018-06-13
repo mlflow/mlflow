@@ -5,7 +5,7 @@ import shutil
 
 import mlflow
 from mlflow import pyfunc
-from mlflow import version
+from mlflow.version import VERSION as mlflow_version
 
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
@@ -86,13 +86,14 @@ def _export(app_name, model_path):
 
     deps = ""
 
-    mlflow_dep = "mlflow=={}".format(version.version)
+    mlflow_dep = "mlflow=={}".format(mlflow_version)
 
     if "MLFLOW_DEV" in os.environ:
         # get mlflow root dir
-        root = os.path.abspath(os.path.dirname(os.path.dirname(mlflow.__file__)))
-        deps = "-d {}".format(root)
-        mlflow_dep = "-e /var/azureml-app{}".format(root)
+        from mlflow.utils.file_utils import _copy_mlflow_project
+        mlflow_dir = _copy_mlflow_project()
+        deps = "-d {}".format(mlflow_dir)
+        mlflow_dep = "-e /var/azureml-app/{}".format(mlflow_dir)
 
     with open("requirements.txt", "w") as f:
         f.write(mlflow_dep + "\n")

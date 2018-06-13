@@ -63,7 +63,7 @@ def init(model):
                     flask.request.content_type), status=415, mimetype='text/plain')
 
         # Do the prediction
-        predictions = get_jsonable_obj(data)
+        predictions = get_jsonable_obj(model.predict(data))
         result = json.dumps(predictions)
         return flask.Response(response=result, status=200, mimetype='application/json')
 
