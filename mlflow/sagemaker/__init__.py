@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import os
-import shutil
 from subprocess import Popen, PIPE, STDOUT
 import tarfile
 
@@ -45,8 +44,8 @@ RUN conda install -c anaconda gunicorn;\
 WORKDIR /opt/mlflow
 
 # start mlflow scoring
-ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; C._init(sys.argv[1])"]
-
+ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; \
+C._init(sys.argv[1])"]
 """
 
 
@@ -88,8 +87,8 @@ def build_image(name=DEFAULT_IMAGE_NAME):
         install_mlflow = "RUN pip install mlflow=={version}".format(version=mlflow.version.VERSION)
         cwd = tmp.path()
         if DEV_FLAG in os.environ:
-            from mlflow.utils.file_utils import  _copy_mlflow_project
-            mlflow_dir = _copy_mlflow_project(tmp.path())
+            from mlflow.utils.file_utils import _copy_mlflow_project
+            mlflow_dir = _copy_mlflow_project(mlflow._relpath(), tmp.path())
             install_mlflow = "COPY {mlflow_dir} /opt/mlflow\n RUN pip install -e /opt/mlflow\n"
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
 
@@ -129,8 +128,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
         ecr_client.create_repository(repositoryName=image)
     # TODO: it would be nice to translate the docker login, tag and push to python api.
     # x = ecr_client.get_authorization_token()['authorizationData'][0]
-    # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken'],
-    #                                                                url=x['proxyEndpoint'])
+    # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken']
+    #                                                                ,url=x['proxyEndpoint'])
     docker_login_cmd = "$(aws ecr get-login --no-include-email)"
     docker_tag_cmd = "docker tag {image} {fullname}".format(image=image, fullname=fullname)
     docker_push_cmd = "docker push {}".format(fullname)

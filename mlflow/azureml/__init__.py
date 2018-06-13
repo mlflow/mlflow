@@ -5,12 +5,10 @@ import shutil
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.version import VERSION as mlflow_version
-
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
-
 from mlflow.utils.file_utils import TempDir
+from mlflow.version import VERSION as mlflow_version
 
 
 def deploy(app_name, model_path, run_id):
@@ -91,7 +89,7 @@ def _export(app_name, model_path):
     if "MLFLOW_DEV" in os.environ:
         # get mlflow root dir
         from mlflow.utils.file_utils import _copy_mlflow_project
-        mlflow_dir = _copy_mlflow_project()
+        mlflow_dir = _copy_mlflow_project(mlflow._relpath())
         deps = "-d {}".format(mlflow_dir)
         mlflow_dep = "-e /var/azureml-app/{}".format(mlflow_dir)
 

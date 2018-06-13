@@ -230,7 +230,7 @@ def append_to(filename, data):
         handle.write(data)
 
 
-def _copy_mlflow_project(output_dir=""):
+def _copy_mlflow_project(mlflow_path, output_dir=""):
     """
     Internal function used to copy mlflow project during development.
     The mlflow is assumed to be accessible as a local directory in this case.
@@ -238,7 +238,6 @@ def _copy_mlflow_project(output_dir=""):
     :param output_dir: mlflow will be copied here
     :return: name of the mlflow project directory
     """
-
     def _docker_ignore(mlflow_root):
         docker_ignore = os.path.join(mlflow_root, '.dockerignore')
         patterns = []
@@ -255,8 +254,7 @@ def _copy_mlflow_project(output_dir=""):
 
         return ignore if patterns else None
 
-    import mlflow
-    mlflow_root = os.path.dirname(mlflow._relpath())
+    mlflow_root = os.path.dirname(mlflow_path)
     if not os.path.exists(mlflow_root):
         raise Exception("Can not find local mlflow copy at '%s'" % mlflow_root)
     mlflow_dir = os.path.basename(mlflow_root)

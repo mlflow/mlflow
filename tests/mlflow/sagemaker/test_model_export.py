@@ -46,7 +46,6 @@ class TestModelExport(unittest.TestCase):
             input_path = tmp.path("input_model")
             pyfunc.save_model(input_path, loader_module="test_model_export", code_path=[__file__],
                               data_path=model_pkl)
-
             proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', input_path], stdout=PIPE,
                          stderr=STDOUT, universal_newlines=True)
 
@@ -56,15 +55,10 @@ class TestModelExport(unittest.TestCase):
                     break
             self.assertTrue(proc.poll() is None, "scoring process died")
             import requests
-            print("curl data in")
             x = self._iris_df.to_dict(orient='records')
             y = requests.post(url='http://localhost:5000/invocations', json=x)
-            print('y', y)
-            print ('dir(y)', dir(y))
-            print('y.content', y.content)
             import json
             xpred = json.loads(y.content)
-            print('xpred', xpred)
             np.testing.assert_array_equal(self._linear_lr_predict, xpred)
 
 

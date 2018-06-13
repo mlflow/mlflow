@@ -5,7 +5,7 @@ import pandas as pd
 def ary2list(ary):
     """
     Convert n-dimensional numpy array into nested lists and convert the elements types to native
-    python so that ithe list is json-able using standard json library.
+    python so that the list is json-able using standard json library.
     :param ary: numpy array
     :return: list representation of the numpy array with element types convereted to native python
     """
