@@ -225,7 +225,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
-               storage_dir):
+               storage_dir, git_username, git_password):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -238,14 +238,15 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     work_dir = _get_work_dir(uri, use_temp_cwd)
     eprint("=== Work directory for this run: %s ===" % work_dir)
     expanded_uri = _expand_uri(uri)
-    _fetch_project(expanded_uri, version, work_dir)
+    _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
 
     # Load the MLproject file
     spec_file = os.path.join(work_dir, "MLproject")
     if not os.path.isfile(spec_file):
         raise ExecutionException("No MLproject file found in %s" % uri)
     project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
-    _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
+    _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id,
+                 git_username, git_password)
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
@@ -282,7 +283,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     if mode is None or mode == "local":
         _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                    experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
-                   storage_dir=storage_dir)
+                   storage_dir=storage_dir, git_username=git_username, git_password=git_password)
     elif mode == "databricks":
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                         experiment_id=experiment_id, cluster_spec=cluster_spec,
@@ -321,11 +322,11 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version, dst_dir):
+def _fetch_project(uri, version, dst_dir, git_username, git_password):
     """Download a project to the target `dst_dir` from a Git URI or local path."""
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
-        _fetch_git_repo(uri, version, dst_dir)
+        _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
@@ -340,13 +341,22 @@ def _fetch_project(uri, version, dst_dir):
     shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
 
 
-def _fetch_git_repo(uri, version, dst_dir):
+def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     """
     Clones the git repo at `uri` into `dst_dir`, checking out commit `version` (or defaulting
-    to the head commit of the repository's master branch if version is unspecified). Assumes
-    authentication parameters are specified by the environment, e.g. by a Git credential helper.
+    to the head commit of the repository's master branch if version is unspecified). If git_username
+    and git_password are specified, uses them to authenticate while fetching the repo. Otherwise,
+    assumes authentication parameters are specified by the environment, e.g. by a Git credential
+    helper.
     """
     repo = git.Repo.init(dst_dir)
+    # Unset the git credential helper for the current repo so we don't permanently store credentials
+    # on the current machine.
+    repo.git.config("--local", "credential.helper", "")
+    # Assume that authentication is requested in the form of two lines containing the username
+    # followed by the password
+    auth_string = "\n".join([git_username, git_password])
+    process.exec_cmd(cmd=["git", "fetch", "origin"], cwd=dst_dir, stdin=auth_string)
     origin = repo.create_remote("origin", uri)
     origin.fetch()
     if version is not None:
@@ -379,7 +389,8 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id):
+def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id,
+                 git_username, git_password):
     """Locally run a project that has been checked out in `work_dir`."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "

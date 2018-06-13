@@ -6,7 +6,8 @@ class ShellCommandException(Exception):
     pass
 
 
-def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, **kwargs):
+def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, stdin=None,
+             **kwargs):
     """
     Runs a command as a child process.
 
@@ -37,7 +38,7 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
         child = subprocess.Popen(
             cmd, env=cmd_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             cwd=cwd, universal_newlines=True, **kwargs)
-        (stdout, stderr) = child.communicate()
+        (stdout, stderr) = child.communicate(stdin)
         exit_code = child.wait()
         if throw_on_error and exit_code is not 0:
             raise ShellCommandException("Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:%s" %
