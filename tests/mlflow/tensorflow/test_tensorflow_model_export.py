@@ -43,31 +43,49 @@ class TestModelExport(unittest.TestCase):
             iris.feature_names[i] = iris.feature_names[i].replace("(", "")
             iris.feature_names[i] = iris.feature_names[i].replace(")", "")
             self._trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
-        tf_feat_cols = []
+        self._tf_feat_cols = []
         self._feature_names = iris.feature_names[:2]
         for col in iris.feature_names[:2]:
-            tf_feat_cols.append(tf.feature_column.numeric_column(col))
+            self._tf_feat_cols.append(tf.feature_column.numeric_column(col))
         self._input_train = tf.estimator.inputs.numpy_input_fn(self._trainingFeatures, 
                                                                     self._y, 
                                                                     shuffle=False, 
                                                                     batch_size=1)
-        self._dnn = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols, 
+        self._dnn = tf.estimator.DNNRegressor(feature_columns=self._tf_feat_cols, 
                                                 hidden_units=[1])
+        self._sess = tf.Session()
         self._dnn.train(self._input_train, steps=100)
         self._dnn_predict = self._dnn.predict(self._input_train)
 
     def test_log_saved_model(self):
-        with TempDir(chdr=True, remove_on_exit=True) as tmp:
+        with TempDir(chdr=False, remove_on_exit=True) as tmp:
             tracking.start_run()
             try:
+                # feature_spec = tf.feature_column.make_parse_example_spec(self._tf_feat_cols)
+                # print("FEATURE_SPEC:", feature_spec)
                 feature_spec = {}
-                for name in self._trainingFeatures:
-                    feature_spec[name] = tf.VarLenFeature(dtype=tf.float16)
-                receiver_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(feature_spec)
-                saved_model_path = tmp.path("dnn")
-                self._dnn.export_savedmodel(saved_model_path, receiver_fn)
-                tensorflow.log_saved_model(saved_model_dir=saved_model_path, artifact_path="dnn")
-                x = tensorflow.load_model("dnn", run_id=tracking.active_run().info.run_uuid)
+                for name in self._feature_names:
+                    feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
+                receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+                saved_model_path = tmp.path("model")
+                os.makedirs(saved_model_path)
+                os.makedirs(tmp.path("hello"))
+                saved_model_path = self._dnn.export_savedmodel(saved_model_path, receiver_fn).decode("utf-8")
+                # os.makedirs(tmp.path("hello"))
+                # saved_model_path = tmp.path("model")
+                # x = tf.placeholder("float", name="sepallengthcm")
+                # y = tf.placeholder("float", name="sepalwidthcm")
+                # z = tf.placeholder("float", name="z")
+                # #print("check model/ has files", os.listdir(saved_model_path))
+                # tf.saved_model.simple_save(self._sess, saved_model_path,
+                #                            inputs={"sepallengthcm":x, "sepalwidthcm":y},
+                #                            outputs={"z":z})
+                tensorflow.log_saved_model(saved_model_dir=saved_model_path, artifact_path=tmp.path("hello"))
+                x = tensorflow.load_pyfunc(saved_model_path, "predict")
+                # print("data:", self._X)
+                # print("columns:", self._feature_names)
+                # print("X:", x)
+                print("DataFrame:", pandas.DataFrame(data=self._X, columns=self._feature_names))
                 xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
                 saved = []
                 for s in self._dnn_predict:
