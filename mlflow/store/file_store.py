@@ -85,6 +85,8 @@ class FileStore(AbstractStore):
 
     def create_experiment(self, name):
         self._check_root_dir()
+        if name is None or name == "":
+            raise Exception("Invalid experiment name '%s'" % name)
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
             raise Exception("Experiment '%s' already exists." % experiment.name)
