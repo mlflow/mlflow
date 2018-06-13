@@ -10,8 +10,9 @@ import multiprocessing
 import os
 import shutil
 import signal
+from subprocess import check_call, Popen
 import sys
-from subprocess import check_call, Popen, PIPE, STDOUT
+
 
 from pkg_resources import resource_filename
 
@@ -21,14 +22,6 @@ import mlflow.version
 from mlflow import pyfunc
 from mlflow.models import Model
 
-
-cpu_count = multiprocessing.cpu_count()
-model_server_timeout = os.environ.get('MODEL_SERVER_TIMEOUT', 60)
-model_server_workers = int(os.environ.get('MODEL_SERVER_WORKERS', cpu_count))
-
-GUNICORN_CMD = "gunicorn --timeout {timeout} -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers}" + \
-               " mlflow.sagemaker.container.scoring_server.wsgi:app"
-
 _dev_flag = False
 
 
@@ -36,9 +29,8 @@ def _init(cmd):
     """
     Initialize the container and execute command.
 
-    :param cmd: Command to be executed passed by Sagemaker. Can be  serve or train (unimplemented).
-    When running locally, it can have dev_ prefix which will force mlflow to be reinstalled from
-    local directory.
+    :param cmd: Command param passed by Sagemaker. Can be  "serve" or "train" (unimplemented).
+    When running locally, it can have dev_ prefix which will reinstall mlflow from local directory.
     """
     if cmd == 'serve':
         _serve()
@@ -61,31 +53,28 @@ def _server_dependencies_cmds():
             "pip install mlflow=={}".format(mlflow.version.version)]
 
 
-_custom_env = False
-
-
 def _serve():
     m = Model.load("/opt/ml/model/MLmodel")
     if pyfunc.FLAVOR_NAME not in m.flavors:
         raise Exception("Currently can only deal with pyfunc models and this is not one.")
     conf = m.flavors[pyfunc.FLAVOR_NAME]
-    nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
-    nginx = Popen(['nginx', '-c', nginx_conf])
-
     bash_cmds = []
     if pyfunc.ENV in conf:
         env = conf[pyfunc.ENV]
         env_path_dst = os.path.join("/opt/mlflow/", env)
+        # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
         shutil.copy(src=os.path.join("/opt/ml/model/", env), dst=env_path_dst)
         os.system("conda env create -n custom_env -f {}".format(env_path_dst))
-        bash_cmds += ["set -e", "source /miniconda/bin/activate custom_env"] + \
-                     _server_dependencies_cmds()
-
+        bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
+    nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
+    nginx = Popen(['nginx', '-c', nginx_conf])
     # link the log streams to stdout/err so they will be logged to the container logs
     check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
     check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
-    bash_cmds.append(GUNICORN_CMD.format(timeout=model_server_timeout,
-                                         nworkers=model_server_workers))
+    cpu_count = multiprocessing.cpu_count()
+    cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
+           "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
+    bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", "; ".join(bash_cmds)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(nginx.pid, gunicorn.pid))
     # If either subprocess exits, so do we.

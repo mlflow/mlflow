@@ -2,7 +2,6 @@
 # This is a dev version which installs local copy of mlflow rather than the one published at pip.
 FROM ubuntu:16.04
 
-
 RUN apt-get -y update && apt-get install -y --no-install-recommends \
          wget \
          curl \
@@ -27,10 +26,10 @@ RUN rm -rf $(find /opt/mlflow/mlflow -name *.pyc)
 
 RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\
-    pip install /opt/mlflow
+    pip install -e /opt/mlflow
 
 # Set up the program in the image
 WORKDIR /opt/mlflow
 
 # start mlflow scoring
-ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container; print(sys.argv); container._scoring_server_init(sys.argv[1])"]
+ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; C._init(sys.argv[1])"]

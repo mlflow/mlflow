@@ -67,7 +67,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     caller_id = client.get_caller_identity()
     account = caller_id['Account']
     my_session = boto3.session.Session()
-    region = my_session.region_name or "region:-us-west-2"
+    region = my_session.region_name or "us-west-2"
     fullname = _full_template.format(account=account, region=region, image=image)
     ecr_client = boto3.client('ecr')
     if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
@@ -80,7 +80,6 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     docker_tag_cmd = "docker tag {image} {fullname}".format(image=image, fullname=fullname)
     docker_push_cmd = "docker push {}".format(fullname)
     cmd = ";\n".join([docker_login_cmd, docker_tag_cmd, docker_push_cmd])
-    print("", "executing:", "", cmd, "", sep="\n")
     os.system(cmd)
 
 
@@ -100,9 +99,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
         prefix = run_id + "/" + prefix
-    _check_compatible(model_path)
+    run_id = _check_compatible(model_path)
     model_s3_path = _upload_s3(local_model_path=model_path, bucket=bucket, prefix=prefix)
-    print('model_s3_path', model_s3_path)
     _deploy(role=execution_role_arn,
             image=image,
             app_name=app_name,
@@ -158,9 +156,10 @@ def run_local(model_path, run_id=None, port=5000, image="mlflow_sage"):
 
 def _check_compatible(path):
     path = os.path.abspath(path)
-    servable = Model.load(os.path.join(path, "MLmodel"))
-    if pyfunc.FLAVOR_NAME not in servable.flavors:
+    model = Model.load(os.path.join(path, "MLmodel"))
+    if pyfunc.FLAVOR_NAME not in model.flavors:
         raise Exception("Currenlty only supports pyfunc format.")
+    return model.run_id if hasattr(model, "run_id") else None
 
 
 def _make_tarfile(output_filename, source_dir):
@@ -189,7 +188,6 @@ def _upload_s3(local_model_path, bucket, prefix):
             key = os.path.join(prefix, 'model.tar.gz')
             obj = sess.resource('s3').Bucket(bucket).Object(key)
             obj.upload_fileobj(fobj)
-            # obj.Acl().put(ACL='public-read')
             response = s3.put_object_tagging(
                 Bucket=bucket,
                 Key=key,

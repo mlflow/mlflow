@@ -37,6 +37,7 @@ class TestModelExport(unittest.TestCase):
         self._linear_lr = sklearn.linear_model.LogisticRegression()
         self._linear_lr.fit(self._X, self._y)
         self._linear_lr_predict = self._linear_lr.predict(self._X)
+        print('clazz', type(self._linear_lr_predict))
 
     def test_model_save_load(self):
         with TempDir() as tmp:
@@ -118,6 +119,6 @@ class TestModelExport(unittest.TestCase):
             print(result.exc_info)
             print(result.exception)
             assert result.exit_code == 0
-            result_df = pandas.read_csv(output_csv_path)
+            result_df = pandas.read_csv(output_csv_path, header=None)
             np.testing.assert_array_equal(result_df.values.transpose()[0],
                                           self._knn.predict(self._X))

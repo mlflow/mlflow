@@ -10,7 +10,7 @@ are either stored directly with the model or referenced via a conda environment.
 The convention for pyfunc models is to have a predict method or function with the following
 signature
 
-predict(data: pandas.DataFrame) -> pandas.DataFrame
+predict(data: pandas.DataFrame) -> numpy.ndarray | pandas.Series | pandas.DataFrame
 
 This convention is relied upon by other mlflow components.
 
@@ -154,6 +154,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     Args:
         spark (SparkSession): a SparkSession object
         path (str): A path containing a pyfunc model.
+        run_id: Id of the run that produced this model.
+        If provided, run_id is used to retrieve the model logged with mlflow.
         result_type (str): Spark UDF type returned by the model's prediction method. Default double
     """
 

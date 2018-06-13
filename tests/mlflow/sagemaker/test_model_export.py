@@ -59,7 +59,11 @@ class TestModelExport(unittest.TestCase):
             print("curl data in")
             x = self._iris_df.to_dict(orient='records')
             y = requests.post(url='http://localhost:5000/invocations', json=x)
-            xpred = [int(z) for z in y.text.split("\n")[1:-1]]
+            print('y', y)
+            import json
+            y = json.loads(y)
+            xpred = y
+            print('xpred', xpred)
             np.testing.assert_array_equal(self._linear_lr_predict, xpred)
 
 

@@ -12,6 +12,8 @@ Defines two endpoints:
 """
 from __future__ import print_function
 
+import json
+
 import pandas as pd
 import flask
 
@@ -19,6 +21,8 @@ try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
+
+from mlflow.utils import get_jsonable_obj
 
 
 def init(model):
@@ -58,15 +62,9 @@ def init(model):
                 response='This predictor only supports CSV or JSON  data, got %s' % str(
                     flask.request.content_type), status=415, mimetype='text/plain')
 
-        print('Invoked with {} records'.format(data.shape[0]))
         # Do the prediction
-        predictions = model.predict(data)
-        # Convert from numpy back to CSV
-        out = StringIO()
-        pd.DataFrame({'results': predictions}).to_csv(out, header=True, index=False)
-        result = out.getvalue()
-        # TODO: do we always return csv or do we return the same type as the
-        # input? or do we add parameter?
-        return flask.Response(response=result, status=200, mimetype='text/csv')
+        predictions = get_jsonable_obj(data)
+        result = json.dumps(predictions)
+        return flask.Response(response=result, status=200, mimetype='application/json')
 
     return app

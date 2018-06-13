@@ -1,11 +1,9 @@
-
 from __future__ import absolute_import
 
 import sys
 
 import click
 import pandas
-
 
 from mlflow.pyfunc import load_pyfunc, scoring_server
 from mlflow.tracking import _get_model_log_dir
@@ -40,7 +38,7 @@ def serve(model_path, run_id, port):
 @click.option("--input-path", "-i", help="CSV containing Pandas DataFrame to predict against",
               required=True)
 @click.option("--output-path", "-o", help="Results will be output as CSV to this file." +
-              " If not provided, stdout will be used.")
+                                          " If not provided, stdout will be used.")
 def predict(model_path, run_id, input_path, output_path):
     """
     Loads a Pandas DataFrame and runs a PythonFunction model saved with MLflow against it.
@@ -54,8 +52,7 @@ def predict(model_path, run_id, input_path, output_path):
     model = load_pyfunc(model_path)
     df = pandas.read_csv(input_path)
     result = model.predict(df)
-
     out_stream = sys.stdout
     if output_path:
         out_stream = open(output_path, 'w')
-    pandas.DataFrame({'results': result}).to_csv(out_stream, header=True, index=False)
+    pandas.DataFrame(data=result).to_csv(out_stream, header=False, index=False)
