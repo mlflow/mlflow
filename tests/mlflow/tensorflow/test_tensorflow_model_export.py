@@ -1,9 +1,7 @@
 from __future__ import print_function
 
 import os
-import dill as pickle
 import pandas
-import tempfile
 import unittest
 
 import numpy as np
@@ -66,7 +64,7 @@ class TestModelExport(unittest.TestCase):
                 tensorflow.log_saved_model(saved_model_dir=saved_model_path, 
                                            artifact_path=tmp.path("hello"))
                 # Loading the saved Tensorflow model as a pyfunc.
-                x = tensorflow.load_pyfunc(saved_model_path, "predict")
+                x = pyfunc.load_pyfunc(saved_model_path)
                 # Predicting on the iris dataset using the pyfunc.
                 xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
                 saved = []
