@@ -27,8 +27,6 @@ install:
   - pip install .
   - pip install -r dev-requirements.txt
 script:
-  - git --version
-  - whoami
   - pip list
   - which mlflow
   - tox

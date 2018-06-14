@@ -354,10 +354,11 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     if not (all(arg is not None for arg in git_args) or all(arg is None for arg in git_args)):
         raise ExecutionException("Either both or neither of git_username and git_password must be "
                                  "specified.")
-    git_credentials = "url=%s\nusername=%s\npassword=%s" % (uri, git_username, git_password)
-    repo.git.config("--local", "credential.helper", "cache")
-    process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
-                     cmd_stdin=git_credentials)
+    if git_username:
+        git_credentials = "url=%s\nusername=%s\npassword=%s" % (uri, git_username, git_password)
+        repo.git.config("--local", "credential.helper", "cache")
+        process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
+                         cmd_stdin=git_credentials)
     origin.fetch()
     if version is not None:
         repo.git.checkout(version)
