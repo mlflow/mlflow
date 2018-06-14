@@ -58,17 +58,3 @@ class _TFWrapper(object):
                 feed_dict[graph.get_tensor_by_name(tnsr_name)] = df[col].values
             data = sess.run(fetches, feed_dict=feed_dict)
             return pandas.DataFrame(data=data[0])
-
-
-def log_saved_model(saved_model_dir, artifact_path):
-    """Log a Tensorflow model as an MLflow artifact for the current run."""
-    run_id = mlflow.tracking.active_run().info.run_uuid
-    mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow")
-    mlflow_model.add_flavor("tensorflow")
-    mlflow_model.save(os.path.join(saved_model_dir, "MLmodel"))
-    mlflow.tracking.log_artifacts(saved_model_dir, artifact_path)
-
-
-def load_pyfunc(saved_model_dir, signature_def_name=None):
-    return _TFWrapper(saved_model_dir, signature_def_name)
