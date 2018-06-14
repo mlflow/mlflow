@@ -18,7 +18,8 @@ def test_fetch_project():
     """ Test fetching a project to be run locally. """
     with TempDir() as tmp:
         dst_dir = tmp.path()
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir)
+        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir,
+                                       git_username=None, git_password=None)
         dir_comparison = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
         assert len(dir_comparison.left_only) == 0
         assert len(dir_comparison.right_only) == 0
@@ -28,7 +29,7 @@ def test_fetch_project():
     with TempDir() as dst_dir:
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
-                                           dst_dir=dst_dir)
+                                           dst_dir=dst_dir, git_username=None, git_password=None)
 
 
 def test_run_mode():

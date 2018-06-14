@@ -245,8 +245,7 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     if not os.path.isfile(spec_file):
         raise ExecutionException("No MLproject file found in %s" % uri)
     project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
-    _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id,
-                 git_username, git_password)
+    _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
@@ -350,14 +349,15 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     helper.
     """
     repo = git.Repo.init(dst_dir)
-    # Unset the git credential helper for the current repo so we don't permanently store credentials
-    # on the current machine.
-    repo.git.config("--local", "credential.helper", "")
-    # Assume that authentication is requested in the form of two lines containing the username
-    # followed by the password
-    auth_string = "\n".join([git_username, git_password])
-    process.exec_cmd(cmd=["git", "fetch", "origin"], cwd=dst_dir, stdin=auth_string)
     origin = repo.create_remote("origin", uri)
+    git_args = [git_username, git_password]
+    if not (all(arg is not None for arg in git_args) or all(arg is None for arg in git_args)):
+        raise ExecutionException("Either both or neither of git_username and git_password must be "
+                                 "specified.")
+    git_credentials = "url=%s\nusername=%s\npassword=%s" % (uri, git_username, git_password)
+    repo.git.config("--local", "credential.helper", "cache")
+    process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
+                     cmd_stdin=git_credentials)
     origin.fetch()
     if version is not None:
         repo.git.checkout(version)
@@ -389,8 +389,7 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id,
-                 git_username, git_password):
+def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id):
     """Locally run a project that has been checked out in `work_dir`."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
