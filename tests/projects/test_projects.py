@@ -39,7 +39,6 @@ def test_fetch_project():
                                                git_password=password)
 
 
-
 def test_run_mode():
     """ Verify that we pick the right run helper given an execution mode """
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
