@@ -14,8 +14,7 @@ from mlflow.version import VERSION as mlflow_version
 def deploy(app_name, model_path, run_id):
     """Deploy MLflow model to Azure ML.
 
-    This command will export MLflow model into Azure ML compatible format and create a service
-    models this model.
+    This command will deploy MLflow model to Azure ML.
 
     NOTE: This command is to be called from correctly initialized Azure ML environment.
          At the moment this means it has to be run from console launched from Azure ML Workbench.
@@ -27,7 +26,7 @@ def deploy(app_name, model_path, run_id):
 
     :param app_name: Name of the deployed application
     :param model_path: Local or mlflow-run-relative path to the model to be exported
-    :param run_id: If provided, run_id is used to retrieve model logged with mlflow.
+    :param run_id: If provided, run_id is used to retrieve the model logged with mlflow.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
@@ -46,13 +45,11 @@ def export(output, model_path, run_id):
 
     Export MLflow model out with everything needed to deploy on Azure ML.
     Output includes sh script with command to deploy the generated model to Azure ML.
-    The generated model has no dependency on MLflow.
 
-    NOTE: This commnand does not need Azure ML environment to run.
+    NOTE: This command does not need Azure ML environment to run.
 
-    NOTE: Azure ML can not handle any Conda environment. In particular python version seems to be
-          fixed. If the model contains Conda environment and it has been trained outside of Azure
-          ML, the Conda environment might need to be edited.
+    NOTE: Azure ML can not handle any Conda environment. If the model contains Conda environment
+    and it has been trained outside of Azure ML, the Conda environment might need to be edited.
 
     :param output: Output folder where the model is going to be exported to.
     :param model_path: Local or mlflow-run-relative path to the model to be exported
@@ -83,11 +80,10 @@ def _export(app_name, model_path):
         f.write(SCORE_SRC)
 
     deps = ""
-
     mlflow_dep = "mlflow=={}".format(mlflow_version)
 
     if "MLFLOW_DEV" in os.environ:
-        # get mlflow root dir
+        # dev-mode, copy current version of mlflow
         from mlflow.utils.file_utils import _copy_mlflow_project
         mlflow_dir = _copy_mlflow_project(mlflow._relpath())
         deps = "-d {}".format(mlflow_dir)

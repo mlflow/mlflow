@@ -25,6 +25,18 @@ def commands():
 @click.option("--run_id", "-r", default=None, help="Id of the MLflow run that contains the model.",
               required=False)
 def deploy(app_name, model_path, run_id):
+    """Deploy MLflow model to Azure ML.
+
+       This command will deploy MLflow model to Azure ML.
+
+       NOTE: This command is to be called from correctly initialized Azure ML environment.
+            At the moment this means it has to be run from console launched from Azure ML Workbench.
+            Caller is reponsible for setting up Azure ML environment and accounts.
+
+       NOTE: Azure ML can not handle any Conda environment. In particular python version seems to be
+             fixed. If the model contains Conda environment and it has been trained outside of Azure
+             ML, the Conda environment might need to be edited to work with Azure ML.
+    """
     mlflow.azureml.deploy(app_name=app_name, model_path=model_path, run_id=run_id)
 
 
@@ -36,4 +48,14 @@ def deploy(app_name, model_path, run_id):
 @click.option("--run_id", "-r", default=None, help="Id of the MLflow run that contains the model.",
               required=False)
 def export(output, model_path, run_id):
+    """Export MLflow model as Azure ML compatible model ready to be deployed.
+
+    Export MLflow model out with everything needed to deploy on Azure ML.
+    Output includes sh script with command to deploy the generated model to Azure ML.
+
+    NOTE: This command does not need Azure ML environment to run.
+
+    NOTE: Azure ML can not handle any Conda environment. If the model contains Conda environment
+    and it has been trained outside of Azure ML, the Conda environment might need to be edited.
+    """
     mlflow.azureml.export(output=output, model_path=model_path, run_id=run_id)

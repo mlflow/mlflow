@@ -76,10 +76,8 @@ def _docker_ignore(mlflow_root):
 
 def build_image(name=DEFAULT_IMAGE_NAME):
     """
-    Build new mlflow Sagemaker image and assign it given name.
-
-    This function builds a docker image defined in mlflow/sagemaker/container/Dockerfile.
-    The image is buitl locally and so it requires docker to run.
+    This function builds an mlflow docker image.
+    The image is built locally and it requires docker to run.
 
     :param name: image name
     """
@@ -139,7 +137,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
            image="mlflow_sage"):  # noqa
-    """ Deploy model on sagemaker.
+    """ Deploy model on Sagemaker.
+    Current active aws account needs to have correct permissions setup.
 
     :param app_name: Name of the deployed app.
     :param path: Path to the model.
@@ -164,7 +163,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
 
 def run_local(model_path, run_id=None, port=5000, image="mlflow_sage"):
     """
-    Serve model locally in a sagemaker compatible docker image.
+    Serve model locally in a sagemaker compatible docker container.
     :param model_path:  Path to the model.
     Either local if no run_id or mlflow-relative if run_id is specified)
     :param run_id: mlflow run id.
@@ -274,10 +273,6 @@ def _deploy(role, image, app_name, model_s3_path, run_id):
             'Environment': {},
         },
         ExecutionRoleArn=role,
-        # sagemaker.get_execution_role(),  # for accessing model artifacts &
-        # docker image. it was made with AmazonSageMakerFullAccess policy. the
-        # model object in S3 is tagged with SageMaker=true, which means this role
-        # can access it (per the policy).
         Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
     )
     print("model_arn: %s" % model_response["ModelArn"])
