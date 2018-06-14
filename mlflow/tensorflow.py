@@ -28,10 +28,8 @@ class _TFWrapper(object):
                                                         [tf.saved_model.tag_constants.SERVING], 
                                                         self._saved_model_dir)
             if not self._signature_def_name:
-                """
-                TODO: add support for replacing "predict" with 
-                #tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
-                """ 
+                # TODO: add support for replacing "predict" with 
+                # tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
                 self._signature_def_name = "predict"
             sig_def = tf.contrib.saved_model.get_signature_def_by_key(meta_graph_def, 
                                                                       self._signature_def_name)
