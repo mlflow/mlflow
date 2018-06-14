@@ -20,4 +20,4 @@ class _TFWrapper(object):
             meta_graph_def = tf.saved_model.loader.load(sess, 
                                                         [tf.saved_model.tag_constants.SERVING], 
                                                         self._saved_model_dir)
-            return meta_graph_def
+            return meta_graph_def, df
