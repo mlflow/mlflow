@@ -2,14 +2,8 @@
 
 from __future__ import absolute_import
 
-import os
-
 import pandas
 import tensorflow as tf
-
-from mlflow import pyfunc
-from mlflow.models import Model
-import mlflow.tracking
 
 
 class _TFWrapper(object):
