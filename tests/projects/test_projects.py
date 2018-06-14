@@ -30,6 +30,14 @@ def test_fetch_project():
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
                                            dst_dir=dst_dir, git_username=None, git_password=None)
+    # Passing only one of git_username, git_password results in an error
+    for username, password in [(None, "hi"), ("hi", None)]:
+        with TempDir() as dst_dir:
+            with pytest.raises(ExecutionException):
+                mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
+                                               dst_dir=dst_dir, git_username=username,
+                                               git_password=password)
+
 
 
 def test_run_mode():
