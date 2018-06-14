@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import
 
-import pandas
 import tensorflow as tf
 
 
@@ -27,3 +26,4 @@ class _TFWrapper(object):
                 self._signature_def_name = "predict"
             sig_def = tf.contrib.saved_model.get_signature_def_by_key(meta_graph_def, 
                                                                       self._signature_def_name)
+        return df, sig_def
