@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-import tensorflow as tf
+# import tensorflow as tf
 
 
 class _TFWrapper(object):
@@ -15,9 +15,10 @@ class _TFWrapper(object):
         self._signature_def_name = signature_def_name
 
     def predict(self, df):
-        graph = tf.Graph()
-        with tf.Session(graph=graph) as sess:
-            print(tf.saved_model.tag_constants.SERVING)
-            print(sess)
-            print(self._saved_model_dir)
-            return df
+        pass
+        # graph = tf.Graph()
+        # with tf.Session(graph=graph) as sess:
+        #     print(tf.saved_model.tag_constants.SERVING)
+        #     print(sess)
+        #     print(self._saved_model_dir)
+        #     return df
