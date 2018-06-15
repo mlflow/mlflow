@@ -228,3 +228,36 @@ def write_to(filename, data):
 def append_to(filename, data):
     with open(filename, "a") as handle:
         handle.write(data)
+
+def _copy_project(src_path, dst_path=""):
+    """
+    Internal function used to copy mlflow project during development.
+    The mlflow is assumed to be accessible as a local directory in this case.
+
+    :param dst_path: mlflow will be copied here
+    :return: name of the mlflow project directory
+    """
+
+    def _docker_ignore(mlflow_root):
+        docker_ignore = os.path.join(mlflow_root, '.dockerignore')
+        patterns = []
+        if os.path.exists(docker_ignore):
+            with open(docker_ignore, "r") as f:
+                patterns = [x.strip() for x in f.readlines()]
+
+        def ignore(_, names):
+            import fnmatch
+            res = set()
+            for p in patterns:
+                res.update(set(fnmatch.filter(names, p)))
+            return list(res)
+
+        return ignore if patterns else None
+
+    mlflow_dir = "mlflow-project"
+    # check if we have project root
+    assert os.path.isfile(os.path.join(src_path, "setup.py"))
+    import shutil
+    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
+                    ignore=_docker_ignore(src_path))
+    return mlflow_dir

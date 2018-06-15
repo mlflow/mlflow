@@ -22,26 +22,17 @@ import mlflow.version
 from mlflow import pyfunc
 from mlflow.models import Model
 
-_dev_flag = False
-
 
 def _init(cmd):
     """
     Initialize the container and execute command.
 
     :param cmd: Command param passed by Sagemaker. Can be  "serve" or "train" (unimplemented).
-    When running locally, it can have dev_ prefix which will reinstall mlflow from local directory.
     """
     if cmd == 'serve':
         _serve()
     elif cmd == 'train':
         _train()
-    elif cmd.startswith("dev_"):
-        # dev-mode: re-install mlflow to ensure we have the latest version
-        os.system("pip install -e /opt/mlflow/.")
-        global _dev_flag
-        _dev_flag = True
-        _init(cmd[4:])
     else:
         raise Exception("Unrecognized command {cmd}, full args = {args}".format(cmd=cmd,
                                                                                 args=str(sys.argv)))
@@ -49,8 +40,8 @@ def _init(cmd):
 
 def _server_dependencies_cmds():
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
-            "pip install -e /opt/mlflow/." if _dev_flag else
-            "pip install mlflow=={}".format(mlflow.version.version)]
+            "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow/") else
+            "pip install mlflow=={}".format(mlflow.version.VERSION)]
 
 
 def _serve():

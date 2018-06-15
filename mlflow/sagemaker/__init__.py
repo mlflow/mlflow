@@ -10,10 +10,10 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, _copy_project
 
 DEFAULT_IMAGE_NAME = "mlflow_sage"
-DEV_FLAG = "MLFLOW_DEV"
+
 
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve pyfunc model in SageMaker
@@ -74,7 +74,7 @@ def _docker_ignore(mlflow_root):
     return ignore
 
 
-def build_image(name=DEFAULT_IMAGE_NAME):
+def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
     """
     This function builds an mlflow docker image.
     The image is built locally and it requires docker to run.
@@ -84,8 +84,8 @@ def build_image(name=DEFAULT_IMAGE_NAME):
     with TempDir() as tmp:
         install_mlflow = "RUN pip install mlflow=={version}".format(version=mlflow.version.VERSION)
         cwd = tmp.path()
-        if DEV_FLAG in os.environ:
-            mlflow_dir = mlflow._copy_mlflow_project(output_dir=tmp.path())
+        if mlflow_home:
+            mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=tmp.path())
             install_mlflow = "COPY {mlflow_dir} /opt/mlflow\n RUN pip install /opt/mlflow\n"
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
 
@@ -160,7 +160,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
             run_id=run_id)
 
 
-def run_local(model_path, run_id=None, port=5000, image="mlflow_sage"):
+def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
     """
     Serve model locally in a sagemaker compatible docker container.
     :param model_path:  Path to the model.
@@ -174,34 +174,10 @@ def run_local(model_path, run_id=None, port=5000, image="mlflow_sage"):
     _check_compatible(model_path)
     model_path = os.path.abspath(model_path)
     print("launching docker image with path {}".format(model_path))
-    if "MLFLOW_DEV" in os.environ:
-        proc = Popen(["docker",
-                      "run",
-                      "-v",
-                      "{}:/opt/ml/model/".format(model_path),
-                      "-v",
-                      "{}:/opt/mlflow".format(mlflow._root_dir()),
-                      "-p",
-                      "%d:8080" % port,
-                      "--rm",
-                      image,
-                      "dev_serve"],
-                     stdout=PIPE,
-                     stderr=STDOUT,
-                     universal_newlines=True)
-    else:
-        proc = Popen(["docker",
-                      "run",
-                      "-v",
-                      "{}:/opt/ml/model/".format(model_path),
-                      "-p",
-                      "%d:8080" % port,
-                      "--rm",
-                      image,
-                      "serve"],
-                     stdout=PIPE,
-                     stderr=STDOUT,
-                     universal_newlines=True)
+    cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port,
+           "--rm", image, "serve"]
+    print('executing', ' '.join(cmd))
+    proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
     for x in iter(proc.stdout.readline, ""):
         print(x, end='', flush=True)
 

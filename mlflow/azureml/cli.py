@@ -24,7 +24,9 @@ def commands():
                    "local filesystem path without run_id.", required=True)
 @click.option("--run_id", "-r", default=None, help="Id of the MLflow run that contains the model.",
               required=False)
-def deploy(app_name, model_path, run_id):
+@click.option("--mlflow_home", default=None,
+              help="Path to local clone of mlflow project. Use for development only.")
+def deploy(app_name, model_path, run_id, mlflow_home):
     """Deploy MLflow model to Azure ML.
 
        This command will deploy MLflow model to Azure ML.
@@ -37,7 +39,8 @@ def deploy(app_name, model_path, run_id):
              fixed. If the model contains Conda environment and it has been trained outside of Azure
              ML, the Conda environment might need to be edited to work with Azure ML.
     """
-    mlflow.azureml.deploy(app_name=app_name, model_path=model_path, run_id=run_id)
+    mlflow.azureml.deploy(app_name=app_name, model_path=model_path, run_id=run_id,
+                          mlflow_home=mlflow_home)
 
 
 @commands.command("export")
@@ -47,7 +50,9 @@ def deploy(app_name, model_path, run_id):
                    "local filesystem path without run_id.", required=True)
 @click.option("--run_id", "-r", default=None, help="Id of the MLflow run that contains the model.",
               required=False)
-def export(output, model_path, run_id):
+@click.option("--mlflow_home", default=None,
+              help="Path to local clone of mlflow project. Use for development only.")
+def export(output, model_path, run_id, mlflow_home):
     """Export MLflow model as Azure ML compatible model ready to be deployed.
 
     Export MLflow model out with everything needed to deploy on Azure ML.
@@ -58,4 +63,5 @@ def export(output, model_path, run_id):
     NOTE: Azure ML can not handle any Conda environment. If the model contains Conda environment
     and it has been trained outside of Azure ML, the Conda environment might need to be edited.
     """
-    mlflow.azureml.export(output=output, model_path=model_path, run_id=run_id)
+    mlflow.azureml.export(output=output, model_path=model_path, run_id=run_id,
+                          mlflow_home=mlflow_home)

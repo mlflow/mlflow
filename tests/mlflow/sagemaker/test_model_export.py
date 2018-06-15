@@ -36,7 +36,9 @@ class TestModelExport(unittest.TestCase):
         os.environ[mlflow.sagemaker.DEV_FLAG] = "1"
         os.environ["LC_ALL"] = "en_US.UTF-8"
         os.environ["LANG"] = "en_US.UTF-8"
-        mlflow.sagemaker.build_image()
+        mlflow_root = os.environ.get("MLFLOW_HOME") if "MLFLOW_HOME" in os.environ else None
+        print("Building mlflow Docker image with MLFLOW_HOME =", mlflow_root)
+        mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
     def test_model_export(self):
         with TempDir(chdr=True, remove_on_exit=True) as tmp:

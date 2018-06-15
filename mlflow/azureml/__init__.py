@@ -11,7 +11,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.version import VERSION as mlflow_version
 
 
-def deploy(app_name, model_path, run_id):
+def deploy(app_name, model_path, run_id, mlflow_home):
     """Deploy MLflow model to Azure ML.
 
     This command will deploy MLflow model to Azure ML.
@@ -32,7 +32,7 @@ def deploy(app_name, model_path, run_id):
         model_path = _get_model_log_dir(model_path, run_id)
     model_path = os.path.abspath(model_path)
     with TempDir(chdr=True, remove_on_exit=True):
-        exec_str = _export(app_name, model_path)
+        exec_str = _export(app_name, model_path, mlflow_home=mlflow_home)
         print("executing", '"{}"'.format(exec_str))
         # Use os.system instead of subprocess due to the fact that currently all azureml commands
         # have to be called within the same shell (launched from azureml workbench app by the user).
@@ -40,7 +40,7 @@ def deploy(app_name, model_path, run_id):
         os.system(exec_str)
 
 
-def export(output, model_path, run_id):
+def export(output, model_path, run_id, mlflow_home):
     """Export MLflow model as Azure ML compatible model ready to be deployed.
 
     Export MLflow model out with everything needed to deploy on Azure ML.
@@ -65,14 +65,14 @@ def export(output, model_path, run_id):
     curr_dir = os.path.abspath(os.getcwd())
     os.chdir(output)
     try:
-        exec_str = _export("$1", model_path)
+        exec_str = _export("$1", model_path, mlflow_home=mlflow_home)
         with open("create_service.sh", "w") as f:
             f.write("\n".join(["#! /bin/sh", "cd {}".format(output), exec_str, ""]))
     finally:
         os.chdir(curr_dir)
 
 
-def _export(app_name, model_path):
+def _export(app_name, model_path, mlflow_home):
     conf = _load_conf(model_path)
     score_py = "score.py"  # NOTE: azure ml requires the main module to be in the current directory
 
@@ -82,9 +82,9 @@ def _export(app_name, model_path):
     deps = ""
     mlflow_dep = "mlflow=={}".format(mlflow_version)
 
-    if "MLFLOW_DEV" in os.environ:
-        # dev-mode, copy current version of mlflow
-        mlflow_dir = mlflow._copy_mlflow_project(output_dir="./")
+    if mlflow_home:
+        # copy current version of mlflow
+        mlflow_dir = mlflow.utils.file_utils._copy_project(src_path=mlflow_home, dst_path="./")
         deps = "-d {}".format(mlflow_dir)
         mlflow_dep = "-e /var/azureml-app/{}".format(mlflow_dir)
 

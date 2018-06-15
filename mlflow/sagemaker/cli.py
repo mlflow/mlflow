@@ -4,7 +4,7 @@ import click
 
 import mlflow
 import mlflow.sagemaker
-
+from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 
 @click.group("sagemaker")
 def commands():
@@ -33,8 +33,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
 @click.option("--model-path", "-m", help="model path", required=True)
 @click.option("--run_id", "-r", default=None, help="Run id")
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-@click.option("--container", "-c", default="mlflow_sage", help="container name")
-def run_local(model_path, run_id=None, port=5000, container="mlflow_sage"):
+@click.option("--container", "-c", default=IMAGE, help="container name")
+def run_local(model_path, run_id, port, container):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
     """
@@ -44,8 +44,10 @@ def run_local(model_path, run_id=None, port=5000, container="mlflow_sage"):
 @commands.command("build-and-push-container")
 @click.option("--build/--skip-build", default=True, help="build the container if set")
 @click.option("--push/--skip-push", default=True, help="push the container to amazon ecr if set")
-@click.option("--container", "-c", default="mlflow_sage", help="container name")
-def build_and_push_container(build=False, push=True, container=mlflow.sagemaker.DEFAULT_IMAGE_NAME):
+@click.option("--container", "-c", default=IMAGE, help="image name")
+@click.option("--mlflow_home", default=None,
+              help="Path to local clone of mlflow project. Use for development only.")
+def build_and_push_container(build, push, container, mlflow_home):
     """
     Build new mlflow Sagemaker image, assign it given name and push to ecr.
 
@@ -56,6 +58,6 @@ def build_and_push_container(build=False, push=True, container=mlflow.sagemaker.
     if not (build or push):
         print("skipping both build nad push, have nothing to do!")
     if build:
-        mlflow.sagemaker.build_image(container)
+        mlflow.sagemaker.build_image(container, mlflow_home=mlflow_home)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)
