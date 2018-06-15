@@ -229,6 +229,7 @@ def append_to(filename, data):
     with open(filename, "a") as handle:
         handle.write(data)
 
+
 def _copy_project(src_path, dst_path=""):
     """
     Internal function used to copy mlflow project during development.
@@ -256,8 +257,8 @@ def _copy_project(src_path, dst_path=""):
 
     mlflow_dir = "mlflow-project"
     # check if we have project root
-    assert os.path.isfile(os.path.join(src_path, "setup.py"))
-    import shutil
+    assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
+        os.path.abspath(os.path.join(src_path, "setup.py")))
     shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
                     ignore=_docker_ignore(src_path))
     return mlflow_dir

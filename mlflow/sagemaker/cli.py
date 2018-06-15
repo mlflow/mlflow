@@ -1,10 +1,13 @@
 from __future__ import print_function
 
+import os
+
 import click
 
 import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
+
 
 @click.group("sagemaker")
 def commands():
@@ -58,6 +61,8 @@ def build_and_push_container(build, push, container, mlflow_home):
     if not (build or push):
         print("skipping both build nad push, have nothing to do!")
     if build:
-        mlflow.sagemaker.build_image(container, mlflow_home=mlflow_home)
+        mlflow.sagemaker.build_image(container,
+                                     mlflow_home=os.path.abspath(mlflow_home) if mlflow_home
+                                     else None)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

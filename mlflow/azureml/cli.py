@@ -3,6 +3,8 @@ CLI for azureml module.
 """
 from __future__ import print_function
 
+import os
+
 import click
 
 import mlflow
@@ -40,7 +42,7 @@ def deploy(app_name, model_path, run_id, mlflow_home):
              ML, the Conda environment might need to be edited to work with Azure ML.
     """
     mlflow.azureml.deploy(app_name=app_name, model_path=model_path, run_id=run_id,
-                          mlflow_home=mlflow_home)
+                          mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None)
 
 
 @commands.command("export")
@@ -64,4 +66,4 @@ def export(output, model_path, run_id, mlflow_home):
     and it has been trained outside of Azure ML, the Conda environment might need to be edited.
     """
     mlflow.azureml.export(output=output, model_path=model_path, run_id=run_id,
-                          mlflow_home=mlflow_home)
+                          mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None)

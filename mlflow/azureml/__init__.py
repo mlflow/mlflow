@@ -83,6 +83,9 @@ def _export(app_name, model_path, mlflow_home):
     mlflow_dep = "mlflow=={}".format(mlflow_version)
 
     if mlflow_home:
+        print("***")
+        print("MLFLOW_HOME =", mlflow_home)
+        print("***")
         # copy current version of mlflow
         mlflow_dir = mlflow.utils.file_utils._copy_project(src_path=mlflow_home, dst_path="./")
         deps = "-d {}".format(mlflow_dir)
