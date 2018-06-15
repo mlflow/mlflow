@@ -32,7 +32,9 @@ install:
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
+  - export MLFLOW_HOME=$(pwd)
 script:
   - pip list
   - which mlflow
+  - echo $MLFLOW_HOME
   - tox
