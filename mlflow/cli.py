@@ -64,10 +64,6 @@ def _encode(string_val):
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
-@click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
-              help="Username for HTTP(S) Git authentication.")
-@click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
-              help="Password for HTTP(S) Git authentication.")
 @click.option("--no-conda", is_flag=True,
               help="If specified, will assume that MLflow is running within a Conda environment "
                    "with the necessary dependencies for the current project instead of attempting "
@@ -78,12 +74,17 @@ def _encode(string_val):
                    "runs it from there. Otherwise, uses `uri` as the working directory when "
                    "running the project. Note that Git projects are always run from a temporary "
                    "working directory.")
-@click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
+@click.option("--storage-dir",
               help="Only valid when `mode` is local."
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
-def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, new_dir, storage_dir):
+@click.option("--tracking-uri",
+              help="Optional URI of tracking server against which to record a run. Defaults to "
+                   "${0}. If ${0} is unset, uses the local ./mlruns directory if running in local "
+                   "mode, or raises an exception if running on Databricks."
+                   "".format(tracking._TRACKING_URI_ENV_VAR))
+def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, no_conda,
+        new_dir, storage_dir, tracking_uri):
     """
     Run an MLflow project from the given URI.
 
@@ -109,10 +110,9 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
         projects.run(_encode(uri), _encode(entry_point), _encode(version),
                      experiment_id=experiment_id,
                      parameters=param_dict, mode=_encode(mode),
-                     cluster_spec=_encode(cluster_spec),
-                     git_username=_encode(git_username),
-                     git_password=_encode(git_password), use_conda=(not no_conda),
-                     use_temp_cwd=new_dir, storage_dir=_encode(storage_dir))
+                     cluster_spec=_encode(cluster_spec), use_conda=(not no_conda),
+                     use_temp_cwd=new_dir, storage_dir=_encode(storage_dir),
+                     tracking_uri=tracking_uri)
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)

@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import uuid
 
 from distutils import dir_util
 import git
@@ -22,6 +23,9 @@ import mlflow.tracking as tracking
 from mlflow.utils import process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
+import databricks_cli
+from databricks_cli.sdk.api_client import ApiClient
+from databricks_cli.dbfs.api import DbfsApi
 
 class ExecutionException(Exception):
     pass
@@ -157,14 +161,15 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
-    result = ["/databricks/mlflow-run.sh"]
-    result.extend(["mlflow", "run", uri, "--entry-point", entry_point])
+    mlflow_run_cmd = ["mlflow", "run", uri, "--entry-point", entry_point]
     if version is not None:
-        result.extend(["--version", version])
+        mlflow_run_cmd.extend(["--version", version])
     if parameters is not None:
         for key, value in parameters.items():
-            result.extend(["-P", "%s=%s" % (key, value)])
-    return result
+            mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
+    mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
+    return ["bash", "-c", "export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin && %s"
+            % mlflow_run_str]
 
 
 def _get_db_hostname_and_auth():
@@ -183,34 +188,59 @@ def _get_db_hostname_and_auth():
         config = provider.get_config_for_profile(provider.DEFAULT_SECTION)
         return config.host, config.token, config.username, config.password
 
+#
+# def _upload_to_dbfs(username, password, host, token, src, dst):
+#     api_client = ApiClient(user=username, password=password, host=host, token=token, verify=False)
+#     dbfs = DbfsApi(api_client)
+#     from databricks_cli.dbfs import cli
+#     cli.copy_to_dbfs_recursive(dbfs_api=dbfs, src=src, dbfs_path_dst=dst, overwrite=False)
+
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                    git_username, git_password):
+                    tracking_uri):
     hostname, token, username, password, = _get_db_hostname_and_auth()
-    auth = (username, password) if username is not None and password is not None else None
+    work_dir = _get_work_dir(uri, use_temp_cwd=False)
+    try:
+        _fetch_project(uri, version, work_dir)
+        remote_dirname = uuid.uuid4().hex
+        dbfs_uri = os.path.join("dbfs:/", remote_dirname)
+        eprint("==== Uploading project fetched from %s to DBFS path %s ====" % (uri, dbfs_uri))
+        
+        # _upload_to_dbfs(username=username, password=password, host=hostname, token=token,
+        #                 src=work_dir, dst=dbfs_uri)
+        eprint("==== Finished uploading project to %s ====" % dbfs_uri)
+    finally:
+        if work_dir != uri:
+            shutil.rmtree(work_dir)
+
+    final_tracking_uri = tracking_uri or os.environ.get(tracking._TRACKING_URI_ENV_VAR, None)
+    if final_tracking_uri is None:
+        raise ExecutionException("Tracking URI must be specified for Databricks execution")
     # Read cluster spec from file
     with open(cluster_spec, 'r') as handle:
         cluster_spec = json.load(handle)
     # Make jobs API request to launch run.
-    env_vars = {"MLFLOW_GIT_URI": uri}
-    if git_username is not None:
-        env_vars["MLFLOW_GIT_USERNAME"] = git_username
-    if git_password is not None:
-        env_vars["MLFLOW_GIT_PASSWORD"] = git_password
+    env_vars = {"MLFLOW_GIT_URI": uri, tracking._TRACKING_URI_ENV_VAR: final_tracking_uri}
     # Pass experiment ID to shell job on Databricks as an environment variable.
     if experiment_id is not None:
         eprint("=== Using experiment ID %s ===" % experiment_id)
         env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
+    # Used for testing: if MLFLOW_REMOTE_VERSION is set, attach that version of MLflow to
+    # the Databricks cluster. Otherwise, just use the current MLflow version.
+    mlflow_lib_string = os.environ.get("MLFLOW_REMOTE_VERSION", "mlflow==%s" % VERSION)
+    fuse_dst_dir = "/dbfs/%s" % remote_dirname
     req_body_json = {
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,
         'shell_command_task': {
-            'command': _get_databricks_run_cmd(uri, entry_point, version, parameters),
+            'command': _get_databricks_run_cmd(fuse_dst_dir, entry_point, version, parameters),
             "env_vars": env_vars
         },
-        "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
+        "libraries": [{"pypi": {"package": mlflow_lib_string}}]
     }
+    # Run on Databricks
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
+    auth = (username, password) if username is not None and password is not None else None
     run_submit_res = rest_utils.databricks_api_request(
         hostname=hostname, endpoint="jobs/runs/submit", token=token, auth=auth, method="POST",
         req_body_json=req_body_json)
@@ -225,7 +255,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
-               storage_dir, git_username, git_password):
+               storage_dir, tracking_uri):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -238,19 +268,20 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     work_dir = _get_work_dir(uri, use_temp_cwd)
     eprint("=== Work directory for this run: %s ===" % work_dir)
     expanded_uri = _expand_uri(uri)
-    _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
+    _fetch_project(expanded_uri, version, work_dir)
 
     # Load the MLproject file
     spec_file = os.path.join(work_dir, "MLproject")
     if not os.path.isfile(spec_file):
         raise ExecutionException("No MLproject file found in %s" % uri)
     project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
-    _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
+    _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
+                 experiment_id, tracking_uri)
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        use_temp_cwd=False, storage_dir=None):
+        mode=None, cluster_spec=None, use_conda=True, use_temp_cwd=False, storage_dir=None,
+        tracking_uri=None):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -265,8 +296,6 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param mode: Execution mode for the run. Can be set to "databricks" or "local"
     :param cluster_spec: Path to JSON file describing the cluster to use when launching a run on
                          Databricks.
-    :param git_username: Username for HTTP(S) authentication with Git.
-    :param git_password: Password for HTTP(S) authentication with Git.
     :param use_conda: If True (the default), creates a new Conda environment for the run and
                       installs project dependencies within that environment. Otherwise, runs the
                       project in the current environment without installing any project
@@ -278,15 +307,18 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param storage_dir: Only used if `mode` is local. MLflow will download artifacts from
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
+    :param tracking_uri: Optional URI of tracking server against which to record a run. If
+                         unspecified, the value of $MLFLOW_TRACKING_URI will be used, or the
+                         local ./mlruns directory if $MLFLOW_TRACKING_URI is unspecified.
     """
     if mode is None or mode == "local":
         _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                    experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
-                   storage_dir=storage_dir, git_username=git_username, git_password=git_password)
+                   storage_dir=storage_dir, tracking_uri=tracking_uri)
     elif mode == "databricks":
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                         experiment_id=experiment_id, cluster_spec=cluster_spec,
-                        git_username=git_username, git_password=git_password)
+                        tracking_uri=tracking_uri)
     else:
         supported_modes = ["local", "databricks"]
         raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -321,11 +353,11 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version, dst_dir, git_username, git_password):
+def _fetch_project(uri, version, dst_dir):
     """Download a project to the target `dst_dir` from a Git URI or local path."""
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
-        _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
+        _fetch_git_repo(uri, version, dst_dir)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
@@ -340,25 +372,14 @@ def _fetch_project(uri, version, dst_dir, git_username, git_password):
     shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
 
 
-def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
+def _fetch_git_repo(uri, version, dst_dir):
     """
     Clones the git repo at `uri` into `dst_dir`, checking out commit `version` (or defaulting
-    to the head commit of the repository's master branch if version is unspecified). If git_username
-    and git_password are specified, uses them to authenticate while fetching the repo. Otherwise,
-    assumes authentication parameters are specified by the environment, e.g. by a Git credential
-    helper.
+    to the head commit of the repository's master branch if version is unspecified). Assumes
+    authentication parameters are specified by the environment, e.g. by a Git credential helper.
     """
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    git_args = [git_username, git_password]
-    if not (all(arg is not None for arg in git_args) or all(arg is None for arg in git_args)):
-        raise ExecutionException("Either both or neither of git_username and git_password must be "
-                                 "specified.")
-    if git_username:
-        git_credentials = "url=%s\nusername=%s\npassword=%s" % (uri, git_username, git_password)
-        repo.git.config("--local", "credential.helper", "cache")
-        process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
-                         cmd_stdin=git_credentials)
     origin.fetch()
     if version is not None:
         repo.git.checkout(version)
@@ -390,7 +411,8 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id):
+def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
+                 experiment_id, tracking_uri):
     """Locally run a project that has been checked out in `work_dir`."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
@@ -405,6 +427,7 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
     # Create a new run and log every provided parameter into it.
+    tracking.set_tracking_uri(tracking_uri)
     active_run = tracking.start_run(experiment_id=experiment_id,
                                     source_name=project.uri,
                                     source_version=tracking._get_git_commit(work_dir),
