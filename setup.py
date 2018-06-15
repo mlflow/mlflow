@@ -33,8 +33,6 @@ setup(
         'uuid',
         'gitpython',
         'Flask',
-        'pygal',
-        'zipstream',
         'numpy',
         'pandas',
         'scipy',
