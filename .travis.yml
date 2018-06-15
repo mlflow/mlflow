@@ -1,8 +1,8 @@
 sudo: true
 language: python
 
-#services:
-#  - docker
+services:
+  - docker
 
 matrix:
   include:
