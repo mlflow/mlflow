@@ -10,4 +10,4 @@ pytest==3.2.1
 pytest-cov
 rstcheck==3.2
 scipy
-tensorflow
+
