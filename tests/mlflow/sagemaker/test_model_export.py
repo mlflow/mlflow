@@ -33,7 +33,6 @@ class TestModelExport(unittest.TestCase):
         self._linear_lr = glm.LogisticRegression()
         self._linear_lr.fit(self._X, self._y)
         self._linear_lr_predict = self._linear_lr.predict(self._X)
-        os.environ[mlflow.sagemaker.DEV_FLAG] = "1"
         os.environ["LC_ALL"] = "en_US.UTF-8"
         os.environ["LANG"] = "en_US.UTF-8"
         mlflow_root = os.environ.get("MLFLOW_HOME") if "MLFLOW_HOME" in os.environ else None
