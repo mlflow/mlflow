@@ -37,7 +37,6 @@ class TestModelExport(unittest.TestCase):
         self._linear_lr = sklearn.linear_model.LogisticRegression()
         self._linear_lr.fit(self._X, self._y)
         self._linear_lr_predict = self._linear_lr.predict(self._X)
-        print('clazz', type(self._linear_lr_predict))
 
     def test_model_save_load(self):
         with TempDir() as tmp:
@@ -82,6 +81,7 @@ class TestModelExport(unittest.TestCase):
                 np.testing.assert_array_equal(self._linear_lr_predict, xpred)
             finally:
                 tracking.end_run()
+                tracking.set_tracking_uri(None)
                 # Remove the log directory in order to avoid adding new tests to pytest...
                 shutil.rmtree(tracking_dir)
 
