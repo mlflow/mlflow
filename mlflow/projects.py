@@ -23,9 +23,6 @@ import mlflow.tracking as tracking
 from mlflow.utils import process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
-import databricks_cli
-from databricks_cli.sdk.api_client import ApiClient
-from databricks_cli.dbfs.api import DbfsApi
 
 class ExecutionException(Exception):
     pass
@@ -188,13 +185,6 @@ def _get_db_hostname_and_auth():
         config = provider.get_config_for_profile(provider.DEFAULT_SECTION)
         return config.host, config.token, config.username, config.password
 
-#
-# def _upload_to_dbfs(username, password, host, token, src, dst):
-#     api_client = ApiClient(user=username, password=password, host=host, token=token, verify=False)
-#     dbfs = DbfsApi(api_client)
-#     from databricks_cli.dbfs import cli
-#     cli.copy_to_dbfs_recursive(dbfs_api=dbfs, src=src, dbfs_path_dst=dst, overwrite=False)
-
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                     tracking_uri):
@@ -202,10 +192,12 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     work_dir = _get_work_dir(uri, use_temp_cwd=False)
     try:
         _fetch_project(uri, version, work_dir)
+        project = _load_project(work_dir, uri)
+        project.get_entry_point(entry_point)._validate_parameters(parameters)
         remote_dirname = uuid.uuid4().hex
         dbfs_uri = os.path.join("dbfs:/", remote_dirname)
         eprint("==== Uploading project fetched from %s to DBFS path %s ====" % (uri, dbfs_uri))
-        
+        process.exec_cmd(cmd=["databricks", "fs", "cp", "-r", work_dir, dbfs_uri])
         # _upload_to_dbfs(username=username, password=password, host=hostname, token=token,
         #                 src=work_dir, dst=dbfs_uri)
         eprint("==== Finished uploading project to %s ====" % dbfs_uri)
@@ -254,6 +246,14 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
 
 
+def _load_project(project_dir, uri):
+    expanded_uri = _expand_uri(uri)
+    spec_file = os.path.join(project_dir, "MLproject")
+    if not os.path.isfile(spec_file):
+        raise ExecutionException("No MLproject file found in %s" % uri)
+    return Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
+
+
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
                storage_dir, tracking_uri):
     """
@@ -267,14 +267,10 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     # Get the working directory to use for running the project & download it there
     work_dir = _get_work_dir(uri, use_temp_cwd)
     eprint("=== Work directory for this run: %s ===" % work_dir)
-    expanded_uri = _expand_uri(uri)
-    _fetch_project(expanded_uri, version, work_dir)
+    _fetch_project(uri, version, work_dir)
 
     # Load the MLproject file
-    spec_file = os.path.join(work_dir, "MLproject")
-    if not os.path.isfile(spec_file):
-        raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
+    project = _load_project(work_dir, uri)
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
                  experiment_id, tracking_uri)
 
