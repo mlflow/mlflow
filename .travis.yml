@@ -32,7 +32,8 @@ install:
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
-  - find .
+  - export MLFLOW_HOME=$(pwd)
+  - echo $MLFLOW_HOME
 script:
   - pip list
   - which mlflow

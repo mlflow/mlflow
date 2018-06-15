@@ -85,9 +85,8 @@ def build_image(name=DEFAULT_IMAGE_NAME):
         install_mlflow = "RUN pip install mlflow=={version}".format(version=mlflow.version.VERSION)
         cwd = tmp.path()
         if DEV_FLAG in os.environ:
-            from mlflow.utils.file_utils import _copy_mlflow_project
-            mlflow_dir = _copy_mlflow_project(mlflow._relpath(), tmp.path())
-            install_mlflow = "COPY {mlflow_dir} /opt/mlflow\n RUN pip install -e /opt/mlflow\n"
+            mlflow_dir = mlflow._copy_mlflow_project(output_dir=tmp.path())
+            install_mlflow = "COPY {mlflow_dir} /opt/mlflow\n RUN pip install /opt/mlflow\n"
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
@@ -181,7 +180,7 @@ def run_local(model_path, run_id=None, port=5000, image="mlflow_sage"):
                       "-v",
                       "{}:/opt/ml/model/".format(model_path),
                       "-v",
-                      "{}:/opt/mlflow".format(os.path.dirname(mlflow._relpath())),
+                      "{}:/opt/mlflow".format(mlflow._root_dir()),
                       "-p",
                       "%d:8080" % port,
                       "--rm",

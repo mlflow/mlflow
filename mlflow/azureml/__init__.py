@@ -84,8 +84,7 @@ def _export(app_name, model_path):
 
     if "MLFLOW_DEV" in os.environ:
         # dev-mode, copy current version of mlflow
-        from mlflow.utils.file_utils import _copy_mlflow_project
-        mlflow_dir = _copy_mlflow_project(mlflow._relpath())
+        mlflow_dir = mlflow._copy_mlflow_project(output_dir="./")
         deps = "-d {}".format(mlflow_dir)
         mlflow_dep = "-e /var/azureml-app/{}".format(mlflow_dir)
 
