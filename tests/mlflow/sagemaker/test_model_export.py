@@ -42,30 +42,43 @@ class TestModelExport(unittest.TestCase):
         mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
     def test_model_export(self):
-        with TempDir(chdr=True) as tmp:
-            model_pkl = tmp.path("model.pkl")
-            with open(model_pkl, "wb") as f:
-                pickle.dump(self._linear_lr, f)
-            input_path = tmp.path("input_model")
-            pyfunc.save_model(input_path, loader_module="test_model_export", code_path=[__file__],
-                              data_path=model_pkl)
+        try:
+            to_remove = None
+            with TempDir(chdr=True, remove_on_exit=False) as tmp:
+                to_remove = os.path.dirname(os.path.abspath("./"))
+                model_pkl = tmp.path("model.pkl")
+                with open(model_pkl, "wb") as f:
+                    pickle.dump(self._linear_lr, f)
+                input_path = tmp.path("input_model")
+                pyfunc.save_model(input_path, loader_module="test_model_export",
+                                  code_path=[__file__],
+                                  data_path=model_pkl)
 
-            proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', input_path], stdout=PIPE,
-                         stderr=STDOUT, universal_newlines=True)
+                proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', input_path], stdout=PIPE,
+                             stderr=STDOUT, universal_newlines=True)
 
-            for x in iter(proc.stdout.readline, ""):
-                print(x)
-                if "Booting worker with pid" in x:
-                    break
-            self.assertTrue(proc.poll() is None, "scoring process died")
-            import requests
-            x = self._iris_df.to_dict(orient='records')
-            y = requests.post(url='http://localhost:5000/invocations', json=x)
-            import json
-            xpred = json.loads(y.content)
-            print('expected', self._linear_lr_predict)
-            print('actual  ', xpred)
-            np.testing.assert_array_equal(self._linear_lr_predict, xpred)
+                for x in iter(proc.stdout.readline, ""):
+                    print(x)
+                    if "Booting worker with pid" in x:
+                        break
+                self.assertTrue(proc.poll() is None, "scoring process died")
+                import requests
+                x = self._iris_df.to_dict(orient='records')
+                y = requests.post(url='http://localhost:5000/invocations', json=x)
+                import json
+                xpred = json.loads(y.content)
+                print('expected', self._linear_lr_predict)
+                print('actual  ', xpred)
+                np.testing.assert_array_equal(self._linear_lr_predict, xpred)
+        finally:
+            # TODO removing here inside of try-catch because this test was failing in travis
+            # somehow it did not have permissions to remove the dir. Works fine locally
+            try:
+                if to_remove:
+                    import shutil
+                    shutil.rmtree(to_remove)
+            except:  # noqa
+                print("Failed to remove temp dir {}".format(to_remove))
 
 
 if __name__ == '__main__':

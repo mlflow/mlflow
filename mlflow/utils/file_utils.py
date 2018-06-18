@@ -169,11 +169,8 @@ class TempDir(object):
             os.chdir(self._dir)
             self._dir = None
         if self._remove and os.path.exists(self._path):
-            try:
-                shutil.rmtree(self._path)
-            except:  # noqa
-                print("removal of {} failed".format(self._path))
-                return
+            shutil.rmtree(self._path)
+
         assert not self._remove or not os.path.exists(self._path)
         assert os.path.exists(os.getcwd())
 
