@@ -37,7 +37,8 @@ class TestModelExport(unittest.TestCase):
         os.environ["LANG"] = "en_US.UTF-8"
         mlflow_root = os.environ.get("MLFLOW_HOME") if "MLFLOW_HOME" in os.environ \
             else "/home/travis/build/databricks/mlflow"
-        print("ENV " + os.environ.keys())
+        if "MLFLOW_HOME" not in os.environ:
+            print("ENV " + str(os.environ.keys()))
         print("Building mlflow Docker image with MLFLOW_HOME =", mlflow_root)
         mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
