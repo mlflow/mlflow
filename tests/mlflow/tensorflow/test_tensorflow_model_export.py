@@ -47,6 +47,10 @@ class TestModelExport(unittest.TestCase):
 
     def test_log_saved_model(self):
         with TempDir(chdr=False, remove_on_exit=True) as tmp:
+            # Setting the logging such that it is in the temp folder and deleted after the test.
+            old_tracking_dir = tracking.get_tracking_uri()
+            tracking_dir = os.path.abspath(tmp.path("mlruns"))
+            tracking.set_tracking_uri("file://%s" % tracking_dir)
             tracking.start_run()
             try:
                 # Creating dict of features names (str) to placeholders (tensors)
@@ -78,4 +82,6 @@ class TestModelExport(unittest.TestCase):
                 # Asserting that the loaded model predictions are as expected.
                 np.testing.assert_array_equal(saved, loaded)
             finally:
+                # Restoring the old logging location.
                 tracking.end_run()
+                tracking.set_tracking_uri(old_tracking_dir)
