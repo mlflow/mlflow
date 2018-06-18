@@ -21,7 +21,10 @@ class _TFWrapper(object):
         self._saved_model_dir = saved_model_dir
         model = Model.load(saved_model_dir)
         assert "tensorflow" in model.flavors
-        self._signature_def_key = model.flavors["tensorflow"]["signature_def_key"]
+        if not "signature_def_key" in model.flavors["tensorflow"]:
+            self._signature_def_key = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
+        else:
+            self._signature_def_key = model.flavors["tensorflow"]["signature_def_key"]
 
     def predict(self, df):
         graph = tf.Graph()
@@ -29,8 +32,6 @@ class _TFWrapper(object):
             meta_graph_def = tf.saved_model.loader.load(sess, 
                                                         [tf.saved_model.tag_constants.SERVING], 
                                                         self._saved_model_dir)
-            if not self._signature_def_key:
-                self._signature_def_key = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
             sig_def = tf.contrib.saved_model.get_signature_def_by_key(meta_graph_def, 
                                                                       self._signature_def_key)
 
