@@ -44,6 +44,7 @@ class TestModelExport(unittest.TestCase):
     def test_model_export(self):
         try:
             to_remove = None
+            proc = None
             with TempDir(chdr=True, remove_on_exit=False) as tmp:
                 to_remove = os.path.abspath("./")
                 model_pkl = tmp.path("model.pkl")
@@ -65,6 +66,7 @@ class TestModelExport(unittest.TestCase):
                 import requests
                 x = self._iris_df.to_dict(orient='records')
                 print('ping', requests.get(url='http://localhost:5000/ping'))
+
                 y = requests.post(url='http://localhost:5000/invocations', json=x)
                 import json
                 xpred = json.loads(y.content)
@@ -74,7 +76,14 @@ class TestModelExport(unittest.TestCase):
         finally:
             # TODO removing here inside of try-catch because this test was failing in travis
             # somehow it did not have permissions to remove the dir. Works fine locally
+            if proc:
+                try:
+                    proc.kill()
+                    print(proc.stdout.read())
+                except:  # noqa
+                    print("Failed to kill scoring process")
             try:
+
                 if to_remove:
                     import shutil
                     shutil.rmtree(to_remove)
