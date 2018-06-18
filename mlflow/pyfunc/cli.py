@@ -16,7 +16,7 @@ def commands():
 
 
 @commands.command("serve")
-@click.option("--model-path", "-m,", help="model path", required=True)
+@click.option("--model-path", "-m", help="model path", required=True)
 @click.option("--run_id", "-r", default=None, help="run_id")
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 def serve(model_path, run_id, port):
