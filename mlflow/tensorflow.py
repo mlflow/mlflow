@@ -18,13 +18,15 @@ class _TFWrapper(object):
     predict(data: pandas.DataFrame) -> pandas.DataFrame
     """
     def __init__(self, saved_model_dir):
-        self._saved_model_dir = saved_model_dir
-        model = Model.load(saved_model_dir)
+        model = Model.load(os.path.join(saved_model_dir, "MLmodel"))
         assert "tensorflow" in model.flavors
         if not "signature_def_key" in model.flavors["tensorflow"]:
             self._signature_def_key = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
         else:
             self._signature_def_key = model.flavors["tensorflow"]["signature_def_key"]
+        for i in model.flavors["tensorflow"]:
+            print(i)
+        self._saved_model_dir = model.flavors["tensorflow"]["saved_model_dir"]
 
     def predict(self, df):
         graph = tf.Graph()
@@ -66,7 +68,9 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
     run_id = mlflow.tracking.active_run().info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow")
-    mlflow_model.add_flavor("tensorflow", signature_def_key=signature_def_key)
+    mlflow_model.add_flavor("tensorflow", 
+                            saved_model_dir=saved_model_dir, 
+                            signature_def_key=signature_def_key)
     mlflow_model.save(os.path.join(saved_model_dir, "MLmodel"))
     mlflow.tracking.log_artifacts(saved_model_dir, artifact_path)
 
