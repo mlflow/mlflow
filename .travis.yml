@@ -27,6 +27,7 @@ install:
   - pip install .
   - pip install -r dev-requirements.txt
 script:
+  - ./lint.sh
   - pip list
   - which mlflow
   - tox

@@ -137,6 +137,7 @@ def ui(file_store_path, host):
 
 
 cli.add_command(mlflow.sklearn.commands)
+cli.add_command(mlflow.sklearn.commands)
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)

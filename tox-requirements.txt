@@ -1,11 +1,13 @@
 # Test reqs
 prospector[with_pyroma]==0.12.7
-pylint==1.8.2
-pytest==3.2.1
-mock==2.0.0
-rstcheck==3.2
-pytest-cov
+
 codecov
-scipy
-pyspark
+mock==2.0.0
 pyarrow
+pylint==1.8.2
+pyspark
+pytest==3.2.1
+pytest-cov
+rstcheck==3.2
+scipy
+tensorflow
