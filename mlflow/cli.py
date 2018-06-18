@@ -132,7 +132,6 @@ def ui(file_store_path):
     server.app.run("0.0.0.0")
 
 
-cli.add_command(mlflow.tensorflow.commands)
 cli.add_command(mlflow.sklearn.commands)
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
