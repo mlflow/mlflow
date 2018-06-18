@@ -128,6 +128,10 @@ disable=print-statement,
         dict-items-not-iterating,
         dict-keys-not-iterating,
         dict-values-not-iterating,
+        # For MLflow, ignore "convention" and "refactor" message types
+        # (see all message types at https://docs.pylint.org/en/1.6.0/tutorial.html#getting-started)
+        C,
+        R,
         # Additional style-check messages disabled for MLflow
         invalid-name,
         no-else-return,
@@ -137,6 +141,9 @@ disable=print-statement,
         too-many-locals,
         too-many-arguments,
         too-many-return-statements,
+        fixme,
+        global-statement,
+        no-member, # disabled due to https://github.com/PyCQA/pylint/issues/1864
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

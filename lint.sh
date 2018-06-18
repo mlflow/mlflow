@@ -5,6 +5,6 @@ set -e
 FWDIR="$(cd "`dirname $0`"; pwd)"
 cd "$FWDIR"
 
-prospector --profile "$FWDIR/prospector.yaml" -i "example"
+pylint --rcfile="$FWDIR/pylintrc" mlflow
 
 rstcheck README.rst
