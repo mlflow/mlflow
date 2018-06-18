@@ -91,7 +91,7 @@ def serve_model(model_path, run_id=None, port=None, host="127.0.0.1"):
     app = flask.Flask(__name__)
 
     @app.route('/invocations', methods=['POST'])
-    def predict():  # noqa
+    def predict():  # pylint: disable=unused-variable
         if flask.request.content_type != 'application/json':
             return flask.Response(status=415, response='JSON data expected', mimetype='text/plain')
         data = flask.request.data.decode('utf-8')
