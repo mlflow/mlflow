@@ -186,12 +186,8 @@ useful if you quickly want to test a project in your existing shell environment.
 
 Remote Execution on Databricks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Prerequisites
-~~~~~~~~~~~~~
-Install and configure the `Databricks CLI <https://github.com/databricks/databricks-cli>`_ with
-credentials for your Databricks deployment. Running on Databricks also requires a custom Spark
-image - please contact Databricks if interested.
+Support for running projects on Databricks will be released soon -
+`sign up here <http://databricks.com/mlflow>`_ to receive updates.
 
 
 Launching a Run

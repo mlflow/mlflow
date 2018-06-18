@@ -5,7 +5,6 @@ import json
 import os
 import re
 import shutil
-import sys
 import tempfile
 
 from distutils import dir_util
@@ -14,6 +13,7 @@ import yaml
 from six.moves import shlex_quote
 from databricks_cli.configure import provider
 
+from mlflow.version import VERSION
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 from mlflow import data
@@ -158,12 +158,12 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
     result = ["/databricks/mlflow-run.sh"]
-    result.extend(["mlflow", "run", uri, "--entry_point", entry_point])
+    result.extend(["mlflow", "run", uri, "--entry-point", entry_point])
     if version is not None:
         result.extend(["--version", version])
-    if len(parameters) > 0:
-        params = ["-P"] + ["%s=%s" % (key, value) for key, value in parameters.items()]
-        result.extend(params)
+    if parameters is not None:
+        for key, value in parameters.items():
+            result.extend(["-P", "%s=%s" % (key, value)])
     return result
 
 
@@ -192,7 +192,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     with open(cluster_spec, 'r') as handle:
         cluster_spec = json.load(handle)
     # Make jobs API request to launch run.
-    env_vars = {"MLFLOW_GIT_URI": uri, tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri()}
+    env_vars = {"MLFLOW_GIT_URI": uri}
     if git_username is not None:
         env_vars["MLFLOW_GIT_USERNAME"] = git_username
     if git_password is not None:
@@ -207,7 +207,8 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         'shell_command_task': {
             'command': _get_databricks_run_cmd(uri, entry_point, version, parameters),
             "env_vars": env_vars
-        }
+        },
+        "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
     }
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     run_submit_res = rest_utils.databricks_api_request(
@@ -215,7 +216,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         req_body_json=req_body_json)
     run_id = run_submit_res["run_id"]
     eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-           "page URL... ===")
+           "page URL... ===" % run_id)
     run_info = rest_utils.databricks_api_request(
         hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
         params={"run_id": run_id})
@@ -308,6 +309,12 @@ def _get_work_dir(uri, use_temp_cwd):
     return uri
 
 
+def _get_storage_dir(storage_dir):
+    if storage_dir is not None and not os.path.exists(storage_dir):
+        os.makedirs(storage_dir)
+    return tempfile.mkdtemp(dir=storage_dir)
+
+
 def _expand_uri(uri):
     if _GIT_URI_REGEX.match(uri):
         return uri
@@ -349,11 +356,32 @@ def _fetch_git_repo(uri, version, dst_dir):
         repo.heads.master.checkout()
 
 
+def _get_conda_env_name(conda_env_path):
+    with open(conda_env_path) as conda_env_file:
+        conda_env_hash = hashlib.sha1(conda_env_file.read().encode("utf-8")).hexdigest()
+    return "mlflow-%s" % conda_env_hash
+
+
+def _maybe_create_conda_env(conda_env_path):
+    conda_env = _get_conda_env_name(conda_env_path)
+    try:
+        process.exec_cmd(["conda", "--help"], throw_on_error=False)
+    except EnvironmentError:
+        raise ExecutionException('conda is not installed properly. Please follow the instructions '
+                                 'on https://conda.io/docs/user-guide/install/index.html')
+    (_, stdout, _) = process.exec_cmd(["conda", "env", "list", "--json"])
+    env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
+
+    conda_action = 'create'
+    if conda_env not in env_names:
+        eprint('=== Creating conda environment %s ===' % conda_env)
+        process.exec_cmd(["conda", "env", conda_action, "-n", conda_env, "--file",
+                          conda_env_path], stream_output=True)
+
+
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id):
     """Locally run a project that has been checked out in `work_dir`."""
-    if storage_dir is not None and not os.path.exists(storage_dir):
-        os.makedirs(storage_dir)
-    storage_dir_for_run = tempfile.mkdtemp(dir=storage_dir)
+    storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
     # Try to build the command first in case the user mis-specified parameters
@@ -361,24 +389,9 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         .compute_command(parameters, storage_dir_for_run)
     commands = []
     if use_conda:
-        with open(os.path.join(work_dir, project.conda_env)) as conda_env_file:
-            conda_env_sha = hashlib.sha1(conda_env_file.read().encode("utf-8")).hexdigest()
-        conda_env = "mlflow-%s" % conda_env_sha
-        (exit_code, _, stderr) = process.exec_cmd(["conda", "--help"], throw_on_error=False)
-        if exit_code != 0:
-            eprint('conda is not installed properly. Please follow the instructions on '
-                   'https://conda.io/docs/user-guide/install/index.html')
-            eprint(stderr)
-            sys.exit(1)
-        (_, stdout, stderr) = process.exec_cmd(["conda", "env", "list", "--json"])
-        env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
-
-        conda_action = 'create'
-        if conda_env not in env_names:
-            eprint('=== Creating conda environment %s ===' % conda_env)
-            process.exec_cmd(["conda", "env", conda_action, "-n", conda_env, "--file",
-                              project.conda_env], cwd=work_dir, stream_output=True)
-        commands.append("source activate %s" % conda_env)
+        conda_env_path = os.path.abspath(os.path.join(work_dir, project.conda_env))
+        _maybe_create_conda_env(conda_env_path)
+        commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
     # Create a new run and log every provided parameter into it.
     active_run = tracking.start_run(experiment_id=experiment_id,
@@ -386,8 +399,9 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
                                     source_version=tracking._get_git_commit(work_dir),
                                     entry_point_name=entry_point,
                                     source_type=SourceType.PROJECT)
-    for key, value in parameters.items():
-        active_run.log_param(Param(key, value))
+    if parameters is not None:
+        for key, value in parameters.items():
+            active_run.log_param(Param(key, value))
     # Add the run id into a magic environment variable that the subprocess will read,
     # causing it to reuse the run.
     exp_id = experiment_id or tracking._get_experiment_id()
