@@ -180,7 +180,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
     print('executing', ' '.join(cmd))
     proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
     for x in iter(proc.stdout.readline, ""):
-        print(x, end='', flush=True)
+        print(x, end='')
 
 
 def _check_compatible(path):
