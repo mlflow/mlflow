@@ -36,20 +36,20 @@ class TestModelExport(unittest.TestCase):
         os.environ["LC_ALL"] = "en_US.UTF-8"
         os.environ["LANG"] = "en_US.UTF-8"
         mlflow_root = os.environ.get("MLFLOW_HOME") if "MLFLOW_HOME" in os.environ \
-            else "/home/travis/build/databricks/mlflow"
-        if "MLFLOW_HOME" not in os.environ:
-            print("ENV " + str(os.environ.keys()))
+            else os.path.dirname(os.path.dirname(os.path.abspath(mlflow.__file__)))
+        # "/home/travis/build/databricks/mlflow"
         print("Building mlflow Docker image with MLFLOW_HOME =", mlflow_root)
         mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
     def test_model_export(self):
-        with TempDir(chdr=True, remove_on_exit=True) as tmp:
+        with TempDir(chdr=True) as tmp:
             model_pkl = tmp.path("model.pkl")
             with open(model_pkl, "wb") as f:
                 pickle.dump(self._linear_lr, f)
             input_path = tmp.path("input_model")
             pyfunc.save_model(input_path, loader_module="test_model_export", code_path=[__file__],
                               data_path=model_pkl)
+
             proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', input_path], stdout=PIPE,
                          stderr=STDOUT, universal_newlines=True)
 
@@ -63,6 +63,8 @@ class TestModelExport(unittest.TestCase):
             y = requests.post(url='http://localhost:5000/invocations', json=x)
             import json
             xpred = json.loads(y.content)
+            print('expected', self._linear_lr_predict)
+            print('actual  ', xpred)
             np.testing.assert_array_equal(self._linear_lr_predict, xpred)
 
 
