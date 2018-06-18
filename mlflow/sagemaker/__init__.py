@@ -98,7 +98,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                      stderr=STDOUT,
                      universal_newlines=True)
         for x in iter(proc.stdout.readline, ""):
-            print(x, end='', flush=True)
+            print(x, end='')
 
 
 _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:latest"

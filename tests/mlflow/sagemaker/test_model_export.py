@@ -35,7 +35,9 @@ class TestModelExport(unittest.TestCase):
         self._linear_lr_predict = self._linear_lr.predict(self._X)
         os.environ["LC_ALL"] = "en_US.UTF-8"
         os.environ["LANG"] = "en_US.UTF-8"
-        mlflow_root = os.environ.get("MLFLOW_HOME") if "MLFLOW_HOME" in os.environ else None
+        mlflow_root = os.environ.get("MLFLOW_HOME") if "MLFLOW_HOME" in os.environ \
+            else "/home/travis/build/databricks/mlflow"
+        print("ENV " + os.environ.keys())
         print("Building mlflow Docker image with MLFLOW_HOME =", mlflow_root)
         mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
