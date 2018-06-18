@@ -14,7 +14,6 @@ from mlflow.utils.file_utils import TempDir, _copy_project
 
 DEFAULT_IMAGE_NAME = "mlflow_sage"
 
-
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve pyfunc model in SageMaker
 FROM ubuntu:16.04
@@ -135,7 +134,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
-           image="mlflow_sage", region_name = "us-west-2"):  # noqa
+           image="mlflow_sage", region_name="us-west-2"):
     """ Deploy model on Sagemaker.
     Current active aws account needs to have correct permissions setup.
 
@@ -146,6 +145,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
     :param bucket: S3 bucket where model artifacts are gonna be stored
     :param run_id: mlflow run id.
     :param image: name of the Docker image to be used.
+    :param region_name: Name of the aws region to deploy to.
     """
     prefix = model_path
     if run_id:

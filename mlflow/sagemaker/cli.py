@@ -65,25 +65,4 @@ def build_and_push_container(build, push, container, mlflow_home):
                                      mlflow_home=os.path.abspath(mlflow_home) if mlflow_home
                                      else None)
     if push:
-<<<<<<< HEAD
         mlflow.sagemaker.push_image_to_ecr(container)
-=======
-        print("")
-        print("pushing image to ecr")
-        proc = Popen(["bash",
-                      mlflow._relpath("sagemaker", "container", "push_image_to_ecr.sh"),
-                      container],
-                     cwd=os.path.dirname(mlflow._relpath()),
-                     stdout=PIPE,
-                     stderr=STDOUT,
-                     universal_newlines=True)
-        for x in iter(proc.stdout.readline, ""):
-            print(x, end='', flush=True)
-
-
-def _check_compatible(path):
-    path = os.path.abspath(path)
-    servable = Model.load(os.path.join(path, "MLmodel"))
-    if pyfunc.FLAVOR_NAME not in servable.flavors:
-        raise Exception("Currenlty only supports pyfunc format.")
->>>>>>> 3a52e43bf93ebdc201fe7b77f81112843e142044
