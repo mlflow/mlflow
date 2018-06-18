@@ -45,7 +45,7 @@ class TestModelExport(unittest.TestCase):
         try:
             to_remove = None
             with TempDir(chdr=True, remove_on_exit=False) as tmp:
-                to_remove = os.path.dirname(os.path.abspath("./"))
+                to_remove = os.path.abspath("./")
                 model_pkl = tmp.path("model.pkl")
                 with open(model_pkl, "wb") as f:
                     pickle.dump(self._linear_lr, f)
@@ -64,6 +64,7 @@ class TestModelExport(unittest.TestCase):
                 self.assertTrue(proc.poll() is None, "scoring process died")
                 import requests
                 x = self._iris_df.to_dict(orient='records')
+                print('ping', requests.get(url='http://localhost:5000/ping'))
                 y = requests.post(url='http://localhost:5000/invocations', json=x)
                 import json
                 xpred = json.loads(y.content)
