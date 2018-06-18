@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 import tensorflow as tf
 import sklearn.datasets as datasets
+import shutil
 
 from mlflow import tensorflow, pyfunc
 from mlflow import tracking
