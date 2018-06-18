@@ -22,14 +22,14 @@ def commands():
 @click.option("--bucket", "-b", help="S3 bucket to store model artifacts", required=True)
 @click.option("--run_id", "-r", default=None, help="Run id")
 @click.option("--container", "-c", default="mlflow_sage", help="container name")
-def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
-           container="mlflow_sage"):  # noqa
+@click.option("--region-name", default="us-west-2", help="region name")
+def deploy(app_name, model_path, execution_role_arn, bucket, run_id, container, region_name):
     """
     Deploy model on Sagemaker. Current active aws account needs to have correct permissions setup.
     """
     mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
-                            image=container)
+                            image=container, region_name=region_name)
 
 
 @commands.command("run-local")
@@ -65,4 +65,25 @@ def build_and_push_container(build, push, container, mlflow_home):
                                      mlflow_home=os.path.abspath(mlflow_home) if mlflow_home
                                      else None)
     if push:
+<<<<<<< HEAD
         mlflow.sagemaker.push_image_to_ecr(container)
+=======
+        print("")
+        print("pushing image to ecr")
+        proc = Popen(["bash",
+                      mlflow._relpath("sagemaker", "container", "push_image_to_ecr.sh"),
+                      container],
+                     cwd=os.path.dirname(mlflow._relpath()),
+                     stdout=PIPE,
+                     stderr=STDOUT,
+                     universal_newlines=True)
+        for x in iter(proc.stdout.readline, ""):
+            print(x, end='', flush=True)
+
+
+def _check_compatible(path):
+    path = os.path.abspath(path)
+    servable = Model.load(os.path.join(path, "MLmodel"))
+    if pyfunc.FLAVOR_NAME not in servable.flavors:
+        raise Exception("Currenlty only supports pyfunc format.")
+>>>>>>> 3a52e43bf93ebdc201fe7b77f81112843e142044

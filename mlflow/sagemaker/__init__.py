@@ -135,7 +135,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
-           image="mlflow_sage"):  # noqa
+           image="mlflow_sage", region_name = "us-west-2"):  # noqa
     """ Deploy model on Sagemaker.
     Current active aws account needs to have correct permissions setup.
 
@@ -157,7 +157,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
             image=image,
             app_name=app_name,
             model_s3_path=model_s3_path,
-            run_id=run_id)
+            run_id=run_id,
+            region_name=region_name)
 
 
 def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
@@ -225,7 +226,7 @@ def _upload_s3(local_model_path, bucket, prefix):
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
-def _deploy(role, image, app_name, model_s3_path, run_id):
+def _deploy(role, image, app_name, model_s3_path, run_id, region_name):
     """
     Deploy model on sagemaker.
     :param role: SageMaker execution ARN role
@@ -234,7 +235,7 @@ def _deploy(role, image, app_name, model_s3_path, run_id):
     :param model_s3_path: s3 path where we stored the model artifacts
     :param run_id: RunId that generated this model
     """
-    sage_client = boto3.client('sagemaker', region_name="us-west-2")
+    sage_client = boto3.client('sagemaker', region_name=region_name)
     ecr_client = boto3.client("ecr")
     repository_conf = ecr_client.describe_repositories(
         repositoryNames=[image])['repositories'][0]
