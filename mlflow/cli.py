@@ -120,8 +120,8 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
 
 @cli.command()
 @click.option("--file-store", metavar="PATH", default=None,
-              help="The root of the backing file store for experiment and run data. "
-                   "Defaults to ./mlruns.")
+              help="The root of the backing file store for experiment and run data "
+                   "(default: ./mlruns).")
 @click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
               help="The network address to listen on (default: 127.0.0.1). "
                    "Use 0.0.0.0 to bind to all addresses if you want to access the UI from"
@@ -140,8 +140,8 @@ def ui(file_store, host, port):
 
 @cli.command()
 @click.option("--file-store", metavar="PATH", default=None,
-              help="The root of the backing file store for experiment and run data. "
-                   "Defaults to ./mlruns.")
+              help="The root of the backing file store for experiment and run data "
+                   "(default: ./mlruns).")
 @click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
               help="The network address to listen on (default: 127.0.0.1). "
                    "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
