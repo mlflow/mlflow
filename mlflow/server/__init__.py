@@ -3,9 +3,9 @@ import os
 from flask import Flask, send_from_directory
 
 from mlflow.server import handlers
+from mlflow.utils.process import exec_cmd
 
-# Hard-coding this for now; server logic will be rewritten to use the FileStore
-root_dir = os.path.abspath("mlruns")
+FILE_STORE_ENV_VAR = "MLFLOW_SERVER_FILE_STORE"
 
 REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
@@ -33,3 +33,13 @@ def serve_static_file(path):
 @app.route('/<path:path>')
 def serve(path):  # pylint: disable=unused-argument
     return send_from_directory(STATIC_DIR, 'index.html')
+
+
+def _run_server(file_store_path, host, port, workers):
+    """Run the MLflow server, wrapping it in gunicorn"""
+    env_map = {}
+    if file_store_path:
+        env_map[FILE_STORE_ENV_VAR] = file_store_path
+    bind_address = "%s:%s" % (host, port)
+    exec_cmd(["gunicorn", "-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
+             env=env_map, stream_output=True)

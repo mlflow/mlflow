@@ -33,6 +33,7 @@ setup(
         'six>=1.10.0',
         'uuid',
         'gitpython',
+        'gunicorn',
         'Flask',
         'numpy',
         'pandas',
