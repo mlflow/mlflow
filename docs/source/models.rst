@@ -188,7 +188,8 @@ external dependencies. It saves and loads models using Python's pickle module an
 Tensorflow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
+The Tensorflow model flavor uses `Saved Models 
+<https://www.tensorflow.org/programmers_guide/saved_model#using_savedmodel_with_estimators>`_ to save and load models again as a ``Python Function``. You should create your estimator's ``saved_model`` and log it using ``log_saved_model()``. When this is done, the model can be loaded again for prediction via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.tensorflow`. 
 
 Custom Flavors
 --------------
