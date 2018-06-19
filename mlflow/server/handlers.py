@@ -15,9 +15,19 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetArtifact, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, ListExperiments, GetMetric, GetParam
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.file_store import FileStore
 
-# Configured in `mlflow.cli`.
-store = None
+
+_store = None
+
+
+def _get_store():
+    from mlflow.server import FILE_STORE_ENV_VAR
+    global _store
+    if _store is None:
+        store_dir = os.environ.get(FILE_STORE_ENV_VAR, os.path.abspath("mlruns"))
+        _store = FileStore(store_dir)
+    return _store
 
 
 def _get_request_message(request_message, from_get=False):
@@ -55,7 +65,7 @@ def _not_implemented():
 
 def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
-    experiment_id = store.create_experiment(request_message.name)
+    experiment_id = _get_store().create_experiment(request_message.name)
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype='application/json')
@@ -66,9 +76,9 @@ def _create_experiment():
 def _get_experiment():
     request_message = _get_request_message(GetExperiment(), from_get=True)
     response_message = GetExperiment.Response()
-    response_message.experiment.MergeFrom(store.get_experiment(request_message.experiment_id)
+    response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
                                           .to_proto())
-    run_info_entities = store.list_run_infos(request_message.experiment_id)
+    run_info_entities = _get_store().list_run_infos(request_message.experiment_id)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -79,7 +89,7 @@ def _create_run():
     request_message = _get_request_message(CreateRun())
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
-    run = store.create_run(
+    run = _get_store().create_run(
         experiment_id=request_message.experiment_id,
         user_id=request_message.user_id,
         run_name=request_message.run_name,
@@ -99,7 +109,7 @@ def _create_run():
 
 def _update_run():
     request_message = _get_request_message(UpdateRun())
-    updated_info = store.update_run_info(request_message.run_uuid, request_message.status,
+    updated_info = _get_store().update_run_info(request_message.run_uuid, request_message.status,
                                          request_message.end_time)
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype='application/json')
@@ -110,7 +120,7 @@ def _update_run():
 def _log_metric():
     request_message = _get_request_message(LogMetric())
     metric = Metric(request_message.key, request_message.value, request_message.timestamp)
-    store.log_metric(request_message.run_uuid, metric)
+    _get_store().log_metric(request_message.run_uuid, metric)
     response_message = LogMetric.Response()
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -120,7 +130,7 @@ def _log_metric():
 def _log_param():
     request_message = _get_request_message(LogParam())
     param = Param(request_message.key, request_message.value)
-    store.log_param(request_message.run_uuid, param)
+    _get_store().log_param(request_message.run_uuid, param)
     response_message = LogParam.Response()
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -130,7 +140,7 @@ def _log_param():
 def _get_run():
     request_message = _get_request_message(GetRun(), from_get=True)
     response_message = GetRun.Response()
-    response_message.run.MergeFrom(store.get_run(request_message.run_uuid).to_proto())
+    response_message.run.MergeFrom(_get_store().get_run(request_message.run_uuid).to_proto())
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
     return response
@@ -139,7 +149,7 @@ def _get_run():
 def _search_runs():
     request_message = _get_request_message(SearchRuns(), from_get=True)
     response_message = SearchRuns.Response()
-    run_entities = store.search_runs(request_message.experiment_ids,
+    run_entities = _get_store().search_runs(request_message.experiment_ids,
                                      request_message.anded_expressions)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
@@ -154,7 +164,7 @@ def _list_artifacts():
         path = request_message.path
     else:
         path = None
-    run = store.get_run(request_message.run_uuid)
+    run = _get_store().get_run(request_message.run_uuid)
     artifact_entities = _get_artifact_repo(run).list_artifacts(path)
     response_message.files.extend([a.to_proto() for a in artifact_entities])
     response_message.root_uri = _get_artifact_repo(run).artifact_uri
@@ -168,7 +178,7 @@ _TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'MLmodel', 'MLproj
 
 def _get_artifact():
     request_message = _get_request_message(GetArtifact(), from_get=True)
-    run = store.get_run(request_message.run_uuid)
+    run = _get_store().get_run(request_message.run_uuid)
     filename = os.path.abspath(_get_artifact_repo(run).download_artifact(request_message.path))
     extension = os.path.splitext(filename)[-1].replace(".", "")
     if extension in _TEXT_EXTENSIONS:
@@ -180,7 +190,7 @@ def _get_artifact():
 def _get_metric_history():
     request_message = _get_request_message(GetMetricHistory(), from_get=True)
     response_message = GetMetricHistory.Response()
-    metric_entites = store.get_metric_history(request_message.run_uuid,
+    metric_entites = _get_store().get_metric_history(request_message.run_uuid,
                                               request_message.metric_key)
     response_message.metrics.extend([m.to_proto() for m in metric_entites])
     response = Response(mimetype='application/json')
@@ -191,7 +201,7 @@ def _get_metric_history():
 def _get_metric():
     request_message = _get_request_message(GetMetric(), from_get=True)
     response_message = GetMetric.Response()
-    metric = store.get_metric(request_message.run_uuid, request_message.metric_key)
+    metric = _get_store().get_metric(request_message.run_uuid, request_message.metric_key)
     response_message.metric.MergeFrom(metric.to_proto())
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -201,7 +211,7 @@ def _get_metric():
 def _get_param():
     request_message = _get_request_message(GetParam(), from_get=True)
     response_message = GetParam.Response()
-    parameter = store.get_param(request_message.run_uuid, request_message.param_name)
+    parameter = _get_store().get_param(request_message.run_uuid, request_message.param_name)
     response_message.parameter.MergeFrom(parameter.to_proto())
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -210,7 +220,7 @@ def _get_param():
 
 def _list_experiments():
     response_message = ListExperiments.Response()
-    experiment_entities = store.list_experiments()
+    experiment_entities = _get_store().list_experiments()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -223,7 +233,7 @@ def _get_artifact_repo(run):
 
     # TODO(aaron) Remove this once everyone locally only has runs from after
     # the introduction of "artifact_uri".
-    uri = os.path.join(store.root_directory, str(run.info.experiment_id),
+    uri = os.path.join(_get_store().root_directory, str(run.info.experiment_id),
                        run.info.run_uuid, "artifacts")
     return ArtifactRepository.from_artifact_uri(uri)
 

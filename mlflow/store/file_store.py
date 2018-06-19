@@ -23,7 +23,7 @@ _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
 
 def _default_root_dir():
-    return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath("./mlruns")
+    return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath("mlruns")
 
 
 class FileStore(AbstractStore):
