@@ -17,30 +17,26 @@ from mlflow.utils.file_utils import TempDir
 
 class TestModelExport(unittest.TestCase):
 
-    def helper(self, feature_spec, tmp, model, model_predict, df):
-        # This functions handles 
+    def helper(self, feature_spec, tmp, estimator, df):
+        """
+        This functions handles exporting, logging, loading back, and predicting on an estimator for 
+        testing purposes.
+        """
         receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-        saved_model_path = tmp.path("model")
-        os.makedirs(saved_model_path)
-        os.makedirs(tmp.path("hello"))
+        saved_estimator_path = tmp.path("model")
+        os.makedirs(saved_estimator_path)
         # Saving Tensorflow model.
-        saved_model_path = model.export_savedmodel(saved_model_path, 
+        saved_estimator_path = estimator.export_savedmodel(saved_estimator_path, 
                                                        receiver_fn).decode("utf-8")
         # Logging the Tensorflow model just saved.
-        tensorflow.log_saved_model(saved_model_dir=saved_model_path,
+        tensorflow.log_saved_model(saved_model_dir=saved_estimator_path,
                                    signature_def_key="predict", 
                                    artifact_path=tmp.path("hello"))
         # Loading the saved Tensorflow model as a pyfunc.
-        x = pyfunc.load_pyfunc(saved_model_path)
+        x = pyfunc.load_pyfunc(saved_estimator_path)
         # Predicting on the dataset using the pyfunc.
         xpred = x.predict(df)
-        saved = []
-        for s in model_predict:
-            saved.append(s['predictions'])
-        loaded = []
-        for index, rows in xpred.iterrows():
-            loaded.append(rows)
-        return (saved, loaded)
+        return [row for _, row in xpred.iterrows()]
 
     def test_log_saved_model(self):
         # This tests model logging capabilities on the sklearn.iris dataset.
@@ -84,10 +80,14 @@ class TestModelExport(unittest.TestCase):
                 for name in feature_names:
                     feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
 
-                results = self.helper(feature_spec, tmp, dnn, dnn_predict, pandas.DataFrame(data=X, columns=feature_names))
+                saved = []
+                for s in dnn_predict:
+                    saved.append(s['predictions'])
+
+                results = self.helper(feature_spec, tmp, dnn, pandas.DataFrame(data=X, columns=feature_names))
 
                 # Asserting that the loaded model predictions are as expected.
-                np.testing.assert_array_equal(results[0], results[1])
+                np.testing.assert_array_equal(saved, results)
             finally:
                 # Restoring the old logging location.
                 tracking.end_run()
@@ -106,30 +106,8 @@ class TestModelExport(unittest.TestCase):
             path = tf.contrib.keras.utils.get_file(URL.split("/")[-1], URL)
             # Order is important for the csv-readers, so we use an OrderedDict here.
             defaults = collections.OrderedDict([
-                ("symboling", [0]),
-                ("normalized-losses", [0.0]),
-                ("make", [""]),
-                ("fuel-type", [""]),
-                ("aspiration", [""]),
-                ("num-of-doors", [""]),
                 ("body-style", [""]),
-                ("drive-wheels", [""]),
-                ("engine-location", [""]),
-                ("wheel-base", [0.0]),
-                ("length", [0.0]),
-                ("width", [0.0]),
-                ("height", [0.0]),
                 ("curb-weight", [0.0]),
-                ("engine-type", [""]),
-                ("num-of-cylinders", [""]),
-                ("engine-size", [0.0]),
-                ("fuel-system", [""]),
-                ("bore", [0.0]),
-                ("stroke", [0.0]),
-                ("compression-ratio", [0.0]),
-                ("horsepower", [0.0]),
-                ("peak-rpm", [0.0]),
-                ("city-mpg", [0.0]),
                 ("highway-mpg", [0.0]),
                 ("price", [0.0])
             ])
@@ -138,8 +116,6 @@ class TestModelExport(unittest.TestCase):
                                             for key, value in defaults.items())
             df = pandas.read_csv(path, names=types.keys(), dtype=types, na_values="?")
             df = df.dropna()
-            # Keeping only the data we are testing.
-            df = df[["price", "body-style", "curb-weight", "highway-mpg"]]
 
             # Extract the label from the features dataframe.
             y_train = df.pop("price")
@@ -185,22 +161,24 @@ class TestModelExport(unittest.TestCase):
             try:
                 # Creating dict of features names (str) to placeholders (tensors)
                 feature_spec = {}
-                size = len(y_train.values)
                 feature_spec["body-style"] = tf.placeholder("string", 
                                                             name="body-style", 
-                                                            shape=[size])
+                                                            shape=[None])
                 feature_spec["curb-weight"] = tf.placeholder("float", 
                                                             name="curb-weight", 
-                                                            shape=[size])
+                                                            shape=[None])
                 feature_spec["highway-mpg"] = tf.placeholder("float", 
                                                             name="highway-mpg", 
-                                                            shape=[size])
+                                                            shape=[None])
+                saved = []
+                for s in model_predict:
+                    saved.append(s['predictions'])
 
-                results = self.helper(feature_spec, tmp, model, model_predict, df)
+                results = self.helper(feature_spec, tmp, model, df)
 
                 # Asserting that the loaded model predictions are as expected.
                 # Tensorflow is known to have precision errors, hence the almost_equal.
-                np.testing.assert_array_almost_equal(results[0], results[1], decimal = 2)
+                np.testing.assert_array_almost_equal(saved, results, decimal = 2)
             finally:
                 # Restoring the old logging location.
                 tracking.end_run()
