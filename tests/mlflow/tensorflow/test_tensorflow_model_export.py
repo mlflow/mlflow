@@ -63,12 +63,11 @@ class TestModelExport(unittest.TestCase):
                                                                         shuffle=False, 
                                                                         batch_size=1)
             # Creating Deep Neural Network Regressor. 
-            dnn = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols, 
+            estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols, 
                                                     hidden_units=[1])
-            sess = tf.Session()
             # Training and creating expected predictions on training dataset.
-            dnn.train(input_train, steps=100)
-            dnn_predict = dnn.predict(input_train)
+            estimator.train(input_train, steps=100)
+            estimator_preds = estimator.predict(input_train)
             # Setting the logging such that it is in the temp folder and deleted after the test.
             old_tracking_dir = tracking.get_tracking_uri()
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
@@ -80,11 +79,9 @@ class TestModelExport(unittest.TestCase):
                 for name in feature_names:
                     feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
 
-                saved = []
-                for s in dnn_predict:
-                    saved.append(s['predictions'])
+                saved = [s['predictions'] for s in estimator_preds]
 
-                results = self.helper(feature_spec, tmp, dnn, pandas.DataFrame(data=X, columns=feature_names))
+                results = self.helper(feature_spec, tmp, estimator, pandas.DataFrame(data=X, columns=feature_names))
 
                 # Asserting that the loaded model predictions are as expected.
                 np.testing.assert_array_equal(saved, results)
@@ -94,7 +91,7 @@ class TestModelExport(unittest.TestCase):
                 tracking.set_tracking_uri(old_tracking_dir)
 
 
-    def test_cat_cols(self):
+    def test_categorical_columns(self):
         """
         This tests logging capabilities on datasets with categorical columns.
         See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/get_started/regression/imports85.py
@@ -146,13 +143,13 @@ class TestModelExport(unittest.TestCase):
 
             # Build a DNNRegressor, with 2x20-unit hidden layers, with the feature columns
             # defined above as input.
-            model = tf.estimator.DNNRegressor(
+            estimator = tf.estimator.DNNRegressor(
                 hidden_units=[20, 20], feature_columns=feature_columns)
 
-            # Training the model.
-            model.train(input_fn=input_train, steps=100)
-            # Saving the model's prediction on the training data.
-            model_predict = model.predict(input_train)
+            # Training the estimator.
+            estimator.train(input_fn=input_train, steps=100)
+            # Saving the estimator's prediction on the training data.
+            estimator_preds = estimator.predict(input_train)
             # Setting the logging such that it is in the temp folder and deleted after the test.
             old_tracking_dir = tracking.get_tracking_uri()
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
@@ -170,11 +167,10 @@ class TestModelExport(unittest.TestCase):
                 feature_spec["highway-mpg"] = tf.placeholder("float", 
                                                             name="highway-mpg", 
                                                             shape=[None])
-                saved = []
-                for s in model_predict:
-                    saved.append(s['predictions'])
 
-                results = self.helper(feature_spec, tmp, model, df)
+                saved = [s['predictions'] for s in estimator_preds]
+
+                results = self.helper(feature_spec, tmp, estimator, df)
 
                 # Asserting that the loaded model predictions are as expected.
                 # Tensorflow is known to have precision errors, hence the almost_equal.
