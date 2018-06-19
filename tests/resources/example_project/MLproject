@@ -2,10 +2,7 @@ conda_env: conda.yaml
 
 entry_points:
   main:
-    parameters:
-      num_dimensions: float
-      regularization: {type: float, default: 0.1}
-    command: "python test.py {num_dimensions} {regularization}"
+    command: "echo 'Main entry point'"
   greeter:
     parameters:
       greeting: {type: string, default: "hi"}
