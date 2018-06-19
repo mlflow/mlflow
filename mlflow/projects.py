@@ -197,10 +197,12 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         remote_dirname = uuid.uuid4().hex
         dbfs_uri = os.path.join("dbfs:/", remote_dirname)
         eprint("==== Uploading project fetched from %s to DBFS path %s ====" % (uri, dbfs_uri))
+        import time
+        start = time.time()
         process.exec_cmd(cmd=["databricks", "fs", "cp", "-r", work_dir, dbfs_uri])
         # _upload_to_dbfs(username=username, password=password, host=hostname, token=token,
         #                 src=work_dir, dst=dbfs_uri)
-        eprint("==== Finished uploading project to %s ====" % dbfs_uri)
+        eprint("==== Finished uploading project to %s (took %s sec) ====" % (dbfs_uri, time.time() - start))
     finally:
         if work_dir != uri:
             shutil.rmtree(work_dir)
