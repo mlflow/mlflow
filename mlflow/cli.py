@@ -11,11 +11,9 @@ import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
 import mlflow.sagemaker.cli
+import mlflow.server
 
 from mlflow.entities.experiment import Experiment
-import mlflow.server as server
-from mlflow.store import file_store
-from mlflow.store.file_store import FileStore
 from mlflow import tracking
 
 
@@ -121,19 +119,46 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
 
 
 @cli.command()
-@click.option("--file-store-path", default=None,
-              help="The root of the backing file store for experiment and run data. Defaults to %s."
-                   % file_store._default_root_dir())
-@click.option("--host", default="127.0.0.1",
-              help="The networking interface on which the UI server listens. Defaults to "
-                   "127.0.0.1.  Use 0.0.0.0 to bind to all addresses, which is useful for running "
-                   "inside of docker.")
-def ui(file_store_path, host):
+@click.option("--file-store", metavar="PATH", default=None,
+              help="The root of the backing file store for experiment and run data. "
+                   "Defaults to ./mlruns.")
+@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
+              help="The network address to listen on (default: 127.0.0.1). "
+                   "Use 0.0.0.0 to bind to all addresses if you want to access the UI from"
+                   "other machines.")
+@click.option("--port", "-p", default=5000,
+              help="The port to listen on (default: 5000).")
+def ui(file_store, host, port):
     """
-    Run the MLflow tracking UI. The UI is served at http://localhost:5000.
+    Launch the MLflow tracking UI.
+
+    The UI will be visible at http://localhost:5000 by default.
     """
-    server.handlers.store = FileStore(file_store_path)
-    server.app.run(host)
+    # TODO: We eventually want to disable the write path in this version of the server.
+    mlflow.server._run_server(file_store, host, port, 1)
+
+
+@cli.command()
+@click.option("--file-store", metavar="PATH", default=None,
+              help="The root of the backing file store for experiment and run data. "
+                   "Defaults to ./mlruns.")
+@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
+              help="The network address to listen on (default: 127.0.0.1). "
+                   "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
+                   "server from other machines.")
+@click.option("--port", "-p", default=5000,
+              help="The port to listen on (default: 5000).")
+@click.option("--workers", "-w", default=4,
+              help="Number of gunicorn worker processes to handle requests (default: 4).")
+def server(file_store, host, port, workers):
+    """
+    Run the MLflow tracking server.
+
+    The server which listen on http://localhost:5000 by default, and only accept connections from
+    the local machine. To let the server accept connections from other machines, you will need to
+    pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
+    """
+    mlflow.server._run_server(file_store, host, port, workers)
 
 
 cli.add_command(mlflow.sklearn.commands)

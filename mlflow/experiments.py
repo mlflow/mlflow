@@ -15,9 +15,9 @@ def commands():
 
 
 @commands.command()
-@click.option("--file-store-path", default=None,
-              help="The root of the backing file store for experiment and run data. Defaults to %s."
-                   % file_store._default_root_dir())
+@click.option("--file-store", default=None,
+              help="The root of the backing file store for experiment and run data. "
+                   "Defaults to ./mlruns.")
 @click.argument("experiment_name")
 def create(file_store_path, experiment_name):
     """
@@ -29,9 +29,9 @@ def create(file_store_path, experiment_name):
 
 
 @commands.command("list")
-@click.option("--file-store-path", default=None,
-              help="The root of the backing file store for experiment and run data. Defaults to %s."
-                   % file_store._default_root_dir())
+@click.option("--file-store", default=None,
+              help="The root of the backing file store for experiment and run data. "
+                   "Defaults to ./mlruns.")
 def list_experiments(file_store_path):
     """
     List all experiment in FileStore backend.
