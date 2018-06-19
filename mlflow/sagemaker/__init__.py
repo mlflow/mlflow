@@ -180,7 +180,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
     print('executing', ' '.join(cmd))
     proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
 
-    def _sigterm_handler(*args):
+    def _sigterm_handler(*_):
         print("received termination signal => killing docker process")
         proc.send_signal(signal.SIGINT)
 
