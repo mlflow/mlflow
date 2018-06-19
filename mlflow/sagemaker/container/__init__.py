@@ -51,6 +51,7 @@ def _serve():
     conf = m.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
+        print("activating custom environment")
         env = conf[pyfunc.ENV]
         env_path_dst = os.path.join("/opt/mlflow/", env)
         # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
@@ -63,6 +64,9 @@ def _serve():
     check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
     check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
     cpu_count = multiprocessing.cpu_count()
+    os.system("pip -V")
+    os.system("python -V")
+    os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
     cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
            "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
     bash_cmds.append(cmd)
@@ -82,7 +86,9 @@ def _train():
 
 
 def _sigterm_handler(nginx_pid, gunicorn_pid):
+    print("got sigterm signal, exiting")
     try:
+
         os.kill(nginx_pid, signal.SIGQUIT)
     except OSError:
         pass

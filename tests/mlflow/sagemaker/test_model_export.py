@@ -2,8 +2,10 @@ from __future__ import print_function
 
 import os
 import pickle
+import requests
 from subprocess import Popen, PIPE, STDOUT
 import tempfile
+import time
 import unittest
 
 import sklearn.datasets as datasets
@@ -21,6 +23,17 @@ import mlflow.sagemaker
 def load_pyfunc(path):
     with open(path, "rb") as f:
         return pickle.load(f)
+
+
+CONDA_ENV = """
+name: mlflow-env
+channels:
+  - anaconda
+  - defaults
+dependencies:
+  - python={python_version}
+
+"""
 
 
 class TestModelExport(unittest.TestCase):
@@ -42,53 +55,58 @@ class TestModelExport(unittest.TestCase):
         mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
     def test_model_export(self):
-        try:
-            to_remove = None
-            proc = None
-            with TempDir(chdr=True, remove_on_exit=False) as tmp:
-                to_remove = os.path.abspath("./")
-                model_pkl = tmp.path("model.pkl")
-                with open(model_pkl, "wb") as f:
-                    pickle.dump(self._linear_lr, f)
-                input_path = tmp.path("input_model")
-                pyfunc.save_model(input_path, loader_module="test_model_export",
-                                  code_path=[__file__],
-                                  data_path=model_pkl)
+        with TempDir(chdr=True, remove_on_exit=True) as tmp:
+            # NOTE: Changed dir to temp dir and use relative paths to get around the way temp
+            # dirs are handled in python.
+            model_pkl = tmp.path("model.pkl")
+            with open(model_pkl, "wb") as f:
+                pickle.dump(self._linear_lr, f)
+            input_path = tmp.path("input_model")
+            conda_env = "conda.env"
+            import sys
+            python_version = sys.version.split("|")[0].strip()
+            with open(conda_env, "w") as f:
+                f.write(CONDA_ENV.format(python_version=python_version))
+            pyfunc.save_model(input_path, loader_module="test_model_export",
+                              code_path=[__file__],
+                              data_path=model_pkl,
+                              conda_env=conda_env)
+            proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', input_path], stdout=PIPE,
+                         stderr=STDOUT, universal_newlines=True)
 
-                proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', input_path], stdout=PIPE,
-                             stderr=STDOUT, universal_newlines=True)
+            try:
+                for i in range(0, 50):
+                    self.assertTrue(proc.poll() is None, "scoring process died")
+                    time.sleep(5)
+                    # noinspection PyBroadException
+                    try:
+                        ping_status = requests.get(url='http://localhost:5000/ping')
+                        print('connection attempt', i, "server is up! ping status", ping_status)
+                        if ping_status.status_code == 200:
+                            break
+                    except Exception:
+                        print('connection attempt', i, "failed, server is not up yet")
 
-                for x in iter(proc.stdout.readline, ""):
-                    print(x)
-                    if "Booting worker with pid" in x:
-                        break
                 self.assertTrue(proc.poll() is None, "scoring process died")
-                import requests
+                ping_status = requests.get(url='http://localhost:5000/ping')
+                print("server up, ping status", ping_status)
+                if ping_status.status_code != 200:
+                    raise Exception("ping failed, server is not happy")
                 x = self._iris_df.to_dict(orient='records')
-                print('ping', requests.get(url='http://localhost:5000/ping'))
-
                 y = requests.post(url='http://localhost:5000/invocations', json=x)
                 import json
                 xpred = json.loads(y.content)
                 print('expected', self._linear_lr_predict)
                 print('actual  ', xpred)
                 np.testing.assert_array_equal(self._linear_lr_predict, xpred)
-        finally:
-            # TODO removing here inside of try-catch because this test was failing in travis
-            # somehow it did not have permissions to remove the dir. Works fine locally
-            if proc:
-                try:
-                    proc.kill()
-                    print(proc.stdout.read())
-                except:  # noqa
-                    print("Failed to kill scoring process")
-            try:
 
-                if to_remove:
-                    import shutil
-                    shutil.rmtree(to_remove)
-            except:  # noqa
-                print("Failed to remove temp dir {}".format(to_remove))
+            finally:
+                if proc.poll() is None:
+                    proc.terminate()
+                # sometimes it takes a while for the docker container to stop, kill it to be sure
+                os.system("docker kill $(docker ps -l -q)")
+                print("captured output of the scoring process")
+                print(proc.stdout.read())
 
 
 if __name__ == '__main__':

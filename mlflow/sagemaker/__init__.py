@@ -179,8 +179,16 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
            "--rm", image, "serve"]
     print('executing', ' '.join(cmd))
     proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
+
+    def _sigterm_handler(*args):
+        print("received termination signal => killing docker process")
+        proc.send_signal(signal.SIGINT)
+
+    import signal
+    signal.signal(signal.SIGTERM, _sigterm_handler)
     for x in iter(proc.stdout.readline, ""):
         print(x, end='')
+    print("docker proc has ended")
 
 
 def _check_compatible(path):
