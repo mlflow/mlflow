@@ -2,16 +2,16 @@ import numpy as np
 import pandas as pd
 
 
-def ary2list(ary):
+def ndarray2list(ndarray):
     """
     Convert n-dimensional numpy array into nested lists and convert the elements types to native
     python so that the list is json-able using standard json library.
-    :param ary: numpy array
+    :param ndarray: numpy array
     :return: list representation of the numpy array with element types convereted to native python
     """
-    if len(ary.shape) <= 1:
-        return [x.item() for x in ary]
-    return [ary2list(ary[i, :]) for i in range(0, ary.shape[0])]
+    if len(ndarray.shape) <= 1:
+        return [x.item() for x in ndarray]
+    return [ndarray2list(ndarray[i, :]) for i in range(0, ndarray.shape[0])]
 
 
 def get_jsonable_obj(data):
@@ -22,7 +22,7 @@ def get_jsonable_obj(data):
     :param data: data to be converted, works with padnas and numpy, rest will be returned as is.
     """
     if isinstance(data, np.ndarray):
-        return ary2list(data)
+        return ndarray2list(data)
     if isinstance(data, pd.DataFrame):
         return data.to_dict(orient='records')
     if isinstance(data, pd.Series):

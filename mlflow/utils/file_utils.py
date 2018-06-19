@@ -233,11 +233,14 @@ def append_to(filename, data):
 
 def _copy_project(src_path, dst_path=""):
     """
-    Internal function used to copy mlflow project during development.
-    The mlflow is assumed to be accessible as a local directory in this case.
+    Internal function used to copy MLflow project during development.
 
-    :param dst_path: mlflow will be copied here
-    :return: name of the mlflow project directory
+    Copies the content of the whole directory tree except patterns defined in .dockerignore.
+    The MLflow is assumed to be accessible as a local directory in this case.
+
+
+    :param dst_path: MLflow will be copied here
+    :return: name of the MLflow project directory
     """
 
     def _docker_ignore(mlflow_root):

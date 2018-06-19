@@ -10,6 +10,8 @@ import click
 import mlflow
 import mlflow.azureml
 
+from mlflow.utils import cli_args
+
 
 @click.group("azureml")
 def commands():
@@ -21,17 +23,11 @@ def commands():
 @click.option("--app-name", "-n", default=None,
               help="The application name under which should this model be deployed. "
                    "Translates to service name on Azure ML", required=True)
-@click.option("--model-path", "-m", default=None,
-              help="Path to the model. The path is relative to the run with the given run_id or "
-                   "local filesystem path without run_id.", required=True)
-@click.option("--run_id", "-r", default=None, help="Id of the MLflow run that contains the model.",
-              required=False)
-@click.option("--mlflow_home", default=None,
-              help="Path to local clone of mlflow project. Use for development only.")
+@cli_args.MODEL_PATH
+@cli_args.RUN_ID
+@cli_args.MLFLOW_HOME
 def deploy(app_name, model_path, run_id, mlflow_home):
     """Deploy MLflow model to Azure ML.
-
-       This command will deploy MLflow model to Azure ML.
 
        NOTE: This command is to be called from correctly initialized Azure ML environment.
             At the moment this means it has to be run from console launched from Azure ML Workbench.
@@ -47,13 +43,9 @@ def deploy(app_name, model_path, run_id, mlflow_home):
 
 @commands.command("export")
 @click.option("--output", "-o", default=None, help="Output directory.", required=True)
-@click.option("--model-path", "-m", default=None,
-              help="Path to the model. The path is relative to the run with the given run_id or "
-                   "local filesystem path without run_id.", required=True)
-@click.option("--run_id", "-r", default=None, help="Id of the MLflow run that contains the model.",
-              required=False)
-@click.option("--mlflow_home", default=None,
-              help="Path to local clone of mlflow project. Use for development only.")
+@cli_args.MODEL_PATH
+@cli_args.RUN_ID
+@cli_args.MLFLOW_HOME
 def export(output, model_path, run_id, mlflow_home):
     """Export MLflow model as Azure ML compatible model ready to be deployed.
 

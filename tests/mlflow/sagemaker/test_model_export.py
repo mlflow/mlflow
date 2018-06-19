@@ -66,8 +66,10 @@ class TestModelExport(unittest.TestCase):
                     pickle.dump(self._linear_lr, f)
                 input_path = tmp.path("input_model")
                 conda_env = "conda.env"
-                import sys
-                python_version = sys.version.split("|")[0].strip()
+                from sys import version_info
+                python_version = "{major}.{minor}.{micro}".format(major=version_info.major,
+                                                                  minor=version_info.minor,
+                                                                  micro=version_info.micro)
                 with open(conda_env, "w") as f:
                     f.write(CONDA_ENV.format(python_version=python_version))
                 pyfunc.save_model(input_path, loader_module="test_model_export",

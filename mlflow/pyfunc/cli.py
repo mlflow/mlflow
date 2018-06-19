@@ -7,7 +7,7 @@ import pandas
 
 from mlflow.pyfunc import load_pyfunc, scoring_server
 from mlflow.tracking import _get_model_log_dir
-
+from mlflow.utils import cli_args
 
 @click.group("pyfunc")
 def commands():
@@ -16,8 +16,8 @@ def commands():
 
 
 @commands.command("serve")
-@click.option("--model-path", "-m", help="model path", required=True)
-@click.option("--run_id", "-r", default=None, help="run_id")
+@cli_args.MODEL_PATH
+@cli_args.RUN_ID
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 def serve(model_path, run_id, port):
     """
@@ -33,8 +33,8 @@ def serve(model_path, run_id, port):
 
 
 @commands.command("predict")
-@click.option("--model-path", "-m,", help="model path", required=True)
-@click.option("--run_id", "-r", default=None, help="run_id")
+@cli_args.MODEL_PATH
+@cli_args.RUN_ID
 @click.option("--input-path", "-i", help="CSV containing Pandas DataFrame to predict against",
               required=True)
 @click.option("--output-path", "-o", help="Results will be output as CSV to this file." +

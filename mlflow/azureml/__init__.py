@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+
 import os
 import shutil
 
@@ -7,14 +8,14 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir
 from mlflow.version import VERSION as mlflow_version
 
 
 def deploy(app_name, model_path, run_id, mlflow_home):
-    """Deploy MLflow model to Azure ML.
-
-    This command will deploy MLflow model to Azure ML.
+    """
+    Deploy MLflow model to Azure ML.
 
     NOTE: This command is to be called from correctly initialized Azure ML environment.
          At the moment this means it has to be run from console launched from Azure ML Workbench.
@@ -24,16 +25,17 @@ def deploy(app_name, model_path, run_id, mlflow_home):
           fixed. If the model contains Conda environment and it has been trained outside of Azure
           ML, the Conda environment might need to be edited to work with Azure ML.
 
+    :param mlflow_home:
     :param app_name: Name of the deployed application
-    :param model_path: Local or mlflow-run-relative path to the model to be exported
-    :param run_id: If provided, run_id is used to retrieve the model logged with mlflow.
+    :param model_path: Local or MLflow-run-relative path to the model to be exported
+    :param run_id: If provided, run_id is used to retrieve the model logged with MLflow.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
     model_path = os.path.abspath(model_path)
     with TempDir(chdr=True, remove_on_exit=True):
         exec_str = _export(app_name, model_path, mlflow_home=mlflow_home)
-        print("executing", '"{}"'.format(exec_str))
+        eprint("executing", '"{}"'.format(exec_str))
         # Use os.system instead of subprocess due to the fact that currently all azureml commands
         # have to be called within the same shell (launched from azureml workbench app by the user).
         # We can change this once there is a python api (or general cli) available.
@@ -41,7 +43,8 @@ def deploy(app_name, model_path, run_id, mlflow_home):
 
 
 def export(output, model_path, run_id, mlflow_home):
-    """Export MLflow model as Azure ML compatible model ready to be deployed.
+    """
+    Export MLflow model as Azure ML compatible model ready to be deployed.
 
     Export MLflow model out with everything needed to deploy on Azure ML.
     Output includes sh script with command to deploy the generated model to Azure ML.
@@ -52,8 +55,8 @@ def export(output, model_path, run_id, mlflow_home):
     and it has been trained outside of Azure ML, the Conda environment might need to be edited.
 
     :param output: Output folder where the model is going to be exported to.
-    :param model_path: Local or mlflow-run-relative path to the model to be exported
-    :param run_id: If provided, run_id is used to retrieve model logged with mlflow.
+    :param model_path: Local or MLflow-run-relative path to the model to be exported
+    :param run_id: If provided, run_id is used to retrieve model logged with MLflow.
     """
     output = os.path.abspath(output)
     if os.path.exists(output):
@@ -83,9 +86,7 @@ def _export(app_name, model_path, mlflow_home):
     mlflow_dep = "mlflow=={}".format(mlflow_version)
 
     if mlflow_home:
-        print("***")
-        print("MLFLOW_HOME =", mlflow_home)
-        print("***")
+        eprint("MLFLOW_HOME =", mlflow_home)
         # copy current version of mlflow
         mlflow_dir = mlflow.utils.file_utils._copy_project(src_path=mlflow_home, dst_path="./")
         deps = "-d {}".format(mlflow_dir)

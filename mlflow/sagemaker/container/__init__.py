@@ -1,7 +1,7 @@
 """
-Code to initializae the environment and start model serving on Sagemaker or local docker container.
+Initialize the environment and start model serving on Sagemaker or local Docker container.
 
-This code is to be executed only during the model deployment.
+To be executed only during the model deployment.
 
 """
 from __future__ import print_function
@@ -39,12 +39,24 @@ def _init(cmd):
 
 
 def _server_dependencies_cmds():
+    """
+    Get commands required to install packages required to serve the model with MLflow. These are
+    packages outside of the user-provided environment, except for the MLflow itself.
+
+    :return: List of commands.
+    """
+    # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
             "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow/") else
             "pip install mlflow=={}".format(mlflow.version.VERSION)]
 
 
 def _serve():
+    """
+    Serve the model.
+
+    Read the MLmodel config, initialize the conda environment if needed and start python server.
+    """
     m = Model.load("/opt/ml/model/MLmodel")
     if pyfunc.FLAVOR_NAME not in m.flavors:
         raise Exception("Currently can only deal with pyfunc models and this is not one.")
@@ -86,9 +98,14 @@ def _train():
 
 
 def _sigterm_handler(nginx_pid, gunicorn_pid):
-    print("got sigterm signal, exiting")
-    try:
+    """
+    Cleanup when terminating.
 
+    Attempt to kill all launched processes and exit.
+
+    """
+    print("Got sigterm signal, exiting.")
+    try:
         os.kill(nginx_pid, signal.SIGQUIT)
     except OSError:
         pass

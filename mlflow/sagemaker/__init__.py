@@ -10,6 +10,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
 
 DEFAULT_IMAGE_NAME = "mlflow_sage"
@@ -75,8 +76,8 @@ def _docker_ignore(mlflow_root):
 
 def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
     """
-    This function builds an mlflow docker image.
-    The image is built locally and it requires docker to run.
+    This function builds an MLflow Docker image.
+    The image is built locally and it requires Docker to run.
 
     :param name: image name
     """
@@ -90,7 +91,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
-        print("building docker image")
+        eprint("building docker image")
         os.system('find {cwd}/'.format(cwd=cwd))
         proc = Popen(["docker", "build", "-t", name, "-f", "Dockerfile", "."],
                      cwd=cwd,
@@ -98,7 +99,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                      stderr=STDOUT,
                      universal_newlines=True)
         for x in iter(proc.stdout.readline, ""):
-            print(x, end='')
+            eprint(x, end='')
 
 
 _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:latest"
@@ -106,13 +107,13 @@ _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:latest"
 
 def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     """
-    Push local docker image to ecr.
+    Push local Docker image to ECR.
 
-    The image is pushed under current active aws account and to current active aws region.
+    The image is pushed under current active aws account and to current active AWS region.
 
     :param image: image name
     """
-    print("pushing image to ecr")
+    eprint("Pushing image to ECR")
     client = boto3.client("sts")
     caller_id = client.get_caller_identity()
     account = caller_id['Account']
@@ -135,17 +136,18 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
            image="mlflow_sage", region_name="us-west-2"):
-    """ Deploy model on Sagemaker.
-    Current active aws account needs to have correct permissions setup.
+    """
+    Deploy model on Sagemaker.
+    Current active AWS account needs to have correct permissions setup.
 
     :param app_name: Name of the deployed app.
     :param path: Path to the model.
-    Either local if no run_id or mlflow-relative if run_id is specified)
+    Either local if no run_id or MLflow-relative if run_id is specified)
     :param execution_role_arn: Amazon execution role with sagemaker rights
     :param bucket: S3 bucket where model artifacts are gonna be stored
-    :param run_id: mlflow run id.
+    :param run_id: MLflow run id.
     :param image: name of the Docker image to be used.
-    :param region_name: Name of the aws region to deploy to.
+    :param region_name: Name of the AWS region to deploy to.
     """
     prefix = model_path
     if run_id:
@@ -163,10 +165,10 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
 
 def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
     """
-    Serve model locally in a sagemaker compatible docker container.
+    Serve model locally in a SageMaker compatible Docker container.
     :param model_path:  Path to the model.
-    Either local if no run_id or mlflow-relative if run_id is specified)
-    :param run_id: mlflow run id.
+    Either local if no run_id or MLflow-relative if run_id is specified)
+    :param run_id: MLflow RUN-ID.
     :param port: local port
     :param image: name of the Docker image to be used.
     """
@@ -174,24 +176,27 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
         model_path = _get_model_log_dir(model_path, run_id)
     _check_compatible(model_path)
     model_path = os.path.abspath(model_path)
-    print("launching docker image with path {}".format(model_path))
+    eprint("launching docker image with path {}".format(model_path))
     cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port,
            "--rm", image, "serve"]
-    print('executing', ' '.join(cmd))
+    eprint('executing', ' '.join(cmd))
     proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
 
     def _sigterm_handler(*_):
-        print("received termination signal => killing docker process")
+        eprint("received termination signal => killing docker process")
         proc.send_signal(signal.SIGINT)
 
     import signal
     signal.signal(signal.SIGTERM, _sigterm_handler)
     for x in iter(proc.stdout.readline, ""):
-        print(x, end='')
-    print("docker proc has ended")
+        eprint(x, end='')
 
 
 def _check_compatible(path):
+    """
+    Check that we can handle this model and rasie exception if we can not.
+    :return: RUN_ID if it exists or None
+    """
     path = os.path.abspath(path)
     model = Model.load(os.path.join(path, "MLmodel"))
     if pyfunc.FLAVOR_NAME not in model.flavors:
@@ -230,7 +235,7 @@ def _upload_s3(local_model_path, bucket, prefix):
                 Key=key,
                 Tagging={'TagSet': [{'Key': 'SageMaker', 'Value': 'true'}, ]}
             )
-            print('tag response', response)
+            eprint('tag response', response)
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
@@ -259,7 +264,7 @@ def _deploy(role, image, app_name, model_s3_path, run_id, region_name):
         ExecutionRoleArn=role,
         Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
     )
-    print("model_arn: %s" % model_response["ModelArn"])
+    eprint("model_arn: %s" % model_response["ModelArn"])
     config_name = app_name + "-config"
     endpoint_config_response = sage_client.create_endpoint_config(
         EndpointConfigName=config_name,
@@ -279,10 +284,10 @@ def _deploy(role, image, app_name, model_s3_path, run_id, region_name):
             },
         ],
     )
-    print("endpoint_config_arn: %s" % endpoint_config_response["EndpointConfigArn"])
+    eprint("endpoint_config_arn: %s" % endpoint_config_response["EndpointConfigArn"])
     endpoint_response = sage_client.create_endpoint(
         EndpointName=app_name,
         EndpointConfigName=config_name,
         Tags=[],
     )
-    print("endpoint_arn: %s" % endpoint_response["EndpointArn"])
+    eprint("endpoint_arn: %s" % endpoint_response["EndpointArn"])
