@@ -185,6 +185,11 @@ The sklearn model flavor provides an easy to use interface for handling scikit-l
 external dependencies. It saves and loads models using Python's pickle module and also generates a valid
 ``Python Function`` flavor. For more information, see :py:mod:`mlflow.sklearn`.
 
+Tensorflow (``tensorflow``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+
 Custom Flavors
 --------------
 
