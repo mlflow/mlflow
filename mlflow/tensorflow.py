@@ -1,6 +1,6 @@
-"""MLflow integration for Tensorflow.
+"""MLflow integration for TensorFlow.
 
-Manages logging and loading Tensorflow models as Python Functions. You are expected to save your own
+Manages logging and loading TensorFlow models as Python Functions. You are expected to save your own
 ``saved_models`` and pass their paths to ``log_saved_model()`` 
 so that MLflow can track the models. 
 
@@ -73,7 +73,7 @@ class _TFWrapper(object):
 
 
 def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
-    """Log a Tensorflow model as an MLflow artifact for the current run.
+    """Log a TensorFlow model as an MLflow artifact for the current run.
 
     :param saved_model_dir: Directory where the exported tf model is saved.
     :param signature_def_key: Which signature definition to use when loading the model again. See https://www.tensorflow.org/serving/signature_defs for details.
