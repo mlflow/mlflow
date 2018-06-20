@@ -30,3 +30,5 @@ script:
   - pip list
   - which mlflow
   - tox
+  - cd mlflow/server/js
+  - npm test
