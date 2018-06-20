@@ -169,6 +169,19 @@ def create_experiment(experiment_name):
     return _get_store().create_experiment(experiment_name)
 
 
+def get_or_create_experiment(experiment_name):
+    """
+    Finds an existing experiment or creates it if it does not exist. Always returns the experiment ID.
+    """
+    if experiment_name is None or experiment_name == "":
+        raise Exception("Invalid experiment name '%s'" % experiment_name)
+    experiment = _get_store().get_experiment_by_name(experiment_name)
+    if experiment is not None:
+        return experiment.experiment_id
+    return _get_store().create_experiment(experiment_name)
+
+
+
 def _get_main_file():
     if len(sys.argv) > 0:
         return sys.argv[0]
@@ -295,7 +308,7 @@ def log_param(key, value):
     Logs the passed-in parameter under the current run, creating a run if necessary.
     :param key: Parameter name (string)
     :param value: Parameter value (string)
-    """  
+    """
     _get_or_start_run().log_param(Param(key, str(value)))
 
 
