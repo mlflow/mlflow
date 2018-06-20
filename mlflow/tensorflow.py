@@ -35,8 +35,6 @@ class _TFWrapper(object):
             self._signature_def_key = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
         else:
             self._signature_def_key = model.flavors["tensorflow"]["signature_def_key"]
-        for i in model.flavors["tensorflow"]:
-            print(i)
         self._saved_model_dir = model.flavors["tensorflow"]["saved_model_dir"]
 
     def predict(self, df):
