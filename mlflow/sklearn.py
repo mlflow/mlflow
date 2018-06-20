@@ -76,7 +76,11 @@ def commands():
 @click.argument("model_path")
 @click.option("--run_id", "-r", metavar="RUN_ID", help="Run ID to look for the model in.")
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-def serve_model(model_path, run_id=None, port=None):
+@click.option("--host", default="127.0.0.1",
+              help="The networking interface on which the prediction server listens. Defaults to "
+                   "127.0.0.1.  Use 0.0.0.0 to bind to all addresses, which is useful for running "
+                   "inside of docker.")
+def serve_model(model_path, run_id=None, port=None, host="127.0.0.1"):
     """
     Serve a SciKit-Learn model saved with MLflow.
 
@@ -87,7 +91,7 @@ def serve_model(model_path, run_id=None, port=None):
     app = flask.Flask(__name__)
 
     @app.route('/invocations', methods=['POST'])
-    def predict():  # noqa
+    def predict():  # pylint: disable=unused-variable
         if flask.request.content_type != 'application/json':
             return flask.Response(status=415, response='JSON data expected', mimetype='text/plain')
         data = flask.request.data.decode('utf-8')
@@ -96,4 +100,4 @@ def serve_model(model_path, run_id=None, port=None):
         result = json.dumps({"predictions": predictions.tolist()})
         return flask.Response(status=200, response=result + "\n", mimetype='application/json')
 
-    app.run(port=port)
+    app.run(host, port=port)

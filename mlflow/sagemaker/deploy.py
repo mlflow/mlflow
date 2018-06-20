@@ -47,7 +47,7 @@ def _upload_s3(local_model_path, bucket, prefix):
         shutil.rmtree(tmp_dir)
 
 
-def _deploy(role, container_name, app_name, model_s3_path, run_id):
+def _deploy(role, container_name, app_name, model_s3_path, run_id, region_name):
     """
     Deploy model on sagemaker.
     :param role:
@@ -57,7 +57,7 @@ def _deploy(role, container_name, app_name, model_s3_path, run_id):
     :param run_id:
     :return:
     """
-    sage_client = boto3.client('sagemaker', region_name="us-west-2")
+    sage_client = boto3.client('sagemaker', region_name)
     ecr_client = boto3.client("ecr")
     repository_conf = ecr_client.describe_repositories(
         repositoryNames=[container_name])['repositories'][0]

@@ -1,101 +1,23 @@
-from contextlib import contextmanager
-import filecmp
-import mock
 import os
-import shutil
+import filecmp
 import tempfile
 
+import mock
 import pytest
-from six.moves import shlex_quote
-import yaml
 
 import mlflow
-from mlflow.projects import Project, ExecutionException
+from mlflow.projects import ExecutionException
+from mlflow.store.file_store import FileStore
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils import env
 
-TEST_DIR = "tests"
-TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
-
-
-@contextmanager
-def temp_directory():
-    name = tempfile.mkdtemp()
-    try:
-        yield name
-    finally:
-        shutil.rmtree(name)
-
-
-def load_project():
-    with open(os.path.join(TEST_PROJECT_DIR, "MLproject")) as mlproject_file:
-        project_yaml = yaml.safe_load(mlproject_file.read())
-    return Project(uri=TEST_PROJECT_DIR, yaml_obj=project_yaml)
-
-
-def test_entry_point_compute_params():
-    project = load_project()
-    entry_point = project.get_entry_point("greeter")
-    # Pass extra "excitement" param, use default value for `greeting` param
-    with temp_directory() as storage_dir:
-        params, extra_params = entry_point.compute_parameters(
-            {"name": "friend", "excitement": 10}, storage_dir)
-        assert params == {"name": "friend", "greeting": "hi"}
-        assert extra_params == {"excitement": "10"}
-        # Don't pass extra "excitement" param, pass value for `greeting`
-        params, extra_params = entry_point.compute_parameters(
-            {"name": "friend", "greeting": "hello"}, storage_dir)
-        assert params == {"name": "friend", "greeting": "hello"}
-        assert extra_params == {}
-        # Raise exception on missing required parameter
-        with pytest.raises(ExecutionException):
-            entry_point.compute_parameters({}, storage_dir)
-
-
-def test_entry_point_compute_command():
-    project = load_project()
-    entry_point = project.get_entry_point("greeter")
-    with temp_directory() as storage_dir:
-        command = entry_point.compute_command({"name": "friend", "excitement": 10}, storage_dir)
-        assert command == "python greeter.py hi friend --excitement 10"
-        with pytest.raises(ExecutionException):
-            entry_point.compute_command({}, storage_dir)
-        # Test shell escaping
-        name_value = "friend; echo 'hi'"
-        command = entry_point.compute_command({"name": name_value}, storage_dir)
-        assert command == "python greeter.py %s %s" % (shlex_quote("hi"), shlex_quote(name_value))
-
-
-def test_project_get_entry_point():
-    project = load_project()
-    entry_point = project.get_entry_point("greeter")
-    assert entry_point.name == "greeter"
-    assert entry_point.command == "python greeter.py {greeting} {name}"
-    # Validate parameters
-    assert set(entry_point.parameters.keys()) == set(["name", "greeting"])
-    name_param = entry_point.parameters["name"]
-    assert name_param.type == "string"
-    assert name_param.default is None
-    greeting_param = entry_point.parameters["greeting"]
-    assert greeting_param.type == "string"
-    assert greeting_param.default == "hi"
-
-
-def test_project_get_unspecified_entry_point():
-    project = load_project()
-    entry_point = project.get_entry_point("my_script.py")
-    assert entry_point.name == "my_script.py"
-    assert entry_point.command == "python my_script.py"
-    assert entry_point.parameters == {}
-    entry_point = project.get_entry_point("my_script.sh")
-    assert entry_point.name == "my_script.sh"
-    assert entry_point.command == "%s my_script.sh" % os.environ.get("SHELL", "bash")
-    assert entry_point.parameters == {}
-    with pytest.raises(ExecutionException):
-        project.get_entry_point("my_program.scala")
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI
 
 
 def test_fetch_project():
-    # Fetch local project, verify contents match
-    with temp_directory() as dst_dir:
+    """ Test fetching a project to be run locally. """
+    with TempDir() as tmp:
+        dst_dir = tmp.path()
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir)
         dir_comparison = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
         assert len(dir_comparison.left_only) == 0
@@ -103,50 +25,77 @@ def test_fetch_project():
         assert len(dir_comparison.diff_files) == 0
         assert len(dir_comparison.funny_files) == 0
     # Passing `version` raises an exception for local projects
-    with temp_directory() as dst_dir:
+    with TempDir() as dst_dir:
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
                                            dst_dir=dst_dir)
 
 
-def test_path_parameter():
-    # Test that download gets called for arguments of type `path`
-    project = load_project()
-    entry_point = project.get_entry_point("line_count")
-    with mock.patch("mlflow.data.download_uri") as download_uri_mock:
-        download_uri_mock.return_value = 0
-        # Verify that we don't attempt to call download_uri when passing a local file to a
-        # parameter of type "path"
-        with temp_directory() as dst_dir:
-            local_path = os.path.join(TEST_PROJECT_DIR, "MLproject")
-            params, _ = entry_point.compute_parameters(
-                user_parameters={"path": local_path},
-                storage_dir=dst_dir)
-            assert params["path"] == os.path.abspath(local_path)
-            assert download_uri_mock.call_count == 0
-        # Verify that we raise an exception when passing a non-existent local file to a
-        # parameter of type "path"
-        with temp_directory() as dst_dir, pytest.raises(ExecutionException):
-            entry_point.compute_parameters(
-                user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
-                storage_dir=dst_dir)
-        # Verify that we do call `download_uri` when passing a URI to a parameter of type "path"
-        for i, prefix in enumerate(["dbfs:/", "s3://"]):
-            with temp_directory() as dst_dir:
-                entry_point.compute_parameters(
-                    user_parameters={"path": os.path.join(prefix, "some/path")},
-                    storage_dir=dst_dir)
-                assert download_uri_mock.call_count == i + 1
-
-
-def test_uri_parameter():
-    project = load_project()
-    entry_point = project.get_entry_point("download_uri")
-    with mock.patch("mlflow.data.download_uri") as download_uri_mock, temp_directory() as dst_dir:
-        # Test that we don't attempt to locally download parameters of type URI
-        entry_point.compute_command(user_parameters={"uri": "file://%s" % dst_dir},
-                                    storage_dir=dst_dir)
-        assert download_uri_mock.call_count == 0
-        # Test that we raise an exception if a local path is passed to a parameter of type URI
+def test_run_mode():
+    """ Verify that we pick the right run helper given an execution mode """
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tmp.path()
+        for local_mode in ["local", None]:
+            with mock.patch("mlflow.projects._run_local") as run_local_mock:
+                mlflow.projects.run(uri=TEST_PROJECT_DIR, mode=local_mode)
+                assert run_local_mock.call_count == 1
+        with mock.patch("mlflow.projects._run_databricks") as run_databricks_mock:
+            mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="databricks")
+            assert run_databricks_mock.call_count == 1
         with pytest.raises(ExecutionException):
-            entry_point.compute_command(user_parameters={"uri": dst_dir}, storage_dir=dst_dir)
+            mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="some unsupported mode")
+
+
+def test_use_conda():
+    """ Verify that we correctly handle the `use_conda` argument."""
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tmp.path()
+        for use_conda, expected_call_count in [(True, 1), (False, 0), (None, 0)]:
+            with mock.patch("mlflow.projects._maybe_create_conda_env") as conda_env_mock:
+                mlflow.projects.run(TEST_PROJECT_DIR, use_conda=use_conda)
+                assert conda_env_mock.call_count == expected_call_count
+        # Verify we throw an exception when conda is unavailable
+        old_path = os.environ["PATH"]
+        env.unset_variable("PATH")
+        try:
+            with pytest.raises(ExecutionException):
+                mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
+        finally:
+            os.environ["PATH"] = old_path
+
+
+def test_log_parameters():
+    """ Test that we log provided parameters when running a project. """
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
+        mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"},
+            use_conda=False, experiment_id=0)
+        store = FileStore(tmp_dir)
+        run_uuid = store.list_run_infos(experiment_id=0)[0].run_uuid
+        run = store.get_run(run_uuid)
+        expected_params = {"name": "friend"}
+        assert len(run.data.params) == len(expected_params)
+        for param in run.data.params:
+            assert param.value == expected_params[param.key]
+
+
+def test_get_work_dir():
+    """ Test that we correctly determine the working directory to use when running a project. """
+    for use_temp_cwd, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
+        work_dir = mlflow.projects._get_work_dir(uri=uri, use_temp_cwd=use_temp_cwd)
+        assert work_dir != uri
+        assert os.path.exists(work_dir)
+    for use_temp_cwd, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
+        assert mlflow.projects._get_work_dir(uri=uri, use_temp_cwd=use_temp_cwd) == TEST_PROJECT_DIR
+
+
+def test_storage_dir():
+    """
+    Test that we correctly handle the `storage_dir` argument, which specifies where to download
+    distributed artifacts passed to arguments of type `path`.
+    """
+    with TempDir() as tmp_dir:
+        assert os.path.dirname(mlflow.projects._get_storage_dir(tmp_dir.path())) == tmp_dir.path()
+    assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()

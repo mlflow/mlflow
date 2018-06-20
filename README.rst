@@ -2,10 +2,11 @@
 MLflow Alpha Release
 ====================
 
-.. warning::
+**Note:** The current version of MLflow is an alpha release. This means that APIs and data formats
+are subject to change!
 
-    The current version of MLflow is an alpha. This means that APIs and storage formats
-    are subject to change!
+**Note 2:** We do not currently support running MLflow on Windows. Despite this, we would appreciate any contributions
+to make MLflow work better on Windows.
 
 Installing
 ----------
