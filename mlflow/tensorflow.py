@@ -1,4 +1,17 @@
-"""MLflow integration for Tensorflow."""
+"""MLflow integration for Tensorflow.
+
+Manages logging and loading Tensorflow models as Python Functions. You are expected to save your own
+``saved_models`` and pass their paths to ``log_saved_model()`` 
+so that MLflow can track the models. 
+
+In order to load the model to predict on it again, you can call
+``estimator = mlflow.pyfunc.load_pyfunc(saved_model_dir)``, followed by 
+``prediction= estimator.predict(pandas DataFrame)`` in order to obtain a prediction in a pandas DataFrame.
+
+Note that loading the model back via ``load_pyfunc()`` does not load the actual model, but rather
+a pyfunc that allows for predictions based on previous training. This means that you *cannot* continue training
+the models you load via MLflow.
+"""
 
 from __future__ import absolute_import
 
@@ -66,9 +79,9 @@ class _TFWrapper(object):
 def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
     """Log a Tensorflow model as an MLflow artifact for the current run.
 
-    :param saved_model_dir: directory where the exported tf model is saved
-    :param signature_def_key: which signature definition to use when loading the model again. See https://www.tensorflow.org/serving/signature_defs for details.
-    :param artifact_path: path to where artifacts of the model will be saved
+    :param saved_model_dir: Directory where the exported tf model is saved.
+    :param signature_def_key: Which signature definition to use when loading the model again. See https://www.tensorflow.org/serving/signature_defs for details.
+    :param artifact_path: Path to where artifacts of the model will be saved.
     """
     #run_id = mlflow.tracking.active_run().info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path)#, run_id=run_id)
@@ -83,8 +96,8 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
 def load_pyfunc(saved_model_dir):
     """Load model stored in python-function format. Allows for use of the `predict(pandas DataFrame)` function.
     
-    :param saved_model_dir: directory where the model is saved
-    :rtype: pyfunc format model with function `model.predict(pandas DataFrame) -> pandas DataFrame)`.
+    :param saved_model_dir: Directory where the model is saved.
+    :rtype: Pyfunc format model with function `model.predict(pandas DataFrame) -> pandas DataFrame)`.
 
     """
     return _TFWrapper(saved_model_dir)
