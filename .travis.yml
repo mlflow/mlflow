@@ -31,4 +31,5 @@ script:
   - which mlflow
   - tox
   - cd mlflow/server/js
+  - npm i
   - npm test
