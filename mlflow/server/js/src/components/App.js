@@ -32,7 +32,7 @@ class App extends Component {
             <div className="header-links">
               <a href={'https://github.com/databricks/mlflow'}>
                 <div className="github">
-                  <span>Github</span>
+                  <span>GitHub</span>
                 </div>
               </a>
               <a href={'https://mlflow.org/docs/latest/index.html'}>

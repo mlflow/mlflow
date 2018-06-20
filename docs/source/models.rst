@@ -21,9 +21,9 @@ from any ML library without having to integrate each tool with each library. MLf
 several "standard" flavors that all of its built-in deployment tools support, such as a "Python
 function" flavor that describes how to run the model as a Python function. However, libraries can
 also define and use other flavors. For example, MLflow's :py:mod:`mlflow.sklearn` library allows
-loading models back as a Scikit-learn ``Pipeline`` object for use in code that is aware of
-Scikit-learn, or as a generic Python function for use in tools that just need to apply the model
-(for example, the ``mlflow sagemaker`` tool for deploying models to SageMaker).
+loading models back as a scikit-learn ``Pipeline`` object for use in code that is aware of
+scikit-learn, or as a generic Python function for use in tools that just need to apply the model
+(for example, the ``mlflow sagemaker`` tool for deploying models to Amazon SageMaker).
 
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
 format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
@@ -318,4 +318,3 @@ Example:
 
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
-

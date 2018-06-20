@@ -20,12 +20,12 @@ and list experiments, and download artifacts.
 
     Commands:
       azureml      Serve models on Azure ML.
-      download     Downloads the artifact at the specified DBFS...
-      experiments  Tracking APIs.
+      download     Download the artifact at the specified DBFS or S3 URI. 
+      experiments  Run and list experiments.
       pyfunc       Serve Python models locally.
       run          Run an MLflow project from the given URI.
-      sagemaker    Serve models on SageMaker.
-      sklearn      Serve SciKit-Learn models.
+      sagemaker    Serve models on Amazon SageMaker.
+      sklearn      Serve scikit-learn models.
       ui           Run the MLflow tracking UI.
 
 
@@ -35,13 +35,13 @@ Each individual command has a detailed help screen accessible via ``mlflow comma
 Azure ML
 --------
 
-Various sub-commands to enable easy deployment on Azure ML
+Subcommands to serve models on Azure ML.
 
 
 Download
 --------
 
-Downloads the artifact at the specified DBFS or S3 URI into the specified
+Download the artifact at the specified DBFS or S3 URI into the specified
 local output path, or the current directory if no output path is
 specified.
 
@@ -49,25 +49,25 @@ specified.
 Experiments
 -----------
 
-Sub-commands to enable creating and listing experiments.
+Subcommands to create and list experiments.
 
 
 Python Function
 ---------------
 
-Sub-commands to enable serving Python models or applying them for inference.
+Subcommands to serve Python models and apply them for inference.
 
 
 SageMaker
 ---------
 
-Various sub-commands to enable easy deployment on SageMaker.
+Subcommands to serve models on SageMaker.
 
 
-SciKit-Learn Models
+scikit-learn Models
 -------------------
 
-Various sub-commands for serving SciKit-Learn models or applying them for inference.
+Subcommands to serve scikit-learn models and apply them for inference.
 
 
 Run
