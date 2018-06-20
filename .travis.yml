@@ -32,6 +32,6 @@ script:
   - tox
   - cd mlflow/server/js
   - npm i
-  - npm test
+  - npm test -- --coverage
   - cd ../../..
   - codecov -e TOXENV
