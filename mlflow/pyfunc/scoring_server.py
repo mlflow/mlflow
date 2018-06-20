@@ -28,7 +28,7 @@ def init(model):
     app = flask.Flask(__name__)
 
     @app.route('/ping', methods=['GET'])
-    def ping():  # noqa
+    def ping():  # pylint: disable=unused-variable
         """
         Determine if the container is working and healthy.
         We declare it healthy if we can load the model successfully.
@@ -38,7 +38,7 @@ def init(model):
         return flask.Response(response='\n', status=status, mimetype='application/json')
 
     @app.route('/invocations', methods=['POST'])
-    def transformation():  # noqa
+    def transformation():  # pylint: disable=unused-variable
         """
         Do an inference on a single batch of data. In this sample server,
         we take data as CSV or json, convert it to a pandas data frame,

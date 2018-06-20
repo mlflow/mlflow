@@ -28,7 +28,8 @@ def commands():
 @click.option("--bucket", "-b", help="S3 bucket to store model artifacts", required=True)
 @click.option("--run_id", "-r", default=None, help="Run id")
 @click.option("--container", "-c", default="mlflow_sage", help="container name")
-def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None, container="mlflow_sage"): # noqa
+@click.option("--region-name", default="us-west-2", help="region name")
+def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None, container="mlflow_sage", region_name="us-west-2"): # noqa
     """ Deploy model on sagemaker.
 
     :param app_name: Name of the deployed app.
@@ -51,7 +52,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None, contai
             container_name=container,
             app_name=app_name,
             model_s3_path=model_s3_path,
-            run_id=run_id)
+            run_id=run_id,
+            region_name=region_name)
 
 
 @commands.command("run-local")

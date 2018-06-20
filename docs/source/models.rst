@@ -205,7 +205,7 @@ Local
 MLflow can deploy models locally as a local REST API endpoint or to directly score csv files.
 This functionality is a convenient way of testing models before uploading to remote.
 
-Python function flavor can be deployed locally via :py:mod:`mlflow.auzreml` module  as
+Python function flavor can be deployed locally via :py:mod:`mlflow.pyfunc` module as
 
 * :py:func:`serve <mlflow.pyfunc.cli.serve>`
   deploys model as a local REST api server
