@@ -87,6 +87,31 @@ require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof requ
                 link.prepend(expand);
             });
 
+            $('a[href*=#]')
+                .not('[href="#"]')
+                .not('[href="#0"]')
+                .on('click', function (evt){
+                    if (location.pathname.replace(/^\//, '') === this.pathname.replace(/^\//, '') &&
+                        location.hostname === this.hostname) {
+                        evt.preventDefault();
+                        var hash = $(this).attr('href');
+                        var $scrollingAnchor = $(hash);
+
+                        scrollTo($scrollingAnchor);
+
+                        if (history.pushState) {
+                            history.pushState(null, null, hash);
+                        } else {
+                            location.hash = hash;
+                        }
+                    }
+            });
+
+            maybeScrollToAnchor();
+            window.onhashchange = function() {
+                maybeScrollToAnchor();
+            }
+            
             setupSearch();
         };
 
@@ -249,4 +274,22 @@ function setupSearch() {
             attachment: 'together'
         }]
     });
+}
+
+function maybeScrollToAnchor() {
+    scrollTo($(location.hash));
+
+    return true;
+}
+
+function scrollTo($scrollingAnchor) {
+    if ($scrollingAnchor.length) {
+        var elScrollTop = $scrollingAnchor.hasClass('section')
+            ? $scrollingAnchor.find(':header').position().top
+            : $scrollingAnchor.position().top;
+
+        $('html, body').animate({
+            scrollTop: elScrollTop
+        }, 10);
+    }
 }

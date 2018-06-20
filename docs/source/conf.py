@@ -115,6 +115,11 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
+
+html_context = {
+    'use_algolia': os.environ['USE_ALGOLIA']
+}
+
 html_theme_path = ["../theme/"]
 html_theme = 'mlflow'
 html_favicon = "_static/favicon.ico"
