@@ -170,11 +170,12 @@ class TempDir(object):
             self._dir = None
         if self._remove and os.path.exists(self._path):
             shutil.rmtree(self._path)
+
         assert not self._remove or not os.path.exists(self._path)
         assert os.path.exists(os.getcwd())
 
     def path(self, *path):
-        return os.path.join(*path) if self._chdr else os.path.join(self._path, *path)
+        return os.path.join("./", *path) if self._chdr else os.path.join(self._path, *path)
 
 
 def read_file(parent_path, file_name):
@@ -228,3 +229,40 @@ def write_to(filename, data):
 def append_to(filename, data):
     with open(filename, "a") as handle:
         handle.write(data)
+
+
+def _copy_project(src_path, dst_path=""):
+    """
+    Internal function used to copy MLflow project during development.
+
+    Copies the content of the whole directory tree except patterns defined in .dockerignore.
+    The MLflow is assumed to be accessible as a local directory in this case.
+
+
+    :param dst_path: MLflow will be copied here
+    :return: name of the MLflow project directory
+    """
+
+    def _docker_ignore(mlflow_root):
+        docker_ignore = os.path.join(mlflow_root, '.dockerignore')
+        patterns = []
+        if os.path.exists(docker_ignore):
+            with open(docker_ignore, "r") as f:
+                patterns = [x.strip() for x in f.readlines()]
+
+        def ignore(_, names):
+            import fnmatch
+            res = set()
+            for p in patterns:
+                res.update(set(fnmatch.filter(names, p)))
+            return list(res)
+
+        return ignore if patterns else None
+
+    mlflow_dir = "mlflow-project"
+    # check if we have project root
+    assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
+        os.path.abspath(os.path.join(src_path, "setup.py")))
+    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
+                    ignore=_docker_ignore(src_path))
+    return mlflow_dir
