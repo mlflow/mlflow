@@ -132,4 +132,4 @@ def _check_compatible(path):
     path = os.path.abspath(path)
     servable = Model.load(os.path.join(path, "MLmodel"))
     if pyfunc.FLAVOR_NAME not in servable.flavors:
-        raise Exception("Currenlty only supports pyfunc format.")
+        raise Exception("Currently supports only pyfunc format.")
