@@ -229,8 +229,8 @@ clippy.on("success", function(e) {
 
 function setupSearch() {
     docsearch({
-      apiKey: algoliaConfigs.key,//'5abfc08b308ba9af42e7a5edfb1947fa',
-      indexName: algoliaConfigs.index,//'databricks',
+      apiKey: algoliaConfigs.key,
+      indexName: algoliaConfigs.index,
       inputSelector: '#algolia-search',
       debug: false,
       autocompleteOptions: {
