@@ -141,14 +141,14 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
             and not x == "__pycache__"]
 
 
-def spark_udf(spark, path, run_id=None, result_type="double"):
+def load_spark_udf(spark, path):
     """Returns a Spark UDF that can be used to invoke the python-function formatted model.
 
     Note that parameters passed to the UDF will be forwarded to the model as a DataFrame
     where the names are simply ordinals (0, 1, ...).
 
     Example:
-        predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
+        predict = mlflow.pyfunc.spark_model(spark, "/my/local/model")
         df.withColumn("prediction", predict("name", "age")).show()
 
     Args:
@@ -159,11 +159,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
-    from mlflow.pyfunc.spark_model_cache import SparkModelCache
+    from mlflow.spark_model.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
-
-    if run_id:
-        path = tracking._get_model_log_dir(path, run_id)
 
     archive_path = SparkModelCache.add_local_model(spark, path)
 
@@ -174,7 +171,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         result = model.predict(pdf)
         return pandas.Series(result)
 
-    return pandas_udf(predict, result_type)
+    return pandas_udf(predict, "double")
 
 
 def _copy_file_or_tree(src, dst, dst_dir):

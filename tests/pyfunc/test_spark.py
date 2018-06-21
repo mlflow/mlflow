@@ -8,12 +8,14 @@ import unittest
 
 import pandas as pd
 import pyspark
+
 import pytest
 import sklearn.datasets
 from sklearn.neighbors import KNeighborsClassifier
 
-from mlflow.pyfunc import load_pyfunc, spark_udf
-from mlflow.pyfunc.spark_model_cache import SparkModelCache
+from mlflow.pyfunc import load_pyfunc
+from mlflow.spark_model import load_udf
+from mlflow.spark_model.spark_model_cache import SparkModelCache
 import mlflow.sklearn
 
 
@@ -29,7 +31,7 @@ class TestSparkUDFs(unittest.TestCase):
             .getOrCreate()
         iris = sklearn.datasets.load_iris()
         self._pandas_df = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
-
+        self._feature_names = iris.feature_names[:2]
         knn = KNeighborsClassifier()
         knn.fit(self._pandas_df, iris.target)
         self._model_path = os.path.join(self._tmp, "model")
@@ -43,7 +45,7 @@ class TestSparkUDFs(unittest.TestCase):
     def test_spark_udf(self):
         pandas_df = self._pandas_df
         spark_df = self.spark.createDataFrame(pandas_df)
-        pyfunc_udf = spark_udf(self.spark, self._model_path, result_type="integer")
+        pyfunc_udf = load_udf(self.spark, self._model_path, result_type="integer")
         new_df = spark_df.withColumn("prediction", pyfunc_udf(self._pandas_df.columns[0],
                                                               self._pandas_df.columns[1]))
         spark_results = new_df.collect()
@@ -56,6 +58,7 @@ class TestSparkUDFs(unittest.TestCase):
         for i in range(0, len(pandas_results)):  # noqa
             self.assertEqual(self._predict[i], pandas_results[i])
             self.assertEqual(pandas_results[i], spark_results[i]['prediction'])
+
 
     @pytest.mark.large
     def test_model_cache(self):
