@@ -1,11 +1,11 @@
 #
 # train_diabetes.py
 #
-#   Modified version of train.py from Wine Quality dataset
-#       https://github.com/databricks/mlflow/blob/master/example/tutorial/train.py
-#       The data set used in this example is from http://archive.ics.uci.edu/ml/datasets/Wine+Quality
-#       P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis.
-#       Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
+#   MLflow model using ElasticNet (sklearn) and Plots Lasso vs. ElasticNet Descent Paths
+#
+#   Uses the sklearn Diabetes dataset to predict diabetes progression using ElasticNet
+#       The predicted "progression" column is a quantitative measure of disease progression one year after baseline
+#       http://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html
 #   Combines the above with the Lasso Descent Path Plot
 #       http://scikit-learn.org/stable/auto_examples/linear_model/plot_lasso_coordinate_descent_path.html
 #       Original author: Alexandre Gramfort <alexandre.gramfort@inria.fr>; License: BSD 3 clause
