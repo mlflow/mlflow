@@ -25,14 +25,14 @@ class TestModelExport(unittest.TestCase):
         receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
         saved_estimator_path = tmp.path("model")
         os.makedirs(saved_estimator_path)
-        # Saving Tensorflow model.
+        # Saving TensorFlow model.
         saved_estimator_path = estimator.export_savedmodel(saved_estimator_path, 
                                                        receiver_fn).decode("utf-8")
-        # Logging the Tensorflow model just saved.
+        # Logging the TensorFlow model just saved.
         tensorflow.log_saved_model(saved_model_dir=saved_estimator_path,
                                    signature_def_key="predict", 
                                    artifact_path=tmp.path("hello"))
-        # Loading the saved Tensorflow model as a pyfunc.
+        # Loading the saved TensorFlow model as a pyfunc.
         x = pyfunc.load_pyfunc(saved_estimator_path)
         # Predicting on the dataset using the pyfunc.
         xpred = x.predict(df)
@@ -47,14 +47,14 @@ class TestModelExport(unittest.TestCase):
             trainingFeatures = {}
             feature_names = iris.feature_names[:2]
             for i in range(0, 2):
-                # Tensorflow is fickle about feature names, so we remove offending characters
+                # TensorFlow is fickle about feature names, so we remove offending characters
                 iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
                 iris.feature_names[i] = iris.feature_names[i].replace("(", "")
                 iris.feature_names[i] = iris.feature_names[i].replace(")", "")
                 trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
             tf_feat_cols = []
             feature_names = iris.feature_names[:2]
-            # Creating Tensorflow-specific numeric columns for input.
+            # Creating TensorFlow-specific numeric columns for input.
             for col in iris.feature_names[:2]:
                 tf_feat_cols.append(tf.feature_column.numeric_column(col))
             # Creating input training function.
@@ -173,7 +173,7 @@ class TestModelExport(unittest.TestCase):
                 results = self.helper(feature_spec, tmp, estimator, df)
 
                 # Asserting that the loaded model predictions are as expected.
-                # Tensorflow is known to have precision errors, hence the almost_equal.
+                # TensorFlow is known to have precision errors, hence the almost_equal.
                 np.testing.assert_array_almost_equal(saved, results, decimal = 2)
             finally:
                 # Restoring the old logging location.

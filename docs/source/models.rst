@@ -185,6 +185,11 @@ The sklearn model flavor provides an easy to use interface for handling scikit-l
 external dependencies. It saves and loads models using Python's pickle module and also generates a valid
 ``Python Function`` flavor. For more information, see :py:mod:`mlflow.sklearn`.
 
+TensorFlow (``tensorflow``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The TensorFlow model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on Pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.tensorflow`. 
+
 Custom Flavors
 --------------
 
