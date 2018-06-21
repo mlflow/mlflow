@@ -24,8 +24,8 @@ The programs in ``example`` use the MLflow Tracking API. For instance, run::
 
     python example/quickstart/test.py
 
-This program will use MLflow log API, which stores tracking data in ``./mlruns``, which can then
-be viewed with the Tracking UI.
+This program will use `MLflow Tracking API <https://mlflow.org/docs/latest/tracking.html>`_,
+which logs tracking data in ``./mlruns``. This can then be viewed with the Tracking UI.
 
 
 Launching the Tracking UI
@@ -50,7 +50,7 @@ See ``example/tutorial`` for a sample project with an MLproject file.
 
 Saving and Serving Models
 -------------------------
-To illustrate managing models, the ``mlflow.sklearn`` package can log Scikit-learn models as
+To illustrate managing models, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
 ``example/quickstart/test_sklearn.py`` that you can run as follows::
 
@@ -68,5 +68,5 @@ MLflow artifacts and then load them again for serving. There is an example train
 
 Contributing
 ------------
-We happily welcome contributions, please see our `contribution guide <CONTRIBUTING.rst>`_
+We happily welcome contributions to MLflow. Please see our `contribution guide <CONTRIBUTING.rst>`_
 for details.
