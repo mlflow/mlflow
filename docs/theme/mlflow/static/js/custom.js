@@ -87,31 +87,6 @@ require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof requ
                 link.prepend(expand);
             });
 
-            $('a[href*=#]')
-                .not('[href="#"]')
-                .not('[href="#0"]')
-                .on('click', function (evt){
-                    if (location.pathname.replace(/^\//, '') === this.pathname.replace(/^\//, '') &&
-                        location.hostname === this.hostname) {
-                        evt.preventDefault();
-                        var hash = $(this).attr('href');
-                        var $scrollingAnchor = $(hash);
-
-                        scrollTo($scrollingAnchor);
-
-                        if (history.pushState) {
-                            history.pushState(null, null, hash);
-                        } else {
-                            location.hash = hash;
-                        }
-                    }
-            });
-
-            maybeScrollToAnchor();
-            window.onhashchange = function() {
-                maybeScrollToAnchor();
-            }
-            
             setupSearch();
         };
 
@@ -254,8 +229,8 @@ clippy.on("success", function(e) {
 
 function setupSearch() {
     docsearch({
-      apiKey: algoliaConfigs.key,//'b6d79a1058f2b3c1ee03bf659ade5a4b',
-      indexName: algoliaConfigs.index,//'mlflow',
+      apiKey: algoliaConfigs.key,
+      indexName: algoliaConfigs.index,
       inputSelector: '#algolia-search',
       debug: false,
       autocompleteOptions: {
@@ -274,22 +249,4 @@ function setupSearch() {
             attachment: 'together'
         }]
     });
-}
-
-function maybeScrollToAnchor() {
-    scrollTo($(location.hash));
-
-    return true;
-}
-
-function scrollTo($scrollingAnchor) {
-    if ($scrollingAnchor.length) {
-        var elScrollTop = $scrollingAnchor.hasClass('section')
-            ? $scrollingAnchor.find(':header').position().top
-            : $scrollingAnchor.position().top;
-
-        $('html, body').animate({
-            scrollTop: elScrollTop
-        }, 10);
-    }
 }
