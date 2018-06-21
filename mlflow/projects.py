@@ -157,14 +157,16 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
-    result = ["/databricks/mlflow-run.sh"]
-    result.extend(["mlflow", "run", uri, "--entry-point", entry_point])
+    mlflow_run_cmd = ["mlflow", "run", uri, "--entry-point", entry_point]
     if version is not None:
-        result.extend(["--version", version])
+        mlflow_run_cmd.extend(["--version", version])
     if parameters is not None:
         for key, value in parameters.items():
-            result.extend(["-P", "%s=%s" % (key, value)])
-    return result
+            mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
+    mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
+    return ["bash", "-c", "export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin && %s"
+            % mlflow_run_str]
+
 
 
 def _get_db_hostname_and_auth():
