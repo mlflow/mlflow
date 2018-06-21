@@ -25,14 +25,13 @@ class Utils {
 
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
-      return Math.round(value * 1000) / 1000;
+      return (Math.round(value * 1000) / 1000).toString();
     } else if (Math.abs(value) < 100) {
-      return Math.round(value * 100) / 100;
+      return (Math.round(value * 100) / 100).toString();
     } else {
-      return Math.round(value * 10) / 10;
+      return (Math.round(value * 10) / 10).toString();
     }
   }
-
 
   /**
    * We need to cast all of the timestamps back to numbers since keys of JS objects are auto casted
@@ -71,10 +70,10 @@ class Utils {
       return (duration / 1000).toFixed(1) + "s"
     } else if (duration < 1000 * 60 * 60) {
       return (duration / 1000 / 60).toFixed(1) + "min"
-    } else if (duration < 1000 * 60 * 60 * 60) {
+    } else if (duration < 1000 * 60 * 60 * 24) {
       return (duration / 1000 / 60 / 60).toFixed(1) + "h"
     } else {
-      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + "days"
+      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + "d"
     }
   }
 
@@ -88,7 +87,7 @@ class Utils {
   }
 
   static dropExtension(path) {
-    return path.replace(/\.[^/.]+$/, "")
+    return path.replace(/(.*[^/])\.[^/.]+$/, "$1")
   }
 
   static renderSource(run) {

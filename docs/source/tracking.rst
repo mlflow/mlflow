@@ -31,10 +31,10 @@ Metrics
 
 Artifacts
     Output files in any format. For example, you can record images (for example, PNGs), models
-    (for example, a pickled SciKit-Learn model) or even data files (for example, a
+    (for example, a pickled scikit-learn model) or even data files (for example, a
     `Parquet <https://parquet.apache.org/>`_ file) as artifacts.
 
-Runs can be recorded from anywhere you run your code through MLflow's Python or REST APIs: for
+Runs can be recorded from anywhere you run your code through MLflow's Python and REST APIs: for
 example, you can record them in a standalone program, on a remote cloud machine, or in an
 interactive notebook. If you record runs in an :ref:`MLflow Project <projects>`, however, MLflow
 remembers the project URI and source version.
@@ -50,7 +50,7 @@ API.
 Where Runs Get Recorded
 -----------------------
 
-MLflow runs can be recorded either locally in files or remotely to a Tracking Server.
+MLflow runs can be recorded either locally in files or remotely to a tracking server.
 By default, the MLflow Python API logs runs to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs. Set the
 ``MLFLOW_TRACKING_URI`` environment variable to a server's URI or call
@@ -61,8 +61,8 @@ You can also :ref:`run your own tracking server <tracking_server>` to record run
 Logging Data to Runs
 --------------------
 
-You can log data to runs using either the MLflow REST API or the Python API. In this section, we
-show the Python API, but there are corresponding REST APIs as well.
+You can log data to runs using either the MLflow REST API or the Python API. This section 
+shows the Python API, but there are corresponding REST APIs as well.
 
 Basic Logging Functions
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -120,16 +120,16 @@ just one block of code as follows:
        mlflow.log_metric("y", 2)
        ...
 
-The run will remain open throughout the ``with`` statement, and will automatically be closed when the
+The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
 Organizing Runs in Experiments
 ------------------------------
 
-MLflow allows for grouping runs under experiments, which can be useful for comparing runs intended
+MLflow allow you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments via the CLI (``mlflow experiments``) or via
-the :py:func:`create_experiment` Python API. The experiment ID for a individual run can be passed
-via the CLI (e.g. ``mlflow run ... --experiment-id [ID]``) or via the ``MLFLOW_EXPERIMENT_ID``
+the :py:func:`create_experiment` Python API. You can pass the experiment ID for a individual run
+via the CLI (for example, ``mlflow run ... --experiment-id [ID]``) or via the ``MLFLOW_EXPERIMENT_ID``
 environment variable.
 
 .. code:: shell
@@ -201,5 +201,5 @@ For example, to launch a run against a local tracking server, launch ``mlflow ui
     with mlflow.start_run():
         mlflow.log_metric("a", 1)
 
-The ``mlflow.start_run`` and ``mlflow.log_metric`` calls will make API requests to your local
+The ``mlflow.start_run`` and ``mlflow.log_metric`` calls make API requests to your local
 tracking server.

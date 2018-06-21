@@ -37,3 +37,8 @@ script:
   - which mlflow
   - echo $MLFLOW_HOME
   - tox
+  - cd mlflow/server/js
+  - npm i
+  - npm test -- --coverage
+  - cd ../../..
+  - codecov -e TOXENV
