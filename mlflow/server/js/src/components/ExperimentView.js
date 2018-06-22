@@ -174,13 +174,13 @@ class ExperimentView extends Component {
             </Button>
           </div>
           <Table hover>
-            <colgroup span="7"/>
+            <colgroup span="8"/>
             <colgroup span={paramKeyList.length}/>
             <colgroup span={metricKeyList.length}/>
             <tbody>
             <tr>
-              <th className="top-row" scope="colgroup" colSpan="5"></th>
-              <th className="top-row left-border" scope="colgroup" colSpan={Private.getNumParams(paramKeyList, paramKeyFilterSet)}>Parameters</th>
+              <th className="top-row" scope="colgroup" colSpan="6"></th>
+              <th className="top-row left-border" scope="colgroup" colSpan={Private.getNumParams(paramKeyList, paramKeyFilterSet)}>Parameters</th> 
               <th className="top-row left-border" scope="colgroup" colSpan={Private.getNumMetrics(metricKeyList, metricKeyFilterSet)}>Metrics</th>
             </tr>
             <tr>
@@ -338,6 +338,7 @@ class Private {
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
         </Link>
       </td>,
+      <td>{runInfo.name}</td>,
       <td>{Utils.formatUser(runInfo.user_id)}</td>,
       <td>{Utils.renderSource(runInfo)}</td>,
       <td>{Utils.renderVersion(runInfo)}</td>,
@@ -347,8 +348,9 @@ class Private {
     const metricsMap = Private.toMetricsMap(metrics);
 
     let firstParam = true;
+    let paramCnt = 0;
     paramKeyList.forEach((paramKey) => {
-      if (Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
+      if (paramCnt<numParams && Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
         const className = firstParam ? "left-border": undefined;
         firstParam = false;
         if (paramsMap[paramKey]) {
@@ -358,11 +360,14 @@ class Private {
         } else {
           row.push(<td className={className}/>);
         }
+
+	paramCnt += 1;
       }
     });
     if (numParams === 0) {
       row.push(<td className="left-border"/>);
     }
+
 
     let firstMetric = true;
     metricKeyList.forEach((metricKey) => {
@@ -404,21 +409,26 @@ class Private {
     const columns = [
       <th className="bottom-row"/>,  // TODO: checkbox for select-all
       <th className="bottom-row">Date</th>,
-        <th className="bottom-row">User</th>,
+      <th className="bottom-row">Name</th>,
+      <th className="bottom-row">User</th>,
       <th className="bottom-row">Source</th>,
       <th className="bottom-row">Version</th>,
     ];
+
     let firstParam = true;
+    let paramCnt = 0;
     paramKeyList.forEach((paramKey) => {
-      if (Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
+      if (paramCnt<numParams && Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
         const className = "bottom-row" + (firstParam ? " left-border" : "");
         firstParam = false;
         columns.push(<th className={className}>{paramKey}</th>);
+        paramCnt += 1;
       }
     });
     if (numParams === 0) {
       columns.push(<th className="bottom-row left-border">(n/a)</th>);
     }
+
 
     let firstMetric = true;
     metricKeyList.forEach((metricKey) => {
@@ -483,9 +493,9 @@ class Private {
   }
 
   static getNumParams(paramKeyList, paramKeyFilterSet) {
-    return paramKeyList.filter((paramKey) =>
+    return Math.min(5, paramKeyList.filter((paramKey) =>
       Private.shouldIncludeKey(paramKey, paramKeyFilterSet)
-    ).length;
+    ).length);
   }
 
   static shouldIncludeKey(key, filterSet) {

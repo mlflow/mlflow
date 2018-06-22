@@ -126,14 +126,16 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                    "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-def ui(file_store, host, port):
+@click.option("--process", default=1,
+              help="The number of processes (default: 1).")
+def ui(file_store, host, port, process):
     """
     Launch the MLflow tracking UI.
 
     The UI will be visible at http://localhost:5000 by default.
     """
     # TODO: We eventually want to disable the write path in this version of the server.
-    mlflow.server._run_server(file_store, host, port, 1)
+    mlflow.server._run_server(file_store, host, port, process)
 
 
 @cli.command()

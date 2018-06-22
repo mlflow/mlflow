@@ -41,7 +41,8 @@ def _get_request_message(request_message, from_get=False):
         request_dict = parser.parse(query_string, normalized=True)
         ParseDict(request_dict, request_message)
         return request_message
-    request_json = json.loads(request.get_json(force=True, silent=True))
+    request_json = request.get_json(force=True, silent=True)
+    #request_json = json.loads(request.get_json(force=True, silent=True))
     # If request doesn't have json body then assume it's empty.
     if request_json is None:
         request_json = {}
