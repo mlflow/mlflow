@@ -57,7 +57,7 @@ def _encode(string_val):
                    "Databricks workspace specified in the default Databricks CLI profile. "
                    "See https://github.com/databricks/databricks-cli for more info on configuring "
                    "a Databricks CLI profile.")
-@click.option("--cluster-spec", metavar="FILE",
+@click.option("--cluster-spec", "-c", metavar="FILE",
               help="Path to JSON file describing the cluster to use when launching a run on "
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "

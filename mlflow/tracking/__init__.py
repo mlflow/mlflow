@@ -20,12 +20,12 @@ from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env
 
 
-_RUN_NAME_ENV_VAR = "MLFLOW_RUN_NAME"
+_RUN_ID_ENV_VAR = "MLFLOW_RUN_NAME"  # TODO(matei): should be MLFLOW_RUN_ID after 0.1.0
+_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
+_EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _DEFAULT_USER_ID = "unknown"
 _LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
-_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
-_EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _active_run = None
 _tracking_uri = None
 
@@ -70,7 +70,7 @@ def _is_local_uri(uri):
 
 def _is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == '' or scheme == 'http'
+    return scheme == 'http' or scheme == 'https'
 
 
 def _get_file_store(store_uri):
@@ -253,12 +253,12 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     global _active_run
     if _active_run:
         return _active_run
-    if _RUN_NAME_ENV_VAR not in os.environ:
+    if _RUN_ID_ENV_VAR not in os.environ:
         return _do_start_run(run_uuid, experiment_id, source_name, source_version,
                              entry_point_name, source_type)
 
     # Load an existing run ID from the environment
-    existing_run_uuid = os.environ[_RUN_NAME_ENV_VAR]
+    existing_run_uuid = os.environ[_RUN_ID_ENV_VAR]
     store = _get_store()
     run = store.get_run(existing_run_uuid)
     # If we were able to find an existing run with the specified ID, create an ActiveRun with
@@ -278,7 +278,7 @@ def end_run(status="FINISHED"):
     if _active_run:
         _active_run.set_terminated(status)
         # Clear out the global existing run environment variable as well.
-        env.unset_variable(_RUN_NAME_ENV_VAR)
+        env.unset_variable(_RUN_ID_ENV_VAR)
         _active_run = None
 
 
