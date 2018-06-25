@@ -3,7 +3,6 @@ import os
 import shutil
 import tempfile
 
-import six
 import yaml
 
 from mlflow.entities.file_info import FileInfo
@@ -187,7 +186,7 @@ def read_file(parent_path, file_name):
     :return: All lines in the file as an array
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, 'r', encoding="utf-8") as f:
         return f.readlines()
 
 
