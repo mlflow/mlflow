@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import codecs
 import os
 import shutil
 import unittest
@@ -28,9 +28,13 @@ class TestFileUtils(unittest.TestCase):
         file_utils.write_yaml(self.test_folder, yaml_file, data)
         read_data = file_utils.read_yaml(self.test_folder, yaml_file)
         self.assertEqual(data, read_data)
-        with open(file_utils.build_path(self.test_folder, yaml_file)) as handle:
+        yaml_path = file_utils.build_path(self.test_folder, yaml_file)
+        with codecs.open(yaml_path, encoding="utf-8") as handle:
             contents = handle.read()
         self.assertNotIn("!!python", contents)
+        # Check that UTF-8 strings are written properly to the file (rather than as ASCII
+        # representations of their byte sequences).
+        self.assertIn(u"中文", contents)
 
     def test_mkdir(self):
         new_dir_name = "mkdir_test_%d" % random_int()
