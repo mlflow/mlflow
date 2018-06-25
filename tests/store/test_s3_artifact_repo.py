@@ -13,7 +13,7 @@ class TestS3ArtifactRepo(unittest.TestCase):
     @mock_s3
     def test_basic_functions(self):
         with TempDir() as tmp:
-            # Create a mock bucket in S3
+            # Create a mock S3 bucket in moto
             s3 = boto3.client("s3")
             s3.create_bucket(Bucket="test_bucket")
 
