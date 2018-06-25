@@ -61,7 +61,7 @@ class EntryPoint(object):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
         self.command = command
-        assert isinstance(self.command, six.text_type)
+        assert isinstance(self.command, str)
 
     def _validate_parameters(self, user_parameters):
         missing_params = []
@@ -151,7 +151,7 @@ class Parameter(object):
 
 
 def _sanitize_param_dict(param_dict):
-    return {key: shlex_quote(value) for key, value in param_dict.items()}
+    return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
 
 
 def _get_databricks_run_cmd(uri, entry_point, version, parameters):

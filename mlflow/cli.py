@@ -94,13 +94,18 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             sys.exit(1)
         param_dict[name] = value
     try:
-        projects.run(uri, entry_point, version,
+        projects.run(uri,
+                     entry_point,
+                     version,
                      experiment_id=experiment_id,
-                     parameters=param_dict, mode=mode,
+                     parameters=param_dict,
+                     mode=mode,
                      cluster_spec=cluster_spec,
                      git_username=git_username,
-                     git_password=git_password, use_conda=(not no_conda),
-                     use_temp_cwd=new_dir, storage_dir=storage_dir)
+                     git_password=git_password,
+                     use_conda=(not no_conda),
+                     use_temp_cwd=new_dir,
+                     storage_dir=storage_dir)
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)
