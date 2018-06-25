@@ -173,13 +173,13 @@ def _list_artifacts():
     return response
 
 
-_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'MLmodel', 'MLproject']
+_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'md', 'rst', 'MLmodel', 'MLproject']
 
 
 def _get_artifact():
     request_message = _get_request_message(GetArtifact(), from_get=True)
     run = _get_store().get_run(request_message.run_uuid)
-    filename = os.path.abspath(_get_artifact_repo(run).download_artifact(request_message.path))
+    filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_message.path))
     extension = os.path.splitext(filename)[-1].replace(".", "")
     if extension in _TEXT_EXTENSIONS:
         return send_file(filename, mimetype='text/plain')

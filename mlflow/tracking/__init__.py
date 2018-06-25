@@ -341,7 +341,7 @@ def _get_model_log_dir(model_name, run_id):
         artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri)
     else:
         artifact_repo = _get_legacy_artifact_repo(_get_store(), run.info)
-    return artifact_repo.download_artifact(model_name)
+    return artifact_repo.download_artifacts(model_name)
 
 
 def _get_legacy_artifact_repo(file_store, run_info):

@@ -68,8 +68,11 @@ class FileStore(AbstractStore):
                           param_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
-        artifacts_dir = build_path(self._get_run_dir(experiment_id, run_uuid),
+        artifacts_dir = build_path(self.get_experiment(experiment_id).artifact_location,
+                                   run_uuid,
                                    FileStore.ARTIFACTS_FOLDER_NAME)
+        #artifacts_dir = build_path(self._get_run_dir(experiment_id, run_uuid),
+        #                           FileStore.ARTIFACTS_FOLDER_NAME)
         return artifacts_dir
 
     def list_experiments(self):
@@ -78,9 +81,9 @@ class FileStore(AbstractStore):
 
     def _create_experiment_with_id(self, name, experiment_id):
         self._check_root_dir()
-        location = mkdir(self.root_directory, str(experiment_id))
-        experiment = Experiment(experiment_id, name, location)
-        write_yaml(location, FileStore.META_DATA_FILE_NAME, dict(experiment))
+        exp_location = mkdir(self.root_directory, str(experiment_id))
+        experiment = Experiment(experiment_id, name, exp_location)
+        write_yaml(exp_location, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
     def create_experiment(self, name):
@@ -160,7 +163,7 @@ class FileStore(AbstractStore):
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, dict(run_info))
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
-        mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
+        #mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         return Run(run_info=run_info, run_data=None)
 
     def get_run(self, run_uuid):
