@@ -31,6 +31,7 @@ class TestFileUtils(unittest.TestCase):
         with open(file_utils.build_path(self.test_folder, yaml_file)) as handle:
             contents = handle.read()
         self.assertNotIn("!!python/unicode", contents)
+        self.assertIn('!!python/str "\\u4E2D\\u6587"', contents)
 
     def test_mkdir(self):
         new_dir_name = "mkdir_test_%d" % random_int()
