@@ -9,7 +9,7 @@ import tempfile
 
 from distutils import dir_util
 import git
-import yaml
+
 import six
 from six.moves import shlex_quote
 from databricks_cli.configure import provider
@@ -20,7 +20,7 @@ from mlflow.entities.param import Param
 from mlflow import data
 import mlflow.tracking as tracking
 
-from mlflow.utils import process, rest_utils
+from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
 
@@ -60,7 +60,7 @@ class EntryPoint(object):
     def __init__(self, name, parameters, command):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
-        self.command = command
+        self.command = u"%s" % command
         assert isinstance(self.command, six.text_type)
 
     def _validate_parameters(self, user_parameters):
@@ -151,7 +151,7 @@ class Parameter(object):
 
 
 def _sanitize_param_dict(param_dict):
-    return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
+    return {key: shlex_quote(u"%s" % value) for key, value in param_dict.items()}
 
 
 def _get_databricks_run_cmd(uri, entry_point, version, parameters):
@@ -244,10 +244,9 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
 
     # Load the MLproject file
-    spec_file = os.path.join(work_dir, "MLproject")
-    if not os.path.isfile(spec_file):
+    if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
+    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLProject"))
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
 
 

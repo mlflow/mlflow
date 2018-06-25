@@ -24,14 +24,13 @@ class TestFileUtils(unittest.TestCase):
         yaml_file = random_file("yaml")
         long_value = long(1) if six.PY2 else 1
         data = {"a": random_int(), "B": random_int(), "text_value": u"中文",
-                "long_value": long_value, "int_value": 32}
+                "long_value": long_value, "int_value": 32, "text_value_2": u"hi"}
         file_utils.write_yaml(self.test_folder, yaml_file, data)
         read_data = file_utils.read_yaml(self.test_folder, yaml_file)
         self.assertEqual(data, read_data)
         with open(file_utils.build_path(self.test_folder, yaml_file)) as handle:
             contents = handle.read()
-        self.assertNotIn("!!python/unicode", contents)
-        self.assertIn('!!python/str "\\u4E2D\\u6587"', contents)
+        self.assertNotIn("!!python", contents)
 
     def test_mkdir(self):
         new_dir_name = "mkdir_test_%d" % random_int()

@@ -1,3 +1,4 @@
+import codecs
 import os
 import shutil
 import tempfile
@@ -6,36 +7,6 @@ import six
 import yaml
 
 from mlflow.entities.file_info import FileInfo
-
-
-def _yaml_ser_helper(val):
-    """
-    Prepares the passed-in value for serialization to YAML.
-
-    If the passed-in value is a non-string text type (unicode in Python 2), converts it to a string
-    (assuming UTF-8 encoding).
-
-    If the passed-in value is a long (in Python 2), attempts to cast it to an int (this is a no-op
-    if the value is too large to fit in an int), as `yaml` generates a nicer serialized
-    representation for ints.
-
-    Otherwise, just returns the value.
-    """
-    # If our input is a long, attempt to cast it to an int
-    if isinstance(val, six.integer_types):
-        return int(val)
-    # If our input value is already a string (e.g. in Python 3) or a non-text type, just return it
-    if isinstance(val, str) or not isinstance(val, six.text_type):
-        return val
-    # In Python 2: convert from unicode object -> UTF-8 encoded string
-    return val.encode("utf-8")
-
-
-def _yaml_deser_helper(val):
-    """ Applies necessary conversions to values read from YAML. """
-    if isinstance(val, six.binary_type):
-        return val.decode("utf-8")
-    return val
 
 
 def is_directory(name):
@@ -147,11 +118,9 @@ def write_yaml(root, file_name, data, overwrite=False):
 
     if exists(yaml_file_name) and not overwrite:
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
-    encoded_data = {_yaml_ser_helper(key): _yaml_ser_helper(value)
-                    for key, value in data.items()}
     try:
         with open(yaml_file_name, 'w') as yaml_file:
-            yaml.dump(encoded_data, yaml_file, default_flow_style=False)
+            yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
     except Exception as e:
         raise e
 
@@ -168,17 +137,13 @@ def read_yaml(root, file_name):
     if not exists(root):
         raise Exception("Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
 
-    if not file_name.endswith(".yaml"):
-        raise Exception("File '%s' is expected to have '.yaml' extension" % file_name)
-
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise Exception("Yaml file '%s' does not exist." % file_path)
 
     try:
         with open(file_path, 'r') as yaml_file:
-            return {_yaml_deser_helper(key): _yaml_deser_helper(val)
-                    for key, val in yaml.load(yaml_file).items()}
+            return yaml.safe_load(yaml_file)
     except Exception as e:
         raise e
 
@@ -256,12 +221,12 @@ def get_relative_path(root_path, target_path):
 
 
 def write_to(filename, data):
-    with open(filename, "w") as handle:
+    with codecs.open(filename, "w", encoding="utf-8") as handle:
         handle.write(data)
 
 
 def append_to(filename, data):
-    with open(filename, "a") as handle:
+    with codecs.open(filename, "a", encoding="utf-8") as handle:
         handle.write(data)
 
 
