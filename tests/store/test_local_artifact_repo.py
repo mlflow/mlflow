@@ -8,23 +8,14 @@ from tests.helper_functions import random_int
 
 
 class TestLocalArtifactRepo(unittest.TestCase):
-    ROOT_LOCATION = "/tmp"
-
-    def setUp(self):
-        self._create_root(TestLocalArtifactRepo.ROOT_LOCATION)
-
-    def _create_root(self, root):
-        self.test_root = os.path.abspath(os.path.join(root, "test_local_repo_%d" % random_int()))
-        os.mkdir(self.test_root)
-
     def test_basic_functions(self):
-        repo = ArtifactRepository.from_artifact_uri(self.test_root)
-        self.assertIsInstance(repo, LocalArtifactRepository)
-        self.assertListEqual(repo.list_artifacts(), [])
-        with self.assertRaises(Exception):
-            open(repo.download_artifacts("test.txt")).read()
+        with TempDir() as test_root, TempDir() as tmp:
+            repo = ArtifactRepository.from_artifact_uri(test_root.path())
+            self.assertIsInstance(repo, LocalArtifactRepository)
+            self.assertListEqual(repo.list_artifacts(), [])
+            with self.assertRaises(Exception):
+                open(repo.download_artifacts("test.txt")).read()
 
-        with TempDir() as tmp:
             # Create and log a test.txt file directly
             with open(tmp.path("test.txt"), "w") as f:
                 f.write("Hello world!")
@@ -32,7 +23,7 @@ class TestLocalArtifactRepo(unittest.TestCase):
             text = open(repo.download_artifacts("test.txt")).read()
             self.assertEqual(text, "Hello world!")
             # Check that it actually got written in the expected place
-            text = open(os.path.join(self.test_root, "test.txt")).read()
+            text = open(os.path.join(test_root.path(), "test.txt")).read()
             self.assertEqual(text, "Hello world!")
 
             # Create a subdirectory for log_artifacts
@@ -56,5 +47,3 @@ class TestLocalArtifactRepo(unittest.TestCase):
             paths = sorted([f.path for f in repo.list_artifacts("nested")])
             self.assertListEqual(paths, ["nested/c.txt"])
 
-    def tearDown(self):
-        shutil.rmtree(self.test_root, ignore_errors=True)

@@ -12,16 +12,16 @@ from tests.helper_functions import random_int
 class TestS3ArtifactRepo(unittest.TestCase):
     @mock_s3
     def test_basic_functions(self):
-        s3 = boto3.client("s3")
-        s3.create_bucket(Bucket="test_bucket")
-
-        repo = ArtifactRepository.from_artifact_uri("s3://test_bucket/some/path")
-        self.assertIsInstance(repo, S3ArtifactRepository)
-        self.assertListEqual(repo.list_artifacts(), [])
-        with self.assertRaises(Exception):
-            open(repo.download_artifacts("test.txt")).read()
-
         with TempDir() as tmp:
+            s3 = boto3.client("s3")
+            s3.create_bucket(Bucket="test_bucket")
+
+            repo = ArtifactRepository.from_artifact_uri("s3://test_bucket/some/path")
+            self.assertIsInstance(repo, S3ArtifactRepository)
+            self.assertListEqual(repo.list_artifacts(), [])
+            with self.assertRaises(Exception):
+                open(repo.download_artifacts("test.txt")).read()
+
             # Create and log a test.txt file directly
             with open(tmp.path("test.txt"), "w") as f:
                 f.write("Hello world!")
