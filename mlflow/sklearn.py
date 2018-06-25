@@ -12,7 +12,7 @@ import pandas
 import sklearn
 
 from mlflow.utils.file_utils import TempDir
-from mlflow import pyfunc, spark_model
+from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 
