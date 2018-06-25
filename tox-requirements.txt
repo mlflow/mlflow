@@ -1,5 +1,4 @@
 # Test reqs
-codecov
 mock==2.0.0
 prospector[with_pyroma]==0.12.7
 pyarrow

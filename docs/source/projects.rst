@@ -144,7 +144,7 @@ uri
 Running Projects
 ----------------
 
-MLflow provides two simple ways to run projects: the ``mlflow run`` `command-line tool <cli>`_, or
+MLflow provides two simple ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`, or
 the :py:func:`mlflow.run` Python API. Both tools take the following parameters:
 
 Project URI

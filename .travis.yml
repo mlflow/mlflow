@@ -1,5 +1,9 @@
 sudo: true
 language: python
+
+services:
+  - docker
+
 matrix:
   include:
     - python: 2.7
@@ -15,6 +19,7 @@ install:
     else
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
     fi
+
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
@@ -26,7 +31,14 @@ install:
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
+  - export MLFLOW_HOME=$(pwd)
 script:
   - pip list
   - which mlflow
+  - echo $MLFLOW_HOME
   - tox
+  - cd mlflow/server/js
+  - npm i
+  - npm test -- --coverage
+  - cd ../../..
+  - codecov -e TOXENV

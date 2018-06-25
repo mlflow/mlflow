@@ -10,7 +10,7 @@ are either stored directly with the model or referenced via a conda environment.
 The convention for pyfunc models is to have a predict method or function with the following
 signature
 
-predict(data: pandas.DataFrame) -> pandas.DataFrame
+predict(data: pandas.DataFrame) -> numpy.ndarray | pandas.Series | pandas.DataFrame
 
 This convention is relied upon by other mlflow components.
 

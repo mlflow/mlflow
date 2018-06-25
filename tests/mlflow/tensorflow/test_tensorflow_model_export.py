@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import collections
 import os
 import pandas
 import unittest
@@ -15,38 +16,58 @@ from mlflow.utils.file_utils import TempDir
 
 
 class TestModelExport(unittest.TestCase):
-    def setUp(self):
-        iris = datasets.load_iris()
-        self._X = iris.data[:, :2]  # we only take the first two features.
-        self._y = iris.target
-        self._trainingFeatures = {}
-        self._feature_names = iris.feature_names[:2]
-        for i in range(0, 2):
-            # Tensorflow is fickle about feature names, so we remove offending characters
-            iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
-            iris.feature_names[i] = iris.feature_names[i].replace("(", "")
-            iris.feature_names[i] = iris.feature_names[i].replace(")", "")
-            self._trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
-        self._tf_feat_cols = []
-        self._feature_names = iris.feature_names[:2]
-        # Creating Tensorflow-specific numeric columns for input.
-        for col in iris.feature_names[:2]:
-            self._tf_feat_cols.append(tf.feature_column.numeric_column(col))
-        # Creating input training function.
-        self._input_train = tf.estimator.inputs.numpy_input_fn(self._trainingFeatures, 
-                                                                    self._y, 
-                                                                    shuffle=False, 
-                                                                    batch_size=1)
-        # Creating Deep Neural Network Regressor. 
-        self._dnn = tf.estimator.DNNRegressor(feature_columns=self._tf_feat_cols, 
-                                                hidden_units=[1])
-        self._sess = tf.Session()
-        # Training and creating expected predictions on training dataset.
-        self._dnn.train(self._input_train, steps=100)
-        self._dnn_predict = self._dnn.predict(self._input_train)
+
+    def helper(self, feature_spec, tmp, estimator, df):
+        """
+        This functions handles exporting, logging, loading back, and predicting on an estimator for 
+        testing purposes.
+        """
+        receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+        saved_estimator_path = tmp.path("model")
+        os.makedirs(saved_estimator_path)
+        # Saving TensorFlow model.
+        saved_estimator_path = estimator.export_savedmodel(saved_estimator_path, 
+                                                       receiver_fn).decode("utf-8")
+        # Logging the TensorFlow model just saved.
+        tensorflow.log_saved_model(saved_model_dir=saved_estimator_path,
+                                   signature_def_key="predict", 
+                                   artifact_path=tmp.path("hello"))
+        # Loading the saved TensorFlow model as a pyfunc.
+        x = pyfunc.load_pyfunc(saved_estimator_path)
+        # Predicting on the dataset using the pyfunc.
+        xpred = x.predict(df)
+        return [row for _, row in xpred.iterrows()]
 
     def test_log_saved_model(self):
+        # This tests model logging capabilities on the sklearn.iris dataset.
         with TempDir(chdr=False, remove_on_exit=True) as tmp:
+            iris = datasets.load_iris()
+            X = iris.data[:, :2]  # we only take the first two features.
+            y = iris.target
+            trainingFeatures = {}
+            feature_names = iris.feature_names[:2]
+            for i in range(0, 2):
+                # TensorFlow is fickle about feature names, so we remove offending characters
+                iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
+                iris.feature_names[i] = iris.feature_names[i].replace("(", "")
+                iris.feature_names[i] = iris.feature_names[i].replace(")", "")
+                trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
+            tf_feat_cols = []
+            feature_names = iris.feature_names[:2]
+            # Creating TensorFlow-specific numeric columns for input.
+            for col in iris.feature_names[:2]:
+                tf_feat_cols.append(tf.feature_column.numeric_column(col))
+            # Creating input training function.
+            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures, 
+                                                                        y, 
+                                                                        shuffle=False, 
+                                                                        batch_size=1)
+            # Creating Deep Neural Network Regressor. 
+            estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols, 
+                                                    hidden_units=[1])
+            # Training and creating expected predictions on training dataset.
+            estimator.train(input_train, steps=100)
+            estimator_preds = estimator.predict(input_train)
             # Setting the logging such that it is in the temp folder and deleted after the test.
             old_tracking_dir = tracking.get_tracking_uri()
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
@@ -55,32 +76,105 @@ class TestModelExport(unittest.TestCase):
             try:
                 # Creating dict of features names (str) to placeholders (tensors)
                 feature_spec = {}
-                for name in self._feature_names:
+                for name in feature_names:
                     feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
-                # Creating receiver function for model saving.
-                receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-                saved_model_path = tmp.path("model")
-                os.makedirs(saved_model_path)
-                os.makedirs(tmp.path("hello"))
-                # Saving Tensorflow model.
-                saved_model_path = self._dnn.export_savedmodel(saved_model_path, 
-                                                               receiver_fn).decode("utf-8")
-                # Logging the Tensorflow model just saved.
-                tensorflow.log_saved_model(saved_model_dir=saved_model_path,
-                                           signature_def_key="predict", 
-                                           artifact_path=tmp.path("hello"))
-                # Loading the saved Tensorflow model as a pyfunc.
-                x = pyfunc.load_pyfunc(saved_model_path)
-                # Predicting on the iris dataset using the pyfunc.
-                xpred = x.predict(pandas.DataFrame(data=self._X, columns=self._feature_names))
-                saved = []
-                for s in self._dnn_predict:
-                    saved.append(s['predictions'])
-                loaded = []
-                for index, rows in xpred.iterrows():
-                    loaded.append(rows)
+
+                saved = [s['predictions'] for s in estimator_preds]
+
+                results = self.helper(feature_spec, tmp, estimator, pandas.DataFrame(data=X, columns=feature_names))
+
                 # Asserting that the loaded model predictions are as expected.
-                np.testing.assert_array_equal(saved, loaded)
+                np.testing.assert_array_equal(saved, results)
+            finally:
+                # Restoring the old logging location.
+                tracking.end_run()
+                tracking.set_tracking_uri(old_tracking_dir)
+
+
+    def test_categorical_columns(self):
+        """
+        This tests logging capabilities on datasets with categorical columns.
+        See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/get_started/regression/imports85.py
+        for reference code.
+        """
+        with TempDir(chdr=False, remove_on_exit=True) as tmp:
+            # Downloading the data into a pandas DataFrame.
+            URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/autos/imports-85.data"
+            path = tf.contrib.keras.utils.get_file(URL.split("/")[-1], URL)
+            # Order is important for the csv-readers, so we use an OrderedDict here.
+            defaults = collections.OrderedDict([
+                ("body-style", [""]),
+                ("curb-weight", [0.0]),
+                ("highway-mpg", [0.0]),
+                ("price", [0.0])
+            ])
+
+            types = collections.OrderedDict((key, type(value[0]))
+                                            for key, value in defaults.items())
+            df = pandas.read_csv(path, names=types.keys(), dtype=types, na_values="?")
+            df = df.dropna()
+
+            # Extract the label from the features dataframe.
+            y_train = df.pop("price")
+
+            # Creating the input training function required.
+            trainingFeatures = {}
+
+            for i in df:
+                trainingFeatures[i] = df[i].values
+
+            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures, 
+                                                            y_train.values, 
+                                                            shuffle=False, 
+                                                            batch_size=1)
+
+            # Creating the feature columns required for the DNNRegressor.
+            body_style_vocab = ["hardtop", "wagon", "sedan", "hatchback", "convertible"]
+            body_style = tf.feature_column.categorical_column_with_vocabulary_list(
+                key="body-style", vocabulary_list=body_style_vocab)
+            feature_columns = [
+            tf.feature_column.numeric_column(key="curb-weight"),
+            tf.feature_column.numeric_column(key="highway-mpg"),
+            # Since this is a DNN model, convert categorical columns from sparse
+            # to dense.
+            # Wrap them in an `indicator_column` to create a
+            # one-hot vector from the input.
+            tf.feature_column.indicator_column(body_style),]
+
+            # Build a DNNRegressor, with 2x20-unit hidden layers, with the feature columns
+            # defined above as input.
+            estimator = tf.estimator.DNNRegressor(
+                hidden_units=[20, 20], feature_columns=feature_columns)
+
+            # Training the estimator.
+            estimator.train(input_fn=input_train, steps=100)
+            # Saving the estimator's prediction on the training data.
+            estimator_preds = estimator.predict(input_train)
+            # Setting the logging such that it is in the temp folder and deleted after the test.
+            old_tracking_dir = tracking.get_tracking_uri()
+            tracking_dir = os.path.abspath(tmp.path("mlruns"))
+            tracking.set_tracking_uri("file://%s" % tracking_dir)
+            tracking.start_run()
+            try:
+                # Creating dict of features names (str) to placeholders (tensors)
+                feature_spec = {}
+                feature_spec["body-style"] = tf.placeholder("string", 
+                                                            name="body-style", 
+                                                            shape=[None])
+                feature_spec["curb-weight"] = tf.placeholder("float", 
+                                                            name="curb-weight", 
+                                                            shape=[None])
+                feature_spec["highway-mpg"] = tf.placeholder("float", 
+                                                            name="highway-mpg", 
+                                                            shape=[None])
+
+                saved = [s['predictions'] for s in estimator_preds]
+
+                results = self.helper(feature_spec, tmp, estimator, df)
+
+                # Asserting that the loaded model predictions are as expected.
+                # TensorFlow is known to have precision errors, hence the almost_equal.
+                np.testing.assert_array_almost_equal(saved, results, decimal = 2)
             finally:
                 # Restoring the old logging location.
                 tracking.end_run()

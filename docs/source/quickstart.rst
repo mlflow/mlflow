@@ -14,12 +14,12 @@ MLflow can be installed by running
 
 .. note::
 
-    MLflow cannot be installed on the MacOS system installation of Python. We recommend installing
+    You cannot install MLflow on the MacOS system installation of Python. We recommend installing
     Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
     ``brew install python``. (In this case, installing mlflow is now ``pip3 install mlflow``).
 
-At this point we recommend you follow the :doc:`tutorial` for a walk-through on how a data scientist
-can leverage MLflow in their daily workflow.
+At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
+can leverage MLflow in your daily workflow.
 
 Using the Tracking API
 ----------------------
@@ -81,10 +81,10 @@ specifies its dependencies. All projects that run also log their Tracking API da
 to see these runs using ``mlflow ui``.
 
 .. note::
-    ``mlflow run`` by default installs all dependencies using `conda <https://conda.io/>`_.
+    By default ``mlflow run`` installs all dependencies using `conda <https://conda.io/>`_.
     To run a project without using ``conda``, you can provide the ``--no-conda`` option to
     ``mlflow run``. In this case, you must ensure that the necessary dependencies are already installed
-    in your current Python environment.
+    in your Python environment.
 
 For more information, see :doc:`projects`.
 
@@ -97,7 +97,7 @@ declare how each model should be interpreted as a Python function in order to le
 serve it. MLflow also includes tools for running such models locally and exporting them to Docker
 containers or commercial serving platforms.
 
-To illustrate this functionality, the ``mlflow.sklearn`` package can log Scikit-learn models as
+To illustrate this functionality, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
 ``example/quickstart/test_sklearn.py`` that you can run as follows::
 
@@ -105,9 +105,9 @@ MLflow artifacts and then load them again for serving. There is an example train
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at
 ``mlflow ui``, you will also see that the run saved a ``model`` folder containing an ``MLmodel``
-description file and a pickled Scikit-learn model. You can pass the run ID and the path of the model
+description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here "model") to various tools. For example, MLflow includes a
-simple REST server for Scikit-learn models::
+simple REST server for scikit-learn models::
 
     mlflow sklearn serve -r <RUN_ID> model
 
@@ -120,8 +120,7 @@ simple REST server for Scikit-learn models::
 Once you have started the server, you can pass it some sample data with ``curl`` and see the
 predictions::
 
-    curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json'\
-         -X POST localhost:5000/invocations
+    curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
          
 which returns::
   
@@ -131,7 +130,7 @@ which returns::
 
     The ``example/quickstart/test_sklearn.py`` script must be run with the same Python version as
     the version of Python which runs ``mlflow sklearn serve``. If they are not the same version,
-    a stacktrace below may appear. ::
+    a stacktrace below may appear::
 
         File "/usr/local/lib/python3.6/site-packages/mlflow/sklearn.py", line 54, in _load_model_from_local_file
         return pickle.load(f)

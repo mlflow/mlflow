@@ -62,12 +62,10 @@ def _encode(string_val):
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
-# NOTE: github recommends using tokens as environment vars
-# see https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
 @click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
-              help="Username for HTTP(S) Git authentication. Only used when running on Databricks.")
+              help="Username for HTTP(S) Git authentication.")
 @click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
-              help="Password for HTTP(S) Git authentication. Only used when running on Databricks.")
+              help="Password for HTTP(S) Git authentication.")
 @click.option("--no-conda", is_flag=True,
               help="If specified, will assume that MLflow is running within a Conda environment "
                    "with the necessary dependencies for the current project instead of attempting "

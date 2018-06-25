@@ -36,6 +36,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
 
 def log_model(sk_model, artifact_path):
     """Log a SciKit-Learn model as an MLflow artifact for the current run."""
+
     with TempDir() as tmp:
         local_path = tmp.path("model")
         # TODO: I get active_run_id here but mlflow.tracking.log_output_files has its own way
