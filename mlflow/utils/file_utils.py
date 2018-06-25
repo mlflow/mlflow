@@ -116,6 +116,7 @@ def write_yaml(root, file_name, data, overwrite=False):
 
     if exists(yaml_file_name) and not overwrite:
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
+
     try:
         with open(yaml_file_name, 'w') as yaml_file:
             yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
