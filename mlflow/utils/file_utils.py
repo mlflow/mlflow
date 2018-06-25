@@ -1,9 +1,23 @@
 import os
 import shutil
 import tempfile
+
+import six
 import yaml
 
 from mlflow.entities.file_info import FileInfo
+
+
+def _maybe_to_string(val):
+    """
+    If the passed-in value is a non-string text type (unicode in Python 2), convert it to a string
+    (assuming UTF-8 encoding) and return; otherwise, just return the value.
+    """
+    # If our input value is already a string (e.g. in Python 3) or a non-text type, just return it
+    if isinstance(val, str) or not isinstance(val, six.text_type):
+        return val
+    # In Python 2: convert from unicode object -> UTF-8 encoded string
+    return val.encode("utf-8")
 
 
 def is_directory(name):
@@ -115,10 +129,11 @@ def write_yaml(root, file_name, data, overwrite=False):
 
     if exists(yaml_file_name) and not overwrite:
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
-
+    print("Got data %s" % data)
+    encoded_data = {_maybe_to_string(key): _maybe_to_string(value) for key, value in data.items()}
     try:
         with open(yaml_file_name, 'w') as yaml_file:
-            yaml.dump(data, yaml_file, default_flow_style=False)
+            yaml.dump(encoded_data, yaml_file, default_flow_style=False)
     except Exception as e:
         raise e
 
