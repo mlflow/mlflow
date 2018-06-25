@@ -1,6 +1,6 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.utils import string_utils
+
 
 class Metric(_MLflowObject):
     """
@@ -8,7 +8,7 @@ class Metric(_MLflowObject):
     """
 
     def __init__(self, key, value, timestamp):
-        self._key = string_utils.to_text(key)
+        self._key = key
         self._value = value
         self._timestamp = timestamp
 

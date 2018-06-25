@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 import random
 from contextlib import contextmanager
 import filecmp
@@ -93,12 +91,12 @@ def test_log_metric():
         run_uuid = active_run.run_info.run_uuid
         with active_run:
             mlflow.log_metric("name_1", 25)
-            mlflow.log_metric(u"中文", -3)
+            mlflow.log_metric("name_2", -3)
             mlflow.log_metric("name_1", 30)
         finished_run = active_run.store.get_run(run_uuid)
         # Validate metrics
         assert len(finished_run.data.metrics) == 2
-        expected_pairs = {"name_1": 30, u"中文": -3}
+        expected_pairs = {"name_1": 30, "name_2": -3}
         for metric in finished_run.data.metrics:
             assert expected_pairs[metric.key] == metric.value
 
@@ -121,12 +119,12 @@ def test_log_param():
         run_uuid = active_run.run_info.run_uuid
         with active_run:
             mlflow.log_param("name_1", "a")
-            mlflow.log_param(u"中文", "b")
+            mlflow.log_param("name_2", "b")
             mlflow.log_param("name_1", "c")
         finished_run = active_run.store.get_run(run_uuid)
         # Validate params
         assert len(finished_run.data.params) == 2
-        expected_pairs = {"name_1": "c", u"中文": "b"}
+        expected_pairs = {"name_1": "c", "name_2": "b"}
         for param in finished_run.data.params:
             assert expected_pairs[param.key] == param.value
 

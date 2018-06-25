@@ -1,4 +1,3 @@
-import codecs
 import os
 import shutil
 import tempfile
@@ -186,7 +185,7 @@ def read_file(parent_path, file_name):
     :return: All lines in the file as an array
     """
     file_path = os.path.join(parent_path, file_name)
-    with codecs.open(file_path, 'r', encoding="utf-8") as f:
+    with open(file_path, 'r') as f:
         return f.readlines()
 
 
@@ -220,12 +219,12 @@ def get_relative_path(root_path, target_path):
 
 
 def write_to(filename, data):
-    with codecs.open(filename, "w", encoding="utf-8") as handle:
+    with open(filename, "w") as handle:
         handle.write(data)
 
 
 def append_to(filename, data):
-    with codecs.open(filename, "a", encoding="utf-8") as handle:
+    with open(filename, "a") as handle:
         handle.write(data)
 
 

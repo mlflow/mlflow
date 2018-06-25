@@ -1,6 +1,5 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Param as ProtoParam
-from mlflow.utils import string_utils
 
 
 class Param(_MLflowObject):
@@ -9,7 +8,7 @@ class Param(_MLflowObject):
     """
 
     def __init__(self, key, value):
-        self._key = string_utils.to_text(key)
+        self._key = key
         self._value = value
 
     @property

@@ -20,7 +20,7 @@ from mlflow.entities.param import Param
 from mlflow import data
 import mlflow.tracking as tracking
 
-from mlflow.utils import file_utils, process, rest_utils, string_utils
+from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
 
@@ -60,7 +60,7 @@ class EntryPoint(object):
     def __init__(self, name, parameters, command):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
-        self.command = string_utils.to_text(command)
+        self.command = command
         assert isinstance(self.command, six.text_type)
 
     def _validate_parameters(self, user_parameters):
@@ -151,7 +151,7 @@ class Parameter(object):
 
 
 def _sanitize_param_dict(param_dict):
-    return {key: shlex_quote(string_utils.to_text(value)) for key, value in param_dict.items()}
+    return {key: shlex_quote(value) for key, value in param_dict.items()}
 
 
 def _get_databricks_run_cmd(uri, entry_point, version, parameters):
