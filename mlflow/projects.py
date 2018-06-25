@@ -10,7 +10,6 @@ import tempfile
 from distutils import dir_util
 import git
 
-import six
 from six.moves import shlex_quote
 from databricks_cli.configure import provider
 
@@ -308,7 +307,7 @@ def _get_work_dir(uri, use_temp_cwd):
     if _GIT_URI_REGEX.match(uri) or use_temp_cwd:
         # Create a temp directory to download and run the project in
         return tempfile.mkdtemp(prefix="mlflow-")
-    return uri
+    return os.path.abspath(uri)
 
 
 def _get_storage_dir(storage_dir):
