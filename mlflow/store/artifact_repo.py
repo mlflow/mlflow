@@ -23,7 +23,7 @@ class ArtifactRepository:
         self.artifact_uri = artifact_uri
 
     @abstractmethod
-    def log_artifact(self, local_file, artifact_path):
+    def log_artifact(self, local_file, artifact_path=None):
         """
         Logs a local file as an artifact, optionally taking an ``artifact_path`` to place it in
         within the run's artifacts. Run artifacts can be organized into directories, so you can
@@ -35,7 +35,7 @@ class ArtifactRepository:
         pass
 
     @abstractmethod
-    def log_artifacts(self, local_dir, artifact_path):
+    def log_artifacts(self, local_dir, artifact_path=None):
         """
         Logs the files in the specified local directory as artifacts, optionally taking
         an ``artifact_path`` to place them in within the run's artifacts.
@@ -72,22 +72,22 @@ class ArtifactRepository:
         on behalf of this URI.
         """
         if artifact_uri.startswith("s3:/"):
-            return S3Repository(artifact_uri)
+            return S3ArtifactRepository(artifact_uri)
         else:
-            return LocalFileRepository(artifact_uri)
+            return LocalArtifactRepository(artifact_uri)
 
 
-class LocalFileRepository(ArtifactRepository):
+class LocalArtifactRepository(ArtifactRepository):
     """Stores files in a local directory."""
 
-    def log_artifact(self, local_file, artifact_path):
+    def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = build_path(self.artifact_uri, artifact_path) \
             if artifact_path else self.artifact_uri
         if not exists(artifact_dir):
             mkdir(artifact_dir)
         shutil.copy(local_file, artifact_dir)
 
-    def log_artifacts(self, local_dir, artifact_path):
+    def log_artifacts(self, local_dir, artifact_path=None):
         artifact_dir = build_path(self.artifact_uri, artifact_path) \
             if artifact_path else self.artifact_uri
         if not exists(artifact_dir):
@@ -106,7 +106,7 @@ class LocalFileRepository(ArtifactRepository):
         return build_path(self.artifact_uri, artifact_path)
 
 
-class S3Repository(ArtifactRepository):
+class S3ArtifactRepository(ArtifactRepository):
     """Stores files on Amazon S3."""
 
     @staticmethod
@@ -120,16 +120,16 @@ class S3Repository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
-    def log_artifact(self, local_file, artifact_path):
-        (bucket, dest_path) = S3Repository.parse_s3_uri(self.artifact_uri)
+    def log_artifact(self, local_file, artifact_path=None):
+        (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         dest_path = build_path(dest_path, os.path.basename(local_file))
 
         boto3.client('s3').upload_file(local_file, bucket, dest_path)
 
-    def log_artifacts(self, local_dir, artifact_path):
-        (bucket, dest_path) = S3Repository.parse_s3_uri(self.artifact_uri)
+    def log_artifacts(self, local_dir, artifact_path=None):
+        (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         s3 = boto3.client('s3')
@@ -143,7 +143,7 @@ class S3Repository(ArtifactRepository):
                 s3.upload_file(build_path(root, f), bucket, build_path(upload_path, f))
 
     def list_artifacts(self, path=None):
-        (bucket, artifact_path) = S3Repository.parse_s3_uri(self.artifact_uri)
+        (bucket, artifact_path) = self.parse_s3_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
             dest_path = build_path(dest_path, path)
@@ -180,7 +180,7 @@ class S3Repository(ArtifactRepository):
                 for file_info in listing:
                     self.download_artifacts(file_info.path, local_path)
             else:
-                (bucket, s3_path) = S3Repository.parse_s3_uri(self.artifact_uri)
+                (bucket, s3_path) = self.parse_s3_uri(self.artifact_uri)
                 s3_path = build_path(s3_path, artifact_path)
                 boto3.client('s3').download_file(bucket, s3_path, local_path)
             return local_path

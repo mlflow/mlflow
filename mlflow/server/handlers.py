@@ -22,11 +22,12 @@ _store = None
 
 
 def _get_store():
-    from mlflow.server import FILE_STORE_ENV_VAR
+    from mlflow.server import FILE_STORE_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
     global _store
     if _store is None:
         store_dir = os.environ.get(FILE_STORE_ENV_VAR, os.path.abspath("mlruns"))
-        _store = FileStore(store_dir)
+        artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, store_dir)
+        _store = FileStore(store_dir, artifact_root)
     return _store
 
 

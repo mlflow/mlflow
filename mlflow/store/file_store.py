@@ -32,10 +32,13 @@ class FileStore(AbstractStore):
     PARAMS_FOLDER_NAME = "params"
     META_DATA_FILE_NAME = "meta.yaml"
 
-    def __init__(self, root_directory=None, artifact_root_dir=None):
+    def __init__(self, root_directory=None, artifact_root_uri=None):
+        """
+        Create a new FileStore with the given root directory and a given default artifact root URI.
+        """
         super(FileStore, self).__init__()
         self.root_directory = root_directory or _default_root_dir()
-        self.artifact_root_dir = artifact_root_dir or self.root_directory
+        self.artifact_root_uri = artifact_root_uri or self.root_directory
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
@@ -79,9 +82,10 @@ class FileStore(AbstractStore):
 
     def _create_experiment_with_id(self, name, experiment_id):
         self._check_root_dir()
-        location = mkdir(self.root_directory, str(experiment_id))
-        experiment = Experiment(experiment_id, name, location)
-        write_yaml(location, FileStore.META_DATA_FILE_NAME, dict(experiment))
+        meta_dir = mkdir(self.root_directory, str(experiment_id))
+        artifact_uri = build_path(self.artifact_root_uri, str(experiment_id))
+        experiment = Experiment(experiment_id, name, artifact_uri)
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
     def create_experiment(self, name):

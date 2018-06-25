@@ -10,7 +10,7 @@ from mlflow.store import file_store as store
 
 @click.group("experiments")
 def commands():
-    """Tracking APIs."""
+    """Manage experiments."""
     pass
 
 
@@ -18,25 +18,29 @@ def commands():
 @click.option("--file-store", default=None,
               help="The root of the backing file store for experiment and run data "
                    "(default: ./mlruns).")
+@click.option("--artifact-root", metavar="URI", default=None,
+              help="Local or S3 URI to store artifacts in (default: inside file store).")
 @click.argument("experiment_name")
-def create(file_store, experiment_name):
+def create(file_store, artifact_root, experiment_name):
     """
     Creates a new experiment in FileStore backend.
     """
-    fs = store.FileStore(file_store)
+    fs = store.FileStore(file_store, artifact_root)
     exp_id = fs.create_experiment(experiment_name)
-    print("Created experiment '%s' with id '%d'" % (experiment_name, exp_id))
+    print("Created experiment '%s' with id %d" % (experiment_name, exp_id))
 
 
 @commands.command("list")
 @click.option("--file-store", default=None,
               help="The root of the backing file store for experiment and run data "
                    "(default: ./mlruns).")
-def list_experiments(file_store):
+@click.option("--artifact-root", metavar="URI", default=None,
+              help="Local or S3 URI to store artifacts in (default: inside file store).")
+def list_experiments(file_store, artifact_root):
     """
     List all experiment in FileStore backend.
     """
-    fs = store.FileStore(file_store)
+    fs = store.FileStore(file_store, artifact_root)
     experiments = fs.list_experiments()
     table = [[exp.experiment_id, exp.name, os.path.abspath(exp.artifact_location)]
              for exp in experiments]

@@ -130,10 +130,10 @@ class ActiveRun(object):
     def log_param(self, param):
         self.store.log_param(self.run_info.run_uuid, param)
 
-    def log_artifact(self, local_path, artifact_path):
+    def log_artifact(self, local_path, artifact_path=None):
         self.artifact_repo.log_artifact(local_path, artifact_path)
 
-    def log_artifacts(self, local_dir, artifact_path):
+    def log_artifacts(self, local_dir, artifact_path=None):
         self.artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def get_artifact_uri(self):
