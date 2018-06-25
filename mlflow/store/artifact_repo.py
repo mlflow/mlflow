@@ -49,7 +49,7 @@ class ArtifactRepository:
     def list_artifacts(self, path):
         """
         Return all the artifacts for this run_uuid directly under path.
-        :param path: relative source path that contain desired artifacts
+        :param path: Relative source path that contain desired artifacts
         :return: List of artifacts as FileInfo listed directly under path.
         """
         pass
@@ -57,11 +57,13 @@ class ArtifactRepository:
     @abstractmethod
     def download_artifacts(self, artifact_path):
         """
-        Download an artifact (either file or directory) to a local directory if applicable, and
-        return a local path for it.
-        :param path: relative source path to the desired artifact
+        Download an artifact file or directory to a local directory if applicable, and return a
+        local path for it.
+        :param path: Relative source path to the desired artifact
         :return: Full path desired artifact.
         """
+        # TODO: Probably need to add a more efficient method to stream just a single artifact
+        # without downloading it, or to get a pre-signed URL for cloud storage.
         pass
 
     @staticmethod
@@ -78,7 +80,7 @@ class ArtifactRepository:
 
 
 class LocalArtifactRepository(ArtifactRepository):
-    """Stores files in a local directory."""
+    """Stores artifacts as files in a local directory."""
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = build_path(self.artifact_uri, artifact_path) \
@@ -107,7 +109,7 @@ class LocalArtifactRepository(ArtifactRepository):
 
 
 class S3ArtifactRepository(ArtifactRepository):
-    """Stores files on Amazon S3."""
+    """Stores artifacts on Amazon S3."""
 
     @staticmethod
     def parse_s3_uri(uri):
@@ -147,7 +149,6 @@ class S3ArtifactRepository(ArtifactRepository):
         dest_path = artifact_path
         if path:
             dest_path = build_path(dest_path, path)
-        print "list_artifacts %s %s %s" % (self.artifact_uri, dest_path, bucket)
         infos = []
         prefix = dest_path + "/"
         paginator = boto3.client('s3').get_paginator("list_objects_v2")
