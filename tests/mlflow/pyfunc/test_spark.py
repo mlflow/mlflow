@@ -59,7 +59,6 @@ class TestSparkUDFs(unittest.TestCase):
             self.assertEqual(self._predict[i], pandas_results[i])
             self.assertEqual(pandas_results[i], spark_results[i]['prediction'])
 
-
     @pytest.mark.large
     def test_model_cache(self):
         archive_path = SparkModelCache.add_local_model(self.spark, self._model_path)
@@ -86,3 +85,15 @@ class TestSparkUDFs(unittest.TestCase):
         # Running again should see no newly-loaded models.
         results2 = self.spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
         assert sys.version[0] == '3' or min(results2) > 0
+
+
+def score_model_as_udf(model_path, pandas_df):
+    spark = pyspark.sql.SparkSession.builder \
+        .config(key="spark.python.worker.reuse", value=True) \
+        .master("local-cluster[2, 1, 1024]") \
+        .getOrCreate()
+    spark_df = spark.createDataFrame(pandas_df)
+    pyfunc_udf = load_udf(spark, model_path)
+    new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
+    return new_df.select("prediction").toPandas()
+

@@ -116,7 +116,8 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
 
 
 def load_pyfunc(path, run_id=None):
-    """ Load model stored in python-function format.
+    """
+    Load model stored in python-function format.
     """
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)

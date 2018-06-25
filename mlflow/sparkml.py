@@ -1,5 +1,5 @@
 """
-Sample MLflow integration for SparkML models.
+MLflow integration for SparkML models.
 
 SparkML models are saved and loaded using native SparkML persistence.
 The models can be exported as pyfunc for out-of Spark deployment or it can be loaded back as Spark
@@ -86,7 +86,7 @@ def load_model(path, run_id=None):
 
 def load_pyfunc(path):
     """
-    Load the model as PuFunc.
+    Load the model as PyFunc.
     :param path: Local path
     :return: The model as PyFunc.
     """

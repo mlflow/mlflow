@@ -30,7 +30,6 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     mlflow_model.add_flavor("sklearn",
                             pickled_model="model.pkl",
                             sklearn_version=sklearn.__version__)
-    spark_model.add_spark_udf_to_model(mlflow_model, loader_module="mlflow.sparkml")
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
