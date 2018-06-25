@@ -64,15 +64,6 @@ class ArtifactRepository:
         """
         pass
 
-    #@abstractmethod
-    #def open_artifact(self, artifact_path):
-    #    """
-    #    Open an artifact as a file-like object.
-    #    :param path: relative source path to the desired artifact
-    #    :return: Full path desired artifact.
-    #    """
-    #    pass
-
     @staticmethod
     def from_artifact_uri(artifact_uri):
         """
@@ -113,10 +104,6 @@ class LocalFileRepository(ArtifactRepository):
     def download_artifacts(self, artifact_path):
         """Since this is a local file store, just return the artifacts' local path."""
         return build_path(self.artifact_uri, artifact_path)
-
-    #def open_artifact(self, artifact_path):
-    #    """Since this is a local file store, just open the local file."""
-    #    return open(build_path(self.artifact_uri, artifact_path))
 
 
 class S3Repository(ArtifactRepository):
@@ -198,8 +185,3 @@ class S3Repository(ArtifactRepository):
                 boto3.client('s3').download_file(bucket, s3_path, local_path)
             return local_path
 
-    #def open_artifact(self, artifact_path):
-    #    (bucket, dest_path) = S3Repository.parse_s3_uri(self.artifact_uri)
-    #    dest_path = build_path(dest_path, artifact_path)
-    #    obj = boto3.resource('s3').Object(bucket, dest_path)
-    #    return obj.get()["Body"]
