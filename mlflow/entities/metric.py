@@ -8,7 +8,7 @@ class Metric(_MLflowObject):
     """
 
     def __init__(self, key, value, timestamp):
-        self._key = key
+        self._key = u"%s" % key
         self._value = value
         self._timestamp = timestamp
 

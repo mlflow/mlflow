@@ -8,8 +8,8 @@ class Param(_MLflowObject):
     """
 
     def __init__(self, key, value):
-        self._key = key
-        self._value = value
+        self._key = u"%s" % key
+        self._value = u"%s" % value
 
     @property
     def key(self):
