@@ -124,6 +124,10 @@ class RunView extends Component {
             </Link>
           </div>
           <div className="run-info">
+            <span className="metadata-header">Name: </span>
+            <span className="metadata-info">{run.name}</span>
+          </div>
+          <div className="run-info">
             <span className="metadata-header">Start Time: </span>
             <span className="metadata-info">{startTime}</span>
           </div>

@@ -1,0 +1,23 @@
+FROM continuumio/miniconda
+
+RUN apt-get update && \
+	  apt-get install -y vim
+
+COPY dev-requirements.txt .
+COPY tox-requirements.txt .
+
+RUN pip install -r dev-requirements.txt && \
+    pip install -r tox-requirements.txt && \
+    apt-get install -y gnupg && \
+    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
+    apt-get install -y nodejs
+
+WORKDIR /app
+ADD . /app
+RUN pip install -e . && \
+	  cd mlflow/server/js && \
+    npm install && \
+    npm run build
+
+#ENTRYPOINT [ "bash" ]
+CMD [ "mlflow", "ui", "-h", "0.0.0.0", "--process", "2" ]

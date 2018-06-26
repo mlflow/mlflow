@@ -1,0 +1,14 @@
+[Unit]
+Description=MLFlow tracking service
+After=docker.service network.target rc-local.service
+Requires=docker.service
+ 
+[Service]
+TimeoutStartSec=0
+Restart=always
+ExecStartPre=-/usr/bin/docker stop %n
+ExecStartPre=-/usr/bin/docker rm %n
+ExecStart=/usr/bin/docker run --rm --name %n --network host -v /var/MLTracker/mlruns:/app/mlruns mlflow
+ 
+[Install]
+WantedBy=multi-user.target
