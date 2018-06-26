@@ -201,10 +201,21 @@ def _get_unix_timestamp():
     return int(time.time() * 1000)
 
 
+def _create_run(experiment_id, source_name, source_version, entry_point_name, source_type):
+    store = _get_store()
+    run = store.create_run(experiment_id=experiment_id, user_id=_get_user_id(), run_name=None,
+                           source_type=source_type,
+                           source_name=source_name,
+                           entry_point_name=entry_point_name,
+                           start_time=_get_unix_timestamp(),
+                           source_version=source_version, tags=[])
+
+    return ActiveRun(run.info, store)
+
+
 def _do_start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
                   entry_point_name=None, source_type=None):
     store = _get_store()
-
     if run_uuid is not None:
         existing_run = store.get_run(run_uuid)
         if existing_run is None:
@@ -215,13 +226,11 @@ def _do_start_run(run_uuid=None, experiment_id=None, source_name=None, source_ve
 
     # Get experiment ID for run
     exp_id_for_run = experiment_id or _get_experiment_id()
-    run = store.create_run(experiment_id=exp_id_for_run, user_id=_get_user_id(), run_name=None,
-                           source_type=(source_type or _get_source_type()),
-                           source_name=(source_name or _get_source_name()),
-                           entry_point_name=entry_point_name,
-                           start_time=_get_unix_timestamp(),
-                           source_version=(source_version or _get_source_version()), tags=[])
-    return ActiveRun(run.info, store)
+    return _create_run(experiment_id=exp_id_for_run,
+                       source_type=(source_type or _get_source_type()),
+                       source_name=(source_name or _get_source_name()),
+                       entry_point_name=entry_point_name,
+                       source_version=(source_version or _get_source_version()))
 
 
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
@@ -230,10 +239,6 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     Start a new MLflow run, setting it as the active run under which metrics and params
     will be logged. The return value can be used as a context manager within a `with` block;
     otherwise, `end_run()` must be called to terminate the current run.
-
-    Note that if a run is currently in progress (i.e., start_run has been called without an
-    end_run, or you are running from "mlflow run"), then this function will return the
-    existing run.
 
     :param run_uuid: If specified, gets the run with the specified UUID and logs metrics
                      and params under that run. The run's end time will be unset and its status
@@ -252,7 +257,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     """
     global _active_run
     if _active_run:
-        return _active_run
+        raise Exception("Run with UUID %s is already active, unable to start nested "
+                        "run" % _active_run.run_info.run_uuid)
     if _RUN_ID_ENV_VAR not in os.environ:
         return _do_start_run(run_uuid, experiment_id, source_name, source_version,
                              entry_point_name, source_type)

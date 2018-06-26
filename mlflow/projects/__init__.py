@@ -312,11 +312,11 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
     # Create a new run and log every provided parameter into it.
-    active_run = tracking.start_run(experiment_id=experiment_id,
-                                    source_name=project.uri,
-                                    source_version=tracking._get_git_commit(work_dir),
-                                    entry_point_name=entry_point,
-                                    source_type=SourceType.PROJECT)
+    exp_id_for_run = experiment_id or tracking._get_experiment_id()
+    active_run = tracking._create_run(
+        experiment_id=exp_id_for_run, source_name=project.uri,
+        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
+        source_type=SourceType.PROJECT)
     if parameters is not None:
         for key, value in parameters.items():
             active_run.log_param(Param(key, value))
