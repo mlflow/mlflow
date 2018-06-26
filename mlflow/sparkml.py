@@ -25,7 +25,7 @@ from pyspark.ml.base import Transformer
 FLAVOR_NAME = "sparkml"
 
 
-def log_model(spark_model, artifact_path, *jars, env):
+def log_model(spark_model, artifact_path, env, jars=None):
     """
     Log model using supplied flavor.
 
