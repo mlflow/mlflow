@@ -32,7 +32,8 @@ install:
   - pip install .
   - pip install -r dev-requirements.txt
   - export MLFLOW_HOME=$(pwd)
-  - export BOTO_CONFIG=/dev/null
+  # Remove boto config present in Travis VMs
+  - sudo rm -f /etc/boto.cfg
 script:
   - pip list
   - which mlflow
