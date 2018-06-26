@@ -42,8 +42,19 @@ class TestLocalArtifactRepo(unittest.TestCase):
             self.assertEqual(text, "B")
             text = open(repo.download_artifacts("nested/c.txt")).read()
             self.assertEqual(text, "C")
-            paths = sorted([f.path for f in repo.list_artifacts()])
-            self.assertListEqual(paths, ["a.txt", "b.txt", "nested", "test.txt"])
-            paths = sorted([f.path for f in repo.list_artifacts("nested")])
-            self.assertListEqual(paths, ["nested/c.txt"])
+            infos = sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts()])
+            self.assertListEqual(infos, [
+                ("a.txt", False, 1),
+                ("b.txt", False, 1),
+                ("nested", True, None),
+                ("test.txt", False, 12)
+            ])
+            infos = sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts("nested")])
+            self.assertListEqual(infos, [("nested/c.txt", False, 1)])
+
+            # Download a subdirectory
+            downloaded_dir = repo.download_artifacts("nested")
+            self.assertEqual(os.path.basename(downloaded_dir), "nested")
+            text = open(os.path.join(downloaded_dir, "c.txt")).read()
+            self.assertEqual(text, "C")
 

@@ -34,13 +34,11 @@ def create(file_store, artifact_root, experiment_name):
 @click.option("--file-store", default=None,
               help="The root of the backing file store for experiment and run data "
                    "(default: ./mlruns).")
-@click.option("--artifact-root", metavar="URI", default=None,
-              help="Local or S3 URI to store artifacts in (default: inside file store).")
-def list_experiments(file_store, artifact_root):
+def list_experiments(file_store):
     """
     List all experiment in FileStore backend.
     """
-    fs = store.FileStore(file_store, artifact_root)
+    fs = store.FileStore(file_store)
     experiments = fs.list_experiments()
     table = [[exp.experiment_id, exp.name, os.path.abspath(exp.artifact_location)]
              for exp in experiments]
