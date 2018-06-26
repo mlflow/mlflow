@@ -23,16 +23,6 @@ def cli():
     pass
 
 
-def _encode(string_val):
-    if string_val is None:
-        return string_val
-    # In Python 3, strings are unicode values, so we just return
-    if isinstance(string_val, str):
-        return string_val
-    # In Python 2: `encode` convert from unicode object -> UTF-8 encoded string
-    return string_val.encode("utf-8")
-
-
 @cli.command()
 @click.argument("uri")
 @click.option("--entry-point", "-e", metavar="NAME", default="main",
@@ -102,15 +92,20 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
         if name in param_dict:
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
-        param_dict[_encode(name)] = _encode(value)
+        param_dict[name] = value
     try:
-        projects.run(_encode(uri), _encode(entry_point), _encode(version),
+        projects.run(uri,
+                     entry_point,
+                     version,
                      experiment_id=experiment_id,
-                     parameters=param_dict, mode=_encode(mode),
-                     cluster_spec=_encode(cluster_spec),
-                     git_username=_encode(git_username),
-                     git_password=_encode(git_password), use_conda=(not no_conda),
-                     use_temp_cwd=new_dir, storage_dir=_encode(storage_dir))
+                     parameters=param_dict,
+                     mode=mode,
+                     cluster_spec=cluster_spec,
+                     git_username=git_username,
+                     git_password=git_password,
+                     use_conda=(not no_conda),
+                     use_temp_cwd=new_dir,
+                     storage_dir=storage_dir)
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)

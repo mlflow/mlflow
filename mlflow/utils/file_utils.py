@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+
 import yaml
 
 from mlflow.entities.file_info import FileInfo
@@ -118,7 +119,7 @@ def write_yaml(root, file_name, data, overwrite=False):
 
     try:
         with open(yaml_file_name, 'w') as yaml_file:
-            yaml.dump(data, yaml_file, default_flow_style=False)
+            yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
     except Exception as e:
         raise e
 
@@ -135,16 +136,13 @@ def read_yaml(root, file_name):
     if not exists(root):
         raise Exception("Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
 
-    if not file_name.endswith(".yaml"):
-        raise Exception("File '%s' is expected to have '.yaml' extension" % file_name)
-
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise Exception("Yaml file '%s' does not exist." % file_path)
 
     try:
         with open(file_path, 'r') as yaml_file:
-            return yaml.load(yaml_file)
+            return yaml.safe_load(yaml_file)
     except Exception as e:
         raise e
 
