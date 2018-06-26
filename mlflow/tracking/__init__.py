@@ -209,28 +209,17 @@ def _create_run(experiment_id, source_name, source_version, entry_point_name, so
                            entry_point_name=entry_point_name,
                            start_time=_get_unix_timestamp(),
                            source_version=source_version, tags=[])
-
     return ActiveRun(run.info, store)
 
 
-def _do_start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
-                  entry_point_name=None, source_type=None):
+def _get_existing_run(run_uuid):
     store = _get_store()
-    if run_uuid is not None:
-        existing_run = store.get_run(run_uuid)
-        if existing_run is None:
-            raise Exception("Could not start run with UUID %s - no such run found." % run_uuid)
-        updated_info = store.update_run_info(
-            run_uuid=run_uuid, run_status=RunStatus.RUNNING, end_time=None)
-        return ActiveRun(updated_info, store)
-
-    # Get experiment ID for run
-    exp_id_for_run = experiment_id or _get_experiment_id()
-    return _create_run(experiment_id=exp_id_for_run,
-                       source_type=(source_type or _get_source_type()),
-                       source_name=(source_name or _get_source_name()),
-                       entry_point_name=entry_point_name,
-                       source_version=(source_version or _get_source_version()))
+    existing_run = store.get_run(run_uuid)
+    if existing_run is None:
+        raise Exception("Could not start run with UUID %s - no such run found." % run_uuid)
+    updated_info = store.update_run_info(
+        run_uuid=run_uuid, run_status=RunStatus.RUNNING, end_time=None)
+    return ActiveRun(updated_info, store)
 
 
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
@@ -259,23 +248,23 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     if _active_run:
         raise Exception("Run with UUID %s is already active, unable to start nested "
                         "run" % _active_run.run_info.run_uuid)
-    if _RUN_ID_ENV_VAR not in os.environ:
-        return _do_start_run(run_uuid, experiment_id, source_name, source_version,
-                             entry_point_name, source_type)
+    if _RUN_ID_ENV_VAR in os.environ:
+        active_run = _get_existing_run(run_uuid)
 
-    # Load an existing run ID from the environment
-    existing_run_uuid = os.environ[_RUN_ID_ENV_VAR]
-    store = _get_store()
-    run = store.get_run(existing_run_uuid)
-    # If we were able to find an existing run with the specified ID, create an ActiveRun with
-    # that ID and update the global _active_run
-    # TODO: This doesn't play well with the atexit.register(end_run) call; specifically each
-    # time a process with the current run ID exits, the run will be marked as terminated.
-    _active_run = ActiveRun(run.info, store)
+    else:
+        exp_id_for_run = experiment_id or _get_experiment_id()
+        active_run = _create_run(experiment_id=exp_id_for_run,
+                                 source_name=source_name or _get_source_name(),
+                                 source_version=source_version or _get_source_version(),
+                                 entry_point_name=entry_point_name,
+                                 source_type=source_type or _get_source_type())
+    _active_run = active_run
     return _active_run
 
 
 def _get_or_start_run():
+    if _active_run:
+        return _active_run
     return start_run()
 
 
