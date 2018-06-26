@@ -245,7 +245,7 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     # Load the MLproject file
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLProject"))
+    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
 
 
