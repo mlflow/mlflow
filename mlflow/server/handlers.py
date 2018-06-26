@@ -22,11 +22,12 @@ _store = None
 
 
 def _get_store():
-    from mlflow.server import FILE_STORE_ENV_VAR
+    from mlflow.server import FILE_STORE_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
     global _store
     if _store is None:
         store_dir = os.environ.get(FILE_STORE_ENV_VAR, os.path.abspath("mlruns"))
-        _store = FileStore(store_dir)
+        artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, store_dir)
+        _store = FileStore(store_dir, artifact_root)
     return _store
 
 
@@ -173,13 +174,13 @@ def _list_artifacts():
     return response
 
 
-_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'MLmodel', 'MLproject']
+_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'md', 'rst', 'MLmodel', 'MLproject']
 
 
 def _get_artifact():
     request_message = _get_request_message(GetArtifact(), from_get=True)
     run = _get_store().get_run(request_message.run_uuid)
-    filename = os.path.abspath(_get_artifact_repo(run).download_artifact(request_message.path))
+    filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_message.path))
     extension = os.path.splitext(filename)[-1].replace(".", "")
     if extension in _TEXT_EXTENSIONS:
         return send_file(filename, mimetype='text/plain')
