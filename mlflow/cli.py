@@ -128,13 +128,15 @@ def ui(file_store, host, port):
     The UI will be visible at http://localhost:5000 by default.
     """
     # TODO: We eventually want to disable the write path in this version of the server.
-    mlflow.server._run_server(file_store, host, port, 1)
+    mlflow.server._run_server(file_store, file_store, host, port, 1)
 
 
 @cli.command()
 @click.option("--file-store", metavar="PATH", default=None,
               help="The root of the backing file store for experiment and run data "
                    "(default: ./mlruns).")
+@click.option("--artifact-root", metavar="URI", default=None,
+              help="Local or S3 URI to store artifacts in (default: inside file store).")
 @click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
               help="The network address to listen on (default: 127.0.0.1). "
                    "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
@@ -143,7 +145,7 @@ def ui(file_store, host, port):
               help="The port to listen on (default: 5000).")
 @click.option("--workers", "-w", default=4,
               help="Number of gunicorn worker processes to handle requests (default: 4).")
-def server(file_store, host, port, workers):
+def server(file_store, artifact_root, host, port, workers):
     """
     Run the MLflow tracking server.
 
@@ -151,7 +153,7 @@ def server(file_store, host, port, workers):
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
-    mlflow.server._run_server(file_store, host, port, workers)
+    mlflow.server._run_server(file_store, artifact_root, host, port, workers)
 
 
 cli.add_command(mlflow.sklearn.commands)

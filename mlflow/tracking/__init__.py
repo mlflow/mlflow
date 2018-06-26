@@ -130,10 +130,10 @@ class ActiveRun(object):
     def log_param(self, param):
         self.store.log_param(self.run_info.run_uuid, param)
 
-    def log_artifact(self, local_path, artifact_path):
+    def log_artifact(self, local_path, artifact_path=None):
         self.artifact_repo.log_artifact(local_path, artifact_path)
 
-    def log_artifacts(self, local_dir, artifact_path):
+    def log_artifacts(self, local_dir, artifact_path=None):
         self.artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def get_artifact_uri(self):
@@ -341,7 +341,7 @@ def _get_model_log_dir(model_name, run_id):
         artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri)
     else:
         artifact_repo = _get_legacy_artifact_repo(_get_store(), run.info)
-    return artifact_repo.download_artifact(model_name)
+    return artifact_repo.download_artifacts(model_name)
 
 
 def _get_legacy_artifact_repo(file_store, run_info):
