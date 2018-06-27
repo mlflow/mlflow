@@ -209,7 +209,7 @@ There are two properties related to how data is stored:
   be a persistent (non-ephemeral) disk.
 * ``--artifact-root`` causes clients to log their artifact output (e.g., models) to this
   location which is suitable for large data (such as an S3 bucket or shared NFS file system). If
-  you do not provide this option, then clients will write artifacts to `their` local directories,
+  you do not provide this option, then clients will write artifacts to *their* local directories,
   which the server probably can't serve.
 
 Note that for the clients and server to access the artifact bucket, you should configure your Cloud
