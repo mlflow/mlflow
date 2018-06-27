@@ -67,7 +67,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
     :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
-    :return: Run ID for the new run.
+    :return: `ActiveRun` object that can be used to query run status
+    # TODO(sid): probably better to return a run ID here and add a tracking.get_run(run_uuid) API.
     """
     # TODO: Allow timeout for synchronous runs?
     if mode is None or mode == "local":
