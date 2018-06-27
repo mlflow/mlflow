@@ -1,11 +1,13 @@
 import os
 import filecmp
 import tempfile
+import time
 
 import mock
 import pytest
 
 import mlflow
+from mlflow.entities.run_status import RunStatus
 from mlflow.projects import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import TempDir
@@ -87,6 +89,38 @@ def test_log_parameters():
         assert len(run.data.params) == len(expected_params)
         for param in run.data.params:
             assert param.value == expected_params[param.key]
+
+
+def test_run_returns_active_run():
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
+        active_run = mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"},
+            use_conda=False, experiment_id=0)
+        # Validate returned active run by calling get_run on it, comparing result to what's in the
+        # store
+        run = active_run.get_run()
+        store = FileStore(tmp_dir)
+        run_uuid = store.list_run_infos(experiment_id=0)[0].run_uuid
+        assert run.info == store.get_run(run_uuid).info
+
+
+def test_run_async():
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
+        active_run = mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 1},
+            use_conda=False, experiment_id=0, block=False)
+        assert active_run.get_run().info.status == RunStatus.RUNNING
+        time.sleep(2)
+        assert active_run.get_run().info.status == RunStatus.FINISHED
+        active_run1 = mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
+            use_conda=False, experiment_id=0, block=False)
+        time.sleep(1)
+        assert active_run1.get_run().info.status == RunStatus.FAILED
 
 
 def test_get_work_dir():

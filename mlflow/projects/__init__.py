@@ -333,6 +333,7 @@ def _launch_local_command(active_run, command, work_dir, env_map):
         process.exec_cmd([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
                          stream_output=True, env=env_map)
         eprint("=== Run succeeded ===")
+        active_run.set_terminated("FINISHED")
     except process.ShellCommandException:
         active_run.set_terminated("FAILED")
         eprint("=== Run failed ===")
@@ -355,10 +356,12 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
 
     # Create a new run and log every provided parameter into it.
     exp_id_for_run = experiment_id or tracking._get_experiment_id()
+    assert tracking._active_run is None
     active_run = tracking._create_run(
         experiment_id=exp_id_for_run, source_name=project.uri,
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
+    assert tracking._active_run is None
     if parameters is not None:
         for key, value in parameters.items():
             active_run.log_param(Param(key, value))
@@ -378,6 +381,7 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     if block:
         _launch_local_command(active_run, command, work_dir, env_map)
     else:
-        multiprocessing.Process(
+        p = multiprocessing.Process(
             target=_launch_local_command, args=(active_run, command, work_dir, env_map))
+        p.start()
     return active_run

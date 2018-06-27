@@ -16,3 +16,7 @@ entry_points:
     parameters:
       uri: uri
     command: "curl {uri} | wc -l"
+  sleep:
+    parameters:
+      duration: int
+    command: "sleep {duration}"

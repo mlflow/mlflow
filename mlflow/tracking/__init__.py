@@ -116,8 +116,6 @@ class ActiveRun(object):
             self.artifact_repo = ArtifactRepository.from_artifact_uri(run_info.artifact_uri)
         else:
             self.artifact_repo = _get_legacy_artifact_repo(store, run_info)
-        global _active_run
-        _active_run = self
 
     def set_terminated(self, status):
         self.run_info = self.store.update_run_info(
