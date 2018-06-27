@@ -203,18 +203,31 @@ An example configuration for a server is as follows:
 .. code:: shell
 
     mlflow server \
-        --host 0.0.0.0 \
-        --artifact-root s3://my-mlflow-bucket/
+        --file-store /mnt/persistent-disk \
+        --artifact-root s3://my-mlflow-bucket/ \
+        --host 0.0.0.0
+Storage
+^^^^^^^
+There are two properties related to how data is stored:
+
+- ``--file-store`` is where the server will store run and experiment information. This should
+be a persistent (non-ephemeral) disk.
+- ``--artifact-root`` causes clients to log their artifact output (e.g., models) to this
+location which is suitable for large data (such as an S3 bucket or shared NFS file system). If
+you do not provide this option, then clients will write artifacts to `their` local directories,
+which the server probably can't serve.
 
 Note that for the clients and server to access the artifact bucket, you should configure your Cloud
 Provider credentials as normal. For example, S3 can be accessed by setting the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, by using an IAM role, or by configuring a default
 profile in `~/.aws/credentials`. See the `AWS docs <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
-If running a server in production, we would recommend not exposing the built-in server broadly (as it
-is unauthenticated and unecrypted), and instead putting it behind a reverse proxy like nginx or apache,
-or connecting over VPN. Additionally, you should ensure that the `--file-store` (which defaults to the
-``./mlruns`` directory) points to a persistent (non-ephemeral) disk.
+Networking
+^^^^^^^^^^
+- The ``--host`` option exposes the service on all interfaces. If running a server in production, we
+would recommend not exposing the built-in server broadly (as it is unauthenticated and unecrypted),
+and instead putting it behind a reverse proxy like nginx or apache, or connecting over VPN.
+Additionally, you should ensure that the `--file-store` (which defaults to the ``./mlruns`` directory) points to a persistent (non-ephemeral) disk.
 
 Connecting to a remote server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
