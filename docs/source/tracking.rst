@@ -192,12 +192,6 @@ writing data to the local filesystem. You can specify a tracking server URI
 via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs will automatically
 communicate with the tracking server at that URI to create/get run information, log metrics, etc.
 
-When running the remote server, it is recommended that you provide the `--artifact-root` command
-line option. This option will cause clients to log their artifact output (e.g., models) to this
-location which is suitable for large data (such as an S3 bucket or shared NFS file system). If
-you do not provide this option, then clients will write artifacts to `their` local directories,
-which the server can't serve.
-
 An example configuration for a server is as follows:
 
 .. code:: shell
