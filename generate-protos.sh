@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 set -e
 PROTOC_VERSION="$(protoc --version)"
 if [ "$PROTOC_VERSION" != "libprotoc 3.6.0" ]; then
