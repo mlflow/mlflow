@@ -1,4 +1,10 @@
-set -ex
+set -e
+PROTOC_VERSION="$(protoc --version)"
+if [ "$PROTOC_VERSION" != "libprotoc 3.6.0" ]; then
+	echo "Must have libprotoc version 3.6.0."
+	echo "We found: $PROTOC_VERSION"
+	exit 1
+fi
 PROTOS="mlflow/protos"
 protoc -I="$PROTOS" --python_out="$PROTOS" "$PROTOS"/databricks.proto \
 	"$PROTOS"/service.proto \
