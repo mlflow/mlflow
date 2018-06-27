@@ -40,7 +40,7 @@ setup(
         'scipy',
         'scikit-learn',
         'python-dateutil',
-        'protobuf',
+        'protobuf>=3.6.0',
         'gitpython',
         'pyyaml',
         'boto3',
