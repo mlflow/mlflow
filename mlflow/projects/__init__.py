@@ -4,10 +4,12 @@ from __future__ import print_function
 
 import hashlib
 import json
+import multiprocessing
 import os
 import re
 import shutil
 import tempfile
+import time
 
 from distutils import dir_util
 import git
@@ -36,7 +38,7 @@ class ExecutionException(Exception):
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        use_temp_cwd=False, storage_dir=None, blocking=True):
+        use_temp_cwd=False, storage_dir=None, block=True):
     """
     Run an MLflow project from the given URI.
 
@@ -64,18 +66,19 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param storage_dir: Only used if `mode` is local. MLflow will download artifacts from
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
-    :param blocking: Whether or not to block while waiting for a run to complete.
+    :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
     :return: Run ID for the new run.
     """
+    # TODO: Allow timeout for synchronous runs?
     if mode is None or mode == "local":
         return _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                           experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
                           storage_dir=storage_dir, git_username=git_username, git_password=git_password,
-                          blocking=blocking)
+                          block=block)
     elif mode == "databricks":
         return _run_databricks(uri=uri, entry_point=entry_point, version=version,
                                parameters=parameters, experiment_id=experiment_id, cluster_spec=cluster_spec,
-                               git_username=git_username, git_password=git_password, blocking=blocking)
+                               git_username=git_username, git_password=git_password, block=block)
     else:
         supported_modes = ["local", "databricks"]
         raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -137,7 +140,7 @@ def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
         params={"run_id": job_run_id})
     jobs_page_url = run_info["run_page_url"]
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
-
+    return job_run_id
 
 def _create_databricks_run(experiment_id, source_name, source_version, entry_point_name):
     # Figure out tracking URI
@@ -149,6 +152,7 @@ def _create_databricks_run(experiment_id, source_name, source_version, entry_poi
                "asynchronously." % tracking_uri)
         return None
     else:
+        # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g. localhost)
         # TODO: need to resolve the version to a git commit here (will do that soon)
         return tracking._create_run(experiment_id=experiment_id,
                                     source_name=source_name,
@@ -156,12 +160,25 @@ def _create_databricks_run(experiment_id, source_name, source_version, entry_poi
                                     entry_point_name=entry_point_name,
                                     source_type=SourceType.PROJECT)
 
-def _wait_for_termination(databricks_run_id):
-    """ Temporary API for polling Databricks Job run for termination. """
 
+def _wait_databricks(databricks_run_id):
+    """ Temporary API for polling Databricks Job run for termination. """
+    hostname, token, username, password, = _get_databricks_hostname_and_auth()
+    auth = (username, password) if username is not None and password is not None else None
+    result_state = None
+    while result_state is None:
+        res = rest_utils.databricks_api_request(
+            hostname=hostname, endpoint="jobs/runs/submit", token=token, auth=auth, method="POST",
+            params={"run_id": databricks_run_id})
+        state = res["state"]
+        result_state = state.get("result_state", None)
+        time.sleep(30)
+    if result_state != "SUCCESS":
+        raise ExecutionException("=== Databricks run finished with status %s != 'SUCCESS' "
+                                 "===" % result_state)
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                    git_username, git_password, blocking):
+                    git_username, git_password, block):
     # Create run object with remote tracking server
     remote_run = _create_databricks_run(experiment_id, source_name=uri, source_version=version,
                                         entry_point_name=entry_point)
@@ -183,15 +200,18 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _do_databricks_run(uri, command, env_vars, cluster_spec)
-    if blocking and remote_run is not None:
+    if not block:
+        return remote_run
+    eprint("=== Waiting for Databricks Job Run to complete ===")
+    if remote_run is not None:
         remote_run.wait()
-    elif blocking:
-        _wait_for_termination(db_run_id)
+    elif block:
+        _wait_databricks(db_run_id)
     return remote_run
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
-               storage_dir, git_username, git_password, blocking):
+               storage_dir, git_username, git_password, block):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -212,7 +232,7 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
         raise ExecutionException("No MLproject file found in %s" % uri)
     project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
     return _run_project(
-        project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, blocking)
+        project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, block)
 
 
 def _get_work_dir(uri, use_temp_cwd):
@@ -308,8 +328,18 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
+def _launch_local_command(active_run, command, work_dir, env_map):
+    try:
+        process.exec_cmd([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
+                         stream_output=True, env=env_map)
+        eprint("=== Run succeeded ===")
+    except process.ShellCommandException:
+        active_run.set_terminated("FAILED")
+        eprint("=== Run failed ===")
+
+
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
-                 experiment_id, blocking):
+                 experiment_id, block):
     """Locally run a project that has been checked out in `work_dir`."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
@@ -345,13 +375,9 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     command = " && ".join(commands)
     eprint("=== Running command: %s ===" % command)
 
-    if blocking:
-        try:
-            process.exec_cmd([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
-                             stream_output=True, env=env_map)
-            eprint("=== Run succeeded ===")
-        except process.ShellCommandException:
-            active_run.set_terminated("FAILED")
-            eprint("=== Run failed ===")
+    if block:
+        _launch_local_command(active_run, command, work_dir, env_map)
     else:
-        return subprocess
+        multiprocessing.Process(
+            target=_launch_local_command, args=(active_run, command, work_dir, env_map))
+    return active_run

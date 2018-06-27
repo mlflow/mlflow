@@ -249,7 +249,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         raise Exception("Run with UUID %s is already active, unable to start nested "
                         "run" % _active_run.run_info.run_uuid)
     if _RUN_ID_ENV_VAR in os.environ:
-        active_run = _get_existing_run(run_uuid)
+        active_run = _get_existing_run(os.environ[_RUN_ID_ENV_VAR])
 
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()

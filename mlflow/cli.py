@@ -110,7 +110,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                      cluster_spec=_encode(cluster_spec),
                      git_username=_encode(git_username),
                      git_password=_encode(git_password), use_conda=(not no_conda),
-                     use_temp_cwd=new_dir, storage_dir=_encode(storage_dir))
+                     use_temp_cwd=new_dir, storage_dir=_encode(storage_dir), block=True)
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)
