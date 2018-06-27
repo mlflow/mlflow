@@ -107,7 +107,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             use_conda=(not no_conda),
             use_temp_cwd=new_dir,
             storage_dir=storage_dir,
-            block=True,
+            block=True,  # TODO(sid) should users be able to launch async runs via the CLI?
         )
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)

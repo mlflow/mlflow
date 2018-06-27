@@ -20,7 +20,7 @@ from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env
 
 
-_RUN_ID_ENV_VAR = "MLFLOW_RUN_NAME"  # TODO(matei): should be MLFLOW_RUN_ID after 0.1.0
+_RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _DEFAULT_USER_ID = "unknown"
@@ -225,7 +225,10 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     """
     Start a new MLflow run, setting it as the active run under which metrics and params
     will be logged. The return value can be used as a context manager within a `with` block;
-    otherwise, `end_run()` must be called to terminate the current run.
+    otherwise, `end_run()` must be called to terminate the current run. Note that if `run_uuid`
+    is passed or the MLFLOW_RUN_ID environment variable is set, `start_run` will attempt to
+    resume a run with the specified run ID (with `run_uuid` taking precedence over MLFLOW_RUN_ID),
+    and other parameters will be ignored.
 
     :param run_uuid: If specified, gets the run with the specified UUID and logs metrics
                      and params under that run. The run's end time will be unset and its status
@@ -246,17 +249,18 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     if _active_run:
         raise Exception("Run with UUID %s is already active, unable to start nested "
                         "run" % _active_run.run_info.run_uuid)
-    if _RUN_ID_ENV_VAR in os.environ:
-        active_run = _get_existing_run(os.environ[_RUN_ID_ENV_VAR])
+    existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
+    if existing_run_uuid:
+        active_run_obj = _get_existing_run(existing_run_uuid)
 
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()
-        active_run = _create_run(experiment_id=exp_id_for_run,
-                                 source_name=source_name or _get_source_name(),
-                                 source_version=source_version or _get_source_version(),
-                                 entry_point_name=entry_point_name,
-                                 source_type=source_type or _get_source_type())
-    _active_run = active_run
+        active_run_obj = _create_run(experiment_id=exp_id_for_run,
+                                     source_name=source_name or _get_source_name(),
+                                     source_version=source_version or _get_source_version(),
+                                     entry_point_name=entry_point_name,
+                                     source_type=source_type or _get_source_type())
+    _active_run = active_run_obj
     return _active_run
 
 
