@@ -15,7 +15,7 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 def test_model_export(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_pip_deps="pyspark=={}".format(pyspark_version))
+    _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
     iris = datasets.load_iris()
     X = iris.data  # we only take the first two features.
     y = iris.target
