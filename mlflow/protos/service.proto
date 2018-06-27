@@ -505,7 +505,7 @@ message FloatClause {
   // OneOf (">", ">=", "==", "!=", "<=", "<")
   optional string comparator = 1;
 
-  optional float value = 2;
+  optional double value = 2;
 }
 
 message SearchRuns {
