@@ -89,6 +89,10 @@ Build a pip-installable wheel in ``dist/``:
    cd -
    python setup.py bdist_wheel
 
+Building Protobuf Files
+------------------------
+To build protobuf files, simply run ``generate-protos.sh``. The required ``protoc`` version is ``3.6.0``.
+
 
 Writing Docs
 ------------
