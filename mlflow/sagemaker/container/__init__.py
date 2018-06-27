@@ -68,6 +68,9 @@ def _serve():
         env_path_dst = os.path.join("/opt/mlflow/", env)
         # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
         shutil.copy(src=os.path.join("/opt/ml/model/", env), dst=env_path_dst)
+        print("found custom env {}".format(env_path_dst))
+        with open(env_path_dst) as f:
+            print(f.read())
         os.system("conda env create -n custom_env -f {}".format(env_path_dst))
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")

@@ -27,13 +27,15 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          bzip2 \
          build-essential \
          cmake \
-         git-core \
+         openjdk-8-jdk \
+         git-core \                    
     && rm -rf /var/lib/apt/lists/*
 
 # Download and setup miniconda
 RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
 ENV PATH="/miniconda/bin:${PATH}"
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\

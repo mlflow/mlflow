@@ -2,10 +2,7 @@ from __future__ import print_function
 
 import os
 import pickle
-import requests
-from subprocess import Popen, PIPE, STDOUT
 import tempfile
-import time
 import unittest
 
 import sklearn.datasets as datasets
@@ -17,23 +14,14 @@ import pandas as pd
 from mlflow.utils.file_utils import TempDir
 from mlflow import pyfunc
 
-import mlflow.sagemaker
+from mlflow.utils.environment import _mlflow_conda_env
+
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 
 def load_pyfunc(path):
     with open(path, "rb") as f:
         return pickle.load(f)
-
-
-CONDA_ENV = """
-name: mlflow-env
-channels:
-  - anaconda
-  - defaults
-dependencies:
-  - python={python_version}
-
-"""
 
 
 class TestModelExport(unittest.TestCase):
@@ -48,11 +36,6 @@ class TestModelExport(unittest.TestCase):
         self._linear_lr_predict = self._linear_lr.predict(self._X)
         os.environ["LC_ALL"] = "en_US.UTF-8"
         os.environ["LANG"] = "en_US.UTF-8"
-        mlflow_root = os.environ.get("MLFLOW_HOME") if "MLFLOW_HOME" in os.environ \
-            else os.path.dirname(os.path.dirname(os.path.abspath(mlflow.__file__)))
-        # "/home/travis/build/databricks/mlflow"
-        print("Building mlflow Docker image with MLFLOW_HOME =", mlflow_root)
-        mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
     def test_model_export(self):
         path_to_remove = None
@@ -66,50 +49,13 @@ class TestModelExport(unittest.TestCase):
                     pickle.dump(self._linear_lr, f)
                 input_path = tmp.path("input_model")
                 conda_env = "conda.env"
-                from sys import version_info
-                python_version = "{major}.{minor}.{micro}".format(major=version_info.major,
-                                                                  minor=version_info.minor,
-                                                                  micro=version_info.micro)
-                with open(conda_env, "w") as f:
-                    f.write(CONDA_ENV.format(python_version=python_version))
-                pyfunc.save_model(input_path, loader_module="test_model_export",
-                                  code_path=[__file__],
+                pyfunc.save_model(input_path, loader_module="mlflow.sklearn",
                                   data_path=model_pkl,
-                                  conda_env=conda_env)
-                proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', input_path], stdout=PIPE,
-                             stderr=STDOUT, universal_newlines=True)
-
-                try:
-                    for i in range(0, 50):
-                        self.assertTrue(proc.poll() is None, "scoring process died")
-                        time.sleep(5)
-                        # noinspection PyBroadException
-                        try:
-                            ping_status = requests.get(url='http://localhost:5000/ping')
-                            print('connection attempt', i, "server is up! ping status", ping_status)
-                            if ping_status.status_code == 200:
-                                break
-                        except Exception:
-                            print('connection attempt', i, "failed, server is not up yet")
-
-                    self.assertTrue(proc.poll() is None, "scoring process died")
-                    ping_status = requests.get(url='http://localhost:5000/ping')
-                    print("server up, ping status", ping_status)
-                    if ping_status.status_code != 200:
-                        raise Exception("ping failed, server is not happy")
-                    x = self._iris_df.to_dict(orient='records')
-                    y = requests.post(url='http://localhost:5000/invocations', json=x)
-                    import json
-                    xpred = json.loads(y.content)
-                    print('expected', self._linear_lr_predict)
-                    print('actual  ', xpred)
-                    np.testing.assert_array_equal(self._linear_lr_predict, xpred)
-
-                finally:
-                    if proc.poll() is None:
-                        proc.terminate()
-                    print("captured output of the scoring process")
-                    print(proc.stdout.read())
+                                  conda_env=_mlflow_conda_env(tmp.path(conda_env)))
+                xpred = score_model_in_sagemaker_docker_container(input_path, self._iris_df)
+                print('expected', self._linear_lr_predict)
+                print('actual  ', xpred)
+                np.testing.assert_array_equal(self._linear_lr_predict, xpred)
         finally:
             if path_to_remove:
                 try:

@@ -40,15 +40,15 @@ class Model(object):
     @classmethod
     def log(cls, artifact_path, flavor, **kwargs):
         """
-        Log model using supplied flavor.
+        Log model using supplied flavor module.
 
-        :param artifact_path: RUN-relative path identifying this model.
-        :param flavor: Flavor that can save the model.
+        :param artifact_path: Run-relative path identifying this model.
+        :param flavor: Flavor module / object to save the model with. The module / object must have
+        save_model function which will persist the model as a valid MLflow model.
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
-            # TODO: I get active_run_id here but mlflow.tracking.log_output_files has its own way
             run_id = mlflow.tracking.active_run().info.run_uuid
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)

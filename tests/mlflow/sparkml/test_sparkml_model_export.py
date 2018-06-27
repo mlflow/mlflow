@@ -1,5 +1,4 @@
 import pandas as pd
-
 from sklearn import datasets
 
 import pyspark
@@ -9,6 +8,7 @@ from pyspark.ml.classification import LogisticRegression
 
 from mlflow import sparkml, pyfunc
 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 def test_model_export(tmpdir):
     iris = datasets.load_iris()
@@ -39,8 +39,12 @@ def test_model_export(tmpdir):
     print(preds_df.show())
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     sparkml.save_model(model, path=str(model_path))
+
     m = pyfunc.load_pyfunc(str(model_path))
     preds2 = m.predict(pandas_df)
-    print(pd.DataFrame({"preds1": preds1, "preds2": preds2}, columns=("preds1", "preds2")))
     assert preds1 == preds2
-    dir(model)
+    preds3 = score_model_in_sagemaker_docker_container(model_path=str(model_path), data=pandas_df)
+    print(pd.DataFrame({"preds1": preds1, "preds2": preds2, "preds3" : preds3},
+                       columns=("preds1", "preds2", "preds3")))
+    assert preds1 == preds3
+
