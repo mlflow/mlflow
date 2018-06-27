@@ -203,7 +203,7 @@ $('.code').map(function(i, val) {
         return languages.indexOf(className) != -1;
     });
 
-    var clippyStrStart = '<div class="clippy"><img src="/_static/clippy.svg" alt="Copy to clipboard">';
+    var clippyStrStart = '<div class="clippy"><img src="' + CLIPPY_SVG_PATH + '" alt="Copy to clipboard">';
     var clippyStrEnd = '</div>';
     var copyStr = '<span>Copy</span>';
     var langStr = lang;
