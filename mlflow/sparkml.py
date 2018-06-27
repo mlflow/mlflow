@@ -19,7 +19,6 @@ from pyspark.ml.base import Transformer
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.models import Model
 
 
@@ -62,12 +61,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
     spark_model.save(os.path.join(path, "model"))
     pyspark_version = pyspark.version.__version__
-    model_conda_env = "mlflow_env.yml"
-    if not conda_env:
-        # create default conda env with pyspark
-        _mlflow_conda_env(os.path.join(path, model_conda_env),
-                          additional_pip_deps=["pyspark=={}".format(pyspark_version)])
-    else:
+    model_conda_env = None
+    if conda_env:
         model_conda_env = os.path.basename(os.path.abspath(conda_env))
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
     if jars:

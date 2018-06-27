@@ -31,7 +31,6 @@ install:
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
-  - mlflow sagemaker build-and-push-container --no-push --mlflow-home ./
   - export MLFLOW_HOME=$(pwd)
 script:
   - pip list

@@ -49,7 +49,7 @@ class TestModelExport(unittest.TestCase):
                               data_path=model_path,
                               loader_module=os.path.basename(__file__)[:-3],
                               code_path=[__file__],
-                              mlflow_model=m)
+                              model=m)
             m2 = Model.load(os.path.join(path, "MLmodel"))
             print("m1", m.__dict__)
             print("m2", m2.__dict__)

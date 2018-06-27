@@ -21,6 +21,7 @@ import mlflow.version
 
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 
 def _init(cmd):
@@ -47,8 +48,38 @@ def _server_dependencies_cmds():
     """
     # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
-            "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow/") else
-            "pip install mlflow=={}".format(mlflow.version.VERSION)]
+            "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow")
+            else "pip install mlflow=={}".format(MLFLOW_VERSION)]
+
+
+def _copy_and_filter_env(src_path, dst_path):
+    if os.path.exists("/opt/mlflow"): # copy and filter
+        filtered_env = []
+        with open(src_path) as f:
+            lines = f.readlines()
+            for x in lines:
+                if "mlflow" in x:
+                    if "==" in x:
+                        version = x[x.find("==") + 2:]
+                        if version != MLFLOW_VERSION:
+                            print("Different version of mlflow requested, {a} != {b}".format(
+                                a=MLFLOW_VERSION, b=version))
+                            filtered_env.append(x)
+                        else:
+                            # The version is the same as the built-in one. We will use the local
+                            # version instead. If this is a dev build, the required version of
+                            # mlflow is not in pip yet.
+                            print("Using local copy of mlflow.")
+                            filtered_env.append("/opt/mlflow/.")
+                else:
+                    filtered_env.append(x)
+        # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
+        with open(dst_path, "w") as f:
+            f.write("\n".join(filtered_env))
+    else:
+        os.mkdir("/opt/mlflow")
+        shutil.copyfile(src_path, dst_path)
+
 
 
 def _serve():
@@ -66,11 +97,12 @@ def _serve():
         print("activating custom environment")
         env = conf[pyfunc.ENV]
         env_path_dst = os.path.join("/opt/mlflow/", env)
-        # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
-        shutil.copy(src=os.path.join("/opt/ml/model/", env), dst=env_path_dst)
-        print("found custom env {}".format(env_path_dst))
-        with open(env_path_dst) as f:
-            print(f.read())
+        # check that the mlflow version is matching
+        if not os.path.isdir("/opt/mlflow"):
+            os.mkdir("/opt/mlflow")
+        # TODO: should we test that the environment does not include any of the server dependencies?
+        # Those are gonna be reinstalled. should probably test this on the client side
+        shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
         os.system("conda env create -n custom_env -f {}".format(env_path_dst))
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
