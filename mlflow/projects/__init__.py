@@ -67,8 +67,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
     :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
-    :return: `ActiveRun` object that can be used to query run status
-    # TODO(sid): probably better to return a run ID here and add a tracking.get_run(run_uuid) API.
+    :return: UUID of the run
     """
     # TODO: Allow timeout for synchronous runs?
     if mode is None or mode == "local":
@@ -202,6 +201,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _do_databricks_run(uri, command, env_vars, cluster_spec)
     if not block:
+        p = multiprocessing.Process(target="...")
         return remote_run
     eprint("=== Waiting for Databricks Job Run to complete ===")
     if remote_run is not None:
