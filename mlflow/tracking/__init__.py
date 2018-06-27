@@ -354,7 +354,7 @@ def _get_legacy_artifact_repo(file_store, run_info):
 def _get_git_commit(path):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound
-    except ImportError, e:
+    except ImportError as e:
         print("Notice: failed to import git (the git executable is probably not on your PATH),"
               " so git sha will not be available. Error: %s" % e, file=sys.stderr)
         return None 
