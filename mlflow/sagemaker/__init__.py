@@ -28,7 +28,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          build-essential \
          cmake \
          openjdk-8-jdk \
-         git-core \                    
+         git-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and setup miniconda
