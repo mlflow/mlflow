@@ -2,12 +2,17 @@ from __future__ import print_function
 
 import os
 import pickle
-import pytest
 import requests
 from subprocess import Popen, PIPE, STDOUT
 import tempfile
 import time
 import unittest
+
+try:
+    import pytest
+except ImportError:
+    # This file is also loaded inside the container, where we do not need pytest.
+    pass
 
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
