@@ -43,8 +43,7 @@ def test_model_export(tmpdir):
     preds_df = model.transform(spark_df)
     print(preds_df.show())
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
-    sparkml.save_model(model, path=str(model_path))
-
+    sparkml.save_model(model, path=str(model_path), conda_env=conda_env)
     m = pyfunc.load_pyfunc(str(model_path))
     preds2 = m.predict(pandas_df)
     assert preds1 == preds2
