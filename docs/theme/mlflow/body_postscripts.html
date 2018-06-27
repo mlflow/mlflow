@@ -14,12 +14,14 @@
   {%- endfor %}
 {% endif %}
 
-<script type="text/javascript" src="/_static/js/clipboard.min.js"></script>
-<script type="text/javascript" src="/_static/js/jquery.waypoints.min.js"></script>
+<script type="text/javascript" src="{{ pathto('_static/js/clipboard.min.js', 1) }}"></script>
+<script type="text/javascript" src="{{ pathto('_static/js/jquery.waypoints.min.js', 1) }}"></script>
 
 {# RTD hosts this file, so just load on non RTD builds #}
 {% if not READTHEDOCS %}
-  <script type="text/javascript" src="{{ pathto('/_static/js/custom.js', 1) }}"></script>
+  {# I'm sorry, I don't know how to use sphinx to inject this into the static JS. #}
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "{{ pathto('_static/clippy.svg', 1) }}";</script>
+  <script type="text/javascript" src="{{ pathto('_static/js/custom.js', 1) }}"></script>
 {% endif %}
 
 {# STICKY NAVIGATION #}
