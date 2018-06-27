@@ -236,7 +236,6 @@ Connecting to a remote server
 Once you have a server running, simply set ``MLFLOW_TRACKING_URI`` to the server's URI, along
 with its scheme and port (e.g., ``http://10.0.0.1:5000``). Then you can use mlflow as normal:
 
-
 .. code:: python
 
     import mlflow
