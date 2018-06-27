@@ -14,6 +14,11 @@ class TestS3ArtifactRepo(unittest.TestCase):
     def test_basic_functions(self):
         with TempDir() as tmp:
             # Create a mock S3 bucket in moto
+            # Note that we must set these as environment variables in case users
+            # so that boto does not attempt to assume credentials from the ~/.aws/config
+            # or IAM role. moto does not correctly pass the arguments to boto3.client().
+            os.environ["AWS_ACCESS_KEY_ID"] = "a" 
+            os.environ["AWS_SECRET_ACCESS_KEY"] = "b" 
             s3 = boto3.client("s3")
             s3.create_bucket(Bucket="test_bucket")
 
