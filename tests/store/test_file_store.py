@@ -250,18 +250,6 @@ class TestFileStore(unittest.TestCase):
                     self.assertEqual(param.key, param_name)
                     self.assertEqual(param.value, param_value)
 
-    def test_list_artifacts(self):
-        fs = FileStore(self.test_root)
-        # replace with test with code is implemented
-        with self.assertRaises(Exception):
-            self.assertIsNotNone(fs.list_artifacts("random uuid", "some relative path"))
-
-    def test_get_artifact(self):
-        fs = FileStore(self.test_root)
-        # replace with test with code is implemented
-        with self.assertRaises(Exception):
-            self.assertIsNotNone(fs.get_artifact("random uuid", "some relative path"))
-
     def test_search_runs(self):
         # replace with test with code is implemented
         fs = FileStore(self.test_root)

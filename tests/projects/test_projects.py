@@ -130,7 +130,8 @@ def test_get_work_dir():
         assert work_dir != uri
         assert os.path.exists(work_dir)
     for use_temp_cwd, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
-        assert mlflow.projects._get_work_dir(uri=uri, use_temp_cwd=use_temp_cwd) == TEST_PROJECT_DIR
+        assert mlflow.projects._get_work_dir(uri=uri, use_temp_cwd=use_temp_cwd) ==\
+               os.path.abspath(TEST_PROJECT_DIR)
 
 
 def test_storage_dir():

@@ -13,7 +13,7 @@ import time
 
 from distutils import dir_util
 import git
-import yaml
+
 from six.moves import shlex_quote
 from databricks_cli.configure import provider
 
@@ -23,7 +23,7 @@ from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
 
-from mlflow.utils import process, rest_utils
+from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
 
@@ -227,12 +227,12 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
 
     # Load the MLproject file
-    spec_file = os.path.join(work_dir, "MLproject")
-    if not os.path.isfile(spec_file):
+    if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
+    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
     return _run_project(
         project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, block)
+
 
 
 def _get_work_dir(uri, use_temp_cwd):
@@ -244,7 +244,7 @@ def _get_work_dir(uri, use_temp_cwd):
     if _GIT_URI_REGEX.match(uri) or use_temp_cwd:
         # Create a temp directory to download and run the project in
         return tempfile.mkdtemp(prefix="mlflow-")
-    return uri
+    return os.path.abspath(uri)
 
 
 def _get_storage_dir(storage_dir):
