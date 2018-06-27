@@ -157,7 +157,7 @@ Tracking UI
 The Tracking UI lets you visualize, search and compare runs, as well as download run artifacts or
 metadata for analysis in other tools. If you have been logging runs to a local ``mlruns`` directory,
 simply run ``mlflow ui`` in the directory above it, and it will load the corresponding runs.
-Alternatively, the :ref:`mlflow server <tracking_server>` serves the same UI, and enables remote storage of run information.
+Alternatively, the :ref:`mlflow server <tracking_server>` serves the same UI, and enables remote storage of run artifacts.
 
 The UI contains the following key features:
 
@@ -194,8 +194,14 @@ communicate with the tracking server at that URI to create/get run information, 
 
 When running the remote server, it is recommended that you provide the `--artifact-root` command
 line option. This option will cause clients to log their artifact output (e.g., models) to this
-location which is suitable for large data (such as an S3 bucket). If you do not provide this option,
-then clients will write artifacts to `their` local directories, which the server can't serve.
+location which is suitable for large data (such as an S3 bucket or shared NFS file system). If
+you do not provide this option, then clients will write artifacts to `their` local directories,
+which the server can't serve.
+
+Note that for the clients and server to access the artifact bucket, you should configure your Cloud
+Provider credentials as normal. For example, S3 can be accessed by setting the ``AWS_ACCESS_KEY_ID``
+and ``AWS_SECRET_ACCESS_KEY`` environment variables, by using an IAM role, or by configuring a default
+profile in `~/.aws/credentials`. See the `AWS docs <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
 Remote server for development
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -208,10 +214,11 @@ An example recommended configuration for a development server is as follows:
         --artifact-root s3://my-mlflow-bucket/
 
 This configuration is only suitable for development because the run metadata is stored on the local
-disk (which may be ephemeral) and clients are served over HTTP, not HTTPS. Note that for the
-server to access the artifact bucket, you should configure your Cloud Provider credentials as
-normal. For example, S3 can be accessed by setting the ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``
-environment variables, by using an IAM role, or by configuring a default profile in `~/.aws/credentials`.
+disk (which may be ephemeral) and clients are served over HTTP, not HTTPS.
+
+The artifact root should be a remote storage bucket like S3, or an NFS mount shared between server
+and clients.
+
 
 Remote server for production
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
