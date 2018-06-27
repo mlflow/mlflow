@@ -157,7 +157,7 @@ Tracking UI
 The Tracking UI lets you visualize, search and compare runs, as well as download run artifacts or
 metadata for analysis in other tools. If you have been logging runs to a local ``mlruns`` directory,
 simply run ``mlflow ui`` in the directory above it, and it will load the corresponding runs.
-Alternatively, the :ref:`MLflow server <tracking_server>` serves the same UI.
+Alternatively, the :ref:`mlflow server <tracking_server>` serves the same UI, and enables remote storage of run information.
 
 The UI contains the following key features:
 
@@ -187,13 +187,54 @@ common tasks:
 Running a Tracking Server
 -------------------------
 
-The MLflow tracking server launched via ``mlflow ui`` also hosts REST APIs for tracking runs,
+The MLflow tracking server launched via ``mlflow server`` also hosts REST APIs for tracking runs,
 writing data to the local filesystem. You can specify a tracking server URI
 via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs will automatically
 communicate with the tracking server at that URI to create/get run information, log metrics, etc.
 
-For example, to launch a run against a local tracking server, launch ``mlflow ui``, set
-``MLFLOW_TRACKING_URI`` to ``http://localhost:5000``, and run:
+When running the remote server, it is recommended that you provide the `--artifact-root` command
+line option. This option will cause clients to log their artifact output (e.g., models) to this
+location which is suitable for large data (such as an S3 bucket). If you do not provide this option,
+then clients will write artifacts to `their` local directories, which the server can't serve.
+
+Remote server for development
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+An example recommended configuration for a development server is as follows:
+
+.. code:: shell
+
+    mlflow server \
+        --host 0.0.0.0 \
+        --artifact-root s3://my-mlflow-bucket/
+
+This configuration is only suitable for development because the run metadata is stored on the local
+disk (which may be ephemeral) and clients are served over HTTP, not HTTPS. Note that for the
+server to access the artifact bucket, you should configure your Cloud Provider credentials as
+normal. For example, S3 can be accessed by setting the ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``
+environment variables, by using an IAM role, or by configuring a default profile in `~/.aws/credentials`.
+
+Remote server for production
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+For production, you should start by ensuring there is persistent remote storage (e.g., an AWS EBS or
+Azure VHD) attached to your instance where we can persist the run metadata. Additionally, you should
+launch a webserver that can terminate TLS (e.g., nginx or apache) to sit in front of the server.
+Once these are configured, you might start the server as follows:
+
+.. code:: shell
+
+    mlflow server \
+        --file-store /my_network_disk/ \
+        --artifact-root s3://my-mlflow-bucket/
+
+You might also increase the ``--workers`` parameter from its default of 4, to enable more concurrent
+requests being served. And of course, it is recommended to use an IAM role for production to minimize
+potential for credential leakage.
+
+Using a remote server
+^^^^^^^^^^^^^^^^^^^^^
+Once you have a server running, simply set ``MLFLOW_TRACKING_URI`` to the server's URI, along
+with its scheme and port (e.g., ``http://10.0.0.1:5000``). Then you can use mlflow as normal:
+
 
 .. code:: python
 
@@ -201,5 +242,5 @@ For example, to launch a run against a local tracking server, launch ``mlflow ui
     with mlflow.start_run():
         mlflow.log_metric("a", 1)
 
-The ``mlflow.start_run`` and ``mlflow.log_metric`` calls make API requests to your local
+The ``mlflow.start_run`` and ``mlflow.log_metric`` calls make API requests to your remote
 tracking server.
