@@ -225,7 +225,7 @@ and instead putting it behind a reverse proxy like nginx or apache, or connectin
 Additionally, you should ensure that the ``--file-store`` (which defaults to the ``./mlruns`` directory)
 points to a persistent (non-ephemeral) disk.
 
-Connecting to a remote server
+Connecting to a Remote Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Once you have a server running, simply set ``MLFLOW_TRACKING_URI`` to the server's URI, along
 with its scheme and port (e.g., ``http://10.0.0.1:5000``). Then you can use mlflow as normal:
