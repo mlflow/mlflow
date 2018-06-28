@@ -10,6 +10,7 @@ import sklearn.linear_model as glm
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from mlflow.utils.file_utils import TempDir
 from mlflow import pyfunc
@@ -17,11 +18,6 @@ from mlflow import pyfunc
 from mlflow.utils.environment import _mlflow_conda_env
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
-
-
-def load_pyfunc(path):
-    with open(path, "rb") as f:
-        return pickle.load(f)
 
 
 class TestModelExport(unittest.TestCase):
