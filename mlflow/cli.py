@@ -73,7 +73,7 @@ def cli():
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
         git_password, no_conda, new_dir, storage_dir):
     """
-    Run an MLflow project from the given URI.
+    Run an MLflow project from the given URI, blocking till the run completes.
 
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.
@@ -107,7 +107,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             use_conda=(not no_conda),
             use_temp_cwd=new_dir,
             storage_dir=storage_dir,
-            block=True,  # TODO(sid) should users be able to launch async runs via the CLI?
+            block=True,
         )
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
