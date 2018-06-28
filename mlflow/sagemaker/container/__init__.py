@@ -13,7 +13,6 @@ import signal
 from subprocess import check_call, Popen
 import sys
 
-
 from pkg_resources import resource_filename
 
 import mlflow
@@ -50,36 +49,6 @@ def _server_dependencies_cmds():
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
             "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow")
             else "pip install mlflow=={}".format(MLFLOW_VERSION)]
-
-
-def _copy_and_filter_env(src_path, dst_path):
-    if os.path.exists("/opt/mlflow"): # copy and filter
-        filtered_env = []
-        with open(src_path) as f:
-            lines = f.readlines()
-            for x in lines:
-                if "mlflow" in x:
-                    if "==" in x:
-                        version = x[x.find("==") + 2:]
-                        if version != MLFLOW_VERSION:
-                            print("Different version of mlflow requested, {a} != {b}".format(
-                                a=MLFLOW_VERSION, b=version))
-                            filtered_env.append(x)
-                        else:
-                            # The version is the same as the built-in one. We will use the local
-                            # version instead. If this is a dev build, the required version of
-                            # mlflow is not in pip yet.
-                            print("Using local copy of mlflow.")
-                            filtered_env.append("/opt/mlflow/.")
-                else:
-                    filtered_env.append(x)
-        # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
-        with open(dst_path, "w") as f:
-            f.write("\n".join(filtered_env))
-    else:
-        os.mkdir("/opt/mlflow")
-        shutil.copyfile(src_path, dst_path)
-
 
 
 def _serve():
