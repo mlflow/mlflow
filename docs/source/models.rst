@@ -21,9 +21,9 @@ from any ML library without having to integrate each tool with each library. MLf
 several "standard" flavors that all of its built-in deployment tools support, such as a "Python
 function" flavor that describes how to run the model as a Python function. However, libraries can
 also define and use other flavors. For example, MLflow's :py:mod:`mlflow.sklearn` library allows
-loading models back as a Scikit-learn ``Pipeline`` object for use in code that is aware of
-Scikit-learn, or as a generic Python function for use in tools that just need to apply the model
-(for example, the ``mlflow sagemaker`` tool for deploying models to SageMaker).
+loading models back as a scikit-learn ``Pipeline`` object for use in code that is aware of
+scikit-learn, or as a generic Python function for use in tools that just need to apply the model
+(for example, the ``mlflow sagemaker`` tool for deploying models to Amazon SageMaker).
 
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
 format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
@@ -185,6 +185,11 @@ The sklearn model flavor provides an easy to use interface for handling scikit-l
 external dependencies. It saves and loads models using Python's pickle module and also generates a valid
 ``Python Function`` flavor. For more information, see :py:mod:`mlflow.sklearn`.
 
+TensorFlow (``tensorflow``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The TensorFlow model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on Pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.tensorflow`. 
+
 Custom Flavors
 --------------
 
@@ -318,4 +323,3 @@ Example:
 
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
-

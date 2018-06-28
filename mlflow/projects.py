@@ -8,8 +8,7 @@ import shutil
 import tempfile
 
 from distutils import dir_util
-import git
-import yaml
+
 from six.moves import shlex_quote
 from databricks_cli.configure import provider
 
@@ -19,7 +18,7 @@ from mlflow.entities.param import Param
 from mlflow import data
 import mlflow.tracking as tracking
 
-from mlflow.utils import process, rest_utils
+from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
 
@@ -157,14 +156,16 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
-    result = ["/databricks/mlflow-run.sh"]
-    result.extend(["mlflow", "run", uri, "--entry-point", entry_point])
+    mlflow_run_cmd = ["mlflow", "run", uri, "--entry-point", entry_point]
     if version is not None:
-        result.extend(["--version", version])
+        mlflow_run_cmd.extend(["--version", version])
     if parameters is not None:
         for key, value in parameters.items():
-            result.extend(["-P", "%s=%s" % (key, value)])
-    return result
+            mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
+    mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
+    return ["bash", "-c", "export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin && %s"
+            % mlflow_run_str]
+
 
 
 def _get_db_hostname_and_auth():
@@ -225,7 +226,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
-               storage_dir):
+               storage_dir, git_username, git_password):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -238,13 +239,12 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     work_dir = _get_work_dir(uri, use_temp_cwd)
     eprint("=== Work directory for this run: %s ===" % work_dir)
     expanded_uri = _expand_uri(uri)
-    _fetch_project(expanded_uri, version, work_dir)
+    _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
 
     # Load the MLproject file
-    spec_file = os.path.join(work_dir, "MLproject")
-    if not os.path.isfile(spec_file):
+    if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
+    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
 
 
@@ -282,7 +282,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     if mode is None or mode == "local":
         _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                    experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
-                   storage_dir=storage_dir)
+                   storage_dir=storage_dir, git_username=git_username, git_password=git_password)
     elif mode == "databricks":
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                         experiment_id=experiment_id, cluster_spec=cluster_spec,
@@ -306,7 +306,7 @@ def _get_work_dir(uri, use_temp_cwd):
     if _GIT_URI_REGEX.match(uri) or use_temp_cwd:
         # Create a temp directory to download and run the project in
         return tempfile.mkdtemp(prefix="mlflow-")
-    return uri
+    return os.path.abspath(uri)
 
 
 def _get_storage_dir(storage_dir):
@@ -321,11 +321,11 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version, dst_dir):
+def _fetch_project(uri, version, dst_dir, git_username, git_password):
     """Download a project to the target `dst_dir` from a Git URI or local path."""
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
-        _fetch_git_repo(uri, version, dst_dir)
+        _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
@@ -340,14 +340,28 @@ def _fetch_project(uri, version, dst_dir):
     shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
 
 
-def _fetch_git_repo(uri, version, dst_dir):
+def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     """
     Clones the git repo at `uri` into `dst_dir`, checking out commit `version` (or defaulting
-    to the head commit of the repository's master branch if version is unspecified). Assumes
-    authentication parameters are specified by the environment, e.g. by a Git credential helper.
+    to the head commit of the repository's master branch if version is unspecified). If git_username
+    and git_password are specified, uses them to authenticate while fetching the repo. Otherwise,
+    assumes authentication parameters are specified by the environment, e.g. by a Git credential
+    helper.
     """
+    # We defer importing git until the last moment, because the import requires that the git
+    # executable is availble on the PATH, so we only want to fail if we actually need it.
+    import git
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
+    git_args = [git_username, git_password]
+    if not (all(arg is not None for arg in git_args) or all(arg is None for arg in git_args)):
+        raise ExecutionException("Either both or neither of git_username and git_password must be "
+                                 "specified.")
+    if git_username:
+        git_credentials = "url=%s\nusername=%s\npassword=%s" % (uri, git_username, git_password)
+        repo.git.config("--local", "credential.helper", "cache")
+        process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
+                         cmd_stdin=git_credentials)
     origin.fetch()
     if version is not None:
         repo.git.checkout(version)

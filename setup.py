@@ -18,12 +18,13 @@ def package_files(directory):
 # Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files('mlflow/server/js/build')
+sagmaker_server_files = package_files("mlflow/sagemaker/container")
 
 setup(
     name='mlflow',
     version=version,
     packages=find_packages(exclude=['tests', 'tests.*']),
-    package_data={"mlflow": js_files},
+    package_data={"mlflow": js_files + sagmaker_server_files},
     install_requires=[
         'awscli',
         'click>=6.7',
@@ -39,7 +40,7 @@ setup(
         'scipy',
         'scikit-learn',
         'python-dateutil',
-        'protobuf',
+        'protobuf>=3.6.0',
         'gitpython',
         'pyyaml',
         'boto3',

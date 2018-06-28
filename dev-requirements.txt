@@ -5,6 +5,7 @@ sphinx
 sphinx_rtd_theme
 sphinx-autobuild
 nose
+codecov
 coverage
 pypi-publisher
 scikit-learn

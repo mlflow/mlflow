@@ -1,6 +1,6 @@
 # Test reqs
-codecov
 mock==2.0.0
+moto
 prospector[with_pyroma]==0.12.7
 pyarrow
 pylint==1.8.2

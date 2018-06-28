@@ -1,4 +1,15 @@
-"""MLflow integration for Tensorflow."""
+"""MLflow integration for TensorFlow.
+
+Manages logging and loading TensorFlow models as Python Functions. You are expected to save your own
+``saved_models`` and pass their paths to ``log_saved_model()`` 
+so that MLflow can track the models. 
+
+In order to load the model to predict on it again, you can call
+``model = mlflow.pyfunc.load_pyfunc(saved_model_dir)``, followed by 
+``prediction= model.predict(pandas DataFrame)`` in order to obtain a prediction in a pandas DataFrame.
+
+Note that the loaded PyFunc model does not expose any APIs for model training.
+"""
 
 from __future__ import absolute_import
 
@@ -24,8 +35,6 @@ class _TFWrapper(object):
             self._signature_def_key = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
         else:
             self._signature_def_key = model.flavors["tensorflow"]["signature_def_key"]
-        for i in model.flavors["tensorflow"]:
-            print(i)
         self._saved_model_dir = model.flavors["tensorflow"]["saved_model_dir"]
 
     def predict(self, df):
@@ -37,36 +46,29 @@ class _TFWrapper(object):
             sig_def = tf.contrib.saved_model.get_signature_def_by_key(meta_graph_def, 
                                                                       self._signature_def_key)
 
-            # Determining input tensors.
-            feed_mapping = {}
-            feed_names = []
-            for sigdef_key, tnsr_info in sig_def.inputs.items():
-                tnsr_name = tnsr_info.name
-                feed_mapping[sigdef_key] = tnsr_name
-                feed_names.append(tnsr_name)
-
             # Determining output tensors.
-            fetch_mapping = {}
-            fetch_names = []
-            for sigdef_key, tnsr_info in sig_def.outputs.items():
-                tnsr_name = tnsr_info.name
-                fetch_mapping[sigdef_key] = tnsr_name
-                fetch_names.append(tnsr_name)
+            fetch_mapping = {sigdef_output: graph.get_tensor_by_name(tnsr_info.name)
+                             for sigdef_output, tnsr_info in sig_def.outputs.items()}
 
-            fetches = [graph.get_tensor_by_name(t_name) for t_name in fetch_names]
-
-            feed_dict = {}
-            for col in feed_mapping:
-                tnsr_name = feed_mapping[col]
-                feed_dict[graph.get_tensor_by_name(tnsr_name)] = df[col].values
-            data = sess.run(fetches, feed_dict=feed_dict)
-            return pandas.DataFrame(data=data[0])
+            # Build the feed dict, mapping input tensors to DataFrame column values.
+            # We assume that input arguments to the signature def correspond to DataFrame column
+            # names
+            feed_dict = {graph.get_tensor_by_name(tnsr_info.name): df[sigdef_input].values
+                        for sigdef_input, tnsr_info in sig_def.inputs.items()}
+            raw_preds = sess.run(fetch_mapping, feed_dict=feed_dict)
+            pred_dict = {fetch_name: list(values) for fetch_name, values in raw_preds.items()}
+            return pandas.DataFrame(data=pred_dict)
 
 
 def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
-    """Log a Tensorflow model as an MLflow artifact for the current run."""
-    #run_id = mlflow.tracking.active_run().info.run_uuid
-    mlflow_model = Model(artifact_path=artifact_path)#, run_id=run_id)
+    """Log a TensorFlow model as an MLflow artifact for the current run.
+
+    :param saved_model_dir: Directory where the exported tf model is saved.
+    :param signature_def_key: Which signature definition to use when loading the model again. See https://www.tensorflow.org/serving/signature_defs for details.
+    :param artifact_path: Path (within the artifact directory for the current run) to which artifacts of the model will be saved.
+    """
+    run_id = mlflow.tracking.active_run().info.run_uuid
+    mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow")
     mlflow_model.add_flavor("tensorflow", 
                             saved_model_dir=saved_model_dir, 
@@ -76,4 +78,12 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
 
 
 def load_pyfunc(saved_model_dir):
+    """Load model stored in python-function format.
+    The loaded model object exposes a ``predict(pandas DataFrame)`` method that returns a Pandas DataFrame 
+    containing the model's inference output on an input DataFrame.
+    
+    :param saved_model_dir: Directory where the model is saved.
+    :rtype: Pyfunc format model with function `model.predict(pandas DataFrame) -> pandas DataFrame)`.
+
+    """
     return _TFWrapper(saved_model_dir)
