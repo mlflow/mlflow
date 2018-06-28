@@ -808,7 +808,7 @@ text-transform: capitalize;
   background-color: #1CB1C2;
 }
 .admonition.note .admonition-title:before {
-  background-image: url("/_static/icons/note-icon.svg");
+  background-image: url("../icons/note-icon.svg");
   font-size: .9em;
 }
 
@@ -819,7 +819,7 @@ text-transform: capitalize;
   background-color: #C5CD18;
 }
 .admonition.tip .admonition-title:before {
-  background-image: url("/_static/icons/tip-icon.svg");
+  background-image: url("../icons/tip-icon.svg");
   font-size: .9em;
 }
 
@@ -830,7 +830,7 @@ text-transform: capitalize;
   background-color: #F1582C;
 }
 .admonition.warning .admonition-title:before {
-  background-image: url("/_static/icons/warning-icon.svg");
+  background-image: url("../icons/warning-icon.svg");
   font-size: .9em;
 }
 
@@ -841,7 +841,7 @@ text-transform: capitalize;
   background-color: #F0B37E;
 }
 .admonition.important .admonition-title:before {
-  background-image: url("/_static/icons/important-icon.svg");
+  background-image: url("../icons/important-icon.svg");
   font-size: .9em;
 }
 
