@@ -46,30 +46,18 @@ class _TFWrapper(object):
             sig_def = tf.contrib.saved_model.get_signature_def_by_key(meta_graph_def, 
                                                                       self._signature_def_key)
 
-            # Determining input tensors.
-            feed_mapping = {}
-            feed_names = []
-            for sigdef_key, tnsr_info in sig_def.inputs.items():
-                tnsr_name = tnsr_info.name
-                feed_mapping[sigdef_key] = tnsr_name
-                feed_names.append(tnsr_name)
-
             # Determining output tensors.
-            fetch_mapping = {}
-            fetch_names = []
-            for sigdef_key, tnsr_info in sig_def.outputs.items():
-                tnsr_name = tnsr_info.name
-                fetch_mapping[sigdef_key] = tnsr_name
-                fetch_names.append(tnsr_name)
+            fetch_mapping = {sigdef_output: graph.get_tensor_by_name(tnsr_info.name)
+                             for sigdef_output, tnsr_info in sig_def.outputs.items()}
 
-            fetches = [graph.get_tensor_by_name(t_name) for t_name in fetch_names]
-
-            feed_dict = {}
-            for col in feed_mapping:
-                tnsr_name = feed_mapping[col]
-                feed_dict[graph.get_tensor_by_name(tnsr_name)] = df[col].values
-            data = sess.run(fetches, feed_dict=feed_dict)
-            return pandas.DataFrame(data=data[0])
+            # Build the feed dict, mapping input tensors to DataFrame column values.
+            # We assume that input arguments to the signature def correspond to DataFrame column
+            # names
+            feed_dict = {graph.get_tensor_by_name(tnsr_info.name): df[sigdef_input].values
+                        for sigdef_input, tnsr_info in sig_def.inputs.items()}
+            raw_preds = sess.run(fetch_mapping, feed_dict=feed_dict)
+            pred_dict = {fetch_name: list(values) for fetch_name, values in raw_preds.items()}
+            return pandas.DataFrame(data=pred_dict)
 
 
 def log_saved_model(saved_model_dir, signature_def_key, artifact_path):

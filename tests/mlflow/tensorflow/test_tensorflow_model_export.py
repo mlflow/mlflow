@@ -5,10 +5,9 @@ import os
 import pandas
 import unittest
 
-import numpy as np
-import tensorflow as tf
+import pandas as pd
 import sklearn.datasets as datasets
-import shutil
+import tensorflow as tf
 
 from mlflow import tensorflow, pyfunc
 from mlflow import tracking
@@ -35,8 +34,8 @@ class TestModelExport(unittest.TestCase):
         # Loading the saved TensorFlow model as a pyfunc.
         x = pyfunc.load_pyfunc(saved_estimator_path)
         # Predicting on the dataset using the pyfunc.
-        xpred = x.predict(df)
-        return [row for _, row in xpred.iterrows()]
+        return x.predict(df)
+
 
     def test_log_saved_model(self):
         # This tests model logging capabilities on the sklearn.iris dataset.
@@ -45,7 +44,6 @@ class TestModelExport(unittest.TestCase):
             X = iris.data[:, :2]  # we only take the first two features.
             y = iris.target
             trainingFeatures = {}
-            feature_names = iris.feature_names[:2]
             for i in range(0, 2):
                 # TensorFlow is fickle about feature names, so we remove offending characters
                 iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
@@ -58,16 +56,20 @@ class TestModelExport(unittest.TestCase):
             for col in iris.feature_names[:2]:
                 tf_feat_cols.append(tf.feature_column.numeric_column(col))
             # Creating input training function.
-            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures, 
-                                                                        y, 
-                                                                        shuffle=False, 
-                                                                        batch_size=1)
-            # Creating Deep Neural Network Regressor. 
-            estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols, 
-                                                    hidden_units=[1])
+            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
+                                                             y,
+                                                             shuffle=False,
+                                                             batch_size=1)
+            # Creating Deep Neural Network Regressor.
+            estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols,
+                                                  hidden_units=[1])
             # Training and creating expected predictions on training dataset.
-            estimator.train(input_train, steps=100)
-            estimator_preds = estimator.predict(input_train)
+            estimator.train(input_train, steps=10)
+            # Saving the estimator's prediction on the training data; assume the DNNRegressor
+            # produces a single output column named 'predictions'
+            pred_col = "predictions"
+            estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
+            estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
             # Setting the logging such that it is in the temp folder and deleted after the test.
             old_tracking_dir = tracking.get_tracking_uri()
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
@@ -78,13 +80,11 @@ class TestModelExport(unittest.TestCase):
                 feature_spec = {}
                 for name in feature_names:
                     feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
-
-                saved = [s['predictions'] for s in estimator_preds]
-
-                results = self.helper(feature_spec, tmp, estimator, pandas.DataFrame(data=X, columns=feature_names))
+                pyfunc_preds_df = self.helper(feature_spec, tmp, estimator,
+                                              pandas.DataFrame(data=X, columns=feature_names))
 
                 # Asserting that the loaded model predictions are as expected.
-                np.testing.assert_array_equal(saved, results)
+                assert estimator_preds_df.equals(pyfunc_preds_df)
             finally:
                 # Restoring the old logging location.
                 tracking.end_run()
@@ -147,9 +147,12 @@ class TestModelExport(unittest.TestCase):
                 hidden_units=[20, 20], feature_columns=feature_columns)
 
             # Training the estimator.
-            estimator.train(input_fn=input_train, steps=100)
-            # Saving the estimator's prediction on the training data.
-            estimator_preds = estimator.predict(input_train)
+            estimator.train(input_fn=input_train, steps=10)
+            # Saving the estimator's prediction on the training data; assume the DNNRegressor
+            # produces a single output column named 'predictions'
+            pred_col = "predictions"
+            estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
+            estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
             # Setting the logging such that it is in the temp folder and deleted after the test.
             old_tracking_dir = tracking.get_tracking_uri()
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
@@ -168,13 +171,11 @@ class TestModelExport(unittest.TestCase):
                                                             name="highway-mpg", 
                                                             shape=[None])
 
-                saved = [s['predictions'] for s in estimator_preds]
-
-                results = self.helper(feature_spec, tmp, estimator, df)
-
-                # Asserting that the loaded model predictions are as expected.
-                # TensorFlow is known to have precision errors, hence the almost_equal.
-                np.testing.assert_array_almost_equal(saved, results, decimal = 2)
+                pyfunc_preds_df = self.helper(feature_spec, tmp, estimator, df)
+                # Asserting that the loaded model predictions are as expected. Allow for some
+                # imprecision as this is expected with TensorFlow.
+                pandas.testing.assert_frame_equal(
+                    pyfunc_preds_df, estimator_preds_df, check_less_precise=6)
             finally:
                 # Restoring the old logging location.
                 tracking.end_run()
