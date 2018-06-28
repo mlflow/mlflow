@@ -92,6 +92,15 @@ def test_run():
             assert param.value == expected_params[param.key]
 
 
+def test_nested_project_run():
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
+        mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"},
+            use_conda=False, experiment_id=0)
+
+
 def test_run_uuid_returned():
     for block in [True, False]:
         with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
