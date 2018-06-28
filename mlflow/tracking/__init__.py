@@ -181,7 +181,6 @@ def create_experiment(experiment_name):
     """
     Creates an experiment with the specified name and returns its ID.
     """
-    print(experiment_name)
     if experiment_name is None or experiment_name == "":
         raise Exception("Invalid experiment name '%s'" % experiment_name)
     return _get_store().create_experiment(experiment_name)
