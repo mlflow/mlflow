@@ -47,8 +47,8 @@ class _TFWrapper(object):
                                                                       self._signature_def_key)
 
             # Determining output tensors.
-            fetch_mapping = {sigdef_key: graph.get_tensor_by_name(tnsr_info.name)
-                             for sigdef_key, tnsr_info in sig_def.outputs.items()}
+            fetch_mapping = {sigdef_output: graph.get_tensor_by_name(tnsr_info.name)
+                             for sigdef_output, tnsr_info in sig_def.outputs.items()}
 
             # Build the feed dict, mapping input tensors to DataFrame column values.
             # We assume that input arguments to the signature def correspond to DataFrame column
