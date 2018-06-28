@@ -56,7 +56,7 @@ class _TFWrapper(object):
             feed_dict = {graph.get_tensor_by_name(tnsr_info.name): df[sigdef_input].values
                         for sigdef_input, tnsr_info in sig_def.inputs.items()}
             raw_preds = sess.run(fetch_mapping, feed_dict=feed_dict)
-            pred_dict = {fetch_name: values.tolist() for fetch_name, values in raw_preds.items()}
+            pred_dict = {fetch_name: list(values) for fetch_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)
 
 
