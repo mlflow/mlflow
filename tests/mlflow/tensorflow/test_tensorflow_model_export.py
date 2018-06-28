@@ -5,15 +5,13 @@ import os
 import pandas
 import unittest
 
-import numpy as np
 import pandas as pd
 import sklearn.datasets as datasets
-import shutil
+import tensorflow as tf
 
 from mlflow import tensorflow, pyfunc
 from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
-import tensorflow as tf
 
 
 class TestModelExport(unittest.TestCase):
