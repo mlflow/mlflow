@@ -37,6 +37,7 @@ class TestModelExport(unittest.TestCase):
         os.environ["LC_ALL"] = "en_US.UTF-8"
         os.environ["LANG"] = "en_US.UTF-8"
 
+    @pytest.mark.large
     def test_model_export(self):
         path_to_remove = None
         try:

@@ -144,7 +144,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id=None,
 
     :param app_name: Name of the deployed app.
     :param path: Path to the model.
-    Either local if no run_id or MLflow-relative if run_id is specified)
+                Either local if no run_id or MLflow-relative if run_id is specified)
     :param execution_role_arn: Amazon execution role with sagemaker rights
     :param bucket: S3 bucket where model artifacts are gonna be stored
     :param run_id: MLflow run id.

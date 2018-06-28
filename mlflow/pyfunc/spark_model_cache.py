@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 import zipfile
@@ -46,7 +47,11 @@ class SparkModelCache(object):
             SparkModelCache._cache_hits += 1
             return SparkModelCache._models[archive_path]
 
-        local_path = SparkFiles.get(archive_path)
+        # BUG: Despite the documentation of SparkContext.addFile() and SparkFiles.get() in Scala
+        # and Python, it turns out that we actually need to use the basename as the input to
+        # SparkFiles.get(), as opposed to the (absolute) path.
+        archive_path_basename = os.path.basename(archive_path)
+        local_path = SparkFiles.get(archive_path_basename)
         temp_dir = tempfile.mkdtemp()
         zip_ref = zipfile.ZipFile(local_path, 'r')
         zip_ref.extractall(temp_dir)
