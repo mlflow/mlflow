@@ -161,21 +161,24 @@ def _create_databricks_run(experiment_id, source_name, source_version, entry_poi
                                     source_type=SourceType.PROJECT)
 
 
-def _wait_databricks(databricks_run_id):
+def _wait_databricks(databricks_run_id, sleep_interval=30):
     """ Temporary API for polling Databricks Job run for termination. """
     hostname, token, username, password, = _get_databricks_hostname_and_auth()
     auth = (username, password) if username is not None and password is not None else None
     result_state = None
     while result_state is None:
         res = rest_utils.databricks_api_request(
-            hostname=hostname, endpoint="jobs/runs/submit", token=token, auth=auth, method="POST",
+            hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
             params={"run_id": databricks_run_id})
         state = res["state"]
         result_state = state.get("result_state", None)
-        time.sleep(30)
+        eprint("=== Databricks run is still active, checking again after %s seconds "
+               "===" % sleep_interval)
+        time.sleep(sleep_interval)
     if result_state != "SUCCESS":
         raise ExecutionException("=== Databricks run finished with status %s != 'SUCCESS' "
                                  "===" % result_state)
+
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                     git_username, git_password, block):
@@ -200,15 +203,12 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _do_databricks_run(uri, command, env_vars, cluster_spec)
-    if not block:
-        p = multiprocessing.Process(target="...")
-        return remote_run
-    eprint("=== Waiting for Databricks Job Run to complete ===")
-    if remote_run is not None:
-        remote_run.wait()
-    elif block:
+    if block:
+        eprint("=== Waiting for Databricks Job Run to complete ===")
         _wait_databricks(db_run_id)
-    return remote_run
+    else:
+        multiprocessing.Process(target=_wait_databricks, args=(db_run_id,)).start()
+    return None if remote_run is None else remote_run.run_info.run_uuid
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -338,6 +338,7 @@ def _launch_local_command(active_run, command, work_dir, env_map):
     except process.ShellCommandException:
         active_run.set_terminated("FAILED")
         eprint("=== Run failed ===")
+        raise
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
@@ -382,7 +383,6 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     if block:
         _launch_local_command(active_run, command, work_dir, env_map)
     else:
-        p = multiprocessing.Process(
-            target=_launch_local_command, args=(active_run, command, work_dir, env_map))
-        p.start()
-    return active_run
+        multiprocessing.Process(
+            target=_launch_local_command, args=(active_run, command, work_dir, env_map)).start()
+    return active_run.run_info.run_uuid

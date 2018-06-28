@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.projects import ExecutionException
 from mlflow.store.file_store import FileStore
+from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import env
 
@@ -74,8 +75,7 @@ def test_use_conda():
             os.environ["PATH"] = old_path
 
 
-def test_log_parameters():
-    """ Test that we log provided parameters when running a project. """
+def test_run():
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         tmp_dir = tmp.path()
         get_tracking_uri_mock.return_value = tmp_dir
@@ -86,41 +86,41 @@ def test_log_parameters():
         run_uuid = store.list_run_infos(experiment_id=0)[0].run_uuid
         run = store.get_run(run_uuid)
         expected_params = {"name": "friend"}
+        assert run.info.status == RunStatus.FINISHED
         assert len(run.data.params) == len(expected_params)
         for param in run.data.params:
             assert param.value == expected_params[param.key]
 
 
-def test_run_returns_active_run():
-    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
-        tmp_dir = tmp.path()
-        get_tracking_uri_mock.return_value = tmp_dir
-        active_run = mlflow.projects.run(
-            TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"},
-            use_conda=False, experiment_id=0)
-        # Validate returned active run by calling get_run on it, comparing result to what's in the
-        # store
-        run = active_run.get_run()
-        store = FileStore(tmp_dir)
-        run_uuid = store.list_run_infos(experiment_id=0)[0].run_uuid
-        assert run.info == store.get_run(run_uuid).info
+def test_run_uuid_returned():
+    for block in [True, False]:
+        with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
+                as get_tracking_uri_mock:
+            tmp_dir = tmp.path()
+            get_tracking_uri_mock.return_value = tmp_dir
+            run_uuid = mlflow.projects.run(
+                TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"},
+                use_conda=False, experiment_id=0, block=block)
+            store = FileStore(tmp_dir)
+            uuid_from_store = store.list_run_infos(experiment_id=0)[0].run_uuid
+            assert run_uuid == uuid_from_store
 
 
 def test_run_async():
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         tmp_dir = tmp.path()
         get_tracking_uri_mock.return_value = tmp_dir
-        active_run = mlflow.projects.run(
+        run_uuid0 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 1},
             use_conda=False, experiment_id=0, block=False)
-        assert active_run.get_run().info.status == RunStatus.RUNNING
+        assert tracking.get_run(run_uuid0).info.status == RunStatus.RUNNING
         time.sleep(2)
-        assert active_run.get_run().info.status == RunStatus.FINISHED
-        active_run1 = mlflow.projects.run(
+        assert tracking.get_run(run_uuid0).info.status == RunStatus.FINISHED
+        run_uuid1 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
             use_conda=False, experiment_id=0, block=False)
         time.sleep(1)
-        assert active_run1.get_run().info.status == RunStatus.FAILED
+        assert tracking.get_run(run_uuid1).info.status == RunStatus.FAILED
 
 
 def test_get_work_dir():

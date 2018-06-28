@@ -210,11 +210,16 @@ def _create_run(experiment_id, source_name, source_version, entry_point_name, so
     return ActiveRun(run.info, store)
 
 
+def get_run(run_uuid):
+    """ Returns the run with the specified run UUID from the current tracking server."""
+    return _get_store().get_run(run_uuid)
+
+
 def _get_existing_run(run_uuid):
-    store = _get_store()
-    existing_run = store.get_run(run_uuid)
+    existing_run = get_run(run_uuid)
     if existing_run is None:
         raise Exception("Could not start run with UUID %s - no such run found." % run_uuid)
+    store = _get_store()
     updated_info = store.update_run_info(
         run_uuid=run_uuid, run_status=RunStatus.RUNNING, end_time=None)
     return ActiveRun(updated_info, store)
