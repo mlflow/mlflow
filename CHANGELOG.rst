@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.2.1 (2018-06-28)
+------------------
+
+This is a patch release fixing some smaller issues after the 0.2.0 release.
+
+- Switch protobuf implementation to C, fixing a bug related to tensorflow/mlflow import ordering (issues #33 and #77, PR #74, @andrewmchen)
+- Enable running mlflow server without git binary installed (#90, @aarondav)
+- Fix Spark UDF support when running on multi-node clusters (#92, @aarondav)
+
 0.2.0 (2018-06-27)
 ------------------
 
