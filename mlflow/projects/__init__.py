@@ -116,6 +116,7 @@ def _get_databricks_hostname_and_auth():
         config = provider.get_config_for_profile(provider.DEFAULT_SECTION)
         return config.host, config.token, config.username, config.password
 
+
 def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
     hostname, token, username, password, = _get_databricks_hostname_and_auth()
     auth = (username, password) if username is not None and password is not None else None
@@ -141,6 +142,7 @@ def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
     jobs_page_url = run_info["run_page_url"]
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
     return job_run_id
+
 
 def _create_databricks_run(experiment_id, source_name, source_version, entry_point_name):
     # Figure out tracking URI
@@ -233,7 +235,6 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
     return _run_project(
         project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, block)
-
 
 
 def _get_work_dir(uri, use_temp_cwd):
