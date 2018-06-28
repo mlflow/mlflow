@@ -169,9 +169,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
-
         schema = {str(i): arg for i, arg in enumerate(args)}
-        pdf = pandas.DataFrame(schema, columns=[str(i) for i, _ in enumerate(args)])
+        pdf = pandas.DataFrame(schema)
         result = model.predict(pdf)
         return pandas.Series(result)
 
