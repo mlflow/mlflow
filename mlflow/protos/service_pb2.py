@@ -15,8 +15,8 @@ from google.protobuf import service_reflection
 _sym_db = _symbol_database.Default()
 
 
-from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
-import databricks_pb2 as databricks__pb2
+from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
+from . import databricks_pb2 as databricks__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
