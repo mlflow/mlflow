@@ -1,3 +1,5 @@
+import pytest
+
 import mlflow
 from mlflow import cli
 from mlflow.utils.file_utils import TempDir
@@ -9,6 +11,7 @@ def _assert_succeeded(run_output):
     assert "=== Run succeeded ===" in run_output
 
 
+@pytest.mark.large
 def test_run_local():
     with TempDir() as tmp:
         with update_temp_env({mlflow.tracking._TRACKING_URI_ENV_VAR: tmp.path()}):
@@ -19,6 +22,7 @@ def test_run_local():
             _assert_succeeded(res.output)
 
 
+@pytest.mark.large
 def test_run_git():
     with TempDir() as tmp:
         with update_temp_env({mlflow.tracking._TRACKING_URI_ENV_VAR: tmp.path()}):
