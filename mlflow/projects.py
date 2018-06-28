@@ -8,7 +8,6 @@ import shutil
 import tempfile
 
 from distutils import dir_util
-import git
 
 from six.moves import shlex_quote
 from databricks_cli.configure import provider
@@ -349,6 +348,9 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     assumes authentication parameters are specified by the environment, e.g. by a Git credential
     helper.
     """
+    # We defer importing git until the last moment, because the import requires that the git
+    # executable is availble on the PATH, so we only want to fail if we actually need it.
+    import git
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
     git_args = [git_username, git_password]
