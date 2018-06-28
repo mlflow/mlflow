@@ -21,5 +21,4 @@ def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None
             prefix = "\n    - "
             f.write(prefix + prefix.join(pip_deps))
         f.write("\n")
-    with open(path, "r") as f:
-        print(f.read())
+    return path
