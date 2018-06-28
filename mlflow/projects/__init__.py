@@ -208,8 +208,6 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     if block:
         eprint("=== Waiting for Databricks Job Run to complete ===")
         _wait_databricks(db_run_id)
-    else:
-        multiprocessing.Process(target=_wait_databricks, args=(db_run_id,)).start()
     return None if remote_run is None else remote_run.run_info.run_uuid
 
 
