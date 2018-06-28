@@ -170,7 +170,9 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
-        pdf = pandas.DataFrame(schema)
+        # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
+        columns = [str(i) for i, _ in enumerate(args)]
+        pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
         return pandas.Series(result)
 
