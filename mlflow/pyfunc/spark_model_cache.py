@@ -50,8 +50,8 @@ class SparkModelCache(object):
         # BUG: Despite the documentation of SparkContext.addFile() and SparkFiles.get() in Scala
         # and Python, it turns out that we actually need to use the basename as the input to
         # SparkFiles.get(), as opposed to the (absolute) path.
-        relative_archive_path = os.path.basename(archive_path)
-        local_path = SparkFiles.get(relative_archive_path)
+        archive_path_basename = os.path.basename(archive_path)
+        local_path = SparkFiles.get(archive_path_basename)
         temp_dir = tempfile.mkdtemp()
         zip_ref = zipfile.ZipFile(local_path, 'r')
         zip_ref.extractall(temp_dir)
