@@ -178,6 +178,7 @@ def _wait_databricks(databricks_run_id, sleep_interval=30):
     if result_state != "SUCCESS":
         raise ExecutionException("=== Databricks run finished with status %s != 'SUCCESS' "
                                  "===" % result_state)
+    eprint("=== Run succeeded ===")
 
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
