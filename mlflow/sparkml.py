@@ -1,7 +1,7 @@
 """
-MLflow integration for SparkML models.
+MLflow integration for Spark MLlib models.
 
-SparkML models are saved and loaded using native SparkML persistence.
+Spark MLlib models are saved and loaded using native Spark MLlib persistence.
 The models can be exported as pyfunc for out-of Spark deployment or it can be loaded back as Spark
 Transformer in order to score it in Spark. The pyfunc flavor instantiates SparkContext internally
 and reads the input data as Spark DataFrame prior to scoring.
