@@ -58,13 +58,8 @@ def test_run_mode():
 
 
 def test_use_conda():
-    """ Verify that we correctly handle the `use_conda` argument."""
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = tmp.path()
-        for use_conda, expected_call_count in [(True, 1), (False, 0), (None, 0)]:
-            with mock.patch("mlflow.projects._maybe_create_conda_env", wraps=mlflow.projects._maybe_create_conda_env) as conda_env_mock:
-                mlflow.projects.run(TEST_PROJECT_DIR, use_conda=use_conda)
-                assert conda_env_mock.call_count == expected_call_count
         # Verify we throw an exception when conda is unavailable
         old_path = os.environ["PATH"]
         env.unset_variable("PATH")
@@ -77,36 +72,41 @@ def test_use_conda():
 
 def test_run():
     for use_start_run in map(str, [True, False]):
-        with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
+                as get_tracking_uri_mock:
             tmp_dir = tmp.path()
             get_tracking_uri_mock.return_value = tmp_dir
-            mlflow.projects.run(
-                TEST_PROJECT_DIR, entry_point="test_tracking", parameters={"use_start_run": use_start_run},
+            run_uuid = mlflow.projects.run(
+                TEST_PROJECT_DIR, entry_point="test_tracking",
+                parameters={"use_start_run": use_start_run},
                 use_conda=False, experiment_id=0)
             store = FileStore(tmp_dir)
             run_infos = store.list_run_infos(experiment_id=0)
             assert len(run_infos) == 1
-            run_uuid = run_infos[0].run_uuid
+            store_run_uuid = run_infos[0].run_uuid
+            assert run_uuid == store_run_uuid
             run = store.get_run(run_uuid)
             expected_params = {"use_start_run": use_start_run}
             assert run.info.status == RunStatus.FINISHED
             assert len(run.data.params) == len(expected_params)
             for param in run.data.params:
                 assert param.value == expected_params[param.key]
+            expected_metrics = {"some_key": 3}
+            for metric in run.data.metrics:
+                assert metric.value == expected_metrics[metric.key]
 
 
-def test_run_uuid_returned():
-    for block in [True, False]:
-        with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
-                as get_tracking_uri_mock:
-            tmp_dir = tmp.path()
-            get_tracking_uri_mock.return_value = tmp_dir
-            run_uuid = mlflow.projects.run(
-                TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"},
-                use_conda=False, experiment_id=0, block=block)
-            store = FileStore(tmp_dir)
-            uuid_from_store = store.list_run_infos(experiment_id=0)[0].run_uuid
-            assert run_uuid == uuid_from_store
+def test_run_exception():
+    """ Test that we raise an exception when running a project fails in blocking mode """
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
+        # Run with bad parameters, expect an exception
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(
+                TEST_PROJECT_DIR, entry_point="cat",
+                parameters={"line_count": os.path.join(tmp_dir, "some/nonexistent/path")},
+                use_conda=False, experiment_id=0)
 
 
 def test_run_async():

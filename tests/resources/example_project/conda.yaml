@@ -4,4 +4,4 @@ channels:
 dependencies:
   - pip:
     - mlflow
-    - python==3.6
+  - python=3.6
