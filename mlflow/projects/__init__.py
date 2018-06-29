@@ -318,12 +318,14 @@ def _maybe_create_conda_env(conda_env_path):
     try:
         process.exec_cmd(["conda", "--help"], throw_on_error=False)
     except EnvironmentError:
+        eprint("@Sid swaggg")
         raise ExecutionException('conda is not installed properly. Please follow the instructions '
                                  'on https://conda.io/docs/user-guide/install/index.html')
     (_, stdout, _) = process.exec_cmd(["conda", "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
     conda_action = 'create'
+    eprint("@SID got env names %s" % env_names)
     if conda_env not in env_names:
         eprint('=== Creating conda environment %s ===' % conda_env)
         process.exec_cmd(["conda", "env", conda_action, "-n", conda_env, "--file",
