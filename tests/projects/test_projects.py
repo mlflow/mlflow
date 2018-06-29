@@ -1,7 +1,5 @@
 import os
 import filecmp
-import itertools
-import subprocess
 import tempfile
 import time
 
@@ -73,30 +71,22 @@ def test_use_conda():
 
 
 def test_run():
-    start_run_opts = [True, False]
-    mlflow_run_opts = [True, False]
-    for use_start_run, use_mlflow_run in itertools.product(start_run_opts, mlflow_run_opts):
+    for use_start_run in map(str, [True, False]):
         with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
                 as get_tracking_uri_mock:
             tmp_dir = tmp.path()
             get_tracking_uri_mock.return_value = tmp_dir
-            if use_mlflow_run:
-                run_uuid = mlflow.projects.run(
-                    TEST_PROJECT_DIR, entry_point="test_tracking",
-                    parameters={"use_start_run": use_start_run},
-                    use_conda=False, experiment_id=0)
-            else:
-                cmd = ["python", os.path.join(TEST_PROJECT_DIR, "tracking_test.py"),
-                       str(use_start_run)]
-                subprocess.call(cmd)
-                run_uuid = os.listdir(os.path.join(tmp_dir, "mlruns", "0"))[0]
+            run_uuid = mlflow.projects.run(
+                TEST_PROJECT_DIR, entry_point="test_tracking",
+                parameters={"use_start_run": use_start_run},
+                use_conda=False, experiment_id=0)
             store = FileStore(tmp_dir)
             run_infos = store.list_run_infos(experiment_id=0)
             assert len(run_infos) == 1
             store_run_uuid = run_infos[0].run_uuid
             assert run_uuid == store_run_uuid
             run = store.get_run(run_uuid)
-            expected_params = {"use_start_run": str(use_start_run)}
+            expected_params = {"use_start_run": use_start_run}
             assert run.info.status == RunStatus.FINISHED
             assert len(run.data.params) == len(expected_params)
             for param in run.data.params:
