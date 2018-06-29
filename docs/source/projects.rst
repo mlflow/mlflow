@@ -7,6 +7,10 @@ An MLflow Project is a format for packaging data science code in a reusable and 
 based primarily on conventions. In addition, the Projects component includes an API and command-line
 tools for running projects, making it possible to chain together projects into workflows.
 
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
+
 Overview
 --------
 

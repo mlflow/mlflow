@@ -5,6 +5,10 @@ MLflow Tracking
 
 The MLflow Tracking component lets you log and query experiments using either REST or Python.
 
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
+
 Concepts
 --------
 
@@ -132,7 +136,7 @@ the :py:func:`create_experiment` Python API. You can pass the experiment ID for 
 via the CLI (for example, ``mlflow run ... --experiment-id [ID]``) or via the ``MLFLOW_EXPERIMENT_ID``
 environment variable.
 
-.. code:: shell
+.. code:: bash
 
     # Prints "created an experiment with ID <id>
     mlflow experiments create fraud-detection
@@ -190,11 +194,11 @@ Running a Tracking Server
 The MLflow tracking server launched via ``mlflow server`` also hosts REST APIs for tracking runs,
 writing data to the local filesystem. You can specify a tracking server URI
 via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs will automatically
-communicate with the tracking server at that URI to create/get run information, log metrics, etc.
+communicate with the tracking server at that URI to create/get run information, log metrics, and so on.
 
 An example configuration for a server is as follows:
 
-.. code:: shell
+.. code:: bash
 
     mlflow server \
         --file-store /mnt/persistent-disk \
@@ -215,7 +219,7 @@ There are two properties related to how data is stored:
 Note that for the clients and server to access the artifact bucket, you should configure your Cloud
 Provider credentials as normal. For example, S3 can be accessed by setting the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, by using an IAM role, or by configuring a default
-profile in `~/.aws/credentials`. See the `AWS docs <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
+profile in ``~/.aws/credentials``. See the `AWS docs <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
 Networking
 ^^^^^^^^^^
