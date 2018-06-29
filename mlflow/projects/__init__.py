@@ -68,7 +68,6 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
     :return: UUID of the run
     """
-    # TODO: Allow timeout for synchronous runs?
     if mode is None or mode == "local":
         return _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                           experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
