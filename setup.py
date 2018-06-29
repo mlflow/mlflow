@@ -41,7 +41,7 @@ setup(
         'scikit-learn',
         'python-dateutil',
         'protobuf>=3.6.0',
-        'gitpython',
+        'gitpython>=2.1.0',
         'pyyaml',
         'boto3',
         'querystring_parser',
