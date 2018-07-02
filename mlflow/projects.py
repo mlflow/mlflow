@@ -20,9 +20,10 @@ from mlflow.entities.param import Param
 from mlflow import data
 import mlflow.tracking as tracking
 
-from mlflow.utils import process, rest_utils
+from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
+DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 class ExecutionException(Exception):
     pass
@@ -186,14 +187,25 @@ def _get_db_hostname_and_auth():
         return config.host, config.token, config.username, config.password
 
 
-def _tar_project(project_dir, dest_dir):
-    """ Tars a project directory into an archive in dest_dir, returning the path to the tarball. """
-    pass
-    # Return sha256 something...
-
-
-def _upload_to_databricks(tar_dir, experiment_id):
-    pass
+def _upload_to_dbfs(project_dir, experiment_id):
+    """
+    Tars a project directory into an archive in a temp dir, returning the path to the
+    tarball.
+    """
+    temp_tarfile_dir = tempfile.mkdtemp()
+    temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+    try:
+        file_utils.make_tarfile(temp_tar_filename, project_dir)
+        with open(temp_tar_filename, "r") as tarred_project:
+            hash = hashlib.sha256(tarred_project.read()).hexdigest()
+        dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, experiment_id,
+                                "%s.tar.gz" % hash)
+        eprint("==== Uploading project to DBFS path %s ====" % dbfs_uri)
+        process.exec_cmd(cmd=["databricks", "fs", "cp", temp_tar_filename, dbfs_uri])
+        eprint("==== Finished uploading project to %s ====" % dbfs_uri)
+    finally:
+        shutil.rmtree(temp_tarfile_dir)
+    return dbfs_uri
 
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
@@ -201,18 +213,12 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     hostname, token, username, password, = _get_db_hostname_and_auth()
     work_dir = _get_work_dir(uri, use_temp_cwd=False)
     try:
+        # Fetch the project into work_dir & validate parameters
         _fetch_project(uri, version, work_dir)
         project = _load_project(work_dir, uri)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
-        remote_dirname = uuid.uuid4().hex
-        dbfs_uri = os.path.join("dbfs:/", remote_dirname)
-        eprint("==== Uploading project fetched from %s to DBFS path %s ====" % (uri, dbfs_uri))
-        import time
-        start = time.time()
-        process.exec_cmd(cmd=["databricks", "fs", "cp", "-r", work_dir, dbfs_uri])
-        # _upload_to_dbfs(username=username, password=password, host=hostname, token=token,
-        #                 src=work_dir, dst=dbfs_uri)
-        eprint("==== Finished uploading project to %s (took %s sec) ====" % (dbfs_uri, time.time() - start))
+        # Upload the project to DBFS, get the URI of the project
+        dbfs_project_uri = _upload_to_dbfs(work_dir, experiment_id)
     finally:
         if work_dir != uri:
             shutil.rmtree(work_dir)
@@ -232,7 +238,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     # Used for testing: if MLFLOW_REMOTE_VERSION is set, attach that version of MLflow to
     # the Databricks cluster. Otherwise, just use the current MLflow version.
     mlflow_lib_string = os.environ.get("MLFLOW_REMOTE_VERSION", "mlflow==%s" % VERSION)
-    fuse_dst_dir = "/dbfs/%s" % remote_dirname
+    fuse_dst_dir = os.path.join("/dbfs/", dbfs_project_uri[6:])
     req_body_json = {
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,

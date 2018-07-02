@@ -1,5 +1,6 @@
 import os
 import shutil
+import tarfile
 import tempfile
 import yaml
 
@@ -228,3 +229,8 @@ def write_to(filename, data):
 def append_to(filename, data):
     with open(filename, "a") as handle:
         handle.write(data)
+
+
+def make_tarfile(output_filename, source_dir):
+    with tarfile.open(output_filename, "w:gz") as tar:
+        tar.add(source_dir, arcname=os.path.basename(source_dir))
