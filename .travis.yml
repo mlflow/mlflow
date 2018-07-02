@@ -44,7 +44,7 @@ script:
   - which mlflow
   - echo $MLFLOW_HOME
   # Run Python tests & linter
-  - pytest tests --cov=mlflow --verbose --large --capture=no
+  - pytest tests --cov=mlflow --verbose --large
   - ./lint.sh
   # Run JS tests
   - cd mlflow/server/js
