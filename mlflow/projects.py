@@ -23,7 +23,8 @@ import mlflow.tracking as tracking
 from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
-DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
+CONTAINER_TARFILE_BASE = "/databricks/mlflow/code"
+DBFS_EXPERIMENT_DIR_BASE = "mlflow-experimentbasenames"
 
 class ExecutionException(Exception):
     pass
@@ -155,10 +156,15 @@ def _sanitize_param_dict(param_dict):
     return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
 
 
-def _get_databricks_run_cmd(uri, entry_point, version, parameters):
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
+    dest_path = os.path.join(CONTAINER_TARFILE_BASE, os.path.basename(dbfs_fuse_tar_uri))
+    mkdir_cmd = ["mkdir", "-p", CONTAINER_TARFILE_BASE]
+    download_tar_cmd = ["cp", dbfs_fuse_tar_uri, dest_path]
+    extract_tar_cmd = ["tar", "-xzvf", dest_path]
+    # TODO: What's the path of the extracted tarfile?
     mlflow_run_cmd = ["mlflow", "run", uri, "--entry-point", entry_point]
     if version is not None:
         mlflow_run_cmd.extend(["--version", version])
@@ -166,8 +172,12 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
         for key, value in parameters.items():
             mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
     mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
-    return ["bash", "-c", "export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin && %s"
-            % mlflow_run_str]
+    conda_env_command = ["export", "PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin"]
+    commands = [conda_env_command, mkdir_cmd, download_tar_cmd, extract_tar_cmd, mlflow_run_str]
+    result = []
+    for command in commands:
+        result.append(" ".join(command))
+    return ["bash", "-c", " && ".join(result)]
 
 
 def _get_db_hostname_and_auth():
