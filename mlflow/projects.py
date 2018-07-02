@@ -186,6 +186,16 @@ def _get_db_hostname_and_auth():
         return config.host, config.token, config.username, config.password
 
 
+def _tar_project(project_dir, dest_dir):
+    """ Tars a project directory into an archive in dest_dir, returning the path to the tarball. """
+    pass
+    # Return sha256 something...
+
+
+def _upload_to_databricks(tar_dir, experiment_id):
+    pass
+
+
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                     tracking_uri):
     hostname, token, username, password, = _get_db_hostname_and_auth()
