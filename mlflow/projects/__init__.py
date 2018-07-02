@@ -339,7 +339,6 @@ def _launch_local_command(active_run, command, work_dir, env_map):
     except process.ShellCommandException:
         active_run.set_terminated("FAILED")
         eprint("=== Run failed ===")
-        raise
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
