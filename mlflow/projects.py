@@ -156,16 +156,16 @@ def _sanitize_param_dict(param_dict):
     return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
 
 
-def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters):
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, project_dirname, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
-    dest_path = os.path.join(CONTAINER_TARFILE_BASE, os.path.basename(dbfs_fuse_tar_uri))
+    # TODO: Change working directory to a tempdir, to allow multiple runs on a single cluster?
+    container_tar_path = os.path.join(CONTAINER_TARFILE_BASE, os.path.basename(dbfs_fuse_tar_uri))
     mkdir_cmd = ["mkdir", "-p", CONTAINER_TARFILE_BASE]
-    download_tar_cmd = ["cp", dbfs_fuse_tar_uri, dest_path]
-    extract_tar_cmd = ["tar", "-xzvf", dest_path]
-    # TODO: What's the path of the extracted tarfile?
-    mlflow_run_cmd = ["mlflow", "run", uri, "--entry-point", entry_point]
+    download_tar_cmd = ["cp", dbfs_fuse_tar_uri, container_tar_path]
+    extract_tar_cmd = ["tar", "-xzvf", container_tar_path]
+    mlflow_run_cmd = ["mlflow", "run", project_dirname, "--entry-point", entry_point]
     if version is not None:
         mlflow_run_cmd.extend(["--version", version])
     if parameters is not None:
@@ -229,10 +229,11 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Upload the project to DBFS, get the URI of the project
         dbfs_project_uri = _upload_to_dbfs(work_dir, experiment_id)
+        # Save the original name of the project directory
+        project_dirname =
     finally:
         if work_dir != uri:
             shutil.rmtree(work_dir)
-
     final_tracking_uri = tracking_uri or os.environ.get(tracking._TRACKING_URI_ENV_VAR, None)
     if final_tracking_uri is None:
         raise ExecutionException("Tracking URI must be specified for Databricks execution")
@@ -253,7 +254,8 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,
         'shell_command_task': {
-            'command': _get_databricks_run_cmd(fuse_dst_dir, entry_point, version, parameters),
+            'command': _get_databricks_run_cmd(fuse_dst_dir, project_dirname,
+                                               entry_point, version, parameters),
             "env_vars": env_vars
         },
         "libraries": [{"pypi": {"package": mlflow_lib_string}}]
