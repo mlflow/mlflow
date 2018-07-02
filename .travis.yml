@@ -28,10 +28,11 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   # Useful for debugging any issues with conda
   - conda info -a
+  # Install virtualenv inside conda env
+  - conda install virtualenv
   - pip install --upgrade pip
   - pip install .
   - pip install -r dev-requirements.txt
-  - pip install -r tox-requirements.txt
   - export MLFLOW_HOME=$(pwd)
   # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
   - sudo rm -f /etc/boto.cfg
@@ -43,10 +44,7 @@ script:
   - pip list
   - which mlflow
   - echo $MLFLOW_HOME
-  # Run Python tests & linter
-  - pytest tests --cov=mlflow --verbose --large
-  - ./lint.sh
-  # Run JS tests
+  - tox
   - cd mlflow/server/js
   - npm i
   - npm test -- --coverage
