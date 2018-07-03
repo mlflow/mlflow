@@ -52,3 +52,4 @@ if __name__ == "__main__":
     # The Estimator periodically generates "INFO" logs; make these logs visible.
     tf.logging.set_verbosity(tf.logging.INFO)
     tf.app.run(main=main)
+
