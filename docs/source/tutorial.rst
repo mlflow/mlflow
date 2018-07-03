@@ -32,7 +32,18 @@ Training the Model
 First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``example/tutorial/train.py`` and is reproduced below.
 
 .. code:: python
+    import os
+    import warnings
+    import sys
 
+    import pandas as pd
+    import numpy as np
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+    from sklearn.model_selection import train_test_split
+    from sklearn.linear_model import ElasticNet
+
+    import mlflow
+    import mlflow.sklearn
     # Run from the root of MLflow
     # Read the wine-quality csv file 
     wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
