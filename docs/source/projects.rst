@@ -53,7 +53,6 @@ By default, any Git repository or local directory is treated as a project, and M
 following conventions to determine its parameters:
 
 * The project's name is the name of the directory.
-* The Conda environment is specified in ``conda.yaml``, if present.
 * The `Conda environment <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
   is specified in ``conda.yaml``, if present.
 * Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly
