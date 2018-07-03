@@ -16,8 +16,8 @@ def main(argv):
     # with MLflow, and loads the fitted model back as a PyFunc to make predictions.
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.boston_housing.load_data()
     # There are 13 features we are using for inference.
-    feat_cols = [tf.feature_column.numeric_column(key="features", shape=(13,))]
-    feat_spec = {"features":tf.placeholder("float", name="features", shape=[None, 13])}
+    feat_cols = [tf.feature_column.numeric_column(key="features", shape=(x_train.shape[1],))]
+    feat_spec = {"features":tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])}
     regressor = tf.estimator.DNNRegressor(
     hidden_units=[50, 20],
     feature_columns=feat_cols)
@@ -39,7 +39,7 @@ def main(argv):
         tensorflow.log_saved_model(saved_model_dir=saved_estimator_path, signature_def_key="predict", artifact_path="model")
         # Reloading the model
         pyfunc = tensorflow.load_pyfunc(saved_estimator_path)
-        df = pd.DataFrame(data=x_test, columns=["features"] * 13)
+        df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
         # Predicting on the loaded Python Function
         predict_df = pyfunc.predict(df)
         predict_df['original_labels'] = y_test
