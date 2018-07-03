@@ -3,7 +3,7 @@ import './App.css';
 import logo from '../static/home-logo.png';
 import ExperimentPage from './ExperimentPage';
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,
   Route,
   Link,
 } from 'react-router-dom';
