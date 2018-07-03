@@ -81,6 +81,7 @@ class TestModelExport(unittest.TestCase):
                 np.testing.assert_array_equal(self._linear_lr_predict, xpred)
             finally:
                 tracking.end_run()
+                tracking.set_tracking_uri(None)
                 # Remove the log directory in order to avoid adding new tests to pytest...
                 shutil.rmtree(tracking_dir)
 
@@ -118,6 +119,6 @@ class TestModelExport(unittest.TestCase):
             print(result.exc_info)
             print(result.exception)
             assert result.exit_code == 0
-            result_df = pandas.read_csv(output_csv_path)
+            result_df = pandas.read_csv(output_csv_path, header=None)
             np.testing.assert_array_equal(result_df.values.transpose()[0],
                                           self._knn.predict(self._X))

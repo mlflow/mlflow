@@ -144,7 +144,7 @@ uri
 Running Projects
 ----------------
 
-MLflow provides two simple ways to run projects: the ``mlflow run`` `command-line tool <cli>`_, or
+MLflow provides two simple ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`, or
 the :py:func:`mlflow.run` Python API. Both tools take the following parameters:
 
 Project URI
@@ -186,12 +186,8 @@ useful if you quickly want to test a project in your existing shell environment.
 
 Remote Execution on Databricks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Prerequisites
-~~~~~~~~~~~~~
-Install and configure the `Databricks CLI <https://github.com/databricks/databricks-cli>`_ with
-credentials for your Databricks deployment. Running on Databricks is not yet available - `sign up
-here <http://databricks.com/mlflow>`_ and we'll reach out once the functionality is available.
+Support for running projects on Databricks will be released soon -
+`sign up here <http://databricks.com/mlflow>`_ to receive updates.
 
 
 Launching a Run

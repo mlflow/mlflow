@@ -31,10 +31,10 @@ Metrics
 
 Artifacts
     Output files in any format. For example, you can record images (for example, PNGs), models
-    (for example, a pickled SciKit-Learn model) or even data files (for example, a
+    (for example, a pickled scikit-learn model) or even data files (for example, a
     `Parquet <https://parquet.apache.org/>`_ file) as artifacts.
 
-Runs can be recorded from anywhere you run your code through MLflow's Python or REST APIs: for
+Runs can be recorded from anywhere you run your code through MLflow's Python and REST APIs: for
 example, you can record them in a standalone program, on a remote cloud machine, or in an
 interactive notebook. If you record runs in an :ref:`MLflow Project <projects>`, however, MLflow
 remembers the project URI and source version.
@@ -50,7 +50,7 @@ API.
 Where Runs Get Recorded
 -----------------------
 
-MLflow runs can be recorded either locally in files or remotely to a Tracking Server.
+MLflow runs can be recorded either locally in files or remotely to a tracking server.
 By default, the MLflow Python API logs runs to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs. Set the
 ``MLFLOW_TRACKING_URI`` environment variable to a server's URI or call
@@ -61,8 +61,8 @@ You can also :ref:`run your own tracking server <tracking_server>` to record run
 Logging Data to Runs
 --------------------
 
-You can log data to runs using either the MLflow REST API or the Python API. In this section, we
-show the Python API, but there are corresponding REST APIs as well.
+You can log data to runs using either the MLflow REST API or the Python API. This section 
+shows the Python API, but there are corresponding REST APIs as well.
 
 Basic Logging Functions
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -120,16 +120,16 @@ just one block of code as follows:
        mlflow.log_metric("y", 2)
        ...
 
-The run will remain open throughout the ``with`` statement, and will automatically be closed when the
+The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
 Organizing Runs in Experiments
 ------------------------------
 
-MLflow allows for grouping runs under experiments, which can be useful for comparing runs intended
+MLflow allow you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments via the CLI (``mlflow experiments``) or via
-the :py:func:`create_experiment` Python API. The experiment ID for a individual run can be passed
-via the CLI (e.g. ``mlflow run ... --experiment-id [ID]``) or via the ``MLFLOW_EXPERIMENT_ID``
+the :py:func:`create_experiment` Python API. You can pass the experiment ID for a individual run
+via the CLI (for example, ``mlflow run ... --experiment-id [ID]``) or via the ``MLFLOW_EXPERIMENT_ID``
 environment variable.
 
 .. code:: shell
@@ -157,7 +157,7 @@ Tracking UI
 The Tracking UI lets you visualize, search and compare runs, as well as download run artifacts or
 metadata for analysis in other tools. If you have been logging runs to a local ``mlruns`` directory,
 simply run ``mlflow ui`` in the directory above it, and it will load the corresponding runs.
-Alternatively, the :ref:`MLflow server <tracking_server>` serves the same UI.
+Alternatively, the :ref:`MLflow Server <tracking_server>` serves the same UI, and enables remote storage of run artifacts.
 
 The UI contains the following key features:
 
@@ -187,13 +187,48 @@ common tasks:
 Running a Tracking Server
 -------------------------
 
-The MLflow tracking server launched via ``mlflow ui`` also hosts REST APIs for tracking runs,
+The MLflow tracking server launched via ``mlflow server`` also hosts REST APIs for tracking runs,
 writing data to the local filesystem. You can specify a tracking server URI
 via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs will automatically
 communicate with the tracking server at that URI to create/get run information, log metrics, etc.
 
-For example, to launch a run against a local tracking server, launch ``mlflow ui``, set
-``MLFLOW_TRACKING_URI`` to ``http://localhost:5000``, and run:
+An example configuration for a server is as follows:
+
+.. code:: shell
+
+    mlflow server \
+        --file-store /mnt/persistent-disk \
+        --artifact-root s3://my-mlflow-bucket/ \
+        --host 0.0.0.0
+
+Storage
+^^^^^^^
+There are two properties related to how data is stored:
+
+* ``--file-store`` is where the server will store run and experiment information. This should
+  be a persistent (non-ephemeral) disk.
+* ``--artifact-root`` causes clients to log their artifact output (e.g., models) to this
+  location which is suitable for large data (such as an S3 bucket or shared NFS file system). If
+  you do not provide this option, then clients will write artifacts to *their* local directories,
+  which the server probably can't serve.
+
+Note that for the clients and server to access the artifact bucket, you should configure your Cloud
+Provider credentials as normal. For example, S3 can be accessed by setting the ``AWS_ACCESS_KEY_ID``
+and ``AWS_SECRET_ACCESS_KEY`` environment variables, by using an IAM role, or by configuring a default
+profile in `~/.aws/credentials`. See the `AWS docs <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
+
+Networking
+^^^^^^^^^^
+The ``--host`` option exposes the service on all interfaces. If running a server in production, we
+would recommend not exposing the built-in server broadly (as it is unauthenticated and unecrypted),
+and instead putting it behind a reverse proxy like nginx or apache, or connecting over VPN.
+Additionally, you should ensure that the ``--file-store`` (which defaults to the ``./mlruns`` directory)
+points to a persistent (non-ephemeral) disk.
+
+Connecting to a Remote Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Once you have a server running, simply set ``MLFLOW_TRACKING_URI`` to the server's URI, along
+with its scheme and port (e.g., ``http://10.0.0.1:5000``). Then you can use mlflow as normal:
 
 .. code:: python
 
@@ -201,5 +236,5 @@ For example, to launch a run against a local tracking server, launch ``mlflow ui
     with mlflow.start_run():
         mlflow.log_metric("a", 1)
 
-The ``mlflow.start_run`` and ``mlflow.log_metric`` calls will make API requests to your local
+The ``mlflow.start_run`` and ``mlflow.log_metric`` calls make API requests to your remote
 tracking server.

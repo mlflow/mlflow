@@ -31,5 +31,6 @@ def invoke_cli_runner(*args, **kwargs):
     Helper method to invoke the CliRunner while asserting that the exit code is actually 0.
     """
     res = CliRunner().invoke(*args, **kwargs)
-    assert res.exit_code == 0, 'Exit code was not 0. Output is: {}'.format(res.output)
+    assert res.exit_code == 0, 'Got non-zero exit code {0}. Output is: {1}'.format(res.exit_code,
+                                                                                   res.output)
     return res

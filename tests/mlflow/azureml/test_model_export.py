@@ -45,7 +45,8 @@ class TestModelExport(unittest.TestCase):
                                                                               input_path, '-o',
                                                                               output_path])
             if result.exit_code:
-                print('non-zero return code, output:', result.output)
+                print('non-zero return code, output:', result.output, result.exception,
+                      result.exc_info)
             self.assertEqual(0, result.exit_code)
             os.chdir(output_path)
             import sys
@@ -55,8 +56,7 @@ class TestModelExport(unittest.TestCase):
             score.init()
             for i in range(0, len(self._linear_lr_predict)):
                 json = '[{"col1":%f, "col2":%f}]' % tuple(self._X[i, :])
-                x = eval(score.run(json))  # noqa
-                # print(json, '->', x[0])
+                x = score.run(json)
                 self.assertEqual(self._linear_lr_predict[i], x[0])
         print("current dir", os.getcwd())
         assert os.path.exists(os.getcwd())

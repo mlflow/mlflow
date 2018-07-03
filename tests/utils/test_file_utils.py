@@ -1,11 +1,17 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import codecs
+import filecmp
+import hashlib
 import os
 import shutil
 import tempfile
 import unittest
+import six
 
-import mlflow
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import TempDir
+from tests.projects.utils import TEST_PROJECT_DIR
 
 from tests.helper_functions import random_int, random_file
 
@@ -22,10 +28,19 @@ class TestFileUtils(unittest.TestCase):
 
     def test_yaml_read_and_write(self):
         yaml_file = random_file("yaml")
-        data = {"a": random_int(), "B": random_int()}
+        long_value = long(1) if six.PY2 else 1
+        data = {"a": random_int(), "B": random_int(), "text_value": u"中文",
+                "long_value": long_value, "int_value": 32, "text_value_2": u"hi"}
         file_utils.write_yaml(self.test_folder, yaml_file, data)
         read_data = file_utils.read_yaml(self.test_folder, yaml_file)
         self.assertEqual(data, read_data)
+        yaml_path = file_utils.build_path(self.test_folder, yaml_file)
+        with codecs.open(yaml_path, encoding="utf-8") as handle:
+            contents = handle.read()
+        self.assertNotIn("!!python", contents)
+        # Check that UTF-8 strings are written properly to the file (rather than as ASCII
+        # representations of their byte sequences).
+        self.assertIn(u"中文", contents)
 
     def test_mkdir(self):
         new_dir_name = "mkdir_test_%d" % random_int()
@@ -37,16 +52,17 @@ class TestFileUtils(unittest.TestCase):
 
     def test_make_tarfile(self):
         with TempDir() as tmp:
-            dst_dir = tmp.path()
-            mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir)
-            dir_comparison = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
-            assert len(dir_comparison.left_only) == 0
-            assert len(dir_comparison.right_only) == 0
-            assert len(dir_comparison.diff_files) == 0
-            assert len(dir_comparison.funny_files) == 0
-            # Make a tarfile of a project, fetch the project into a working directory, tar it again,
-            # verify they're the same
-            temp_file = tempfile.mktemp()
-            file_utils.make_tarfile(output_filename=temp_file, source_dir="")
-
-        pass
+            # Tar a local project
+            tarfile0 = tmp.path("first-tarfile")
+            file_utils.make_tarfile(output_filename=tarfile0, source_dir=TEST_PROJECT_DIR)
+            # Copy local project into a temp dir
+            dst_dir = tmp.path("project-directory")
+            shutil.copytree(TEST_PROJECT_DIR, dst_dir)
+            # Tar the copied project
+            tarfile1 = tempfile.mktemp("second-tarfile")
+            file_utils.make_tarfile(output_filename=tarfile1, source_dir=dst_dir)
+            # Compare the file contents & explicitly verify their SHA256 hashes match
+            assert filecmp.cmp(tarfile0, tarfile1, shallow=False)
+            with open(tarfile0, 'rb') as first_tar, open(tarfile1, 'rb') as second_tar:
+                assert hashlib.sha256(first_tar.read()).hexdigest()\
+                       == hashlib.sha256(second_tar.read()).hexdigest()

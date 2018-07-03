@@ -11,11 +11,9 @@ import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
 import mlflow.sagemaker.cli
+import mlflow.server
 
 from mlflow.entities.experiment import Experiment
-import mlflow.server as server
-from mlflow.store import file_store
-from mlflow.store.file_store import FileStore
 from mlflow import tracking
 
 
@@ -23,16 +21,6 @@ from mlflow import tracking
 @click.version_option()
 def cli():
     pass
-
-
-def _encode(string_val):
-    if string_val is None:
-        return string_val
-    # In Python 3, strings are unicode values, so we just return
-    if isinstance(string_val, str):
-        return string_val
-    # In Python 2: `encode` convert from unicode object -> UTF-8 encoded string
-    return string_val.encode("utf-8")
 
 
 @cli.command()
@@ -66,6 +54,10 @@ def _encode(string_val):
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
 @click.option("--db-profile",
               help="Databricks CLI profile to use when making API requests, etc.")
+@click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
+              help="Username for HTTP(S) Git authentication.")
+@click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
+              help="Password for HTTP(S) Git authentication.")
 @click.option("--no-conda", is_flag=True,
               help="If specified, will assume that MLflow is running within a Conda environment "
                    "with the necessary dependencies for the current project instead of attempting "
@@ -86,7 +78,7 @@ def _encode(string_val):
                    "mode, or raises an exception if running on Databricks."
                    "".format(tracking._TRACKING_URI_ENV_VAR))
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, db_profile,
-        no_conda, new_dir, storage_dir, tracking_uri):
+        git_username, git_password, no_conda, new_dir, storage_dir, tracking_uri):
     """
     Run an MLflow project from the given URI.
 
@@ -107,30 +99,68 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
         if name in param_dict:
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
-        param_dict[_encode(name)] = _encode(value)
+        param_dict[name] = value
     try:
-        projects.run(_encode(uri), _encode(entry_point), _encode(version),
+        projects.run(uri,
+                     entry_point,
+                     version,
                      experiment_id=experiment_id,
-                     parameters=param_dict, mode=_encode(mode),
-                     cluster_spec=_encode(cluster_spec), db_profile=db_profile,
+                     parameters=param_dict,
+                     mode=mode,
+                     cluster_spec=cluster_spec,
+                     git_username=git_username,
+                     git_password=git_password,
                      use_conda=(not no_conda),
-                     use_temp_cwd=new_dir, storage_dir=_encode(storage_dir),
-                     tracking_uri=tracking_uri)
+                     use_temp_cwd=new_dir,
+                     storage_dir=storage_dir)
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)
 
 
 @cli.command()
-@click.option("--file-store-path", default=None,
-              help="The root of the backing file store for experiment and run data. Defaults to %s."
-                   % file_store._default_root_dir())
-def ui(file_store_path):
+@click.option("--file-store", metavar="PATH", default=None,
+              help="The root of the backing file store for experiment and run data "
+                   "(default: ./mlruns).")
+@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
+              help="The network address to listen on (default: 127.0.0.1). "
+                   "Use 0.0.0.0 to bind to all addresses if you want to access the UI from "
+                   "other machines.")
+@click.option("--port", "-p", default=5000,
+              help="The port to listen on (default: 5000).")
+def ui(file_store, host, port):
     """
-    Run the MLflow tracking UI. The UI is served at http://localhost:5000.
+    Launch the MLflow tracking UI.
+
+    The UI will be visible at http://localhost:5000 by default.
     """
-    server.handlers.store = FileStore(file_store_path)
-    server.app.run("0.0.0.0")
+    # TODO: We eventually want to disable the write path in this version of the server.
+    mlflow.server._run_server(file_store, file_store, host, port, 1)
+
+
+@cli.command()
+@click.option("--file-store", metavar="PATH", default=None,
+              help="The root of the backing file store for experiment and run data "
+                   "(default: ./mlruns).")
+@click.option("--artifact-root", metavar="URI", default=None,
+              help="Local or S3 URI to store artifacts in (default: inside file store).")
+@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
+              help="The network address to listen on (default: 127.0.0.1). "
+                   "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
+                   "server from other machines.")
+@click.option("--port", "-p", default=5000,
+              help="The port to listen on (default: 5000).")
+@click.option("--workers", "-w", default=4,
+              help="Number of gunicorn worker processes to handle requests (default: 4).")
+def server(file_store, artifact_root, host, port, workers):
+    """
+    Run the MLflow tracking server.
+
+    The server which listen on http://localhost:5000 by default, and only accept connections from
+    the local machine. To let the server accept connections from other machines, you will need to
+    pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
+    """
+    mlflow.server._run_server(file_store, artifact_root, host, port, workers)
 
 
 cli.add_command(mlflow.sklearn.commands)
