@@ -356,6 +356,9 @@ message GetExperiment {
   // Identifier to get an experiment
   optional int64 experiment_id = 1 [(validate_required) = true];
 
+  // Human readable name that identifies this run.
+  optional string name = 2 [(validate_required) = true];
+
   message Response {
     // Returns experiment details
     optional Experiment experiment = 1;
