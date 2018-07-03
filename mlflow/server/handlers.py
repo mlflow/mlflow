@@ -65,6 +65,7 @@ def _not_implemented():
 
 
 def _create_experiment():
+
     request_message = _get_request_message(CreateExperiment())
     experiment_id = _get_store().create_experiment(request_message.name)
     response_message = CreateExperiment.Response()
@@ -75,11 +76,19 @@ def _create_experiment():
 
 
 def _get_experiment():
+
     request_message = _get_request_message(GetExperiment(), from_get=True)
     response_message = GetExperiment.Response()
-    response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
-                                          .to_proto())
-    run_info_entities = _get_store().list_run_infos(request_message.experiment_id)
+    # print(_get_store().get_experiment(request_message.name).to_proto())
+    if request_message.HasField("name"):
+        response_message.experiment.MergeFrom(_get_store().get_experiment_by_name(request_message.name)
+                                            .to_proto())
+        run_info_entities = _get_store().list_run_infos(response_message.experiment.experiment_id)
+    else:
+        response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
+                                              .to_proto())
+        run_info_entities = _get_store().list_run_infos(request_message.experiment_id)
+
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))

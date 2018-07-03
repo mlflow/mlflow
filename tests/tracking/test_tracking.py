@@ -39,6 +39,43 @@ def test_create_experiment():
         assert exp_id is not None
 
 
+def test_get_experiment_by_id():
+    with pytest.raises(TypeError):
+        tracking.get_experiment_by_id()
+
+    with pytest.raises(Exception):
+        tracking.get_experiment_by_id(-1)
+
+    with pytest.raises(Exception):
+        tracking.get_experiment_by_id(None)
+
+    with temp_directory() as tmp_dir, mock.patch("mlflow.tracking._get_store") as get_store_mock:
+        get_store_mock.return_value = FileStore(tmp_dir)
+        exp_id = tracking.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
+        assert exp_id is not None
+        experiment = tracking.get_experiment_by_id(exp_id)
+        assert experiment.experiment_id == exp_id
+
+
+def test_get_experiment_by_name():
+    with pytest.raises(TypeError):
+        tracking.get_experiment_by_name()
+
+    with pytest.raises(Exception):
+        tracking.get_experiment_by_name("")
+
+    with pytest.raises(Exception):
+        tracking.get_experiment_by_name(None)
+
+    with temp_directory() as tmp_dir, mock.patch("mlflow.tracking._get_store") as get_store_mock:
+        get_store_mock.return_value = FileStore(tmp_dir)
+        rand_name = "Some random experiment name %d" % random.randint(1, 1e6)
+        exp_id = tracking.create_experiment(rand_name)
+        assert exp_id is not None
+        experiment = tracking.get_experiment_by_name(rand_name)
+        assert experiment.experiment_id == exp_id
+
+
 def test_start_run_context_manager():
     with temp_directory() as tmp_dir, mock.patch("mlflow.tracking._get_store") as get_store_mock:
         get_store_mock.return_value = FileStore(tmp_dir)

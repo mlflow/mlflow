@@ -93,6 +93,17 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
+    def get_experiment_by_name(self, name):
+        """
+        Fetches the experiment from the backend store.
+
+        :param name: String name for the experiment
+        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        """
+        req_body = MessageToJson(GetExperiment(name=name))
+        response_proto = self._call_endpoint(GetExperiment, req_body)
+        return Experiment.from_proto(response_proto.experiment)
+
     def get_run(self, run_uuid):
         """
         Fetches the run from backend store
