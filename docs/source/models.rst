@@ -8,6 +8,11 @@ variety of downstream tools---for example, real-time serving through a REST API 
 on Apache Spark. They provide a convention to save a model in different "flavors" that can be
 understood by different downstream tools.
 
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
+
+
 Storage Format
 --------------
 
@@ -50,12 +55,16 @@ And its ``MLmodel`` file describes two flavors:
 
 This model can then be used with any tool that supports *either* the ``sklearn`` or
 ``python_function`` model flavor. For example, the ``mlflow sklearn`` command can serve a
-model with the ``sklearn`` flavor::
+model with the ``sklearn`` flavor
+
+.. code::
 
     mlflow sklearn serve my_model
 
 In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
-SageMaker as long as they support the ``python_function`` flavor::
+SageMaker as long as they support the ``python_function`` flavor:
+
+.. code:: bash
 
     mlflow sagemaker deploy -m my_model [other options]
 
@@ -171,12 +180,7 @@ Example:
       env: mlflow_env.yml
       main: sklearn_iris
 
-
-
-
-
-
-For more detail see docs at :py:mod:`mlflow.pyfunc`
+For more detail see docs at :py:mod:`mlflow.pyfunc`:
 
 Scikit-learn (``sklearn``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -217,7 +221,7 @@ Python function flavor can be deployed locally via :py:mod:`mlflow.pyfunc` modul
 * :py:func:`predict <mlflow.pyfunc.cli.predict>` uses the model to generate prediction for local
   csv file.
 
-For more info, see
+For more info, see:
 
 .. code:: bash
 
@@ -235,9 +239,9 @@ been correctly set up.
   MLFlow will output a directory with the dependencies necessary to deploy the model.
 
 * :py:func:`deploy <mlflow.azureml.cli.deploy>` deploys the model directly to Azure ML.
-  You first need to set up your environment to work with the Azure ML CLI. Currently this can be done by
+  You first need to set up your environment to work with the Azure ML CLI. You can do this by
   starting a shell from the Azure ML Workbench application. You also have to set up all accounts
-  required to run and deploy on Azure ML. Note that where the model is deployed is dependent on your
+  required to run and deploy on Azure ML. Where the model is deployed is dependent on your
   active Azure ML environment. If the active environment is set up for local deployment, the model
   will be deployed locally in a Docker container (Docker is required).
 
@@ -252,7 +256,7 @@ Model export example:
     ├── score.py - main module required by Azure ML
     └── test-output - dir containing MLFlow model in Python Function flavor
 
-Example model worklow for deployment:
+Example model workflow for deployment:
 
 .. code:: bash
 
@@ -261,7 +265,7 @@ Example model worklow for deployment:
     az ml set env <cluster-env> - set environment to cluster
     mlflow azureml deploy <parameters> - deploy to the cloud
 
-For more info, see
+For more info, see:
 
 .. code:: bash
 
@@ -276,7 +280,7 @@ or locally in a docker container with Sagemaker compatible environment (Docker i
 Similarly to Azure ML, you have to set up your environment and user accounts first in order to
 deploy to Sagemaker with MLflow. Also, in order to export a custom model to Sagemaker, you need a
 MLflow-compatible Docker image to be available on Amazon ECR. MLflow provides a default Docker
-image defintion, however, it is up to the user to build the actual image and upload it to ECR.
+image definition, however, it is up to you to build the actual image and upload it to ECR.
 MLflow includes a utility function to perform this step. Once built and uploaded, the MLflow
 container can be used for all MLflow models.
 
@@ -302,7 +306,7 @@ Example workflow:
     mlflow sagemaker deploy <parameters> - deploy the model to the cloud
 
 
-For more info, see
+For more info, see:
 
 .. code:: bash
 
