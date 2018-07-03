@@ -64,6 +64,8 @@ def _encode(string_val):
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
+@click.option("--db-profile",
+              help="Databricks CLI profile to use when making API requests, etc.")
 @click.option("--no-conda", is_flag=True,
               help="If specified, will assume that MLflow is running within a Conda environment "
                    "with the necessary dependencies for the current project instead of attempting "
@@ -83,8 +85,8 @@ def _encode(string_val):
                    "${0}. If ${0} is unset, uses the local ./mlruns directory if running in local "
                    "mode, or raises an exception if running on Databricks."
                    "".format(tracking._TRACKING_URI_ENV_VAR))
-def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, no_conda,
-        new_dir, storage_dir, tracking_uri):
+def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, db_profile,
+        no_conda, new_dir, storage_dir, tracking_uri):
     """
     Run an MLflow project from the given URI.
 
@@ -110,7 +112,8 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
         projects.run(_encode(uri), _encode(entry_point), _encode(version),
                      experiment_id=experiment_id,
                      parameters=param_dict, mode=_encode(mode),
-                     cluster_spec=_encode(cluster_spec), use_conda=(not no_conda),
+                     cluster_spec=_encode(cluster_spec), db_profile=db_profile,
+                     use_conda=(not no_conda),
                      use_temp_cwd=new_dir, storage_dir=_encode(storage_dir),
                      tracking_uri=tracking_uri)
     except projects.ExecutionException as e:

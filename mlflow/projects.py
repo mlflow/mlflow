@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 import tempfile
-import uuid
 
 from distutils import dir_util
 import git
@@ -17,14 +16,17 @@ from databricks_cli.configure import provider
 from mlflow.version import VERSION
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
+from mlflow.entities.experiment import Experiment
 from mlflow import data
 import mlflow.tracking as tracking
 
 from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
-CONTAINER_TARFILE_BASE = "/databricks/mlflow/code"
-DBFS_EXPERIMENT_DIR_BASE = "mlflow-experimentbasenames"
+MLFLOW_CONTAINER_BASE = "/databricks/mlflow"
+MLFLOW_TARFILE_BASE = os.path.join(MLFLOW_CONTAINER_BASE, "project-tars")
+MLFLOW_PROJECTS_BASE = os.path.join(MLFLOW_CONTAINER_BASE, "projects")
+DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 class ExecutionException(Exception):
     pass
@@ -156,31 +158,44 @@ def _sanitize_param_dict(param_dict):
     return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
 
 
-def _get_databricks_run_cmd(dbfs_fuse_tar_uri, project_dirname, entry_point, version, parameters):
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
-    # TODO: Change working directory to a tempdir, to allow multiple runs on a single cluster?
-    container_tar_path = os.path.join(CONTAINER_TARFILE_BASE, os.path.basename(dbfs_fuse_tar_uri))
-    mkdir_cmd = ["mkdir", "-p", CONTAINER_TARFILE_BASE]
-    download_tar_cmd = ["cp", dbfs_fuse_tar_uri, container_tar_path]
+    # Commands:
+    # rsync... # rsync to ignore copying tar.gz if it exists
+    # cd $(mktemp -d)
+    # tar -xvf /databricks/mlflow/code/tars/hash.tar.gz
+    # # mv since it's atomic, unlike tar -xvf
+    # mv -T ml-project /databricks/mlflow/code/projects/<hash>
+
+    make_dirs_command = ["mkdir", "-p", MLFLOW_TARFILE_BASE, "&&", "mkdir", "-p", MLFLOW_PROJECTS_BASE]
+    download_tar_cmd = ["rsync", "-a", "-v", "--ignore-existing", dbfs_fuse_tar_uri,
+                        MLFLOW_TARFILE_BASE]
+    cd_tmpdir_cmd = ["cd", "$(mktemp -d)"]
+    container_tar_path = os.path.abspath(os.path.join(MLFLOW_TARFILE_BASE,
+                                                      os.path.basename(dbfs_fuse_tar_uri)))
     extract_tar_cmd = ["tar", "-xzvf", container_tar_path]
-    mlflow_run_cmd = ["mlflow", "run", project_dirname, "--entry-point", entry_point]
+    tar_hash = os.path.splitext(os.path.splitext(os.path.basename(dbfs_fuse_tar_uri))[0])[0]
+    project_dir = os.path.join(MLFLOW_PROJECTS_BASE, tar_hash)
+    mv_project_cmd = ["mv", "-T", "mlflow-project", project_dir]
+    mlflow_run_cmd = list(map(shlex_quote, ["mlflow", "run", project_dir, "--new-dir",
+                                            "--entry-point", entry_point]))
     if version is not None:
         mlflow_run_cmd.extend(["--version", version])
     if parameters is not None:
         for key, value in parameters.items():
             mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
-    mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
     conda_env_command = ["export", "PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin"]
-    commands = [conda_env_command, mkdir_cmd, download_tar_cmd, extract_tar_cmd, mlflow_run_str]
+    commands = [conda_env_command, make_dirs_command, download_tar_cmd, cd_tmpdir_cmd,
+                extract_tar_cmd, mv_project_cmd, mlflow_run_cmd]
     result = []
     for command in commands:
         result.append(" ".join(command))
     return ["bash", "-c", " && ".join(result)]
 
 
-def _get_db_hostname_and_auth():
+def _get_db_hostname_and_auth(db_profile):
     """
     Reads the hostname & auth token to use for running on Databricks from the config file created
     by the Databricks CLI.
@@ -193,11 +208,11 @@ def _get_db_hostname_and_auth():
                                  "configured as described in "
                                  "https://github.com/databricks/databricks-cli" % cfg_file)
     else:
-        config = provider.get_config_for_profile(provider.DEFAULT_SECTION)
+        config = provider.get_config_for_profile(db_profile)
         return config.host, config.token, config.username, config.password
 
 
-def _upload_to_dbfs(project_dir, experiment_id):
+def _upload_to_dbfs(project_dir, experiment_id, profile):
     """
     Tars a project directory into an archive in a temp dir, returning the path to the
     tarball.
@@ -206,12 +221,17 @@ def _upload_to_dbfs(project_dir, experiment_id):
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
     try:
         file_utils.make_tarfile(temp_tar_filename, project_dir)
-        with open(temp_tar_filename, "r") as tarred_project:
-            hash = hashlib.sha256(tarred_project.read()).hexdigest()
-        dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, experiment_id,
-                                "%s.tar.gz" % hash)
+        commit = tracking._get_git_commit(project_dir)
+        if commit is not None and False:
+            tarfile_name = commit
+        else:
+            with open(temp_tar_filename, "rb") as tarred_project:
+                tarfile_name = hashlib.sha256(tarred_project.read()).hexdigest()
+        dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
+                                "%s.tar.gz" % tarfile_name)
         eprint("==== Uploading project to DBFS path %s ====" % dbfs_uri)
-        process.exec_cmd(cmd=["databricks", "fs", "cp", temp_tar_filename, dbfs_uri])
+        process.exec_cmd(cmd=["databricks", "fs", "cp", temp_tar_filename, dbfs_uri,
+                              "--profile", profile])
         eprint("==== Finished uploading project to %s ====" % dbfs_uri)
     finally:
         shutil.rmtree(temp_tarfile_dir)
@@ -219,8 +239,9 @@ def _upload_to_dbfs(project_dir, experiment_id):
 
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                    tracking_uri):
-    hostname, token, username, password, = _get_db_hostname_and_auth()
+                    db_profile, tracking_uri):
+    databricks_profile = db_profile or provider.DEFAULT_SECTION
+    hostname, token, username, password, = _get_db_hostname_and_auth(databricks_profile)
     work_dir = _get_work_dir(uri, use_temp_cwd=False)
     try:
         # Fetch the project into work_dir & validate parameters
@@ -228,9 +249,8 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         project = _load_project(work_dir, uri)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Upload the project to DBFS, get the URI of the project
-        dbfs_project_uri = _upload_to_dbfs(work_dir, experiment_id)
-        # Save the original name of the project directory
-        project_dirname =
+        final_experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
+        dbfs_project_uri = _upload_to_dbfs(work_dir, final_experiment_id, databricks_profile)
     finally:
         if work_dir != uri:
             shutil.rmtree(work_dir)
@@ -254,12 +274,12 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,
         'shell_command_task': {
-            'command': _get_databricks_run_cmd(fuse_dst_dir, project_dirname,
-                                               entry_point, version, parameters),
+            'command': _get_databricks_run_cmd(fuse_dst_dir, entry_point, version, parameters),
             "env_vars": env_vars
         },
         "libraries": [{"pypi": {"package": mlflow_lib_string}}]
     }
+    print("@SID got commnad:\n%s" % req_body_json["shell_command_task"]["command"])
     # Run on Databricks
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     auth = (username, password) if username is not None and password is not None else None
@@ -306,8 +326,8 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, use_conda=True, use_temp_cwd=False, storage_dir=None,
-        tracking_uri=None):
+        mode=None, cluster_spec=None, db_profile=None, use_conda=True, use_temp_cwd=False,
+        storage_dir=None, tracking_uri=None):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -343,7 +363,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                    storage_dir=storage_dir, tracking_uri=tracking_uri)
     elif mode == "databricks":
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-                        experiment_id=experiment_id, cluster_spec=cluster_spec,
+                        experiment_id=experiment_id, cluster_spec=cluster_spec, db_profile=db_profile,
                         tracking_uri=tracking_uri)
     else:
         supported_modes = ["local", "databricks"]
