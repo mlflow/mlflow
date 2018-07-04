@@ -52,7 +52,7 @@ def cli():
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
-@click.option("--db-profile",
+@click.option("--db-profile", metavar="PROFILE",
               help="Databricks CLI profile to use when making API requests, etc.")
 @click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
               help="Username for HTTP(S) Git authentication.")
@@ -72,13 +72,8 @@ def cli():
               help="Only valid when `mode` is local."
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
-@click.option("--tracking-uri",
-              help="Optional URI of tracking server against which to record a run. Defaults to "
-                   "${0}. If ${0} is unset, uses the local ./mlruns directory if running in local "
-                   "mode, or raises an exception if running on Databricks."
-                   "".format(tracking._TRACKING_URI_ENV_VAR))
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, db_profile,
-        git_username, git_password, no_conda, new_dir, storage_dir, tracking_uri):
+        git_username, git_password, no_conda, new_dir, storage_dir):
     """
     Run an MLflow project from the given URI.
 
@@ -108,6 +103,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                      parameters=param_dict,
                      mode=mode,
                      cluster_spec=cluster_spec,
+                     db_profile=db_profile,
                      git_username=git_username,
                      git_password=git_password,
                      use_conda=(not no_conda),

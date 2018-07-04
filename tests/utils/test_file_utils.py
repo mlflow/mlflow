@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import unittest
 import six
+import tarfile
 
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import TempDir
@@ -54,15 +55,29 @@ class TestFileUtils(unittest.TestCase):
         with TempDir() as tmp:
             # Tar a local project
             tarfile0 = tmp.path("first-tarfile")
-            file_utils.make_tarfile(output_filename=tarfile0, source_dir=TEST_PROJECT_DIR)
+            file_utils.make_tarfile(
+                output_filename=tarfile0, source_dir=TEST_PROJECT_DIR, archive_name="some-archive")
             # Copy local project into a temp dir
             dst_dir = tmp.path("project-directory")
             shutil.copytree(TEST_PROJECT_DIR, dst_dir)
             # Tar the copied project
-            tarfile1 = tempfile.mktemp("second-tarfile")
-            file_utils.make_tarfile(output_filename=tarfile1, source_dir=dst_dir)
-            # Compare the file contents & explicitly verify their SHA256 hashes match
+            tarfile1 = tmp.path("second-tarfile")
+            file_utils.make_tarfile(
+                output_filename=tarfile1, source_dir=dst_dir, archive_name="some-archive")
+            # Compare the archives & explicitly verify their SHA256 hashes match (i.e. that
+            # changes in file modification timestamps don't affect the archive contents)
             assert filecmp.cmp(tarfile0, tarfile1, shallow=False)
             with open(tarfile0, 'rb') as first_tar, open(tarfile1, 'rb') as second_tar:
                 assert hashlib.sha256(first_tar.read()).hexdigest()\
                        == hashlib.sha256(second_tar.read()).hexdigest()
+            # Extract the TAR and check that its contents match the original directory
+            extract_dir = tmp.path("extracted-tar")
+            os.makedirs(extract_dir)
+            with tarfile.open(tarfile0, 'r:gz') as handle:
+                handle.extractall(path=extract_dir)
+            dir_comparison = filecmp.dircmp(os.path.join(extract_dir, "some-archive"),
+                                            TEST_PROJECT_DIR)
+            assert len(dir_comparison.left_only) == 0
+            assert len(dir_comparison.right_only) == 0
+            assert len(dir_comparison.diff_files) == 0
+            assert len(dir_comparison.funny_files) == 0

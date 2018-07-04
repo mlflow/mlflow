@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import textwrap
 
 from distutils import dir_util
 import yaml
@@ -23,10 +24,12 @@ import mlflow.tracking as tracking
 from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
 
-MLFLOW_CONTAINER_BASE = "/databricks/mlflow"
-MLFLOW_TARFILE_BASE = os.path.join(MLFLOW_CONTAINER_BASE, "project-tars")
-MLFLOW_PROJECTS_BASE = os.path.join(MLFLOW_CONTAINER_BASE, "projects")
+DB_CONTAINER_BASE = "/databricks/mlflow"
+DB_TARFILE_BASE = os.path.join(DB_CONTAINER_BASE, "project-tars")
+DB_PROJECTS_BASE = os.path.join(DB_CONTAINER_BASE, "projects")
+DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
+
 
 class ExecutionException(Exception):
     pass
@@ -163,32 +166,37 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters)
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
     # Commands:
-    # rsync... # rsync to ignore copying tar.gz if it exists
+    # rsync /dbfs/... -a -v /databricks/mlflow/code/tars/hash.tar.gz
     # cd $(mktemp -d)
     # tar -xvf /databricks/mlflow/code/tars/hash.tar.gz
     # # mv since it's atomic, unlike tar -xvf
     # mv -T ml-project /databricks/mlflow/code/projects/<hash>
-
-    make_dirs_command = ["mkdir", "-p", MLFLOW_TARFILE_BASE, "&&", "mkdir", "-p", MLFLOW_PROJECTS_BASE]
-    download_tar_cmd = ["rsync", "-a", "-v", "--ignore-existing", dbfs_fuse_tar_uri,
-                        MLFLOW_TARFILE_BASE]
-    cd_tmpdir_cmd = ["cd", "$(mktemp -d)"]
-    container_tar_path = os.path.abspath(os.path.join(MLFLOW_TARFILE_BASE,
-                                                      os.path.basename(dbfs_fuse_tar_uri)))
-    extract_tar_cmd = ["tar", "-xzvf", container_tar_path]
     tar_hash = os.path.splitext(os.path.splitext(os.path.basename(dbfs_fuse_tar_uri))[0])[0]
-    project_dir = os.path.join(MLFLOW_PROJECTS_BASE, tar_hash)
-    mv_project_cmd = ["mv", "-T", "mlflow-project", project_dir]
-    mlflow_run_cmd = list(map(shlex_quote, ["mlflow", "run", project_dir, "--new-dir",
+    container_tar_path = os.path.abspath(os.path.join(DB_TARFILE_BASE,
+                                                      os.path.basename(dbfs_fuse_tar_uri)))
+    project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
+    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir, "--new-dir",
                                             "--entry-point", entry_point]))
     if version is not None:
-        mlflow_run_cmd.extend(["--version", version])
+        mlflow_run_arr.extend(["--version", version])
     if parameters is not None:
         for key, value in parameters.items():
-            mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
-    mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
-    return ["bash", "-c", "export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin && %s"
-            % mlflow_run_str]
+            mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
+    mlflow_run_cmd = " ".join(mlflow_run_arr)
+    shell_command = textwrap.dedent("""
+    export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin &&
+    mkdir -p {0} && mkdir -p {1} &&
+    # Rsync to avoid copying archive into local filesystem if it already exists
+    rsync -a -v --ignore-existing {2} {0} &&
+    # Extract project into a temporary directory
+    cd $(mktemp -d) &&
+    tar -xzvf {3} &&
+    # Atomically move the project into the desired directory
+    mv -T {4} {5} &&
+    {6}
+    """.format(DB_TARFILE_BASE, DB_PROJECTS_BASE, dbfs_fuse_tar_uri, container_tar_path,
+               DB_TARFILE_ARCHIVE_NAME, project_dir, mlflow_run_cmd))
+    return ["bash", "-c", shell_command]
 
 
 def _get_db_hostname_and_auth(db_profile):
@@ -196,16 +204,28 @@ def _get_db_hostname_and_auth(db_profile):
     Reads the hostname & auth token to use for running on Databricks from the config file created
     by the Databricks CLI.
     """
-    home_dir = os.path.expanduser("~")
-    cfg_file = os.path.join(home_dir, ".databrickscfg")
+    config = provider.get_config_for_profile(db_profile)
+    if not config.host:
+        raise ExecutionException(
+            "Databricks CLI configuration for profile '%s' was malformed; no host URL found. "
+            "Please configure the Databricks CLI as described in "
+            "https://github.com/databricks/databricks-cli" % db_profile)
+    return config.host, config.token, config.username, config.password
+
+
+def _check_databricks_cli_installed():
+    cfg_file = os.path.join(os.path.expanduser("~"), ".databrickscfg")
+    try:
+        process.exec_cmd(["databricks", "--version"])
+    except ShellCommandException:
+        eprint("Could not find Databricks CLI on PATH. Please install and configure the Databricks "
+               "CLI as described in https://github.com/databricks/databricks-cli")
+        raise
     if not os.path.exists(cfg_file):
         raise ExecutionException("Could not find profile for Databricks CLI in %s. Make sure the "
                                  "the Databricks CLI is installed and that credentials have been "
                                  "configured as described in "
                                  "https://github.com/databricks/databricks-cli" % cfg_file)
-    else:
-        config = provider.get_config_for_profile(db_profile)
-        return config.host, config.token, config.username, config.password
 
 
 def _upload_to_dbfs(project_dir, experiment_id, profile):
@@ -216,7 +236,7 @@ def _upload_to_dbfs(project_dir, experiment_id, profile):
     temp_tarfile_dir = tempfile.mkdtemp()
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
     try:
-        file_utils.make_tarfile(temp_tar_filename, project_dir)
+        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME)
         commit = tracking._get_git_commit(project_dir)
         if commit is not None and False:
             tarfile_name = commit
@@ -225,48 +245,52 @@ def _upload_to_dbfs(project_dir, experiment_id, profile):
                 tarfile_name = hashlib.sha256(tarred_project.read()).hexdigest()
         dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
                                 "%s.tar.gz" % tarfile_name)
-        eprint("==== Uploading project to DBFS path %s ====" % dbfs_uri)
-        process.exec_cmd(cmd=["databricks", "fs", "cp", temp_tar_filename, dbfs_uri,
-                              "--profile", profile])
-        eprint("==== Finished uploading project to %s ====" % dbfs_uri)
+        eprint("=== Uploading project to DBFS path %s ===" % dbfs_uri)
+
+        exit_code, _, _ = process.exec_cmd(["databricks", "fs", "ls", dbfs_uri],
+                                           throw_on_error=False)
+        if exit_code != 0:  # Assume that CLI command failure -> the tarfile didn't exist
+            process.exec_cmd(cmd=["databricks", "fs", "cp", temp_tar_filename, dbfs_uri,
+                                  "--profile", profile])
+        else:
+            eprint("=== Upload command to DBFS failed. Assuming project already exists in DBFS ===")
+        eprint("=== Finished uploading project to %s ===" % dbfs_uri)
     finally:
         shutil.rmtree(temp_tarfile_dir)
     return dbfs_uri
 
 
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                    db_profile, git_username, git_password, tracking_uri):
+                    db_profile, git_username, git_password):
+    _check_databricks_cli_installed()
     databricks_profile = db_profile or provider.DEFAULT_SECTION
     hostname, token, username, password, = _get_db_hostname_and_auth(databricks_profile)
     work_dir = _get_work_dir(uri, use_temp_cwd=False)
-    try:
-        # Fetch the project into work_dir & validate parameters
-        _fetch_project(uri, version, work_dir, git_username, git_password)
-        project = _load_project(work_dir, uri)
-        project.get_entry_point(entry_point)._validate_parameters(parameters)
-        # Upload the project to DBFS, get the URI of the project
-        final_experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
-        dbfs_project_uri = _upload_to_dbfs(work_dir, final_experiment_id, databricks_profile)
-    finally:
-        if work_dir != uri:
-            print("Removing working directory %s" % work_dir)
-            shutil.rmtree(work_dir)
-    final_tracking_uri = tracking_uri or os.environ.get(tracking._TRACKING_URI_ENV_VAR, None)
-    if final_tracking_uri is None:
-        raise ExecutionException("Tracking URI must be specified for Databricks execution")
-    # Read cluster spec from file
-    with open(cluster_spec, 'r') as handle:
-        cluster_spec = json.load(handle)
-    # Make jobs API request to launch run.
-    env_vars = {"MLFLOW_GIT_URI": uri, tracking._TRACKING_URI_ENV_VAR: final_tracking_uri}
+    # Fetch the project into work_dir & validate parameters
+    _fetch_project(uri, version, work_dir, git_username, git_password)
+    project = _load_project(work_dir, uri)
+    project.get_entry_point(entry_point)._validate_parameters(parameters)
+    # Upload the project to DBFS, get the URI of the project
+    final_experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
+    dbfs_project_uri = _upload_to_dbfs(work_dir, final_experiment_id, databricks_profile)
+    env_vars = {"MLFLOW_GIT_URI": uri}
+    if tracking._TRACKING_URI_ENV_VAR not in os.environ:
+        eprint("Tracking URI is unspecified, data generated for the run (metrics, params,"
+               "artifacts) may not be properly persisted. You can configure a tracking URI by "
+               "setting the %s environment variable" % tracking._TRACKING_URI_ENV_VAR)
+    else:
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = os.environ[tracking._TRACKING_URI_ENV_VAR]
     # Pass experiment ID to shell job on Databricks as an environment variable.
     if experiment_id is not None:
         eprint("=== Using experiment ID %s ===" % experiment_id)
         env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
-    # Used for testing: if MLFLOW_REMOTE_VERSION is set, attach that version of MLflow to
-    # the Databricks cluster. Otherwise, just use the current MLflow version.
-    mlflow_lib_string = os.environ.get("MLFLOW_REMOTE_VERSION", "mlflow==%s" % VERSION)
-    fuse_dst_dir = os.path.join("/dbfs/", dbfs_project_uri[6:])
+    # Used for testing: if MLFLOW_REMOTE_PIP_URI is set, install (via pip) the package at that URI
+    # on the Databricks cluster. Otherwise, just use the current MLflow version.
+    mlflow_lib_string = os.environ.get("MLFLOW_REMOTE_PIP_URI", "mlflow==%s" % VERSION)
+    # Read cluster spec from file
+    with open(cluster_spec, 'r') as handle:
+        cluster_spec = json.load(handle)
+    fuse_dst_dir = os.path.join("/dbfs/", dbfs_project_uri.strip("dbfs:/"))
     req_body_json = {
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,
@@ -277,6 +301,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         "libraries": [{"pypi": {"package": mlflow_lib_string}}]
     }
     # Run on Databricks
+    eprint("@SID running command %s" % req_body_json["shell_command_task"]["command"])
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     auth = (username, password) if username is not None and password is not None else None
     run_submit_res = rest_utils.databricks_api_request(
@@ -325,7 +350,7 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
         mode=None, cluster_spec=None, db_profile=None, git_username=None,
-        git_password=None, use_conda=True, use_temp_cwd=False, storage_dir=None, tracking_uri=None):
+        git_password=None, use_conda=True, use_temp_cwd=False, storage_dir=None):
 
 
     """
@@ -353,9 +378,6 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param storage_dir: Only used if `mode` is local. MLflow will download artifacts from
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
-    :param tracking_uri: Optional URI of tracking server against which to record a run. If
-                         unspecified, the value of $MLFLOW_TRACKING_URI will be used, or the
-                         local ./mlruns directory if $MLFLOW_TRACKING_URI is unspecified.
     """
     if mode is None or mode == "local":
         _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
@@ -364,9 +386,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     elif mode == "databricks":
         # TODO: parameter parity (passing storage_dir) etc for databricks runs
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-                        experiment_id=experiment_id, cluster_spec=cluster_spec, db_profile=db_profile,
-                        git_username=git_username, git_password=git_password,
-                        tracking_uri=tracking_uri)
+                        experiment_id=experiment_id, cluster_spec=cluster_spec,
+                        db_profile=db_profile, git_username=git_username, git_password=git_password)
     else:
         supported_modes = ["local", "databricks"]
         raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -474,7 +495,7 @@ def _maybe_create_conda_env(conda_env_path):
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
-                 experiment_id, tracking_uri):
+                 experiment_id):
     """Locally run a project that has been checked out in `work_dir`."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
@@ -489,7 +510,6 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
     # Create a new run and log every provided parameter into it.
-    tracking.set_tracking_uri(tracking_uri)
     active_run = tracking.start_run(experiment_id=experiment_id,
                                     source_name=project.uri,
                                     source_version=tracking._get_git_commit(work_dir),
