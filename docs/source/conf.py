@@ -117,7 +117,7 @@ todo_include_todos = False
 # a list of builtin themes.
 
 html_context = {
-    'use_algolia': os.environ['USE_ALGOLIA']
+    'use_algolia': os.environ.get('USE_ALGOLIA', '0')
 }
 
 html_theme_path = ["../theme/"]
