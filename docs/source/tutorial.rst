@@ -91,6 +91,9 @@ Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as argu
 
 Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
+.. note::
+    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``example/tutorial/train.py/train.ipynb`` 
+
 Comparing the Models
 --------------------
 
