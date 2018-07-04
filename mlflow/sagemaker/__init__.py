@@ -120,6 +120,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME, version="latest"):
     my_session = boto3.session.Session()
     region = my_session.region_name or "us-west-2"
     fullname = _full_template.format(account=account, region=region, image=image, version=version)
+    print("Pushing docker image {image} to {repo}".format(image=image, repo=fullname))
     ecr_client = boto3.client('ecr')
     if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
         ecr_client.create_repository(repositoryName=image)

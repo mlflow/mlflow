@@ -49,9 +49,9 @@ def run_local(model_path, run_id, port, container):
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
 @click.option("--push/--no-push", default=True, help="Push the container to amazon ecr if set.")
 @click.option("--container", "-c", default=IMAGE, help="image name")
-@click.option("--version", "-v", default="latest", help="version to tag image with")
+@click.option("--version", "-v", default="latest", help="version to tag the image with")
 @cli_args.MLFLOW_HOME
-def build_and_push_container(build, push, container, mlflow_home, version, account):
+def build_and_push_container(build, push, container, version, mlflow_home):
     """
     Build new MLflow Sagemaker image, assign it given name and push to ECR.
 
