@@ -19,11 +19,11 @@ def commands():
 @commands.command("deploy")
 @click.option("--app-name", "-a", help="Application name.", required=True)
 @cli_args.MODEL_PATH
-@click.option("--execution-role-arn", "-e", help="SageMaker execution role", required=True)
-@click.option("--bucket", "-b", help="S3 bucket to store model artifacts", required=True)
+@click.option("--execution-role-arn", "-e", default=None, help="SageMaker execution role")
+@click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
 @cli_args.RUN_ID
-@click.option("--container", "-c", default="mlflow_sage", help="container name")
-@click.option("--region-name", default="us-west-2", help="region name")
+@click.option("--container", "-c", default=None, help="container name")
+@click.option("--region-name", "-r", default="us-west-2", help="region name")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, container, region_name):
     """
     Deploy model on Sagemaker. Current active AWS account needs to have correct permissions setup.
