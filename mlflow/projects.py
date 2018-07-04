@@ -249,6 +249,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         dbfs_project_uri = _upload_to_dbfs(work_dir, final_experiment_id, databricks_profile)
     finally:
         if work_dir != uri:
+            print("Removing working directory %s" % work_dir)
             shutil.rmtree(work_dir)
     final_tracking_uri = tracking_uri or os.environ.get(tracking._TRACKING_URI_ENV_VAR, None)
     if final_tracking_uri is None:
@@ -275,7 +276,6 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         },
         "libraries": [{"pypi": {"package": mlflow_lib_string}}]
     }
-    print("@SID got commnad:\n%s" % req_body_json["shell_command_task"]["command"])
     # Run on Databricks
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     auth = (username, password) if username is not None and password is not None else None
@@ -362,6 +362,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                    experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
                    storage_dir=storage_dir, git_username=git_username, git_password=git_password)
     elif mode == "databricks":
+        # TODO: parameter parity (passing storage_dir) etc for databricks runs
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                         experiment_id=experiment_id, cluster_spec=cluster_spec, db_profile=db_profile,
                         git_username=git_username, git_password=git_password,
