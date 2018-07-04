@@ -3,6 +3,7 @@ from __future__ import print_function
 import collections
 import os
 import pandas
+import shutil
 import unittest
 
 import pandas as pd
@@ -74,21 +75,25 @@ class TestModelExport(unittest.TestCase):
             old_tracking_dir = tracking.get_tracking_uri()
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
             tracking.set_tracking_uri("file://%s" % tracking_dir)
-            tracking.start_run()
-            try:
-                # Creating dict of features names (str) to placeholders (tensors)
-                feature_spec = {}
-                for name in feature_names:
-                    feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
-                pyfunc_preds_df = self.helper(feature_spec, tmp, estimator,
-                                              pandas.DataFrame(data=X, columns=feature_names))
+            for truth in [False, True]:
+                if truth:
+                    tracking.start_run()
+                    shutil.rmtree(tmp.path("model"))
+                tracking.start_run()
+                try:
+                    # Creating dict of features names (str) to placeholders (tensors)
+                    feature_spec = {}
+                    for name in feature_names:
+                        feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
+                    pyfunc_preds_df = self.helper(feature_spec, tmp, estimator,
+                                                  pandas.DataFrame(data=X, columns=feature_names))
 
-                # Asserting that the loaded model predictions are as expected.
-                assert estimator_preds_df.equals(pyfunc_preds_df)
-            finally:
-                # Restoring the old logging location.
-                tracking.end_run()
-                tracking.set_tracking_uri(old_tracking_dir)
+                    # Asserting that the loaded model predictions are as expected.
+                    assert estimator_preds_df.equals(pyfunc_preds_df)
+                finally:
+                    # Restoring the old logging location.
+                    tracking.end_run()
+                    tracking.set_tracking_uri(old_tracking_dir)
 
 
     def test_categorical_columns(self):
