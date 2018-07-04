@@ -75,6 +75,7 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
                             saved_model_dir=saved_model_dir, 
                             signature_def_key=signature_def_key)
     mlflow_model.save(os.path.join(saved_model_dir, "MLmodel"))
+    mlflow_model.save(os.path.join(artifact_path, "MLmodel"))
 
 
 def load_pyfunc(saved_model_dir):
