@@ -18,17 +18,19 @@ def main(argv):
     # There are 13 features we are using for inference.
     feat_cols = [tf.feature_column.numeric_column(key="features", shape=(x_train.shape[1],))]
     feat_spec = {"features":tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])}
+    hidden_units = [50, 20]
+    steps = 1000
     regressor = tf.estimator.DNNRegressor(
-    hidden_units=[50, 20],
+    hidden_units=hidden_units,
     feature_columns=feat_cols)
     train_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_train}, y_train, num_epochs=None, shuffle=True)
     tracking.start_run()
-    mlflow.log_param("Hidden Units", [50,20])
-    mlflow.log_param("Steps", 1000)
-    regressor.train(train_input_fn, steps=1000)
+    mlflow.log_param("Hidden Units", hidden_units)
+    mlflow.log_param("Steps", steps)
+    regressor.train(train_input_fn, steps=steps)
     test_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_test}, y_test, num_epochs=None, shuffle=True)
     # Compute mean squared error
-    mse = regressor.evaluate(test_input_fn, steps=100)
+    mse = regressor.evaluate(test_input_fn, steps=steps)
     mlflow.log_metric("Mean Square Error", mse['average_loss'])
     # Building a receiver function for exporting
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feat_spec)
