@@ -1,9 +1,5 @@
 import os
 
-# Necessary workaround for this issue:
-# https://github.com/google/protobuf/issues/3002#issuecomment-325459597
-os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
-
 # pylint: disable=wrong-import-position
 import mlflow.projects as projects  # noqa
 import mlflow.tracking as tracking  # noqa

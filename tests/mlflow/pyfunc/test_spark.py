@@ -27,11 +27,11 @@ class TestSparkUDFs(unittest.TestCase):
             .config(key="spark.python.worker.reuse", value=True) \
             .master("local-cluster[2, 1, 1024]") \
             .getOrCreate()
-        iris = sklearn.datasets.load_iris()
-        self._pandas_df = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+        wine = sklearn.datasets.load_wine()
+        self._pandas_df = pd.DataFrame(wine.data[:, :11], columns=wine.feature_names[:11])
 
         knn = KNeighborsClassifier()
-        knn.fit(self._pandas_df, iris.target)
+        knn.fit(self._pandas_df, wine.target)
         self._model_path = os.path.join(self._tmp, "model")
         mlflow.sklearn.save_model(knn, path=self._model_path)
         self._predict = knn.predict(self._pandas_df)
@@ -44,15 +44,14 @@ class TestSparkUDFs(unittest.TestCase):
         pandas_df = self._pandas_df
         spark_df = self.spark.createDataFrame(pandas_df)
         pyfunc_udf = spark_udf(self.spark, self._model_path, result_type="integer")
-        new_df = spark_df.withColumn("prediction", pyfunc_udf(self._pandas_df.columns[0],
-                                                              self._pandas_df.columns[1]))
+        new_df = spark_df.withColumn("prediction", pyfunc_udf(*self._pandas_df.columns))
         spark_results = new_df.collect()
 
         # Compare against directly running the model.
         direct_model = load_pyfunc(self._model_path)
         pandas_results = direct_model.predict(pandas_df)
-        self.assertEqual(150, len(pandas_results))
-        self.assertEqual(150, len(spark_results))
+        self.assertEqual(178, len(pandas_results))
+        self.assertEqual(178, len(spark_results))
         for i in range(0, len(pandas_results)):  # noqa
             self.assertEqual(self._predict[i], pandas_results[i])
             self.assertEqual(pandas_results[i], spark_results[i]['prediction'])

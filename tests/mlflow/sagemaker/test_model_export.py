@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import pickle
+import pytest
 import requests
 from subprocess import Popen, PIPE, STDOUT
 import tempfile
@@ -25,6 +26,7 @@ def load_pyfunc(path):
         return pickle.load(f)
 
 
+# We include pytest since we load this self-same file within the container.
 CONDA_ENV = """
 name: mlflow-env
 channels:
@@ -32,6 +34,7 @@ channels:
   - defaults
 dependencies:
   - python={python_version}
+  - pytest
 
 """
 
@@ -54,6 +57,7 @@ class TestModelExport(unittest.TestCase):
         print("Building mlflow Docker image with MLFLOW_HOME =", mlflow_root)
         mlflow.sagemaker.build_image(mlflow_home=mlflow_root)
 
+    @pytest.mark.large
     def test_model_export(self):
         path_to_remove = None
         try:

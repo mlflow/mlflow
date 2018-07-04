@@ -7,6 +7,10 @@ An MLflow Project is a format for packaging data science code in a reusable and 
 based primarily on conventions. In addition, the Projects component includes an API and command-line
 tools for running projects, making it possible to chain together projects into workflows.
 
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
+
 Overview
 --------
 
@@ -53,7 +57,6 @@ By default, any Git repository or local directory is treated as a project, and M
 following conventions to determine its parameters:
 
 * The project's name is the name of the directory.
-* The Conda environment is specified in ``conda.yaml``, if present.
 * The `Conda environment <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
   is specified in ``conda.yaml``, if present.
 * Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly

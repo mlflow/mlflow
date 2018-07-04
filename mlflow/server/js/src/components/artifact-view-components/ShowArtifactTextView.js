@@ -4,10 +4,16 @@ import { getSrc } from './ShowArtifactPage';
 import './ShowArtifactTextView.css';
 
 class ShowArtifactTextView extends Component {
+  constructor(props) {
+    super(props);
+    this.fetchArtifacts = this.fetchArtifacts.bind(this);
+  }
+
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     path: PropTypes.string.isRequired,
   };
+
   state = {
     loading: true,
     error: undefined,
@@ -15,15 +21,13 @@ class ShowArtifactTextView extends Component {
   };
 
   componentWillMount() {
-    fetch(getSrc(this.props.path, this.props.runUuid)).then((response) => {
-      return response.blob();
-    }).then((blob) => {
-      const fileReader = new FileReader();
-      fileReader.onload = (event) => {
-        this.setState({ text: event.target.result, loading: false });
-      };
-      fileReader.readAsText(blob);
-    });
+    this.fetchArtifacts();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+      this.fetchArtifacts();
+    }
   }
 
   render() {
@@ -44,13 +48,23 @@ class ShowArtifactTextView extends Component {
       return (
         <div className="ShowArtifactPage">
           <div className="text-area-border-box">
-            <textarea className={"text-area"} readOnly={true}>
-              {this.state.text}
-            </textarea>
+            <textarea className={"text-area"} readOnly={true} value={this.state.text}/>
           </div>
         </div>
       )
     }
+  }
+
+  fetchArtifacts() {
+    fetch(getSrc(this.props.path, this.props.runUuid)).then((response) => {
+      return response.blob();
+    }).then((blob) => {
+      const fileReader = new FileReader();
+      fileReader.onload = (event) => {
+        this.setState({ text: event.target.result, loading: false });
+      };
+      fileReader.readAsText(blob);
+    });
   }
 }
 

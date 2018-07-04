@@ -18,6 +18,7 @@ Pyfunc model format is defined as a directory structure containing all required 
 configuration:
 
 ./dst-path/
+
     ./MLmodel - config
     <code> - any code packaged with the model (specified in the conf file, see below)
     <data> - any data packaged with the model (specified in the conf file, see below)
@@ -26,50 +27,47 @@ configuration:
 It must contain MLmodel file in its root with "python_function" format with the following
 parameters:
 
-   - loader_module [required]:
+- loader_module [required]:
          Python module that can load the model. Expected as module identifier
-          e.g. ``mlflow.sklearn``, it will be imported via importlib.import_module.
+         e.g. ``mlflow.sklearn``, it will be imported via importlib.import_module.
          The imported module must contain function with the following signature:
 
               load_pyfunc(path: string) -> <pyfunc model>
 
          The path argument is specified by the data parameter and may refer to a file or directory.
 
-   - code [optional]:
+- code [optional]:
         relative path to a directory containing the code packaged with this model.
         All files and directories inside this directory are added to the python path
         prior to importing the model loader.
 
-   - data [optional]:
+- data [optional]:
          relative path to a file or directory containing model data.
          the path is passed to the model loader.
 
-   - env [optional]:
+- env [optional]:
          relative path to an exported conda environment. If present this environment
          should be activated prior to running the model.
 
 Example:
 
-```
->tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
-├── MLmodel
-├── code
-│   ├── sklearn_iris.py
-│  
-├── data
-│   └── model.pkl
-└── mlflow_env.yml
+.. code:: shell
 
->cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
-python_function:
-  code: code
-  data: data/model.pkl
-  env: mlflow_env.yml
-  main: sklearn_iris
+  >tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
+  ├── MLmodel
+  ├── code
+  │   ├── sklearn_iris.py
+  │  
+  ├── data
+  │   └── model.pkl
+  └── mlflow_env.yml
 
-```
-Todo:
-* Get default conda_env of the project.
+  >cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+  python_function:
+    code: code
+    data: data/model.pkl
+    env: mlflow_env.yml
+    main: sklearn_iris
 """
 
 import importlib
@@ -172,7 +170,9 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
-        pdf = pandas.DataFrame(schema)
+        # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
+        columns = [str(i) for i, _ in enumerate(args)]
+        pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
         return pandas.Series(result)
 
