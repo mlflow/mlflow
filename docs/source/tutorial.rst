@@ -32,6 +32,7 @@ Training the Model
 First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``example/tutorial/train.py`` and is reproduced below.
 
 .. code:: python
+
     import os
     import sys
 
