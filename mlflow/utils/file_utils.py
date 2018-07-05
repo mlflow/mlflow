@@ -230,11 +230,34 @@ def append_to(filename, data):
     with open(filename, "a") as handle:
         handle.write(data)
 
+dicty = {}
 
 def make_tarfile(output_filename, source_dir, archive_name):
+    global dicty
     # Helper for filtering out modification timestamps
     def _filter_timestamps(tar_info):
+        # if "git/objects" in tar_info.name or "git/hooks" in tar_info.name or "git/info" in tar_info.name or "refs" in tar_info.name\
+        #         or "git/HEAD" in tar_info.name or ".git/description" in tar_info.name or "logs" in tar_info.name:
+        if "index" in tar_info.name:
+            print("Found index in file with name %s" % tar_info.name)
+            return None
+
+        print("output file %s, filename %s, type %s" % (output_filename, tar_info.name, tar_info.type))
+        if tar_info.name not in dicty:
+            print("Putting file %s into dict" % tar_info.name)
+            dicty[tar_info.name] = tar_info.type
+        elif dicty[tar_info.name] != tar_info.type:
+            print("Mismatched type for filename %s: expected %s but got %s" % (tar_info.name, dicty[tar_info.name], tar_info.type))
+            assert(False)
+
         tar_info.mtime = 0
+        # tar_info.name = "asdf"
+      #   tar_info.size = 30
+        # tar_info.mode = 0o644
+        # tar_info.type = "asdf"
+        # tar_info.linkname = "asdf"
+        # tar_info.uid = 0
+        # tar_info.gid = 0
         return tar_info
     unzipped_filename = tempfile.mktemp()
     try:
@@ -245,8 +268,6 @@ def make_tarfile(output_filename, source_dir, archive_name):
         with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0)\
                 as gzipped_tar, open(unzipped_filename, 'rb') as tar:
             gzipped_tar.write(tar.read())
-        with open(output_filename, 'rb') as handle:
-            print("Wrote %s bytes" % len(handle.read()))
     finally:
         os.remove(unzipped_filename)
 
