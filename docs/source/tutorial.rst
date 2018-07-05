@@ -33,7 +33,6 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
 .. code:: python
     import os
-    import warnings
     import sys
 
     import pandas as pd
