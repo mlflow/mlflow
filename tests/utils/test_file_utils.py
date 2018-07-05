@@ -54,45 +54,31 @@ class TestFileUtils(unittest.TestCase):
 
     def test_make_tarfile(self):
         with TempDir() as tmp:
-            # # Tar a local project
-            # tarfile0 = tmp.path("first-tarfile")
-            # file_utils.make_tarfile(
-            #     output_filename=tarfile0, source_dir=TEST_PROJECT_DIR, archive_name="some-archive")
-            # # Copy local project into a temp dir
-            # dst_dir = tmp.path("project-directory")
-            # shutil.copytree(TEST_PROJECT_DIR, dst_dir)
-            # # Tar the copied project
-            # tarfile1 = tmp.path("second-tarfile")
-            # file_utils.make_tarfile(
-            #     output_filename=tarfile1, source_dir=dst_dir, archive_name="some-archive")
-            # # Compare the archives & explicitly verify their SHA256 hashes match (i.e. that
-            # # changes in file modification timestamps don't affect the archive contents)
-            # assert filecmp.cmp(tarfile0, tarfile1, shallow=False)
-            # with open(tarfile0, 'rb') as first_tar, open(tarfile1, 'rb') as second_tar:
-            #     assert hashlib.sha256(first_tar.read()).hexdigest()\
-            #            == hashlib.sha256(second_tar.read()).hexdigest()
-            # # Extract the TAR and check that its contents match the original directory
-            # extract_dir = tmp.path("extracted-tar")
-            # os.makedirs(extract_dir)
-            # with tarfile.open(tarfile0, 'r:gz') as handle:
-            #     handle.extractall(path=extract_dir)
-            # dir_comparison = filecmp.dircmp(os.path.join(extract_dir, "some-archive"),
-            #                                 TEST_PROJECT_DIR)
-            # assert len(dir_comparison.left_only) == 0
-            # assert len(dir_comparison.right_only) == 0
-            # assert len(dir_comparison.diff_files) == 0
-            # assert len(dir_comparison.funny_files) == 0
-
-            # Tar a git project twice, verify the result is the same
-            git_dir0 = tmp.path("gitdir0")
-            git_tar0 = tmp.path("gittar0")
-            git_dir1 = tmp.path("gitdir1")
-            git_tar1 = tmp.path("gittar1")
-
-            _fetch_project("https://github.com/smurching/test-repo", version=None, dst_dir=git_dir0, git_username=None, git_password=None)
-            file_utils.make_tarfile(git_tar0, git_dir0, archive_name="hi")
-            _fetch_project("https://github.com/smurching/test-repo", version=None, dst_dir=git_dir1, git_username=None, git_password=None)
-            file_utils.make_tarfile(git_tar1, git_dir1, archive_name="hi")
-            with open(git_tar0, 'rb') as first_tar, open(git_tar1, 'rb') as second_tar:
-                assert hashlib.sha256(first_tar.read()).hexdigest() \
+            # Tar a local project
+            tarfile0 = tmp.path("first-tarfile")
+            file_utils.make_tarfile(
+                output_filename=tarfile0, source_dir=TEST_PROJECT_DIR, archive_name="some-archive")
+            # Copy local project into a temp dir
+            dst_dir = tmp.path("project-directory")
+            shutil.copytree(TEST_PROJECT_DIR, dst_dir)
+            # Tar the copied project
+            tarfile1 = tmp.path("second-tarfile")
+            file_utils.make_tarfile(
+                output_filename=tarfile1, source_dir=dst_dir, archive_name="some-archive")
+            # Compare the archives & explicitly verify their SHA256 hashes match (i.e. that
+            # changes in file modification timestamps don't affect the archive contents)
+            assert filecmp.cmp(tarfile0, tarfile1, shallow=False)
+            with open(tarfile0, 'rb') as first_tar, open(tarfile1, 'rb') as second_tar:
+                assert hashlib.sha256(first_tar.read()).hexdigest()\
                        == hashlib.sha256(second_tar.read()).hexdigest()
+            # Extract the TAR and check that its contents match the original directory
+            extract_dir = tmp.path("extracted-tar")
+            os.makedirs(extract_dir)
+            with tarfile.open(tarfile0, 'r:gz') as handle:
+                handle.extractall(path=extract_dir)
+            dir_comparison = filecmp.dircmp(os.path.join(extract_dir, "some-archive"),
+                                            TEST_PROJECT_DIR)
+            assert len(dir_comparison.left_only) == 0
+            assert len(dir_comparison.right_only) == 0
+            assert len(dir_comparison.diff_files) == 0
+            assert len(dir_comparison.funny_files) == 0

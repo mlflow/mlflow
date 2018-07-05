@@ -94,16 +94,16 @@ def _upload_to_dbfs(project_dir, experiment_id, profile):
     try:
         file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME)
         commit = tracking._get_git_commit(project_dir)
-        if commit is not None and False:
-            tarfile_name = commit
+        if commit is not None:
+            tarfile_name = os.path.join("git-projects", commit)
         else:
             with open(temp_tar_filename, "rb") as tarred_project:
-                tarfile_name = hashlib.sha256(tarred_project.read()).hexdigest()
+                tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
+            tarfile_name = os.path.join("local-projects", tarfile_hash)
+        # TODO: Get subdirectory for experiment from the tracking server
         dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
                                 "%s.tar.gz" % tarfile_name)
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_uri)
-        raise Exception("Swagoo")
-
         exit_code, _, _ = process.exec_cmd(["databricks", "fs", "ls", dbfs_uri],
                                            throw_on_error=False)
         if exit_code != 0:  # Assume that CLI command failure -> the tarfile didn't exist
@@ -113,8 +113,7 @@ def _upload_to_dbfs(project_dir, experiment_id, profile):
             eprint("=== Upload command to DBFS failed. Assuming project already exists in DBFS ===")
         eprint("=== Finished uploading project to %s ===" % dbfs_uri)
     finally:
-        print("@SID: tarfile dir: %s" % temp_tarfile_dir)
-        # shutil.rmtree(temp_tarfile_dir)
+        shutil.rmtree(temp_tarfile_dir)
     return dbfs_uri
 
 
