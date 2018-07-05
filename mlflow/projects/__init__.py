@@ -4,10 +4,10 @@ from __future__ import print_function
 
 import hashlib
 import json
-import multiprocessing
 import os
 import re
 import shutil
+import sys
 import tempfile
 import time
 
@@ -358,15 +358,25 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_local_command(active_run, command, work_dir, env_map):
+def _launch_local_command(active_run, command, work_dir, env_map, stream_output):
     try:
         process.exec_cmd([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
-                         stream_output=True, env=env_map)
-        eprint("=== Run succeeded ===")
+                         stream_output=stream_output, env=env_map)
+        if stream_output:
+            eprint("=== Run succeeded ===")
         active_run.set_terminated("FINISHED")
     except process.ShellCommandException:
         active_run.set_terminated("FAILED")
-        eprint("=== Run failed ===")
+        if stream_output:
+            eprint("=== Run failed ===")
+
+
+def _fork_and_run(target, args):
+    """Runs the target function with the specified list of arguments in a forked subprocess"""
+    child_pid = os.fork()
+    if child_pid == 0:
+        target(*args)
+        sys.exit(0)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
@@ -409,11 +419,9 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     eprint("=== Running command: %s ===" % command)
 
     if block:
-        _launch_local_command(active_run, command, work_dir, env_map)
+        _launch_local_command(active_run, command, work_dir, env_map, stream_output=True)
     else:
-        # Launch monitoring process that launches a subprocess for the run & posts the run's status
-        # to the tracking server.
-        proc = multiprocessing.Process(
-            target=_launch_local_command, args=(active_run, command, work_dir, env_map))
-        proc.start()
+        # Launch monitoring process that itself launches a subprocess for the run & posts the
+        # run's status to the tracking server.
+        _fork_and_run(_launch_local_command, args=(active_run, command, work_dir, env_map, False))
     return SubmittedRun(active_run.run_info.run_uuid)

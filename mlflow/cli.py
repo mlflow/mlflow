@@ -70,8 +70,10 @@ def cli():
               help="Only valid when `mode` is local."
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
+@click.option("--async", is_flag=True,
+              help="If specified, runs the project asynchronously.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, new_dir, storage_dir):
+        git_password, no_conda, new_dir, storage_dir, async):
     """
     Run an MLflow project from the given URI.
 
@@ -96,7 +98,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             sys.exit(1)
         param_dict[name] = value
     try:
-        projects.run(
+        submitted_run = projects.run(
             uri,
             entry_point,
             version,
@@ -109,8 +111,11 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             use_conda=(not no_conda),
             use_temp_cwd=new_dir,
             storage_dir=storage_dir,
-            block=True,
+            block=not async,
         )
+        if async:
+            print("=== Launched run with ID %s ===" % submitted_run.run_id)
+
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)
