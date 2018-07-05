@@ -47,7 +47,7 @@ def test_run_mode():
             with mock.patch("mlflow.projects._run_local") as run_local_mock:
                 mlflow.projects.run(uri=TEST_PROJECT_DIR, mode=local_mode)
                 assert run_local_mock.call_count == 1
-        with mock.patch("mlflow.projects._run_databricks") as run_databricks_mock:
+        with mock.patch("mlflow.projects.databricks.run_databricks") as run_databricks_mock:
             mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="databricks")
             assert run_databricks_mock.call_count == 1
         with pytest.raises(ExecutionException):
