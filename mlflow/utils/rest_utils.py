@@ -19,11 +19,12 @@ def databricks_api_request(hostname, endpoint, method, token=None, auth=None, re
                         headers=headers, req_body_json=req_body_json, params=params)
 
 
-def http_request(hostname, endpoint, method, auth, headers, req_body_json, params):
+def http_request(hostname, endpoint, method, auth, headers, req_body_json, params, retries=1):
     url = "%s%s" % (hostname, endpoint)
-    response = requests.request(method=method, url=url, headers=headers, verify=False,
-                                params=params, json=req_body_json, auth=auth)
-    if response.status_code != 200:
-        raise Exception("Databricks API request to %s failed with code %s != 200. API "
-                        "response: %s" % (url, response.status_code, response.text))
+    for i in range(retries):
+        response = requests.request(method=method, url=url, headers=headers, verify=False,
+                                    params=params, json=req_body_json, auth=auth)
+        if response.status_code != 200:
+            raise Exception("API request to %s failed with code %s != 200. API "
+                            "response: %s" % (url, response.status_code, response.text))
     return json.loads(response.text)

@@ -200,7 +200,7 @@ def _wait_databricks(databricks_run_id, sleep_interval=30):
     result_state = None
     while result_state is None:
         result_state = _get_databricks_run_result_status(databricks_run_id)
-        eprint("=== Databricks run is still active, checking run status again after %s seconds "
+        eprint("=== Databricks run is active, checking run status again after %s seconds "
                "===" % sleep_interval)
         time.sleep(sleep_interval)
     if result_state != "SUCCESS":
@@ -360,6 +360,8 @@ def _maybe_create_conda_env(conda_env_path):
 
 def _launch_local_command(active_run, command, work_dir, env_map):
     try:
+        # Make command process die if current process dies
+        # Do something on OS level as a dependent process of the current process (maybe set pgroup?)
         process.exec_cmd([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
                          stream_output=True, env=env_map)
         eprint("=== Run succeeded ===")
@@ -367,6 +369,7 @@ def _launch_local_command(active_run, command, work_dir, env_map):
     except process.ShellCommandException:
         active_run.set_terminated("FAILED")
         eprint("=== Run failed ===")
+    # Add exit handler here to set run status --> do our best here
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
@@ -415,5 +418,8 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         # to the tracking server.
         proc = multiprocessing.Process(
             target=_launch_local_command, args=(active_run, command, work_dir, env_map))
+        # If just calling in Python, it's ok if we exit. In the CLI if it's set up with async, we
+        # can spawn an `mlflow run` command via Popen, 
+        proc.daemon = True  # Maybe don't use multiprocessing -->
         proc.start()
     return SubmittedRun(active_run.run_info.run_uuid)

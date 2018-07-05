@@ -117,6 +117,18 @@ def test_run_async():
         time.sleep(3)
         assert tracking.get_run(run_uuid1).info.status == RunStatus.FAILED
 
+def test_wait_databricks():
+    with TempDir() as tmp,\
+            mock.patch("mlflow.projects._get_databricks_run_result_status") as run_status_mock, \
+            mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
+        run_status_mock.return_value = "SUCCESS"
+        mlflow.projects._wait_databricks(databricks_run_id=-1, sleep_interval=5)
+        run_status_mock.return_value = "FAILURE"
+        with pytest.raises(ExecutionException):
+            mlflow.projects._wait_databricks(databricks_run_id=-1, sleep_interval=5)
+
 
 def test_get_work_dir():
     """ Test that we correctly determine the working directory to use when running a project. """
