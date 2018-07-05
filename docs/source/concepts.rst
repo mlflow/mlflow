@@ -48,8 +48,8 @@ MLflow Components
 
 MLflow provides three components to help manage the ML workflow:
 
-**MLflow Tracking** is an API and UI for logging parameters, code versions, metrics and output files
-when running your machine learning code to later visualize them. You can use MLflow Tracking in
+**MLflow Tracking** is an API and UI for logging parameters, code versions, metrics, and output files
+when running your machine learning code and for later visualizing the results. You can use MLflow Tracking in
 any environment (for example, a standalone script or a notebook) to log results to local files or to a
 server, then compare multiple runs. Teams can also use it to compare results from different users.
 
