@@ -165,12 +165,6 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters)
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
-    # Commands:
-    # rsync /dbfs/... -a -v /databricks/mlflow/code/tars/hash.tar.gz
-    # cd $(mktemp -d)
-    # tar -xvf /databricks/mlflow/code/tars/hash.tar.gz
-    # # mv since it's atomic, unlike tar -xvf
-    # mv -T ml-project /databricks/mlflow/code/projects/<hash>
     tar_hash = os.path.splitext(os.path.splitext(os.path.basename(dbfs_fuse_tar_uri))[0])[0]
     container_tar_path = os.path.abspath(os.path.join(DB_TARFILE_BASE,
                                                       os.path.basename(dbfs_fuse_tar_uri)))
@@ -185,6 +179,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters)
     mlflow_run_cmd = " ".join(mlflow_run_arr)
     shell_command = textwrap.dedent("""
     export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin &&
+    mlflow --version &&
     mkdir -p {0} && mkdir -p {1} &&
     # Rsync to avoid copying archive into local filesystem if it already exists
     rsync -a -v --ignore-existing {2} {0} &&
@@ -301,7 +296,6 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         "libraries": [{"pypi": {"package": mlflow_lib_string}}]
     }
     # Run on Databricks
-    eprint("@SID running command %s" % req_body_json["shell_command_task"]["command"])
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     auth = (username, password) if username is not None and password is not None else None
     run_submit_res = rest_utils.databricks_api_request(
