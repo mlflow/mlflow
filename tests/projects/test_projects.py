@@ -84,7 +84,7 @@ def test_run():
             run_uuid = mlflow.projects.run(
                 TEST_PROJECT_DIR, entry_point="test_tracking",
                 parameters={"use_start_run": use_start_run},
-                use_conda=False, experiment_id=0)
+                use_conda=False, experiment_id=0).run_id
             store = FileStore(tmp_dir)
             run_infos = store.list_run_infos(experiment_id=0)
             assert len(run_infos) == 1
@@ -107,13 +107,13 @@ def test_run_async():
         get_tracking_uri_mock.return_value = tmp_dir
         run_uuid0 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-            use_conda=False, experiment_id=0, block=False)
+            use_conda=False, experiment_id=0, block=False).run_id
         assert tracking.get_run(run_uuid0).info.status == RunStatus.RUNNING
         time.sleep(4)
         assert tracking.get_run(run_uuid0).info.status == RunStatus.FINISHED
         run_uuid1 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
-            use_conda=False, experiment_id=0, block=False)
+            use_conda=False, experiment_id=0, block=False).run_id
         time.sleep(3)
         assert tracking.get_run(run_uuid1).info.status == RunStatus.FAILED
 

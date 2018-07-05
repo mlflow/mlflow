@@ -21,6 +21,8 @@ from mlflow.version import VERSION
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
+from mlflow.tracking.runs import SubmittedRun
+
 
 from mlflow.utils import file_utils, process, rest_utils
 from mlflow.utils.logging_utils import eprint
@@ -66,7 +68,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
     :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
-    :return: UUID of the run
+    :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run.
     """
     if mode is None or mode == "local":
         return _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
@@ -164,8 +166,7 @@ def _create_databricks_run(experiment_id, source_name, source_version, entry_poi
     if tracking.is_local_uri(tracking_uri):
         # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
         eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from Databricks"
-               "will not be logged permanently. Performing Databricks Run "
-               "asynchronously." % tracking_uri)
+               "will not be logged permanently." % tracking_uri)
         return None
     else:
         # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g.
@@ -234,7 +235,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     if block:
         eprint("=== Waiting for Databricks Job Run to complete ===")
         _wait_databricks(db_run_id)
-    return None if remote_run is None else remote_run.run_info.run_uuid
+    return SubmittedRun(None) if remote_run is None else SubmittedRun(remote_run.run_info.run_uuid)
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -410,6 +411,9 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     if block:
         _launch_local_command(active_run, command, work_dir, env_map)
     else:
-        multiprocessing.Process(
-            target=_launch_local_command, args=(active_run, command, work_dir, env_map)).start()
-    return active_run.run_info.run_uuid
+        # Launch monitoring process that launches a subprocess for the run & posts the run's status
+        # to the tracking server.
+        process = multiprocessing.Process(
+            target=_launch_local_command, args=(active_run, command, work_dir, env_map))
+        process.start()
+    return SubmittedRun(active_run.run_info.run_uuid)
