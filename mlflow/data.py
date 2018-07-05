@@ -33,15 +33,6 @@ def is_uri(string):
     return len(parsed_uri.scheme) > 0
 
 
-def _upload_artifact(src, dst_uri):
-    if DBFS_REGEX.match(dst_uri):
-        process.exec_cmd(cmd=["databricks", "fs", "cp", "-r", src, dst_uri])
-    elif S3_REGEX.match(dst_uri):
-        process.exec_cmd(cmd=["aws", "s3", "cp", "-r", src, dst_uri])
-    else:
-        pass
-
-
 def download_uri(uri, output_path):
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)
