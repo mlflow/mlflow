@@ -18,7 +18,7 @@ scientists. On this page, we describe a typical ML workflow and where MLflow fit
 The Machine Learning Workflow
 -----------------------------
 
-Machine learning requires experimenting with a wide range of datasets, data preparation steps and
+Machine learning requires experimenting with a wide range of datasets, data preparation steps, and
 algorithms to build a model that maximizes some target metric. Once you have built a model, you also
 need to deploy it to a production system, monitor its performance, and continuously retrain it on
 new data and compare with alternative models.
