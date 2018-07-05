@@ -62,7 +62,7 @@ def get_tracking_uri():
         return os.path.abspath("./mlruns")
 
 
-def _is_local_uri(uri):
+def is_local_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == '' or scheme == 'file'
 
@@ -87,7 +87,7 @@ def _get_store():
     if store_uri is None:
         return FileStore()
     # Pattern-match on the URI
-    if _is_local_uri(store_uri):
+    if is_local_uri(store_uri):
         return _get_file_store(store_uri)
     if _is_http_uri(store_uri):
         return _get_rest_store(store_uri)

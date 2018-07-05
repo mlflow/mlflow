@@ -73,7 +73,9 @@ def cli():
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
         git_password, no_conda, new_dir, storage_dir):
     """
-    Run an MLflow project from the given URI, blocking till the run completes.
+    Run an MLflow project from the given URI.
+
+    Blocks till the run completes.
 
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.

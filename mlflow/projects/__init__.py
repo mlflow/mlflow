@@ -116,6 +116,17 @@ def _get_databricks_hostname_and_auth():
 
 
 def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
+    """
+    Runs the specified shell command on a Databricks cluster.
+    :param project_uri: URI of the project from which our shell command originates
+    :param command: Shell command to run
+    :param env_vars: Environment variables to set in the process running `command`
+    :param cluster_spec: Dictionary describing the cluster, expected to contain the fields for a
+                         NewCluster (see
+                         https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster)
+    :return: The ID of the Databricks Job Run. Can be used to query the run's status via the
+             Databricks Runs Get API (https://docs.databricks.com/api/latest/jobs.html#runs-get).
+    """
     hostname, token, username, password, = _get_databricks_hostname_and_auth()
     auth = (username, password) if username is not None and password is not None else None
     # Make jobs API request to launch run.
@@ -131,29 +142,34 @@ def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
     run_submit_res = rest_utils.databricks_api_request(
         hostname=hostname, endpoint="jobs/runs/submit", token=token, auth=auth, method="POST",
         req_body_json=req_body_json)
-    job_run_id = run_submit_res["run_id"]
+    databricks_run_id = run_submit_res["run_id"]
     eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-           "page URL... ===" % job_run_id)
+           "page URL... ===" % databricks_run_id)
     run_info = rest_utils.databricks_api_request(
         hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
-        params={"run_id": job_run_id})
+        params={"run_id": databricks_run_id})
     jobs_page_url = run_info["run_page_url"]
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
-    return job_run_id
+    return databricks_run_id
 
 
 def _create_databricks_run(experiment_id, source_name, source_version, entry_point_name):
+    """
+    Makes an API request to the current tracking server to create a new run with the specified
+    attributes. Returns an `ActiveRun` that can be used to query the tracking server for the run's
+    status or log metrics/params for the run.
+    """
     # Figure out tracking URI
     tracking_uri = tracking.get_tracking_uri()
-    if tracking._is_local_uri(tracking_uri):
+    if tracking.is_local_uri(tracking_uri):
         # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
         eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from Databricks"
                "will not be logged permanently. Performing Databricks Run "
                "asynchronously." % tracking_uri)
         return None
     else:
-        # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g. localhost)
-        # TODO: need to resolve the version to a git commit here (will do that soon)
+        # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g.
+        # localhost)
         return tracking._create_run(experiment_id=experiment_id,
                                     source_name=source_name,
                                     source_version=source_version,
@@ -161,18 +177,29 @@ def _create_databricks_run(experiment_id, source_name, source_version, entry_poi
                                     source_type=SourceType.PROJECT)
 
 
-def _wait_databricks(databricks_run_id, sleep_interval=30):
-    """ Temporary API for polling Databricks Job run for termination. """
+def _get_databricks_run_result_status(databricks_run_id):
+    """
+    Returns the run result status (string) of the Databricks run with the passed-in ID, or None
+    if the run is still active. See possible values at
+    https://docs.databricks.com/api/latest/jobs.html#runresultstate.
+    """
     hostname, token, username, password, = _get_databricks_hostname_and_auth()
     auth = (username, password) if username is not None and password is not None else None
+    res = rest_utils.databricks_api_request(
+        hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
+        params={"run_id": databricks_run_id})
+    return res["state"].get("result_state", None)
+
+
+def _wait_databricks(databricks_run_id, sleep_interval=30):
+    """
+    Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
+    run's status every `sleep_interval` seconds.
+    """
     result_state = None
     while result_state is None:
-        res = rest_utils.databricks_api_request(
-            hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
-            params={"run_id": databricks_run_id})
-        state = res["state"]
-        result_state = state.get("result_state", None)
-        eprint("=== Databricks run is still active, checking again after %s seconds "
+        result_state = _get_databricks_run_result_status(databricks_run_id)
+        eprint("=== Databricks run is still active, checking run status again after %s seconds "
                "===" % sleep_interval)
         time.sleep(sleep_interval)
     if result_state != "SUCCESS":
