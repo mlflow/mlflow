@@ -413,7 +413,7 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     else:
         # Launch monitoring process that launches a subprocess for the run & posts the run's status
         # to the tracking server.
-        process = multiprocessing.Process(
+        proc = multiprocessing.Process(
             target=_launch_local_command, args=(active_run, command, work_dir, env_map))
-        process.start()
+        proc.start()
     return SubmittedRun(active_run.run_info.run_uuid)
