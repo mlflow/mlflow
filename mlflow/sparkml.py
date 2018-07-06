@@ -83,11 +83,11 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(path)
+    m = Model.load(os.path.join(path, 'MLmodel'))
     if FLAVOR_NAME not in m.flavors:
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
     conf = m.flavors[FLAVOR_NAME]
-    return PipelineModel.load(conf['model_data'])
+    return PipelineModel.load(os.path.join(path, conf['model_data']))
 
 
 def load_pyfunc(path):

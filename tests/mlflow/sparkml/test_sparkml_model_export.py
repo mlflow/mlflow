@@ -9,9 +9,10 @@ from pyspark.ml.pipeline import Pipeline
 from pyspark.version import __version__ as pyspark_version
 
 from mlflow import sparkml, pyfunc
-from mlflow.utils.environment import  _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+
 
 def test_model_export(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
@@ -44,11 +45,15 @@ def test_model_export(tmpdir):
     print(preds_df.show())
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     sparkml.save_model(model, path=str(model_path), conda_env=conda_env)
+    reloaded_model = sparkml.load_model(model_path)
+    preds_df_1 = reloaded_model.transform(spark_df)
+    print(preds_df.show())
+    preds1_1 = [x.prediction for x in preds_df_1.select("prediction").collect()]
+    assert preds1 == preds1_1
     m = pyfunc.load_pyfunc(str(model_path))
     preds2 = m.predict(pandas_df)
     assert preds1 == preds2
     preds3 = score_model_in_sagemaker_docker_container(model_path=str(model_path), data=pandas_df)
-    print(pd.DataFrame({"preds1": preds1, "preds2": preds2, "preds3" : preds3},
+    print(pd.DataFrame({"preds1": preds1, "preds2": preds2, "preds3": preds3},
                        columns=("preds1", "preds2", "preds3")))
     assert preds1 == preds3
-
