@@ -21,8 +21,11 @@ PREBUILT_IMAGE_URLS = {
 
 def _get_prebuilt_image_url(region):
     if region not in PREBUILT_IMAGE_URLS:
-        return None
-    return (PREBUILT_IMAGE_URLS[region] + ":{version}").format(version=mlflow.version.NEXT_VERSION)
+        raise ValueError(
+            "Prebuilt images are not available in region {region}. ".format(region=region) +
+            "Please specify a valid region or an image_url in the desired region. " +
+            "Valid regions are: {regions}".format(regions=", ".join(PREBUILT_IMAGE_URLS.keys())))
+    return (PREBUILT_IMAGE_URLS[region] + ":{version}").format(version=mlflow.version.VERSION)
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -149,7 +152,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 
 def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
-           image=None, region_name="us-west-2"):
+           image_url=None, region_name="us-west-2"):
     """
     Deploy model on SageMaker.
     Current active AWS account needs to have correct permissions setup.
@@ -166,12 +169,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                   publicly-available pre-built image.
     :param region_name: Name of the AWS region to deploy to. defaults to 
     """
-    image_url = _get_prebuilt_image_url(region)
-    if image or image_url is None:
-        ecr_client = boto3.client("ecr")
-        repository_conf = ecr_client.describe_repositories(
-            repositoryNames=[image])['repositories'][0]
-        image_url = repository_conf["repositoryUri"]
+    if not image_url:
+        image_url = _get_prebuilt_image_url(region_name)
 
     if not execution_role_arn:
         execution_role_arn = _get_assumed_role_arn()
