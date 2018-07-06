@@ -1,3 +1,5 @@
+.. image:: https://user-images.githubusercontent.com/40896578/42389143-c4193e72-8115-11e8-82eb-08f853fd3d93.png
+
 ====================
 MLflow Alpha Release
 ====================
