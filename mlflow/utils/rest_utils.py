@@ -3,6 +3,8 @@ import json
 
 import requests
 
+from mlflow.utils.logging_utils import eprint
+
 
 def databricks_api_request(hostname, endpoint, method, token=None, auth=None, req_body_json=None,
                            params=None):
@@ -19,12 +21,15 @@ def databricks_api_request(hostname, endpoint, method, token=None, auth=None, re
                         headers=headers, req_body_json=req_body_json, params=params)
 
 
-def http_request(hostname, endpoint, method, auth, headers, req_body_json, params, retries=1):
+def http_request(hostname, endpoint, method, auth, headers, req_body_json, params, retries=3):
     url = "%s%s" % (hostname, endpoint)
     for i in range(retries):
         response = requests.request(method=method, url=url, headers=headers, verify=False,
                                     params=params, json=req_body_json, auth=auth)
-        if response.status_code != 200:
-            raise Exception("API request to %s failed with code %s != 200. API "
-                            "response: %s" % (url, response.status_code, response.text))
-    return json.loads(response.text)
+        if response.status_code == 200:
+            return json.loads(response.text)
+        else:
+            eprint("API request to %s failed with code %s != 200, retrying up to %s more times. "
+                   "API response body: %s" % (url, response.status_code, retries - i - 1,
+                                              response.text))
+    raise Exception("API request to %s failed to return code 200 after %s tries" % (url, retries))

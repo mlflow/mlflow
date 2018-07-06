@@ -4,11 +4,12 @@ from __future__ import print_function
 
 import hashlib
 import json
-import multiprocessing
 import os
 import re
 import shutil
+import subprocess
 import tempfile
+import threading
 import time
 
 from distutils import dir_util
@@ -21,7 +22,7 @@ from mlflow.version import VERSION
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
-from mlflow.tracking.runs import SubmittedRun
+from mlflow.tracking.runs import LocalSubmittedRun, DatabricksSubmittedRun
 
 
 from mlflow.utils import file_utils, process, rest_utils
@@ -155,14 +156,13 @@ def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
     return databricks_run_id
 
 
-def _create_databricks_run(experiment_id, source_name, source_version, entry_point_name):
+def _create_databricks_run(tracking_uri, experiment_id, source_name, source_version,
+                           entry_point_name):
     """
-    Makes an API request to the current tracking server to create a new run with the specified
+    Makes an API request to the specified tracking server to create a new run with the specified
     attributes. Returns an `ActiveRun` that can be used to query the tracking server for the run's
     status or log metrics/params for the run.
     """
-    # Figure out tracking URI
-    tracking_uri = tracking.get_tracking_uri()
     if tracking.is_local_uri(tracking_uri):
         # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
         eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from Databricks"
@@ -212,8 +212,10 @@ def _wait_databricks(databricks_run_id, sleep_interval=30):
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                     git_username, git_password, block):
     # Create run object with remote tracking server
-    remote_run = _create_databricks_run(experiment_id, source_name=uri, source_version=version,
-                                        entry_point_name=entry_point)
+    tracking_uri = tracking.get_tracking_uri()
+    remote_run = _create_databricks_run(
+        tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=uri,
+        source_version=version, entry_point_name=entry_point)
     # Set up environment variables for remote execution
     env_vars = {"MLFLOW_GIT_URI": uri}
     if git_username is not None:
@@ -235,7 +237,10 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     if block:
         eprint("=== Waiting for Databricks Job Run to complete ===")
         _wait_databricks(db_run_id)
-    return SubmittedRun(None) if remote_run is None else SubmittedRun(remote_run.run_info.run_uuid)
+
+    if remote_run is None:
+        return DatabricksSubmittedRun(remote_run.run_info.run_uuid)
+    return DatabricksSubmittedRun(remote_run.run_info.run_uuid)
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -358,18 +363,48 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_local_command(active_run, command, work_dir, env_map):
-    try:
-        # Make command process die if current process dies
-        # Do something on OS level as a dependent process of the current process (maybe set pgroup?)
-        process.exec_cmd([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
-                         stream_output=True, env=env_map)
+def _launch_local_command(active_run, command, work_dir, env_map, parent_pid=None):
+    """
+    Runs an entry point by launching its command in a subprocess, updating the tracking server with
+    the run's exit status.
+
+    :param active_run: `ActiveRun` to which to post status updates for the launched run
+    :param command: Entry point command to execute
+    :param work_dir: Working directory to use when executing `command`
+    :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
+    :param parent_pid: Optional ID of a parent process. If specified, a watchdog thread is launched
+                       that periodically checks if the parent process has changed (i.e. to determine
+                       if the parent process has exited), killing the subprocess for `command` if
+                       the parent process changed.
+    """
+    proc = subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
+                            env=env_map)
+    proc_pid = proc.pid
+    watchdog_should_continue = True
+    if parent_pid is not None:
+        # Launch a helper thread that checks to see if the parent PID changes; if it does, assume
+        # the parent of the current process has been killed & kill the subprocess for the command
+        def _watch_command_subprocess(poll_secs=1):
+            while watchdog_should_continue:
+                ppid = os.getppid()
+                if ppid != parent_pid:
+                    # subprocess.Popen is not documented to be thread-safe, so we operate
+                    # directly on the command process's PID.
+                    os.kill(proc_pid, 9)
+                    return
+                time.sleep(poll_secs)
+        # We use a thread (instead of a subprocess) so that it dies along with the current process.
+        watchdog = threading.Thread(target=_watch_command_subprocess)
+        watchdog.start()
+    exit_code = proc.wait()
+    watchdog_should_continue = False
+    if exit_code == 0:
         eprint("=== Run succeeded ===")
         active_run.set_terminated("FINISHED")
-    except process.ShellCommandException:
+    else:
         active_run.set_terminated("FAILED")
         eprint("=== Run failed ===")
-    # Add exit handler here to set run status --> do our best here
+        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
@@ -416,10 +451,8 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     else:
         # Launch monitoring process that launches a subprocess for the run & posts the run's status
         # to the tracking server.
-        proc = multiprocessing.Process(
-            target=_launch_local_command, args=(active_run, command, work_dir, env_map))
-        # If just calling in Python, it's ok if we exit. In the CLI if it's set up with async, we
-        # can spawn an `mlflow run` command via Popen, 
-        proc.daemon = True  # Maybe don't use multiprocessing -->
-        proc.start()
+        process.exec_fn(
+            target=_launch_local_command,
+            args=(active_run, command, work_dir, env_map, os.getpid()),
+            stream_output=False)
     return SubmittedRun(active_run.run_info.run_uuid)

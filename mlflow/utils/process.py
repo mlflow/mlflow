@@ -1,4 +1,6 @@
+import multiprocessing
 import os
+import sys
 import subprocess
 
 
@@ -47,3 +49,23 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
             raise ShellCommandException("Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:%s" %
                                         (exit_code, stdout, stderr))
         return exit_code, stdout, stderr
+
+
+def exec_fn(target, args, stream_output, **kwargs):
+    """
+    Runs a Python function as a child process.
+    :param target:
+    :param args:
+    :param stream_output:
+    :param kwargs:
+    :return:
+    """
+    def wrapper():
+        if not stream_output:
+            with open(os.devnull, 'w') as stdout_handle, open(os.devnull, 'w') as stderr_handle:
+                sys.stdout = stdout_handle
+                sys.stderr = stderr_handle
+        target(*args)
+    p = multiprocessing.Process(target=wrapper, **kwargs)
+    p.start()
+    return p

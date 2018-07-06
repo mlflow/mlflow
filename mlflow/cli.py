@@ -70,8 +70,12 @@ def cli():
               help="Only valid when `mode` is local."
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
+@click.option("--async", is_flag=True,
+              help="Only valid when `mode` is 'databricks'. If specified, launches the run"
+                   "asynchronously, printing a run ID to stdout. Note that asynchronous local runs "
+                   "can still be launched via the mlflow.projects.run API.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, new_dir, storage_dir):
+        git_password, no_conda, new_dir, storage_dir, async):
     """
     Run an MLflow project from the given URI.
 
@@ -95,6 +99,10 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
         param_dict[name] = value
+    if async and mode != 'databricks':
+        print("Can only run projects asynchronously when mode is 'databricks' (got "
+              "mode '%s')" % mode)
+        sys.exit(1)
     try:
         projects.run(
             uri,
@@ -109,7 +117,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             use_conda=(not no_conda),
             use_temp_cwd=new_dir,
             storage_dir=storage_dir,
-            block=True,
+            block=not async,
         )
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
