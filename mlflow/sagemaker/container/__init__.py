@@ -66,6 +66,9 @@ def _serve():
         print("activating custom environment")
         env = conf[pyfunc.ENV]
         env_path_dst = os.path.join("/opt/mlflow/", env)
+        env_path_dst_dir = os.path.dirname(env_path_dst)
+        if not os.path.exists(env_path_dst_dir):
+            os.makedirs(env_path_dst_dir)
         # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
         shutil.copy(src=os.path.join("/opt/ml/model/", env), dst=env_path_dst)
         os.system("conda env create -n custom_env -f {}".format(env_path_dst))
