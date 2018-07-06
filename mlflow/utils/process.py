@@ -54,17 +54,18 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
 def exec_fn(target, args, stream_output, **kwargs):
     """
     Runs a Python function as a child process.
-    :param target:
-    :param args:
-    :param stream_output:
-    :param kwargs:
-    :return:
+    :param target: Function to run
+    :param args: Iterable of arguments to pass to the function
+    :param stream_output: Whether to stream the function's output to the current process's
+                         stdout/stderr
+    :param kwargs: Additional arguments to pass to the `multiprocessing.Process` launched to run the
+                   function.
+    :return: The `multiprocessing.Process` used to run the function
     """
     def wrapper():
         if not stream_output:
-            with open(os.devnull, 'w') as stdout_handle, open(os.devnull, 'w') as stderr_handle:
-                sys.stdout = stdout_handle
-                sys.stderr = stderr_handle
+            sys.stdout = open(os.devnull, 'w')
+            sys.stderr = open(os.devnull, 'w')
         target(*args)
     p = multiprocessing.Process(target=wrapper, **kwargs)
     p.start()

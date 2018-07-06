@@ -116,7 +116,7 @@ class ActiveRun(object):
         else:
             self.artifact_repo = _get_legacy_artifact_repo(store, run_info)
 
-    def update_status(self, status):
+    def set_terminated(self, status):
         self.run_info = self.store.update_run_info(
             self.run_info.run_uuid, run_status=RunStatus.from_string(status),
             end_time=_get_unix_timestamp())
@@ -144,7 +144,7 @@ class ActiveRun(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         status = "FINISHED" if exc_type is None else "FAILED"
-        self.update_status(status)
+        self.set_terminated(status)
         global _active_run
         _active_run = None
         return exc_type is None
@@ -265,7 +265,6 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                                      entry_point_name=entry_point_name,
                                      source_type=source_type or _get_source_type())
     _active_run = active_run_obj
-    _active_run.update_status("RUNNING")
     return _active_run
 
 
@@ -278,7 +277,7 @@ def _get_or_start_run():
 def end_run(status="FINISHED"):
     global _active_run
     if _active_run:
-        _active_run.update_status(status)
+        _active_run.set_terminated(status)
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         _active_run = None

@@ -18,4 +18,4 @@ def main(use_start_run):
 
 
 if __name__ == "__main__":
-    main(use_start_run=bool(sys.argv[1]))
+    main(use_start_run=int(sys.argv[1]))

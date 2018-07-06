@@ -7,22 +7,22 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
-import threading
 import time
+import threading
 
 from distutils import dir_util
 
 from six.moves import shlex_quote
-from databricks_cli.configure import provider
 
 from mlflow.projects._project_spec import Project
 from mlflow.version import VERSION
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
-from mlflow.tracking.runs import LocalSubmittedRun, DatabricksSubmittedRun
+from mlflow.projects.submitted_run import LocalSubmittedRun, DatabricksSubmittedRun
 
 
 from mlflow.utils import file_utils, process, rest_utils
@@ -101,23 +101,6 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
             % mlflow_run_str]
 
 
-def _get_databricks_hostname_and_auth():
-    """
-    Reads the hostname & auth token to use for running on Databricks from the config file created
-    by the Databricks CLI.
-    """
-    home_dir = os.path.expanduser("~")
-    cfg_file = os.path.join(home_dir, ".databrickscfg")
-    if not os.path.exists(cfg_file):
-        raise ExecutionException("Could not find profile for Databricks CLI in %s. Make sure the "
-                                 "the Databricks CLI is installed and that credentials have been "
-                                 "configured as described in "
-                                 "https://github.com/databricks/databricks-cli" % cfg_file)
-    else:
-        config = provider.get_config_for_profile(provider.DEFAULT_SECTION)
-        return config.host, config.token, config.username, config.password
-
-
 def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
     """
     Runs the specified shell command on a Databricks cluster.
@@ -130,7 +113,8 @@ def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
     :return: The ID of the Databricks Job Run. Can be used to query the run's status via the
              Databricks Runs Get API (https://docs.databricks.com/api/latest/jobs.html#runs-get).
     """
-    hostname, token, username, password, = _get_databricks_hostname_and_auth()
+    from mlflow.projects import databricks
+    hostname, token, username, password, = databricks.get_databricks_hostname_and_auth()
     auth = (username, password) if username is not None and password is not None else None
     # Make jobs API request to launch run.
     req_body_json = {
@@ -178,39 +162,12 @@ def _create_databricks_run(tracking_uri, experiment_id, source_name, source_vers
                                     source_type=SourceType.PROJECT)
 
 
-def _get_databricks_run_result_status(databricks_run_id):
-    """
-    Returns the run result status (string) of the Databricks run with the passed-in ID, or None
-    if the run is still active. See possible values at
-    https://docs.databricks.com/api/latest/jobs.html#runresultstate.
-    """
-    hostname, token, username, password, = _get_databricks_hostname_and_auth()
-    auth = (username, password) if username is not None and password is not None else None
-    res = rest_utils.databricks_api_request(
-        hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
-        params={"run_id": databricks_run_id})
-    return res["state"].get("result_state", None)
-
-
-def _wait_databricks(databricks_run_id, sleep_interval=30):
-    """
-    Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
-    run's status every `sleep_interval` seconds.
-    """
-    result_state = None
-    while result_state is None:
-        result_state = _get_databricks_run_result_status(databricks_run_id)
-        eprint("=== Databricks run is active, checking run status again after %s seconds "
-               "===" % sleep_interval)
-        time.sleep(sleep_interval)
-    if result_state != "SUCCESS":
-        raise ExecutionException("=== Databricks run finished with status %s != 'SUCCESS' "
-                                 "===" % result_state)
-    eprint("=== Run succeeded ===")
-
-
 def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                     git_username, git_password, block):
+    """
+    Runs a project on Databricks, returning a `SubmittedRun` that can be used to query the run's
+    status or wait for the resulting Databricks Job run to terminate.
+    """
     # Create run object with remote tracking server
     tracking_uri = tracking.get_tracking_uri()
     remote_run = _create_databricks_run(
@@ -234,13 +191,52 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _do_databricks_run(uri, command, env_vars, cluster_spec)
+    submitted_run = DatabricksSubmittedRun(active_run=remote_run, databricks_run_id=db_run_id)
     if block:
-        eprint("=== Waiting for Databricks Job Run to complete ===")
-        _wait_databricks(db_run_id)
+        submitted_run.wait()
+    return submitted_run
 
-    if remote_run is None:
-        return DatabricksSubmittedRun(remote_run.run_info.run_uuid)
-    return DatabricksSubmittedRun(remote_run.run_info.run_uuid)
+
+def _run_and_monitor_local(active_run, command, work_dir, env_map, parent_pid):
+    """
+    Runs and monitors a subprocess that runs the specified entry-point command, updating the
+    tracking server with the run's exit status.
+
+    :param active_run: `ActiveRun` to which to post status updates for the launched run
+    :param run_pid: PID of the process running the entry point command
+    :param parent_pid: Optional ID of a parent process. If specified, a watchdog thread is launched
+                       that periodically checks if the parent process has changed (i.e. to determine
+                       if the parent process has exited), killing the subprocess for `command` if
+                       the parent process changed.
+    """
+    cmd_env = os.environ.copy()
+    cmd_env.update(env_map)
+    proc = subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
+                            env=cmd_env)
+    run_pid = proc.pid
+    watchdog_should_continue = True
+    # Launch a helper thread that checks to see if the parent PID changes; if it does, assume
+    # the parent of the current process has been killed & kill the subprocess for the command
+
+    def _watch_command_loop(poll_secs=1):
+        while watchdog_should_continue:
+            ppid = os.getppid()
+            if ppid != parent_pid:
+                os.kill(run_pid, signal.SIGTERM)
+                return
+            time.sleep(poll_secs)
+    # We use a thread (instead of a subprocess) so that it dies along with the current process.
+    watchdog = threading.Thread(target=_watch_command_loop)
+    watchdog.start()
+    exit_code = proc.wait()
+    watchdog_should_continue = False
+    if exit_code == 0:
+        eprint("=== Run succeeded ===")
+        active_run.set_terminated("FINISHED")
+    else:
+        active_run.set_terminated("FAILED")
+        eprint("=== Run failed ===")
+        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -363,7 +359,7 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_local_command(active_run, command, work_dir, env_map, parent_pid=None):
+def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
     the run's exit status.
@@ -372,39 +368,11 @@ def _launch_local_command(active_run, command, work_dir, env_map, parent_pid=Non
     :param command: Entry point command to execute
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
-    :param parent_pid: Optional ID of a parent process. If specified, a watchdog thread is launched
-                       that periodically checks if the parent process has changed (i.e. to determine
-                       if the parent process has exited), killing the subprocess for `command` if
-                       the parent process changed.
     """
-    proc = subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
-                            env=env_map)
-    proc_pid = proc.pid
-    watchdog_should_continue = True
-    if parent_pid is not None:
-        # Launch a helper thread that checks to see if the parent PID changes; if it does, assume
-        # the parent of the current process has been killed & kill the subprocess for the command
-        def _watch_command_subprocess(poll_secs=1):
-            while watchdog_should_continue:
-                ppid = os.getppid()
-                if ppid != parent_pid:
-                    # subprocess.Popen is not documented to be thread-safe, so we operate
-                    # directly on the command process's PID.
-                    os.kill(proc_pid, 9)
-                    return
-                time.sleep(poll_secs)
-        # We use a thread (instead of a subprocess) so that it dies along with the current process.
-        watchdog = threading.Thread(target=_watch_command_subprocess)
-        watchdog.start()
-    exit_code = proc.wait()
-    watchdog_should_continue = False
-    if exit_code == 0:
-        eprint("=== Run succeeded ===")
-        active_run.set_terminated("FINISHED")
-    else:
-        active_run.set_terminated("FAILED")
-        eprint("=== Run failed ===")
-        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
+    monitoring_process = process.exec_fn(
+        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map, os.getpid()),
+        stream_output=stream_output)
+    return LocalSubmittedRun(active_run, monitoring_process)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
@@ -444,15 +412,9 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
 
     commands.append(run_project_command)
     command = " && ".join(commands)
-    eprint("=== Running command: %s ===" % command)
+    eprint("=== Running command: %s === (current PID %s)" % (command, os.getpid()))
 
+    submitted_run = _launch_local_run(active_run, command, work_dir, env_map, stream_output=block)
     if block:
-        _launch_local_command(active_run, command, work_dir, env_map)
-    else:
-        # Launch monitoring process that launches a subprocess for the run & posts the run's status
-        # to the tracking server.
-        process.exec_fn(
-            target=_launch_local_command,
-            args=(active_run, command, work_dir, env_map, os.getpid()),
-            stream_output=False)
-    return SubmittedRun(active_run.run_info.run_uuid)
+        submitted_run.wait()
+    return submitted_run

@@ -61,10 +61,6 @@ def test_use_conda():
     """ Verify that we correctly handle the `use_conda` argument."""
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = tmp.path()
-        for use_conda, expected_call_count in [(True, 1), (False, 0), (None, 0)]:
-            with mock.patch("mlflow.projects._maybe_create_conda_env") as conda_env_mock:
-                mlflow.projects.run(TEST_PROJECT_DIR, use_conda=use_conda)
-                assert conda_env_mock.call_count == expected_call_count
         # Verify we throw an exception when conda is unavailable
         old_path = os.environ["PATH"]
         env.unset_variable("PATH")
@@ -76,15 +72,19 @@ def test_use_conda():
 
 
 def test_run():
-    for use_start_run in map(str, [True, False]):
+    for use_start_run in map(str, [0, 1]):
         with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
                 as get_tracking_uri_mock:
             tmp_dir = tmp.path()
             get_tracking_uri_mock.return_value = tmp_dir
-            run_uuid = mlflow.projects.run(
+            submitted_run = mlflow.projects.run(
                 TEST_PROJECT_DIR, entry_point="test_tracking",
                 parameters={"use_start_run": use_start_run},
-                use_conda=False, experiment_id=0).run_id
+                use_conda=False, experiment_id=0)
+            # Blocking runs should be finished when they return
+            assert submitted_run.get_status() == RunStatus.FINISHED
+            # Validate run contents in the FileStore
+            run_uuid = submitted_run.run_id
             store = FileStore(tmp_dir)
             run_infos = store.list_run_infos(experiment_id=0)
             assert len(run_infos) == 1
@@ -105,29 +105,17 @@ def test_run_async():
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         tmp_dir = tmp.path()
         get_tracking_uri_mock.return_value = tmp_dir
-        run_uuid0 = mlflow.projects.run(
+        submitted_run0 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-            use_conda=False, experiment_id=0, block=False).run_id
-        assert tracking.get_run(run_uuid0).info.status == RunStatus.RUNNING
-        time.sleep(4)
-        assert tracking.get_run(run_uuid0).info.status == RunStatus.FINISHED
-        run_uuid1 = mlflow.projects.run(
+            use_conda=False, experiment_id=0, block=False)
+        assert submitted_run0.get_status() == RunStatus.RUNNING
+        submitted_run0.wait()
+        assert submitted_run0.get_status() == RunStatus.FINISHED
+        submitted_run1 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
-            use_conda=False, experiment_id=0, block=False).run_id
-        time.sleep(3)
-        assert tracking.get_run(run_uuid1).info.status == RunStatus.FAILED
-
-def test_wait_databricks():
-    with TempDir() as tmp,\
-            mock.patch("mlflow.projects._get_databricks_run_result_status") as run_status_mock, \
-            mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
-        tmp_dir = tmp.path()
-        get_tracking_uri_mock.return_value = tmp_dir
-        run_status_mock.return_value = "SUCCESS"
-        mlflow.projects._wait_databricks(databricks_run_id=-1, sleep_interval=5)
-        run_status_mock.return_value = "FAILURE"
-        with pytest.raises(ExecutionException):
-            mlflow.projects._wait_databricks(databricks_run_id=-1, sleep_interval=5)
+            use_conda=False, experiment_id=0, block=False)
+        submitted_run1.wait()
+        assert submitted_run1.get_status() == RunStatus.FAILED
 
 
 def test_get_work_dir():

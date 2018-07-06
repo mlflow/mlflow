@@ -157,7 +157,7 @@ class FileStore(AbstractStore):
                            artifact_uri=artifact_uri, source_type=source_type,
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
-                           status=RunStatus.SCHEDULED, start_time=start_time, end_time=None,
+                           status=RunStatus.RUNNING, start_time=start_time, end_time=None,
                            source_version=source_version, tags=tags)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
