@@ -13,7 +13,7 @@ from mlflow.tracking import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
 
-DEFAULT_IMAGE_NAME = "mlflow_sage"
+DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve pyfunc model in SageMaker
@@ -102,7 +102,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
             eprint(x, end='')
 
 
-_full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:latest"
+_full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:{version}"
 
 
 def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
@@ -119,7 +119,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     account = caller_id['Account']
     my_session = boto3.session.Session()
     region = my_session.region_name or "us-west-2"
-    fullname = _full_template.format(account=account, region=region, image=image)
+    fullname = _full_template.format(account=account, region=region, image=image, version=mlflow.version.VERSION)
+    eprint("Pushing docker image {image} to {repo}".format(image=image, repo=fullname))
     ecr_client = boto3.client('ecr')
     if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
         ecr_client.create_repository(repositoryName=image)
