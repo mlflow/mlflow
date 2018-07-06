@@ -32,7 +32,6 @@ setup(
         'requests>=2.17.3',
         'six>=1.10.0',
         'uuid',
-        'gitpython',
         'gunicorn',
         'Flask',
         'numpy',

@@ -16,7 +16,7 @@ This is a patch release fixing some smaller issues after the 0.2.0 release.
 - Added ``mlflow server`` to provide a remote tracking server. This is akin to ``mlflow ui`` with new options:
 
   - ``--host`` to allow binding to any ports (#27, @mdagost)
-  - ``--artifact-repo`` to allow storing artifacts at a remote location, S3 only right now (#78, @mateiz)
+  - ``--artifact-root`` to allow storing artifacts at a remote location, S3 only right now (#78, @mateiz)
   - Server now runs behind gunicorn to allow concurrent requests to be made (#61, @mateiz)
 
 - Tensorflow integration, we now support logging Tensorflow Models directly in the log_artifacts API, Model format, and serving APIs (#28, @juntai-zheng)
