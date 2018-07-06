@@ -19,7 +19,7 @@ You install MLflow by running:
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
 
 At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
-can leverage MLflow in your daily workflow.
+can use MLflow in your daily workflow.
 
 Using the Tracking API
 ----------------------
