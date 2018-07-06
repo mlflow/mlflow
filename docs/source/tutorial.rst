@@ -5,9 +5,9 @@ Tutorial
 
 This tutorial showcases how you can use MLflow end-to-end to:
 
-- Create a linear regression model 
+- Train a linear regression model 
 - Package the code that trains the model in a reusable and reproducible model format 
-- Load the model into a simple HTTP server that will enable you to score predictions
+- Deploy the model into a simple HTTP server that will enable you to score predictions
 
 This tutorial uses a dataset to predict the quality of wine based on quantitative features 
 like the wine's "fixed acidity", "pH", "residual sugar", and so on. The dataset
@@ -103,7 +103,7 @@ Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as argu
 Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
 .. note::
-    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``example/tutorial/train.py/train.ipynb`` 
+    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``example/tutorial/train.py/train.ipynb``.
 
 Comparing the Models
 --------------------
