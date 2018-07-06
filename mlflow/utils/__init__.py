@@ -2,7 +2,6 @@ from sys import version_info
 
 import numpy as np
 import pandas as pd
-import yaml
 
 
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
@@ -37,8 +36,3 @@ def get_jsonable_obj(data):
         return pd.DataFrame(data).to_dict(orient='records')
     else:  # by default just return whatever this is and hope for the best
         return data
-
-# def _create_conda_env_file(path, name, channels = None, conda_deps=None, pip_deps=None):
-#     d = dependencies={'python': PYTHON_VERSION, "pip": {"mlflow": MLFLOW_VERSION}})
-#     with open(path, 'w') as out:
-#         yaml.safe_dump(d, stream=out, default_flow_style=False)

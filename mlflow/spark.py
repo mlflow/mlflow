@@ -22,7 +22,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 
 
-FLAVOR_NAME = "sparkml"
+FLAVOR_NAME = "spark"
 
 
 def log_model(spark_model, artifact_path, conda_env=None, jars=None):
@@ -67,8 +67,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
     if jars:
         raise Exception("jar dependencies are not yet implemented")
-    mlflow_model.add_flavor('sparkml', pyspark_version=pyspark_version, model_data="model")
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sparkml", data="model",
+    mlflow_model.add_flavor('spark', pyspark_version=pyspark_version, model_data="model")
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data="model",
                         env=model_conda_env)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
@@ -96,7 +96,7 @@ def load_pyfunc(path):
     :param path: Local path
     :return: The model as PyFunc.
     """
-    spark = pyspark.sql.SparkSession.builder.config(key="spark.python.worker.reuse", value=True) \
+    spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
         .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, PipelineModel.load(path))
 
