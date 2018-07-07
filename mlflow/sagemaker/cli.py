@@ -22,7 +22,7 @@ def commands():
 @click.option("--execution-role-arn", "-e", default=None, help="SageMaker execution role")
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
 @cli_args.RUN_ID
-@click.option("--image_url", "-i", default=None, help="ECR URL for the Docker image")
+@click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
 @click.option("--region-name", "-r", default="us-west-2", help="region name")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name):
     """
