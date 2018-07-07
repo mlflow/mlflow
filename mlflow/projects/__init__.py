@@ -213,8 +213,19 @@ def _launch_command(command, work_dir, env_map):
     # in the same process group so they can be killed together
     os.setsid()
     curr_pid = os.getpid()
-    return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
-                            env=cmd_env, preexec_fn=lambda: os.setpgid(0, curr_pid))
+    def _launch_helper():
+        import os
+        os.chdir(work_dir)
+        os.setpgid(0, curr_pid)
+        bash_executable = os.environ.get("SHELL", "bash")
+        os.execvpe(file=bash_executable, args=[bash_executable, "-c", command], env=cmd_env)
+    # return subprocess.Popen(["bash", "-c", command], cwd=work_dir,
+    #                         env=cmd_env, preexec_fn=lambda: os.setpgid(0, curr_pid))
+    import multiprocessing
+    p = multiprocessing.Process(target=_launch_helper)
+    p.start()
+    print("Launching multiprocessing process %s that runs shell command %s" % (p.pid, command))
+    return p
 
 
 def _run_and_monitor_local(active_run, command, work_dir, env_map):
@@ -229,7 +240,24 @@ def _run_and_monitor_local(active_run, command, work_dir, env_map):
                     point command.
     """
     proc = _launch_command(command, work_dir, env_map)
-    exit_code = proc.wait()
+    # TODO: Add back logic to kill the run if the parent dies, we need that. Otherwise the parent
+    # will block on these monitoring subprocesses. Can't use daemon=True cause then these will die
+    # when the parent exits normally. Also need similar logic for the Databricks run (need it to be
+    # cancelled when the parent exits).
+    #
+    # Seemingly can't use an exit handler either because we can't have different behavior exiting on
+    # failure or success (i.e. when we fail we need to set some flag...)
+    #
+    # Maybe it's ok to block when exiting
+    #
+    #
+    # Can launch both in a multiprocessing.Process with the thread thing. Problem is they won't
+    # kill themselves because the parent will block it exits. Also:
+    # Better: launch in multiprocessing
+    # process, use atexit handler (need to check that atexit is LIFO) to kill global list of
+    # launched processes on failures. Not thread-safe. (could use a threadsafe global list or something)
+    proc.join()
+    exit_code = proc.exitcode
     if exit_code == 0:
         eprint("=== Run succeeded ===")
         active_run.set_terminated("FINISHED")
@@ -237,6 +265,7 @@ def _run_and_monitor_local(active_run, command, work_dir, env_map):
         active_run.set_terminated("FAILED")
         eprint("=== Run failed ===")
         raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
+
 
 
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
@@ -251,7 +280,7 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     """
     monitoring_process = process.exec_fn(
         target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map),
-        stream_output=stream_output)
+        stream_output=True)
     return LocalSubmittedRun(active_run, monitoring_process)
 
 

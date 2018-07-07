@@ -69,3 +69,7 @@ class DatabricksSubmittedRun(SubmittedRun):
     def wait(self):
         from mlflow.projects import databricks
         return databricks.wait_databricks(databricks_run_id=self._databricks_run_id)
+
+    def _cancel(self):
+        """Add internal cancel API?"""
+        pass
