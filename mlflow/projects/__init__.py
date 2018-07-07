@@ -4,11 +4,14 @@ from __future__ import print_function
 
 import hashlib
 import json
+import multiprocessing
 import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
+import threading
 
 from distutils import dir_util
 
@@ -23,6 +26,32 @@ from mlflow.projects.submitted_run import LocalSubmittedRun, DatabricksSubmitted
 from mlflow.utils import file_utils, process
 from mlflow.utils.logging_utils import eprint
 
+all_procs = []
+lock = threading.Lock()
+
+
+def _add_proc(proc):
+    print("@SID adding proc %s" % proc)
+    with lock:
+        all_procs.append(proc)
+
+import atexit
+@atexit.register
+def _wait_procs():
+    print("@SID in handler waiting for %s procs" % len(all_procs))
+    print("@SID with exception info %s" % [sys.exc_info()])
+    with lock:
+        try:
+            print("@SID waiting...")
+            for proc in all_procs:
+                exit_code = proc.wait()
+                print("Proc finished with %s" % exit_code)
+            print("@SID done waiting")
+        except KeyboardInterrupt:
+            print("@SID KILLING")
+            for proc in all_procs:
+                proc.terminate()
+            raise
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -211,21 +240,29 @@ def _launch_command(command, work_dir, env_map):
     cmd_env.update(env_map)
     # Make current process the leader of its own process group, launch the command in a subprocess
     # in the same process group so they can be killed together
-    os.setsid()
-    curr_pid = os.getpid()
-    def _launch_helper():
-        import os
-        os.chdir(work_dir)
-        os.setpgid(0, curr_pid)
-        bash_executable = os.environ.get("SHELL", "bash")
-        os.execvpe(file=bash_executable, args=[bash_executable, "-c", command], env=cmd_env)
-    # return subprocess.Popen(["bash", "-c", command], cwd=work_dir,
-    #                         env=cmd_env, preexec_fn=lambda: os.setpgid(0, curr_pid))
-    import multiprocessing
-    p = multiprocessing.Process(target=_launch_helper)
-    p.start()
-    print("Launching multiprocessing process %s that runs shell command %s" % (p.pid, command))
-    return p
+    # os.setsid()
+    # curr_pid = os.getpid()
+    # def _launch_helper():
+    #     import os
+    #     os.chdir(work_dir)
+    #     # os.setpgid(0, curr_pid)
+    #     bash_executable = os.environ.get("SHELL", "bash")
+    #     os.execvpe(file=bash_executable, args=[bash_executable, "-c", command], env=cmd_env)
+    # popen = subprocess.Popen(["bash", "-c", command], cwd=work_dir,
+    #                           env=cmd_env, preexec_fn=lambda: os.setpgid(0, curr_pid))
+    popen = subprocess.Popen(["bash", "-c", command], cwd=work_dir,
+                             env=cmd_env)
+    _add_proc(popen)
+    return popen
+    # import multiprocessing
+    # p = multiprocessing.Process(target=_launch_helper)
+    # p.daemon = True
+    # p.start()
+    # print("Launching multiprocessing process %s that runs shell command %s" % (p.pid, command))
+    # with open("/tmp/sid-sup", "a") as handle:
+    #     handle.write("sup\n")
+    # _add_proc(p)
+    # return p
 
 
 def _run_and_monitor_local(active_run, command, work_dir, env_map):
@@ -239,7 +276,13 @@ def _run_and_monitor_local(active_run, command, work_dir, env_map):
     :param env_map: Dict of environment-variable key-value pairs to set in the process for the entry
                     point command.
     """
+    print("@SID in run_and_monitor_local")
     proc = _launch_command(command, work_dir, env_map)
+    # def sigterm_handler():
+    #     print("@SID got a sigterm...")
+    #     proc.terminate()
+    # import signal
+    # signal.signal(signal.SIGTERM, sigterm_handler)
     # TODO: Add back logic to kill the run if the parent dies, we need that. Otherwise the parent
     # will block on these monitoring subprocesses. Can't use daemon=True cause then these will die
     # when the parent exits normally. Also need similar logic for the Databricks run (need it to be
@@ -256,16 +299,18 @@ def _run_and_monitor_local(active_run, command, work_dir, env_map):
     # Better: launch in multiprocessing
     # process, use atexit handler (need to check that atexit is LIFO) to kill global list of
     # launched processes on failures. Not thread-safe. (could use a threadsafe global list or something)
-    proc.join()
-    exit_code = proc.exitcode
-    if exit_code == 0:
-        eprint("=== Run succeeded ===")
-        active_run.set_terminated("FINISHED")
-    else:
-        active_run.set_terminated("FAILED")
-        eprint("=== Run failed ===")
-        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
-
+    try:
+        exit_code = proc.wait()
+        if exit_code == 0:
+            eprint("=== Run succeeded ===")
+            active_run.set_terminated("FINISHED")
+        else:
+            active_run.set_terminated("FAILED")
+            eprint("=== Run failed ===")
+            raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
+    finally:
+        print("@SID in finally...")
+        proc.terminate()
 
 
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
@@ -278,9 +323,10 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     """
-    monitoring_process = process.exec_fn(
-        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map),
-        stream_output=True)
+    monitoring_process = threading.Thread(
+        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map), daemon=True)
+        # stream_output=True)
+    monitoring_process.start()
     return LocalSubmittedRun(active_run, monitoring_process)
 
 

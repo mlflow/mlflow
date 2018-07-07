@@ -26,13 +26,17 @@ class SubmittedRun(object):
     def run_id(self):
         pass
 
+    # @abstractmethod
+    # def _cancel(self):
+    #     pass
+
 
 class LocalSubmittedRun(SubmittedRun):
     """Implementation of SubmittedRun corresponding to a local project run."""
-    def __init__(self, active_run, monitoring_process):
+    def __init__(self, active_run, monitoring_thread):
         super(LocalSubmittedRun, self).__init__()
         self._active_run = active_run
-        self._monitoring_process = monitoring_process
+        self._monitoring_thread = monitoring_thread
 
     @property
     def run_id(self):
@@ -43,10 +47,12 @@ class LocalSubmittedRun(SubmittedRun):
 
     def wait(self):
         try:
-            self._monitoring_process.join()
+            self._monitoring_thread.join()
         finally:
-            if self._monitoring_process.is_alive():
-                os.killpg(self._monitoring_process.pid, signal.SIGTERM)
+            pass
+            # if self._monitoring_process.is_alive():
+            #     os.killpg(self._monitoring_process.pid, signal.SIGTERM)
+
 
 
 class DatabricksSubmittedRun(SubmittedRun):
