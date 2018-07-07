@@ -36,8 +36,8 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None):
            versions.
     :param jars: List of jars needed by the model.
     """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.sparkml, spark_model=spark_model,
-                     jars=jars, env=conda_env)
+    return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
+                     jars=jars, conda_env=conda_env)
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None):
