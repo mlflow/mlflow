@@ -13,7 +13,7 @@ if __name__ == "__main__":
     import os
     print("Current pid %s" % os.getpid())
     runs = []
-    for i in range(3):
+    for i in range(2):
         runs.append(launch_run())
     import time
     time.sleep(1)

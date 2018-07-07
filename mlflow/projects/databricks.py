@@ -141,6 +141,10 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     return submitted_run
 
 
+def cancel_databricks(databricks_run_id):
+    _jobs_runs_cancel(databricks_run_id)
+
+
 def wait_databricks(databricks_run_id, sleep_interval=30):
     """
     Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
