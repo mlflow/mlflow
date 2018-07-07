@@ -379,7 +379,7 @@ message GetExperiment {
 message GetExperimentByName {
     option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-    // Human readable name that identifies the run.
+    // Human readable name that identifies the experiment.
     optional string name = 1 [(validate_required) = true];
 
     message Response {
