@@ -130,7 +130,7 @@ statement exits, even if it exits due to an exception.
 Organizing Runs in Experiments
 ------------------------------
 
-MLflow allow you to group runs under experiments, which can be useful for comparing runs intended
+MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments via the CLI (``mlflow experiments``) or via
 the :py:func:`create_experiment` Python API. You can pass the experiment ID for a individual run
 via the CLI (for example, ``mlflow run ... --experiment-id [ID]``) or via the ``MLFLOW_EXPERIMENT_ID``
@@ -146,7 +146,7 @@ environment variable.
 .. code:: python
 
     # Launch a run. The experiment ID is inferred from the MLFLOW_EXPERIMENT_ID environment
-    # variable, or from the --experiment-id parameter passed to the Databricks CLI (the latter
+    # variable, or from the --experiment-id parameter passed to the MLflow CLI (the latter
     # taking precedence)
     with mlflow.start_run():
         mlflow.log_parameter("a", 1)
