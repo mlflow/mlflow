@@ -9,7 +9,7 @@ start the tracking UI, run projects and runs, serve models to
 `Amazon SageMaker <https://aws.amazon.com/sagemaker/>`_, create
 and list experiments, and download artifacts.
 
-.. code-block:: guess
+.. code::
 
     $ mlflow --help
     Usage: mlflow [OPTIONS] COMMAND [ARGS]...

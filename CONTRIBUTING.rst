@@ -6,13 +6,15 @@ to MLflow locally.
 Prerequisites
 -------------
 
-We recommend installing MLflow in its own virtualenv for development, as follows::
+We recommend installing MLflow in its own virtualenv for development, as follows:
+
+.. code:: bash
 
     virtualenv env
     source env/bin/activate
     pip install -r dev-requirements.txt
     pip install -r tox-requirements.txt
-    pip install -e .
+    pip install -e .  # installs mlflow from current checkout
 
 
 ``npm`` is required to run the Javascript dev server.
@@ -24,7 +26,7 @@ Install Node Modules
 Before running the Javascript dev server or building a distributable wheel, install Javascript
 dependencies via:
 
-.. code::
+.. code:: bash
 
    cd mlflow/server/js
    npm install
@@ -44,9 +46,9 @@ Alternatively, you can generate the necessary files in ``mlflow/server/js/build`
 
 Tests and Lint
 --------------
-Please verify that the unit tests & linter pass before submitting a pull request by running:
+Verify that the unit tests & linter pass before submitting a pull request by running:
 
-.. code::
+.. code:: bash
 
     pytest
     ./lint.sh
@@ -58,13 +60,13 @@ Running the Javascript Dev Server
 
 In one shell:
 
-.. code::
+.. code:: bash
 
    mlflow ui
 
 In another shell:
 
-.. code::
+.. code:: bash
 
    cd mlflow/server/js
    npm start
@@ -77,14 +79,14 @@ Building a Distributable Artifact
 
 Generate JS files in ``mlflow/server/js/build``:
 
-.. code::
+.. code:: bash
 
    cd mlflow/server/js
    npm run build
 
 Build a pip-installable wheel in ``dist/``:
 
-.. code::
+.. code:: bash
 
    cd -
    python setup.py bdist_wheel
@@ -98,7 +100,7 @@ Writing Docs
 ------------
 Install the necessary Python dependencies via ``pip install -r dev-requirements.txt``. Then run
 
-.. code::
+.. code:: bash
 
    cd docs
    make livehtml
