@@ -1,4 +1,6 @@
 from abc import abstractmethod
+import os
+import signal
 
 
 class SubmittedRun(object):
@@ -40,7 +42,11 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.get_run().info.status
 
     def wait(self):
-        self._monitoring_process.join()
+        try:
+            self._monitoring_process.join()
+        finally:
+            if self._monitoring_process.is_alive():
+                os.killpg(self._monitoring_process.pid, signal.SIGTERM)
 
 
 class DatabricksSubmittedRun(SubmittedRun):
@@ -62,4 +68,4 @@ class DatabricksSubmittedRun(SubmittedRun):
 
     def wait(self):
         from mlflow.projects import databricks
-        return databricks.wait(databricks_run_id=self._databricks_run_id)
+        return databricks.wait_databricks(databricks_run_id=self._databricks_run_id)

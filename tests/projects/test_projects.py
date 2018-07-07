@@ -1,5 +1,7 @@
+import multiprocessing
 import os
 import filecmp
+import signal
 import tempfile
 import time
 
@@ -10,7 +12,6 @@ import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.projects import ExecutionException
 from mlflow.store.file_store import FileStore
-from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import env
 
@@ -50,7 +51,7 @@ def test_run_mode():
             with mock.patch("mlflow.projects._run_local") as run_local_mock:
                 mlflow.projects.run(uri=TEST_PROJECT_DIR, mode=local_mode)
                 assert run_local_mock.call_count == 1
-        with mock.patch("mlflow.projects._run_databricks") as run_databricks_mock:
+        with mock.patch("mlflow.projects.databricks.run_databricks") as run_databricks_mock:
             mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="databricks")
             assert run_databricks_mock.call_count == 1
         with pytest.raises(ExecutionException):
@@ -82,6 +83,10 @@ def test_run():
                 parameters={"use_start_run": use_start_run},
                 use_conda=False, experiment_id=0)
             # Blocking runs should be finished when they return
+            assert submitted_run.get_status() == RunStatus.FINISHED
+            # Test that we can call wait() on a synchronous run & that the run has the correct
+            # status after calling wait().
+            submitted_run.wait()
             assert submitted_run.get_status() == RunStatus.FINISHED
             # Validate run contents in the FileStore
             run_uuid = submitted_run.run_id
@@ -137,3 +142,26 @@ def test_storage_dir():
     with TempDir() as tmp_dir:
         assert os.path.dirname(mlflow.projects._get_storage_dir(tmp_dir.path())) == tmp_dir.path()
     assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()
+
+
+def test_command_cleanup():
+    """
+    Test our utility method for launching and monitoring an entry point command properly cleans up
+    the entry point command when the monitoring process is interrupted.
+    """
+    with TempDir() as tmp:
+        tmpdir = tmp.path()
+        test_file = tmp.path("test-file")
+        sleep_sec = 4
+        command = "sleep %s && touch %s" % (sleep_sec, test_file)
+        monitoring_proc = multiprocessing.Process(
+            target=lambda: mlflow.projects._launch_command(command=command, work_dir=tmpdir,
+                                                           env_map={}))
+        monitoring_proc.start()
+        # Give monitoring process time to start up & run the command in a subprocess
+        time.sleep(2)
+        # Kill process group that should contain our monitoring process & the command subprocess
+        os.killpg(p.pid, signal.SIGTERM)
+        # Wait enough time for the command subprocess to finish executing (if we failed to kill it)
+        time.sleep(sleep_sec)
+        assert not os.path.exists(test_file)

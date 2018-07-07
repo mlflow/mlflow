@@ -99,7 +99,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
         param_dict[name] = value
-    if async and mode != 'databricks':
+    if no_block and mode != 'databricks':
         print("Can only run projects asynchronously when mode is 'databricks' (got "
               "mode '%s')" % mode)
         sys.exit(1)

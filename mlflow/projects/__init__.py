@@ -7,25 +7,20 @@ import json
 import os
 import re
 import shutil
-import signal
 import subprocess
 import tempfile
-import time
-import threading
 
 from distutils import dir_util
 
-from six.moves import shlex_quote
 
 from mlflow.projects._project_spec import Project
-from mlflow.version import VERSION
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
 from mlflow.projects.submitted_run import LocalSubmittedRun, DatabricksSubmittedRun
 
 
-from mlflow.utils import file_utils, process, rest_utils
+from mlflow.utils import file_utils, process
 from mlflow.utils.logging_utils import eprint
 
 
@@ -69,6 +64,10 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
     :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
+                  Note that if `block` is False and mode is "local", this method will return, but
+                  the current process will block when exiting until the local run completes.
+                  If the current process is interrupted, any asynchronous runs launched via this
+                  method will be terminated.
     :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run.
     """
     if mode is None or mode == "local":
@@ -77,166 +76,14 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                           storage_dir=storage_dir, git_username=git_username, git_password=git_password,
                           block=block)
     elif mode == "databricks":
-        return _run_databricks(uri=uri, entry_point=entry_point, version=version,
-                               parameters=parameters, experiment_id=experiment_id, cluster_spec=cluster_spec,
-                               git_username=git_username, git_password=git_password, block=block)
+        from mlflow.projects.databricks import run_databricks
+        return run_databricks(uri=uri, entry_point=entry_point, version=version,
+                              parameters=parameters, experiment_id=experiment_id, cluster_spec=cluster_spec,
+                              git_username=git_username, git_password=git_password, block=block)
     else:
         supported_modes = ["local", "databricks"]
         raise ExecutionException("Got unsupported execution mode %s. Supported "
                                  "values: %s" % (mode, supported_modes))
-
-
-def _get_databricks_run_cmd(uri, entry_point, version, parameters):
-    """
-    Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
-    """
-    mlflow_run_cmd = ["mlflow", "run", uri, "--entry-point", entry_point]
-    if version is not None:
-        mlflow_run_cmd.extend(["--version", version])
-    if parameters is not None:
-        for key, value in parameters.items():
-            mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
-    mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
-    return ["bash", "-c", "export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin && %s"
-            % mlflow_run_str]
-
-
-def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
-    """
-    Runs the specified shell command on a Databricks cluster.
-    :param project_uri: URI of the project from which our shell command originates
-    :param command: Shell command to run
-    :param env_vars: Environment variables to set in the process running `command`
-    :param cluster_spec: Dictionary describing the cluster, expected to contain the fields for a
-                         NewCluster (see
-                         https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster)
-    :return: The ID of the Databricks Job Run. Can be used to query the run's status via the
-             Databricks Runs Get API (https://docs.databricks.com/api/latest/jobs.html#runs-get).
-    """
-    from mlflow.projects import databricks
-    hostname, token, username, password, = databricks.get_databricks_hostname_and_auth()
-    auth = (username, password) if username is not None and password is not None else None
-    # Make jobs API request to launch run.
-    req_body_json = {
-        'run_name': 'MLflow Run for %s' % project_uri,
-        'new_cluster': cluster_spec,
-        'shell_command_task': {
-            'command': command,
-            "env_vars": env_vars
-        },
-        "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
-    }
-    run_submit_res = rest_utils.databricks_api_request(
-        hostname=hostname, endpoint="jobs/runs/submit", token=token, auth=auth, method="POST",
-        req_body_json=req_body_json)
-    databricks_run_id = run_submit_res["run_id"]
-    eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-           "page URL... ===" % databricks_run_id)
-    run_info = rest_utils.databricks_api_request(
-        hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
-        params={"run_id": databricks_run_id})
-    jobs_page_url = run_info["run_page_url"]
-    eprint("=== Check the run's status at %s ===" % jobs_page_url)
-    return databricks_run_id
-
-
-def _create_databricks_run(tracking_uri, experiment_id, source_name, source_version,
-                           entry_point_name):
-    """
-    Makes an API request to the specified tracking server to create a new run with the specified
-    attributes. Returns an `ActiveRun` that can be used to query the tracking server for the run's
-    status or log metrics/params for the run.
-    """
-    if tracking.is_local_uri(tracking_uri):
-        # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
-        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from Databricks"
-               "will not be logged permanently." % tracking_uri)
-        return None
-    else:
-        # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g.
-        # localhost)
-        return tracking._create_run(experiment_id=experiment_id,
-                                    source_name=source_name,
-                                    source_version=source_version,
-                                    entry_point_name=entry_point_name,
-                                    source_type=SourceType.PROJECT)
-
-
-def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                    git_username, git_password, block):
-    """
-    Runs a project on Databricks, returning a `SubmittedRun` that can be used to query the run's
-    status or wait for the resulting Databricks Job run to terminate.
-    """
-    # Create run object with remote tracking server
-    tracking_uri = tracking.get_tracking_uri()
-    remote_run = _create_databricks_run(
-        tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=uri,
-        source_version=version, entry_point_name=entry_point)
-    # Set up environment variables for remote execution
-    env_vars = {"MLFLOW_GIT_URI": uri}
-    if git_username is not None:
-        env_vars["MLFLOW_GIT_USERNAME"] = git_username
-    if git_password is not None:
-        env_vars["MLFLOW_GIT_PASSWORD"] = git_password
-    if experiment_id is not None:
-        eprint("=== Using experiment ID %s ===" % experiment_id)
-        env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
-    if remote_run is not None:
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking.get_tracking_uri()
-        env_vars[tracking._RUN_ID_ENV_VAR] = remote_run.run_info.run_uuid
-    eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
-    # Launch run on Databricks
-    with open(cluster_spec, 'r') as handle:
-        cluster_spec = json.load(handle)
-    command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
-    db_run_id = _do_databricks_run(uri, command, env_vars, cluster_spec)
-    submitted_run = DatabricksSubmittedRun(active_run=remote_run, databricks_run_id=db_run_id)
-    if block:
-        submitted_run.wait()
-    return submitted_run
-
-
-def _run_and_monitor_local(active_run, command, work_dir, env_map, parent_pid):
-    """
-    Runs and monitors a subprocess that runs the specified entry-point command, updating the
-    tracking server with the run's exit status.
-
-    :param active_run: `ActiveRun` to which to post status updates for the launched run
-    :param run_pid: PID of the process running the entry point command
-    :param parent_pid: Optional ID of a parent process. If specified, a watchdog thread is launched
-                       that periodically checks if the parent process has changed (i.e. to determine
-                       if the parent process has exited), killing the subprocess for `command` if
-                       the parent process changed.
-    """
-    cmd_env = os.environ.copy()
-    cmd_env.update(env_map)
-    proc = subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
-                            env=cmd_env)
-    run_pid = proc.pid
-    watchdog_should_continue = True
-    # Launch a helper thread that checks to see if the parent PID changes; if it does, assume
-    # the parent of the current process has been killed & kill the subprocess for the command
-
-    def _watch_command_loop(poll_secs=1):
-        while watchdog_should_continue:
-            ppid = os.getppid()
-            if ppid != parent_pid:
-                os.kill(run_pid, signal.SIGTERM)
-                return
-            time.sleep(poll_secs)
-    # We use a thread (instead of a subprocess) so that it dies along with the current process.
-    watchdog = threading.Thread(target=_watch_command_loop)
-    watchdog.start()
-    exit_code = proc.wait()
-    watchdog_should_continue = False
-    if exit_code == 0:
-        eprint("=== Run succeeded ===")
-        active_run.set_terminated("FINISHED")
-    else:
-        active_run.set_terminated("FAILED")
-        eprint("=== Run failed ===")
-        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -359,6 +206,39 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
+def _launch_command(command, work_dir, env_map):
+    cmd_env = os.environ.copy()
+    cmd_env.update(env_map)
+    # Make current process the leader of its own process group, launch the command in a subprocess
+    # in the same process group so they can be killed together
+    os.setsid()
+    curr_pid = os.getpid()
+    return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
+                            env=cmd_env, preexec_fn=lambda: os.setpgid(0, curr_pid))
+
+
+def _run_and_monitor_local(active_run, command, work_dir, env_map):
+    """
+    Runs and monitors a subprocess that runs the specified entry-point command, updating the
+    tracking server with the run's exit status.
+
+    :param active_run: `ActiveRun` to which to post status updates for the launched run
+    :param command: Entry point command to run
+    :param work_dir: Working directory from which to run entry point command
+    :param env_map: Dict of environment-variable key-value pairs to set in the process for the entry
+                    point command.
+    """
+    proc = _launch_command(command, work_dir, env_map)
+    exit_code = proc.wait()
+    if exit_code == 0:
+        eprint("=== Run succeeded ===")
+        active_run.set_terminated("FINISHED")
+    else:
+        active_run.set_terminated("FAILED")
+        eprint("=== Run failed ===")
+        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
+
+
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
@@ -370,7 +250,7 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     """
     monitoring_process = process.exec_fn(
-        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map, os.getpid()),
+        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map),
         stream_output=stream_output)
     return LocalSubmittedRun(active_run, monitoring_process)
 
@@ -412,9 +292,10 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
 
     commands.append(run_project_command)
     command = " && ".join(commands)
-    eprint("=== Running command: %s === (current PID %s)" % (command, os.getpid()))
+    eprint("=== Running command: %s === " % command)
 
-    submitted_run = _launch_local_run(active_run, command, work_dir, env_map, stream_output=block)
+    submitted_run_obj = _launch_local_run(
+        active_run, command, work_dir, env_map, stream_output=block)
     if block:
-        submitted_run.wait()
-    return submitted_run
+        submitted_run_obj.wait()
+    return submitted_run_obj
