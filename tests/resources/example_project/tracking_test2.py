@@ -9,6 +9,11 @@ def launch_run():
         use_conda=False, experiment_id=0, block=False)
 
 
+def launch_fail_run():
+    return mlflow.projects.run(
+        TEST_PROJECT_DIR, "example/tutorial", {"alpha": "0.4"}, use_conda=False)
+
+
 if __name__ == "__main__":
     import os
     print("Current pid %s" % os.getpid())
@@ -17,7 +22,7 @@ if __name__ == "__main__":
         runs.append(launch_run())
     import time
     time.sleep(1)
-    raise Exception("Exception in parent")
+    # raise Exception("Exception in parent")
     # CTRL+Cing should kill the monitoring subprocesses & the command processes, but it just
     # kills the monitoring ones. A thought: what if instead of subprocess.Popen we
 

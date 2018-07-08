@@ -217,17 +217,18 @@ def _launch_command(command, work_dir, env_map):
                             cwd=work_dir, env=env_map)
 
 
-def _monitor_local(active_run, pid):
+def _monitor_local(active_run, command, pid):
     """Monitors a command subprocess running as a child of the current process"""
+    # TODO: Race condition where the process could die before we hit this
     exit_code = psutil.Process(pid).wait()
     if exit_code == 0:
         active_run.set_terminated("FINISHED")
-        eprint("=== Run succeeded ===")
+        eprint("=== Run %s (command: '%s') succeeded ===" % (active_run.run_info.run_uuid, command))
     else:
         active_run.set_terminated("FAILED")
-        eprint("=== Run failed ===")
+        eprint("=== Run %s (command: '%s') failed with non-zero exit code %s "
+               "===" % (active_run.run_info.run_uuid, command, exit_code))
         from mlflow.utils import process
-        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
 
 
 def _run_and_monitor_local(active_run, command, work_dir, env_map):
@@ -255,12 +256,12 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     """
-    import threading
+    import threading, psutil
     proc = _launch_command(command, work_dir, env_map)
     monitoring_process = threading.Thread(
-        target=_monitor_local, args=(active_run, proc.pid), daemon=True)
+        target=_monitor_local, args=(active_run, command, proc.pid), daemon=True)
     monitoring_process.start()
-    return LocalSubmittedRun(active_run, monitoring_process, proc.pid)
+    return LocalSubmittedRun(active_run, monitoring_process, proc)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,

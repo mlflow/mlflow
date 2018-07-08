@@ -2,8 +2,12 @@ from abc import abstractmethod
 import atexit
 import signal
 import os
+import psutil
 import sys
 import threading
+
+from mlflow.utils.logging_utils import eprint
+from mlflow.utils.process import ShellCommandException
 
 launched_runs = []
 lock = threading.Lock()
@@ -16,18 +20,28 @@ def _add_run(submitted_run_obj):
 
 @atexit.register
 def _wait_runs():
-    for run in launched_runs:
-        run.wait()
+    try:
+        with lock:
+            eprint("=== Main thread completed successfully. Waiting for %s active runs to complete "
+                   "(interrupting will kill active runs) ===" % len(launched_runs))
+            for run in launched_runs:
+                run.wait()
+    finally:
+        _do_kill_runs()
 
 
 old_hook = sys.excepthook
 
 
-def _kill_runs(type, value, traceback):
-    old_hook(type, value, traceback)
+def _do_kill_runs():
     with lock:
         for run in launched_runs:
             run.cancel()
+
+
+def _kill_runs(type, value, traceback):
+    old_hook(type, value, traceback)
+    _do_kill_runs()
 
 
 sys.excepthook = _kill_runs
@@ -67,11 +81,11 @@ class SubmittedRun(object):
 
 class LocalSubmittedRun(SubmittedRun):
     """Implementation of SubmittedRun corresponding to a local project run."""
-    def __init__(self, active_run, monitoring_process, command_proc_pid):
+    def __init__(self, active_run, monitoring_process, command_proc):
         super(LocalSubmittedRun, self).__init__()
         self._active_run = active_run
         self._monitoring_process = monitoring_process
-        self._command_proc_pid = command_proc_pid
+        self._command_proc = command_proc
 
     @property
     def run_id(self):
@@ -81,11 +95,23 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.get_run().info.status
 
     def wait(self):
-        self._monitoring_process.join()
+        try:
+            exit_code = self._command_proc.wait()
+            self._monitoring_process.join()
+            if exit_code != 0:
+                raise ShellCommandException("Command failed with non-zero exit code %s" % exit_code)
+        finally:
+            self.cancel()
 
     def cancel(self):
-        """Cancels the command process, which should cause the monitoring thread to terminate."""
-        os.kill(self._command_proc_pid, signal.SIGTERM)
+        """
+        Cancels the command process, which should cause the monitoring thread to record its status
+        as failed & terminate.
+        """
+        try:
+            self._command_proc.terminate()
+        except ProcessLookupError:
+            pass
         self._monitoring_process.join()
 
 
