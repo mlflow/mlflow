@@ -168,6 +168,24 @@ def create_experiment(experiment_name):
     return _get_store().create_experiment(experiment_name)
 
 
+def get_experiment_by_name(experiment_name):
+    """
+    Returns the experiment with the specified Name
+    """
+    if experiment_name is None or experiment_name == "":
+        raise Exception("Invalid experiment name '%s'" % experiment_name)
+    return _get_store().get_experiment_by_name(experiment_name)
+
+
+def get_experiment_by_id(experiment_id):
+    """
+    Returns the experiment with the specified ID
+    """
+    if experiment_id is None or experiment_id < 0:
+        raise Exception("Invalid experiment id '%d'" % experiment_id)
+    return _get_store().get_experiment(experiment_id)
+
+
 def _get_main_file():
     if len(sys.argv) > 0:
         return sys.argv[0]
