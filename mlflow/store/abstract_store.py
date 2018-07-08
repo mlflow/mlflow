@@ -45,6 +45,16 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def get_experiment_by_name(self, name):
+        """
+        Fetches the experiment from the backend store.
+
+        :param name: String name for the experiment
+        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        """
+        pass
+
+    @abstractmethod
     def get_run(self, run_uuid):
         """
         Fetches the run from backend store
