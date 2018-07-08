@@ -11,7 +11,7 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 from mlflow.protos import databricks_pb2
-from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
+from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, GetExperimentByName, \
     GetRun, SearchRuns, ListArtifacts, GetArtifact, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, ListExperiments, GetMetric, GetParam
 from mlflow.store.artifact_repo import ArtifactRepository
@@ -80,6 +80,18 @@ def _get_experiment():
     response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
                                           .to_proto())
     run_info_entities = _get_store().list_run_infos(request_message.experiment_id)
+    response_message.runs.extend([r.to_proto() for r in run_info_entities])
+    response = Response(mimetype='application/json')
+    response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
+    return response
+
+
+def _get_experiment_by_name():
+    request_message = _get_request_message(GetExperimentByName(), from_get=True)
+    response_message = GetExperiment.Response()
+    response_message.experiment.MergeFrom(_get_store().get_experiment_by_name(request_message.name)
+                                          .to_proto())
+    run_info_entities = _get_store().list_run_infos(response_message.experiment.experiment_id)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -266,6 +278,7 @@ def get_endpoints():
 HANDLERS = {
     CreateExperiment: _create_experiment,
     GetExperiment: _get_experiment,
+    GetExperimentByName: _get_experiment_by_name,
     CreateRun: _create_run,
     UpdateRun: _update_run,
     LogParam: _log_param,
