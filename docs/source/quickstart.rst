@@ -19,7 +19,7 @@ You install MLflow by running:
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
 
 At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
-can use MLflow in your daily workflow.
+can leverage MLflow in your daily workflow.
 
 Using the Tracking API
 ----------------------
@@ -58,6 +58,9 @@ You can then run MLflow's Tracking UI:
     mlflow ui
 
 and view it at `<http://localhost:5000>`_. 
+
+.. note::
+    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.  
 
 Alternatively, you can configure MLflow to :ref:`log runs to a remote server<tracking>` to manage
 your results centrally or share them across a team.
