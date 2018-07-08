@@ -1,8 +1,8 @@
 from abc import abstractmethod
+import atexit
 import signal
-import multiprocessing
-import multiprocessing.process
 import os
+import sys
 import threading
 
 launched_runs = []
@@ -13,20 +13,24 @@ def _add_run(submitted_run_obj):
     with lock:
         launched_runs.append(submitted_run_obj)
 
-import atexit
+
 @atexit.register
-def _wait_procs():
-    print("@SID in handler waiting for %s runs" % len(launched_runs))
+def _wait_runs():
+    for run in launched_runs:
+        run.wait()
+
+
+old_hook = sys.excepthook
+
+
+def _kill_runs(type, value, traceback):
+    old_hook(type, value, traceback)
     with lock:
-        try:
-            for run in launched_runs:
-                print("@SID waiting (curr PID %s)" % os.getpid())
-                run.wait()
-        except KeyboardInterrupt:
-            print("@SID killing all active runs")
-            for run in launched_runs:
-                run.cancel()
-            raise
+        for run in launched_runs:
+            run.cancel()
+
+
+sys.excepthook = _kill_runs
 
 
 class SubmittedRun(object):
@@ -63,10 +67,11 @@ class SubmittedRun(object):
 
 class LocalSubmittedRun(SubmittedRun):
     """Implementation of SubmittedRun corresponding to a local project run."""
-    def __init__(self, active_run, monitoring_process):
+    def __init__(self, active_run, monitoring_process, command_proc_pid):
         super(LocalSubmittedRun, self).__init__()
         self._active_run = active_run
         self._monitoring_process = monitoring_process
+        self._command_proc_pid = command_proc_pid
 
     @property
     def run_id(self):
@@ -76,17 +81,11 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.get_run().info.status
 
     def wait(self):
-        try:
-            self._monitoring_process.join()
-        finally:
-            pass
-            # if self._monitoring_process.is_alive():
-            #     os.killpg(self._monitoring_process.pid, signal.SIGTERM)
+        self._monitoring_process.join()
 
     def cancel(self):
-        """"""
-        # """Cancels the monitoring process, which we expect to terminate the command subprocess."""
-        signal.signal(self._monitoring_process.pid, signal.SIGINT)
+        """Cancels the command process, which should cause the monitoring thread to terminate."""
+        os.kill(self._command_proc_pid, signal.SIGTERM)
         self._monitoring_process.join()
 
 
@@ -112,6 +111,5 @@ class DatabricksSubmittedRun(SubmittedRun):
         return databricks.wait_databricks(databricks_run_id=self._databricks_run_id)
 
     def cancel(self):
-        """Add internal cancel API?"""
         from mlflow.projects import databricks
         databricks.cancel_databricks(databricks_run_id=self._databricks_run_id)

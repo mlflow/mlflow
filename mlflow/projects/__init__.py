@@ -5,6 +5,7 @@ from __future__ import print_function
 import hashlib
 import json
 import os
+import psutil
 import re
 import shutil
 import subprocess
@@ -216,6 +217,19 @@ def _launch_command(command, work_dir, env_map):
                             cwd=work_dir, env=env_map)
 
 
+def _monitor_local(active_run, pid):
+    """Monitors a command subprocess running as a child of the current process"""
+    exit_code = psutil.Process(pid).wait()
+    if exit_code == 0:
+        active_run.set_terminated("FINISHED")
+        eprint("=== Run succeeded ===")
+    else:
+        active_run.set_terminated("FAILED")
+        eprint("=== Run failed ===")
+        from mlflow.utils import process
+        raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
+
+
 def _run_and_monitor_local(active_run, command, work_dir, env_map):
     """
     Runs and monitors a subprocess that runs the specified entry-point command, updating the
@@ -228,23 +242,7 @@ def _run_and_monitor_local(active_run, command, work_dir, env_map):
                     point command.
     """
     proc = _launch_command(command, work_dir, env_map)
-    try:
-        exit_code = proc.wait()
-        if exit_code == 0:
-            active_run.set_terminated("FINISHED")
-            eprint("=== Run succeeded ===")
-        else:
-            active_run.set_terminated("FAILED")
-            eprint("=== Run failed ===")
-            raise process.ShellCommandException("Non-zero exit code: %s" % exit_code)
-    finally:
-        # Make sure to clean up the subprocess running the entry point command
-        print("In finally block, command process exit code: %s" % proc.poll())
-        if proc.poll() is None:
-            print("terminating child process!")
-            proc.terminate()
-            active_run.set_terminated("FAILED")
-            eprint("=== Run failed ===")
+    _monitor_local(active_run, proc.pid)
 
 
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
@@ -257,10 +255,12 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     """
-    monitoring_process = process.exec_fn(
-        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map),
-        stream_output=True)
-    return LocalSubmittedRun(active_run, monitoring_process)
+    import threading
+    proc = _launch_command(command, work_dir, env_map)
+    monitoring_process = threading.Thread(
+        target=_monitor_local, args=(active_run, proc.pid), daemon=True)
+    monitoring_process.start()
+    return LocalSubmittedRun(active_run, monitoring_process, proc.pid)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
