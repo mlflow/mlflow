@@ -213,6 +213,7 @@ def _launch_command(command, work_dir, env_map):
     """
     cmd_env = os.environ.copy()
     cmd_env.update(env_map)
+    # TODO: Don't always stream output
     return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command],
                             cwd=work_dir, env=env_map)
 
@@ -220,30 +221,16 @@ def _launch_command(command, work_dir, env_map):
 def _monitor_local(active_run, command, pid):
     """Monitors a command subprocess running as a child of the current process"""
     # TODO: Race condition where the process could die before we hit this
-    exit_code = psutil.Process(pid).wait()
+    from mlflow.utils import process
+    exit_code = process._wait_polling(pid)
     if exit_code == 0:
         active_run.set_terminated("FINISHED")
         eprint("=== Run %s (command: '%s') succeeded ===" % (active_run.run_info.run_uuid, command))
     else:
         active_run.set_terminated("FAILED")
-        eprint("=== Run %s (command: '%s') failed with non-zero exit code %s "
-               "===" % (active_run.run_info.run_uuid, command, exit_code))
+        eprint("=== Run %s (command: '%s', PID: %s) failed with non-zero exit code %s "
+               "===" % (active_run.run_info.run_uuid, command, pid, exit_code))
         from mlflow.utils import process
-
-
-def _run_and_monitor_local(active_run, command, work_dir, env_map):
-    """
-    Runs and monitors a subprocess that runs the specified entry-point command, updating the
-    tracking server with the run's exit status.
-
-    :param active_run: `ActiveRun` to which to post status updates for the launched run
-    :param command: Entry point command to run
-    :param work_dir: Working directory from which to run entry point command
-    :param env_map: Dict of environment-variable key-value pairs to set in the process for the entry
-                    point command.
-    """
-    proc = _launch_command(command, work_dir, env_map)
-    _monitor_local(active_run, proc.pid)
 
 
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
@@ -256,10 +243,13 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     """
-    import threading, psutil
+    import threading, psutil, time
     proc = _launch_command(command, work_dir, env_map)
+    eprint("Launched command %s in process with PID %s" % (command, proc.pid))
+    # monitoring_process = threading.Thread(target=lambda: time.sleep(5))
     monitoring_process = threading.Thread(
-        target=_monitor_local, args=(active_run, command, proc.pid), daemon=True)
+        target=_monitor_local, args=(active_run, command, proc.pid))
+    monitoring_process.daemon = True
     monitoring_process.start()
     return LocalSubmittedRun(active_run, monitoring_process, proc)
 

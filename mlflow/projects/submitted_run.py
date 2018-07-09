@@ -1,12 +1,11 @@
 from abc import abstractmethod
 import atexit
-import signal
 import os
-import psutil
 import sys
 import threading
 
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils import process
 from mlflow.utils.process import ShellCommandException
 
 launched_runs = []
@@ -21,9 +20,9 @@ def _add_run(submitted_run_obj):
 @atexit.register
 def _wait_runs():
     try:
+        eprint("=== Main thread completed successfully. Waiting for active runs to complete "
+               "interrupting will kill active runs) ===")
         with lock:
-            eprint("=== Main thread completed successfully. Waiting for %s active runs to complete "
-                   "(interrupting will kill active runs) ===" % len(launched_runs))
             for run in launched_runs:
                 run.wait()
     finally:
@@ -40,8 +39,10 @@ def _do_kill_runs():
 
 
 def _kill_runs(type, value, traceback):
+    eprint("=== Main thread exited with uncaught exception of type %s. Killing active runs." % type)
     old_hook(type, value, traceback)
     _do_kill_runs()
+    os._exit(1)
 
 
 sys.excepthook = _kill_runs
@@ -65,7 +66,8 @@ class SubmittedRun(object):
     def wait(self):
         """
         Waits for the run to complete. Note that in some cases (e.g. remote execution on
-        Databricks), we may wait until the remote job completes rather than
+        Databricks), we may wait until the remote job completes rather than until the MLflow run
+        completes.
         """
         pass
 
@@ -95,13 +97,11 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.get_run().info.status
 
     def wait(self):
-        try:
-            exit_code = self._command_proc.wait()
-            self._monitoring_process.join()
-            if exit_code != 0:
-                raise ShellCommandException("Command failed with non-zero exit code %s" % exit_code)
-        finally:
-            self.cancel()
+        exit_code = process._wait_polling(self._command_proc.pid)
+        eprint("@SID: Got process (pid %s) exit code %s" % (self._command_proc.pid, exit_code))
+        self._monitoring_process.join()
+        if exit_code != 0:
+            raise ShellCommandException("Command failed with non-zero exit code %s" % exit_code)
 
     def cancel(self):
         """
@@ -110,7 +110,7 @@ class LocalSubmittedRun(SubmittedRun):
         """
         try:
             self._command_proc.terminate()
-        except ProcessLookupError:
+        except OSError:
             pass
         self._monitoring_process.join()
 

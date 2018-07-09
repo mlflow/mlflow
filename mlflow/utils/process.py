@@ -8,6 +8,15 @@ class ShellCommandException(Exception):
     pass
 
 
+def _wait_polling(pid, poll_interval=1):
+    import time
+    while True:
+        syscall_pid, exit_code = os.waitpid(pid, os.WNOHANG)
+        if syscall_pid != 0:
+            return exit_code
+        time.sleep(poll_interval)
+
+
 def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, cmd_stdin=None,
              **kwargs):
     """
