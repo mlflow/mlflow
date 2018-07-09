@@ -238,6 +238,7 @@ def _monitor_local(active_run, command, proc):
                    "===" % (active_run.run_info.run_uuid, command, proc.pid, exit_code))
     # Handle KeyboardInterrupt to avoid printing stacktrace with run output
     except KeyboardInterrupt:
+        eprint("Got a keyboard interrupt from the monitor")
         proc.terminate()
         active_run.set_terminated("FAILED")
         eprint("=== Run %s (command: '%s', PID: %s) was interrupted, setting status to FAILED "

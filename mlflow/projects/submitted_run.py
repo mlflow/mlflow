@@ -24,6 +24,7 @@ def _wait_runs():
             for run in launched_runs:
                 run.wait()
     except KeyboardInterrupt:
+        eprint("Sid got an interrupt man")
         # TODO: Why don't we need this? Would be good to understand...
         # _do_kill_runs()
         sys.exit(1)
