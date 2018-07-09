@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 from subprocess import Popen, PIPE, STDOUT
+from urlparse import urlparse
 import tarfile
 
 import boto3
@@ -155,7 +156,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     Deploy model on SageMaker.
     Current active AWS account needs to have correct permissions setup.
 
-    :param app_name: Name of the deployed app.
+    :param app_name: Name of the deployed application.
     :param path: Path to the model.
                  Either local if no run_id or MLflow-relative if run_id is specified)
     :param execution_role_arn: Amazon execution role with sagemaker rights. defaults
@@ -165,7 +166,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param run_id: MLflow run id.
     :param image: name of the Docker image to be used. if not specified, uses a 
                   publicly-available pre-built image.
-    :param region_name: Name of the AWS region to deploy to. defaults to 
+    :param region_name: Name of the AWS region to which to deploy the application.
     """
     if not image_url:
         image_url = _get_prebuilt_image_url(region_name)
@@ -190,6 +191,35 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             model_s3_path=model_s3_path,
             run_id=run_id,
             region_name=region_name)
+
+
+def delete(app_name, region_name="us-west-2"):
+    """
+    :param app_name: Name of the deployed application.
+    :param region_name: Name of the AWS region in which the application is deployed.
+    """
+    s3_client = boto3.client('s3', region_name=region_name)
+    sage_client = boto3.client('sagemaker', region_name=region_name)
+
+    endpoint_info = sage_client.describe_endpoint(EndpointName=app_name)
+    config_name = endpoint_info["EndpointConfigName"]
+    config_info = sage_client.describe_endpoint_config(EndpointConfigName=config_name)
+
+    for pv in config_info["ProductionVariants"]:
+        model_name = pv["ModelName"]
+        model_info = sage_client.describe_model(ModelName=model_name)
+        model_data_url = model_info["PrimaryContainer"]["ModelDataUrl"]
+        parsed_data_url = urlparse(model_data_url)
+        bucket_data_path = parsed_data_url.path.split("/")
+        bucket_name = bucket_data_path[1]
+        bucket_key = "/".join(bucket_data_path[2:])
+
+        s3_client.delete_object(Bucket=bucket_name,
+                                Key=bucket_key)
+        sage_client.delete_model(ModelName=model_name)
+
+    sage_client.delete_endpoint_config(EndpointConfigName=config_name)
+    sage_client.delete_endpoint(EndpointName=app_name)
 
 
 def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
@@ -259,7 +289,6 @@ def _get_default_s3_bucket(region_name):
     # create bucket if it does not exist
     sess = boto3.Session()
     account_id = _get_account_id()
-    region_name = sess.region_name or "us-west-2"
     bucket_name = "{pfx}-{rn}-{aid}".format(pfx=DEFAULT_BUCKET_NAME_PREFIX, rn=region_name, aid=account_id)
     s3 = sess.client('s3')
     response = s3.list_buckets()
