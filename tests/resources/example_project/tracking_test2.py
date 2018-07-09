@@ -19,12 +19,12 @@ if __name__ == "__main__":
     import os
     print("Current pid %s" % os.getpid())
     runs = []
-    for i in range(3):
+    for i in range(2):
         runs.append(launch_run())
         runs.append(launch_fail_run())
     import time
-    time.sleep(1)
+    # time.sleep(1)
     # print("Waiting on run %s" % runs[0]._active_run.run_info.entry_point_name)
     # runs[0].wait()
-    # raise Exception("yo")
+    raise Exception("yo")
 
