@@ -15,6 +15,7 @@ from distutils import dir_util
 
 
 from mlflow.projects._project_spec import Project
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
@@ -230,7 +231,6 @@ def _monitor_local(active_run, command, pid):
         active_run.set_terminated("FAILED")
         eprint("=== Run %s (command: '%s', PID: %s) failed with non-zero exit code %s "
                "===" % (active_run.run_info.run_uuid, command, pid, exit_code))
-        from mlflow.utils import process
 
 
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
@@ -243,10 +243,8 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     """
-    import threading, psutil, time
+    import threading, psutil, time, multiprocessing
     proc = _launch_command(command, work_dir, env_map)
-    eprint("Launched command %s in process with PID %s" % (command, proc.pid))
-    # monitoring_process = threading.Thread(target=lambda: time.sleep(5))
     monitoring_process = threading.Thread(
         target=_monitor_local, args=(active_run, command, proc.pid))
     monitoring_process.daemon = True
@@ -297,4 +295,9 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         active_run, command, work_dir, env_map, stream_output=block)
     if block:
         submitted_run_obj.wait()
+        run_status = submitted_run_obj.get_status()
+        if run_status != RunStatus.FINISHED:
+            raise ExecutionException(
+                "=== Run %s was unsuccessful, status: '%s' ===" %
+                (submitted_run_obj.run_id, RunStatus.to_string(run_status)))
     return submitted_run_obj

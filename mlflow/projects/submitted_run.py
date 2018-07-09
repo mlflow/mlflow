@@ -5,8 +5,6 @@ import sys
 import threading
 
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils import process
-from mlflow.utils.process import ShellCommandException
 
 launched_runs = []
 lock = threading.Lock()
@@ -97,16 +95,17 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.get_run().info.status
 
     def wait(self):
-        exit_code = process._wait_polling(self._command_proc.pid)
-        eprint("@SID: Got process (pid %s) exit code %s" % (self._command_proc.pid, exit_code))
+        # Ideally we'd also wait on the command process here & print info if it succeeds/fails.
+        # However waiting on the command process is dangerous as our monitoring thread does the
+        # same. (or in an implementation using multiprocessing.Process for monitoring, waiting is
+        # impossible)
         self._monitoring_process.join()
-        if exit_code != 0:
-            raise ShellCommandException("Command failed with non-zero exit code %s" % exit_code)
 
     def cancel(self):
         """
-        Cancels the command process, which should cause the monitoring thread to record its status
-        as failed & terminate.
+        Attempts to terminate the command process. If the command process is still alive (i.e.
+        hasn't already exited), this should cause the monitoring thread to record its status as
+        failed & terminate.
         """
         try:
             self._command_proc.terminate()
