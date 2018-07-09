@@ -20,6 +20,16 @@ PREBUILT_IMAGE_URLS = {
     "us-west-2": "XXXXXXX.dkr.ecr.us-west-2.amazonaws.com/mlflow-pyfunc",
 }
 
+DEPLOYMENT_MODE_ADD = "add"
+DEPLOYMENT_MODE_REPLACE = "replace"
+DEPLOYMENT_MODE_CREATE = "create"
+
+DEPLOYMENT_MODES = [
+    DEPLOYMENT_MODE_CREATE,
+    DEPLOYMENT_MODE_ADD,
+    DEPLOYMENT_MODE_REPLACE
+]
+
 def _get_prebuilt_image_url(region):
     if region not in PREBUILT_IMAGE_URLS:
         raise ValueError(
@@ -151,7 +161,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 
 def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
-           image_url=None, region_name="us-west-2"):
+           image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE):
     """
     Deploy model on SageMaker.
     Current active AWS account needs to have correct permissions setup.
@@ -167,7 +177,17 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param image: name of the Docker image to be used. if not specified, uses a 
                   publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
+    :param mode: The mode in which to deploy the application. Must be one of the following:
+                 `create`: Creates an application with the specified name and model. 
+                           This will fail if an application of the same name already exists.
+                 `replace`: Creates an application with the specified name and model.
+                            This will replace any pre-existing applications of the same name.
+                 `add`: Adds the specified model to a pre-existing application with the specified 
+                        name, if one exists. If the application does not exist, a new application
+                        will be created with the specified name and model.
     """
+    assert mode in DEPLOYMENT_MODES, "`mode` must be one of: {mds}".format(mds=",".join(DEPLOYMENT_MODES))
+
     if not image_url:
         image_url = _get_prebuilt_image_url(region_name)
 
@@ -190,7 +210,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             app_name=app_name,
             model_s3_path=model_s3_path,
             run_id=run_id,
-            region_name=region_name)
+            region_name=region_name,
+            model=mode)
 
 
 def delete(app_name, region_name="us-west-2"):
@@ -343,7 +364,7 @@ def _upload_s3(local_model_path, bucket, prefix):
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
-def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name):
+def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode):
     """
     Deploy model on sagemaker.
     :param role: SageMaker execution ARN role
@@ -351,33 +372,116 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name):
     :param app_name: Name of the deployed app
     :param model_s3_path: s3 path where we stored the model artifacts
     :param run_id: RunId that generated this model
+    :param mode: The mode in which to deploy the application.
     """
     sage_client = boto3.client('sagemaker', region_name=region_name)
-    model_name = app_name + '-model'
-    model_response = sage_client.create_model(
-        ModelName=model_name,
-        PrimaryContainer={
-            'ContainerHostname': 'mlflow-serve-%s' % model_name,
-            'Image': image_url,
-            'ModelDataUrl': model_s3_path,
-            'Environment': {},
-        },
-        ExecutionRoleArn=role,
-        Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
-    )
-    eprint("model_arn: %s" % model_response["ModelArn"])
-    config_name = app_name + "-config"
+
+    deployed_endpoints = sage_client.list_endpoints()["Endpoints"]
+    deployed_endpoints = [endp["EndpointName"] for enp in deployed_endpoints]
+
+    endpoint_exists = (app_name in deployed_endpoints)
+    if endpoint_exists and mode == DEPLOYMENT_MODE_CREATE:
+        raise Exception("You are attempting to deploy application with name: {an} in `create` mode. However, an application with the same name"
+                        " already exists. If you want to update this application, deploy in `{madd}` or `{mrep}` mode".format(madd=DEPLOYMENT_MODE_ADD,
+                                                                                                                              mrep=DEPLOYMENT_MODE_REPLACE))
+    
+    elif endpoint_exists:
+        # Update the endpoint according to the deployment mode specified
+        # by the `mode` argument
+        endpoint_info = sage_client.describe_endpoint(app_name)
+        deployed_config_name = endpoint_info["EndpointConfigName"]
+        deployed_config = sage_client.describe_endpoint_config(EndpointConfigName=config_name)
+        deployed_production_variants = deployed_config["ProductionVariants"]
+        latest_model_id = max([_get_model_id(pv["ModelName"]) for pv in deployed_production_variants])
+        
+        model_id = latest_model_id + 1
+        model_name = _create_model_name(app_name, new_model_id)
+        model_weight = 1 if (mode == DEPLOYMENT_MODE_REPLACE) else 0
+
+        model_response = sage_client.create_model(
+            ModelName=model_name,
+            PrimaryContainer={
+                'ContainerHostname': 'mlflow-serve-%s' % model_name,
+                'Image': image_url,
+                'ModelDataUrl': model_s3_path,
+                'Environment': {},
+            },
+            ExecutionRoleArn=role,
+            Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
+        )
+        eprint("model_arn: %s" % model_response["ModelArn"])
+
+
+        if mode == DEPLOYMENT_MODE_ADD:
+            model_weight = 0
+            production_variants = deployed_production_variants
+        elif mode == DEPLOYMENT_MODE_REPLACE:
+            model_weight = 1
+            production_variants = [] 
+        else:
+            raise Exception("Unrecognized mode: `{md}` for deployment to pre-existing application".format(md=mode))
+
+        new_production_variant = {
+                                    'VariantName': 'model1',
+                                    'ModelName': new_model_name,  # is this the unique identifier for Model?
+                                    'InitialInstanceCount': 1,
+                                    'InstanceType': 'ml.m4.xlarge',
+                                    'InitialVariantWeight': model_weight 
+                                 }
+
+        production_variants.append(new_production_variant)
+
+    else:
+        # Create a new endpoint
+        model_name = _create_model_name(app_name, model_id=0)
+
+        model_response = sage_client.create_model(
+            ModelName=model_name,
+            PrimaryContainer={
+                'ContainerHostname': 'mlflow-serve-%s' % model_name,
+                'Image': image_url,
+                'ModelDataUrl': model_s3_path,
+                'Environment': {},
+            },
+            ExecutionRoleArn=role,
+            Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
+        )
+        eprint("model_arn: %s" % model_response["ModelArn"])
+
+        production_variant = {
+                                'VariantName': 'model1',
+                                'ModelName': model_name,  # is this the unique identifier for Model?
+                                'InitialInstanceCount': 1,
+                                'InstanceType': 'ml.m4.xlarge',
+                                'InitialVariantWeight': 1 
+                             }
+        endpoint_config_response = _create_endpoint_config(app_name=app_name,
+                                                           production_variants=[production_variant])
+        eprint("endpoint_config_arn: %s" % endpoint_config_response["EndpointConfigArn"])
+        endpoint_response = sage_client.create_endpoint(
+            EndpointName=app_name,
+            EndpointConfigName=config_name,
+            Tags=[],
+        )
+        eprint("endpoint_arn: %s" % endpoint_response["EndpointArn"])
+
+
+def _get_model_id(model_name):
+    return int(model_name.split("-")[-1])
+
+def _create_model_name(app_name, model_id):
+    return "{an}-model-{mid}".format(an=app_name, mid=model_id)
+
+def _create_sagemaker_endpoint():
+    pass
+
+def _update_sagemaker_endpoint(mode):
+    pass
+
+def _create_endpoint_config(app_name, production_variants):
     endpoint_config_response = sage_client.create_endpoint_config(
         EndpointConfigName=config_name,
-        ProductionVariants=[
-            {
-                'VariantName': 'model1',
-                'ModelName': model_name,  # is this the unique identifier for Model?
-                'InitialInstanceCount': 1,
-                'InstanceType': 'ml.m4.xlarge',
-                'InitialVariantWeight': 1,
-            },
-        ],
+        ProductionVariants=production_variants,
         Tags=[
             {
                 'Key': 'app_name',
@@ -385,10 +489,4 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name):
             },
         ],
     )
-    eprint("endpoint_config_arn: %s" % endpoint_config_response["EndpointConfigArn"])
-    endpoint_response = sage_client.create_endpoint(
-        EndpointName=app_name,
-        EndpointConfigName=config_name,
-        Tags=[],
-    )
-    eprint("endpoint_arn: %s" % endpoint_response["EndpointArn"])
+    return endpoint_config_response
