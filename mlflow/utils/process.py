@@ -77,5 +77,6 @@ def exec_fn(target, args, stream_output, **kwargs):
             sys.stderr = open(os.devnull, 'w')
         target(*args)
     p = multiprocessing.Process(target=wrapper, **kwargs)
+    p.daemon = True
     p.start()
     return p

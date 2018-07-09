@@ -17,17 +17,10 @@ def _add_run(submitted_run_obj):
 
 @atexit.register
 def _wait_runs():
-    try:
-        eprint("=== Main thread completed successfully. Waiting for active runs to complete "
-               "interrupting will kill active runs) ===")
-        with lock:
-            for run in launched_runs:
-                run.wait()
-    finally:
-        _do_kill_runs()
-
-
-old_hook = sys.excepthook
+    eprint("=== Waiting for active runs to complete (interrupting will kill active runs) ===")
+    with lock:
+        for run in launched_runs:
+            run.wait()
 
 
 def _do_kill_runs():
@@ -36,11 +29,17 @@ def _do_kill_runs():
             run.cancel()
 
 
+# Override the current exception hook with a new hook that calls the existing hook & also kills
+# all active runs. TODO does this work in Jupyter noteboboks where sys.excepthook is potentially
+# overridden?
+old_hook = sys.excepthook
+
+
 def _kill_runs(type, value, traceback):
-    eprint("=== Main thread exited with uncaught exception of type %s. Killing active runs." % type)
     old_hook(type, value, traceback)
+    eprint("=== Main thread exited with uncaught exception of type %s. Killing active runs. "
+           "===" % type)
     _do_kill_runs()
-    os._exit(1)
 
 
 sys.excepthook = _kill_runs
@@ -71,21 +70,21 @@ class SubmittedRun(object):
 
     @abstractmethod
     def run_id(self):
+        """Returns the MLflow run ID of the current run"""
         pass
 
     @abstractmethod
     def cancel(self):
-        """Cancels and cleans up the resources for the current run."""
+        """Cancels and cleans up the resources for the current run, if the run is still active."""
         pass
 
 
 class LocalSubmittedRun(SubmittedRun):
     """Implementation of SubmittedRun corresponding to a local project run."""
-    def __init__(self, active_run, monitoring_process, command_proc):
+    def __init__(self, active_run, monitoring_process):
         super(LocalSubmittedRun, self).__init__()
         self._active_run = active_run
         self._monitoring_process = monitoring_process
-        self._command_proc = command_proc
 
     @property
     def run_id(self):
@@ -95,20 +94,16 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.get_run().info.status
 
     def wait(self):
-        # Ideally we'd also wait on the command process here & print info if it succeeds/fails.
-        # However waiting on the command process is dangerous as our monitoring thread does the
-        # same. (or in an implementation using multiprocessing.Process for monitoring, waiting is
-        # impossible)
         self._monitoring_process.join()
 
     def cancel(self):
         """
-        Attempts to terminate the command process. If the command process is still alive (i.e.
-        hasn't already exited), this should cause the monitoring thread to record its status as
-        failed & terminate.
+        Attempts to cancel the current run by interrupting the monitoring process; note that this
+        will not cancel the run if it has already completed.
         """
+        import signal
         try:
-            self._command_proc.terminate()
+            os.kill(self._monitoring_process.pid, signal.SIGINT)
         except OSError:
             pass
         self._monitoring_process.join()

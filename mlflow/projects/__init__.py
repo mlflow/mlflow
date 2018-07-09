@@ -5,10 +5,10 @@ from __future__ import print_function
 import hashlib
 import json
 import os
-import psutil
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 
 from distutils import dir_util
@@ -207,30 +207,49 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_command(command, work_dir, env_map):
+def _launch_command(command, work_dir, env_map, stream_output):
     """
     Launch entry point command in a subprocess, returning a `subprocess.Popen` representing the
-    subprocess.
+    subprocess. The subprocess's stderr & stdout are streamed to the current process's
+    stderr & stdout.
     """
     cmd_env = os.environ.copy()
     cmd_env.update(env_map)
-    # TODO: Don't always stream output
-    return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command],
-                            cwd=work_dir, env=env_map)
+    if stream_output:
+        return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command],
+                                cwd=work_dir, env=env_map)
+    # TODO: Can this hang if there's too much stdout/stderr buffered?
+    return subprocess.Popen(
+        [os.environ.get("SHELL", "bash"), "-c", command],
+        cwd=work_dir, env=env_map, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 
-def _monitor_local(active_run, command, pid):
+def _monitor_local(active_run, command, proc):
     """Monitors a command subprocess running as a child of the current process"""
-    # TODO: Race condition where the process could die before we hit this
-    from mlflow.utils import process
-    exit_code = process._wait_polling(pid)
-    if exit_code == 0:
-        active_run.set_terminated("FINISHED")
-        eprint("=== Run %s (command: '%s') succeeded ===" % (active_run.run_info.run_uuid, command))
-    else:
+    try:
+        exit_code = proc.wait()
+        if exit_code == 0:
+            active_run.set_terminated("FINISHED")
+            eprint("=== Run %s (command: '%s') succeeded ==="
+                   % (active_run.run_info.run_uuid, command))
+        else:
+            active_run.set_terminated("FAILED")
+            eprint("=== Run %s (command: '%s', PID: %s) failed with non-zero exit code %s "
+                   "===" % (active_run.run_info.run_uuid, command, proc.pid, exit_code))
+    # Handle KeyboardInterrupt to avoid printing stacktrace with run output
+    except KeyboardInterrupt:
+        proc.terminate()
         active_run.set_terminated("FAILED")
-        eprint("=== Run %s (command: '%s', PID: %s) failed with non-zero exit code %s "
-               "===" % (active_run.run_info.run_uuid, command, pid, exit_code))
+        eprint("=== Run %s (command: '%s', PID: %s) was interrupted, setting status to FAILED "
+               "===" % (active_run.run_info.run_uuid, command, proc.pid))
+        sys.exit(0)
+    finally:
+        proc.terminate()
+
+
+def _run_and_monitor_local(active_run, command, work_dir, env_map, stream_output):
+    proc = _launch_command(command, work_dir, env_map, stream_output)
+    _monitor_local(active_run, command, proc)
 
 
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
@@ -242,14 +261,12 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param command: Entry point command to execute
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
+    :return `SubmittedRun` corresponding to the launched run.
     """
-    import threading, psutil, time, multiprocessing
-    proc = _launch_command(command, work_dir, env_map)
-    monitoring_process = threading.Thread(
-        target=_monitor_local, args=(active_run, command, proc.pid))
-    monitoring_process.daemon = True
-    monitoring_process.start()
-    return LocalSubmittedRun(active_run, monitoring_process, proc)
+    monitoring_process = process.exec_fn(
+        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map, stream_output),
+        stream_output=True)
+    return LocalSubmittedRun(active_run, monitoring_process)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
