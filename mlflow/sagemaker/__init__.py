@@ -15,6 +15,8 @@ from mlflow.utils.file_utils import TempDir, _copy_project
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
+IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
+
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
 _DOCKERFILE_TEMPLATE = """
@@ -224,6 +226,10 @@ def _check_compatible(path):
 
 
 def _get_default_image_url():
+    env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
+    if env_img:
+        return env_img
+
     ecr_client = boto3.client("ecr")
     repository_conf = ecr_client.describe_repositories(
         repositoryNames=[DEFAULT_IMAGE_NAME])['repositories'][0]
