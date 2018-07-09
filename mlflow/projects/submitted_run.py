@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import atexit
+import multiprocessing
 import os
 import sys
 import threading
@@ -17,10 +18,15 @@ def _add_run(submitted_run_obj):
 
 @atexit.register
 def _wait_runs():
-    eprint("=== Waiting for active runs to complete (interrupting will kill active runs) ===")
-    with lock:
-        for run in launched_runs:
-            run.wait()
+    try:
+        eprint("=== Waiting for active runs to complete (interrupting will kill active runs) ===")
+        with lock:
+            for run in launched_runs:
+                run.wait()
+    except KeyboardInterrupt:
+        # TODO: Why don't we need this? Would be good to understand...
+        # _do_kill_runs()
+        sys.exit(1)
 
 
 def _do_kill_runs():

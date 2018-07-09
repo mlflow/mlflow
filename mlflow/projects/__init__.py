@@ -244,7 +244,10 @@ def _monitor_local(active_run, command, proc):
                "===" % (active_run.run_info.run_uuid, command, proc.pid))
         sys.exit(0)
     finally:
-        proc.terminate()
+        try:
+            proc.terminate()
+        except OSError:
+            pass
 
 
 def _run_and_monitor_local(active_run, command, work_dir, env_map, stream_output):
