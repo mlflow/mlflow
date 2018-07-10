@@ -13,7 +13,6 @@ import signal
 from subprocess import check_call, Popen
 import sys
 
-
 from pkg_resources import resource_filename
 
 import mlflow
@@ -21,6 +20,7 @@ import mlflow.version
 
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 
 def _init(cmd):
@@ -47,8 +47,8 @@ def _server_dependencies_cmds():
     """
     # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
-            "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow/") else
-            "pip install mlflow=={}".format(mlflow.version.VERSION)]
+            "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow")
+            else "pip install mlflow=={}".format(MLFLOW_VERSION)]
 
 
 def _serve():
@@ -69,8 +69,9 @@ def _serve():
         env_path_dst_dir = os.path.dirname(env_path_dst)
         if not os.path.exists(env_path_dst_dir):
             os.makedirs(env_path_dst_dir)
-        # /opt/ml/ is read-only, we need to copy the env elsewhere before importing it
-        shutil.copy(src=os.path.join("/opt/ml/model/", env), dst=env_path_dst)
+        # TODO: should we test that the environment does not include any of the server dependencies?
+        # Those are gonna be reinstalled. should probably test this on the client side
+        shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
         os.system("conda env create -n custom_env -f {}".format(env_path_dst))
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")

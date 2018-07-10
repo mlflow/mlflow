@@ -17,10 +17,6 @@ from mlflow.utils.file_utils import TempDir, _copy_project
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
-PREBUILT_IMAGE_URLS = {
-    "us-west-2": "XXXXXXX.dkr.ecr.us-west-2.amazonaws.com/mlflow-pyfunc",
-}
-
 DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
 DEPLOYMENT_MODE_CREATE = "create"
@@ -31,13 +27,7 @@ DEPLOYMENT_MODES = [
     DEPLOYMENT_MODE_REPLACE
 ]
 
-def _get_prebuilt_image_url(region):
-    if region not in PREBUILT_IMAGE_URLS:
-        raise ValueError(
-            "Prebuilt images are not available in region {region}. ".format(region=region) +
-            "Please specify a valid region or an image_url in the desired region. " +
-            "Valid regions are: {regions}".format(regions=", ".join(PREBUILT_IMAGE_URLS.keys())))
-    return (PREBUILT_IMAGE_URLS[region] + ":{version}").format(version=mlflow.version.VERSION)
+IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -53,6 +43,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          bzip2 \
          build-essential \
          cmake \
+         openjdk-8-jdk \
          git-core \
     && rm -rf /var/lib/apt/lists/*
 
@@ -60,6 +51,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
 RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
 ENV PATH="/miniconda/bin:${PATH}"
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\
@@ -193,7 +185,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     assert mode in DEPLOYMENT_MODES, "`mode` must be one of: {mds}".format(mds=",".join(DEPLOYMENT_MODES))
 
     if not image_url:
-        image_url = _get_prebuilt_image_url(region_name)
+        image_url = _get_default_image_url()
 
     if not execution_role_arn:
         execution_role_arn = _get_assumed_role_arn()
@@ -286,6 +278,17 @@ def _check_compatible(path):
     if pyfunc.FLAVOR_NAME not in model.flavors:
         raise Exception("Currenlty only supports pyfunc format.")
     return model.run_id if hasattr(model, "run_id") else None
+
+
+def _get_default_image_url():
+    env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
+    if env_img:
+        return env_img
+
+    ecr_client = boto3.client("ecr")
+    repository_conf = ecr_client.describe_repositories(
+        repositoryNames=[DEFAULT_IMAGE_NAME])['repositories'][0]
+    return (repository_conf["repositoryUri"] + ":{version}").format(version=mlflow.version.VERSION)
 
 
 def _get_account_id():
