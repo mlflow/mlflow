@@ -43,7 +43,6 @@ setup(
         'protobuf>=3.6.0',
         'gitpython>=2.1.0',
         'pyyaml',
-        'psutil',
         'boto3',
         'querystring_parser',
     ],
