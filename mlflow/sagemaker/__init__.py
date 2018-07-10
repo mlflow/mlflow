@@ -157,7 +157,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param run_id: MLflow run id.
     :param image: name of the Docker image to be used. if not specified, uses a 
                   publicly-available pre-built image.
-    :param region_name: Name of the AWS region to deploy to. defaults to 
+    :param region_name: Name of the AWS region to deploy to.
     """
     if not image_url:
         image_url = _get_default_image_url()
