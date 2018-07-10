@@ -372,7 +372,7 @@ page nav.wy-nav-side {
 
 .wy-nav-top-logo {
   line-height: 54px;
-  text-align: center;
+  text-align: left;
   margin-left: 14px;
   float: left;
 }
@@ -1051,4 +1051,14 @@ text-transform: capitalize;
     -webkit-transform: rotate(360deg);
     transform: rotate(360deg);
   }
+}
+
+.version {
+    line-height: 26px;
+    vertical-align: bottom;
+    text-align: left;
+    font-size: 12px;
+    padding: 0;
+    margin: 0;
+    font-weight: bold;
 }
