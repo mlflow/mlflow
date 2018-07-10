@@ -49,10 +49,10 @@ class TestModelExport(unittest.TestCase):
 
     def test_model_log(self):
         with TempDir(chdr=True, remove_on_exit=True):
-            tracking.set_tracking_uri("mlruns")
             for truth in [False, True]:
                 if truth:
                     tracking.start_run()
+                tracking.set_tracking_uri("mlruns")
                 try:
                     sklearn.log_model(sk_model=self._linear_lr, artifact_path="linear")
                     x = sklearn.load_model("linear", run_id=tracking.active_run().info.run_uuid)

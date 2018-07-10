@@ -71,15 +71,14 @@ class TestModelExport(unittest.TestCase):
             pred_col = "predictions"
             estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
             estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
-            # Setting the logging such that it is in the temp folder and deleted after the test.
-            old_tracking_dir = tracking.get_tracking_uri()
-            tracking_dir = os.path.abspath(tmp.path("mlruns"))
-            tracking.set_tracking_uri("file://%s" % tracking_dir)
             for truth in [False, True]:
                 if truth:
                     tracking.start_run()
                     shutil.rmtree(tmp.path("model"))
-                tracking.start_run()
+                # Setting the logging such that it is in the temp folder and deleted after the test.
+                old_tracking_dir = tracking.get_tracking_uri()
+                tracking_dir = os.path.abspath(tmp.path("mlruns"))
+                tracking.set_tracking_uri("file://%s" % tracking_dir)
                 try:
                     # Creating dict of features names (str) to placeholders (tensors)
                     feature_spec = {}
