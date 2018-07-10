@@ -225,7 +225,10 @@ def _launch_command(command, work_dir, env_map, stream_output):
 
 
 def _monitor_local(active_run, command, proc):
-    """Monitors a command subprocess running as a child of the current process"""
+    """
+    Monitors a command subprocess running as a child of the current process. This function is
+    intended to be run within a subprocess.
+    """
     try:
         exit_code = proc.wait()
         if exit_code == 0:
@@ -238,13 +241,15 @@ def _monitor_local(active_run, command, proc):
                    "===" % (active_run.run_info.run_uuid, command, proc.pid, exit_code))
     # Handle KeyboardInterrupt to avoid printing stacktrace with run output
     except KeyboardInterrupt:
-        eprint("Got a keyboard interrupt from the monitor")
         proc.terminate()
         active_run.set_terminated("FAILED")
         eprint("=== Run %s (command: '%s', PID: %s) was interrupted, setting status to FAILED "
                "===" % (active_run.run_info.run_uuid, command, proc.pid))
+        import time
         sys.exit(0)
     finally:
+        # Make a best effort to terminate the command process, e.g. if the current process is
+        # terminated via a signal other than SIGINT - we don't expect this case to commonly occur
         try:
             proc.terminate()
         except OSError:

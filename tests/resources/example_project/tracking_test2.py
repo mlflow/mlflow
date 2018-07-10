@@ -1,3 +1,4 @@
+# TODO: delete this script/turn it into unit tests
 import time
 import mlflow
 TEST_PROJECT_DIR = "/Users/sid/code/mlflow/tests/resources/example_project"
@@ -24,7 +25,7 @@ if __name__ == "__main__":
         runs.append(launch_run())
         runs.append(launch_fail_run())
     # time.sleep(1)
-    print("Waiting on run %s" % runs[0]._active_run.run_info.entry_point_name)
-    runs[0].wait()
+    # print("Waiting on run %s" % runs[0]._active_run.run_info.entry_point_name)
+    # runs[0].wait()
     # raise Exception("yo")
 

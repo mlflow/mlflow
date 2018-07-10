@@ -1,6 +1,5 @@
 from abc import abstractmethod
 import atexit
-import multiprocessing
 import os
 import sys
 import threading
@@ -24,9 +23,11 @@ def _wait_runs():
             for run in launched_runs:
                 run.wait()
     except KeyboardInterrupt:
-        eprint("Sid got an interrupt man")
-        # TODO: Why don't we need this? Would be good to understand...
-        # _do_kill_runs()
+        # TODO: Why don't we need to call _do_kill_runs here? Would be good to understand...
+        # Answer: because the SIGINT gets forwarded to all processes in the process group,
+        # see https://unix.stackexchange.com/questions/365463/can-ctrlc-send-the-sigint-signal-to-multiple-processes
+        # But is there a race condition where we'll somehow orphan/abandon the monitoring processes
+        # here? No, since we wait for all multiprocessing subprocesses to terminate
         sys.exit(1)
 
 
@@ -44,9 +45,10 @@ old_hook = sys.excepthook
 
 def _kill_runs(type, value, traceback):
     old_hook(type, value, traceback)
-    eprint("=== Main thread exited with uncaught exception of type %s. Killing active runs. "
-           "===" % type)
-    _do_kill_runs()
+    if type != KeyboardInterrupt:
+        eprint("=== Main thread exited with uncaught exception of type %s. Killing active runs. "
+               "===" % type)
+        _do_kill_runs()
 
 
 sys.excepthook = _kill_runs
@@ -101,6 +103,8 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.get_run().info.status
 
     def wait(self):
+        # Note: this is written with the assumption that the main source of interrupts will
+        # be e.g. Ctrl+C from the terminal / "cancel" from an IPython notebook
         self._monitoring_process.join()
 
     def cancel(self):
