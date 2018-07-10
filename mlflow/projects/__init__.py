@@ -8,7 +8,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 
 from distutils import dir_util
@@ -239,17 +238,15 @@ def _monitor_local(active_run, command, proc):
             active_run.set_terminated("FAILED")
             eprint("=== Run %s (command: '%s', PID: %s) failed with non-zero exit code %s "
                    "===" % (active_run.run_info.run_uuid, command, proc.pid, exit_code))
-    # Handle KeyboardInterrupt to avoid printing stacktrace with run output
+    # Handle KeyboardInterrupt to avoid printing stacktrace from e.g. the wait() call
     except KeyboardInterrupt:
         proc.terminate()
         active_run.set_terminated("FAILED")
         eprint("=== Run %s (command: '%s', PID: %s) was interrupted, setting status to FAILED "
                "===" % (active_run.run_info.run_uuid, command, proc.pid))
-        import time
-        sys.exit(0)
     finally:
-        # Make a best effort to terminate the command process, e.g. if the current process is
-        # terminated via a signal other than SIGINT - we don't expect this case to commonly occur
+        # Make a best effort to terminate the command process, e.g. if we're interrupted while
+        # handling the KeyboardInterrupt - we don't expect this case to commonly occur
         try:
             proc.terminate()
         except OSError:
@@ -259,6 +256,9 @@ def _monitor_local(active_run, command, proc):
 def _run_and_monitor_local(active_run, command, work_dir, env_map, stream_output):
     proc = _launch_command(command, work_dir, env_map, stream_output)
     _monitor_local(active_run, command, proc)
+
+
+
 
 
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
@@ -295,12 +295,10 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
 
     # Create a new run and log every provided parameter into it.
     exp_id_for_run = experiment_id or tracking._get_experiment_id()
-    assert tracking._active_run is None
     active_run = tracking._create_run(
         experiment_id=exp_id_for_run, source_name=project.uri,
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
-    assert tracking._active_run is None
     if parameters is not None:
         for key, value in parameters.items():
             active_run.log_param(Param(key, value))

@@ -27,5 +27,5 @@ if __name__ == "__main__":
     # time.sleep(1)
     # print("Waiting on run %s" % runs[0]._active_run.run_info.entry_point_name)
     # runs[0].wait()
-    # raise Exception("yo")
+    raise Exception("yo")
 

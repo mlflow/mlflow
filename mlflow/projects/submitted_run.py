@@ -31,28 +31,6 @@ def _wait_runs():
         sys.exit(1)
 
 
-def _do_kill_runs():
-    with lock:
-        for run in launched_runs:
-            run.cancel()
-
-
-# Override the current exception hook with a new hook that calls the existing hook & also kills
-# all active runs. TODO does this work in Jupyter noteboboks where sys.excepthook is potentially
-# overridden?
-old_hook = sys.excepthook
-
-
-def _kill_runs(type, value, traceback):
-    old_hook(type, value, traceback)
-    if type != KeyboardInterrupt:
-        eprint("=== Main thread exited with uncaught exception of type %s. Killing active runs. "
-               "===" % type)
-        _do_kill_runs()
-
-
-sys.excepthook = _kill_runs
-
 
 class SubmittedRun(object):
     """
@@ -80,11 +58,6 @@ class SubmittedRun(object):
     @abstractmethod
     def run_id(self):
         """Returns the MLflow run ID of the current run"""
-        pass
-
-    @abstractmethod
-    def cancel(self):
-        """Cancels and cleans up the resources for the current run, if the run is still active."""
         pass
 
 
