@@ -4662,7 +4662,7 @@ div[class^='highlight'] pre {
     padding: 0.4045em 0.809em;
     position: relative;
     line-height: 50px;
-    text-align: center;
+    text-align: left;
     font-size: 100%;
     *zoom: 1
 }
