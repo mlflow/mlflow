@@ -402,11 +402,17 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     sage_client = boto3.client('sagemaker', region_name=region_name)
     s3_client = boto3.client('s3', region_name=region_name)
 
-    deployed_endpoints = sage_client.list_endpoints()["Endpoints"]
-    deployed_endpoints = [endp["EndpointName"] for endp in deployed_endpoints]
+    deployed_endpoints_page = sage_client.list_endpoints(MaxResults=100)
+    endpoint_found = (app_name in [endp["EndpointName"] for endp in deployed_endpoints_page["Endpoints"]])
+    while (not endpoint_found) and ("NextToken" in deployed_endpoints_page):
+        next_token = deployed_endpoints_page["NextToken"]
+        deployed_endpoints_page = sage_client.list_endpoints(MaxResults=100, NextToken=next_token)
+        for endp in deployed_endpoints_page["Endpoints"]:
+            if endp["EndpointName"] == app_name:
+                endpoint_found = True
+                break
 
-    endpoint_exists = (app_name in deployed_endpoints)
-    if endpoint_exists and mode == DEPLOYMENT_MODE_CREATE:
+    if endpoint_found and mode == DEPLOYMENT_MODE_CREATE:
         msg = "You are attempting to deploy an application with name: `{an}` in `{mcr} `mode. 
                However, an application with the same name already exists. If you want to update 
                this application, deploy in `{madd}` or `{mrep}` mode.".format(
@@ -417,7 +423,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
         
         raise Exception(msg)
     
-    elif endpoint_exists:
+    elif endpoint_found:
         return _update_sagemaker_endpoint(endpoint_name=app_name,
                                           image_url=image_url,
                                           model_s3_path=model_s3_path,
