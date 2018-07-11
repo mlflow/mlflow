@@ -6,6 +6,11 @@
 {% set suffix = source_suffix %}
 {% endif %}
 
+{% set github_user = 'databricks' %}
+{% set github_repo = 'mlflow'  %}
+{% set github_version = 'master' %}
+{% set conf_py_path = 'docs/source' %}
+
 <div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="{{ pathto(master_doc) }}">Documentation</a> <span class="db-icon db-icon-chevron-right"></span></li>
@@ -18,17 +23,9 @@
       <li>Search</li>
     {% endif %}
     {% if not pagename == "search" %}
-      <li class="wy-breadcrumbs-aside">
-        {% if display_github %}
-          <a href="https://{{ github_host|default("github.com") }}/{{ github_user }}/{{ github_repo }}/blob/{{ github_version }}{{ conf_py_path }}{{ pagename }}{{ suffix }}" class="fa fa-github"> Edit on GitHub</a>
-        {% elif display_bitbucket %}
-          <a href="https://bitbucket.org/{{ bitbucket_user }}/{{ bitbucket_repo }}/src/{{ bitbucket_version}}{{ conf_py_path }}{{ pagename }}{{ suffix }}" class="fa fa-bitbucket"> Edit on Bitbucket</a>
-        {% elif show_source and source_url_prefix %}
-          <a href="{{ source_url_prefix }}{{ pagename }}{{ suffix }}">View page source</a>
-        {% elif show_source and has_source and sourcename %}
-          <a href="{{ pathto('_sources/' + sourcename, true)|e }}" rel="nofollow"> View page source</a>
-        {% endif %}
-      </li>
+    <li class="wy-breadcrumbs-aside">
+      <a href="https://{{ github_host|default("github.com") }}/{{ github_user }}/{{ github_repo }}/blob/{{ github_version }}/{{ conf_py_path }}/{{ pagename }}{{ suffix }}" class="fa fa-github"> Edit on GitHub</a>
+    </li>
     {% endif %}
   </ul>
 </div>

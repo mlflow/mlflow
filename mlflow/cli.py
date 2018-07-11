@@ -14,6 +14,7 @@ import mlflow.sagemaker.cli
 import mlflow.server
 
 from mlflow.entities.experiment import Experiment
+from mlflow.utils.process import ShellCommandException
 from mlflow import tracking
 
 
@@ -117,7 +118,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                    "(default: ./mlruns).")
 @click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
               help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the UI from"
+                   "Use 0.0.0.0 to bind to all addresses if you want to access the UI from "
                    "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
@@ -128,7 +129,12 @@ def ui(file_store, host, port):
     The UI will be visible at http://localhost:5000 by default.
     """
     # TODO: We eventually want to disable the write path in this version of the server.
-    mlflow.server._run_server(file_store, file_store, host, port, 1)
+    try:
+        mlflow.server._run_server(file_store, file_store, host, port, 1)
+    except ShellCommandException:
+        print("Running the mlflow server failed. Please see the logs above for details.",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 @cli.command()
@@ -153,7 +159,12 @@ def server(file_store, artifact_root, host, port, workers):
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
-    mlflow.server._run_server(file_store, artifact_root, host, port, workers)
+    try:
+        mlflow.server._run_server(file_store, artifact_root, host, port, workers)
+    except ShellCommandException:
+        print("Running the mlflow server failed. Please see the logs above for details.",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 cli.add_command(mlflow.sklearn.commands)
