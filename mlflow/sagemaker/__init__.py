@@ -2,8 +2,7 @@ from __future__ import print_function
 
 import os
 from subprocess import Popen, PIPE, STDOUT
-from six.moves import urllib
-from urllib.parse import urlparse
+from six.moves.urllib import parse as urlparse
 from datetime import datetime
 import tarfile
 
@@ -413,9 +412,9 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                 break
 
     if endpoint_found and mode == DEPLOYMENT_MODE_CREATE:
-        msg = "You are attempting to deploy an application with name: `{an}` in `{mcr} `mode. 
-               However, an application with the same name already exists. If you want to update 
-               this application, deploy in `{madd}` or `{mrep}` mode.".format(
+        msg = ("You are attempting to deploy an application with name: `{an}` in `{mcr} `mode." 
+               " However, an application with the same name already exists. If you want to update" 
+               " this application, deploy in `{madd}` or `{mrep}` mode.").format(
                        an=app_name,
                        mcr=DEPLOYMENT_MODE_CREATE,
                        madd=DEPLOYMENT_MODE_ADD,
@@ -651,7 +650,7 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     # Parse the model data url to obtain a bucket path. The following
     # procedure is safe due to the well-documented structure of the `ModelDataUrl`
     # (see https://docs.aws.amazon.com/sagemaker/latest/dg/API_ContainerDefinition.html)
-    parsed_data_url = urlparse(model_data_url)
+    parsed_data_url = urlparse.urlparse(model_data_url)
     bucket_data_path = parsed_data_url.path.split("/")
     bucket_name = bucket_data_path[1]
     bucket_key = "/".join(bucket_data_path[2:])
