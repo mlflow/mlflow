@@ -5,8 +5,8 @@ from six.moves import shlex_quote
 
 from mlflow.entities.source_type import SourceType
 from mlflow.projects import ExecutionException
-from mlflow.projects.submitted_run import DatabricksSubmittedRun
-from mlflow.utils import rest_utils
+from mlflow.projects.submitted_run import LocalSubmittedRun
+from mlflow.utils import rest_utils, process
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
@@ -19,7 +19,7 @@ def _jobs_runs_get(databricks_run_id):
 
 def _jobs_runs_cancel(databricks_run_id):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/get", method="GET", params={"run_id": databricks_run_id})
+        endpoint="jobs/runs/cancel", method="POST", req_body_json={"run_id": databricks_run_id})
 
 
 def _jobs_runs_submit(req_body_json):
@@ -135,7 +135,8 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _do_databricks_run(uri, command, env_vars, cluster_spec)
-    submitted_run = DatabricksSubmittedRun(active_run=remote_run, databricks_run_id=db_run_id)
+    monitoring_proc = process.exec_fn(wait_databricks, args=(db_run_id,))
+    submitted_run = LocalSubmittedRun(active_run=remote_run, monitoring_process=monitoring_proc)
     if block:
         submitted_run.wait()
     return submitted_run
@@ -153,13 +154,14 @@ def wait_databricks(databricks_run_id, sleep_interval=30):
     try:
         result_state = _get_run_result_state(databricks_run_id)
         while result_state is None:
-            eprint("=== Databricks run is active, checking run status again after %s seconds "
-                   "===" % sleep_interval)
             time.sleep(sleep_interval)
             result_state = _get_run_result_state(databricks_run_id)
         if result_state != "SUCCESS":
             raise ExecutionException("=== Databricks run finished with status %s != 'SUCCESS' "
                                      "===" % result_state)
-        eprint("=== Run succeeded ===")
+        eprint("=== Run (Databricks Run ID: %s) succeeded ===" % databricks_run_id)
+    except KeyboardInterrupt:
+        eprint("=== Run (Databricks Run ID: %s) was interrupted, cancelling run... "
+               "===" % databricks_run_id)
     finally:
         _jobs_runs_cancel(databricks_run_id)

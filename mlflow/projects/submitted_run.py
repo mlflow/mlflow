@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import atexit
+# import multiprocessing
 import os
 import sys
 import threading
@@ -14,6 +15,7 @@ def _add_run(submitted_run_obj):
     with lock:
         launched_runs.append(submitted_run_obj)
 
+print("Existing funcs: %s" % atexit.run_funcs)
 
 @atexit.register
 def _wait_runs():
@@ -23,13 +25,14 @@ def _wait_runs():
             for run in launched_runs:
                 run.wait()
     except KeyboardInterrupt:
-        # TODO: Why don't we need to call _do_kill_runs here? Would be good to understand...
-        # Answer: because the SIGINT gets forwarded to all processes in the process group,
-        # see https://unix.stackexchange.com/questions/365463/can-ctrlc-send-the-sigint-signal-to-multiple-processes
-        # But is there a race condition where we'll somehow orphan/abandon the monitoring processes
-        # here? No, since we wait for all multiprocessing subprocesses to terminate
+        _do_kill_runs()
         sys.exit(1)
 
+
+def _do_kill_runs():
+    with lock:
+        for run in launched_runs:
+            run.cancel()
 
 
 class SubmittedRun(object):
@@ -73,6 +76,9 @@ class LocalSubmittedRun(SubmittedRun):
         return self._active_run.run_info.run_uuid
 
     def get_status(self):
+        if not self._active_run:
+            raise Exception("Can't get MLflow run status; the run's status has not been "
+                            "tpersisted to an accessible tracking server.")
         return self._active_run.get_run().info.status
 
     def wait(self):

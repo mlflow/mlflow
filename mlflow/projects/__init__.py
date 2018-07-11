@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import multiprocessing
 import subprocess
 import tempfile
 
@@ -258,9 +259,6 @@ def _run_and_monitor_local(active_run, command, work_dir, env_map, stream_output
     _monitor_local(active_run, command, proc)
 
 
-
-
-
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
@@ -273,8 +271,7 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :return `SubmittedRun` corresponding to the launched run.
     """
     monitoring_process = process.exec_fn(
-        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map, stream_output),
-        stream_output=True)
+        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map, stream_output))
     return LocalSubmittedRun(active_run, monitoring_process)
 
 
