@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import os
 from subprocess import Popen, PIPE, STDOUT
-from six.moves.urllib import parse as urlparse
+from six.moves import urllib 
 from datetime import datetime
 import tarfile
 import uuid
@@ -442,8 +442,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           model_s3_path=model_s3_path,
                                           run_id=run_id,
                                           role=role,
-                                          sage_client=sage_client,
-                                          s3_client=s3_client)
+                                          sage_client=sage_client)
 
 
 def _get_sagemaker_resource_unique_id():
@@ -473,15 +472,13 @@ def _create_sagemaker_endpoint(endpoint_name,
                                model_s3_path, 
                                run_id, 
                                role, 
-                               sage_client, 
-                               s3_client):
+                               sage_client): 
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
     :param model_s3_path: s3 path where we stored the model artifacts
     :param run_id: RunId that generated this model
     :param role: SageMaker execution ARN role
     :param sage_client: A boto3 client for SageMaker
-    :param sage_client: A boto3 client for S3 
     """
     eprint("Creating new endpoint with name: {en} ...".format(en=endpoint_name))
 
@@ -649,7 +646,7 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     # Parse the model data url to obtain a bucket path. The following
     # procedure is safe due to the well-documented structure of the `ModelDataUrl`
     # (see https://docs.aws.amazon.com/sagemaker/latest/dg/API_ContainerDefinition.html)
-    parsed_data_url = urlparse.urlparse(model_data_url)
+    parsed_data_url = urllib.parse.urlparse(model_data_url)
     bucket_data_path = parsed_data_url.path.split("/")
     bucket_name = bucket_data_path[1]
     bucket_key = "/".join(bucket_data_path[2:])
