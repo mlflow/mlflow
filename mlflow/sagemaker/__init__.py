@@ -5,6 +5,7 @@ from subprocess import Popen, PIPE, STDOUT
 from six.moves.urllib import parse as urlparse
 from datetime import datetime
 import tarfile
+import uuid
 
 import boto3
 
@@ -447,19 +448,15 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
 
 def _get_sagemaker_resource_unique_id():
     """
-    :return: A unique, timestamp-based identifier that can be
-    appended to a user-readable resource name to avoid naming
-    collisions.
+    :return: A unique, identifier that can be appended to a user-readable 
+    resource name to avoid naming collisions.
     """
-    dt = datetime.now()
-    epoch = datetime.utcfromtimestamp(0)
-    # Our unique identifier uses milliseconds-since-epoch to avoid errant
-    # behavior in the case where multiple users attempt to deploy models
-    # to the same endpoint at roughly the same time
-    delta_millis = int((dt - epoch).total_seconds() * 1000)
-    unique_id = str(delta_millis)
-    return unique_id
-
+    uuid_bytes = uuid.uuid4().bytes
+    # Use base64 encoding to shorten the UUID length. Note that the replacement of the 
+    # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
+    # 32-byte length
+    uuid_b64 = uuid_bytes.encode("base64").rstrip('=\n').replace("/", "-").replace("+", "AB")
+    return uuid_b64
 
 def _get_sagemaker_model_name(endpoint_name):
     unique_id = _get_sagemaker_resource_unique_id()
