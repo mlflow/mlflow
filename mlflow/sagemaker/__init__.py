@@ -227,6 +227,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
 
 def delete(app_name, region_name="us-west-2", archive=False):
     """
+    Delete the specified application.
+
     :param app_name: Name of the deployed application.
     :param region_name: Name of the AWS region in which the application is deployed.
     :param archive: If True, resources associated with the specified application, such
