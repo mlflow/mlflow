@@ -1,9 +1,6 @@
-import multiprocessing
 import os
 import filecmp
-import signal
 import tempfile
-import time
 
 import mock
 import pytest
@@ -83,11 +80,11 @@ def test_run():
                 parameters={"use_start_run": use_start_run},
                 use_conda=False, experiment_id=0)
             # Blocking runs should be finished when they return
-            assert submitted_run.get_status() == RunStatus.FINISHED
+            validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
             # Test that we can call wait() on a synchronous run & that the run has the correct
             # status after calling wait().
             submitted_run.wait()
-            assert submitted_run.get_status() == RunStatus.FINISHED
+            validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
             # Validate run contents in the FileStore
             run_uuid = submitted_run.run_id
             store = FileStore(tmp_dir)
@@ -113,14 +110,28 @@ def test_run_async():
         submitted_run0 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
             use_conda=False, experiment_id=0, block=False)
-        assert submitted_run0.get_status() == RunStatus.RUNNING
+        validate_exit_status(submitted_run0.get_status(), RunStatus.RUNNING)
         submitted_run0.wait()
-        assert submitted_run0.get_status() == RunStatus.FINISHED
+        validate_exit_status(submitted_run0.get_status(), RunStatus.FINISHED)
         submitted_run1 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
             use_conda=False, experiment_id=0, block=False)
         submitted_run1.wait()
-        assert submitted_run1.get_status() == RunStatus.FAILED
+        validate_exit_status(submitted_run1.get_status(), RunStatus.FAILED)
+
+
+def test_cancel_run():
+    with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
+        tmp_dir = tmp.path()
+        get_tracking_uri_mock.return_value = tmp_dir
+        submitted_run0, submitted_run1 = [mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
+            use_conda=False, experiment_id=0, block=False) for _ in range(2)]
+        submitted_run0.cancel()
+        validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
+        # Sanity check: cancelling one run has no effect on the other
+        submitted_run1.wait()
+        validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
 
 
 def test_get_work_dir():
@@ -142,26 +153,3 @@ def test_storage_dir():
     with TempDir() as tmp_dir:
         assert os.path.dirname(mlflow.projects._get_storage_dir(tmp_dir.path())) == tmp_dir.path()
     assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()
-
-
-def test_command_cleanup():
-    """
-    Test our utility method for launching and monitoring an entry point command properly cleans up
-    the entry point command when the monitoring process is interrupted.
-    """
-    with TempDir() as tmp:
-        tmpdir = tmp.path()
-        test_file = tmp.path("test-file")
-        sleep_sec = 4
-        command = "sleep %s && touch %s" % (sleep_sec, test_file)
-        monitoring_proc = multiprocessing.Process(
-            target=lambda: mlflow.projects._launch_command(command=command, work_dir=tmpdir,
-                                                           env_map={}))
-        monitoring_proc.start()
-        # Give monitoring process time to start up & run the command in a subprocess
-        time.sleep(2)
-        # Kill process group that should contain our monitoring process & the command subprocess
-        os.killpg(p.pid, signal.SIGTERM)
-        # Wait enough time for the command subprocess to finish executing (if we failed to kill it)
-        time.sleep(sleep_sec)
-        assert not os.path.exists(test_file)

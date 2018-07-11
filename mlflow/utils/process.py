@@ -69,11 +69,12 @@ def exec_fn(target, args, **kwargs):
                    function.
     :return: The `multiprocessing.Process` used to run the function
     """
-    import os
     def wrapper():
+        # Run function in a subprocess in its own process group so that it doesn't receive signals
+        # sent to the parent - this allows us to consistently handle interrupting/terminating the
+        # subprocess from the parent
         os.setsid()
         target(*args)
     p = multiprocessing.Process(target=wrapper, args=[], **kwargs)
-    p.daemon = False
     p.start()
     return p

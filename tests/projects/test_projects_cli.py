@@ -8,7 +8,7 @@ from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI
 
 
 def _assert_succeeded(run_output):
-    assert "=== Run succeeded ===" in run_output
+    assert "succeeded" in run_output
 
 
 @pytest.mark.large

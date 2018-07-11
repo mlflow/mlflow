@@ -7,7 +7,6 @@ import json
 import os
 import re
 import shutil
-import multiprocessing
 import subprocess
 import tempfile
 
@@ -19,7 +18,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
-from mlflow.projects.submitted_run import LocalSubmittedRun, DatabricksSubmittedRun
+from mlflow.projects.submitted_run import SubmittedRun
 
 
 from mlflow.utils import file_utils, process
@@ -217,11 +216,11 @@ def _launch_command(command, work_dir, env_map, stream_output):
     cmd_env.update(env_map)
     if stream_output:
         return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command],
-                                cwd=work_dir, env=env_map)
+                                cwd=work_dir, env=cmd_env)
     # TODO: Can this hang if there's too much stdout/stderr buffered?
     return subprocess.Popen(
         [os.environ.get("SHELL", "bash"), "-c", command],
-        cwd=work_dir, env=env_map, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        cwd=work_dir, env=cmd_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 
 def _monitor_local(active_run, command, proc):
@@ -272,7 +271,7 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     """
     monitoring_process = process.exec_fn(
         target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map, stream_output))
-    return LocalSubmittedRun(active_run, monitoring_process)
+    return SubmittedRun(active_run, monitoring_process)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
@@ -317,8 +316,7 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     if block:
         submitted_run_obj.wait()
         run_status = submitted_run_obj.get_status()
-        if run_status != RunStatus.FINISHED:
-            raise ExecutionException(
-                "=== Run %s was unsuccessful, status: '%s' ===" %
-                (submitted_run_obj.run_id, RunStatus.to_string(run_status)))
+        if RunStatus.from_string(run_status) != RunStatus.FINISHED:
+            raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
+                (submitted_run_obj.run_id, run_status))
     return submitted_run_obj

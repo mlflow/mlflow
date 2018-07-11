@@ -1,23 +1,29 @@
-from abc import abstractmethod
 import atexit
-# import multiprocessing
 import os
-import sys
+import signal
 import threading
 
+from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
 
 launched_runs = []
 lock = threading.Lock()
 
+_is_exit_handler_registered = False
+
 
 def _add_run(submitted_run_obj):
+    global _is_exit_handler_registered
     with lock:
+        # Note: we wait until we've created a run to register our handler, since the multiprocessing
+        # module registers its exit handler only when a subprocess is run. This assumes that we
+        # launch a monitoring subprocess for each run.
+        if not _is_exit_handler_registered:
+            atexit.register(_wait_runs)
+            _is_exit_handler_registered = True
         launched_runs.append(submitted_run_obj)
 
-print("Existing funcs: %s" % atexit.run_funcs)
 
-@atexit.register
 def _wait_runs():
     try:
         eprint("=== Waiting for active runs to complete (interrupting will kill active runs) ===")
@@ -26,7 +32,6 @@ def _wait_runs():
                 run.wait()
     except KeyboardInterrupt:
         _do_kill_runs()
-        sys.exit(1)
 
 
 def _do_kill_runs():
@@ -37,53 +42,34 @@ def _do_kill_runs():
 
 class SubmittedRun(object):
     """
-    Abstract class exposing information about a run submitted for execution. Note that the run ID
+    Class exposing information about a run submitted for execution. Note that the run ID
     may be None if it is unknown, e.g. if we launched a run against a tracking server that our
     local client cannot access.
     """
-    def __init__(self):
+    def __init__(self, active_run, monitoring_process):
         _add_run(self)
+        self._active_run = active_run
+        self._monitoring_process = monitoring_process
 
-    @abstractmethod
+
+    @property
+    def run_id(self):
+        """Returns the MLflow run ID of the current run"""
+        return self._active_run.run_info.run_uuid
+
     def get_status(self):
-        """Gets the status of the MLflow run from the tracking server."""
-        pass
+        """Gets the human-readable status of the MLflow run from the tracking server."""
+        if not self._active_run:
+            raise Exception("Can't get MLflow run status; the run's status has not been "
+                            "persisted to an accessible tracking server.")
+        return RunStatus.to_string(self._active_run.get_run().info.status)
 
-    @abstractmethod
     def wait(self):
         """
         Waits for the run to complete. Note that in some cases (e.g. remote execution on
         Databricks), we may wait until the remote job completes rather than until the MLflow run
         completes.
         """
-        pass
-
-    @abstractmethod
-    def run_id(self):
-        """Returns the MLflow run ID of the current run"""
-        pass
-
-
-class LocalSubmittedRun(SubmittedRun):
-    """Implementation of SubmittedRun corresponding to a local project run."""
-    def __init__(self, active_run, monitoring_process):
-        super(LocalSubmittedRun, self).__init__()
-        self._active_run = active_run
-        self._monitoring_process = monitoring_process
-
-    @property
-    def run_id(self):
-        return self._active_run.run_info.run_uuid
-
-    def get_status(self):
-        if not self._active_run:
-            raise Exception("Can't get MLflow run status; the run's status has not been "
-                            "tpersisted to an accessible tracking server.")
-        return self._active_run.get_run().info.status
-
-    def wait(self):
-        # Note: this is written with the assumption that the main source of interrupts will
-        # be e.g. Ctrl+C from the terminal / "cancel" from an IPython notebook
         self._monitoring_process.join()
 
     def cancel(self):
@@ -91,35 +77,8 @@ class LocalSubmittedRun(SubmittedRun):
         Attempts to cancel the current run by interrupting the monitoring process; note that this
         will not cancel the run if it has already completed.
         """
-        import signal
         try:
             os.kill(self._monitoring_process.pid, signal.SIGINT)
         except OSError:
             pass
         self._monitoring_process.join()
-
-
-class DatabricksSubmittedRun(SubmittedRun):
-    """Implementation of SubmittedRun corresponding to a project run on Databricks."""
-    def __init__(self, active_run, databricks_run_id):
-        super(DatabricksSubmittedRun, self).__init__()
-        self._active_run = active_run
-        self._databricks_run_id = databricks_run_id
-
-    @property
-    def run_id(self):
-        return None if self._active_run is None else self._active_run.run_info.run_uuid
-
-    def get_status(self):
-        if not self._active_run:
-            raise Exception("Can't get MLflow run status for run launched on Databricks; the run's "
-                            "status has not been persisted to an accessible tracking server.")
-        return self._active_run.get_run().run_info.status
-
-    def wait(self):
-        from mlflow.projects import databricks
-        return databricks.wait_databricks(databricks_run_id=self._databricks_run_id)
-
-    def cancel(self):
-        from mlflow.projects import databricks
-        databricks.cancel_databricks(databricks_run_id=self._databricks_run_id)

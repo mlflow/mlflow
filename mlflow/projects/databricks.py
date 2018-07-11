@@ -4,8 +4,10 @@ import time
 from six.moves import shlex_quote
 
 from mlflow.entities.source_type import SourceType
+from mlflow.entities.run_status import RunStatus
+
 from mlflow.projects import ExecutionException
-from mlflow.projects.submitted_run import LocalSubmittedRun
+from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, process
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
@@ -52,7 +54,7 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
             % mlflow_run_str]
 
 
-def _do_databricks_run(project_uri, command, env_vars, cluster_spec):
+def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
     """
     Runs the specified shell command on a Databricks cluster.
     :param project_uri: URI of the project from which our shell command originates
@@ -93,8 +95,8 @@ def _create_databricks_run(tracking_uri, experiment_id, source_name, source_vers
     """
     if tracking.is_local_uri(tracking_uri):
         # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
-        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from Databricks"
-               "will not be logged permanently." % tracking_uri)
+        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from "
+               "Databricks will not be logged permanently." % tracking_uri)
         return None
     else:
         # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g.
@@ -134,9 +136,9 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     with open(cluster_spec, 'r') as handle:
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
-    db_run_id = _do_databricks_run(uri, command, env_vars, cluster_spec)
-    monitoring_proc = process.exec_fn(wait_databricks, args=(db_run_id,))
-    submitted_run = LocalSubmittedRun(active_run=remote_run, monitoring_process=monitoring_proc)
+    db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
+    monitoring_proc = process.exec_fn(remote_run, monitor_databricks, args=(db_run_id,))
+    submitted_run = SubmittedRun(active_run=remote_run, monitoring_process=monitoring_proc)
     if block:
         submitted_run.wait()
     return submitted_run
@@ -146,10 +148,13 @@ def cancel_databricks(databricks_run_id):
     _jobs_runs_cancel(databricks_run_id)
 
 
-def wait_databricks(databricks_run_id, sleep_interval=30):
+def monitor_databricks(active_run, databricks_run_id, sleep_interval=30):
     """
     Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
-    run's status every `sleep_interval` seconds. Cancels the job run if interrupted.
+    run's status every `sleep_interval` seconds. This function is expected to be run in a
+    monitoring subprocess. Note that for Databricks Runs, we assume the user's code sets the
+    status of the run appropriately, except that if we cancel the run and notice that the run
+    hasn't yet finished we'll set its status to failed.
     """
     try:
         result_state = _get_run_result_state(databricks_run_id)
@@ -163,5 +168,7 @@ def wait_databricks(databricks_run_id, sleep_interval=30):
     except KeyboardInterrupt:
         eprint("=== Run (Databricks Run ID: %s) was interrupted, cancelling run... "
                "===" % databricks_run_id)
+        if active_run and active_run.get_run().info.status == RunStatus.RUNNING:
+            active_run.set_terminated("FAILED")
     finally:
         _jobs_runs_cancel(databricks_run_id)
