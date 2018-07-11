@@ -2,7 +2,8 @@ from __future__ import print_function
 
 import os
 from subprocess import Popen, PIPE, STDOUT
-from urlparse import urlparse
+from six.moves import urllib
+from urllib.parse import urlparse
 from datetime import datetime
 import tarfile
 
@@ -171,18 +172,32 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                   publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
-                 `create`: Creates an application with the specified name and model. 
-                           This will fail if an application of the same name already exists.
-                 `replace`: Creates an application with the specified name and model.
-                            This will replace any pre-existing applications of the same name.
-                 `add`: Adds the specified model to a pre-existing application with the specified 
-                        name, if one exists. If the application does not exist, a new application
-                        will be created with the specified name and model.
+
+                 mlflow.sagemaker.DEPLOYMENT_MODE_CREATE: Creates an application with the specified 
+                     name and model. This will fail if an application of the same name already 
+                     exists.
+
+                 mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE: Creates an application with the 
+                     specified name and model. This will replace any pre-existing applications of
+                     the same name.
+
+                 mlflow.sagemaker.DEPLOYMENT_MODE_ADD: Adds the specified model to a pre-existing 
+                     application with the specified name, if one exists. If the application does 
+                     not exist,  a new application will be created with the specified name and 
+                     model. NOTE: The specified model will be added to the application's 
+                     corresponding SageMaker endpoint with an initial weight of zero (0). To route
+                     traffic to the model, update the application's associated endpoint
+                     configuration using either the AWS console or the
+                     use the `UpdateEndpointWeightsAndCapacities` function defined in the SageMaker 
+                     API Documentation
+                     (https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html).
+
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in `replace` mode) will be preserved. If False,
-                    these resources will be deleted.
+                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode) 
+                    will be preserved. If False, these resources will be deleted.
     """
-    assert mode in DEPLOYMENT_MODES, "`mode` must be one of: {mds}".format(mds=",".join(DEPLOYMENT_MODES))
+    if mode not in DEPLOYMENT_MODES:
+        raise Exception("`mode` must be one of: {mds}".format(mds=",".join(DEPLOYMENT_MODES)))
 
     if not image_url:
         image_url = _get_default_image_url()
@@ -381,8 +396,8 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     :param run_id: RunId that generated this model
     :param mode: The mode in which to deploy the application.
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in `replace` mode) will be preserved. If False,
-                    these resources will be deleted.
+                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode) 
+                    will be preserved. If False, these resources will be deleted.
     """
     sage_client = boto3.client('sagemaker', region_name=region_name)
     s3_client = boto3.client('s3', region_name=region_name)
@@ -392,10 +407,15 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
 
     endpoint_exists = (app_name in deployed_endpoints)
     if endpoint_exists and mode == DEPLOYMENT_MODE_CREATE:
-        raise Exception("You are attempting to deploy application with name: {an} in `create` mode. However, an application with the same name"
-                        " already exists. If you want to update this application, deploy in `{madd}` or `{mrep}` mode".format(an=app_name,
-                                                                                                                              madd=DEPLOYMENT_MODE_ADD,
-                                                                                                                              mrep=DEPLOYMENT_MODE_REPLACE))
+        msg = "You are attempting to deploy an application with name: `{an}` in `{mcr} `mode. 
+               However, an application with the same name already exists. If you want to update 
+               this application, deploy in `{madd}` or `{mrep}` mode.".format(
+                       an=app_name,
+                       mcr=DEPLOYMENT_MODE_CREATE,
+                       madd=DEPLOYMENT_MODE_ADD,
+                       mrep=DEPLOYMENT_MODE_REPLACE)
+        
+        raise Exception(msg)
     
     elif endpoint_exists:
         return _update_sagemaker_endpoint(endpoint_name=app_name,
@@ -418,17 +438,39 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           s3_client=s3_client)
 
 
-def _get_sagemaker_model_name(endpoint_name):
+def _get_sagemaker_resource_unique_id():
+    """
+    :return: A unique, timestamp-based identifier that can be
+    appended to a user-readable resource name to avoid naming
+    collisions.
+    """
     dt = datetime.now()
-    return "{en}-model-{ts}".format(en=endpoint_name,
-                                    ts=dt.strftime("%s"))
+    epoch = datetime.utcfromtimestamp(0)
+    # Our unique identifier uses milliseconds-since-epoch to avoid errant
+    # behavior in the case where multiple users attempt to deploy models
+    # to the same endpoint at roughly the same time
+    delta_millis = int((dt - epoch).total_seconds() * 1000)
+    unique_id = str(delta_millis)
+    return unique_id
+
+
+def _get_sagemaker_model_name(endpoint_name):
+    unique_id = _get_sagemaker_resource_unique_id()
+    return "{en}-model-{uid}".format(en=endpoint_name,
+                                     uid=unique_id)
 
 def _get_sagemaker_config_name(endpoint_name):
-    dt = datetime.now()
-    return "{en}-config-{ts}".format(en=endpoint_name,
-                                    ts=dt.strftime("%s"))
+    unique_id = _get_sagemaker_resource_unique_id()
+    return "{en}-config-{uid}".format(en=endpoint_name,
+                                      uid=unique_id)
 
-def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, role, sage_client, s3_client):
+def _create_sagemaker_endpoint(endpoint_name, 
+                               image_url, 
+                               model_s3_path, 
+                               run_id, 
+                               role, 
+                               sage_client, 
+                               s3_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
     :param model_s3_path: s3 path where we stored the model artifacts
@@ -462,8 +504,8 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                 'ModelName': model_name,
                 'InitialInstanceCount': 1,
                 'InstanceType': 'ml.m4.xlarge',
-                'InitialVariantWeight': 1 
-            }
+                'InitialVariantWeight': 1,
+            },
         ],
         Tags=[
             {
@@ -473,7 +515,8 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         ],
     )
     
-    eprint("Created endpoint configuration with arn: %s" % endpoint_config_response["EndpointConfigArn"])
+    eprint("Created endpoint configuration with arn: %s" 
+            % endpoint_config_response["EndpointConfigArn"])
     endpoint_response = sage_client.create_endpoint(
         EndpointName=endpoint_name,
         EndpointConfigName=config_name,
@@ -481,26 +524,37 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     )
     eprint("Created endpoint with arn: %s" % endpoint_response["EndpointArn"])
 
-def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, mode, archive, role, sage_client, s3_client):
+def _update_sagemaker_endpoint(endpoint_name, 
+                               image_url, 
+                               model_s3_path, 
+                               run_id, 
+                               mode, 
+                               archive, 
+                               role, 
+                               sage_client, 
+                               s3_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
     :param model_s3_path: s3 path where we stored the model artifacts
     :param run_id: RunId that generated this model
-    :param mode: either `add` or `replace`.
+    :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or 
+                 mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in `replace` mode) will be preserved. If False,
-                    these resources will be deleted.
+                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode) 
+                    will be preserved. If False, these resources will be deleted.
     :param role: SageMaker execution ARN role
     :param sage_client: A boto3 client for SageMaker
     :param s3_client: A boto3 client for S3 
     """
-    assert mode in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE], \
-            "Unrecognized mode: `{md}` for deployment to pre-existing application".format(md=mode)
+    if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
+        msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
+        raise Exception(msg)
    
     endpoint_info = sage_client.describe_endpoint(EndpointName=endpoint_name)
     endpoint_arn = endpoint_info["EndpointArn"]
     deployed_config_name = endpoint_info["EndpointConfigName"]
-    deployed_config_info = sage_client.describe_endpoint_config(EndpointConfigName=deployed_config_name)
+    deployed_config_info = sage_client.describe_endpoint_config(
+            EndpointConfigName=deployed_config_name)
     deployed_config_arn = deployed_config_info["EndpointConfigArn"]
     deployed_production_variants = deployed_config_info["ProductionVariants"]
 
@@ -553,7 +607,8 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         ],
     )
 
-    eprint("Created new endpoint configuration with arn: %s" % endpoint_config_response["EndpointConfigArn"])
+    eprint("Created new endpoint configuration with arn: %s" 
+            % endpoint_config_response["EndpointConfigArn"])
 
     sage_client.update_endpoint(EndpointName=endpoint_name,
                                 EndpointConfigName=new_config_name)
@@ -568,7 +623,9 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
             s3_client = boto3.client('s3')
             for pv in deployed_production_variants:
                 deployed_model_name = pv["ModelName"]
-                deployed_model_arn = _delete_sagemaker_model(deployed_model_name, sage_client, s3_client)
+                deployed_model_arn = _delete_sagemaker_model(deployed_model_name, 
+                                                             sage_client, 
+                                                             s3_client)
                 eprint("Deleted model with arn: {marn}".format(marn=deployed_model_arn))
 
         sage_client.delete_endpoint_config(EndpointConfigName=deployed_config_name)
@@ -584,6 +641,10 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     model_info = sage_client.describe_model(ModelName=model_name)
     model_arn = model_info["ModelArn"]
     model_data_url = model_info["PrimaryContainer"]["ModelDataUrl"]
+
+    # Parse the model data url to obtain a bucket path. The following
+    # procedure is safe due to the well-documented structure of the `ModelDataUrl`
+    # (see https://docs.aws.amazon.com/sagemaker/latest/dg/API_ContainerDefinition.html)
     parsed_data_url = urlparse(model_data_url)
     bucket_data_path = parsed_data_url.path.split("/")
     bucket_name = bucket_data_path[1]
