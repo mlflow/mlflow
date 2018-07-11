@@ -490,7 +490,7 @@ def _create_sagemaker_endpoint(endpoint_name,
     model_response = sage_client.create_model(
         ModelName=model_name,
         PrimaryContainer={
-            'ContainerHostname': 'mlflow-serve-%s' % model_name,
+            'ContainerHostname': 'mfs-serve-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
             'Environment': {},
@@ -569,7 +569,7 @@ def _update_sagemaker_endpoint(endpoint_name,
     new_model_response = sage_client.create_model(
         ModelName=new_model_name,
         PrimaryContainer={
-            'ContainerHostname': 'mlflow-serve-%s' % new_model_name,
+            'ContainerHostname': 'mfs-serve-%s' % new_model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
             'Environment': {},
