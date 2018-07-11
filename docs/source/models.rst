@@ -280,7 +280,7 @@ or locally in a docker container with Sagemaker compatible environment (Docker i
 Similarly to Azure ML, you have to set up your environment and user accounts first in order to
 deploy to Sagemaker with MLflow. Also, in order to export a custom model to Sagemaker, you need a
 MLflow-compatible Docker image to be available on Amazon ECR. MLflow provides a default Docker
-image definition, however, it is up to you to build the actual image and upload it to ECR.
+image defintion;however, it is up to the user to build the actual image and upload it to ECR.
 MLflow includes a utility function to perform this step. Once built and uploaded, the MLflow
 container can be used for all MLflow models.
 
@@ -316,9 +316,9 @@ For more info, see:
     mlflow sagemaker deploy --help
 
 
-Spark
-^^^^^
-MLFLow can output python function model as a Spark UDF, which can be uploaded to a Spark cluster and
+Apache Spark
+^^^^^^^^^^^^
+MLFLow can output python function model as an Apache Spark UDF, which can be uploaded to a Spark cluster and
 used to score the model.
 
 Example:
