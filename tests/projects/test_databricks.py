@@ -41,7 +41,9 @@ def cluster_spec_mock(tmpdir):
 
 
 @pytest.fixture()
-def create_databricks_run_mock():
+def create_databricks_run_mock(tracking_uri_mock):
+    # Mocks logic for creating an MLflow run against a tracking server to persist the run to a local
+    # file store
     with mock.patch("mlflow.projects.databricks._create_databricks_run") as create_db_run_mock:
         create_db_run_mock.return_value = mlflow.tracking._create_run(
             experiment_id=0, source_name="", source_version="", entry_point_name="",
@@ -70,9 +72,8 @@ def run_databricks_project(cluster_spec_path, block=False):
 
 
 def test_run_databricks(tmpdir, runs_cancel_mock, create_databricks_run_mock, runs_submit_mock,
-                        runs_get_mock, tracking_uri_mock, cluster_spec_mock):
+                        runs_get_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
-    assert tmpdir == tracking_uri_mock.return_value
     # Test that MLflow gets the correct run status when performing a Databricks run
     for run_succeeded, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
         runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
