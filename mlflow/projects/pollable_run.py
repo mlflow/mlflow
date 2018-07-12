@@ -125,4 +125,4 @@ class DatabricksPollableRun(PollableRun):
 
     def cancel(self):
         from mlflow.projects import databricks
-        databricks._jobs_runs_cancel(self.databricks_run_id)
+        databricks.cancel_databricks(self.databricks_run_id)

@@ -12,6 +12,7 @@ from tests.projects.utils import validate_exit_status, tracking_uri_mock, GIT_PR
 
 @pytest.fixture()
 def runs_cancel_mock():
+    """Mocks the Jobs Runs Cancel API request"""
     with mock.patch("mlflow.projects.databricks._jobs_runs_cancel") as runs_cancel_mock:
         runs_cancel_mock.return_value = None
         yield runs_cancel_mock
@@ -19,6 +20,7 @@ def runs_cancel_mock():
 
 @pytest.fixture()
 def runs_submit_mock():
+    """Mocks the Jobs Runs Submit API request"""
     with mock.patch("mlflow.projects.databricks._jobs_runs_submit") as runs_submit_mock:
         runs_submit_mock.return_value = {"run_id": "-1"}
         yield runs_submit_mock
@@ -26,6 +28,7 @@ def runs_submit_mock():
 
 @pytest.fixture()
 def runs_get_mock():
+    """Mocks the Jobs Runs Get API request"""
     with mock.patch("mlflow.projects.databricks._jobs_runs_get") as runs_get_mock:
         yield runs_get_mock
 
@@ -46,7 +49,7 @@ def create_databricks_run_mock():
         yield create_db_run_mock
 
 
-def mock_run_state(succeeded):
+def _get_mock_run_state(succeeded):
     if succeeded is None:
         return {"life_cycle_state": "RUNNING", "state_message": ""}
     if succeeded:
@@ -57,7 +60,7 @@ def mock_run_state(succeeded):
 
 
 def mock_runs_get_result(succeeded):
-    run_state = mock_run_state(succeeded)
+    run_state = _get_mock_run_state(succeeded)
     return {"state": run_state, "run_page_url": ""}
 
 
