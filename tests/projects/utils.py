@@ -6,7 +6,6 @@ import yaml
 
 from mlflow.entities.run_status import RunStatus
 from mlflow.projects import Project
-from mlflow.utils.file_utils import TempDir
 
 
 TEST_DIR = "tests"
