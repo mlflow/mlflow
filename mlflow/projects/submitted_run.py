@@ -4,6 +4,7 @@ import signal
 import threading
 
 from mlflow.entities.run_status import RunStatus
+from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 
 launched_runs = []
@@ -46,10 +47,11 @@ class SubmittedRun(object):
     may be None if it is unknown, e.g. if we launched a run against a tracking server that our
     local client cannot access.
     """
-    def __init__(self, active_run, monitoring_process):
-        _add_run(self)
+    def __init__(self, active_run, pollable_run):
         self._active_run = active_run
-        self._monitoring_process = monitoring_process
+        self._monitoring_process = process.exec_fn(
+            target=pollable_run.monitor_run, args=(self._active_run,))
+        _add_run(self)
 
 
     @property

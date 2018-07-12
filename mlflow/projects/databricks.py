@@ -1,15 +1,12 @@
 import json
-import sys
 import time
 
 from six.moves import shlex_quote
 
 from mlflow.entities.source_type import SourceType
-from mlflow.entities.run_status import RunStatus
 
-from mlflow.projects import ExecutionException
-from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.utils import rest_utils, process
+from mlflow.projects.pollable_run import DatabricksPollableRun
+from mlflow.utils import rest_utils
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
@@ -110,7 +107,7 @@ def _create_databricks_run(tracking_uri, experiment_id, source_name, source_vers
 
 
 def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                   git_username, git_password, block):
+                   git_username, git_password):
     """
     Runs a project on Databricks, returning a `SubmittedRun` that can be used to query the run's
     status or wait for the resulting Databricks Job run to terminate.
@@ -138,38 +135,21 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    monitoring_proc = process.exec_fn(monitor_databricks, args=(remote_run, db_run_id,))
-    submitted_run = SubmittedRun(active_run=remote_run, monitoring_process=monitoring_proc)
-    if block:
-        submitted_run.wait()
-    return submitted_run
+    from mlflow.projects.submitted_run import SubmittedRun
+    return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id))
 
 
 def cancel_databricks(databricks_run_id):
     _jobs_runs_cancel(databricks_run_id)
 
 
-def monitor_databricks(active_run, databricks_run_id, sleep_interval=30):
+def monitor_databricks(databricks_run_id, sleep_interval=30):
     """
     Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
-    run's status every `sleep_interval` seconds. This function is expected to be run in a
-    monitoring subprocess. Note that for Databricks Runs, we assume the user's code sets the
-    status of the run appropriately, except that if we cancel the run and notice that the run
-    hasn't yet finished we'll set its status to failed.
+    run's status every `sleep_interval` seconds.
     """
-    try:
+    result_state = _get_run_result_state(databricks_run_id)
+    while result_state is None:
+        time.sleep(sleep_interval)
         result_state = _get_run_result_state(databricks_run_id)
-        while result_state is None:
-            time.sleep(sleep_interval)
-            result_state = _get_run_result_state(databricks_run_id)
-        if result_state != "SUCCESS":
-            eprint("=== Databricks run finished with status %s != 'SUCCESS' ===" % result_state)
-            sys.exit(1)
-        eprint("=== Run (Databricks Run ID: %s) succeeded ===" % databricks_run_id)
-    except KeyboardInterrupt:
-        eprint("=== Run (Databricks Run ID: %s) was interrupted, cancelling run... "
-               "===" % databricks_run_id)
-        if active_run and active_run.get_run().info.status == RunStatus.RUNNING:
-            active_run.set_terminated("FAILED")
-    finally:
-        _jobs_runs_cancel(databricks_run_id)
+    return result_state == "SUCCESS"

@@ -40,17 +40,10 @@ def test_fetch_project():
                                                git_password=password)
 
 
-def test_run_mode():
-    """ Verify that we pick the right run helper given an execution mode """
+def test_invalid_run_mode():
+    """ Verify that we raise an exception given an invalid run mode """
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = tmp.path()
-        for local_mode in ["local", None]:
-            with mock.patch("mlflow.projects._run_local") as run_local_mock:
-                mlflow.projects.run(uri=TEST_PROJECT_DIR, mode=local_mode)
-                assert run_local_mock.call_count == 1
-        with mock.patch("mlflow.projects.databricks.run_databricks") as run_databricks_mock:
-            mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="databricks")
-            assert run_databricks_mock.call_count == 1
         with pytest.raises(ExecutionException):
             mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="some unsupported mode")
 

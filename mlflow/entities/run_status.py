@@ -8,11 +8,12 @@ class RunStatus(object):
         if status_str not in RunStatus._STRING_TO_STATUS:
             raise Exception(
                 "Could not get run status corresponding to string %s. Valid run "
-                "statuses: %s" % (status_str, list(RunStatus._STRING_TO_STATUS.keys())))
+                "status strings: %s" % (status_str, list(RunStatus._STRING_TO_STATUS.keys())))
         return RunStatus._STRING_TO_STATUS[status_str]
 
     @staticmethod
     def to_string(status):
         if status not in RunStatus._STATUS_TO_STRING:
-            raise Exception("Could not get string corresponding to run status %s." % status)
+            raise Exception("Could not get string corresponding to run status %s. Valid run "
+                            "statuses: %s" % (status, list(RunStatus._STATUS_TO_STRING.keys())))
         return RunStatus._STATUS_TO_STRING[status]

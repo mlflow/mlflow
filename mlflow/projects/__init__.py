@@ -7,7 +7,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 
 from distutils import dir_util
@@ -31,6 +30,26 @@ _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 class ExecutionException(Exception):
     """Exception thrown when executing a project fails."""
     pass
+
+
+def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
+        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
+        use_temp_cwd=False, storage_dir=None, block=True):
+    if mode is None or mode == "local":
+        return _run_local(
+            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
+            experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
+            storage_dir=storage_dir, git_username=git_username, git_password=git_password,
+            block=block)
+    if mode == "databricks":
+        from mlflow.projects.databricks import run_databricks
+        return run_databricks(
+            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
+            experiment_id=experiment_id, cluster_spec=cluster_spec, git_username=git_username,
+            git_password=git_password)
+    supported_modes = ["local", "databricks"]
+    raise ExecutionException("Got unsupported execution mode %s. Supported "
+                             "values: %s" % (mode, supported_modes))
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
@@ -70,20 +89,19 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                   method will be terminated.
     :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run.
     """
-    if mode is None or mode == "local":
-        return _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-                          experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
-                          storage_dir=storage_dir, git_username=git_username, git_password=git_password,
-                          block=block)
-    elif mode == "databricks":
-        from mlflow.projects.databricks import run_databricks
-        return run_databricks(uri=uri, entry_point=entry_point, version=version,
-                              parameters=parameters, experiment_id=experiment_id, cluster_spec=cluster_spec,
-                              git_username=git_username, git_password=git_password, block=block)
-    else:
-        supported_modes = ["local", "databricks"]
-        raise ExecutionException("Got unsupported execution mode %s. Supported "
-                                 "values: %s" % (mode, supported_modes))
+    submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
+                             parameters=parameters,
+                             experiment_id=experiment_id,
+                             mode=mode, cluster_spec=cluster_spec, git_username=git_username,
+                             git_password=git_password, use_conda=use_conda,
+                             use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
+    if block:
+        submitted_run_obj.wait()
+        run_status = submitted_run_obj.get_status()
+        if RunStatus.from_string(run_status) != RunStatus.FINISHED:
+            raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
+                (submitted_run_obj.run_id, run_status))
+    return submitted_run_obj
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -206,58 +224,6 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_command(command, work_dir, env_map, stream_output):
-    """
-    Launch entry point command in a subprocess, returning a `subprocess.Popen` representing the
-    subprocess. The subprocess's stderr & stdout are streamed to the current process's
-    stderr & stdout.
-    """
-    cmd_env = os.environ.copy()
-    cmd_env.update(env_map)
-    if stream_output:
-        return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command],
-                                cwd=work_dir, env=cmd_env)
-    # TODO: Can this hang if there's too much stdout/stderr buffered?
-    return subprocess.Popen(
-        [os.environ.get("SHELL", "bash"), "-c", command],
-        cwd=work_dir, env=cmd_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-
-def _monitor_local(active_run, command, proc):
-    """
-    Monitors a command subprocess running as a child of the current process. This function is
-    intended to be run within a subprocess.
-    """
-    try:
-        exit_code = proc.wait()
-        if exit_code == 0:
-            active_run.set_terminated("FINISHED")
-            eprint("=== Run %s (command: '%s') succeeded ==="
-                   % (active_run.run_info.run_uuid, command))
-        else:
-            active_run.set_terminated("FAILED")
-            eprint("=== Run %s (command: '%s', PID: %s) failed with non-zero exit code %s "
-                   "===" % (active_run.run_info.run_uuid, command, proc.pid, exit_code))
-    # Handle KeyboardInterrupt to avoid printing stacktrace from e.g. the wait() call
-    except KeyboardInterrupt:
-        proc.terminate()
-        active_run.set_terminated("FAILED")
-        eprint("=== Run %s (command: '%s', PID: %s) was interrupted, setting status to FAILED "
-               "===" % (active_run.run_info.run_uuid, command, proc.pid))
-    finally:
-        # Make a best effort to terminate the command process, e.g. if we're interrupted while
-        # handling the KeyboardInterrupt - we don't expect this case to commonly occur
-        try:
-            proc.terminate()
-        except OSError:
-            pass
-
-
-def _run_and_monitor_local(active_run, command, work_dir, env_map, stream_output):
-    proc = _launch_command(command, work_dir, env_map, stream_output)
-    _monitor_local(active_run, command, proc)
-
-
 def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
@@ -269,9 +235,10 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     :return `SubmittedRun` corresponding to the launched run.
     """
-    monitoring_process = process.exec_fn(
-        target=_run_and_monitor_local, args=(active_run, command, work_dir, env_map, stream_output))
-    return SubmittedRun(active_run, monitoring_process)
+    from mlflow.projects.pollable_run import LocalPollableRun
+    pollable_run = LocalPollableRun(
+        command=command, work_dir=work_dir, env_map=env_map, stream_output=stream_output)
+    return SubmittedRun(active_run, pollable_run)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
@@ -311,12 +278,5 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     command = " && ".join(commands)
     eprint("=== Running command: %s === " % command)
 
-    submitted_run_obj = _launch_local_run(
+    return _launch_local_run(
         active_run, command, work_dir, env_map, stream_output=block)
-    if block:
-        submitted_run_obj.wait()
-        run_status = submitted_run_obj.get_status()
-        if RunStatus.from_string(run_status) != RunStatus.FINISHED:
-            raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
-                (submitted_run_obj.run_id, run_status))
-    return submitted_run_obj
