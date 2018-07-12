@@ -407,7 +407,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     while (not endpoint_found) and ("NextToken" in endpoints_page):
         next_token = endpoints_page["NextToken"]
         endpoints_page = sage_client.list_endpoints(MaxResults=100, NextToken=next_token, NameContains=app_name)
-        endpoint_found = any([ep["EndpointName"] == app_name for ep in deployed_endpoints_page["Endpoints"]])
+        endpoint_found = any([ep["EndpointName"] == app_name for ep in endpoints_page["Endpoints"]])
 
     if endpoint_found and mode == DEPLOYMENT_MODE_CREATE:
         msg = ("You are attempting to deploy an application with name: `{an}` in `{mcr} `mode." 
