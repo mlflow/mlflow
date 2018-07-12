@@ -75,6 +75,7 @@ import os
 import shutil
 import sys
 import pandas
+import tempfile
 
 from mlflow import tracking
 from mlflow.models import Model
@@ -86,6 +87,11 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 
+DEFAULT_PYFUNC_ENV = """
+name: pyfunc-default-env
+dependencies:
+  - python={py_version}
+"""
 
 def add_to_model(model, loader_module, data=None, code=None, env=None):
     """ Add pyfunc spec to the model configuration.
@@ -129,6 +135,15 @@ def load_pyfunc(path, run_id=None):
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
     return importlib.import_module(conf[MAIN]).load_pyfunc(data_path)
+
+def create_default_env():
+    py_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major, 
+                                        vmin=sys.version_info.minor)
+    env_yaml = DEFAULT_PYFUNC_ENV.format(py_version=py_version)
+    _, conda_env = tempfile.mkstemp(dir="/tmp")
+    with open(conda_env, "w") as f:
+        f.write(env_yaml)
+    return conda_env
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
@@ -229,9 +244,11 @@ def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=
             _copy_file_or_tree(src=path, dst=dst_path, dst_dir="code")
         code = "code"
 
-    if conda_env:
-        shutil.copy(src=conda_env, dst=os.path.join(dst_path, "mlflow_env.yml"))
-        env = "mlflow_env.yml"
+    if not conda_env:
+        conda_env = create_default_env()
+
+    shutil.copy(src=conda_env, dst=os.path.join(dst_path, "mlflow_env.yml"))
+    env = "mlflow_env.yml"
 
     add_to_model(model, loader_module=loader_module, code=code, data=data, env=env)
     model.save(os.path.join(dst_path, 'MLmodel'))
