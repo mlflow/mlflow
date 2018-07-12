@@ -14,10 +14,11 @@ require minimal changes to integrate into an existing codebase. At the same time
 take any codebase written in its format and make it reproducible and reusable by multiple data
 scientists. On this page, we describe a typical ML workflow and where MLflow fits in.
 
+
 The Machine Learning Workflow
 -----------------------------
 
-Machine learning requires experimenting with a wide range of datasets, data preparation steps and
+Machine learning requires experimenting with a wide range of datasets, data preparation steps, and
 algorithms to build a model that maximizes some target metric. Once you have built a model, you also
 need to deploy it to a production system, monitor its performance, and continuously retrain it on
 new data and compare with alternative models.
@@ -47,8 +48,8 @@ MLflow Components
 
 MLflow provides three components to help manage the ML workflow:
 
-**MLflow Tracking** is an API and UI for logging parameters, code versions, metrics and output files
-when running your machine learning code to later visualize them. You can use MLflow Tracking in
+**MLflow Tracking** is an API and UI for logging parameters, code versions, metrics, and output files
+when running your machine learning code and for later visualizing the results. You can use MLflow Tracking in
 any environment (for example, a standalone script or a notebook) to log results to local files or to a
 server, then compare multiple runs. Teams can also use it to compare results from different users.
 

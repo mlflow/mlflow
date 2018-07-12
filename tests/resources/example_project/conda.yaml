@@ -1,7 +1,9 @@
 name: tutorial
 channels:
+  - anaconda
   - defaults
 dependencies:
+  - python=3.6
   - pip:
     - mlflow
   - python=3.6

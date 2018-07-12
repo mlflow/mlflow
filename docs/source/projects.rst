@@ -7,6 +7,10 @@ An MLflow Project is a format for packaging data science code in a reusable and 
 based primarily on conventions. In addition, the Projects component includes an API and command-line
 tools for running projects, making it possible to chain together projects into workflows.
 
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
+
 Overview
 --------
 
@@ -53,7 +57,6 @@ By default, any Git repository or local directory is treated as a project, and M
 following conventions to determine its parameters:
 
 * The project's name is the name of the directory.
-* The Conda environment is specified in ``conda.yaml``, if present.
 * The `Conda environment <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
   is specified in ``conda.yaml``, if present.
 * Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly
@@ -172,7 +175,7 @@ Deployment Mode
     command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
 
 For example, in the tutorial we create and publish a MLproject which trains a linear model. The
-project is also published on Github at https://github.com/databricks/mlflow-example. To execute
+project is also published on GitHub at https://github.com/databricks/mlflow-example. To execute
 this project run
 
 .. code::
@@ -198,7 +201,7 @@ Then, run your project via
 
 ``mlflow run <uri> -m databricks --cluster-spec <path>``
 
-Note that ``<uri>`` must be a Git URI. You can also pass Git credentials via the
+``<uri>`` must be a Git repository URI. You can also pass Git credentials via the
 ``git-username`` and ``git-password`` arguments (or via the ``MLFLOW_GIT_USERNAME`` and
 ``MLFLOW_GIT_PASSWORD`` environment variables).
 
@@ -215,25 +218,17 @@ Building Multi-Step Workflows
 
 The :py:func:`mlflow.run` API, combined with :py:mod:`mlflow.tracking`, makes it possible to build
 multi-step workflows with separate projects (or entry points in the same project) as the individual
-steps. Each call to :py:func:`mlflow.run` will return a Run ID, which you can use with
-:py:mod:`mlflow.tracking` to determine when the run has ended and get its output artifacts. These
+steps. Each call to :py:func:`mlflow.run` returns a run ID, which you can use with
+:py:mod:`mlflow.tracking` to determine when the run has ended and get its output artifacts. These artifacts
 can then be passed into another step that takes ``path`` or ``uri`` parameters. You can coordinate
 all of the workflow in a single Python program that looks at the results of each step and decides
-what to submit next using custom code.
+what to submit next using custom code. Some example uses cases for multi-step workflows include:
 
-Some example uses cases for multi-step workflows include:
+Modularizing Your Data Science Code
+  Different users can publish reusable steps for data featurization, training, validation, and so on, that other users or team can run in their workflows. Because MLflow supports Git versioning, another team can lock their workflow to a specific version of a project, or upgrade to a new one on their own schedule.
 
-**Modularizing Your Data Science Code:** Different users can publish reusable steps for data
-featurization, training, validation, and so on, that other users or team can run in their workflows.
-Thanks to MLflow's support for Git versioning, another team can lock their workflow to a specific
-version of a project, or upgrade to a new one on their own schedule.
+Hyperparameter Tuning
+  Using :py:func:`mlflow.run` you can launch multiple runs in parallel either on the local machine or on a cloud platform like Databricks. Your driver program can then inspect the metrics from each run in real time to cancel runs, launch new ones, or select the best performing run on a target metric.
 
-**Hyperparameter Tuning:** Using :py:func:`mlflow.run`, you can launch multiple runs in parallel
-either on the local machine or on a cloud platform like Databricks. Your driver program can then
-inspect the metrics from each run in real time to cancel runs, launch new ones, or select the best
-performing run on a target metric.
-
-**Cross-validation:** Sometimes, you want to run the same training code on different random splits
-of training and validation data. With MLflow Projects, you can package the project in a way that
-allows this, for example, by taking a random seed for the train/validation split as a parameter, or by
-calling another project first that can split the input data.
+Cross-validation
+  Sometimes you want to run the same training code on different random splits of training and validation data. With MLflow Projects, you can package the project in a way that allows this, for example, by taking a random seed for the train/validation split as a parameter, or by calling another project first that can split the input data.

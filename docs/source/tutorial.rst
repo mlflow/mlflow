@@ -5,19 +5,25 @@ Tutorial
 
 This tutorial showcases how you can use MLflow end-to-end to:
 
-- Create a linear regression model 
+- Train a linear regression model 
 - Package the code that trains the model in a reusable and reproducible model format 
-- Load the model into a simple HTTP server that will enable you to score predictions
+- Deploy the model into a simple HTTP server that will enable you to score predictions
 
 This tutorial uses a dataset to predict the quality of wine based on quantitative features 
 like the wine's "fixed acidity", "pH", "residual sugar", and so on. The dataset
 is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datasets/Wine+Quality>`_.
-[Ref]_
+[1]_
+
+.. contents:: Table of Contents
+  :local:
+  :depth: 1
 
 What You'll Need
 ----------------
 This tutorial uses MLflow, `conda <https://conda.io/docs/user-guide/install/index.html#>`_, and the tutorial code located at
-``example/tutorial`` in the MLflow repository. To download the tutorial code run::
+``example/tutorial`` in the MLflow repository. To download the tutorial code, run:
+
+.. code::
 
     git clone https://github.com/databricks/mlflow
 
@@ -27,6 +33,17 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
 .. code:: python
 
+    import os
+    import sys
+
+    import pandas as pd
+    import numpy as np
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+    from sklearn.model_selection import train_test_split
+    from sklearn.linear_model import ElasticNet
+
+    import mlflow
+    import mlflow.sklearn
     # Run from the root of MLflow
     # Read the wine-quality csv file 
     wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
@@ -71,15 +88,22 @@ training run, like the hyperparameters ``alpha`` and ``l1_ratio``, used to train
 the root mean square error, used to evaluate the model. The example also serializes the
 model in a format that MLflow knows how to deploy.
 
-You can run the example with default hyperparameters as follows::
+You can run the example with default hyperparameters as follows:
+
+.. code:: bash
 
     python example/tutorial/train.py
 
-Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``::
+Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
+
+.. code:: bash
 
     python example/tutorial/train.py <alpha> <l1_ratio>
 
 Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
+
+.. note::
+    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``example/tutorial/train.py/train.ipynb``.
 
 Comparing the Models
 --------------------
@@ -141,7 +165,7 @@ this command, MLflow will run your training code in a new Conda environment with
 specified in ``conda.yaml``.
 
 If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/databricks/mlflow-example repository
-which can be run with ``mlflow run git@github.com:databricks/mlflow-example.git -P alpha=0.42``.
+which you can run with ``mlflow run git@github.com:databricks/mlflow-example.git -P alpha=0.42``.
 
 Serving the Model
 -----------------
@@ -188,9 +212,7 @@ To serve a prediction, run:
 
     curl -X POST -H "Content-Type:application/json" --data '[{"fixed acidity": 6.2, "volatile acidity": 0.66, "citric acid": 0.48, "residual sugar": 1.2, "chlorides": 0.029, "free sulfur dioxide": 29, "total sulfur dioxide": 75, "density": 0.98, "pH": 3.33, "sulphates": 0.39, "alcohol": 12.8}]' http://127.0.0.1:1234/invocations
 
-which should return something like:
-
-.. code::
+which should return something like::
 
     {"predictions": [6.379428821398614]}
 
@@ -201,4 +223,4 @@ Congratulations on finishing the tutorial! For more reading, see :doc:`tracking`
 and more.
 
 
-.. [Ref] P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
+.. [1] P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
