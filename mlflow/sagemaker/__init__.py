@@ -179,7 +179,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
 
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE: If an application of the specified name
                      exists, its model(s) will be replaced with the specified model. If no such application
-                     exists, it will be created with the specified name amd model.
+                     exists, it will be created with the specified name and model.
                  
                  mlflow.sagemaker.DEPLOYMENT_MODE_ADD: Adds the specified model to a pre-existing 
                      application with the specified name, if one exists. If the application does 
