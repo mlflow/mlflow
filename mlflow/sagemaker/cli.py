@@ -26,7 +26,8 @@ def commands():
 @click.option("--region-name", "-r", default="us-west-2", 
               help="Name of the AWS region in which to deploy the application")
 @click.option("--mode", "-md", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE, 
-              help="The mode in which to deploy the application")
+        help="The mode in which to deploy the application. Must be one of the modes listed
+              in mlflow.sagemaker.DEPLOYMENT_MODES")
 @click.option("--archive", "-ar", is_flag=True, help="If specified, any SageMaker resources that"
               " become inactive (i.e as the result of replacement) will be preserved")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode, archive):
