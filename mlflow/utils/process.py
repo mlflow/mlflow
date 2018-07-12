@@ -72,7 +72,9 @@ def exec_fn(target, args, **kwargs):
     def wrapper():
         # Run function in a subprocess in its own process group so that it doesn't receive signals
         # sent to the parent - this allows us to consistently handle interrupting/terminating the
-        # subprocess from the parent
+        # subprocess from the parent (i.e. we don't need to distinguish between the case where the
+        # process group of the parent is signalled [CTRL+C in a POSIX shell] vs just the parent is
+        # signalled [cancel in an IPython notebook])
         os.setsid()
         target(*args)
     p = multiprocessing.Process(target=wrapper, args=[], **kwargs)

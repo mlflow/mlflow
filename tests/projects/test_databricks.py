@@ -23,6 +23,12 @@ def runs_submit_mock():
 
 
 @pytest.fixture()
+def runs_get_mock():
+    with mock.patch("mlflow.projects.databricks._jobs_runs_get") as runs_get_mock:
+        yield runs_get_mock
+
+
+@pytest.fixture()
 def cluster_spec_mock(tmpdir):
     cluster_spec_handle = tmpdir.join("cluster_spec.json")
     cluster_spec_handle.write(json.dumps(dict()))
@@ -44,31 +50,33 @@ def mock_runs_get_result(succeeded):
     return {"state": run_state, "run_page_url": ""}
 
 
-def run_databricks_project(cluster_spec_path):
+def run_databricks_project(cluster_spec_path, block=False):
     return mlflow.projects.run(
-        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=False)
+        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block)
 
 
-def test_run_databricks(tmpdir, runs_cancel_mock, runs_submit_mock, tracking_uri_mock, cluster_spec_mock):
+def test_run_databricks(tmpdir, runs_cancel_mock, runs_submit_mock, runs_get_mock, tracking_uri_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     assert tmpdir == tracking_uri_mock.return_value
     # Test that MLflow gets the correct run status when performing a Databricks run
-    with mock.patch("mlflow.projects.databricks._jobs_runs_get") as runs_get_mock:
-        for run_api_result, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
-            runs_get_mock.side_effect = [mock_runs_get_result(None), mock_runs_get_result(run_api_result)]
-            submitted_run = run_databricks_project(cluster_spec_mock)
-            submitted_run.wait()
-            # TODO: it's difficult to check run status right now, since we expect it to be set
-            # by user code during the Job run.
-            # assert validate_exit_status(submitted_run.get_status(), expected_status)
-            runs_get_mock.side_effect = [mock_runs_get_result(run_api_result)]
-            submitted_run = run_databricks_project(cluster_spec_mock)
-            submitted_run.wait()
-            assert validate_exit_status(submitted_run.get_status(), expected_status)
-    # Test that MLflow properly handles Databricks run cancellation
-    with mock.patch("mlflow.projects.databricks._jobs_runs_get") as runs_get_mock:
-        tracking_uri_mock = ""
-        runs_get_mock.return_value = None
+    for run_api_result, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
+        runs_get_mock.return_value = mock_runs_get_result(run_api_result)
         submitted_run = run_databricks_project(cluster_spec_mock)
-        submitted_run.cancel()
-        assert validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
+        submitted_run.wait()
+        assert runs_submit_mock.call_count == 1
+        runs_submit_mock.reset_mock()
+        # TODO: it's difficult to check run status right now, since we expect it to be set
+        # by user code during the Job run.
+        # assert validate_exit_status(submitted_run.get_status(), expected_status)
+
+    # Test that MLflow properly handles Databricks run cancellation
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
+    submitted_run = run_databricks_project(cluster_spec_mock)
+    import time
+    time.sleep(1) # Need to sleep to provide monitoring process enough time to launch
+    submitted_run.cancel()
+    # assert validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
+    # Test that we raise an exception when a blocking Databricks run fails
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
+    with pytest.raises(mlflow.projects.ExecutionException):
+        run_databricks_project(cluster_spec_mock, block=True)

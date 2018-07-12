@@ -1,4 +1,5 @@
 import json
+import sys
 import time
 
 from six.moves import shlex_quote
@@ -137,7 +138,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    monitoring_proc = process.exec_fn(remote_run, monitor_databricks, args=(db_run_id,))
+    monitoring_proc = process.exec_fn(monitor_databricks, args=(remote_run, db_run_id,))
     submitted_run = SubmittedRun(active_run=remote_run, monitoring_process=monitoring_proc)
     if block:
         submitted_run.wait()
@@ -162,8 +163,8 @@ def monitor_databricks(active_run, databricks_run_id, sleep_interval=30):
             time.sleep(sleep_interval)
             result_state = _get_run_result_state(databricks_run_id)
         if result_state != "SUCCESS":
-            raise ExecutionException("=== Databricks run finished with status %s != 'SUCCESS' "
-                                     "===" % result_state)
+            eprint("=== Databricks run finished with status %s != 'SUCCESS' ===" % result_state)
+            sys.exit(1)
         eprint("=== Run (Databricks Run ID: %s) succeeded ===" % databricks_run_id)
     except KeyboardInterrupt:
         eprint("=== Run (Databricks Run ID: %s) was interrupted, cancelling run... "

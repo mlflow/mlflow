@@ -12,7 +12,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import env
 
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, validate_exit_status
 
 
 def test_fetch_project():
