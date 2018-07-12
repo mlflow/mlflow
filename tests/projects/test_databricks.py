@@ -66,13 +66,13 @@ def run_databricks_project(cluster_spec_path, block=False):
         uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block)
 
 
-def test_run_databricks(tmpdir, runs_cancel_mock, runs_submit_mock, runs_get_mock,
-                        tracking_uri_mock, cluster_spec_mock, create_databricks_run_mock):
+def test_run_databricks(tmpdir, runs_cancel_mock, create_databricks_run_mock, runs_submit_mock,
+                        runs_get_mock, tracking_uri_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     assert tmpdir == tracking_uri_mock.return_value
     # Test that MLflow gets the correct run status when performing a Databricks run
-    for run_api_result, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
-        runs_get_mock.return_value = mock_runs_get_result(run_api_result)
+    for run_succeeded, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
+        runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
         submitted_run = run_databricks_project(cluster_spec_mock)
         submitted_run.wait()
         assert runs_submit_mock.call_count == 1
@@ -82,11 +82,9 @@ def test_run_databricks(tmpdir, runs_cancel_mock, runs_submit_mock, runs_get_moc
     # Test that MLflow properly handles Databricks run cancellation
     runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
     submitted_run = run_databricks_project(cluster_spec_mock)
-    # import time
-    # time.sleep(.1) # Need to sleep to provide monitoring process enough time to launch
     submitted_run.cancel()
     validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
     # # Test that we raise an exception when a blocking Databricks run fails
-    # runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-    # with pytest.raises(mlflow.projects.ExecutionException):
-    #     run_databricks_project(cluster_spec_mock, block=True)
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
+    with pytest.raises(mlflow.projects.ExecutionException):
+        run_databricks_project(cluster_spec_mock, block=True)
