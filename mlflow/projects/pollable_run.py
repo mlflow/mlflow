@@ -1,6 +1,8 @@
 from abc import abstractmethod
 import os
 import subprocess
+import signal
+import sys
 
 from mlflow.utils.logging_utils import eprint
 
@@ -38,21 +40,24 @@ class PollableRun(object):
         Polls the run for termination, sending updates on the run's status to a tracking server via
         the passed-in `ActiveRun` instance.
         """
-        self.pre_monitor_hook()
-        run_id = active_run.get_run().info.run_uuid if active_run else "unknown"
-        try:
-            run_succeeded = self.wait_impl()
-            if run_succeeded:
-                eprint("=== Run (ID '%s') succeeded ===" % run_id)
-                _update_run_status(active_run, "FINISHED")
-            else:
-                eprint("=== Run (ID '%s') failed ===" % run_id)
-                _update_run_status(active_run, "FAILED")
-        except KeyboardInterrupt:
+        run_id = active_run.run_info.run_uuid if active_run else "unknown"
+        cancel_fn = self.cancel
+        def handler(a, b):
             eprint("=== Run was (ID '%s') interrupted, cancelling run... ===" % run_id)
+            cancel_fn()
             _update_run_status(active_run, "FAILED")
-        finally:
-            self.cancel()
+            sys.exit(0)
+        signal.signal(signal.SIGTERM, handler)
+        # Main block
+        self.pre_monitor_hook()
+        run_succeeded = self.wait_impl()
+        if run_succeeded:
+            eprint("=== Run (ID '%s') succeeded ===" % run_id)
+            _update_run_status(active_run, "FINISHED")
+        else:
+            eprint("=== Run (ID '%s') failed ===" % run_id)
+            _update_run_status(active_run, "FAILED")
+
 
 
 def _launch_command(command, work_dir, env_map, stream_output):
@@ -79,6 +84,7 @@ class LocalPollableRun(PollableRun):
         self.work_dir = work_dir
         self.env_map = env_map
         self.stream_output = stream_output
+        self.command_proc = None
 
     def pre_monitor_hook(self):
         self.command_proc = _launch_command(
@@ -89,7 +95,8 @@ class LocalPollableRun(PollableRun):
 
     def cancel(self):
         try:
-            self.command_proc.terminate()
+            if self._command_proc:
+                self.command_proc.terminate()
         except OSError:
             pass
 

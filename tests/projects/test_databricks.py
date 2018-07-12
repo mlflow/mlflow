@@ -83,7 +83,7 @@ def test_run_databricks(tmpdir, runs_cancel_mock, runs_submit_mock, runs_get_moc
     runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
     submitted_run = run_databricks_project(cluster_spec_mock)
     # import time
-    # time.sleep(1) # Need to sleep to provide monitoring process enough time to launch
+    # time.sleep(.1) # Need to sleep to provide monitoring process enough time to launch
     submitted_run.cancel()
     validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
     # # Test that we raise an exception when a blocking Databricks run fails
