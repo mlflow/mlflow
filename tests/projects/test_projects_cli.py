@@ -25,4 +25,3 @@ def test_run_git():
         with update_temp_env({mlflow.tracking._TRACKING_URI_ENV_VAR: tmp.path()}):
             res = invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
             assert "python train.py 0.5 0.1" in res.output
-            _assert_succeeded(res.output)
