@@ -469,8 +469,12 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     eprint("Creating new endpoint with name: {en} ...".format(en=endpoint_name))
 
     model_name = _get_sagemaker_model_name(endpoint_name)
-    model_response = _create_sagemaker_model(model_name=model_name, model_s3_path=model_s3_path,
-                                             image_url=image_url)
+    model_response = _create_sagemaker_model(model_name=model_name, 
+                                             model_s3_path=model_s3_path,
+                                             run_id=run_id,
+                                             image_url=image_url,
+                                             execution_role=role,
+                                             sage_client=sage_client)
     eprint("Created model with arn: %s" % model_response["ModelArn"])
 
     config_name = _get_sagemaker_config_name(endpoint_name)
@@ -534,7 +538,10 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     new_model_name = _get_sagemaker_model_name(endpoint_name)
     new_model_response = _create_sagemaker_model(model_name=new_model_name, 
                                                  model_s3_path=model_s3_path,
-                                                 image_url=image_url)
+                                                 run_id=run_id,
+                                                 image_url=image_url,
+                                                 execution_role=role,
+                                                 sage_client=sage_client)
     eprint("Created new model with arn: %s" % new_model_response["ModelArn"])
 
     if mode == DEPLOYMENT_MODE_ADD:
@@ -588,11 +595,16 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         eprint("Deleted endpoint configuration with arn: {carn}".format(carn=deployed_config_arn))
   
 
-def _create_sagemaker_model(model_name, model_s3_path, image_url):
+def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execution_role, 
+                            sage_client):
     """
     :param model_s3_path: s3 path where we stored the model artifacts
+    :param run_id: RunId that generated this model
     :param image_url: URL of the ECR-hosted docker image that will serve as the
                       model's container
+    :param sage_client: A boto3 client for SageMaker
+    :param execution_role: The ARN of the role that SageMaker will assume when creating the model
+    :return: AWS response containing metadata associated with the new model
     """
     model_response = sage_client.create_model(
         ModelName=model_name,
@@ -602,7 +614,7 @@ def _create_sagemaker_model(model_name, model_s3_path, image_url):
             'ModelDataUrl': model_s3_path,
             'Environment': {},
         },
-        ExecutionRoleArn=role,
+        ExecutionRoleArn=execution_role,
         Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
     )
     return model_response
