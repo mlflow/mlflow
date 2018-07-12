@@ -87,4 +87,5 @@ def test_model_log(tmpdir):
         preds3 = [x.prediction for x in preds_df_1.select("prediction").collect()]
         assert preds1 == preds3
     finally:
+        tracking.end_run("FINISHED")
         tracking.set_tracking_uri(None)
