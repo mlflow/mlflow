@@ -3,7 +3,6 @@ from __future__ import print_function
 import os
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib 
-from datetime import datetime
 import tarfile
 import uuid
 
