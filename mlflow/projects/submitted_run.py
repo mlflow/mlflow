@@ -111,3 +111,8 @@ class SubmittedRun(object):
         except OSError:
             pass
         self._monitoring_process.join()
+        # In rare cases, it's possible that we cancel the monitoring subprocess before it has a
+        # chance to set up a signal handler. In this case we should update the status of the MLflow
+        # run here.
+        if not RunStatus.is_terminated(self._active_run.get_run().info.status):
+            self._active_run.set_terminated("FAILED")

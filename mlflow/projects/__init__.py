@@ -276,7 +276,8 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
 
     commands.append(run_project_command)
     command = " && ".join(commands)
-    eprint("=== Running command: %s === " % command)
+    eprint("=== Running command '%s' in run with ID '%s' === "
+           % (command, active_run.run_info.run_uuid))
 
     return _launch_local_run(
         active_run, command, work_dir, env_map, stream_output=block)
