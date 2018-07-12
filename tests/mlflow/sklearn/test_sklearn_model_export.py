@@ -13,6 +13,7 @@ from mlflow import sklearn, pyfunc
 from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
 
+
 def load_pyfunc(path):
     with open(path, "rb") as f:
         return pickle.load(f)
@@ -37,7 +38,7 @@ class TestModelExport(unittest.TestCase):
             with open(model_path, "wb") as f:
                 pickle.dump(self._knn, f)
             path = tmp.path("knn")
-            sklearn.save_model( self._knn, path=path)
+            sklearn.save_model(self._knn, path=path)
             x = sklearn.load_model(path)
             xpred = x.predict(self._X)
             np.testing.assert_array_equal(self._knn_predict, xpred)
