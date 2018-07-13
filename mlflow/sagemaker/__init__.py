@@ -1,14 +1,14 @@
 from __future__ import print_function
 
-import sys
 import os
+import sys
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib 
 import tarfile
 import uuid
 
-import boto3
 import base64
+import boto3
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
