@@ -462,7 +462,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
 
 def _get_sagemaker_resource_unique_id():
     """
-    :return: A unique, identifier that can be appended to a user-readable
+    :return: A unique identifier that can be appended to a user-readable
     resource name to avoid naming collisions.
     """
     uuid_bytes = uuid.uuid4().bytes
