@@ -153,7 +153,9 @@ the :py:func:`mlflow.run` Python API. Both tools take the following parameters:
 Project URI
     Can be either a directory on the local file system or a Git repository path,
     specified as a URI of the form ``https://<repo>`` (to use HTTPS) or ``user@host:path``
-    (to use Git over SSH).
+    (to use Git over SSH). To access MLproject files located in the repository's subdirectories, 
+    add a '#' to the end of the URI argument, followed by the path from the repository's root directory
+    to the subdirectory containing the desired project.
 
 Project Version
     Which commit in the Git repository to run, for Git-based projects.

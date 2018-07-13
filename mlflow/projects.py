@@ -247,7 +247,7 @@ def _run_local(uri, entry_point, version, subdirectory, parameters, experiment_i
         _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
     # Load the MLproject file
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
-        raise ExecutionException("No MLproject file found in %s" % uri)
+        raise ExecutionException("No MLproject file found in %s" % (uri + '/' + subdirectory))
     project = Project(uri, file_utils.read_yaml(work_dir, "MLproject"))
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
 
