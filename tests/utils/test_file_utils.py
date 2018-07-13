@@ -30,7 +30,7 @@ class TestFileUtils(unittest.TestCase):
 
     def test_yaml_read_and_write(self):
         yaml_file = random_file("yaml")
-        long_value = long(1) if six.PY2 else 1
+        long_value = long(1) if six.PY2 else 1  # pylint: disable=undefined-variable
         data = {"a": random_int(), "B": random_int(), "text_value": u"中文",
                 "long_value": long_value, "int_value": 32, "text_value_2": u"hi"}
         file_utils.write_yaml(self.test_folder, yaml_file, data)

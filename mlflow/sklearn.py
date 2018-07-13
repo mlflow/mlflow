@@ -1,4 +1,4 @@
-"""Sample MLflow integration for SciKit-Learn."""
+"""MLflow integration for SciKit-Learn."""
 
 from __future__ import absolute_import
 
@@ -18,7 +18,16 @@ import mlflow.tracking
 
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
-    """Save a SciKit-Learn model to a path on the local file system."""
+    """
+    Save a SciKit-Learn model to a path on the local file system.
+
+    :param sk_model: Scikit-Learn model to be saved.
+    :param path: Local path where the model is to be saved.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+           this model should be run it. At minimum, it should specify python, sklearn and mlflow
+           with appropriate versions.
+    :param mlflow_model: MLflow model config this flavor is being added to.
+    """
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
     os.makedirs(path)

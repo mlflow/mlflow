@@ -1,3 +1,5 @@
+"""APIs for running MLflow Projects locally or remotely."""
+
 from __future__ import print_function
 
 import hashlib
@@ -8,159 +10,106 @@ import shutil
 import tempfile
 
 from distutils import dir_util
-import yaml
 
-from six.moves import shlex_quote
 
+from mlflow.projects._project_spec import Project
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
-from mlflow import data
 import mlflow.tracking as tracking
+from mlflow.projects.submitted_run import SubmittedRun
+
 
 from mlflow.utils import file_utils, process
 from mlflow.utils.logging_utils import eprint
 
+# TODO: this should be restricted to just Git repos and not S3 and stuff like that
+_GIT_URI_REGEX = re.compile(r"^[^/]*:")
+
 
 class ExecutionException(Exception):
+    """Exception thrown when executing a project fails."""
     pass
 
 
-class Project(object):
-    """A project specification loaded from an MLproject file."""
-    def __init__(self, uri, yaml_obj):
-        self.uri = uri
-        self.name = os.path.splitext(os.path.basename(os.path.abspath(uri)))[0]
-        self.conda_env = yaml_obj.get("conda_env")
-        self.entry_points = {}
-        for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-            parameters = entry_point_yaml.get("parameters", {})
-            command = entry_point_yaml.get("command")
-            self.entry_points[name] = EntryPoint(name, parameters, command)
-        # TODO: validate the spec, e.g. make sure paths in it are fine
-
-    def get_entry_point(self, entry_point):
-        if entry_point in self.entry_points:
-            return self.entry_points[entry_point]
-        _, file_extension = os.path.splitext(entry_point)
-        ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
-        if file_extension in ext_to_cmd:
-            command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
-            return EntryPoint(name=entry_point, parameters={}, command=command)
-        raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
-                                 "runnable script. Supported script file extensions: "
-                                 "{2}".format(entry_point, list(self.entry_points.keys()),
-                                              list(ext_to_cmd.keys())))
+def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
+         mode=None, cluster_spec=None, db_profile=None, git_username=None, git_password=None,
+         use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
+    if mode is None or mode == "local":
+        return _run_local(
+            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
+            experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
+            storage_dir=storage_dir, git_username=git_username, git_password=git_password,
+            block=block)
+    if mode == "databricks":
+        from mlflow.projects.databricks import run_databricks
+        return run_databricks(
+            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
+            experiment_id=experiment_id, cluster_spec=cluster_spec, db_profile=db_profile,
+            git_username=git_username,
+            git_password=git_password)
+    supported_modes = ["local", "databricks"]
+    raise ExecutionException("Got unsupported execution mode %s. Supported "
+                             "values: %s" % (mode, supported_modes))
 
 
-class EntryPoint(object):
-    """An entry point in an MLproject specification."""
-    def __init__(self, name, parameters, command):
-        self.name = name
-        self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
-        self.command = command
-        assert isinstance(self.command, str)
+def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
+        mode=None, cluster_spec=None, db_profile=None,
+        git_username=None, git_password=None, use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
+    """
+    Run an MLflow project from the given URI.
 
-    def _validate_parameters(self, user_parameters):
-        missing_params = []
-        for name in self.parameters:
-            if name not in user_parameters and self.parameters[name].default is None:
-                missing_params.append(name)
-        if len(missing_params) == 1:
-            raise ExecutionException(
-                "No value given for missing parameter: '%s'" % missing_params[0])
-        elif len(missing_params) > 1:
-            raise ExecutionException(
-                "No value given for missing parameters: %s" %
-                ", ".join(["'%s'" % name for name in missing_params]))
+    Supports downloading projects from Git URIs with a specified version, or copying them from
+    the file system. For Git-based projects, a commit can be specified as the `version`.
 
-    def compute_parameters(self, user_parameters, storage_dir):
-        """
-        Given a dict mapping user-specified param names to values, computes parameters to
-        substitute into the command for this entry point. Returns a tuple (params, extra_params)
-        where `params` contains key-value pairs for parameters specified in the entry point
-        definition, and `extra_params` contains key-value pairs for additional parameters passed
-        by the user.
-
-        Note that resolving parameter values can be a heavy operation, e.g. if a remote URI is
-        passed for a parameter of type `path`, we download the URI to a local path within
-        `storage_dir` and substitute in the local path as the parameter value.
-        """
-        if user_parameters is None:
-            user_parameters = {}
-        # Validate params before attempting to resolve parameter values
-        self._validate_parameters(user_parameters)
-        final_params = {}
-        extra_params = {}
-
-        for name, param_obj in self.parameters.items():
-            if name in user_parameters:
-                final_params[name] = param_obj.compute_value(user_parameters[name], storage_dir)
-            else:
-                final_params[name] = self.parameters[name].default
-        for name in user_parameters:
-            if name not in final_params:
-                extra_params[name] = user_parameters[name]
-        return _sanitize_param_dict(final_params), _sanitize_param_dict(extra_params)
-
-    def compute_command(self, user_parameters, storage_dir):
-        params, extra_params = self.compute_parameters(user_parameters, storage_dir)
-        command_with_params = self.command.format(**params)
-        command_arr = [command_with_params]
-        command_arr.extend(["--%s %s" % (key, value) for key, value in extra_params.items()])
-        return " ".join(command_arr)
-
-
-class Parameter(object):
-    """A parameter in an MLproject entry point."""
-    def __init__(self, name, yaml_obj):
-        self.name = name
-        if isinstance(yaml_obj, str):
-            self.type = yaml_obj
-            self.default = None
-        else:
-            self.type = yaml_obj.get("type", "string")
-            self.default = yaml_obj.get("default")
-
-    def _compute_uri_value(self, user_param_value):
-        if not data.is_uri(user_param_value):
-            raise ExecutionException("Expected URI for parameter %s but got "
-                                     "%s" % (self.name, user_param_value))
-        return user_param_value
-
-    def _compute_path_value(self, user_param_value, storage_dir):
-        if not data.is_uri(user_param_value):
-            if not os.path.exists(user_param_value):
-                raise ExecutionException("Got value %s for parameter %s, but no such file or "
-                                         "directory was found." % (user_param_value, self.name))
-            return os.path.abspath(user_param_value)
-        basename = os.path.basename(user_param_value)
-        dest_path = os.path.join(storage_dir, basename)
-        if dest_path != user_param_value:
-            data.download_uri(uri=user_param_value, output_path=dest_path)
-        return os.path.abspath(dest_path)
-
-    def compute_value(self, user_param_value, storage_dir):
-        if self.type != "path" and self.type != "uri":
-            return user_param_value
-        if self.type == "uri":
-            return self._compute_uri_value(user_param_value)
-        return self._compute_path_value(user_param_value, storage_dir)
-
-
-def _sanitize_param_dict(param_dict):
-    return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
-
-
-def _load_project(project_dir, uri):
-    expanded_uri = _expand_uri(uri)
-    spec_file = os.path.join(project_dir, "MLproject")
-    if not os.path.isfile(spec_file):
-        raise ExecutionException("No MLproject file found in %s" % uri)
-    return Project(expanded_uri, yaml.safe_load(open(spec_file).read()))
+    :param entry_point: Entry point to run within the project. If no entry point with the specified
+                        name is found, attempts to run the project file `entry_point` as a script,
+                        using "python" to run .py files and the default shell (specified by
+                        environment variable $SHELL) to run .sh files.
+    :param experiment_id: ID of experiment under which to launch the run.
+    :param mode: Execution mode for the run. Can be set to "local" or "databricks".
+    :param cluster_spec: Path to JSON file describing the cluster to use when launching a run on
+                         Databricks.
+    :param db_profile: Name of Databricks CLI profile to use when interacting with Databricks
+                       services (e.g. launching runs on Databricks).
+    :param git_username: Username for HTTP(S) authentication with Git.
+    :param git_password: Password for HTTP(S) authentication with Git.
+    :param use_conda: If True (the default), creates a new Conda environment for the run and
+                      installs project dependencies within that environment. Otherwise, runs the
+                      project in the current environment without installing any project
+                      dependencies.
+    :param use_temp_cwd: Only used if `mode` is "local" and `uri` is a local directory.
+                         If True, copies project to a temporary working directory before running it.
+                         Otherwise (the default), runs project using `uri` (the project's path) as
+                         the working directory.
+    :param storage_dir: Only used if `mode` is local. MLflow will download artifacts from
+                        distributed URIs passed to parameters of type 'path' to subdirectories of
+                        storage_dir.
+    :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
+                  Note that if `block` is False and mode is "local", this method will return, but
+                  the current process will block when exiting until the local run completes.
+                  If the current process is interrupted, any asynchronous runs launched via this
+                  method will be terminated.
+    :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run.
+    """
+    submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
+                             parameters=parameters,
+                             experiment_id=experiment_id,
+                             mode=mode, cluster_spec=cluster_spec, db_profile=db_profile,
+                             git_username=git_username,
+                             git_password=git_password, use_conda=use_conda,
+                             use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
+    if block:
+        submitted_run_obj.wait()
+        run_status = submitted_run_obj.get_status()
+        if RunStatus.from_string(run_status) != RunStatus.FINISHED:
+            raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
+                                     (submitted_run_obj.run_id, run_status))
+    return submitted_run_obj
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
-               storage_dir, git_username, git_password):
+               storage_dir, git_username, git_password, block):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -179,57 +128,8 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
     project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
-    _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
-
-
-def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, db_profile=None, git_username=None,
-        git_password=None, use_conda=True, use_temp_cwd=False, storage_dir=None):
-    """
-    Run an MLflow project from the given URI in a new directory.
-
-    Supports downloading projects from Git URIs with a specified version, or copying them from
-    the file system. For Git-based projects, a commit can be specified as the `version`.
-
-    :param entry_point: Entry point to run within the project. If no entry point with the specified
-                        name is found, attempts to run the project file `entry_point` as a script,
-                        using "python" to run .py files and the default shell (specified by
-                        environment variable $SHELL) to run .sh files.
-    :param experiment_id: ID of experiment under which to launch the run.
-    :param mode: Execution mode for the run. Can be set to "databricks" or "local"
-    :param cluster_spec: Path to JSON file describing the cluster to use when launching a run on
-                         Databricks.
-    :param use_conda: If True (the default), creates a new Conda environment for the run and
-                      installs project dependencies within that environment. Otherwise, runs the
-                      project in the current environment without installing any project
-                      dependencies.
-    :param use_temp_cwd: Only used if `mode` is "local" and `uri` is a local directory.
-                         If True, copies project to a temporary working directory before running it.
-                         Otherwise (the default), runs project using `uri` (the project's path) as
-                         the working directory.
-    :param storage_dir: Only used if `mode` is local. MLflow will download artifacts from
-                        distributed URIs passed to parameters of type 'path' to subdirectories of
-                        storage_dir.
-    """
-    if mode is None or mode == "local":
-        _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-                   experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
-                   storage_dir=storage_dir, git_username=git_username, git_password=git_password)
-    elif mode == "databricks":
-        # TODO: parameter parity (passing storage_dir) etc for databricks runs
-        from mlflow.projects.databricks import run_databricks
-        run_databricks(
-            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=experiment_id, cluster_spec=cluster_spec, db_profile=db_profile,
-            git_username=git_username, git_password=git_password)
-    else:
-        supported_modes = ["local", "databricks"]
-        raise ExecutionException("Got unsupported execution mode %s. Supported "
-                                 "values: %s" % (mode, supported_modes))
-
-
-# TODO: this should be restricted to just Git repos and not S3 and stuff like that
-_GIT_URI_REGEX = re.compile(r"^[^/]*:")
+    return _run_project(
+        project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, block)
 
 
 def _get_work_dir(uri, use_temp_cwd):
@@ -328,8 +228,25 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
+def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
+    """
+    Runs an entry point by launching its command in a subprocess, updating the tracking server with
+    the run's exit status.
+
+    :param active_run: `ActiveRun` to which to post status updates for the launched run
+    :param command: Entry point command to execute
+    :param work_dir: Working directory to use when executing `command`
+    :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
+    :return `SubmittedRun` corresponding to the launched run.
+    """
+    from mlflow.projects.pollable_run import LocalPollableRun
+    pollable_run = LocalPollableRun(
+        command=command, work_dir=work_dir, env_map=env_map, stream_output=stream_output)
+    return SubmittedRun(active_run, pollable_run)
+
+
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
-                 experiment_id):
+                 experiment_id, block):
     """Locally run a project that has been checked out in `work_dir`."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
@@ -344,11 +261,11 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
     # Create a new run and log every provided parameter into it.
-    active_run = tracking.start_run(experiment_id=experiment_id,
-                                    source_name=project.uri,
-                                    source_version=tracking._get_git_commit(work_dir),
-                                    entry_point_name=entry_point,
-                                    source_type=SourceType.PROJECT)
+    exp_id_for_run = experiment_id or tracking._get_experiment_id()
+    active_run = tracking._create_run(
+        experiment_id=exp_id_for_run, source_name=project.uri,
+        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
+        source_type=SourceType.PROJECT)
     if parameters is not None:
         for key, value in parameters.items():
             active_run.log_param(Param(key, value))
@@ -356,19 +273,15 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     # causing it to reuse the run.
     exp_id = experiment_id or tracking._get_experiment_id()
     env_map = {
-        tracking._RUN_NAME_ENV_VAR: active_run.run_info.run_uuid,
+        tracking._RUN_ID_ENV_VAR: active_run.run_info.run_uuid,
         tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
         tracking._EXPERIMENT_ID_ENV_VAR: str(exp_id),
     }
 
     commands.append(run_project_command)
     command = " && ".join(commands)
-    eprint("=== Running command: %s ===" % command)
-    try:
-        process.exec_cmd([os.environ.get("SHELL", "bash"), "-c", command], cwd=work_dir,
-                         stream_output=True, env=env_map)
-        tracking.end_run()
-        eprint("=== Run succeeded ===")
-    except process.ShellCommandException:
-        tracking.end_run("FAILED")
-        eprint("=== Run failed ===")
+    eprint("=== Running command '%s' in run with ID '%s' === "
+           % (command, active_run.run_info.run_uuid))
+
+    return _launch_local_run(
+        active_run, command, work_dir, env_map, stream_output=block)

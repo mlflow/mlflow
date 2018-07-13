@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import textwrap
+import time
 
 from databricks_cli.configure import provider
 from six.moves import shlex_quote
@@ -11,9 +12,13 @@ from six.moves import shlex_quote
 from mlflow import tracking
 from mlflow.version import VERSION
 from mlflow.entities.experiment import Experiment
+from mlflow.entities.source_type import SourceType
 from mlflow.utils import rest_utils, process, file_utils
 from mlflow.utils.logging_utils import eprint
 from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project
+
+from mlflow.projects.pollable_run import DatabricksPollableRun
+from mlflow.projects.submitted_run import SubmittedRun
 
 DB_CONTAINER_BASE = "/databricks/mlflow"
 DB_TARFILE_BASE = os.path.join(DB_CONTAINER_BASE, "project-tars")
@@ -22,6 +27,19 @@ DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
+def _jobs_runs_get(databricks_run_id):
+    return rest_utils.databricks_api_request(
+        endpoint="jobs/runs/get", method="GET", params={"run_id": databricks_run_id})
+
+
+def _jobs_runs_cancel(databricks_run_id):
+    return rest_utils.databricks_api_request(
+        endpoint="jobs/runs/cancel", method="POST", req_body_json={"run_id": databricks_run_id})
+
+
+def _jobs_runs_submit(req_body_json):
+    return rest_utils.databricks_api_request(
+        endpoint="jobs/runs/submit", method="POST", req_body_json=req_body_json)
 
 
 def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, parameters):
@@ -53,20 +71,6 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, parameters):
     """.format(DB_TARFILE_BASE, DB_PROJECTS_BASE, dbfs_fuse_tar_uri, container_tar_path,
                DB_TARFILE_ARCHIVE_NAME, project_dir, mlflow_run_cmd))
     return ["bash", "-c", shell_command]
-
-
-def _get_db_hostname_and_auth(db_profile):
-    """
-    Reads the hostname & auth token to use for running on Databricks from the config file created
-    by the Databricks CLI.
-    """
-    config = provider.get_config_for_profile(db_profile)
-    if not config.host:
-        raise ExecutionException(
-            "Databricks CLI configuration for profile '%s' was malformed; no host URL found. "
-            "Please configure the Databricks CLI as described in "
-            "https://github.com/databricks/databricks-cli" % db_profile)
-    return config.host, config.token, config.username, config.password
 
 
 def _check_databricks_cli_installed():
@@ -132,57 +136,122 @@ def _upload_project_to_dbfs(project_dir, experiment_id, profile):
     return dbfs_uri
 
 
-def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                   db_profile, git_username, git_password):
+def _get_run_result_state(databricks_run_id):
+    """
+    Returns the run result state (string) of the Databricks run with the passed-in ID, or None
+    if the run is still active. See possible values at
+    https://docs.databricks.com/api/latest/jobs.html#runresultstate.
+    """
+    res = _jobs_runs_get(databricks_run_id)
+    return res["state"].get("result_state", None)
+
+
+def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
+    """
+    Runs the specified shell command on a Databricks cluster.
+    :param project_uri: URI of the project from which our shell command originates
+    :param command: Shell command to run
+    :param env_vars: Environment variables to set in the process running `command`
+    :param cluster_spec: Dictionary describing the cluster, expected to contain the fields for a
+                         NewCluster (see
+                         https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster)
+    :return: The ID of the Databricks Job Run. Can be used to query the run's status via the
+             Databricks Runs Get API (https://docs.databricks.com/api/latest/jobs.html#runs-get).
+    """
+    # Make jobs API request to launch run.
+    req_body_json = {
+        'run_name': 'MLflow Run for %s' % project_uri,
+        'new_cluster': cluster_spec,
+        'shell_command_task': {
+            'command': command,
+            "env_vars": env_vars
+        },
+        "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
+    }
+    run_submit_res = _jobs_runs_submit(req_body_json)
+    databricks_run_id = run_submit_res["run_id"]
+    eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
+           "page URL... ===" % databricks_run_id)
+    run_info = _jobs_runs_get(databricks_run_id)
+    jobs_page_url = run_info["run_page_url"]
+    eprint("=== Check the run's status at %s ===" % jobs_page_url)
+    return databricks_run_id
+
+
+def _create_databricks_run(tracking_uri, experiment_id, source_name, source_version,
+                           entry_point_name):
+    """
+    Makes an API request to the specified tracking server to create a new run with the specified
+    attributes. Returns an `ActiveRun` that can be used to query the tracking server for the run's
+    status or log metrics/params for the run.
+    """
+    if tracking.is_local_uri(tracking_uri):
+        # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
+        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from "
+               "Databricks will not be logged permanently." % tracking_uri)
+        return None
+    else:
+        # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g.
+        # localhost)
+        return tracking._create_run(experiment_id=experiment_id,
+                                    source_name=source_name,
+                                    source_version=source_version,
+                                    entry_point_name=entry_point_name,
+                                    source_type=SourceType.PROJECT)
+
+
+def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec, db_profile,
+                   git_username, git_password):
+    """
+    Runs a project on Databricks, returning a `SubmittedRun` that can be used to query the run's
+    status or wait for the resulting Databricks Job run to terminate.
+    """
     _check_databricks_cli_installed()
     databricks_profile = db_profile or provider.DEFAULT_SECTION
-    hostname, token, username, password, = _get_db_hostname_and_auth(databricks_profile)
-    work_dir = _get_work_dir(uri, use_temp_cwd=False)
+
     # Fetch the project into work_dir & validate parameters
+    work_dir = _get_work_dir(uri, use_temp_cwd=False)
     _fetch_project(uri, version, work_dir, git_username, git_password)
     project = _load_project(work_dir, uri)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     # Upload the project to DBFS, get the URI of the project
     final_experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, final_experiment_id, databricks_profile)
+
+    # Create run object with remote tracking server
+    tracking_uri = tracking.get_tracking_uri()
+    remote_run = _create_databricks_run(
+        tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=uri,
+        source_version=version, entry_point_name=entry_point)
+    # Set up environment variables for remote execution
     env_vars = {"MLFLOW_GIT_URI": uri}
-    if tracking._TRACKING_URI_ENV_VAR not in os.environ:
-        eprint("Tracking URI is unspecified, data generated for the run (metrics, params,"
-               "artifacts) may not be properly persisted. You can configure a tracking URI by "
-               "setting the %s environment variable" % tracking._TRACKING_URI_ENV_VAR)
-    else:
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = os.environ[tracking._TRACKING_URI_ENV_VAR]
-    # Pass experiment ID to shell job on Databricks as an environment variable.
     if experiment_id is not None:
         eprint("=== Using experiment ID %s ===" % experiment_id)
         env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
-    # Used for testing: if MLFLOW_REMOTE_PIP_URI is set, install (via pip) the package at that URI
-    # on the Databricks cluster. Otherwise, just use the current MLflow version.
-    mlflow_lib_string = os.environ.get("MLFLOW_REMOTE_PIP_URI", "mlflow==%s" % VERSION)
-    # Read cluster spec from file
+    if remote_run is not None:
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking.get_tracking_uri()
+        env_vars[tracking._RUN_ID_ENV_VAR] = remote_run.run_info.run_uuid
+    eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
+    # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:
         cluster_spec = json.load(handle)
     fuse_dst_dir = os.path.join("/dbfs/", dbfs_project_uri.strip("dbfs:/"))
-    req_body_json = {
-        'run_name': 'MLflow Job Run for %s' % uri,
-        'new_cluster': cluster_spec,
-        'shell_command_task': {
-            'command': _get_databricks_run_cmd(fuse_dst_dir, entry_point, parameters),
-            "env_vars": env_vars
-        },
-        "libraries": [{"pypi": {"package": mlflow_lib_string}}]
-    }
-    # Run on Databricks
-    eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
-    auth = (username, password) if username is not None and password is not None else None
-    run_submit_res = rest_utils.databricks_api_request(
-        hostname=hostname, endpoint="jobs/runs/submit", token=token, auth=auth, method="POST",
-        req_body_json=req_body_json)
-    run_id = run_submit_res["run_id"]
-    eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-           "page URL... ===" % run_id)
-    run_info = rest_utils.databricks_api_request(
-        hostname=hostname, endpoint="jobs/runs/get", token=token, auth=auth, method="GET",
-        params={"run_id": run_id})
-    jobs_page_url = run_info["run_page_url"]
-    eprint("=== Check the run's status at %s ===" % jobs_page_url)
+    command = _get_databricks_run_cmd(fuse_dst_dir, entry_point, parameters)
+    db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
+    return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id))
+
+
+def cancel_databricks(databricks_run_id):
+    _jobs_runs_cancel(databricks_run_id)
+
+
+def monitor_databricks(databricks_run_id, sleep_interval=30):
+    """
+    Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
+    run's status every `sleep_interval` seconds.
+    """
+    result_state = _get_run_result_state(databricks_run_id)
+    while result_state is None:
+        time.sleep(sleep_interval)
+        result_state = _get_run_result_state(databricks_run_id)
+    return result_state == "SUCCESS"

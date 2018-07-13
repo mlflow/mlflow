@@ -9,6 +9,7 @@ from mlflow.pyfunc import load_pyfunc, scoring_server
 from mlflow.tracking import _get_model_log_dir
 from mlflow.utils import cli_args
 
+
 @click.group("pyfunc")
 def commands():
     """Serve Python models locally."""
