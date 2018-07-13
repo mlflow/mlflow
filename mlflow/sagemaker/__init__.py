@@ -179,18 +179,20 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      exists.
 
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE: If an application of the specified name
-                     exists, its model(s) will be replaced with the specified model. If no such application
-                     exists, it will be created with the specified name and model.
+                     exists, its model(s) will be replaced with the specified model. If no such
+                     application exists, it will be created with the specified name and model.
                  
                  mlflow.sagemaker.DEPLOYMENT_MODE_ADD: Adds the specified model to a pre-existing 
-                     application with the specified name, if one exists. If the application does 
+                     application with the specified name, if one exists. If the application does
                      not exist,  a new application will be created with the specified name and 
-                     model. NOTE: **If the application already exists**, the specified model will be added 
-                     to the application's  corresponding SageMaker endpoint with an initial weight of zero (0).
-                     To route traffic to the model, update the application's associated endpoint configuration 
-                     using either the AWS console or the `UpdateEndpointWeightsAndCapacities` function defined 
-                     in the SageMaker API Documentation
-                     (https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html).
+                     model. NOTE: **If the application already exists**, the specified model will 
+                     be added to the application's corresponding SageMaker endpoint with an initial 
+                     weight of zero (0). To route traffic to the model, update the application's 
+                     associated endpoint configuration  using either the AWS console or the 
+                     `UpdateEndpointWeightsAndCapacities` function defined in the SageMaker API 
+                     Documentation
+                     (https://docs.aws.amazon.com/sagemaker/latest/dg/
+                     API_UpdateEndpointWeightsAndCapacities.html).
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
                     (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode) 
@@ -409,7 +411,9 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     endpoint_found = (app_name in [endp["EndpointName"] for endp in endpoints_page["Endpoints"]])
     while (not endpoint_found) and ("NextToken" in endpoints_page):
         next_token = endpoints_page["NextToken"]
-        endpoints_page = sage_client.list_endpoints(MaxResults=100, NextToken=next_token, NameContains=app_name)
+        endpoints_page = sage_client.list_endpoints(MaxResults=100, 
+                                                    NextToken=next_token, 
+                                                    NameContains=app_name)
         endpoint_found = any([ep["EndpointName"] == app_name for ep in endpoints_page["Endpoints"]])
 
     if endpoint_found and mode == DEPLOYMENT_MODE_CREATE:
@@ -457,13 +461,16 @@ def _get_sagemaker_resource_unique_id():
     uuid_b64 = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB")
     return uuid_b64
 
+
 def _get_sagemaker_model_name(endpoint_name):
     unique_id = _get_sagemaker_resource_unique_id()
     return "{en}-model-{uid}".format(en=endpoint_name, uid=unique_id)
 
+
 def _get_sagemaker_config_name(endpoint_name):
     unique_id = _get_sagemaker_resource_unique_id()
     return "{en}-config-{uid}".format(en=endpoint_name, uid=unique_id)
+
 
 def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, role, sage_client): 
     """
@@ -512,6 +519,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         Tags=[],
     )
     eprint("Created endpoint with arn: %s" % endpoint_response["EndpointArn"])
+
 
 def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, mode, archive, 
                                role, sage_client, s3_client):
