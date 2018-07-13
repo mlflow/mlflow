@@ -680,4 +680,3 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
     sage_client.delete_model(ModelName=model_name)
 
     return model_arn
-
