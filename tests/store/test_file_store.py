@@ -95,7 +95,7 @@ class TestFileStore(unittest.TestCase):
         file_store = FileStore(self.test_root)
         try:
             file_store._check_root_dir()
-        except Exception as e:  # noqa
+        except Exception as e:  # pylint: disable=broad-except
             self.fail("test_valid_root raised exception '%s'" % e.message)
 
         # Test removing root

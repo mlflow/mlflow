@@ -125,7 +125,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     account = caller_id['Account']
     my_session = boto3.session.Session()
     region = my_session.region_name or "us-west-2"
-    fullname = _full_template.format(account=account, region=region, image=image, version=mlflow.version.VERSION)
+    fullname = _full_template.format(account=account, region=region, image=image,
+                                     version=mlflow.version.VERSION)
     eprint("Pushing docker image {image} to {repo}".format(image=image, repo=fullname))
     ecr_client = boto3.client('ecr')
     if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
@@ -155,7 +156,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param bucket: S3 bucket where model artifacts will be stored. defaults to a
                    SageMaker-compatible bucket name.
     :param run_id: MLflow run id.
-    :param image: name of the Docker image to be used. if not specified, uses a 
+    :param image: name of the Docker image to be used. if not specified, uses a
                   publicly-available pre-built image.
     :param region_name: Name of the AWS region to deploy to.
     """
@@ -166,7 +167,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         execution_role_arn = _get_assumed_role_arn()
 
     if not bucket:
-        eprint("No model data bucket specified, using the default bucket") 
+        eprint("No model data bucket specified, using the default bucket")
         bucket = _get_default_s3_bucket(region_name)
 
     prefix = model_path
@@ -241,12 +242,12 @@ def _get_account_id():
     sts_client = sess.client("sts")
     identity_info = sts_client.get_caller_identity()
     account_id = identity_info["Account"]
-    return account_id 
+    return account_id
 
 
 def _get_assumed_role_arn():
     """
-    :return: ARN of the user's current IAM role 
+    :return: ARN of the user's current IAM role
     """
     sess = boto3.Session()
     sts_client = sess.client("sts")
@@ -262,17 +263,18 @@ def _get_default_s3_bucket(region_name):
     # create bucket if it does not exist
     sess = boto3.Session()
     account_id = _get_account_id()
-    bucket_name = "{pfx}-{rn}-{aid}".format(pfx=DEFAULT_BUCKET_NAME_PREFIX, rn=region_name, aid=account_id)
+    bucket_name = "{pfx}-{rn}-{aid}".format(pfx=DEFAULT_BUCKET_NAME_PREFIX, rn=region_name,
+                                            aid=account_id)
     s3 = sess.client('s3')
     response = s3.list_buckets()
     buckets = [b['Name'] for b in response["Buckets"]]
-    if not bucket_name in buckets:
+    if bucket_name not in buckets:
         eprint("Default bucket `%s` not found. Creating..." % bucket_name)
         response = s3.create_bucket(
             ACL='bucket-owner-full-control',
             Bucket=bucket_name,
             CreateBucketConfiguration={
-                'LocationConstraint': region_name, 
+                'LocationConstraint': region_name,
             },
         )
         eprint(response)

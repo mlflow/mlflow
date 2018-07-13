@@ -58,7 +58,7 @@ class TestModelExport(unittest.TestCase):
                 try:
                     import shutil
                     shutil.rmtree(path_to_remove)
-                except PermissionError:
+                except OSError:
                     print("Failed to remove", path_to_remove)
 
 
