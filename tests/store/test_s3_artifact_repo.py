@@ -6,7 +6,6 @@ from moto import mock_s3
 
 from mlflow.store.artifact_repo import ArtifactRepository, S3ArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from tests.helper_functions import random_int
 
 
 class TestS3ArtifactRepo(unittest.TestCase):
@@ -17,8 +16,8 @@ class TestS3ArtifactRepo(unittest.TestCase):
             # Note that we must set these as environment variables in case users
             # so that boto does not attempt to assume credentials from the ~/.aws/config
             # or IAM role. moto does not correctly pass the arguments to boto3.client().
-            os.environ["AWS_ACCESS_KEY_ID"] = "a" 
-            os.environ["AWS_SECRET_ACCESS_KEY"] = "b" 
+            os.environ["AWS_ACCESS_KEY_ID"] = "a"
+            os.environ["AWS_SECRET_ACCESS_KEY"] = "b"
             s3 = boto3.client("s3")
             s3.create_bucket(Bucket="test_bucket")
 

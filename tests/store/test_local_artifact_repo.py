@@ -1,10 +1,8 @@
 import os
-import shutil
 import unittest
 
 from mlflow.store.artifact_repo import ArtifactRepository, LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from tests.helper_functions import random_int
 
 
 class TestLocalArtifactRepo(unittest.TestCase):
@@ -57,4 +55,3 @@ class TestLocalArtifactRepo(unittest.TestCase):
             self.assertEqual(os.path.basename(downloaded_dir), "nested")
             text = open(os.path.join(downloaded_dir, "c.txt")).read()
             self.assertEqual(text, "C")
-

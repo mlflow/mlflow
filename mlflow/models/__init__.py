@@ -6,6 +6,7 @@ import yaml
 import mlflow
 from mlflow.utils.file_utils import TempDir
 
+
 class Model(object):
     """A servable MLflow model, which can support multiple model flavors."""
 

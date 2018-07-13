@@ -1,6 +1,7 @@
 import os
 
-from mlflow.utils.environment import  _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env
+
 
 def test_save(tmpdir):
     filename = os.path.join(str(tmpdir), "conda_env.yml")

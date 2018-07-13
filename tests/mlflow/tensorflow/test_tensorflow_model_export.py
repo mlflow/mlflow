@@ -1,3 +1,5 @@
+# pep8: disable=E501
+
 from __future__ import print_function
 
 import collections
@@ -18,24 +20,23 @@ class TestModelExport(unittest.TestCase):
 
     def helper(self, feature_spec, tmp, estimator, df):
         """
-        This functions handles exporting, logging, loading back, and predicting on an estimator for 
+        This functions handles exporting, logging, loading back, and predicting on an estimator for
         testing purposes.
         """
         receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
         saved_estimator_path = tmp.path("model")
         os.makedirs(saved_estimator_path)
         # Saving TensorFlow model.
-        saved_estimator_path = estimator.export_savedmodel(saved_estimator_path, 
-                                                       receiver_fn).decode("utf-8")
+        saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
+                                                           receiver_fn).decode("utf-8")
         # Logging the TensorFlow model just saved.
         tensorflow.log_saved_model(saved_model_dir=saved_estimator_path,
-                                   signature_def_key="predict", 
+                                   signature_def_key="predict",
                                    artifact_path=tmp.path("hello"))
         # Loading the saved TensorFlow model as a pyfunc.
         x = pyfunc.load_pyfunc(saved_estimator_path)
         # Predicting on the dataset using the pyfunc.
         return x.predict(df)
-
 
     def test_log_saved_model(self):
         # This tests model logging capabilities on the sklearn.iris dataset.
@@ -90,11 +91,11 @@ class TestModelExport(unittest.TestCase):
                 tracking.end_run()
                 tracking.set_tracking_uri(old_tracking_dir)
 
-
     def test_categorical_columns(self):
         """
         This tests logging capabilities on datasets with categorical columns.
-        See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/get_started/regression/imports85.py
+        See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/get_started/\
+        regression/imports85.py
         for reference code.
         """
         with TempDir(chdr=False, remove_on_exit=True) as tmp:
@@ -123,23 +124,24 @@ class TestModelExport(unittest.TestCase):
             for i in df:
                 trainingFeatures[i] = df[i].values
 
-            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures, 
-                                                            y_train.values, 
-                                                            shuffle=False, 
-                                                            batch_size=1)
+            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
+                                                             y_train.values,
+                                                             shuffle=False,
+                                                             batch_size=1)
 
             # Creating the feature columns required for the DNNRegressor.
             body_style_vocab = ["hardtop", "wagon", "sedan", "hatchback", "convertible"]
             body_style = tf.feature_column.categorical_column_with_vocabulary_list(
                 key="body-style", vocabulary_list=body_style_vocab)
             feature_columns = [
-            tf.feature_column.numeric_column(key="curb-weight"),
-            tf.feature_column.numeric_column(key="highway-mpg"),
-            # Since this is a DNN model, convert categorical columns from sparse
-            # to dense.
-            # Wrap them in an `indicator_column` to create a
-            # one-hot vector from the input.
-            tf.feature_column.indicator_column(body_style),]
+                tf.feature_column.numeric_column(key="curb-weight"),
+                tf.feature_column.numeric_column(key="highway-mpg"),
+                # Since this is a DNN model, convert categorical columns from sparse
+                # to dense.
+                # Wrap them in an `indicator_column` to create a
+                # one-hot vector from the input.
+                tf.feature_column.indicator_column(body_style)
+            ]
 
             # Build a DNNRegressor, with 2x20-unit hidden layers, with the feature columns
             # defined above as input.
@@ -161,15 +163,15 @@ class TestModelExport(unittest.TestCase):
             try:
                 # Creating dict of features names (str) to placeholders (tensors)
                 feature_spec = {}
-                feature_spec["body-style"] = tf.placeholder("string", 
-                                                            name="body-style", 
+                feature_spec["body-style"] = tf.placeholder("string",
+                                                            name="body-style",
                                                             shape=[None])
-                feature_spec["curb-weight"] = tf.placeholder("float", 
-                                                            name="curb-weight", 
-                                                            shape=[None])
-                feature_spec["highway-mpg"] = tf.placeholder("float", 
-                                                            name="highway-mpg", 
-                                                            shape=[None])
+                feature_spec["curb-weight"] = tf.placeholder("float",
+                                                             name="curb-weight",
+                                                             shape=[None])
+                feature_spec["highway-mpg"] = tf.placeholder("float",
+                                                             name="highway-mpg",
+                                                             shape=[None])
 
                 pyfunc_preds_df = self.helper(feature_spec, tmp, estimator, df)
                 # Asserting that the loaded model predictions are as expected. Allow for some

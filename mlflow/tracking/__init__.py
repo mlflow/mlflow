@@ -296,7 +296,7 @@ def log_param(key, value):
     Logs the passed-in parameter under the current run, creating a run if necessary.
     :param key: Parameter name (string)
     :param value: Parameter value (string)
-    """  
+    """
     _get_or_start_run().log_param(Param(key, str(value)))
 
 
@@ -359,7 +359,7 @@ def _get_git_commit(path):
     except ImportError as e:
         print("Notice: failed to import git (the git executable is probably not on your PATH),"
               " so git sha will not be available. Error: %s" % e, file=sys.stderr)
-        return None 
+        return None
     try:
         if os.path.isfile(path):
             path = os.path.dirname(path)
