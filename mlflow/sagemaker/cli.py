@@ -26,7 +26,8 @@ def commands():
 @click.option("--region-name", "-r", default="us-west-2", help="region name")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name):
     """
-    Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have correct permissions setup.
+    Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
+    correct permissions setup.
     """
     mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,

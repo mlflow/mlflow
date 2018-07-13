@@ -186,4 +186,3 @@ class S3ArtifactRepository(ArtifactRepository):
             s3_path = build_path(s3_path, artifact_path)
             boto3.client('s3').download_file(bucket, s3_path, local_path)
         return local_path
-
