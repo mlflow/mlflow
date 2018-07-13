@@ -78,7 +78,6 @@ class SubmittedRun(object):
             target=pollable_run.monitor_run, args=(self._active_run,))
         _add_run(self)
 
-
     @property
     def run_id(self):
         """Returns the MLflow run ID of the current run"""

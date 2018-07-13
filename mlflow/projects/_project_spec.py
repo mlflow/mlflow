@@ -6,6 +6,7 @@ from six.moves import shlex_quote
 
 from mlflow import data
 
+
 class Project(object):
     """A project specification loaded from an MLproject file."""
     def __init__(self, uri, yaml_obj):
