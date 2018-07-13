@@ -1,21 +1,32 @@
+import mock
 import subprocess
 
+import pytest
+
 from tests.projects.utils import TEST_PROJECT_DIR
-from mlflow.projects import databricks
+import mlflow
+from mlflow.projects import databricks, ExecutionException
 from mlflow.utils import file_utils
 
-def mock_upload_to_dbfs():
+def mymehtod():
+    pass
+
+def upload_to_dbfs_mock():
     pass
 
 
-def mock_dbfs_path_exists():
+def dbfs_path_exists_mock():
     pass
 
 
+def test_upload_project_to_dbfs(upload_to_dbfs_mock, dbfs_path_exists_mock):
+    _upload_project_to_dbfs(project_dir, experiment_id, profile)
 
 
-def test_upload_to_dbfs():
-    pass
+@pytext.fixture()
+def databricks_api_req_mock():
+    with mock.patch("mlflow.utils.rest_utils.databricks_api_request") as db_api_req_mock:
+        yield db_api_req_mock
 
 
 def test_get_databricks_run_command(tmpdir):
@@ -29,9 +40,13 @@ def test_get_databricks_run_command(tmpdir):
     p = subprocess.Popen(cmd)
 
 
+def test_run_databricks_validations(databricks_api_req_mock):
+    """
+    Tests that running on Databricks fails before making any API requests if parameters are
+    mis-specified or the Databricks CLI is not installed
+    """
+    with mock.patch("mlflow.databricks.")
+    with pytest.raises(ExecutionException):
+        mlflow.projects.run(TEST_PROJECT_DIR)
+        assert databricks_api_req_mock.call_count == 0
 
-def test_run_databricks_validate_command():
-    """
-    Tests that run_databricks fails before making any API requests if parameters are mis-specified
-    """
-    pass

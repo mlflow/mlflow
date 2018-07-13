@@ -74,9 +74,9 @@ def _check_databricks_cli_installed():
     try:
         process.exec_cmd(["databricks", "--version"])
     except process.ShellCommandException:
-        eprint("Could not find Databricks CLI on PATH. Please install and configure the Databricks "
-               "CLI as described in https://github.com/databricks/databricks-cli")
-        raise
+        raise ExecutionException(
+            "Could not find Databricks CLI on PATH. Please install and configure the Databricks "
+            "CLI as described in https://github.com/databricks/databricks-cli")
     if not os.path.exists(cfg_file):
         raise ExecutionException("Could not find profile for Databricks CLI in %s. Make sure the "
                                  "the Databricks CLI is installed and that credentials have been "
