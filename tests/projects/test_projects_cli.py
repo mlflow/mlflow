@@ -59,4 +59,3 @@ def test_restrict_periods():
             except AssertionError as e:
                 assert e.args[0] == "Got non-zero exit code -1. Output is: "
                 assert res == None
-                
