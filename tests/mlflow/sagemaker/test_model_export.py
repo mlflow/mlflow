@@ -93,7 +93,7 @@ class TestModelExport(unittest.TestCase):
                             print('connection attempt', i, "server is up! ping status", ping_status)
                             if ping_status.status_code == 200:
                                 break
-                        except Exception:
+                        except Exception:  # pylint: disable=broad-except
                             print('connection attempt', i, "failed, server is not up yet")
 
                     self.assertTrue(proc.poll() is None, "scoring process died")

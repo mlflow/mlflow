@@ -2,6 +2,7 @@
 mock==2.0.0
 moto
 prospector[with_pyroma]==0.12.7
+pep8==1.7.1
 pyarrow
 pylint==1.8.2
 pyspark

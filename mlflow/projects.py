@@ -167,7 +167,6 @@ def _get_databricks_run_cmd(uri, entry_point, version, parameters):
             % mlflow_run_str]
 
 
-
 def _get_db_hostname_and_auth():
     """
     Reads the hostname & auth token to use for running on Databricks from the config file created
