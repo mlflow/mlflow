@@ -33,8 +33,8 @@ class ExecutionException(Exception):
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        use_temp_cwd=False, storage_dir=None, block=True):
+         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
+         use_temp_cwd=False, storage_dir=None, block=True):
     if mode is None or mode == "local":
         return _run_local(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
@@ -100,7 +100,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
         run_status = submitted_run_obj.get_status()
         if RunStatus.from_string(run_status) != RunStatus.FINISHED:
             raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
-                (submitted_run_obj.run_id, run_status))
+                                     (submitted_run_obj.run_id, run_status))
     return submitted_run_obj
 
 

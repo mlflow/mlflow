@@ -1,6 +1,11 @@
 class RunStatus(object):
     RUNNING, SCHEDULED, FINISHED, FAILED = range(1, 5)
-    _STRING_TO_STATUS = {"RUNNING": RUNNING, "SCHEDULED": SCHEDULED, "FINISHED": FINISHED, "FAILED": FAILED}
+    _STRING_TO_STATUS = {
+        "RUNNING": RUNNING,
+        "SCHEDULED": SCHEDULED,
+        "FINISHED": FINISHED,
+        "FAILED": FAILED,
+    }
     _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
     _TERMINATED_STATUSES = set([FINISHED, FAILED])
 

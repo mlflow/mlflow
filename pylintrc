@@ -144,6 +144,9 @@ disable=print-statement,
         fixme,
         global-statement,
         no-member, # disabled due to https://github.com/PyCQA/pylint/issues/1864
+        # redefined-outer-name disabled to avoid linting errors when using pytest fixtures
+        # (see https://stackoverflow.com/questions/46089480/pytest-fixtures-redefining-name-from-outer-scope-pylint)
+        redefined-outer-name,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

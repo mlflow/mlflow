@@ -7,7 +7,8 @@ import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
-from tests.projects.utils import validate_exit_status, tracking_uri_mock, GIT_PROJECT_URI
+from tests.projects.utils import validate_exit_status, GIT_PROJECT_URI
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 @pytest.fixture()
@@ -41,7 +42,7 @@ def cluster_spec_mock(tmpdir):
 
 
 @pytest.fixture()
-def create_databricks_run_mock(tracking_uri_mock):
+def create_databricks_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
     # Mocks logic for creating an MLflow run against a tracking server to persist the run to a local
     # file store
     with mock.patch("mlflow.projects.databricks._create_databricks_run") as create_db_run_mock:
@@ -71,8 +72,9 @@ def run_databricks_project(cluster_spec_path, block=False):
         uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block)
 
 
-def test_run_databricks(tmpdir, runs_cancel_mock, create_databricks_run_mock, runs_submit_mock,
-                        runs_get_mock, cluster_spec_mock):
+def test_run_databricks(
+        tmpdir, runs_cancel_mock, create_databricks_run_mock,  # pylint: disable=unused-argument
+        runs_submit_mock, runs_get_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     # Test that MLflow gets the correct run status when performing a Databricks run
     for run_succeeded, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
