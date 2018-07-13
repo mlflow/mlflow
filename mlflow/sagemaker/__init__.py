@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import sys
 import os
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib 
@@ -7,7 +8,7 @@ import tarfile
 import uuid
 
 import boto3
-
+import base64
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -446,7 +447,12 @@ def _get_sagemaker_resource_unique_id():
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the 
     # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
     # 32-byte length
-    uuid_b64 = uuid_bytes.encode("base64").rstrip('=\n').replace("/", "-").replace("+", "AB")
+    uuid_b64 = base64.b64encode(uuid_bytes)
+    if sys.version_info >= (3,0):
+        # In Python3, `uuid_b64` is a `bytes` object. It needs to be
+        # converted to a string
+        uuid_b64 = uuid_b64.decode("ascii")
+    uuid_b64 = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB")
     return uuid_b64
 
 def _get_sagemaker_model_name(endpoint_name):
