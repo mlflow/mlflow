@@ -22,7 +22,9 @@ DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
-def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters):
+
+
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
@@ -32,8 +34,6 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, version, parameters)
     project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir, "--new-dir",
                                             "--entry-point", entry_point]))
-    if version is not None:
-        mlflow_run_arr.extend(["--version", version])
     if parameters is not None:
         for key, value in parameters.items():
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
@@ -84,7 +84,25 @@ def _check_databricks_cli_installed():
                                  "https://github.com/databricks/databricks-cli" % cfg_file)
 
 
-def _upload_to_dbfs(project_dir, experiment_id, profile):
+def _upload_to_dbfs(src_path, dbfs_uri, profile):
+    """
+    Uploads the file at `src_path` to the specified DBFS URI within the Databricks workspace
+    corresponding to the passed-in Databricks CLI profile.
+    """
+    process.exec_cmd(cmd=["databricks", "fs", "cp", src_path, dbfs_uri,
+                          "--profile", profile])
+
+
+def _dbfs_path_exists(dbfs_uri):
+    try:
+        process.exec_cmd(["databricks", "fs", "ls", dbfs_uri])
+        return True
+    # Assume that CLI command failure -> the file didn't exist
+    except process.ShellCommandException:
+        return False
+
+
+def _upload_project_to_dbfs(project_dir, experiment_id, profile):
     """
     Tars a project directory into an archive in a temp dir, returning the path to the
     tarball.
@@ -104,13 +122,10 @@ def _upload_to_dbfs(project_dir, experiment_id, profile):
         dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
                                 "%s.tar.gz" % tarfile_name)
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_uri)
-        exit_code, _, _ = process.exec_cmd(["databricks", "fs", "ls", dbfs_uri],
-                                           throw_on_error=False)
-        if exit_code != 0:  # Assume that CLI command failure -> the tarfile didn't exist
-            process.exec_cmd(cmd=["databricks", "fs", "cp", temp_tar_filename, dbfs_uri,
-                                  "--profile", profile])
+        if not _dbfs_path_exists(dbfs_uri):
+            _upload_to_dbfs(temp_tar_filename, dbfs_uri, profile)
         else:
-            eprint("=== Upload command to DBFS failed. Assuming project already exists in DBFS ===")
+            eprint("=== Project already exists in DBFS ===")
         eprint("=== Finished uploading project to %s ===" % dbfs_uri)
     finally:
         shutil.rmtree(temp_tarfile_dir)
@@ -129,7 +144,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     # Upload the project to DBFS, get the URI of the project
     final_experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
-    dbfs_project_uri = _upload_to_dbfs(work_dir, final_experiment_id, databricks_profile)
+    dbfs_project_uri = _upload_project_to_dbfs(work_dir, final_experiment_id, databricks_profile)
     env_vars = {"MLFLOW_GIT_URI": uri}
     if tracking._TRACKING_URI_ENV_VAR not in os.environ:
         eprint("Tracking URI is unspecified, data generated for the run (metrics, params,"
@@ -152,7 +167,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,
         'shell_command_task': {
-            'command': _get_databricks_run_cmd(fuse_dst_dir, entry_point, version, parameters),
+            'command': _get_databricks_run_cmd(fuse_dst_dir, entry_point, parameters),
             "env_vars": env_vars
         },
         "libraries": [{"pypi": {"package": mlflow_lib_string}}]
