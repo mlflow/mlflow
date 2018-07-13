@@ -99,14 +99,14 @@ def upload_to_dbfs_mock(dbfs_root_mock):
 
 
 @pytest.fixture()
-def dbfs_path_exists_mock(dbfs_root_mock):
+def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
     with mock.patch("mlflow.projects.databricks._dbfs_path_exists") as path_exists_mock:
         yield path_exists_mock
 
 
-def test_upload_project_to_dbfs(tmpdir,
-        dbfs_root_mock, upload_to_dbfs_mock,  # pylint: disable=unused-argument
-        dbfs_path_exists_mock):  # pylint: disable=unused-argument
+def test_upload_project_to_dbfs(
+        tmpdir, dbfs_root_mock, upload_to_dbfs_mock,  # pylint: disable=unused-argument
+        dbfs_path_exists_mock):
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
     dbfs_uri = databricks._upload_project_to_dbfs(
@@ -121,7 +121,8 @@ def test_upload_project_to_dbfs(tmpdir,
     assert filecmp.cmp(local_tar_path, expected_tar_path, shallow=False)
 
 
-def test_upload_existing_project_to_dbfs(tmpdir, dbfs_path_exists_mock):
+def test_upload_existing_project_to_dbfs(
+        tmpdir, dbfs_path_exists_mock):  # pylint: disable=unused-argument
     # Check that we don't upload the project if it already exists on DBFS
     with mock.patch("mlflow.projects.databricks._upload_to_dbfs") as upload_to_dbfs_mock:
         dbfs_path_exists_mock.return_value = True
@@ -130,7 +131,8 @@ def test_upload_existing_project_to_dbfs(tmpdir, dbfs_path_exists_mock):
         assert upload_to_dbfs_mock.call_count == 0
 
 
-def test_run_databricks_validations(cluster_spec_mock, create_databricks_run_mock):
+def test_run_databricks_validations(
+        cluster_spec_mock, create_databricks_run_mock):  # pylint: disable=unused-argument
     """
     Tests that running on Databricks fails before making any API requests if parameters are
     mis-specified

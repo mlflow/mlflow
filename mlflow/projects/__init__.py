@@ -54,8 +54,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, db_profile=None,
-        git_username=None, git_password=None, use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
+        mode=None, cluster_spec=None, db_profile=None, git_username=None, git_password=None,
+        use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
     """
     Run an MLflow project from the given URI.
 
