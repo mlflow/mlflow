@@ -152,7 +152,7 @@ def _sanitize_param_dict(param_dict):
     return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
 
 
-def _get_databricks_run_cmd(uri, subdirectory, entry_point, version, parameters):
+def _get_databricks_run_cmd(uri, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
@@ -206,7 +206,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,
         'shell_command_task': {
-            'command': _get_databricks_run_cmd(uri, subdirectory, entry_point, version, parameters),
+            'command': _get_databricks_run_cmd(uri, entry_point, version, parameters),
             "env_vars": env_vars
         },
         "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
