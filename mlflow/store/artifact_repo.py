@@ -230,7 +230,8 @@ class GCSArtifactRepository(ArtifactRepository):
                 rel_path = get_relative_path(local_dir, root)
                 upload_path = build_path(dest_path, rel_path)
             for f in filenames:
-                gcs_bucket.blob(build_path(upload_path, f)).upload_from_filename(build_path(root, f))
+                path = build_path(upload_path, f)
+                gcs_bucket.blob(path).upload_from_filename(build_path(root, f))
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -267,5 +268,6 @@ class GCSArtifactRepository(ArtifactRepository):
         else:
             (bucket, remote_path) = self.parse_gcs_uri(self.artifact_uri)
             remote_path = build_path(remote_path, artifact_path)
-            gcs_storage.Client().get_bucket(bucket).get_blob(remote_path).download_to_filename(local_path)
+            gcs_bucket = gcs_storage.Client().get_bucket(bucket)
+            gcs_bucket.get_blob(remote_path).download_to_filename(local_path)
         return local_path
