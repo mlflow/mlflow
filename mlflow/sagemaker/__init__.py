@@ -179,28 +179,28 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
-                 mlflow.sagemaker.DEPLOYMENT_MODE_CREATE: Creates an application with the specified 
-                     name and model. This will fail if an application of the same name already 
+                 mlflow.sagemaker.DEPLOYMENT_MODE_CREATE: Creates an application with the specified
+                     name and model. This will fail if an application of the same name already
                      exists.
 
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE: If an application of the specified name
                      exists, its model(s) will be replaced with the specified model. If no such
                      application exists, it will be created with the specified name and model.
 
-                 mlflow.sagemaker.DEPLOYMENT_MODE_ADD: Adds the specified model to a pre-existing 
+                 mlflow.sagemaker.DEPLOYMENT_MODE_ADD: Adds the specified model to a pre-existing
                      application with the specified name, if one exists. If the application does
-                     not exist,  a new application will be created with the specified name and 
-                     model. NOTE: **If the application already exists**, the specified model will 
-                     be added to the application's corresponding SageMaker endpoint with an initial 
-                     weight of zero (0). To route traffic to the model, update the application's 
-                     associated endpoint configuration  using either the AWS console or the 
-                     `UpdateEndpointWeightsAndCapacities` function defined in the SageMaker API 
+                     not exist,  a new application will be created with the specified name and
+                     model. NOTE: **If the application already exists**, the specified model will
+                     be added to the application's corresponding SageMaker endpoint with an initial
+                     weight of zero (0). To route traffic to the model, update the application's
+                     associated endpoint configuration  using either the AWS console or the
+                     `UpdateEndpointWeightsAndCapacities` function defined in the SageMaker API
                      Documentation
                      (https://docs.aws.amazon.com/sagemaker/latest/dg/
                      API_UpdateEndpointWeightsAndCapacities.html).
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode) 
+                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
     """
     if mode not in DEPLOYMENT_MODES:
@@ -414,7 +414,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     :param run_id: RunId that generated this model
     :param mode: The mode in which to deploy the application.
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode) 
+                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
     """
     sage_client = boto3.client('sagemaker', region_name=region_name)
@@ -462,7 +462,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
 
 def _get_sagemaker_resource_unique_id():
     """
-    :return: A unique, identifier that can be appended to a user-readable 
+    :return: A unique, identifier that can be appended to a user-readable
     resource name to avoid naming collisions.
     """
     uuid_bytes = uuid.uuid4().bytes
@@ -544,14 +544,14 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
     :param model_s3_path: s3 path where we stored the model artifacts
     :param run_id: RunId that generated this model
-    :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or 
+    :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode) 
+                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
     :param role: SageMaker execution ARN role
     :param sage_client: A boto3 client for SageMaker
-    :param s3_client: A boto3 client for S3 
+    :param s3_client: A boto3 client for S3
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(
@@ -659,7 +659,7 @@ def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execut
 
 def _delete_sagemaker_model(model_name, sage_client, s3_client):
     """
-    :param sage_client: A boto3 client for SageMaker 
+    :param sage_client: A boto3 client for SageMaker
     :param s3_client: A boto3 client for S3
     :return: ARN of the deleted model
     """
