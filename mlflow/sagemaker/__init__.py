@@ -513,7 +513,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         EndpointConfigName=config_name,
         ProductionVariants=[
             {
-                'VariantName': 'model1',
+                'VariantName': model_name,
                 'ModelName': model_name,
                 'InitialInstanceCount': 1,
                 'InstanceType': 'ml.m4.xlarge',
@@ -586,7 +586,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         production_variants = []
 
     new_production_variant = {
-        'VariantName': 'model1',
+        'VariantName': new_model_name,
         'ModelName': new_model_name,
         'InitialInstanceCount': 1,
         'InstanceType': 'ml.m4.xlarge',
