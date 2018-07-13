@@ -1,5 +1,12 @@
+from sys import version_info
+
 import numpy as np
 import pandas as pd
+
+
+PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
+                                                  minor=version_info.minor,
+                                                  micro=version_info.micro)
 
 
 def ndarray2list(ndarray):

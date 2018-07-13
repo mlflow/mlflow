@@ -14,7 +14,7 @@ We recommend installing MLflow in its own virtualenv for development, as follows
     source env/bin/activate
     pip install -r dev-requirements.txt
     pip install -r tox-requirements.txt
-    pip install -e .
+    pip install -e .  # installs mlflow from current checkout
 
 
 ``npm`` is required to run the Javascript dev server.
