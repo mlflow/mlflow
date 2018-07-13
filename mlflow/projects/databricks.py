@@ -73,7 +73,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, parameters):
     return ["bash", "-c", shell_command]
 
 
-def _check_databricks_cli_installed():
+def _check_databricks_cli_configured():
     cfg_file = os.path.join(os.path.expanduser("~"), ".databrickscfg")
     try:
         process.exec_cmd(["databricks", "--version"])
@@ -206,7 +206,10 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     Runs a project on Databricks, returning a `SubmittedRun` that can be used to query the run's
     status or wait for the resulting Databricks Job run to terminate.
     """
-    _check_databricks_cli_installed()
+    _check_databricks_cli_configured()
+    if cluster_spec is None:
+        raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
+                                 "on Databricks.")
     databricks_profile = db_profile or provider.DEFAULT_SECTION
 
     # Fetch the project into work_dir & validate parameters

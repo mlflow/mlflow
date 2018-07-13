@@ -3,7 +3,6 @@ import json
 import mock
 import os
 import shutil
-import subprocess
 
 from databricks_cli.configure import provider
 import pytest
@@ -77,7 +76,75 @@ def mock_runs_get_result(succeeded):
 
 def run_databricks_project(cluster_spec_path, block=False):
     return mlflow.projects.run(
-        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block)
+        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block,
+        parameters={"alpha": "0.4"})
+
+
+@pytest.fixture()
+def dbfs_root_mock(tmpdir):
+    yield str(tmpdir.join("dbfs-root"))
+
+
+@pytest.fixture()
+def upload_to_dbfs_mock(dbfs_root_mock):
+    def upload_mock_fn(src_path, dbfs_uri, _):
+        mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
+        os.makedirs(os.path.dirname(mock_dbfs_dst))
+        shutil.copy(src_path, mock_dbfs_dst)
+
+    with mock.patch.object(
+            mlflow.projects.databricks, "_upload_to_dbfs",
+            new=upload_mock_fn) as upload_mock:
+        yield upload_mock
+
+
+@pytest.fixture()
+def dbfs_path_exists_mock(dbfs_root_mock):
+    with mock.patch("mlflow.projects.databricks._dbfs_path_exists") as path_exists_mock:
+        yield path_exists_mock
+
+
+def test_upload_project_to_dbfs(tmpdir,
+        dbfs_root_mock, upload_to_dbfs_mock,  # pylint: disable=unused-argument
+        dbfs_path_exists_mock):  # pylint: disable=unused-argument
+    # Upload project to a mock directory
+    dbfs_path_exists_mock.return_value = False
+    dbfs_uri = databricks._upload_project_to_dbfs(
+        project_dir=TEST_PROJECT_DIR, experiment_id=0, profile=provider.DEFAULT_SECTION)
+    # Get expected tar
+    local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
+    expected_tar_path = str(tmpdir.join("expected.tar.gz"))
+    file_utils.make_tarfile(
+        output_filename=expected_tar_path, source_dir=TEST_PROJECT_DIR,
+        archive_name=databricks.DB_TARFILE_ARCHIVE_NAME)
+    # Extract the tarred project, verify its contents
+    assert filecmp.cmp(local_tar_path, expected_tar_path, shallow=False)
+
+
+def test_upload_existing_project_to_dbfs(tmpdir, dbfs_path_exists_mock):
+    # Check that we don't upload the project if it already exists on DBFS
+    with mock.patch("mlflow.projects.databricks._upload_to_dbfs") as upload_to_dbfs_mock:
+        dbfs_path_exists_mock.return_value = True
+        databricks._upload_project_to_dbfs(
+            project_dir=TEST_PROJECT_DIR, experiment_id=0, profile=provider.DEFAULT_SECTION)
+        assert upload_to_dbfs_mock.call_count == 0
+
+
+def test_run_databricks_validations(cluster_spec_mock, create_databricks_run_mock):
+    """
+    Tests that running on Databricks fails before making any API requests if parameters are
+    mis-specified
+    """
+    with mock.patch("mlflow.utils.rest_utils.databricks_api_request") as db_api_req_mock:
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(
+                TEST_PROJECT_DIR, mode="databricks", entry_point="greeter",
+                block=True, cluster_spec=cluster_spec_mock)
+        assert db_api_req_mock.call_count == 0
+        db_api_req_mock.reset_mock()
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(TEST_PROJECT_DIR, mode="databricks", block=True, cluster_spec=None)
+        assert db_api_req_mock.call_count == 0
 
 
 def test_run_databricks(
@@ -102,65 +169,3 @@ def test_run_databricks(
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     with pytest.raises(mlflow.projects.ExecutionException):
         run_databricks_project(cluster_spec_mock, block=True)
-
-
-@pytest.fixture()
-def dbfs_root_mock(tmpdir):
-    yield str(tmpdir.join("dbfs-root"))
-
-
-@pytest.fixture()
-def upload_to_dbfs_mock(dbfs_root_mock):
-    def upload_mock_fn(src_path, dbfs_uri, _):
-        mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
-        shutil.copy(src_path, mock_dbfs_dst)
-
-    with mock.patch.object(
-            mlflow.projects.databricks, mlflow.projects.databricks._upload_to_dbfs,
-            new=upload_mock_fn) as upload_mock:
-        yield upload_mock
-    # with mock.patch(mlflow.projects.databricks._upload_to_dbfs) as upload_mock:
-    #     yield upload_mock
-
-
-@pytest.fixture()
-def dbfs_path_exists_mock(dbfs_root_mock):
-    with mock.patch("mlflow.projects.databricks._dbfs_path_exists") as path_exists_mock:
-        yield path_exists_mock
-
-
-def test_upload_project_to_dbfs(tmpdir,
-        dbfs_root_mock, upload_to_dbfs_mock,  # pylint: disable=unused-argument
-        dbfs_path_exists_mock):  # pylint: disable=unused-argument
-    # Upload project to a mock directory
-    dbfs_uri = databricks._upload_project_to_dbfs(
-        project_dir=TEST_PROJECT_DIR, experiment_id=0, profile=provider.DEFAULT_SECTION)
-    # Fetch & extract the tarred project, verify its contents
-    local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
-    expected_tar_path = str(tmpdir.join("expected.tar.gz"))
-    expected_tar = file_utils.make_tarfile(
-        output_filename=expected_tar_path, source_dir=TEST_PROJECT_DIR,
-        archive_name=databricks.DB_TARFILE_ARCHIVE_NAME)
-    assert filecmp.cmp(local_tar_path, expected_tar, shallow=False)
-
-
-# def test_get_databricks_run_command(tmpdir):
-#     """Tests that the databricks run command works as expected"""
-#     tarpath = str(tmpdir.join("project.tar.gz"))
-#     file_utils.make_tarfile(
-#         output_filename=tarpath, source_dir=TEST_PROJECT_DIR,
-#         archive_name=databricks.DB_TARFILE_ARCHIVE_NAME)
-#     cmd = databricks._get_databricks_run_cmd(
-#         dbfs_fuse_tar_uri=TEST_PROJECT_DIR, entry_point="greeter", parameters={"name": "friend"})
-#     p = subprocess.Popen(cmd)
-
-
-def test_run_databricks_validations(databricks_api_req_mock):
-    """
-    Tests that running on Databricks fails before making any API requests if parameters are
-    mis-specified or the Databricks CLI is not installed
-    """
-    with mock.patch("mlflow.utils.rest_utils.databricks_api_request") as db_api_req_mock:
-        with pytest.raises(ExecutionException):
-            mlflow.projects.run(TEST_PROJECT_DIR)
-            assert databricks_api_req_mock.call_count == 0
