@@ -34,6 +34,13 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     model_file = os.path.join(path, "model.pkl")
     with open(model_file, "wb") as out:
         pickle.dump(sk_model, out)
+
+    if not conda_env:
+        conda_env = pyfunc.create_default_env()
+    
+    shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
+    env = "mlflow_env.yml"
+
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data="model.pkl",
                         env=conda_env)
     mlflow_model.add_flavor("sklearn",
