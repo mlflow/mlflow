@@ -17,21 +17,45 @@ def commands():
 
 
 @commands.command("deploy")
-@click.option("--app-name", "-a", help="Application name.", required=True)
+@click.option("--app-name", "-a", help="Application name", required=True)
 @cli_args.MODEL_PATH
 @click.option("--execution-role-arn", "-e", default=None, help="SageMaker execution role")
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
 @cli_args.RUN_ID
 @click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
-@click.option("--region-name", "-r", default="us-west-2", help="region name")
-def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name):
+@click.option("--region-name", "-r", default="us-west-2",
+              help="Name of the AWS region in which to deploy the application")
+@click.option("--mode", "-md", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
+              help="The mode in which to deploy the application."
+              " Must be one of the following: {mds}".format(
+                  mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
+@click.option("--archive", "-ar", is_flag=True, help="If specified, any SageMaker resources that"
+              " become inactive (i.e as the result of replacement) will be preserved")
+def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
+           archive):
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
     """
     mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
-                            image_url=image_url, region_name=region_name)
+                            image_url=image_url, region_name=region_name, mode=mode,
+                            archive=archive)
+
+
+@commands.command("delete")
+@click.option("--app-name", "-a", help="Application name", required=True)
+@click.option("--region-name", "-r", default="us-west-2",
+              help="Name of the AWS region in which to deploy the application")
+@click.option("--archive", "-ar", is_flag=True, help="If specified, resources associated with"
+              " the application will be preserved. Otherwise, these resources will be deleted.")
+def delete(app_name, region_name, archive):
+    """
+    Delete the specified application. Unless `archive` is set to `True`, all SageMaker resources
+    associated with the application will be deleted as well.
+    """
+    mlflow.sagemaker.delete(
+        app_name=app_name, region_name=region_name, archive=archive)
 
 
 @commands.command("run-local")
@@ -43,7 +67,8 @@ def run_local(model_path, run_id, port, image):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
     """
-    mlflow.sagemaker.run_local(model_path=model_path, run_id=run_id, port=port, image=image)
+    mlflow.sagemaker.run_local(
+        model_path=model_path, run_id=run_id, port=port, image=image)
 
 
 @commands.command("build-and-push-container")
