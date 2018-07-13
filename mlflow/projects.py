@@ -152,7 +152,7 @@ def _sanitize_param_dict(param_dict):
     return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
 
 
-def _get_databricks_run_cmd(uri, entry_point, version, parameters):
+def _get_databricks_run_cmd(uri, subdirectory, entry_point, version, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
@@ -206,7 +206,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
         'run_name': 'MLflow Job Run for %s' % uri,
         'new_cluster': cluster_spec,
         'shell_command_task': {
-            'command': _get_databricks_run_cmd(uri, entry_point, version, parameters),
+            'command': _get_databricks_run_cmd(uri, subdirectory, entry_point, version, parameters),
             "env_vars": env_vars
         },
         "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
@@ -225,26 +225,30 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
 
 
-def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
-               storage_dir, git_username, git_password):
+def _run_local(uri, entry_point, version, subdirectory, parameters, experiment_id, use_conda,
+               use_temp_cwd, storage_dir, git_username, git_password):
     """
     Run an MLflow project from the given URI in a new directory.
 
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the `version`.
     """
-    eprint("=== Fetching project from %s ===" % uri)
+    eprint("=== Fetching project from %s ===" % (uri + '/' + subdirectory))
 
     # Get the working directory to use for running the project & download it there
     work_dir = _get_work_dir(uri, use_temp_cwd)
     eprint("=== Work directory for this run: %s ===" % work_dir)
     expanded_uri = _expand_uri(uri)
-    _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
-
+    if _GIT_URI_REGEX.match(uri):
+        _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
+    work_dir = os.path.join(work_dir, subdirectory)
+    expanded_uri = os.path.join(expanded_uri, subdirectory)
+    if not _GIT_URI_REGEX.match(uri):
+        _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
     # Load the MLproject file
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
+    project = Project(uri, file_utils.read_yaml(work_dir, "MLproject"))
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
 
 
@@ -279,10 +283,17 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
     """
+    subdirectory = ""
+    if '#' in uri:
+        subdirectory = uri[uri.find('#')+1:]
+        uri = uri[:uri.find('#')]
+    if subdirectory and _GIT_URI_REGEX.match(uri) and '.' in subdirectory:
+        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
     if mode is None or mode == "local":
-        _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-                   experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
-                   storage_dir=storage_dir, git_username=git_username, git_password=git_password)
+        _run_local(uri=uri, entry_point=entry_point, version=version, subdirectory=subdirectory,
+                   parameters=parameters, experiment_id=experiment_id, use_conda=use_conda,
+                   use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, git_username=git_username,
+                   git_password=git_password)
     elif mode == "databricks":
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                         experiment_id=experiment_id, cluster_spec=cluster_spec,
