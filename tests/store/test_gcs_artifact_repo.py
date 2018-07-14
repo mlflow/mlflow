@@ -50,5 +50,5 @@ class TestGCSArtifactRepo(unittest.TestCase):
                 f.write("Hello world!")
 
             self.gcs.Client.return_value.get_bucket.return_value\
-                .upload_from_filename.side_effect = lambda f: os.path.isfile(f)
+                .upload_from_filename.side_effect = os.path.isfile
             repo.log_artifact(tmp.path('test.txt'))
