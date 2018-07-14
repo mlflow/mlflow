@@ -197,8 +197,8 @@ class GCSArtifactRepository(ArtifactRepository):
        see https://google-cloud.readthedocs.io/en/latest/core/auth.html """
 
     def __init__(self, artifact_uri, client=gcs_storage):
-        self.artifact_uri = artifact_uri
         self.gcs = client
+        super(GCSArtifactRepository, self).__init__(artifact_uri)
 
     @staticmethod
     def parse_gcs_uri(uri):
