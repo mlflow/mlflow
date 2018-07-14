@@ -7,6 +7,7 @@ from google.cloud.storage import client as gcs_client
 from mlflow.store.artifact_repo import ArtifactRepository, GCSArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
+
 class TestGCSArtifactRepo(unittest.TestCase):
     def setUp(self):
         # Make sure that the environment variable isn't set to actually make calls
