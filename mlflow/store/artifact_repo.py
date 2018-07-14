@@ -196,6 +196,10 @@ class GCSArtifactRepository(ArtifactRepository):
        Assumes the google credentials are available in the environment,
        see https://google-cloud.readthedocs.io/en/latest/core/auth.html """
 
+    def __init__(self, artifact_uri, client=gcs_storage):
+        self.artifact_uri = artifact_uri
+        self.gcs = client
+
     @staticmethod
     def parse_gcs_uri(uri):
         """Parse an GCS URI, returning (bucket, path)"""
@@ -213,7 +217,7 @@ class GCSArtifactRepository(ArtifactRepository):
             dest_path = build_path(dest_path, artifact_path)
         dest_path = build_path(dest_path, os.path.basename(local_file))
 
-        gcs_bucket = gcs_storage.Client().get_bucket(bucket)
+        gcs_bucket = self.gcs.Client().get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
         blob.upload_from_filename(local_file)
 
@@ -221,7 +225,7 @@ class GCSArtifactRepository(ArtifactRepository):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
-        gcs_bucket = gcs_storage.Client().get_bucket(bucket)
+        gcs_bucket = self.gcs.Client().get_bucket(bucket)
 
         local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
@@ -241,7 +245,7 @@ class GCSArtifactRepository(ArtifactRepository):
         infos = []
         prefix = dest_path + "/"
 
-        results = gcs_storage.Client().get_bucket(bucket).list_blobs(prefix=prefix)
+        results = self.gcs.Client().get_bucket(bucket).list_blobs(prefix=prefix)
         for result in results:
             is_dir = result.name.endswith('/')
             if is_dir:
@@ -268,6 +272,6 @@ class GCSArtifactRepository(ArtifactRepository):
         else:
             (bucket, remote_path) = self.parse_gcs_uri(self.artifact_uri)
             remote_path = build_path(remote_path, artifact_path)
-            gcs_bucket = gcs_storage.Client().get_bucket(bucket)
+            gcs_bucket = self.gcs.Client().get_bucket(bucket)
             gcs_bucket.get_blob(remote_path).download_to_filename(local_path)
         return local_path
