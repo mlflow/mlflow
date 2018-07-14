@@ -49,7 +49,7 @@ def cluster_spec_mock(tmpdir):
 
 
 @pytest.fixture()
-def create_databricks_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
+def create_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
     # Mocks logic for creating an MLflow run against a tracking server to persist the run to a local
     # file store
     with mock.patch("mlflow.projects.databricks._create_databricks_run") as create_db_run_mock:
@@ -104,6 +104,12 @@ def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
         yield path_exists_mock
 
 
+@pytest.fixture()
+def cli_configured_mock():  # pylint: disable=unused-argument
+    with mock.patch("mlflow.projects.databricks._check_databricks_cli_configured") as cli_mock:
+        yield cli_mock
+
+
 def test_upload_project_to_dbfs(
         tmpdir, dbfs_root_mock, upload_to_dbfs_mock,  # pylint: disable=unused-argument
         dbfs_path_exists_mock):
@@ -132,7 +138,7 @@ def test_upload_existing_project_to_dbfs(
 
 
 def test_run_databricks_validations(
-        cluster_spec_mock, create_databricks_run_mock):  # pylint: disable=unused-argument
+        cluster_spec_mock, cli_configured_mock, create_run_mock):  # pylint: disable=unused-argument
     """
     Tests that running on Databricks fails before making any API requests if parameters are
     mis-specified
@@ -150,7 +156,8 @@ def test_run_databricks_validations(
 
 
 def test_run_databricks(
-        tmpdir, runs_cancel_mock, create_databricks_run_mock,  # pylint: disable=unused-argument
+        tmpdir, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
+        cli_configured_mock,  # pylint: disable=unused-argument
         runs_submit_mock, runs_get_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     # Test that MLflow gets the correct run status when performing a Databricks run
