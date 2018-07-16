@@ -49,7 +49,7 @@ def test_missing_subdir():
             try:
                 res = invoke_cli_runner(cli.run, [GIT_PROJECT_URI + "#fake",
                                                   "--no-conda", "-P", "alpha=0.5"])
-            except AssertionError as e:
+            except AssertionError:
                 assert not res
 
 
