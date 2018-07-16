@@ -124,7 +124,6 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     if git_password is not None:
         env_vars["MLFLOW_GIT_PASSWORD"] = git_password
     if experiment_id is not None:
-        eprint("=== Using experiment ID %s ===" % experiment_id)
         env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
     if remote_run is not None:
         env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking.get_tracking_uri()

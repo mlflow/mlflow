@@ -4,18 +4,50 @@ import signal
 import subprocess
 import sys
 
+from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
 
 
-def _set_run_terminated(active_run, status):
-    if active_run:
+def maybe_set_run_terminated(active_run, status):
+    """
+    If the passed-in active run is defined and still running (i.e. hasn't already been terminated
+    within user code), mark it as terminated with the passed-in status.
+    """
+    if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
         active_run.set_terminated(status)
+
+
+def monitor_run(pollable_run, active_run):
+    """
+    Polls the run for termination, sending updates on the run's status to a tracking server via
+    the passed-in `ActiveRun` instance. This function is intended to be run asynchronously
+    in a subprocess.
+    """
+    # Add a SIGTERM & SIGINT handler to the current process that cancels the run
+    def handler(signal_num, stack_frame):  # pylint: disable=unused-argument
+        eprint("=== Run (%s) was interrupted, cancelling run... ===" % pollable_run.describe())
+        pollable_run.cancel()
+        maybe_set_run_terminated(active_run, "FAILED")
+        sys.exit(0)
+    signal.signal(signal.SIGTERM, handler)
+    signal.signal(signal.SIGINT, handler)
+    # Perform any necessary setup for the pollable run, then wait on it to finish
+    pollable_run.setup()
+    run_succeeded = pollable_run.wait()
+    if run_succeeded:
+        eprint("=== Run (%s) succeeded ===" % pollable_run.describe())
+        maybe_set_run_terminated(active_run, "FINISHED")
+    else:
+        eprint("=== Run (%s) failed ===" % pollable_run.describe())
+        maybe_set_run_terminated(active_run, "FAILED")
 
 
 class PollableRun(object):
     """
     Class wrapping a single unit of execution (e.g. a subprocess running an entry point
     command or a Databricks Job run) that can be polled for exit status / cancelled / waited on.
+    This class defines the interface that the MLflow project runner uses to manage the lifecycle
+    of runs launched in different environments (e.g. runs launched locally / on Databricks).
     """
     def __init__(self):
         pass
@@ -35,37 +67,19 @@ class PollableRun(object):
         """
         pass
 
+    @abstractmethod
+    def describe(self):
+        """
+        Returns a string describing the current run, used when logging information about run
+        success or failure.
+        """
+        pass
+
     def setup(self):
         """
         Hook that gets called within `monitor_run` before attempting to wait on the run.
         """
         pass
-
-    def monitor_run(self, active_run):
-        """
-        Polls the run for termination, sending updates on the run's status to a tracking server via
-        the passed-in `ActiveRun` instance. This function is intended to be run asynchronously
-        in a subprocess.
-        """
-        run_id = active_run.run_info.run_uuid if active_run else "unknown"
-        # Add a SIGTERM handler to the current process that cancels the run
-        cancel_fn = self.cancel
-
-        def handler(signal_num, stack_frame):  # pylint: disable=unused-argument
-            eprint("=== Run (ID '%s') was interrupted, cancelling run... ===" % run_id)
-            cancel_fn()
-            _set_run_terminated(active_run, "FAILED")
-            sys.exit(0)
-        signal.signal(signal.SIGTERM, handler)
-        # Perform any necessary setup for the pollable run, then wait on it to finish
-        self.setup()
-        run_succeeded = self.wait()
-        if run_succeeded:
-            eprint("=== Run (ID '%s') succeeded ===" % run_id)
-            _set_run_terminated(active_run, "FINISHED")
-        else:
-            eprint("=== Run (ID '%s') failed ===" % run_id)
-            _set_run_terminated(active_run, "FAILED")
 
 
 def _launch_command(command, work_dir, env_map, stream_output):
@@ -77,10 +91,11 @@ def _launch_command(command, work_dir, env_map, stream_output):
     cmd_env.update(env_map)
     if stream_output:
         return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", command],
-                                cwd=work_dir, env=cmd_env)
+                                cwd=work_dir, env=cmd_env, preexec_fn=os.setsid)
     return subprocess.Popen(
         [os.environ.get("SHELL", "bash"), "-c", command],
-        cwd=work_dir, env=cmd_env, stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+        cwd=work_dir, env=cmd_env, stdout=open(os.devnull, 'wb'),
+        stderr=open(os.devnull, 'wb'), preexec_fn=os.setsid)
 
 
 class LocalPollableRun(PollableRun):
@@ -110,6 +125,9 @@ class LocalPollableRun(PollableRun):
         except OSError:
             pass
 
+    def describe(self):
+        return "shell command: '%s'" % self.command
+
 
 class DatabricksPollableRun(PollableRun):
     """
@@ -126,3 +144,6 @@ class DatabricksPollableRun(PollableRun):
     def cancel(self):
         from mlflow.projects import databricks
         databricks.cancel_databricks(self.databricks_run_id)
+
+    def describe(self):
+        return "Databricks Job run with id: %s" % self.databricks_run_id

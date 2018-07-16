@@ -1,44 +1,10 @@
-import atexit
 import multiprocessing
 import os
 import signal
-import threading
 
 from mlflow.entities.run_status import RunStatus
+from mlflow.projects.pollable_run import monitor_run, maybe_set_run_terminated
 from mlflow.utils.logging_utils import eprint
-
-launched_runs = []
-lock = threading.Lock()
-
-_is_exit_handler_registered = False
-
-
-def _add_run(submitted_run_obj):
-    global _is_exit_handler_registered
-    with lock:
-        # Note: we wait until we've created a run to register our handler, since the multiprocessing
-        # module registers its exit handler only when a subprocess is run. This assumes that we
-        # launch a monitoring subprocess for each run.
-        if not _is_exit_handler_registered:
-            atexit.register(_wait_runs)
-            _is_exit_handler_registered = True
-        launched_runs.append(submitted_run_obj)
-
-
-def _wait_runs():
-    try:
-        eprint("=== Waiting for active runs to complete (interrupting will kill active runs) ===")
-        with lock:
-            for run in launched_runs:
-                run.wait()
-    except KeyboardInterrupt:
-        _do_kill_runs()
-
-
-def _do_kill_runs():
-    with lock:
-        for run in launched_runs:
-            run.cancel()
 
 
 def _run_in_subprocess(target, args, **kwargs):
@@ -52,11 +18,6 @@ def _run_in_subprocess(target, args, **kwargs):
     :return: The `multiprocessing.Process` used to run the function
     """
     def wrapper():
-        # Run function in a subprocess in its own process group so that it doesn't receive signals
-        # sent to the parent - thus we don't need to distinguish between the case where the
-        # process group of the parent is signalled (e.g. CTRL+C in a POSIX shell) vs just the parent
-        # is signalled (cancel in an IPython notebook)
-        os.setsid()
         target(*args)
     p = multiprocessing.Process(target=wrapper, args=[], **kwargs)
     p.start()
@@ -72,11 +33,10 @@ class SubmittedRun(object):
     # TODO: we handle the case where the local client can't access the tracking server to support
     # e.g. running projects on Databricks without specifying a tracking server. Should be able
     # to remove this logic once Databricks has a hosted tracking server.
-    def __init__(self, active_run, pollable_run):
+    def __init__(self, active_run, pollable_run_obj):
         self._active_run = active_run
         self._monitoring_process = _run_in_subprocess(
-            target=pollable_run.monitor_run, args=(self._active_run,))
-        _add_run(self)
+            target=monitor_run, args=(pollable_run_obj, self._active_run,))
 
     @property
     def run_id(self):
@@ -88,8 +48,9 @@ class SubmittedRun(object):
     def get_status(self):
         """Gets the human-readable status of the MLflow run from the tracking server."""
         if not self._active_run:
-            raise Exception("Can't get MLflow run status; the run's status has not been "
-                            "persisted to an accessible tracking server.")
+            eprint("Can't get MLflow run status; the run's status has not been "
+                   "persisted to an accessible tracking server.")
+            return None
         return RunStatus.to_string(self._active_run.get_run().info.status)
 
     def wait(self):
@@ -113,5 +74,4 @@ class SubmittedRun(object):
         # In rare cases, it's possible that we cancel the monitoring subprocess before it has a
         # chance to set up a signal handler. In this case we should update the status of the MLflow
         # run here.
-        if not RunStatus.is_terminated(self._active_run.get_run().info.status):
-            self._active_run.set_terminated("FAILED")
+        maybe_set_run_terminated(self._active_run, "FAILED")

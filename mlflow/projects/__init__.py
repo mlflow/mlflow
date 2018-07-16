@@ -35,17 +35,18 @@ class ExecutionException(Exception):
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
          mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
          use_temp_cwd=False, storage_dir=None, block=True):
+    exp_id = experiment_id or tracking._get_experiment_id()
     if mode is None or mode == "local":
         return _run_local(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
+            experiment_id=exp_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
             storage_dir=storage_dir, git_username=git_username, git_password=git_password,
             block=block)
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=experiment_id, cluster_spec=cluster_spec, git_username=git_username,
+            experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -98,7 +99,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     if block:
         submitted_run_obj.wait()
         run_status = submitted_run_obj.get_status()
-        if RunStatus.from_string(run_status) != RunStatus.FINISHED:
+        if run_status and RunStatus.from_string(run_status) != RunStatus.FINISHED:
             raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
                                      (submitted_run_obj.run_id, run_status))
     return submitted_run_obj
@@ -257,9 +258,8 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
     # Create a new run and log every provided parameter into it.
-    exp_id_for_run = experiment_id or tracking._get_experiment_id()
     active_run = tracking._create_run(
-        experiment_id=exp_id_for_run, source_name=project.uri,
+        experiment_id=experiment_id, source_name=project.uri,
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
     if parameters is not None:
@@ -267,11 +267,10 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
             active_run.log_param(Param(key, value))
     # Add the run id into a magic environment variable that the subprocess will read,
     # causing it to reuse the run.
-    exp_id = experiment_id or tracking._get_experiment_id()
     env_map = {
         tracking._RUN_ID_ENV_VAR: active_run.run_info.run_uuid,
         tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(exp_id),
+        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
     }
 
     commands.append(run_project_command)
