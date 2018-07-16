@@ -71,7 +71,7 @@ class TestModelExport(unittest.TestCase):
         estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
         estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
 
-        old_tracking_dir = tracking.get_tracking_uri()
+        old_tracking_uri = tracking.get_tracking_uri()
         # should_start_run tests whether or not calling log_model() automatically starts a run.
         for should_start_run in [False, True]:
             with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -91,7 +91,7 @@ class TestModelExport(unittest.TestCase):
                 finally:
                     # Restoring the old logging location.
                     tracking.end_run()
-                    tracking.set_tracking_uri(old_tracking_dir)
+                    tracking.set_tracking_uri(old_tracking_uri)
 
 
     def test_categorical_columns(self):
