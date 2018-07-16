@@ -45,6 +45,7 @@ class SubmittedRun(object):
         # server
         self._monitoring_subprocess = multiprocessing.Process(
             target=monitor_run, args=(pollable_run_obj, self._active_run,))
+        self._monitoring_subprocess.start()
 
     @property
     def run_id(self):
