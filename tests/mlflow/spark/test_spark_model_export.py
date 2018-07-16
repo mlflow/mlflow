@@ -17,6 +17,7 @@ from mlflow import tracking
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
+
 @pytest.mark.large
 def test_model_export(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
@@ -95,4 +96,3 @@ def test_model_log(tmpdir):
             tracking.end_run()
             tracking.set_tracking_uri(old_tracking_uri)
             shutil.rmtree(tracking_dir)
-
