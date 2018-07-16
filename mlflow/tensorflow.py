@@ -67,7 +67,7 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
     :param signature_def_key: Which signature definition to use when loading the model again. See https://www.tensorflow.org/serving/signature_defs for details.
     :param artifact_path: Path (within the artifact directory for the current run) to which artifacts of the model will be saved.
     """
-    run_id = mlflow.tracking.start_run().run_info.run_uuid
+    run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow")
     mlflow_model.add_flavor("tensorflow", 
