@@ -40,50 +40,52 @@ class TestModelExport(unittest.TestCase):
 
     def test_log_saved_model(self):
         # This tests model logging capabilities on the sklearn.iris dataset.
-        with TempDir(chdr=False, remove_on_exit=True) as tmp:
-            iris = datasets.load_iris()
-            X = iris.data[:, :2]  # we only take the first two features.
-            y = iris.target
-            trainingFeatures = {}
-            for i in range(0, 2):
-                # TensorFlow is fickle about feature names, so we remove offending characters
-                iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
-                iris.feature_names[i] = iris.feature_names[i].replace("(", "")
-                iris.feature_names[i] = iris.feature_names[i].replace(")", "")
-                trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
-            tf_feat_cols = []
-            feature_names = iris.feature_names[:2]
-            # Creating TensorFlow-specific numeric columns for input.
-            for col in iris.feature_names[:2]:
-                tf_feat_cols.append(tf.feature_column.numeric_column(col))
-            # Creating input training function.
-            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
-                                                             y,
-                                                             shuffle=False,
-                                                             batch_size=1)
-            # Creating Deep Neural Network Regressor.
-            estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols,
-                                                  hidden_units=[1])
-            # Training and creating expected predictions on training dataset.
-            estimator.train(input_train, steps=10)
-            # Saving the estimator's prediction on the training data; assume the DNNRegressor
-            # produces a single output column named 'predictions'
-            pred_col = "predictions"
-            estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
-            estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
-            for truth in [False, True]:
-                if truth:
-                    tracking.start_run()
-                    shutil.rmtree(tmp.path("model"))
-                # Setting the logging such that it is in the temp folder and deleted after the test.
-                old_tracking_dir = tracking.get_tracking_uri()
-                tracking_dir = os.path.abspath(tmp.path("mlruns"))
-                tracking.set_tracking_uri("file://%s" % tracking_dir)
+        iris = datasets.load_iris()
+        X = iris.data[:, :2]  # we only take the first two features.
+        y = iris.target
+        trainingFeatures = {}
+        for i in range(0, 2):
+            # TensorFlow is fickle about feature names, so we remove offending characters
+            iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
+            iris.feature_names[i] = iris.feature_names[i].replace("(", "")
+            iris.feature_names[i] = iris.feature_names[i].replace(")", "")
+            trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
+        tf_feat_cols = []
+        feature_names = iris.feature_names[:2]
+        # Creating TensorFlow-specific numeric columns for input.
+        for col in iris.feature_names[:2]:
+            tf_feat_cols.append(tf.feature_column.numeric_column(col))
+        # Creating input training function.
+        input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
+                                                         y,
+                                                         shuffle=False,
+                                                         batch_size=1)
+        # Creating Deep Neural Network Regressor.
+        estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols,
+                                              hidden_units=[1])
+        # Training and creating expected predictions on training dataset.
+        estimator.train(input_train, steps=10)
+        # Saving the estimator's prediction on the training data; assume the DNNRegressor
+        # produces a single output column named 'predictions'
+        pred_col = "predictions"
+        estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
+        estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
+
+        old_tracking_dir = tracking.get_tracking_uri()
+        # should_start_run tests whether or not calling log_model() automatically starts a run.
+        for should_start_run in [False, True]:
+            # Setting the logging such that it is in the temp folder and deleted after the test.
+            # tracking_dir = os.path.abspath(tmp.path("mlruns"))
+            # tracking.set_tracking_uri("file://%s" % tracking_dir)
+            with TempDir(chdr=True, remove_on_exit=True) as tmp:
                 try:
                     # Creating dict of features names (str) to placeholders (tensors)
                     feature_spec = {}
                     for name in feature_names:
                         feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
+                    tracking.set_tracking_uri("test")
+                    if should_start_run:
+                        tracking.start_run()
                     pyfunc_preds_df = self.helper(feature_spec, tmp, estimator,
                                                   pandas.DataFrame(data=X, columns=feature_names))
 
