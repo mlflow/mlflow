@@ -48,8 +48,8 @@ class TestModelExport(unittest.TestCase):
             np.testing.assert_array_equal(self._knn_predict, ypred)
 
     def test_model_log(self):
-        # should_start_run tests whether or not calling log_model() automatically starts a run.
         old_uri = tracking.get_tracking_uri()
+        # should_start_run tests whether or not calling log_model() automatically starts a run.
         for should_start_run in [False, True]:
             with TempDir(chdr=True, remove_on_exit=True) as tmp:
                 try:

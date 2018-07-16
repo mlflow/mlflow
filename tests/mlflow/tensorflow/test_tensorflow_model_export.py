@@ -74,9 +74,6 @@ class TestModelExport(unittest.TestCase):
         old_tracking_dir = tracking.get_tracking_uri()
         # should_start_run tests whether or not calling log_model() automatically starts a run.
         for should_start_run in [False, True]:
-            # Setting the logging such that it is in the temp folder and deleted after the test.
-            # tracking_dir = os.path.abspath(tmp.path("mlruns"))
-            # tracking.set_tracking_uri("file://%s" % tracking_dir)
             with TempDir(chdr=True, remove_on_exit=True) as tmp:
                 try:
                     # Creating dict of features names (str) to placeholders (tensors)
