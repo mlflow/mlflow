@@ -12,12 +12,12 @@ import tensorflow as tf
 
 
 def main(argv):
-    # Builds, trains and evaluates a tf.estimator. Then, exports it for inference, logs the exported model 
+    # Builds, trains and evaluates a tf.estimator. Then, exports it for inference, logs the exported model
     # with MLflow, and loads the fitted model back as a PyFunc to make predictions.
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.boston_housing.load_data()
     # There are 13 features we are using for inference.
     feat_cols = [tf.feature_column.numeric_column(key="features", shape=(x_train.shape[1],))]
-    feat_spec = {"features":tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])}
+    feat_spec = {"features": tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])}
     hidden_units = [50, 20]
     steps = 1000
     regressor = tf.estimator.DNNRegressor(hidden_units=hidden_units, feature_columns=feat_cols)
@@ -52,4 +52,3 @@ if __name__ == "__main__":
     # The Estimator periodically generates "INFO" logs; make these logs visible.
     tf.logging.set_verbosity(tf.logging.INFO)
     tf.app.run(main=main)
-
