@@ -11,15 +11,40 @@ from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import env
 
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR
+
+GIT_SUBDIR_URI = "https://github.com/juntai-zheng/mlflow-git-features.git#example"
 
 
 def test_fetch_project():
     """ Test fetching a project to be run locally. """
     with TempDir() as tmp:
-        dst_dir = tmp.path()
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir,
-                                       git_username=None, git_password=None)
+        dst_dir = mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None,
+                                                 use_temp_cwd=False, git_username=None,
+                                                 git_password=None)
+        dir_comparison = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
+        assert len(dir_comparison.left_only) == 0
+        assert len(dir_comparison.right_only) == 0
+        assert len(dir_comparison.diff_files) == 0
+        assert len(dir_comparison.funny_files) == 0
+    # Test fetching a project located in a Git repo subdirectory.
+    with TempDir() as tmp:
+        dst_dir = mlflow.projects._fetch_project(uri=GIT_SUBDIR_URI, version=None,
+                                                 use_temp_cwd=False, git_username=None,
+                                                 git_password=None)
+        dst_dir2 = mlflow.projects._fetch_project(uri=GIT_PROJECT_URI, version=None,
+                                                  use_temp_cwd=False, git_username=None,
+                                                  git_password=None)
+        dir_comparison = filecmp.dircmp(dst_dir, dst_dir2)
+        assert len(dir_comparison.left_only) == 0
+        assert len(dir_comparison.right_only) == 0
+        assert len(dir_comparison.diff_files) == 0
+        assert len(dir_comparison.funny_files) == 0
+    # Test passing a subdirectory with `#` works for local directories.
+    with TempDir() as tmp:
+        dst_dir = mlflow.projects._fetch_project(uri=TEST_DIR + "#resources/example_project",
+                                                 version=None, use_temp_cwd=False,
+                                                 git_username=None, git_password=None)
         dir_comparison = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
         assert len(dir_comparison.left_only) == 0
         assert len(dir_comparison.right_only) == 0
@@ -29,14 +54,38 @@ def test_fetch_project():
     with TempDir() as dst_dir:
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
-                                           dst_dir=dst_dir, git_username=None, git_password=None)
+                                           use_temp_cwd=False, git_username=None,
+                                           git_password=None)
     # Passing only one of git_username, git_password results in an error
     for username, password in [(None, "hi"), ("hi", None)]:
         with TempDir() as dst_dir:
             with pytest.raises(ExecutionException):
                 mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
-                                               dst_dir=dst_dir, git_username=username,
+                                               use_temp_cwd=False, git_username=username,
                                                git_password=password)
+    # Passing in a `.` to a Git subdirectory path results in an exception.
+    with TempDir() as dst_dir:
+        with pytest.raises(ExecutionException):
+            mlflow.projects._fetch_project(uri=GIT_PROJECT_URI + "#../example", version=None,
+                                           use_temp_cwd=False, git_username=None,
+                                           git_password=None)
+
+def test_bad_subdirectory():
+    """ Verify that runs fail if given incorrect subdirectories via the `#` character. """
+    # Local test.
+    with TempDir() as dst_dir:
+        with pytest.raises(ExecutionException):
+            mlflow.projects._run_local(uri=TEST_PROJECT_DIR + "#fake", entry_point="main", 
+                                       version=None, parameters=None, experiment_id=None,
+                                       use_conda=None, use_temp_cwd=False, storage_dir=None,
+                                       git_username=None, git_password=None)
+    # Git repo test.
+    with TempDir() as dst_dir:
+        with pytest.raises(ExecutionException):
+            mlflow.projects._run_local(uri=GIT_PROJECT_URI + "#fake", entry_point="main", 
+                                       version=None, parameters=None, experiment_id=None,
+                                       use_conda=None, use_temp_cwd=False, storage_dir=None,
+                                       git_username=None, git_password=None)
 
 
 def test_run_mode():

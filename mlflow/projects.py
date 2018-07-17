@@ -225,8 +225,8 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
 
 
-def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda,
-               use_temp_cwd, storage_dir, git_username, git_password):
+def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
+               storage_dir, git_username, git_password):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -236,13 +236,11 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda,
     eprint("=== Fetching project from %s ===" % uri)
 
     # Get the working directory to use for running the project & download it there
-    work_dir = _get_work_dir(uri, use_temp_cwd)
+    work_dir = _fetch_project(uri, version, use_temp_cwd, git_username, git_password)
     eprint("=== Work directory for this run: %s ===" % work_dir)
-    expanded_uri = _expand_uri(uri)
-    work_dir, expanded_uri = _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
     # Load the MLproject file
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
-        raise ExecutionException("No MLproject file found in %s" % (uri + '/' + subdirectory))
+        raise ExecutionException("No MLproject file found in %s" % uri)
     project = Project(uri, file_utils.read_yaml(work_dir, "MLproject"))
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
 
@@ -321,31 +319,39 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version, dst_dir, git_username, git_password):
+def _fetch_project(uri, version, use_temp_cwd, git_username, git_password):
+    """
+    Fetches the project from the uri and returns the working directory for running the project.
+    Handles parsing subdirectories delimited by the `#` character.
+    """
+    # Parsing the subdirectory and URI.
     subdirectory = ""
+    parsed_uri = uri
     if '#' in uri:
         subdirectory = uri[uri.find('#')+1:]
-        uri = uri[:uri.find('#')]
-    if subdirectory and _GIT_URI_REGEX.match(uri) and '.' in subdirectory:
+        parsed_uri = uri[:uri.find('#')]
+    if subdirectory and _GIT_URI_REGEX.match(parsed_uri) and '.' in subdirectory:
         raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
+    dst_dir = _get_work_dir(parsed_uri, use_temp_cwd)
+    expanded_uri = _expand_uri(parsed_uri)
     """Download a project to the target `dst_dir` from a Git URI or local path."""
-    if _GIT_URI_REGEX.match(uri):
+    if _GIT_URI_REGEX.match(expanded_uri):
         # Use Git to clone the project
-        _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
+        _fetch_git_repo(expanded_uri, version, dst_dir, git_username, git_password)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
         # TODO: don't copy mlruns directory here
         # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
-        if uri != dst_dir:
-            dir_util.copy_tree(src=os.path.join(uri, subdirectory), dst=os.path.join(dst_dir, subdirectory))
+        if expanded_uri != dst_dir:
+            dir_util.copy_tree(src=expanded_uri, dst=dst_dir)
 
     # Make sure they don't have an outputs or mlruns directory (will need to change if we change
     # how we log results locally)
     shutil.rmtree(os.path.join(dst_dir, "outputs"), ignore_errors=True)
     shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
 
-    return (os.path.join(dst_dir, subdirectory), os.path.join(uri, subdirectory))
+    return os.path.join(dst_dir, subdirectory)
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
