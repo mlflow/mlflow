@@ -14,7 +14,7 @@ def test_run_local():
             excitement_arg = 2
             name = "friend"
             res = invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
-                                              "greeting=hi", "--no-conda", "-P", "name=%s" % name,
+                                              "greeting=hi", "-P", "name=%s" % name,
                                               "-P", "excitement=%s" % excitement_arg])
             assert name in res.output
 
