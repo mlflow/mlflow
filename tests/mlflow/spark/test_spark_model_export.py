@@ -17,7 +17,7 @@ from mlflow import tracking
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
-
+@pytest.mark.large
 def test_model_export(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
@@ -52,6 +52,7 @@ def test_model_export(tmpdir):
     assert preds1 == preds3
 
 
+@pytest.mark.large
 def test_model_log(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
