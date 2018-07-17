@@ -36,13 +36,13 @@ def serve(path):  # pylint: disable=unused-argument
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
-def _run_server(file_store_path, artifact_root, host, port, workers):
+def _run_server(file_store_path, default_artifact_root, host, port, workers):
     """Run the MLflow server, wrapping it in gunicorn"""
     env_map = {}
     if file_store_path:
         env_map[FILE_STORE_ENV_VAR] = file_store_path
-    if artifact_root:
-        env_map[ARTIFACT_ROOT_ENV_VAR] = artifact_root
+    if default_artifact_root:
+        env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     bind_address = "%s:%s" % (host, port)
     exec_cmd(["gunicorn", "-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
              env=env_map, stream_output=True)

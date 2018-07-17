@@ -202,7 +202,7 @@ An example configuration for a server is as follows:
 
     mlflow server \
         --file-store /mnt/persistent-disk \
-        --artifact-root s3://my-mlflow-bucket/ \
+        --default-artifact-root s3://my-mlflow-bucket/ \
         --host 0.0.0.0
 
 Storage
@@ -210,8 +210,8 @@ Storage
 There are two properties related to how data is stored:
 
 * ``--file-store`` a persistent (non-ephemeral) disk where the server stores run and experiment information.
-* ``--artifact-root`` a location suitable for large data (such as an S3 bucket or shared NFS file system)
-  where clients log their artifact output (for example, models). If
+* ``--default-artifact-root`` a location suitable for large data (such as an S3 bucket or shared NFS file system)
+  where clients log their artifact output (for example, models) for newly created experiments. If
   you do not provide this option, clients write artifacts to *their* local directories,
   which the server won't serve.
 
