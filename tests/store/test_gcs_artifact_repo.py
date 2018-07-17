@@ -11,11 +11,14 @@ from mlflow.utils.file_utils import TempDir
 class TestGCSArtifactRepo(unittest.TestCase):
     def setUp(self):
         # Make sure that the environment variable isn't set to actually make calls
+        self.old_GOOGLE_APPLICATION_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/dev/null'
 
         self.gcs = mock.MagicMock(autospec=gcs_client)
 
     def tearDown(self):
+        if self.old_GOOGLE_APPLICATION_CREDENTIALS:
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.old_GOOGLE_APPLICATION_CREDENTIALS
         self.gcs.stop()
 
     def test_artifact_uri_factory(self):
