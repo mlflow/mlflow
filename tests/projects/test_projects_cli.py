@@ -17,7 +17,7 @@ def test_run_local():
         with update_temp_env({mlflow.tracking._TRACKING_URI_ENV_VAR: tmp.path()}):
             excitement_arg = 2
             res = invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
-                                              "greeting=hi", "--no-conda", "-P", "name=friend",
+                                              "greeting=hi", "-P", "name=friend",
                                               "-P", "excitement=%s" % excitement_arg])
             _assert_succeeded(res.output)
 
