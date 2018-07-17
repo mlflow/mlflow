@@ -16,7 +16,7 @@ from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR, GI
 
 def test_fetch_project():
     """ Test fetching a project to be run locally. """
-    with TempDir() as tmp:
+    with TempDir():
         dst_dir = mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None,
                                                  use_temp_cwd=False, git_username=None,
                                                  git_password=None)
@@ -26,7 +26,7 @@ def test_fetch_project():
         assert len(dir_comparison.diff_files) == 0
         assert len(dir_comparison.funny_files) == 0
     # Test fetching a project located in a Git repo subdirectory.
-    with TempDir() as tmp:
+    with TempDir():
         dst_dir = mlflow.projects._fetch_project(uri=GIT_SUBDIR_URI, version=None,
                                                  use_temp_cwd=False, git_username=None,
                                                  git_password=None)
@@ -39,7 +39,7 @@ def test_fetch_project():
         assert len(dir_comparison.diff_files) == 0
         assert len(dir_comparison.funny_files) == 0
     # Test passing a subdirectory with `#` works for local directories.
-    with TempDir() as tmp:
+    with TempDir():
         dst_dir = mlflow.projects._fetch_project(uri=TEST_DIR + "#resources/example_project",
                                                  version=None, use_temp_cwd=False,
                                                  git_username=None, git_password=None)
@@ -49,20 +49,20 @@ def test_fetch_project():
         assert len(dir_comparison.diff_files) == 0
         assert len(dir_comparison.funny_files) == 0
     # Passing `version` raises an exception for local projects
-    with TempDir() as dst_dir:
+    with TempDir():
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
                                            use_temp_cwd=False, git_username=None,
                                            git_password=None)
     # Passing only one of git_username, git_password results in an error
     for username, password in [(None, "hi"), ("hi", None)]:
-        with TempDir() as dst_dir:
+        with TempDir():
             with pytest.raises(ExecutionException):
                 mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
                                                use_temp_cwd=False, git_username=username,
                                                git_password=password)
     # Passing in a `.` to a Git subdirectory path results in an exception.
-    with TempDir() as dst_dir:
+    with TempDir():
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(uri=GIT_PROJECT_URI + "#../example", version=None,
                                            use_temp_cwd=False, git_username=None,

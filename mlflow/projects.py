@@ -333,7 +333,7 @@ def _fetch_project(uri, version, use_temp_cwd, git_username, git_password):
         raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
     dst_dir = _get_work_dir(parsed_uri, use_temp_cwd)
     expanded_uri = _expand_uri(parsed_uri)
-    """Download a project to the target `dst_dir` from a Git URI or local path."""
+    # Download a project to the target `dst_dir` from a Git URI or local path.
     if _GIT_URI_REGEX.match(expanded_uri):
         # Use Git to clone the project
         _fetch_git_repo(expanded_uri, version, dst_dir, git_username, git_password)
