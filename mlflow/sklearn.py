@@ -48,7 +48,7 @@ def log_model(sk_model, artifact_path):
     with TempDir() as tmp:
         local_path = tmp.path("model")
         # TODO: I get active_run_id here but mlflow.tracking.log_output_files has its own way
-        run_id = mlflow.tracking.active_run().info.run_uuid
+        run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
         mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
         save_model(sk_model, local_path, mlflow_model=mlflow_model)
         mlflow.tracking.log_artifacts(local_path, artifact_path)
