@@ -50,6 +50,13 @@ def test_log_artifact(gcs_mock, tmpdir):
     fpath = d + '/test.txt'
     fpath = fpath.strpath
 
-    gcs_mock.Client.return_value.get_bucket.return_value\
-        .upload_from_filename.side_effect = os.path.isfile(fpath)
+    # This will call isfile on the code path being used,
+    # thus testing that it's being called with an actually file path
+    gcs_mock.Client.return_value.get_bucket.return_value.blob.return_value \
+        .upload_from_filename.side_effect = os.path.isfile
     repo.log_artifact(fpath)
+
+    # A redundant check, but verifying signature since it's all a mock object
+    gcs_mock.Client().get_bucket.assert_called_with('test_bucket')
+    gcs_mock.Client().get_bucket().blob.assert_called_with('some/path/test.txt')
+    gcs_mock.Client().get_bucket().blob().upload_from_filename.assert_called_with(fpath)
