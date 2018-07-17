@@ -13,6 +13,7 @@ from mlflow import sklearn, pyfunc
 from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
 
+
 def load_pyfunc(path):
     with open(path, "rb") as f:
         return pickle.load(f)
@@ -37,7 +38,7 @@ class TestModelExport(unittest.TestCase):
             with open(model_path, "wb") as f:
                 pickle.dump(self._knn, f)
             path = tmp.path("knn")
-            sklearn.save_model( self._knn, path=path)
+            sklearn.save_model(self._knn, path=path)
             x = sklearn.load_model(path)
             xpred = x.predict(self._X)
             np.testing.assert_array_equal(self._knn_predict, xpred)
@@ -48,17 +49,21 @@ class TestModelExport(unittest.TestCase):
             np.testing.assert_array_equal(self._knn_predict, ypred)
 
     def test_model_log(self):
-        with TempDir(chdr=True, remove_on_exit=True):
-            tracking.set_tracking_uri("mlruns")
-            tracking.start_run()
-            try:
-                sklearn.log_model(sk_model=self._linear_lr, artifact_path="linear")
-                x = sklearn.load_model("linear", run_id=tracking.active_run().info.run_uuid)
-                xpred = x.predict(self._X)
-                np.testing.assert_array_equal(self._linear_lr_predict, xpred)
-            finally:
-                tracking.end_run()
-                tracking.set_tracking_uri(None)
+        old_uri = tracking.get_tracking_uri()
+        # should_start_run tests whether or not calling log_model() automatically starts a run.
+        for should_start_run in [False, True]:
+            with TempDir(chdr=True, remove_on_exit=True) as tmp:
+                try:
+                    tracking.set_tracking_uri("test")
+                    if should_start_run:
+                        tracking.start_run()
+                    sklearn.log_model(sk_model=self._linear_lr, artifact_path="linear")
+                    x = sklearn.load_model("linear", run_id=tracking.active_run().info.run_uuid)
+                    xpred = x.predict(self._X)
+                    np.testing.assert_array_equal(self._linear_lr_predict, xpred)
+                finally:
+                    tracking.end_run()
+                    tracking.set_tracking_uri(old_uri)
 
 
 if __name__ == '__main__':
