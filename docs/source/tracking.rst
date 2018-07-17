@@ -219,6 +219,9 @@ For the clients and server to access the artifact location, you should configure
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
+To utilize Google Cloud Storage you can set the artifact-root to ``gs://<storage_bucket>``, and you will need to provide auth as per
+the documentation for `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
+
 
 Networking
 ^^^^^^^^^^
