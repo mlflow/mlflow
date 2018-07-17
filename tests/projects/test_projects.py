@@ -11,9 +11,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import env
 
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR
-
-GIT_SUBDIR_URI = "https://github.com/juntai-zheng/mlflow-git-features.git#example"
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR, GIT_SUBDIR_URI
 
 
 def test_fetch_project():

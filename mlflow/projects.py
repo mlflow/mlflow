@@ -277,10 +277,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         storage_dir.
     """
     if mode is None or mode == "local":
-        _run_local(uri=uri, entry_point=entry_point, version=version,
-                   parameters=parameters, experiment_id=experiment_id, use_conda=use_conda,
-                   use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, git_username=git_username,
-                   git_password=git_password)
+        _run_local(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
+                   experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
+                   storage_dir=storage_dir, git_username=git_username, git_password=git_password)
     elif mode == "databricks":
         _run_databricks(uri=uri, entry_point=entry_point, version=version, parameters=parameters,
                         experiment_id=experiment_id, cluster_spec=cluster_spec,
