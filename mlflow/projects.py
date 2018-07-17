@@ -333,11 +333,6 @@ def _fetch_project(uri, version, dst_dir, git_username, git_password):
         if uri != dst_dir:
             dir_util.copy_tree(src=uri, dst=dst_dir)
 
-    # Make sure they don't have an outputs or mlruns directory (will need to change if we change
-    # how we log results locally)
-    shutil.rmtree(os.path.join(dst_dir, "outputs"), ignore_errors=True)
-    shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
-
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     """

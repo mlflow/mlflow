@@ -14,29 +14,30 @@ from mlflow.utils import env
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI
 
 
-def test_fetch_project():
+def test_fetch_project(tmpdir):
     """ Test fetching a project to be run locally. """
-    with TempDir() as tmp:
-        dst_dir = tmp.path()
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir,
-                                       git_username=None, git_password=None)
-        dir_comparison = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
-        assert len(dir_comparison.left_only) == 0
-        assert len(dir_comparison.right_only) == 0
-        assert len(dir_comparison.diff_files) == 0
-        assert len(dir_comparison.funny_files) == 0
+    dst_dir = tmpdir.join("dst-dir").strpath
+    mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version=None, dst_dir=dst_dir,
+                                   git_username=None, git_password=None)
+    dir_comparison = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
+    assert len(dir_comparison.left_only) == 0
+    assert len(dir_comparison.right_only) == 0
+    assert len(dir_comparison.diff_files) == 0
+    assert len(dir_comparison.funny_files) == 0
     # Passing `version` raises an exception for local projects
-    with TempDir() as dst_dir:
-        with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
-                                           dst_dir=dst_dir, git_username=None, git_password=None)
+    with pytest.raises(ExecutionException):
+        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
+                                       dst_dir=tmpdir.join("pass-version").strpath,
+                                       git_username=None, git_password=None)
     # Passing only one of git_username, git_password results in an error
-    for username, password in [(None, "hi"), ("hi", None)]:
-        with TempDir() as dst_dir:
-            with pytest.raises(ExecutionException):
-                mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, version="some-version",
-                                               dst_dir=dst_dir, git_username=username,
-                                               git_password=password)
+    for i, (username, password) in enumerate([(None, "hi"), ("hi", None)]):
+        with pytest.raises(ExecutionException):
+            mlflow.projects._fetch_project(
+                uri=TEST_PROJECT_DIR, version="some-version",
+                dst_dir=tmpdir.join("partial-credentials-%s" % i).strpath, git_username=username,
+                git_password=password)
+    # Fetching a directory containing an mlruns directory succeeds (we don't remove the mlruns
+    # directory)
 
 
 def test_run_mode():
