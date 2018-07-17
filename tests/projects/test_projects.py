@@ -72,14 +72,14 @@ def test_fetch_project():
 def test_bad_subdirectory():
     """ Verify that runs fail if given incorrect subdirectories via the `#` character. """
     # Local test.
-    with TempDir() as dst_dir:
+    with TempDir():
         with pytest.raises(ExecutionException):
             mlflow.projects._run_local(uri=TEST_PROJECT_DIR + "#fake", entry_point="main",
                                        version=None, parameters=None, experiment_id=None,
                                        use_conda=None, use_temp_cwd=False, storage_dir=None,
                                        git_username=None, git_password=None)
     # Git repo test.
-    with TempDir() as dst_dir:
+    with TempDir():
         with pytest.raises(ExecutionException):
             mlflow.projects._run_local(uri=GIT_PROJECT_URI + "#fake", entry_point="main",
                                        version=None, parameters=None, experiment_id=None,
