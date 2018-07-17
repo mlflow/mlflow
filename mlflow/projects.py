@@ -4,7 +4,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import tempfile
 
 from distutils import dir_util
