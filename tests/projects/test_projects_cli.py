@@ -60,6 +60,5 @@ def test_restrict_periods():
             try:
                 res = invoke_cli_runner(cli.run, [GIT_PROJECT_URI + "#..",
                                                   "--no-conda", "-P", "alpha=0.5"])
-            except AssertionError as e:
-                assert e.args[0] == "Got non-zero exit code -1. Output is: "
+            except AssertionError:
                 assert not res

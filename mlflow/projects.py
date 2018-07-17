@@ -225,7 +225,7 @@ def _run_databricks(uri, entry_point, version, parameters, experiment_id, cluste
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
 
 
-def _run_local(uri, entry_point, version, subdirectory, parameters, experiment_id, use_conda,
+def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda,
                use_temp_cwd, storage_dir, git_username, git_password):
     """
     Run an MLflow project from the given URI in a new directory.
@@ -233,18 +233,13 @@ def _run_local(uri, entry_point, version, subdirectory, parameters, experiment_i
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the `version`.
     """
-    eprint("=== Fetching project from %s ===" % (uri + '/' + subdirectory))
+    eprint("=== Fetching project from %s ===" % uri)
 
     # Get the working directory to use for running the project & download it there
     work_dir = _get_work_dir(uri, use_temp_cwd)
     eprint("=== Work directory for this run: %s ===" % work_dir)
     expanded_uri = _expand_uri(uri)
-    if _GIT_URI_REGEX.match(uri):
-        _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
-    work_dir = os.path.join(work_dir, subdirectory)
-    expanded_uri = os.path.join(expanded_uri, subdirectory)
-    if not _GIT_URI_REGEX.match(uri):
-        _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
+    work_dir, expanded_uri = _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
     # Load the MLproject file
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % (uri + '/' + subdirectory))
@@ -283,14 +278,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         storage_dir.
     """
-    subdirectory = ""
-    if '#' in uri:
-        subdirectory = uri[uri.find('#')+1:]
-        uri = uri[:uri.find('#')]
-    if subdirectory and _GIT_URI_REGEX.match(uri) and '.' in subdirectory:
-        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
     if mode is None or mode == "local":
-        _run_local(uri=uri, entry_point=entry_point, version=version, subdirectory=subdirectory,
+        _run_local(uri=uri, entry_point=entry_point, version=version,
                    parameters=parameters, experiment_id=experiment_id, use_conda=use_conda,
                    use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, git_username=git_username,
                    git_password=git_password)
@@ -333,6 +322,12 @@ def _expand_uri(uri):
 
 
 def _fetch_project(uri, version, dst_dir, git_username, git_password):
+    subdirectory = ""
+    if '#' in uri:
+        subdirectory = uri[uri.find('#')+1:]
+        uri = uri[:uri.find('#')]
+    if subdirectory and _GIT_URI_REGEX.match(uri) and '.' in subdirectory:
+        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
     """Download a project to the target `dst_dir` from a Git URI or local path."""
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
@@ -343,12 +338,14 @@ def _fetch_project(uri, version, dst_dir, git_username, git_password):
         # TODO: don't copy mlruns directory here
         # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
         if uri != dst_dir:
-            dir_util.copy_tree(src=uri, dst=dst_dir)
+            dir_util.copy_tree(src=os.path.join(uri, subdirectory), dst=os.path.join(dst_dir, subdirectory))
 
     # Make sure they don't have an outputs or mlruns directory (will need to change if we change
     # how we log results locally)
     shutil.rmtree(os.path.join(dst_dir, "outputs"), ignore_errors=True)
     shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
+
+    return (os.path.join(dst_dir, subdirectory), os.path.join(uri, subdirectory))
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
