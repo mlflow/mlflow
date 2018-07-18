@@ -105,9 +105,15 @@ def test_run_databricks_cancel(
     # Test that MLflow properly handles Databricks run cancellation
     runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
     submitted_run = run_databricks_project(cluster_spec_mock)
+    print("Run done")
     submitted_run.cancel()
+    print("Cancel done")
     validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
+    print("Validation done")
     # Test that we raise an exception when a blocking Databricks run fails
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
+    print("Return set")
     with pytest.raises(mlflow.projects.ExecutionException):
         run_databricks_project(cluster_spec_mock, block=True)
+        print("Run complete")
+    print("Cancel complete")
