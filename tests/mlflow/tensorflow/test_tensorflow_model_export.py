@@ -102,9 +102,7 @@ class TestModelExport(unittest.TestCase):
         for reference code.
         """
         with TempDir(chdr=False, remove_on_exit=True) as tmp:
-            # Downloading the data into a pandas DataFrame.
-            URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/autos/imports-85.data"
-            path = tf.contrib.keras.utils.get_file(URL.split("/")[-1], URL)
+            path = os.path.abspath("tests/data/uci-autos-imports-85.data")
             # Order is important for the csv-readers, so we use an OrderedDict here.
             defaults = collections.OrderedDict([
                 ("body-style", [""]),
