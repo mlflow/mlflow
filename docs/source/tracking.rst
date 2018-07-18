@@ -227,7 +227,7 @@ To utilize Google Cloud Storage you can set the artifact-root to ``gs://<storage
 the documentation for `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 
 Warning: If you do not specify a ``--default-artifact-root``, nor do you specify an artifact URI when creating
-the experiemnt (e.g., ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
+the experiment (e.g., ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
 will be a path inside the File Store. Typically this is not an appropriate location, as the client and
 server will probably be referring to different physical locations (i.e., the same path on different disks).
 
