@@ -19,12 +19,12 @@ from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env
 
 
-_RUN_NAME_ENV_VAR = "MLFLOW_RUN_NAME"
+_RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
+_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
+_EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _DEFAULT_USER_ID = "unknown"
 _LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
-_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
-_EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _active_run = None
 _tracking_uri = None
 
@@ -62,14 +62,14 @@ def get_tracking_uri():
         return os.path.abspath("./mlruns")
 
 
-def _is_local_uri(uri):
+def is_local_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == '' or scheme == 'file'
 
 
 def _is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == '' or scheme == 'http'
+    return scheme == 'http' or scheme == 'https'
 
 
 def _get_file_store(store_uri):
@@ -87,7 +87,7 @@ def _get_store():
     if store_uri is None:
         return FileStore()
     # Pattern-match on the URI
-    if _is_local_uri(store_uri):
+    if is_local_uri(store_uri):
         return _get_file_store(store_uri)
     if _is_http_uri(store_uri):
         return _get_rest_store(store_uri)
@@ -115,8 +115,6 @@ class ActiveRun(object):
             self.artifact_repo = ArtifactRepository.from_artifact_uri(run_info.artifact_uri)
         else:
             self.artifact_repo = _get_legacy_artifact_repo(store, run_info)
-        global _active_run
-        _active_run = self
 
     def set_terminated(self, status):
         self.run_info = self.store.update_run_info(
@@ -200,27 +198,30 @@ def _get_unix_timestamp():
     return int(time.time() * 1000)
 
 
-def _do_start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
-                  entry_point_name=None, source_type=None):
+def _create_run(experiment_id, source_name, source_version, entry_point_name, source_type):
     store = _get_store()
-
-    if run_uuid is not None:
-        existing_run = store.get_run(run_uuid)
-        if existing_run is None:
-            raise Exception("Could not start run with UUID %s - no such run found." % run_uuid)
-        updated_info = store.update_run_info(
-            run_uuid=run_uuid, run_status=RunStatus.RUNNING, end_time=None)
-        return ActiveRun(updated_info, store)
-
-    # Get experiment ID for run
-    exp_id_for_run = experiment_id or _get_experiment_id()
-    run = store.create_run(experiment_id=exp_id_for_run, user_id=_get_user_id(), run_name=None,
-                           source_type=(source_type or _get_source_type()),
-                           source_name=(source_name or _get_source_name()),
+    run = store.create_run(experiment_id=experiment_id, user_id=_get_user_id(), run_name=None,
+                           source_type=source_type,
+                           source_name=source_name,
                            entry_point_name=entry_point_name,
                            start_time=_get_unix_timestamp(),
-                           source_version=(source_version or _get_source_version()), tags=[])
+                           source_version=source_version, tags=[])
     return ActiveRun(run.info, store)
+
+
+def get_run(run_uuid):
+    """ Returns the run with the specified run UUID from the current tracking server."""
+    return _get_store().get_run(run_uuid)
+
+
+def _get_existing_run(run_uuid):
+    existing_run = get_run(run_uuid)
+    if existing_run is None:
+        raise Exception("Could not start run with UUID %s - no such run found." % run_uuid)
+    store = _get_store()
+    updated_info = store.update_run_info(
+        run_uuid=run_uuid, run_status=RunStatus.RUNNING, end_time=None)
+    return ActiveRun(updated_info, store)
 
 
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
@@ -228,11 +229,10 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     """
     Start a new MLflow run, setting it as the active run under which metrics and params
     will be logged. The return value can be used as a context manager within a `with` block;
-    otherwise, `end_run()` must be called to terminate the current run.
-
-    Note that if a run is currently in progress (i.e., start_run has been called without an
-    end_run, or you are running from "mlflow run"), then this function will return the
-    existing run.
+    otherwise, `end_run()` must be called to terminate the current run. Note that if `run_uuid`
+    is passed or the MLFLOW_RUN_ID environment variable is set, `start_run` will attempt to
+    resume a run with the specified run ID (with `run_uuid` taking precedence over MLFLOW_RUN_ID),
+    and other parameters will be ignored.
 
     :param run_uuid: If specified, gets the run with the specified UUID and logs metrics
                      and params under that run. The run's end time will be unset and its status
@@ -251,24 +251,26 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     """
     global _active_run
     if _active_run:
-        return _active_run
-    if _RUN_NAME_ENV_VAR not in os.environ:
-        return _do_start_run(run_uuid, experiment_id, source_name, source_version,
-                             entry_point_name, source_type)
+        raise Exception("Run with UUID %s is already active, unable to start nested "
+                        "run" % _active_run.run_info.run_uuid)
+    existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
+    if existing_run_uuid:
+        active_run_obj = _get_existing_run(existing_run_uuid)
 
-    # Load an existing run ID from the environment
-    existing_run_uuid = os.environ[_RUN_NAME_ENV_VAR]
-    store = _get_store()
-    run = store.get_run(existing_run_uuid)
-    # If we were able to find an existing run with the specified ID, create an ActiveRun with
-    # that ID and update the global _active_run
-    # TODO: This doesn't play well with the atexit.register(end_run) call; specifically each
-    # time a process with the current run ID exits, the run will be marked as terminated.
-    _active_run = ActiveRun(run.info, store)
+    else:
+        exp_id_for_run = experiment_id or _get_experiment_id()
+        active_run_obj = _create_run(experiment_id=exp_id_for_run,
+                                     source_name=source_name or _get_source_name(),
+                                     source_version=source_version or _get_source_version(),
+                                     entry_point_name=entry_point_name,
+                                     source_type=source_type or _get_source_type())
+    _active_run = active_run_obj
     return _active_run
 
 
 def _get_or_start_run():
+    if _active_run:
+        return _active_run
     return start_run()
 
 
@@ -277,7 +279,7 @@ def end_run(status="FINISHED"):
     if _active_run:
         _active_run.set_terminated(status)
         # Clear out the global existing run environment variable as well.
-        env.unset_variable(_RUN_NAME_ENV_VAR)
+        env.unset_variable(_RUN_ID_ENV_VAR)
         _active_run = None
 
 

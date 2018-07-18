@@ -40,6 +40,15 @@ def test_create_experiment():
         assert exp_id is not None
 
 
+def test_no_nested_run():
+    with temp_directory() as tmp_dir, mock.patch("mlflow.tracking._get_store") as get_store_mock:
+        get_store_mock.return_value = FileStore(tmp_dir)
+        first_run = tracking.start_run()
+        with first_run:
+            with pytest.raises(Exception):
+                tracking.start_run()
+
+
 def test_start_run_context_manager():
     with temp_directory() as tmp_dir, mock.patch("mlflow.tracking._get_store") as get_store_mock:
         get_store_mock.return_value = FileStore(tmp_dir)
@@ -63,11 +72,6 @@ def test_start_run_context_manager():
         finished_run2 = store.get_run(second_run.run_info.run_uuid)
         assert finished_run2.info == second_run.run_info
         assert finished_run2.info.status == RunStatus.FAILED
-        # Nested runs return original run
-        with tracking.start_run():
-            active_run = tracking._active_run
-            new_run = tracking.start_run()
-            assert active_run == new_run
 
 
 def test_start_and_end_run():

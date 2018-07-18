@@ -202,6 +202,16 @@ H\ :sub:`2`\ O (``h2o``)
 
 With the h2o model flavor h2o models can be handled by mlflow. These models will be saved by using the :py:mod:`h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
 
+Spark MLlib (``spark``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Spark model flavor enables exporting Spark MLlib models as MLflow models. Exported models are
+saved using Spark MLLib's native serialization, and can then be loaded back as MLlib models or
+deployed as ``Python Function`` models. When deployed as a Pyfunc, the model will create its own
+SparkContext and convert pandas DataFrame input to a Spark DataFrame before scoring. While this is not
+the most efficient solution, especially for real-time scoring, it enables users to easily deploy any MLlib PipelineModel
+(as long as the PipelineModel has no external JAR dependencies) to any endpoint supported by
+MLflow. For more information, see :py:mod:`mlflow.spark`.
 
 Custom Flavors
 --------------
