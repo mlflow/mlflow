@@ -1,4 +1,4 @@
-"""Sample MLflow integration for SciKit-Learn."""
+"""MLflow integration for SciKit-Learn."""
 
 from __future__ import absolute_import
 
