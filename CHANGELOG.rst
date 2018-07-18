@@ -18,7 +18,7 @@ Features:
 - [SageMaker] Simplify parameters to SageMaker deploy by providing sane defaults (#126, @sueann)
 - [UI] One-element metrics are now displayed as a bar char (#118, @cryptexis)
 
-Bug fixes and breaking changes:
+Bug fixes:
 
 - Require gitpython>=2.1.0 (#98, @aarondav)
 - Fixed TensorFlow model loading so that columns match the output names of the exported model (#94, @smurching)
