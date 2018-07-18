@@ -148,6 +148,9 @@ def monitor_databricks(databricks_run_id, sleep_interval=30):
     run's status every `sleep_interval` seconds.
     """
     result_state = _get_run_result_state(databricks_run_id)
+    if result_state is None:
+        raise Exception("Uh-oh!!")
+
     while result_state is None:
         time.sleep(sleep_interval)
         result_state = _get_run_result_state(databricks_run_id)
