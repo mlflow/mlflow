@@ -143,9 +143,12 @@ parameters:
          (e.g. ``mlflow.sklearn``) importable via ``importlib.import_module``.
          The imported module must contain a function with the following signature:
 
-              load_pyfunc(path: string) -> <pyfunc model>
+              load_pyfunc(model: Model, path: string, data_path: string) -> <pyfunc model>
 
-         The path argument is specified by the data parameter and may refer to a file or directory.
+         The model parameter points to the model object as parsed from the MLmodel-file.
+         The path parameter points to the full path where the model is stored.
+         The data_path argument is specified by the data parameter and may refer to
+         a file or directory.
 
    - code [optional]:
          A relative path to a directory containing the code packaged with this model.
@@ -193,6 +196,12 @@ TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The TensorFlow model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on Pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.tensorflow`. 
+
+H\ :sub:`2`\ O (``h2o``)
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+With the h2o model flavor h2o models can be handled by mlflow. These models will be saved by using the :py:mod:`h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
+
 
 Custom Flavors
 --------------
