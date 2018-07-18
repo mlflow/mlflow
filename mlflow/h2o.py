@@ -26,7 +26,8 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model()):
         raise Exception("Path '{}' already exists".format(path))
     os.makedirs(path)
     model_dir = os.path.join(path, "model.h2o")
-    model_file = "model.h2o/"+os.path.basename(h2o.save_model(model=h2o_model, path=model_dir, force=True))
+    h2o_save_location = h2o.save_model(model=h2o_model, path=model_dir, force=True)
+    model_file = "model.h2o/"+os.path.basename(h2o_save_location)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o", data=model_file,  env=conda_env)
     mlflow_model.add_flavor("h2o", saved_model=model_file, h2o_version=h2o.__version__)
     mlflow_model.save(os.path.join(path, "MLmodel"))
@@ -49,9 +50,10 @@ def _load_model(path, init=False, model=None):
         model = Model.load(os.path.join(path, "MLmodel"))
     assert "h2o" in model.flavors
     params = model.flavors["h2o"]
-    
-    h2o.init(**(params["init"] if "init" in params else {}))
-    h2o.no_progress()
+
+    if init:
+        h2o.init(**(params["init"] if "init" in params else {}))
+        h2o.no_progress()
     return h2o.load_model(os.path.join(path, params["saved_model"]))
 
 
@@ -70,4 +72,3 @@ def load_model(path, run_id=None):
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model(path)
-
