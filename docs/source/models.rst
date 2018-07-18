@@ -198,8 +198,8 @@ Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Spark model flavor enables exporting Spark MLlib models as MLflow models. Exported models are
-saved using Spark MLLib's native serialization. The exported model can then be loaded back as an MLlib model or
-deployed as a ``Python Function`` model. When deployed as a Pyfunc, the model will create its own
+saved using Spark MLLib's native serialization, and can then be loaded back as MLlib models or
+deployed as ``Python Function`` models. When deployed as a Pyfunc, the model will create its own
 SparkContext and convert pandas DataFrame input to a Spark DataFrame before scoring. While this is not
 the most efficient solution, especially for real-time scoring, it enables users to easily deploy any MLlib PipelineModel
 (as long as the PipelineModel has no external JAR dependencies) to any endpoint supported by
