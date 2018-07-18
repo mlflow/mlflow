@@ -197,12 +197,13 @@ The TensorFlow model flavor enables logging TensorFlow ``Saved Models`` and load
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The spark model flavor lets users to export and deploy Spark MLlib models. It saves and loads models
-using Spark MLLib's native serialization. The model can be deployed as ``Python Function``.
-When deployed as PyFunc, the model will create its own SparkContext and translate data to
-SparkDataFrame before scoring. While this is not the most efficient solution, especially for real
-time scoring, it enables users to easily deploy any PipelineModel (currently only available without
-external dependencies). For more information, see :py:mod:`mlflow.spark`.
+The spark model flavor lets users export Spark MLlib models as MLflow models. The models are saved
+using Spark MLLib's native serialization. The models can be loaded back to Spark or they can be
+deployed as ``Python Function``. When deployed as PyFunc, the model will create its own SparkContext
+and convert data to SparkDataFrame before scoring. While this is not the most efficient solution,
+especially for realtime scoring, it enables users to easily deploy any PipelineModel (currently only
+available for models without external jar dependencies) to any endpoint supported by MLflow.
+For more information,see :py:mod:`mlflow.spark`.
 
 
 Custom Flavors
