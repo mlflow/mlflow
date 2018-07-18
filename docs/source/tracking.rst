@@ -215,9 +215,9 @@ running in a server, make sure that this points to a persistent (i.e., non-ephem
 
 The **Artifact Store** is a location suitable for large data (such as an S3 bucket or shared NFS file system)
 where clients log their artifact output (for example, models). The Artifact Store is actually a property
-of an Experiment, but the ``--default-artifact-root`` flag is used to specify what artifact root URI will
-be provided for newly-created experiments that do not have an override. Note that once an experiment
-is created, the ``--default-artifact-root` will no longer have an effect on it.
+of an Experiment, but the ``--default-artifact-root`` flag is used to set the artifact root URI for
+newly-created experments that do not specify one. Note that once an experiment is created,
+the ``--default-artifact-root`` is no longer relevant to it.
 
 For the clients and server to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
