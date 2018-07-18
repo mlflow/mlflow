@@ -1,6 +1,26 @@
 Changelog
 =========
 
+0.3.0 (2018-07-18)
+------------------
+
+Features:
+
+- Spark MLlib integration, we now support logging SparkML Models directly in the log_model API, Model format, and serving APIs (#72, @tomasatdatabricks)
+- Google Cloud Storage is now supported as an artifact storage root (#152, @bnekolny)
+- Support asychronous/parallel execution of mlflow runs (#82, @smurching)
+- [SageMaker] Pushing the mlflow sagemaker container now includes the mlflow version that it was published with (#124, @sueann)
+- [SageMaker] Simplify parameters to SageMaker deploy by providing sane defaults (#126, @sueann)
+- [SageMaker] Support for deleting, updating applications deployed via SageMaker (#145, @dbczumar)
+- [UI] One-element metrics are now displayed as a bar char (#118, @cryptexis)
+
+Bug fixes:
+
+- Require gitpython>=2.1.0 (#98, @aarondav)
+- Fixed TensorFlow model loading so that columns match the output names of the exported model (#94, @smurching)
+- Fix SparkUDF when number of columns >= 10 (#97, @aarondav)
+- Miscelanneous bug and documentation fixes from @emres, @dmatrix, @stbof, @gsganden, @dennyglee, @anabranch, @mikehuston, @andrewmchen, @juntai-zheng
+
 0.2.1 (2018-06-28)
 ------------------
 
