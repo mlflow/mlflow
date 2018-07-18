@@ -223,7 +223,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     # Create run object with remote tracking server
     tracking_uri = tracking.get_tracking_uri()
     remote_run = _create_databricks_run(
-        tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=uri,
+        tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=project.uri,
         source_version=version, entry_point_name=entry_point)
     # Set up environment variables for remote execution
     env_vars = {}

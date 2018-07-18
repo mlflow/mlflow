@@ -65,27 +65,6 @@ def create_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
         yield create_db_run_mock
 
 
-def _get_mock_run_state(succeeded):
-    if succeeded is None:
-        return {"life_cycle_state": "RUNNING", "state_message": ""}
-    if succeeded:
-        run_result_state = "SUCCESS"
-    else:
-        run_result_state = "FAILED"
-    return {"life_cycle_state": "TERMINATED", "state_message": "", "result_state": run_result_state}
-
-
-def mock_runs_get_result(succeeded):
-    run_state = _get_mock_run_state(succeeded)
-    return {"state": run_state, "run_page_url": ""}
-
-
-def run_databricks_project(cluster_spec_path, block=False):
-    return mlflow.projects.run(
-        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block,
-        parameters={"alpha": "0.4"})
-
-
 @pytest.fixture()
 def dbfs_root_mock(tmpdir):
     yield str(tmpdir.join("dbfs-root"))
@@ -111,14 +90,40 @@ def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
 
 
 @pytest.fixture()
+def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=unused-argument
+    yield
+
+
+@pytest.fixture()
 def cli_configured_mock():  # pylint: disable=unused-argument
     with mock.patch("mlflow.projects.databricks._check_databricks_cli_configured") as cli_mock:
         yield cli_mock
 
 
+def _get_mock_run_state(succeeded):
+    if succeeded is None:
+        return {"life_cycle_state": "RUNNING", "state_message": ""}
+    if succeeded:
+        run_result_state = "SUCCESS"
+    else:
+        run_result_state = "FAILED"
+    return {"life_cycle_state": "TERMINATED", "state_message": "", "result_state": run_result_state}
+
+
+def mock_runs_get_result(succeeded):
+    run_state = _get_mock_run_state(succeeded)
+    return {"state": run_state, "run_page_url": ""}
+
+
+def run_databricks_project(cluster_spec_path, block=False):
+    return mlflow.projects.run(
+        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block,
+        parameters={"alpha": "0.4"})
+
+
 def test_upload_project_to_dbfs(
-        tmpdir, dbfs_root_mock, upload_to_dbfs_mock,  # pylint: disable=unused-argument
-        dbfs_path_exists_mock):
+        dbfs_root_mock, tmpdir, dbfs_path_exists_mock,
+        upload_to_dbfs_mock):  # pylint: disable=unused-argument
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
     dbfs_uri = databricks._upload_project_to_dbfs(
@@ -133,8 +138,7 @@ def test_upload_project_to_dbfs(
     assert filecmp.cmp(local_tar_path, expected_tar_path, shallow=False)
 
 
-def test_upload_existing_project_to_dbfs(
-        tmpdir, dbfs_path_exists_mock):  # pylint: disable=unused-argument
+def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disable=unused-argument
     # Check that we don't upload the project if it already exists on DBFS
     with mock.patch("mlflow.projects.databricks._upload_to_dbfs") as upload_to_dbfs_mock:
         dbfs_path_exists_mock.return_value = True
@@ -144,7 +148,8 @@ def test_upload_existing_project_to_dbfs(
 
 
 def test_run_databricks_validations(
-        cluster_spec_mock, cli_configured_mock, create_run_mock):  # pylint: disable=unused-argument
+        cluster_spec_mock, cli_configured_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock, dbfs_mocks, create_run_mock):  # pylint: disable=unused-argument
     """
     Tests that running on Databricks fails before making any API requests if parameters are
     mis-specified
@@ -162,8 +167,9 @@ def test_run_databricks_validations(
 
 
 def test_run_databricks(
-        tmpdir, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
         cli_configured_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
+        dbfs_mocks,  # pylint: disable=unused-argument
         runs_submit_mock, runs_get_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     # Test that MLflow gets the correct run status when performing a Databricks run
@@ -175,9 +181,11 @@ def test_run_databricks(
         runs_submit_mock.reset_mock()
         validate_exit_status(submitted_run.get_status(), expected_status)
 
+
 def test_run_databricks_cancel(
-        tmpdir, create_run_mock,  # pylint: disable=unused-argument
-        runs_submit_mock, runs_cancel_mock,  # pylint: disable=unused-argument
+        cli_configured_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock, create_run_mock,  # pylint: disable=unused-argument
+        runs_submit_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
         runs_get_mock, cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation
     runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
