@@ -107,10 +107,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             parameters=param_dict,
             mode=mode,
             cluster_spec=cluster_spec,
-<<<<<<< HEAD
             db_profile=db_profile,
-=======
->>>>>>> master
             git_username=git_username,
             git_password=git_password,
             use_conda=(not no_conda),

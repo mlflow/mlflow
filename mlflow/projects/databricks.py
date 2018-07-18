@@ -8,6 +8,7 @@ import time
 from databricks_cli.configure import provider
 from six.moves import shlex_quote
 
+from mlflow.entities.experiment import Experiment
 from mlflow.entities.source_type import SourceType
 
 from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project

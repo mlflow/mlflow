@@ -35,17 +35,18 @@ class ExecutionException(Exception):
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
          mode=None, cluster_spec=None, db_profile=None, git_username=None, git_password=None,
          use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
+    exp_id = experiment_id or tracking._get_experiment_id()
     if mode is None or mode == "local":
         return _run_local(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=experiment_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
+            experiment_id=exp_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
             storage_dir=storage_dir, git_username=git_username, git_password=git_password,
             block=block)
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=experiment_id, cluster_spec=cluster_spec, db_profile=db_profile,
+            experiment_id=exp_id, cluster_spec=cluster_spec, db_profile=db_profile,
             git_username=git_username,
             git_password=git_password)
     supported_modes = ["local", "databricks"]

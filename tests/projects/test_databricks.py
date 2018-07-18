@@ -50,7 +50,7 @@ def cluster_spec_mock(tmpdir):
 
 
 @pytest.fixture()
-def create_databricks_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
+def create_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
     # Mocks logic for creating an MLflow run against a tracking server to persist the run to a local
     # file store
     def create_run_mock(
@@ -176,7 +176,7 @@ def test_run_databricks(
         validate_exit_status(submitted_run.get_status(), expected_status)
 
 def test_run_databricks_cancel(
-        tmpdir, create_databricks_run_mock,  # pylint: disable=unused-argument
+        tmpdir, create_run_mock,  # pylint: disable=unused-argument
         runs_submit_mock, runs_cancel_mock,  # pylint: disable=unused-argument
         runs_get_mock, cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation
