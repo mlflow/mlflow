@@ -114,6 +114,8 @@ def test_run_databricks_cancel(
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     print("Return set")
     with pytest.raises(mlflow.projects.ExecutionException):
-        run_databricks_project(cluster_spec_mock, block=True)
+        run = run_databricks_project(cluster_spec_mock, block=False)
         print("Run complete")
+        run.wait()
+        print("Wait complete")
     print("Cancel complete")
