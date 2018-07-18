@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-# This file implements the scoring service shell. You don't necessarily need to modify it for various
-# algorithms. It starts nginx and gunicorn with the correct configurations and then simply waits until
-# gunicorn exits.
+# This file implements the scoring service shell. You don't necessarily need to modify it for
+# various algorithms. It starts nginx and gunicorn with the correct configurations and then simply
+# waits until gunicorn exits.
 #
 # The flask server is specified to be the app object in wsgi.py
 #

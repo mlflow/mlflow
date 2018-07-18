@@ -6,6 +6,7 @@ import click
 from tabulate import tabulate
 
 from mlflow.store import file_store as store
+from mlflow.data import is_uri
 
 
 @click.group("experiments")
@@ -40,6 +41,6 @@ def list_experiments(file_store):
     """
     fs = store.FileStore(file_store)
     experiments = fs.list_experiments()
-    table = [[exp.experiment_id, exp.name, os.path.abspath(exp.artifact_location)]
-             for exp in experiments]
+    table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
+              else os.path.abspath(exp.artifact_location)] for exp in experiments]
     print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))

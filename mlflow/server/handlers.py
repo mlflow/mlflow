@@ -123,7 +123,7 @@ def _create_run():
 def _update_run():
     request_message = _get_request_message(UpdateRun())
     updated_info = _get_store().update_run_info(request_message.run_uuid, request_message.status,
-                                         request_message.end_time)
+                                                request_message.end_time)
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -163,7 +163,7 @@ def _search_runs():
     request_message = _get_request_message(SearchRuns(), from_get=True)
     response_message = SearchRuns.Response()
     run_entities = _get_store().search_runs(request_message.experiment_ids,
-                                     request_message.anded_expressions)
+                                            request_message.anded_expressions)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))
@@ -204,7 +204,7 @@ def _get_metric_history():
     request_message = _get_request_message(GetMetricHistory(), from_get=True)
     response_message = GetMetricHistory.Response()
     metric_entites = _get_store().get_metric_history(request_message.run_uuid,
-                                              request_message.metric_key)
+                                                     request_message.metric_key)
     response_message.metrics.extend([m.to_proto() for m in metric_entites])
     response = Response(mimetype='application/json')
     response.set_data(MessageToJson(response_message, preserving_proto_field_name=True))

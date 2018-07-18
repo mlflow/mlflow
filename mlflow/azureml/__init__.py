@@ -124,8 +124,8 @@ def init():
     model = load_pyfunc("model")
 
 
-def run(s):    
-    input_df = pd.read_json(s, orient="records")    
+def run(s):
+    input_df = pd.read_json(s, orient="records")
     return get_jsonable_obj(model.predict(input_df))
 
 """

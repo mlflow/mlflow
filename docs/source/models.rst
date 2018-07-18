@@ -194,6 +194,18 @@ TensorFlow (``tensorflow``)
 
 The TensorFlow model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on Pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.tensorflow`. 
 
+Spark MLlib (``spark``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Spark model flavor enables exporting Spark MLlib models as MLflow models. Exported models are
+saved using Spark MLLib's native serialization, and can then be loaded back as MLlib models or
+deployed as ``Python Function`` models. When deployed as a Pyfunc, the model will create its own
+SparkContext and convert pandas DataFrame input to a Spark DataFrame before scoring. While this is not
+the most efficient solution, especially for real-time scoring, it enables users to easily deploy any MLlib PipelineModel
+(as long as the PipelineModel has no external JAR dependencies) to any endpoint supported by
+MLflow. For more information, see :py:mod:`mlflow.spark`.
+
+
 Custom Flavors
 --------------
 
@@ -280,7 +292,7 @@ or locally in a docker container with Sagemaker compatible environment (Docker i
 Similarly to Azure ML, you have to set up your environment and user accounts first in order to
 deploy to Sagemaker with MLflow. Also, in order to export a custom model to Sagemaker, you need a
 MLflow-compatible Docker image to be available on Amazon ECR. MLflow provides a default Docker
-image definition, however, it is up to you to build the actual image and upload it to ECR.
+image defintion;however, it is up to the user to build the actual image and upload it to ECR.
 MLflow includes a utility function to perform this step. Once built and uploaded, the MLflow
 container can be used for all MLflow models.
 
@@ -316,9 +328,9 @@ For more info, see:
     mlflow sagemaker deploy --help
 
 
-Spark
-^^^^^
-MLFLow can output python function model as a Spark UDF, which can be uploaded to a Spark cluster and
+Apache Spark
+^^^^^^^^^^^^
+MLFLow can output python function model as an Apache Spark UDF, which can be uploaded to a Spark cluster and
 used to score the model.
 
 Example:

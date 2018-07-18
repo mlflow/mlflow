@@ -66,9 +66,9 @@ def _serve():
         print("activating custom environment")
         env = conf[pyfunc.ENV]
         env_path_dst = os.path.join("/opt/mlflow/", env)
-        # check that the mlflow version is matching
-        if not os.path.isdir("/opt/mlflow"):
-            os.mkdir("/opt/mlflow")
+        env_path_dst_dir = os.path.dirname(env_path_dst)
+        if not os.path.exists(env_path_dst_dir):
+            os.makedirs(env_path_dst_dir)
         # TODO: should we test that the environment does not include any of the server dependencies?
         # Those are gonna be reinstalled. should probably test this on the client side
         shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)

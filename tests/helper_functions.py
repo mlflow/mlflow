@@ -5,6 +5,7 @@ import string
 from subprocess import Popen, PIPE, STDOUT
 import time
 
+
 def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
 
@@ -15,6 +16,7 @@ def random_str(size=10, chars=string.ascii_uppercase + string.digits):
 
 def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
+
 
 def score_model_in_sagemaker_docker_container(model_path, data):
     env = dict(os.environ)
@@ -31,7 +33,7 @@ def score_model_in_sagemaker_docker_container(model_path, data):
                 print('connection attempt', i, "server is up! ping status", ping_status)
                 if ping_status.status_code == 200:
                     break
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 print('connection attempt', i, "failed, server is not up yet")
 
         assert proc.poll() is None, "scoring process died"

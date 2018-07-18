@@ -202,23 +202,35 @@ An example configuration for a server is as follows:
 
     mlflow server \
         --file-store /mnt/persistent-disk \
-        --artifact-root s3://my-mlflow-bucket/ \
+        --default-artifact-root s3://my-mlflow-bucket/ \
         --host 0.0.0.0
 
 Storage
 ^^^^^^^
 There are two properties related to how data is stored:
 
-* ``--file-store`` a persistent (non-ephemeral) disk where the server stores run and experiment information.
-* ``--artifact-root`` a location suitable for large data (such as an S3 bucket or shared NFS file system)
-  where clients log their artifact output (for example, models). If
-  you do not provide this option, clients write artifacts to *their* local directories,
-  which the server won't serve.
+The **File Store** (exposed via ``--file-store``) is where the server will store run and experiment metadata.
+It defaults to the local ./mlruns directory (same as when running ``mlflow run`` locally), but when
+running in a server, make sure that this points to a persistent (i.e., non-ephemeral) file system location.
+
+The **Artifact Store** is a location suitable for large data (such as an S3 bucket or shared NFS file system)
+where clients log their artifact output (for example, models). The Artifact Store is actually a property
+of an Experiment, but the ``--default-artifact-root`` flag is used to set the artifact root URI for
+newly-created experments that do not specify one. Note that once an experiment is created,
+the ``--default-artifact-root`` is no longer relevant to it.
 
 For the clients and server to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
+To utilize Google Cloud Storage you can set the artifact-root to ``gs://<storage_bucket>``, and you will need to provide auth as per
+the documentation for `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
+
+Warning: If you do not specify a ``--default-artifact-root``, nor do you specify an artifact URI when creating
+the experiment (e.g., ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
+will be a path inside the File Store. Typically this is not an appropriate location, as the client and
+server will probably be referring to different physical locations (i.e., the same path on different disks).
+
 
 Networking
 ^^^^^^^^^^

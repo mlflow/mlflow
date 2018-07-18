@@ -14,6 +14,7 @@ import mlflow.sagemaker.cli
 import mlflow.server
 
 from mlflow.entities.experiment import Experiment
+from mlflow.utils.process import ShellCommandException
 from mlflow import tracking
 
 
@@ -47,7 +48,7 @@ def cli():
                    "Databricks workspace specified in the default Databricks CLI profile. "
                    "See https://github.com/databricks/databricks-cli for more info on configuring "
                    "a Databricks CLI profile.")
-@click.option("--cluster-spec", metavar="FILE",
+@click.option("--cluster-spec", "-c", metavar="FILE",
               help="Path to JSON file describing the cluster to use when launching a run on "
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
@@ -75,6 +76,8 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     """
     Run an MLflow project from the given URI.
 
+    Blocks till the run completes.
+
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.
 
@@ -94,18 +97,21 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             sys.exit(1)
         param_dict[name] = value
     try:
-        projects.run(uri,
-                     entry_point,
-                     version,
-                     experiment_id=experiment_id,
-                     parameters=param_dict,
-                     mode=mode,
-                     cluster_spec=cluster_spec,
-                     git_username=git_username,
-                     git_password=git_password,
-                     use_conda=(not no_conda),
-                     use_temp_cwd=new_dir,
-                     storage_dir=storage_dir)
+        projects.run(
+            uri,
+            entry_point,
+            version,
+            experiment_id=experiment_id,
+            parameters=param_dict,
+            mode=mode,
+            cluster_spec=cluster_spec,
+            git_username=git_username,
+            git_password=git_password,
+            use_conda=(not no_conda),
+            use_temp_cwd=new_dir,
+            storage_dir=storage_dir,
+            block=True,
+        )
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)
@@ -128,15 +134,22 @@ def ui(file_store, host, port):
     The UI will be visible at http://localhost:5000 by default.
     """
     # TODO: We eventually want to disable the write path in this version of the server.
-    mlflow.server._run_server(file_store, file_store, host, port, 1)
+    try:
+        mlflow.server._run_server(file_store, file_store, host, port, 1)
+    except ShellCommandException:
+        print("Running the mlflow server failed. Please see the logs above for details.",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 @cli.command()
 @click.option("--file-store", metavar="PATH", default=None,
               help="The root of the backing file store for experiment and run data "
                    "(default: ./mlruns).")
-@click.option("--artifact-root", metavar="URI", default=None,
-              help="Local or S3 URI to store artifacts in (default: inside file store).")
+@click.option("--default-artifact-root", metavar="URI", default=None,
+              help="Local or S3 URI to store artifacts in, for newly created experiments. "
+                   "Note that this flag does not impact already-created experiments. "
+                   "Default: inside file store.")
 @click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
               help="The network address to listen on (default: 127.0.0.1). "
                    "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
@@ -145,7 +158,7 @@ def ui(file_store, host, port):
               help="The port to listen on (default: 5000).")
 @click.option("--workers", "-w", default=4,
               help="Number of gunicorn worker processes to handle requests (default: 4).")
-def server(file_store, artifact_root, host, port, workers):
+def server(file_store, default_artifact_root, host, port, workers):
     """
     Run the MLflow tracking server.
 
@@ -153,7 +166,12 @@ def server(file_store, artifact_root, host, port, workers):
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
-    mlflow.server._run_server(file_store, artifact_root, host, port, workers)
+    try:
+        mlflow.server._run_server(file_store, default_artifact_root, host, port, workers)
+    except ShellCommandException:
+        print("Running the mlflow server failed. Please see the logs above for details.",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 cli.add_command(mlflow.sklearn.commands)
