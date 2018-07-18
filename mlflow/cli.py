@@ -48,7 +48,7 @@ def cli():
                    "Databricks workspace specified in the default Databricks CLI profile. "
                    "See https://github.com/databricks/databricks-cli for more info on configuring "
                    "a Databricks CLI profile.")
-@click.option("--cluster-spec", metavar="FILE",
+@click.option("--cluster-spec", "-c", metavar="FILE",
               help="Path to JSON file describing the cluster to use when launching a run on "
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
@@ -76,6 +76,8 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     """
     Run an MLflow project from the given URI.
 
+    Blocks till the run completes.
+
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.
 
@@ -95,18 +97,21 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             sys.exit(1)
         param_dict[name] = value
     try:
-        projects.run(uri,
-                     entry_point,
-                     version,
-                     experiment_id=experiment_id,
-                     parameters=param_dict,
-                     mode=mode,
-                     cluster_spec=cluster_spec,
-                     git_username=git_username,
-                     git_password=git_password,
-                     use_conda=(not no_conda),
-                     use_temp_cwd=new_dir,
-                     storage_dir=storage_dir)
+        projects.run(
+            uri,
+            entry_point,
+            version,
+            experiment_id=experiment_id,
+            parameters=param_dict,
+            mode=mode,
+            cluster_spec=cluster_spec,
+            git_username=git_username,
+            git_password=git_password,
+            use_conda=(not no_conda),
+            use_temp_cwd=new_dir,
+            storage_dir=storage_dir,
+            block=True,
+        )
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
         sys.exit(1)
