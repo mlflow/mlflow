@@ -5,20 +5,18 @@ import shutil
 import tempfile
 import textwrap
 import time
-
 from databricks_cli.configure import provider
 from six.moves import shlex_quote
 
-from mlflow import tracking
-from mlflow.version import VERSION
-from mlflow.entities.experiment import Experiment
 from mlflow.entities.source_type import SourceType
-from mlflow.utils import rest_utils, process, file_utils
-from mlflow.utils.logging_utils import eprint
-from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project
 
+from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project
 from mlflow.projects.pollable_run import DatabricksPollableRun
 from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.utils import rest_utils, file_utils, process
+from mlflow.utils.logging_utils import eprint
+from mlflow import tracking
+from mlflow.version import VERSION
 
 DB_CONTAINER_BASE = "/databricks/mlflow"
 DB_TARFILE_BASE = os.path.join(DB_CONTAINER_BASE, "project-tars")
@@ -227,7 +225,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=uri,
         source_version=version, entry_point_name=entry_point)
     # Set up environment variables for remote execution
-    env_vars = {"MLFLOW_GIT_URI": uri}
+    env_vars = {}
     if experiment_id is not None:
         eprint("=== Using experiment ID %s ===" % experiment_id)
         env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id

@@ -5,6 +5,7 @@ import os
 import shutil
 
 from databricks_cli.configure import provider
+
 import pytest
 
 import mlflow
@@ -49,13 +50,18 @@ def cluster_spec_mock(tmpdir):
 
 
 @pytest.fixture()
-def create_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
+def create_databricks_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
     # Mocks logic for creating an MLflow run against a tracking server to persist the run to a local
     # file store
-    with mock.patch("mlflow.projects.databricks._create_databricks_run") as create_db_run_mock:
-        create_db_run_mock.return_value = mlflow.tracking._create_run(
-            experiment_id=0, source_name="", source_version="", entry_point_name="",
-            source_type=SourceType.PROJECT)
+    def create_run_mock(
+            tracking_uri, experiment_id, source_name,  # pylint: disable=unused-argument
+            source_version, entry_point_name):
+        return mlflow.tracking._create_run(
+            experiment_id=experiment_id, source_name=source_name, source_version=source_version,
+            entry_point_name=entry_point_name, source_type=SourceType.PROJECT)
+    with mock.patch.object(
+            mlflow.projects.databricks, "_create_databricks_run",
+            new=create_run_mock) as create_db_run_mock:
         yield create_db_run_mock
 
 
@@ -169,12 +175,16 @@ def test_run_databricks(
         runs_submit_mock.reset_mock()
         validate_exit_status(submitted_run.get_status(), expected_status)
 
+def test_run_databricks_cancel(
+        tmpdir, create_databricks_run_mock,  # pylint: disable=unused-argument
+        runs_submit_mock, runs_cancel_mock,  # pylint: disable=unused-argument
+        runs_get_mock, cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation
     runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
     submitted_run = run_databricks_project(cluster_spec_mock)
     submitted_run.cancel()
     validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
-    # # Test that we raise an exception when a blocking Databricks run fails
+    # Test that we raise an exception when a blocking Databricks run fails
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     with pytest.raises(mlflow.projects.ExecutionException):
         run_databricks_project(cluster_spec_mock, block=True)

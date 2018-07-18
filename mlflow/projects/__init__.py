@@ -62,6 +62,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the `version`.
 
+    Raises:
+      `mlflow.projects.ExecutionException` if a run launched in blocking mode is unsuccessful.
+
     :param entry_point: Entry point to run within the project. If no entry point with the specified
                         name is found, attempts to run the project file `entry_point` as a script,
                         using "python" to run .py files and the default shell (specified by
@@ -102,7 +105,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     if block:
         submitted_run_obj.wait()
         run_status = submitted_run_obj.get_status()
-        if RunStatus.from_string(run_status) != RunStatus.FINISHED:
+        if run_status and RunStatus.from_string(run_status) != RunStatus.FINISHED:
             raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
                                      (submitted_run_obj.run_id, run_status))
     return submitted_run_obj
@@ -265,9 +268,8 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
     # Create a new run and log every provided parameter into it.
-    exp_id_for_run = experiment_id or tracking._get_experiment_id()
     active_run = tracking._create_run(
-        experiment_id=exp_id_for_run, source_name=project.uri,
+        experiment_id=experiment_id, source_name=project.uri,
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
     if parameters is not None:
@@ -275,11 +277,10 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
             active_run.log_param(Param(key, value))
     # Add the run id into a magic environment variable that the subprocess will read,
     # causing it to reuse the run.
-    exp_id = experiment_id or tracking._get_experiment_id()
     env_map = {
         tracking._RUN_ID_ENV_VAR: active_run.run_info.run_uuid,
         tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(exp_id),
+        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
     }
 
     commands.append(run_project_command)
