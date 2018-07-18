@@ -14,12 +14,13 @@ Features:
 - [SageMaker] Support for deleting, updating applications deployed via SageMaker (#145, @dbczumar)
 - [UI] One-element metrics are now displayed as a bar char (#118, @cryptexis)
 
-Bug fixes:
+Bug fixes and breaking changes:
 
+- [Breaking] Renamed ``--artifact-root`` parameter to ``--default-artifact-root`` in mlflow server to better reflect its purpose (#165, @aarondav)
 - Require gitpython>=2.1.0 (#98, @aarondav)
 - Fixed TensorFlow model loading so that columns match the output names of the exported model (#94, @smurching)
 - Fix SparkUDF when number of columns >= 10 (#97, @aarondav)
-- Miscelanneous bug and documentation fixes from @emres, @dmatrix, @stbof, @gsganden, @dennyglee, @anabranch, @mikehuston, @andrewmchen, @juntai-zheng
+- Miscellaneous bug and documentation fixes from @emres, @dmatrix, @stbof, @gsganden, @dennyglee, @anabranch, @mikehuston, @andrewmchen, @juntai-zheng
 
 0.2.1 (2018-06-28)
 ------------------
