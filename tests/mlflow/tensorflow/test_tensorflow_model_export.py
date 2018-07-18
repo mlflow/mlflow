@@ -102,7 +102,7 @@ class TestModelExport(unittest.TestCase):
         for reference code.
         """
         with TempDir(chdr=False, remove_on_exit=True) as tmp:
-            path = tf.contrib.keras.utils.get_file("imports-85.data", "../../data/uci-autos-imports-85.data")
+            path = os.path.abspath("tests/data/uci-autos-imports-85.data")
             # Order is important for the csv-readers, so we use an OrderedDict here.
             defaults = collections.OrderedDict([
                 ("body-style", [""]),
