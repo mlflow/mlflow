@@ -110,6 +110,11 @@ def test_run_databricks_cancel(
     print("Cancel done")
     validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
     print("Validation done")
+
+def test_run_databricks_block(
+        tmpdir, create_databricks_run_mock,  # pylint: disable=unused-argument
+        runs_submit_mock, runs_cancel_mock,  # pylint: disable=unused-argument
+        runs_get_mock, cluster_spec_mock):
     # Test that we raise an exception when a blocking Databricks run fails
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     print("Return set")
