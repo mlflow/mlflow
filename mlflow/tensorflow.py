@@ -81,7 +81,7 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
     mlflow.tracking.log_artifacts(saved_model_dir, artifact_path)
 
 
-def load_pyfunc(saved_model_dir):
+def load_pyfunc(model, path, saved_model_dir):
     """Load model stored in python-function format.
     The loaded model object exposes a ``predict(pandas DataFrame)`` method that returns a Pandas
     DataFrame containing the model's inference output on an input DataFrame.
