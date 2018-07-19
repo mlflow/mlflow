@@ -103,17 +103,18 @@ class DatabricksPollableRun(PollableRun):
     """
     Instance of PollableRun corresponding to a Databricks Job run launched to run an MLflow project.
     """
-    def __init__(self, databricks_run_id):
+    def __init__(self, databricks_run_id, profile):
         super(DatabricksPollableRun, self).__init__()
         self.databricks_run_id = databricks_run_id
+        self.profile = profile
 
     def wait(self):
         from mlflow.projects import databricks
-        return databricks.monitor_databricks(self.databricks_run_id)
+        return databricks.monitor_databricks(self.databricks_run_id, self.profile)
 
     def cancel(self):
         from mlflow.projects import databricks
-        databricks.cancel_databricks(self.databricks_run_id)
+        databricks.cancel_databricks(self.databricks_run_id, self.profile)
 
     def describe(self):
         return "Databricks Job run with id: %s" % self.databricks_run_id

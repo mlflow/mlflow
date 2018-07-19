@@ -14,7 +14,7 @@ from mlflow.entities.source_type import SourceType
 from mlflow.projects import databricks, ExecutionException
 from mlflow.utils import file_utils
 
-from tests.projects.utils import validate_exit_status, GIT_PROJECT_URI
+from tests.projects.utils import validate_exit_status
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.projects.utils import TEST_PROJECT_DIR
 
@@ -117,7 +117,7 @@ def mock_runs_get_result(succeeded):
 
 def run_databricks_project(cluster_spec_path, block=False):
     return mlflow.projects.run(
-        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block,
+        uri=TEST_PROJECT_DIR, mode="databricks", cluster_spec=cluster_spec_path, block=block,
         parameters={"alpha": "0.4"})
 
 
