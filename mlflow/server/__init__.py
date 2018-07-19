@@ -55,6 +55,8 @@ def _run_server(file_store_path, default_artifact_root, host, port, workers, sta
         env_map[FILE_STORE_ENV_VAR] = file_store_path
     if default_artifact_root:
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
+    if static_prefix:
+        env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
     bind_address = "%s:%s" % (host, port)
     exec_cmd(["gunicorn", "-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
              env=env_map, stream_output=True)
