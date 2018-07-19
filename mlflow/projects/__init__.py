@@ -197,7 +197,7 @@ def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_passwo
         if subdirectory == '':
             raise ExecutionException("No MLproject file found in %s" % uri)
         else:
-            raise ExecutionException("No MLproject file found in subdirectory %s of %s" % 
+            raise ExecutionException("No MLproject file found in subdirectory %s of %s" %
                                      (subdirectory, uri))
 
     return os.path.join(dst_dir, subdirectory)
