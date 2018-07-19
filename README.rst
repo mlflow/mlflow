@@ -18,6 +18,13 @@ Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
 
+Community
+---------
+To discuss MLflow or get help, please subscribe to our mailing list (mlflow-users@googlegroups.com) or
+join us on Slack at https://tinyurl.com/mlflow-slack.
+
+To report bugs, please use GitHub issues.
+
 Running a Sample App With the Tracking API
 ------------------------------------------
 The programs in ``example`` use the MLflow Tracking API. For instance, run::
