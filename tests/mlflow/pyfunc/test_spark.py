@@ -16,8 +16,6 @@ from mlflow.pyfunc import load_pyfunc, spark_udf
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 import mlflow.sklearn
 
-from tests.helper_functions import spark_session  # pylint:disable=unused-import
-
 
 class TestSparkUDFs(unittest.TestCase):
     def setUp(self):

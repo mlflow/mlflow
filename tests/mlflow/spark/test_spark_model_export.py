@@ -1,7 +1,6 @@
 import os
 
 import pandas as pd
-import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
@@ -15,7 +14,8 @@ from mlflow import spark as sparkm
 from mlflow import tracking
 
 from mlflow.utils.environment import _mlflow_conda_env
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import score_model_in_sagemaker_docker_container,\
+    spark_session  # pylint:disable=unused-import
 
 
 @pytest.mark.large
