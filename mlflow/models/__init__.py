@@ -49,7 +49,7 @@ class Model(object):
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:
-            local_path = tmp.path("model")
+            local_path = tmp.path("")
             run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)

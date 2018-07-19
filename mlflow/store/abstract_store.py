@@ -54,6 +54,7 @@ class AbstractStore:
         """
         pass
 
+
     def update_run_info(self, run_uuid, run_status, end_time):
         """
         Updates the metadata of the specified run.

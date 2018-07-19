@@ -59,7 +59,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
             str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
-    spark_model.save(os.path.join(path, "model"))
+    spark_model.save("file:" + os.path.join(path, "model"))
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
     if conda_env:
