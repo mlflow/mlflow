@@ -166,6 +166,7 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
 
 
+@pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks(
         cli_configured_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
@@ -182,6 +183,7 @@ def test_run_databricks(
         validate_exit_status(submitted_run.get_status(), expected_status)
 
 
+@pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks_cancel(
         cli_configured_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, create_run_mock,  # pylint: disable=unused-argument
