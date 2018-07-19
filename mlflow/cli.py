@@ -14,6 +14,7 @@ import mlflow.sagemaker.cli
 import mlflow.server
 
 from mlflow.entities.experiment import Experiment
+from mlflow.utils.process import ShellCommandException
 from mlflow import tracking
 
 
@@ -128,7 +129,12 @@ def ui(file_store, host, port):
     The UI will be visible at http://localhost:5000 by default.
     """
     # TODO: We eventually want to disable the write path in this version of the server.
-    mlflow.server._run_server(file_store, file_store, host, port, 1, None)
+    try:
+        mlflow.server._run_server(file_store, file_store, host, port, 1, None)
+    except ShellCommandException:
+        print("Running the mlflow server failed. Please see the logs above for details.",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 @cli.command()
@@ -155,7 +161,12 @@ def server(file_store, artifact_root, host, port, workers, static_prefix):
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
-    mlflow.server._run_server(file_store, artifact_root, host, port, workers, static_prefix)
+    try:
+        mlflow.server._run_server(file_store, artifact_root, host, port, workers, static_prefix)
+    except ShellCommandException:
+        print("Running the mlflow server failed. Please see the logs above for details.",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 cli.add_command(mlflow.sklearn.commands)
