@@ -173,7 +173,7 @@ def _expand_uri(uri):
 def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_password):
     """
     Fetches the project from the uri. Makes sure the uri contains a valid MLproject file.
-    Returns the working directory and the uri used for future runs.
+    Returns the working directory for running the project.
     """
     # Download a project to the target `dst_dir` from a Git URI or local path.
     if _GIT_URI_REGEX.match(uri):
@@ -194,7 +194,11 @@ def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_passwo
 
     # Make sure there is a MLproject file in the specified working directory.
     if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
-        raise ExecutionException("No MLproject file found in %s" % (uri + '/' + subdirectory))
+        if subdirectory == '':
+            raise ExecutionException("No MLproject file found in %s" % uri)
+        else:
+            raise ExecutionException("No MLproject file found in subdirectory %s of %s" % 
+                                     (subdirectory, uri))
 
     return os.path.join(dst_dir, subdirectory)
 

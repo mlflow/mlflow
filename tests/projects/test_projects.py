@@ -19,7 +19,7 @@ from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR, va
 
 
 def _assert_dirs_equal(expected, actual):
-    dir_comparison = filecmp.dircmp(actual, expected)
+    dir_comparison = filecmp.dircmp(expected, actual)
     assert len(dir_comparison.left_only) == 0
     assert len(dir_comparison.right_only) == 0
     assert len(dir_comparison.diff_files) == 0
@@ -52,15 +52,11 @@ def test_fetch_project(tmpdir):
     _assert_dirs_equal(expected=TEST_PROJECT_DIR, actual=work_dir)
 
     # Test fetching a project located in a Git repo subdirectory.
-    dst_dir = tmpdir.join('git-no-subdir').strpath
-    work_dir = mlflow.projects._fetch_project(uri=git_repo_uri, subdirectory='', version=None,
-                                              dst_dir=dst_dir, git_username=None,
-                                              git_password=None)
     dst_dir = tmpdir.join('git-subdir').strpath
-    work_dir2 = mlflow.projects._fetch_project(uri=git_subdir_repo, subdirectory='example_project',
+    work_dir = mlflow.projects._fetch_project(uri=git_subdir_repo, subdirectory='example_project',
                                                version=None, dst_dir=dst_dir, git_username=None,
                                                git_password=None)
-    _assert_dirs_equal(expected=work_dir, actual=work_dir2)
+    _assert_dirs_equal(expected=local_git, actual=work_dir)
 
     # Test passing a subdirectory with `#` works for local directories.
     work_dir = mlflow.projects._fetch_project(uri=TEST_DIR,
