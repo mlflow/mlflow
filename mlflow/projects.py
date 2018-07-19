@@ -233,15 +233,31 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     the file system. For Git-based projects, a commit can be specified as the `version`.
     """
     eprint("=== Fetching project from %s ===" % uri)
-
-    # Get the working directory to use for running the project & download it there
-    work_dir = _fetch_project(uri, version, use_temp_cwd, git_username, git_password)
+    # Separating the uri from the subdirectory requested.
+    parsed_uri, subdirectory = _parse_subdirectory(uri)
+    expanded_uri = _expand_uri(parsed_uri)
+    # Get the directory to fetch the project into.
+    dst_dir = _get_dest_dir(expanded_uri, use_temp_cwd)
+    # Get the work directory for running the project and the uri to save in the project.
+    work_dir, final_uri = _fetch_project(expanded_uri, subdirectory, version, dst_dir,
+                                         git_username, git_password)
     eprint("=== Work directory for this run: %s ===" % work_dir)
     # Load the MLproject file
-    if not os.path.isfile(os.path.join(work_dir, "MLproject")):
-        raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(uri, file_utils.read_yaml(work_dir, "MLproject"))
+    project = Project(final_uri, file_utils.read_yaml(work_dir, "MLproject"))
     _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id)
+
+
+def _parse_subdirectory(uri):
+    # Parses a uri and returns the uri and subdirectory as separate values.
+    # Uses '#' as a delimiter.
+    subdirectory = ''
+    parsed_uri = uri
+    if '#' in uri:
+        subdirectory = uri[uri.find('#')+1:]
+        parsed_uri = uri[:uri.find('#')]
+    if subdirectory and _GIT_URI_REGEX.match(parsed_uri) and '.' in subdirectory:
+        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
+    return parsed_uri, subdirectory
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
@@ -293,9 +309,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 
 
-def _get_work_dir(uri, use_temp_cwd):
+def _get_dest_dir(uri, use_temp_cwd):
     """
-    Returns a working directory to use for fetching & running the project with the specified URI.
+    Returns a directory to use for fetching the project with the specified URI.
     :param use_temp_cwd: Only used if `uri` is a local directory. If True, returns a temporary
                          working directory.
     """
@@ -317,39 +333,37 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version, use_temp_cwd, git_username, git_password):
+def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_password):
     """
-    Fetches the project from the uri and returns the working directory for running the project.
-    Handles parsing subdirectories delimited by the `#` character.
+    Fetches the project from the uri. Makes sure the uri contains a valid MLproject file.
+    Returns the working directory and the uri used for future runs.
     """
-    # Parsing the subdirectory and URI.
-    subdirectory = ""
-    parsed_uri = uri
-    if '#' in uri:
-        subdirectory = uri[uri.find('#')+1:]
-        parsed_uri = uri[:uri.find('#')]
-    if subdirectory and _GIT_URI_REGEX.match(parsed_uri) and '.' in subdirectory:
-        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
-    dst_dir = _get_work_dir(parsed_uri, use_temp_cwd)
-    expanded_uri = _expand_uri(parsed_uri)
     # Download a project to the target `dst_dir` from a Git URI or local path.
-    if _GIT_URI_REGEX.match(expanded_uri):
+    if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
-        _fetch_git_repo(expanded_uri, version, dst_dir, git_username, git_password)
+        _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
         # TODO: don't copy mlruns directory here
         # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
-        if expanded_uri != dst_dir:
-            dir_util.copy_tree(src=expanded_uri, dst=dst_dir)
+        if uri != dst_dir:
+            dir_util.copy_tree(src=uri, dst=dst_dir)
 
     # Make sure they don't have an outputs or mlruns directory (will need to change if we change
     # how we log results locally)
     shutil.rmtree(os.path.join(dst_dir, "outputs"), ignore_errors=True)
     shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
 
-    return os.path.join(dst_dir, subdirectory)
+    # Make sure there is a MLproject file in the specified working directory.
+    if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
+        raise ExecutionException("No MLproject file found in %s" % (uri + '/' + subdirectory))
+
+    ret_uri = uri
+    if subdirectory != '':
+        ret_uri = os.path.join(ret_uri, '#', subdirectory)
+
+    return os.path.join(dst_dir, subdirectory), ret_uri
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
