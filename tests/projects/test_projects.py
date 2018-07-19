@@ -56,7 +56,7 @@ def test_fetch_project(tmpdir):
     work_dir = mlflow.projects._fetch_project(uri=git_subdir_repo, subdirectory='example_project',
                                               version=None, dst_dir=dst_dir, git_username=None,
                                               git_password=None)
-    _assert_dirs_equal(expected=local_git, actual=work_dir)
+    _assert_dirs_equal(expected=os.path.join(local_git_subdir, 'example_project'), actual=work_dir)
 
     # Test passing a subdirectory with `#` works for local directories.
     work_dir = mlflow.projects._fetch_project(uri=TEST_DIR,
