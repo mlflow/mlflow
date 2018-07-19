@@ -5,6 +5,18 @@ import string
 from subprocess import Popen, PIPE, STDOUT
 import time
 
+import pytest
+
+
+@pytest.fixture()
+def spark_session():
+    spark_session = pyspark.sql.SparkSession.builder \
+        .config(key="spark_session.python.worker.reuse", value=True) \
+        .master("local-cluster[2, 1, 1024]") \
+        .getOrCreate()
+    yield spark_session
+    spark_session.stop()
+
 
 def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)

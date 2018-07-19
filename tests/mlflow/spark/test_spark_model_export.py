@@ -19,7 +19,7 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 
 @pytest.mark.large
-def test_model_export(tmpdir):
+def test_model_export(tmpdir, spark_session):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
     iris = datasets.load_iris()
@@ -27,10 +27,6 @@ def test_model_export(tmpdir):
     y = iris.target
     pandas_df = pd.DataFrame(X, columns=iris.feature_names)
     pandas_df['label'] = pd.Series(y)
-    spark_session = pyspark.sql.SparkSession.builder \
-        .config(key="spark_session.python.worker.reuse", value=True) \
-        .master("local-cluster[2, 1, 1024]") \
-        .getOrCreate()
     spark_df = spark_session.createDataFrame(pandas_df)
     model_path = tmpdir.mkdir("model")
     assembler = VectorAssembler(inputCols=iris.feature_names, outputCol="features")
@@ -54,7 +50,7 @@ def test_model_export(tmpdir):
 
 
 @pytest.mark.large
-def test_model_log(tmpdir):
+def test_model_log(tmpdir, spark_session):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
     iris = datasets.load_iris()
@@ -62,10 +58,6 @@ def test_model_log(tmpdir):
     y = iris.target
     pandas_df = pd.DataFrame(X, columns=iris.feature_names)
     pandas_df['label'] = pd.Series(y)
-    spark_session = pyspark.sql.SparkSession.builder \
-        .config(key="spark_session.python.worker.reuse", value=True) \
-        .master("local-cluster[2, 1, 1024]") \
-        .getOrCreate()
     spark_df = spark_session.createDataFrame(pandas_df)
     model_path = tmpdir.mkdir("model")
     assembler = VectorAssembler(inputCols=iris.feature_names, outputCol="features")
