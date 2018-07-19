@@ -6,6 +6,7 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 
 import pytest
+import pyspark
 
 
 @pytest.fixture()
