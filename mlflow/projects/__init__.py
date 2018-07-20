@@ -230,12 +230,13 @@ def _maybe_create_conda_env(conda_env_path):
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
-        raise ExecutionException("Could not find conda installation at path %s. "
+        raise ExecutionException("Could not find conda executable {0}. "
                                  "Please ensure conda is installed as per the instructions "
-                                 "on https://conda.io/docs/user-guide/install/index.html. You may "
+                                 "at https://conda.io/docs/user-guide/install/index.html. You may "
                                  "also configure MLflow to look for a specific conda installation "
-                                 "by setting $%s to the directory of the conda installation"
-                                 % (CONDA_HOME, conda_path))
+                                 "by setting ${1} to the path of the conda installation (e.g. "
+                                 "setting {1}=/some/dir will configure MLflow to look for a conda "
+                                 "executable at /some/dir/bin/conda)".format(conda_path, CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
