@@ -7,13 +7,17 @@ import json
 import os
 import re
 import shutil
+import sys
+import subprocess
 import tempfile
 
-from six.moves import shlex_quote
 from distutils import dir_util
 
 
 from mlflow.projects._project_spec import Project
+from mlflow.projects.submitted_run import SubmittedRun, maybe_set_run_terminated
+
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
@@ -90,20 +94,21 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                   the current process will block when exiting until the local run completes.
                   If the current process is interrupted, any asynchronous runs launched via this
                   method will be terminated.
-    :return: A `PollableRun` exposing information (e.g. run ID) about the launched run.
+    :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run.
     """
-    pollable_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
+    submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
                              parameters=parameters,
                              experiment_id=experiment_id,
                              mode=mode, cluster_spec=cluster_spec, git_username=git_username,
                              git_password=git_password, use_conda=use_conda,
                              use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
     if block:
-        success = pollable_run_obj.wait()
-        if not success:
-            raise ExecutionException("=== Run (%s) was unsuccessful  ===" %
-                                     (pollable_run_obj.describe()))
-    return pollable_run_obj
+        submitted_run_obj.wait()
+        status = submitted_run_obj.get_status()
+        if RunStatus.from_string(status) != RunStatus.FINISHED:
+            raise ExecutionException("=== Run (%s) was unsuccessful, had status %s ===" %
+                                     (submitted_run_obj.run_id, status))
+    return submitted_run_obj
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
@@ -226,7 +231,7 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_local_run(command, work_dir, env_map, stream_output):
+def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
     the run's exit status.
@@ -235,10 +240,9 @@ def _launch_local_run(command, work_dir, env_map, stream_output):
     :param command: Entry point command to execute
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
-    :return `PollableRun` corresponding to the launched run.
+    :return `SubmittedRun` corresponding to the launched run.
     """
     from mlflow.projects.pollable_run import LocalPollableRun
-    import subprocess
     rewritten_command = list(["mlflow", "_run_internal", command])
     final_env = os.environ.copy()
     final_env.update(env_map)
@@ -250,19 +254,7 @@ def _launch_local_run(command, work_dir, env_map, stream_output):
             rewritten_command, cwd=work_dir, env=final_env, universal_newlines=True,
             stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"))
     pollable_run = LocalPollableRun(popen, command)
-    return pollable_run
-
-
-from mlflow.entities.run_status import RunStatus
-
-
-def maybe_set_run_terminated(active_run, status):
-    """
-    If the passed-in active run is defined and still running (i.e. hasn't already been terminated
-    within user code), mark it as terminated with the passed-in status.
-    """
-    if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
-        active_run.set_terminated(status)
+    return SubmittedRun(active_run, pollable_run)
 
 
 def _run_entry_point_command(command):
@@ -270,7 +262,6 @@ def _run_entry_point_command(command):
     Meant to be run in a subprocess via a CLI command triggered in _run_project. Runs an entry point
     command locally & reports its status to the tracking server.
     """
-    import sys, subprocess
     run_id = os.environ[tracking._RUN_ID_ENV_VAR]
     store = tracking._get_store()
     run_info = tracking.get_run(run_id).info
@@ -331,4 +322,4 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     eprint("=== Running command '%s' in run with ID '%s' === "
            % (command, active_run.run_info.run_uuid))
 
-    return _launch_local_run(command, work_dir, env_map, stream_output=block)
+    return _launch_local_run(active_run, command, work_dir, env_map, stream_output=block)

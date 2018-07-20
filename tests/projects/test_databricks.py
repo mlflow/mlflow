@@ -77,22 +77,22 @@ def run_databricks_project(cluster_spec_path, block=False):
         uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block)
 
 
-@pytest.mark.skip(reason="flaky running in travis py2.7")
+# @pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks(
         tmpdir, runs_cancel_mock, create_databricks_run_mock,  # pylint: disable=unused-argument
         runs_submit_mock, runs_get_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     # Test that MLflow gets the correct run status when performing a Databricks run
-    for run_succeeded, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
+    for run_succeeded in [True, False]:
         runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
         submitted_run = run_databricks_project(cluster_spec_mock)
         submitted_run.wait()
         assert runs_submit_mock.call_count == 1
         runs_submit_mock.reset_mock()
-        validate_exit_status(submitted_run.get_status(), expected_status)
+        assert submitted_run._pollable_run_obj.wait() == run_succeeded
 
 
-@pytest.mark.skip(reason="flaky running in travis py2.7")
+# @pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks_cancel(
         tmpdir, create_databricks_run_mock,  # pylint: disable=unused-argument
         runs_submit_mock, runs_cancel_mock,  # pylint: disable=unused-argument

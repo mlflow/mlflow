@@ -1,36 +1,14 @@
-import multiprocessing
-import os
-import signal
-import sys
-
 from mlflow.entities.run_status import RunStatus
-from mlflow.projects.pollable_run import maybe_set_run_terminated
 from mlflow.utils.logging_utils import eprint
 
 
-def monitor_run(pollable_run, active_run):
+def maybe_set_run_terminated(active_run, status):
     """
-    Polls the run for termination, sending updates on the run's status to a tracking server via
-    the passed-in `ActiveRun` instance. This function is intended to be run asynchronously
-    in a subprocess.
+    If the passed-in active run is defined and still running (i.e. hasn't already been terminated
+    within user code), mark it as terminated with the passed-in status.
     """
-    # Add a SIGTERM & SIGINT handler to the current process that cancels the run
-    def handler(signal_num, stack_frame):  # pylint: disable=unused-argument
-        eprint("=== Run (%s) was interrupted, cancelling run... ===" % pollable_run.describe())
-        pollable_run.cancel()
-        maybe_set_run_terminated(active_run, "FAILED")
-        sys.exit(0)
-    signal.signal(signal.SIGTERM, handler)
-    signal.signal(signal.SIGINT, handler)
-    # Perform any necessary setup for the pollable run, then wait on it to finish
-    pollable_run.setup()
-    run_succeeded = pollable_run.wait()
-    if run_succeeded:
-        eprint("=== Run (%s) succeeded ===" % pollable_run.describe())
-        maybe_set_run_terminated(active_run, "FINISHED")
-    else:
-        eprint("=== Run (%s) failed ===" % pollable_run.describe())
-        maybe_set_run_terminated(active_run, "FAILED")
+    if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
+        active_run.set_terminated(status)
 
 
 class SubmittedRun(object):
@@ -41,11 +19,7 @@ class SubmittedRun(object):
     """
     def __init__(self, active_run, pollable_run_obj):
         self._active_run = active_run
-        # Launch subprocess that watches our pollable run & sends status updates to the tracking
-        # server
-        self._monitoring_subprocess = multiprocessing.Process(
-            target=monitor_run, args=(pollable_run_obj, self._active_run,))
-        self._monitoring_subprocess.start()
+        self._pollable_run_obj = pollable_run_obj
 
     @property
     def run_id(self):
@@ -71,19 +45,12 @@ class SubmittedRun(object):
         Databricks), we may wait until the remote job completes rather than until the MLflow run
         completes.
         """
-        self._monitoring_subprocess.join()
+        self._pollable_run_obj.wait()
 
     def cancel(self):
         """
         Attempts to cancel the current run by interrupting the monitoring process; note that this
         will not cancel the run if it has already completed.
         """
-        try:
-            os.kill(self._monitoring_subprocess.pid, signal.SIGTERM)
-        except OSError:
-            pass
-        self._monitoring_subprocess.join()
-        # In rare cases, it's possible that we cancel the monitoring subprocess before it has a
-        # chance to set up a signal handler. In this case we should update the status of the MLflow
-        # run here.
+        self._pollable_run_obj.cancel()
         maybe_set_run_terminated(self._active_run, "FAILED")
