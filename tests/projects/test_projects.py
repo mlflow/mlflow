@@ -89,6 +89,7 @@ def test_fetch_project(tmpdir):
     with pytest.raises(ExecutionException):
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='fake', version=None,
                                        dst_dir=dst_dir, git_username=None, git_password=None)
+
     # Tests that an exception is thrown when an invalid subdirectory is given.
     dst_dir = tmpdir.join('git-bad-subdirectory').strpath
     with pytest.raises(ExecutionException):
