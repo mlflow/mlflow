@@ -119,7 +119,13 @@ def write_yaml(root, file_name, data, overwrite=False):
 
     try:
         with open(yaml_file_name, 'w') as yaml_file:
+            if "source_version" in data:
+                source_version_type = type(data["run_uuid"])
+                import sys
+                print("Safe dump of data, run uuid type: %s, executable %s" % (source_version_type, sys.executable))
+                assert type(data["source_version"]) == str
             yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
+        read_yaml(root, file_name)
     except Exception as e:
         raise e
 
