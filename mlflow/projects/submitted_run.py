@@ -1,5 +1,30 @@
+import sys
+
 from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
+
+_all_runs = []
+
+
+def _add_run(run):
+    _all_runs.append(run)
+
+
+old_hook = sys.excepthook
+
+
+def _kill_active_runs(type, value, traceback):
+    """
+    Hook that runs when the program exits with an exception - attempts to cancel all ongoing runs.
+    Note that the addition of this hook makes the project execution APIs not fork-safe, in that
+    a forked process
+    """
+    old_hook(type, value, traceback)
+    for run in _all_runs:
+        run.cancel()
+
+
+sys.excepthook = _kill_active_runs
 
 
 def maybe_set_run_terminated(active_run, status):
@@ -20,6 +45,7 @@ class SubmittedRun(object):
     def __init__(self, active_run, pollable_run_obj):
         self._active_run = active_run
         self._pollable_run_obj = pollable_run_obj
+        _add_run(self)
 
     @property
     def run_id(self):
