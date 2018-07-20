@@ -1,5 +1,4 @@
 import base64
-import os
 import json
 
 from databricks_cli.configure import provider
