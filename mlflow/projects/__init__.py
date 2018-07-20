@@ -25,7 +25,7 @@ from mlflow.utils.logging_utils import eprint
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
-# Environment variable indicating a path to a conda executable. MLflow will default to running
+# Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 CONDA_HOME = "MLFLOW_CONDA_HOME"
 
