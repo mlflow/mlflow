@@ -128,7 +128,7 @@ def load_pyfunc(path, run_id=None):
         code_path = os.path.join(path, conf[CODE])
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
-    return importlib.import_module(conf[MAIN]).load_pyfunc(model, path, data_path)
+    return importlib.import_module(conf[MAIN]).load_pyfunc(data_path)
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):

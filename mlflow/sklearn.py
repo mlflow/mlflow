@@ -64,7 +64,7 @@ def _load_model_from_local_file(path):
         return pickle.load(f)
 
 
-def load_pyfunc(model, path, data_path):
+def load_pyfunc(data_path):
     with open(data_path, "rb") as f:
         return pickle.load(f)
 

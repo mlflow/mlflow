@@ -143,12 +143,9 @@ parameters:
          (e.g. ``mlflow.sklearn``) importable via ``importlib.import_module``.
          The imported module must contain a function with the following signature:
 
-              load_pyfunc(model: Model, path: string, data_path: string) -> <pyfunc model>
+              load_pyfunc(path: string) -> <pyfunc model>
 
-         The model parameter points to the model object as parsed from the MLmodel-file.
-         The path parameter points to the full path where the model is stored.
-         The data_path argument is specified by the data parameter and may refer to
-         a file or directory.
+         The path argument is specified by the data parameter and may refer to a file or directory.
 
    - code [optional]:
          A relative path to a directory containing the code packaged with this model.
