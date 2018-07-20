@@ -219,9 +219,7 @@ def _conda_executable():
     Returns path to a conda executable. Configurable via the mlflow.projects.CONDA_PATH
     environment variable.
     """
-    if CONDA_PATH in os.environ:
-        return os.path.join(os.environ[CONDA_PATH], "bin", "conda")
-    return "conda"
+    return os.environ.get(CONDA_PATH, "conda")
 
 
 def _maybe_create_conda_env(conda_env_path):
