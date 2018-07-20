@@ -238,11 +238,12 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     final_experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, final_experiment_id, databricks_profile)
 
-    # Create run object with remote tracking server
+    # Create run object with remote tracking server. Get the git commit from the working directory,
+    # etc.
     tracking_uri = tracking.get_tracking_uri()
     remote_run = _create_databricks_run(
         tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=project.uri,
-        source_version=version, entry_point_name=entry_point)
+        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point)
     # Set up environment variables for remote execution
     env_vars = {}
     if experiment_id is not None:
