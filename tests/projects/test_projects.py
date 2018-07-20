@@ -11,7 +11,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, validate_exit_status,\
-    tracking_uri_mock
+    tracking_uri_mock  # pylint: disable=unused-import
 
 
 def _assert_dirs_equal(expected, actual):
@@ -84,32 +84,32 @@ def test_log_parameters(tmpdir, tracking_uri_mock):  # pylint: disable=unused-ar
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unused-argument
-        submitted_run = mlflow.projects.run(
-            TEST_PROJECT_DIR, entry_point="test_tracking",
-            parameters={"use_start_run": use_start_run},
-            use_conda=False, experiment_id=0)
-        # Blocking runs should be finished when they return
-        validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
-        # Test that we can call wait() on a synchronous run & that the run has the correct
-        # status after calling wait().
-        submitted_run.wait()
-        validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
-        # Validate run contents in the FileStore
-        run_uuid = submitted_run.run_id
-        store = FileStore(tmpdir.strpath)
-        run_infos = store.list_run_infos(experiment_id=0)
-        assert len(run_infos) == 1
-        store_run_uuid = run_infos[0].run_uuid
-        assert run_uuid == store_run_uuid
-        run = store.get_run(run_uuid)
-        expected_params = {"use_start_run": use_start_run}
-        assert run.info.status == RunStatus.FINISHED
-        assert len(run.data.params) == len(expected_params)
-        for param in run.data.params:
-            assert param.value == expected_params[param.key]
-        expected_metrics = {"some_key": 3}
-        for metric in run.data.metrics:
-            assert metric.value == expected_metrics[metric.key]
+    submitted_run = mlflow.projects.run(
+        TEST_PROJECT_DIR, entry_point="test_tracking",
+        parameters={"use_start_run": use_start_run},
+        use_conda=False, experiment_id=0)
+    # Blocking runs should be finished when they return
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+    # Test that we can call wait() on a synchronous run & that the run has the correct
+    # status after calling wait().
+    submitted_run.wait()
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+    # Validate run contents in the FileStore
+    run_uuid = submitted_run.run_id
+    store = FileStore(tmpdir.strpath)
+    run_infos = store.list_run_infos(experiment_id=0)
+    assert len(run_infos) == 1
+    store_run_uuid = run_infos[0].run_uuid
+    assert run_uuid == store_run_uuid
+    run = store.get_run(run_uuid)
+    expected_params = {"use_start_run": use_start_run}
+    assert run.info.status == RunStatus.FINISHED
+    assert len(run.data.params) == len(expected_params)
+    for param in run.data.params:
+        assert param.value == expected_params[param.key]
+    expected_metrics = {"some_key": 3}
+    for metric in run.data.metrics:
+        assert metric.value == expected_metrics[metric.key]
 
 
 def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
