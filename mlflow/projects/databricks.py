@@ -19,10 +19,16 @@ from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
 
+# Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
+# Base directory within driver container for storing project archives
 DB_TARFILE_BASE = os.path.join(DB_CONTAINER_BASE, "project-tars")
+# Base directory directory within driver container for storing extracted project directories
 DB_PROJECTS_BASE = os.path.join(DB_CONTAINER_BASE, "projects")
+# Name to use for project directory when archiving it for upload to DBFS; the TAR will contain
+# a single directory with this name
 DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
+# Base directory within DBFS for storing code for project runs for experiments
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 

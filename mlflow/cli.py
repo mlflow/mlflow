@@ -67,12 +67,12 @@ def cli():
                    "runs it from there. Otherwise, uses `uri` as the working directory when "
                    "running the project. Note that Git projects are always run from a temporary "
                    "working directory.")
-@click.option("--storage-dir",
+@click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when `mode` is local."
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
-def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec,
-        git_username, git_password, no_conda, new_dir, storage_dir):
+def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
+        git_password, no_conda, new_dir, storage_dir):
     """
     Run an MLflow project from the given URI.
 

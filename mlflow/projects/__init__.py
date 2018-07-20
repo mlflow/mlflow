@@ -33,8 +33,8 @@ class ExecutionException(Exception):
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-         mode=None, cluster_spec=None, git_username=None, git_password=None,
-         use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
+         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
+         use_temp_cwd=False, storage_dir=None, block=True):
     exp_id = experiment_id or tracking._get_experiment_id()
     if mode is None or mode == "local":
         return _run_local(
@@ -46,8 +46,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=exp_id, cluster_spec=cluster_spec,
-            git_username=git_username,
+            experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -97,8 +96,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
                              parameters=parameters,
                              experiment_id=experiment_id,
-                             mode=mode, cluster_spec=cluster_spec,
-                             git_username=git_username,
+                             mode=mode, cluster_spec=cluster_spec, git_username=git_username,
                              git_password=git_password, use_conda=use_conda,
                              use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
     if block:
