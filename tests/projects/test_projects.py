@@ -43,13 +43,20 @@ def test_fetch_project(tmpdir):
     repo.index.commit("test")
     git_subdir_repo = "file://" + os.path.abspath(local_git_subdir)
 
-    # Test fetching a project to be run locally.
+    # Test fetching a locally saved project.
     dst_dir = tmpdir.join('local').strpath
 
     work_dir = mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='', version=None,
                                               dst_dir=dst_dir, git_username=None,
                                               git_password=None)
     _assert_dirs_equal(expected=TEST_PROJECT_DIR, actual=work_dir)
+
+    # Test fetching a project located in a Git repo root directory.
+    dst_dir = tmpdir.join('git-root-dir').strpath
+    work_dir = mlflow.projects._fetch_project(uri=git_repo_uri, subdirectory='',
+                                              version=None, dst_dir=dst_dir, git_username=None,
+                                              git_password=None)
+    _assert_dirs_equal(expected=local_git, actual=work_dir)
 
     # Test fetching a project located in a Git repo subdirectory.
     dst_dir = tmpdir.join('git-subdir').strpath
