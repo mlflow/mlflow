@@ -1,4 +1,6 @@
 """ Example script that calls tracking APIs within / outside of a start_run() block. """
+import sys
+print("@SID got path %s" % sys.path)
 import mlflow
 import sys
 

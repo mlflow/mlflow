@@ -62,6 +62,19 @@ def test_use_conda():
             os.environ["PATH"] = old_path
 
 
+# @pytest.mark.parametrize(
+#     "mock_env,expected",
+#     [({}, "conda"), ({mlflow.projects.CONDA_ENV_VAR: "some-executable"}, "some-executable")]
+# )
+# def test_conda_path(mock_env, expected):
+#     """Verify that we correctly determine the path to a conda executable"""
+#     old_env = os.environ.copy()
+#     with mock.patch.dict("os.environ", mock_env):
+#         assert mlflow.projects._conda_executable() == expected
+#     new_env = os.environ
+#     assert old_env == new_env
+
+
 def test_run():
     for use_start_run in map(str, [0, 1]):
         with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
