@@ -7,21 +7,21 @@ import requests
 from mlflow.utils.logging_utils import eprint
 
 
-def get_databricks_hostname_and_auth(profile):
+def get_databricks_hostname_and_auth():
     """
     Reads the hostname & auth token to use for running on Databricks from the config file created
     by the Databricks CLI. Returns a tuple of (hostname, auth, token) to use when making API
     requests.
     """
-    config = provider.get_config_for_profile(profile)
+    config = provider.get_config_for_profile(provider.DEFAULT_SECTION)
     if config.username is not None and config.password is not None:
         return config.host, (config.username, config.password), config.token
     return config.host, None, config.token
 
 
-def databricks_api_request(endpoint, method, profile, req_body_json=None, params=None,
+def databricks_api_request(endpoint, method, req_body_json=None, params=None,
                            verify_success=True):
-    hostname, auth, token = get_databricks_hostname_and_auth(profile)
+    hostname, auth, token = get_databricks_hostname_and_auth()
     final_endpoint = "/api/2.0/%s" % endpoint
     if token is not None:
         token_bytes = ("token:%s" % token).encode("utf-8")

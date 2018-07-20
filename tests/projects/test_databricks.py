@@ -72,7 +72,7 @@ def dbfs_root_mock(tmpdir):
 
 @pytest.fixture()
 def upload_to_dbfs_mock(dbfs_root_mock):
-    def upload_mock_fn(src_path, dbfs_uri, _):
+    def upload_mock_fn(src_path, dbfs_uri):
         mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
         os.makedirs(os.path.dirname(mock_dbfs_dst))
         shutil.copy(src_path, mock_dbfs_dst)
@@ -127,7 +127,7 @@ def test_upload_project_to_dbfs(
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
     dbfs_uri = databricks._upload_project_to_dbfs(
-        project_dir=TEST_PROJECT_DIR, experiment_id=0, profile=provider.DEFAULT_SECTION)
+        project_dir=TEST_PROJECT_DIR, experiment_id=0)
     # Get expected tar
     local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
     expected_tar_path = str(tmpdir.join("expected.tar.gz"))
@@ -143,7 +143,7 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
     with mock.patch("mlflow.projects.databricks._upload_to_dbfs") as upload_to_dbfs_mock:
         dbfs_path_exists_mock.return_value = True
         databricks._upload_project_to_dbfs(
-            project_dir=TEST_PROJECT_DIR, experiment_id=0, profile=provider.DEFAULT_SECTION)
+            project_dir=TEST_PROJECT_DIR, experiment_id=0)
         assert upload_to_dbfs_mock.call_count == 0
 
 

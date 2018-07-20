@@ -33,7 +33,7 @@ class ExecutionException(Exception):
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-         mode=None, cluster_spec=None, db_profile=None, git_username=None, git_password=None,
+         mode=None, cluster_spec=None, git_username=None, git_password=None,
          use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
     exp_id = experiment_id or tracking._get_experiment_id()
     if mode is None or mode == "local":
@@ -46,7 +46,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=exp_id, cluster_spec=cluster_spec, db_profile=db_profile,
+            experiment_id=exp_id, cluster_spec=cluster_spec,
             git_username=git_username,
             git_password=git_password)
     supported_modes = ["local", "databricks"]
@@ -55,7 +55,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, db_profile=None, git_username=None, git_password=None,
+        mode=None, cluster_spec=None, git_username=None, git_password=None,
         use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
     """
     Run an MLflow project from the given URI.
@@ -74,8 +74,6 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param mode: Execution mode for the run. Can be set to "local" or "databricks".
     :param cluster_spec: Path to JSON file describing the cluster to use when launching a run on
                          Databricks.
-    :param db_profile: Name of Databricks CLI profile to use when interacting with Databricks
-                       services (e.g. launching runs on Databricks).
     :param git_username: Username for HTTP(S) authentication with Git.
     :param git_password: Password for HTTP(S) authentication with Git.
     :param use_conda: If True (the default), creates a new Conda environment for the run and
@@ -99,7 +97,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
                              parameters=parameters,
                              experiment_id=experiment_id,
-                             mode=mode, cluster_spec=cluster_spec, db_profile=db_profile,
+                             mode=mode, cluster_spec=cluster_spec,
                              git_username=git_username,
                              git_password=git_password, use_conda=use_conda,
                              use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
