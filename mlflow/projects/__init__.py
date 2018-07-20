@@ -234,9 +234,10 @@ def _maybe_create_conda_env(conda_env_path):
                                  "Please ensure conda is installed as per the instructions "
                                  "at https://conda.io/docs/user-guide/install/index.html. You may "
                                  "also configure MLflow to look for a specific conda installation "
-                                 "by setting ${1} to the path of the conda installation (e.g. "
-                                 "setting {1}=/some/dir will configure MLflow to look for a conda "
-                                 "executable at /some/dir/bin/conda)".format(conda_path, CONDA_HOME))
+                                 "by setting the {1} environment variable to the path of the conda "
+                                 "installation (e.g. setting {1}=/some/dir will configure MLflow "
+                                 "to look for a conda executable at "
+                                 "/some/dir/bin/conda)".format(conda_path, CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
