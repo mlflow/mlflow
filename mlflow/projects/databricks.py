@@ -134,7 +134,7 @@ def _upload_project_to_dbfs(project_dir, experiment_id, profile):
             tarfile_name = os.path.join("local-projects", tarfile_hash)
         # TODO: Get subdirectory for experiment from the tracking server
         dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
-                                 "%s.tar.gz" % tarfile_name)
+                                "%s.tar.gz" % tarfile_name)
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_uri)
         if not _dbfs_path_exists(dbfs_uri, profile):
             _upload_to_dbfs(temp_tar_filename, dbfs_uri, profile)
