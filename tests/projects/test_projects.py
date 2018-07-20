@@ -76,7 +76,7 @@ def test_run():
     for use_start_run in map(str, [0, 1]):
         with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
                 as get_tracking_uri_mock:
-            tmp_dir = "/tmp/blah"#tmp.path()
+            tmp_dir = tmp.path()
             get_tracking_uri_mock.return_value = tmp_dir
             submitted_run = mlflow.projects.run(
                 TEST_PROJECT_DIR, entry_point="test_tracking",
