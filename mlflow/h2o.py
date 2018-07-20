@@ -64,6 +64,9 @@ def load_pyfunc(path):
     h2o_model = _load_model(path, init=True)
 
     class ModelWrapper:
+        def __init__(self):
+            pass
+
         def predict(self, dataframe):
             return h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()
 
