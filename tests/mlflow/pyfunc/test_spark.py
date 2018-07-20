@@ -38,7 +38,6 @@ class TestSparkUDFs(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self._tmp)
-        self.spark.stop()
 
     @pytest.mark.large
     def test_spark_udf(self):
