@@ -107,13 +107,17 @@ def _dbfs_path_exists(dbfs_uri, profile):
     passed-in Databricks CLI profile.
     """
     dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
-    try:
-        res = rest_utils.databricks_api_request(
-            endpoint="dbfs/get-status", method="GET", params={"path": dbfs_path}, profile=profile)
-        return res
-    # Assume that CLI command failure -> the file didn't exist
-    except process.ShellCommandException:
-        return False
+    res = rest_utils.databricks_api_request(
+        endpoint="dbfs/get-status", method="GET", params={"path": dbfs_path}, profile=profile,
+        verify_success=False)
+    # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
+    error_code_field = "error_code"
+    if error_code_field in res:
+        if res[error_code_field] == "RESOURCE_DOES_NOT_EXIST":
+            return False
+        raise ExecutionException("Got unexpected error response when checking whether file %s "
+                                 "exists DBFS: %s" % res)
+    return True
 
 
 def _upload_project_to_dbfs(project_dir, experiment_id, profile):
@@ -138,9 +142,9 @@ def _upload_project_to_dbfs(project_dir, experiment_id, profile):
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_uri)
         if not _dbfs_path_exists(dbfs_uri, profile):
             _upload_to_dbfs(temp_tar_filename, dbfs_uri, profile)
+            eprint("=== Finished uploading project to %s ===" % dbfs_uri)
         else:
             eprint("=== Project already exists in DBFS ===")
-        eprint("=== Finished uploading project to %s ===" % dbfs_uri)
     finally:
         shutil.rmtree(temp_tarfile_dir)
     return dbfs_uri
@@ -256,7 +260,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:
         cluster_spec = json.load(handle)
-    fuse_dst_dir = os.path.join("/dbfs/", _parse_dbfs_uri_path(dbfs_project_uri))
+    fuse_dst_dir = os.path.join("/dbfs/", _parse_dbfs_uri_path(dbfs_project_uri).strip("/"))
     command = _get_databricks_run_cmd(fuse_dst_dir, entry_point, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec, databricks_profile)
     return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id, databricks_profile))
