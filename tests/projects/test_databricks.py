@@ -4,8 +4,6 @@ import mock
 import os
 import shutil
 
-from databricks_cli.configure import provider
-
 import pytest
 
 import mlflow
