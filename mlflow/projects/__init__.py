@@ -27,7 +27,7 @@ from mlflow.utils.logging_utils import eprint
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
-CONDA_HOME = "MLFLOW_CONDA_HOME"
+CONDA_PATH = "MLFLOW_CONDA_PATH"
 
 
 class ExecutionException(Exception):
@@ -216,11 +216,11 @@ def _get_conda_env_name(conda_env_path):
 
 def _conda_executable():
     """
-    Returns path to a conda executable. Configurable via the mlflow.projects.CONDA_HOME
+    Returns path to a conda executable. Configurable via the mlflow.projects.CONDA_PATH
     environment variable.
     """
-    if CONDA_HOME in os.environ:
-        return os.path.join(os.environ[CONDA_HOME], "bin", "conda")
+    if CONDA_PATH in os.environ:
+        return os.path.join(os.environ[CONDA_PATH], "bin", "conda")
     return "conda"
 
 
@@ -230,14 +230,12 @@ def _maybe_create_conda_env(conda_env_path):
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
-        raise ExecutionException("Could not find conda executable {0}. "
+        raise ExecutionException("Could not find conda executable at {0}. "
                                  "Please ensure conda is installed as per the instructions "
                                  "at https://conda.io/docs/user-guide/install/index.html. You may "
-                                 "also configure MLflow to look for a specific conda installation "
+                                 "also configure MLflow to look for a specific conda executable "
                                  "by setting the {1} environment variable to the path of the conda "
-                                 "installation (e.g. setting {1}=/some/dir will configure MLflow "
-                                 "to look for a conda executable at "
-                                 "/some/dir/bin/conda)".format(conda_path, CONDA_HOME))
+                                 "executable".format(conda_path, CONDA_PATH))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 

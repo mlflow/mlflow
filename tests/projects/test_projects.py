@@ -64,7 +64,7 @@ def test_use_conda():
 
 @pytest.mark.parametrize(
     "mock_env,expected",
-    [({}, "conda"), ({mlflow.projects.CONDA_HOME: "/some/dir"}, "/some/dir/bin/conda")]
+    [({}, "conda"), ({mlflow.projects.CONDA_HOME: "/some/dir/conda"}, "/some/dir/conda")]
 )
 def test_conda_path(mock_env, expected):
     """Verify that we correctly determine the path to a conda executable"""
