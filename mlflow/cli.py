@@ -118,6 +118,15 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
 
 
 @cli.command()
+@click.argument("command")
+def _run_internal(command):
+    """
+    Internally-used CLI command for running entry points locally.
+    """
+    mlflow.projects._run_entry_point_command(command)
+
+
+@cli.command()
 @click.option("--file-store", metavar="PATH", default=None,
               help="The root of the backing file store for experiment and run data "
                    "(default: ./mlruns).")

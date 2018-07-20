@@ -1,17 +1,34 @@
 from abc import abstractmethod
+
 import os
-import subprocess
-
-from mlflow.entities.run_status import RunStatus
+import signal
 
 
-def maybe_set_run_terminated(active_run, status):
-    """
-    If the passed-in active run is defined and still running (i.e. hasn't already been terminated
-    within user code), mark it as terminated with the passed-in status.
-    """
-    if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
-        active_run.set_terminated(status)
+class PollableRunStatus(object):
+    RUNNING, SCHEDULED, FINISHED, FAILED = range(1, 5)
+    _STRING_TO_STATUS = {
+        "RUNNING": RUNNING,
+        "SCHEDULED": SCHEDULED,
+        "FINISHED": FINISHED,
+        "FAILED": FAILED,
+    }
+    _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
+    _TERMINATED_STATUSES = set([FINISHED, FAILED])
+
+    @staticmethod
+    def to_string(status):
+        if status not in PollableRunStatus._STATUS_TO_STRING:
+            raise Exception("Could not get string corresponding to run status %s. Valid run "
+                            "statuses: %s" % (status, list(PollableRunStatus._STATUS_TO_STRING.keys())))
+        return PollableRunStatus._STATUS_TO_STRING[status]
+
+    @staticmethod
+    def from_string(status_str):
+        if status_str not in PollableRunStatus._STRING_TO_STATUS:
+            raise Exception(
+                "Could not get run status corresponding to string %s. Valid run "
+                "status strings: %s" % (status_str, list(PollableRunStatus._STRING_TO_STATUS.keys())))
+        return PollableRunStatus._STRING_TO_STATUS[status_str]
 
 
 class PollableRun(object):
@@ -47,11 +64,12 @@ class PollableRun(object):
         """
         pass
 
-    def setup(self):
+    @abstractmethod
+    def get_status(self):
         """
-        Hook that gets called within `monitor_run` before attempting to wait on the run.
+        Returns the run's status as a string.
+        :return one of mlflow.projects.pollable_run.{RUNNING, FAILED, FINISHED}
         """
-        pass
 
 
 class LocalPollableRun(PollableRun):
@@ -59,39 +77,22 @@ class LocalPollableRun(PollableRun):
     Instance of PollableRun corresponding to a subprocess launched to run an entry point command
     locally.
     """
-    def __init__(self, command, work_dir, env_map, stream_output):
+    def __init__(self, command_proc, command):
         super(LocalPollableRun, self).__init__()
+        self.command_proc = command_proc
         self.command = command
-        self.work_dir = work_dir
-        self.env_map = env_map
-        self.stream_output = stream_output
-        self.command_proc = None
+        self.status = PollableRunStatus.RUNNING
 
-    def _launch_command(self):
-        """
-        Launch entry point command in a subprocess, returning a `subprocess.Popen` representing the
-        subprocess.
-        """
-        cmd_env = os.environ.copy()
-        cmd_env.update(self.env_map)
-        if self.stream_output:
-            return subprocess.Popen([os.environ.get("SHELL", "bash"), "-c", self.command],
-                                    cwd=self.work_dir, env=cmd_env, preexec_fn=os.setsid)
-        return subprocess.Popen(
-            [os.environ.get("SHELL", "bash"), "-c", self.command],
-            cwd=self.work_dir, env=cmd_env, stdout=open(os.devnull, 'wb'),
-            stderr=open(os.devnull, 'wb'), preexec_fn=os.setsid)
-
-    def setup(self):
-        self.command_proc = self._launch_command()
+    def get_status(self):
+        return PollableRunStatus.to_string(self.status)
 
     def wait(self):
-        return self.command_proc.wait() == 0
+        if self.status == PollableRunStatus.RUNNING:
+            self.status = PollableRunStatus.FINISHED if (self.command_proc.wait() == 0) else PollableRunStatus.FAILED
 
     def cancel(self):
         try:
-            if self.command_proc:
-                self.command_proc.terminate()
+            os.kill(self.command_proc.pid, signal.SIGINT)
         except OSError:
             pass
 
@@ -106,14 +107,19 @@ class DatabricksPollableRun(PollableRun):
     def __init__(self, databricks_run_id):
         super(DatabricksPollableRun, self).__init__()
         self.databricks_run_id = databricks_run_id
+        self.status = PollableRunStatus.RUNNING
+
+    def get_status(self):
+        return PollableRunStatus.to_string(self.status)
 
     def wait(self):
-        from mlflow.projects import databricks
-        return databricks.monitor_databricks(self.databricks_run_id)
+        if self.status == PollableRunStatus.RUNNING:
+            from mlflow.projects.databricks import monitor_databricks
+            self.status = PollableRunStatus.FINISHED if monitor_databricks(self.databricks_run_id) else PollableRunStatus.FAILED
 
     def cancel(self):
-        from mlflow.projects import databricks
-        databricks.cancel_databricks(self.databricks_run_id)
+        from mlflow.projects.databricks import cancel_databricks
+        cancel_databricks(self.databricks_run_id)
 
     def describe(self):
         return "Databricks Job run with id: %s" % self.databricks_run_id

@@ -4,7 +4,7 @@ import os
 import pytest
 import yaml
 
-from mlflow.entities.run_status import RunStatus
+from mlflow.projects.pollable_run import PollableRunStatus
 from mlflow.projects import Project
 
 
@@ -21,7 +21,7 @@ def load_project():
 
 
 def validate_exit_status(status_str, expected):
-    assert RunStatus.from_string(status_str) == expected
+    assert PollableRunStatus.from_string(status_str) == expected
 
 
 @pytest.fixture()

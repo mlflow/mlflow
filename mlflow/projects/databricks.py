@@ -134,8 +134,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    from mlflow.projects.submitted_run import SubmittedRun
-    return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id))
+    return DatabricksPollableRun(db_run_id)
 
 
 def cancel_databricks(databricks_run_id):
