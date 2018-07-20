@@ -19,10 +19,11 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     """
+    path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
-    os.makedirs(path)
     model_dir = os.path.join(path, "model.h2o")
+    os.makedirs(model_dir)
 
     # Save h2o-model
     h2o_save_location = h2o.save_model(model=h2o_model, path=model_dir, force=True)
@@ -31,9 +32,11 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     # Save h2o-settings
     if settings is None:
         settings = {}
+    settings['full_file'] = h2o_save_location
     settings['model_file'] = model_file
+    settings['model_dir'] = model_dir
     with open(os.path.join(model_dir, "h2o.yaml"), 'w') as settings_file:
-        yaml.save_dump(settings, stream=settings_file)
+        yaml.safe_dump(settings, stream=settings_file)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
                         data="model.h2o", env=conda_env)
@@ -48,12 +51,13 @@ def log_model(h2o_model, artifact_path, **kwargs):
 
 
 def _load_model(path, init=False):
+    path = os.path.abspath(path)
     with open(os.path.join(path, "h2o.yaml")) as f:
         params = yaml.safe_load(f.read())
     if init:
         h2o.init(**(params["init"] if "init" in params else {}))
         h2o.no_progress()
-    return h2o.load_model(os.path.join(path, params['mode_file']))
+    return h2o.load_model(os.path.join(path, params['model_file']))
 
 
 def load_pyfunc(path):
@@ -70,4 +74,4 @@ def load_model(path, run_id=None):
     """Load a SciKit-Learn model from a local file (if run_id is None) or a run."""
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
-    return _load_model(path)
+    return _load_model(os.path.join(path, "model.h2o"))
