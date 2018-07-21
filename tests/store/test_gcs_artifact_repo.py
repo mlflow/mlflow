@@ -55,10 +55,10 @@ def test_list_artifacts(gcs_mock):
 
     artifacts = repo.list_artifacts()
     assert artifacts[0].path == dir_name
-    assert artifacts[0].is_dir == True
-    assert artifacts[0].file_size == None
+    assert artifacts[0].is_dir is True
+    assert artifacts[0].file_size is None
     assert artifacts[1].path == file_name
-    assert artifacts[1].is_dir == False
+    assert artifacts[1].is_dir is False
     assert artifacts[1].file_size == obj_mock.size
 
 
