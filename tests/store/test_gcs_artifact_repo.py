@@ -36,6 +36,8 @@ def test_list_artifacts(gcs_mock):
     dest_path = "/some/path/"
     repo = GCSArtifactRepository("gs://test_bucket" + dest_path, gcs_mock)
 
+    # mocking a single blob returned by bucket.list_blobs iterator
+    # https://googlecloudplatform.github.io/google-cloud-python/latest/storage/buckets.html#google.cloud.storage.bucket.Bucket.list_blobs
     dir_mock = mock.Mock()
     dir_name = "0_subpath"
     dir_mock.configure_mock(prefixes=(dest_path + dir_name + "/",))
