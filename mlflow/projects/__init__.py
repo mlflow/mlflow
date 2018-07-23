@@ -27,7 +27,7 @@ from mlflow.utils.logging_utils import eprint
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
-CONDA_PATH = "MLFLOW_CONDA_PATH"
+MLFLOW_CONDA = "MLFLOW_MLFLOW_CONDA"
 
 
 class ExecutionException(Exception):
@@ -216,10 +216,10 @@ def _get_conda_env_name(conda_env_path):
 
 def _conda_executable():
     """
-    Returns path to a conda executable. Configurable via the mlflow.projects.CONDA_PATH
+    Returns path to a conda executable. Configurable via the mlflow.projects.MLFLOW_CONDA
     environment variable.
     """
-    return os.environ.get(CONDA_PATH, "conda")
+    return os.environ.get(MLFLOW_CONDA, "conda")
 
 
 def _maybe_create_conda_env(conda_env_path):
@@ -233,7 +233,7 @@ def _maybe_create_conda_env(conda_env_path):
                                  "at https://conda.io/docs/user-guide/install/index.html. You may "
                                  "also configure MLflow to look for a specific conda executable "
                                  "by setting the {1} environment variable to the path of the conda "
-                                 "executable".format(conda_path, CONDA_PATH))
+                                 "executable".format(conda_path, MLFLOW_CONDA))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
