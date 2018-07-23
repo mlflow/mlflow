@@ -32,6 +32,9 @@ IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
+DEFAULT_SAGEMAKER_INSTANCE_TYPE = "ml.m4.xlarge"
+DEFAULT_SAGEMAKER_INSTANCE_COUNT = 1
+
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve pyfunc model in SageMaker
 FROM ubuntu:16.04
@@ -162,7 +165,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
            image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False, 
-           instance_type="ml.m4.xlarge", instance_count=1):
+           instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE, 
+           instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT):
     """
     Deploy model on SageMaker.
     Current active AWS account needs to have correct permissions setup.
