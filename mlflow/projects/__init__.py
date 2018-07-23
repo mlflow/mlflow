@@ -257,6 +257,15 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     return SubmittedRun(active_run, pollable_run)
 
 
+def _maybe_set_run_terminated(active_run, status):
+    """
+    If the passed-in active run is defined and still running (i.e. hasn't already been terminated
+    within user code), mark it as terminated with the passed-in status.
+    """
+    if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
+        active_run.set_terminated(status)
+
+
 def _run_entry_point_command(command):
     """
     Meant to be run in a subprocess via a CLI command triggered in _run_project. Runs an entry point
@@ -271,11 +280,11 @@ def _run_entry_point_command(command):
         exit_code = process.wait()
         if exit_code == 0:
             eprint("=== Shell command '%s' succeeded ===" % command)
-            maybe_set_run_terminated(active_run, "FINISHED")
+            _maybe_set_run_terminated(active_run, "FINISHED")
             sys.exit(exit_code)
         else:
             eprint("=== Shell command '%s' failed with exit code %s ===" % (command, exit_code))
-            maybe_set_run_terminated(active_run, "FAILED")
+            _maybe_set_run_terminated(active_run, "FAILED")
             sys.exit(exit_code)
     except KeyboardInterrupt:
         eprint("=== Shell command '%s' interrupted, cancelling... ===" % command)
@@ -283,7 +292,7 @@ def _run_entry_point_command(command):
             process.terminate()
         except OSError:
             pass
-        maybe_set_run_terminated(active_run, "FAILED")
+        _maybe_set_run_terminated(active_run, "FAILED")
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,

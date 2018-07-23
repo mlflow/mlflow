@@ -27,15 +27,6 @@ def _kill_active_runs(type, value, traceback):
 sys.excepthook = _kill_active_runs
 
 
-def maybe_set_run_terminated(active_run, status):
-    """
-    If the passed-in active run is defined and still running (i.e. hasn't already been terminated
-    within user code), mark it as terminated with the passed-in status.
-    """
-    if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
-        active_run.set_terminated(status)
-
-
 class SubmittedRun(object):
     """
     Class exposing information about an MLflow project run submitted for execution.
@@ -79,4 +70,3 @@ class SubmittedRun(object):
         will not cancel the run if it has already completed.
         """
         self._pollable_run_obj.cancel()
-        maybe_set_run_terminated(self._active_run, "FAILED")
