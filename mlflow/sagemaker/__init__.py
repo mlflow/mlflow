@@ -161,7 +161,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 
 def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
-           image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False):
+           image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False, 
+           instance_type="ml.m4.xlarge", instance_count=1, autoscaling_policy=None):
     """
     Deploy model on SageMaker.
     Current active AWS account needs to have correct permissions setup.
@@ -193,7 +194,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      model. NOTE: **If the application already exists**, the specified model will
                      be added to the application's corresponding SageMaker endpoint with an initial
                      weight of zero (0). To route traffic to the model, update the application's
-                     associated endpoint configuration  using either the AWS console or the
+                     associated endpoint configuration using either the AWS console or the
                      `UpdateEndpointWeightsAndCapacities` function defined in the SageMaker API
                      Documentation
                      (https://docs.aws.amazon.com/sagemaker/latest/dg/
@@ -202,6 +203,17 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
                     (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
+    :param instance_type: The type of Amazon EC2 instance on which to deploy the model. 
+    :param instance_count: The number of EC2 instances on which to deploy the model. 
+    :param autoscaling_policy: The EC2 resource `TargetTracking` autoscaling policy to use for the
+                               model, in dictionary format. If `None`, no autoscaling policy will 
+                               be used. For more information about autoscaling policies, see 
+                               https://docs.aws.amazon.com/sagemaker/latest/dg/
+                               endpoint-auto-scaling.html. For a `TargetTracking` autoscaling policy 
+                               format reference, see
+                               `Applying a Scaling Policy (Application Auto Scaling API)`
+                               (https://docs.aws.amazon.com/sagemaker/latest/dg/endpoint-
+                               auto-scaling-add-policy.html#endpoint-auto-scaling-add-code).
     """
     if mode not in DEPLOYMENT_MODES:
         raise ValueError("`mode` must be one of: {mds}".format(
@@ -404,7 +416,8 @@ def _upload_s3(local_model_path, bucket, prefix):
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
-def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive):
+def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive, 
+            instance_type="ml.m4.xlarge", instance_count=1, autoscaling_policy=None):
     """
     Deploy model on sagemaker.
     :param role: SageMaker execution ARN role
@@ -416,9 +429,15 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
                     (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
+    :param instance_type: The type of Amazon EC2 instance on which to deploy the model. 
+    :param instance_count: The number of EC2 instances on which to deploy the model. 
+    :param autoscaling_policy: The EC2 resource `TargetTracking` autoscaling policy to use for the
+                               model, in dictionary format. If `None`, no autoscaling policy will 
+                               be used.
     """
     sage_client = boto3.client('sagemaker', region_name=region_name)
     s3_client = boto3.client('s3', region_name=region_name)
+    as_client = boto3.client('application-autoscaling', region_name=region_name)
 
     endpoints_page = sage_client.list_endpoints(
         MaxResults=100, NameContains=app_name)
@@ -450,14 +469,16 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           archive=archive,
                                           role=role,
                                           sage_client=sage_client,
-                                          s3_client=s3_client)
+                                          s3_client=s3_client,
+                                          as_client=as_client)
     else:
         return _create_sagemaker_endpoint(endpoint_name=app_name,
                                           image_url=image_url,
                                           model_s3_path=model_s3_path,
                                           run_id=run_id,
                                           role=role,
-                                          sage_client=sage_client)
+                                          sage_client=sage_client,
+                                          as_client=as_client)
 
 
 def _get_sagemaker_resource_unique_id():
@@ -488,13 +509,20 @@ def _get_sagemaker_config_name(endpoint_name):
     return "{en}-config-{uid}".format(en=endpoint_name, uid=unique_id)
 
 
-def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, role, sage_client):
+def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type, 
+                               instance_count, autoscaling_policy, role, sage_client, as_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
     :param model_s3_path: s3 path where we stored the model artifacts
     :param run_id: RunId that generated this model
+    :param instance_type: The type of Amazon EC2 instance on which to deploy the model. 
+    :param instance_count: The number of EC2 instances on which to deploy the model. 
+    :param autoscaling_policy: The EC2 resource `TargetTracking` autoscaling policy to use for the
+                               model, in dictionary format. If `None`, no autoscaling policy will 
+                               be used.
     :param role: SageMaker execution ARN role
     :param sage_client: A boto3 client for SageMaker
+    :param as_client: A boto3 client for ApplicationAutoScaling 
     """
     eprint("Creating new endpoint with name: {en} ...".format(
         en=endpoint_name))
@@ -508,18 +536,17 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                                              sage_client=sage_client)
     eprint("Created model with arn: %s" % model_response["ModelArn"])
 
+    production_variant = {
+                            'VariantName': model_name,
+                            'ModelName': model_name,
+                            'InitialInstanceCount': instance_count,
+                            'InstanceType': instance_type,
+                            'InitialVariantWeight': 1,
+                         }
     config_name = _get_sagemaker_config_name(endpoint_name)
     endpoint_config_response = sage_client.create_endpoint_config(
         EndpointConfigName=config_name,
-        ProductionVariants=[
-            {
-                'VariantName': model_name,
-                'ModelName': model_name,
-                'InitialInstanceCount': 1,
-                'InstanceType': 'ml.m4.xlarge',
-                'InitialVariantWeight': 1,
-            },
-        ],
+        ProductionVariants=[production_variant],
         Tags=[
             {
                 'Key': 'app_name',
@@ -537,13 +564,26 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     )
     eprint("Created endpoint with arn: %s" % endpoint_response["EndpointArn"])
 
+    if autoscaling_policy is not None:
+        as_response = _apply_sagemaker_autoscaling_policy(production_variant=production_variant, 
+                                                          autoscaling_policy=autoscaling_policy, 
+                                                          as_client=as_client)
+        eprint("Created and applied autoscaling policy with ARN: {arn}".format(
+            arn=as_response["PolicyArn"])) 
 
-def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, mode, archive,
-                               role, sage_client, s3_client):
+
+def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type, 
+                               instance_count, autoscaling_policy, mode, archive, role, sage_client, 
+                               s3_client, as_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
     :param model_s3_path: s3 path where we stored the model artifacts
     :param run_id: RunId that generated this model
+    :param instance_type: The type of Amazon EC2 instance on which to deploy the model. 
+    :param instance_count: The number of EC2 instances on which to deploy the model. 
+    :param autoscaling_policy: The EC2 resource `TargetTracking` autoscaling policy to use for the
+                               model, in dictionary format. If `None`, no autoscaling policy will 
+                               be used.
     :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
@@ -552,6 +592,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     :param role: SageMaker execution ARN role
     :param sage_client: A boto3 client for SageMaker
     :param s3_client: A boto3 client for S3
+    :param as_client: A boto3 client for ApplicationAutoScaling 
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(
@@ -588,8 +629,8 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     new_production_variant = {
         'VariantName': new_model_name,
         'ModelName': new_model_name,
-        'InitialInstanceCount': 1,
-        'InstanceType': 'ml.m4.xlarge',
+        'InitialInstanceCount': instance_count,
+        'InstanceType': instance_type,
         'InitialVariantWeight': new_model_weight
     }
     production_variants.append(new_production_variant)
@@ -613,6 +654,13 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     sage_client.update_endpoint(EndpointName=endpoint_name,
                                 EndpointConfigName=new_config_name)
     eprint("Updated endpoint with new configuration!")
+
+    if autoscaling_policy is not None:
+        as_response = _apply_sagemaker_autoscaling_policy(production_variant=new_production_variant, 
+                                                          autoscaling_policy=autoscaling_policy, 
+                                                          as_client=as_client)
+        eprint("Created and applied autoscaling policy with ARN: {arn}".format(
+            arn=as_response["PolicyArn"])) 
 
     # If applicable, clean up unused models and old configurations
     if not archive:
@@ -639,8 +687,8 @@ def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execut
     :param run_id: RunId that generated this model
     :param image_url: URL of the ECR-hosted docker image that will serve as the
                       model's container
-    :param sage_client: A boto3 client for SageMaker
     :param execution_role: The ARN of the role that SageMaker will assume when creating the model
+    :param sage_client: A boto3 client for SageMaker
     :return: AWS response containing metadata associated with the new model
     """
     model_response = sage_client.create_model(
@@ -655,6 +703,18 @@ def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execut
         Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
     )
     return model_response
+
+
+def _apply_sagemaker_autoscaling_policy(production_variant, autoscaling_policy, as_client):
+    variant_name = production_variant["VariantName"]
+    policy_name = "{vn}-policy".format(vn=variant_name)
+    resource_id = "endpoint/{vn}".format(vn=variant_name)
+    return as_client.put_scaling_policy(PolicyName=policy_name,
+                                        ServiceNamespace="sagemaker",
+                                        ResourceID=resource_id,
+                                        ScalableDimension="sagemaker:variant:DesiredInstanceCount",
+                                        PolicyType="TargetTrackingScaling",
+                                        TargetTrackingScalingPolicyConfiguration=autoscaling_policy)
 
 
 def _delete_sagemaker_model(model_name, sage_client, s3_client):
