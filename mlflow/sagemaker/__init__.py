@@ -164,8 +164,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
 
 def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
-           image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False, 
-           instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE, 
+           image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False,
+           instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
            instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT):
     """
     Deploy model on SageMaker.
@@ -413,7 +413,7 @@ def _upload_s3(local_model_path, bucket, prefix):
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
-def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive, 
+def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive,
             instance_type, instance_count):
     """
     Deploy model on sagemaker.
@@ -504,7 +504,7 @@ def _get_sagemaker_config_name(endpoint_name):
     return "{en}-config-{uid}".format(en=endpoint_name, uid=unique_id)
 
 
-def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type, 
+def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
                                instance_count, role, sage_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
@@ -528,12 +528,12 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     eprint("Created model with arn: %s" % model_response["ModelArn"])
 
     production_variant = {
-                            'VariantName': model_name,
-                            'ModelName': model_name,
-                            'InitialInstanceCount': instance_count,
-                            'InstanceType': instance_type,
-                            'InitialVariantWeight': 1,
-                         }
+        'VariantName': model_name,
+        'ModelName': model_name,
+        'InitialInstanceCount': instance_count,
+        'InstanceType': instance_type,
+        'InitialVariantWeight': 1,
+    }
     config_name = _get_sagemaker_config_name(endpoint_name)
     endpoint_config_response = sage_client.create_endpoint_config(
         EndpointConfigName=config_name,
@@ -556,7 +556,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     eprint("Created endpoint with arn: %s" % endpoint_response["EndpointArn"])
 
 
-def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type, 
+def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
                                instance_count, mode, archive, role, sage_client, s3_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into

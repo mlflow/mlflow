@@ -44,7 +44,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
     mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
                             image_url=image_url, region_name=region_name, mode=mode,
-                            archive=archive, instance_type=instance_type, 
+                            archive=archive, instance_type=instance_type,
                             instance_count=instance_count)
 
 
