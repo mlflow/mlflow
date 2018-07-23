@@ -3,7 +3,6 @@
 from __future__ import absolute_import
 
 import os
-import h2o
 import yaml
 
 from mlflow import pyfunc
@@ -19,6 +18,8 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     """
+    import h2o
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -51,6 +52,7 @@ def log_model(h2o_model, artifact_path, **kwargs):
 
 
 def _load_model(path, init=False):
+    import h2o
     path = os.path.abspath(path)
     with open(os.path.join(path, "h2o.yaml")) as f:
         params = yaml.safe_load(f.read())
@@ -60,17 +62,17 @@ def _load_model(path, init=False):
     return h2o.load_model(os.path.join(path, params['model_file']))
 
 
+class _H2OModelWrapper:
+    def __init__(self, h2o_model):
+        self.h2o_model = h2o_model
+
+    def predict(self, dataframe):
+        import h2o
+        return self.h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()
+
+
 def load_pyfunc(path):
-    h2o_model = _load_model(path, init=True)
-
-    class ModelWrapper:
-        def __init__(self):
-            pass
-
-        def predict(self, dataframe):
-            return h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()
-
-    return ModelWrapper()
+    return _H2OModelWrapper(_load_model(path, init=True))
 
 
 def load_model(path, run_id=None):

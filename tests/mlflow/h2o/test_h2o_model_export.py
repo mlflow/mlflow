@@ -40,12 +40,10 @@ class TestModelExport(unittest.TestCase):
             mlflow.h2o.save_model(self.gbm, path)
 
             # Loading h2o model
-            print(path)
             gbm_loaded = mlflow.h2o.load_model(path)
             assert all(gbm_loaded.predict(self.test).as_data_frame() == self.predicted)
 
             # Loading pyfunc model
-            print(path)
             pyfunc_loaded = mlflow.pyfunc.load_pyfunc(path)
             assert all(pyfunc_loaded.predict(self.test.as_data_frame()) == self.predicted)
 

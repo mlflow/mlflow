@@ -197,7 +197,7 @@ The TensorFlow model flavor enables logging TensorFlow ``Saved Models`` and load
 H\ :sub:`2`\ O (``h2o``)
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-With the h2o model flavor h2o models can be handled by mlflow. These models will be saved by using the :py:mod:`h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
+With the H2O model flavor H2O models can be handled by mlflow. These models will be saved by using the :py:mod:`h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
 
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
