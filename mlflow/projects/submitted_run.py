@@ -55,7 +55,6 @@ class SubmittedRun(object):
         """
         pass
 
-
     @abstractmethod
     def cancel(self):
         """

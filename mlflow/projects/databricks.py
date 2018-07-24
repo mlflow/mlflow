@@ -135,7 +135,8 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    return DatabricksSubmittedRun(db_run_id)
+    run_id = remote_run.run_info.run_uuid if remote_run else None
+    return DatabricksSubmittedRun(db_run_id, run_id)
 
 
 def _cancel_databricks(databricks_run_id):
@@ -157,11 +158,12 @@ def _monitor_databricks(databricks_run_id, sleep_interval=30):
 class DatabricksSubmittedRun(SubmittedRun):
     """
     Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
-    project.
+    project. Note that run_id may be None, e.g. if
     """
-    def __init__(self, databricks_run_id, active_run):
+    def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
+        self.run_id = run_id
 
     def wait(self):
         return _monitor_databricks(self.databricks_run_id)
