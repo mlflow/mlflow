@@ -1,0 +1,11 @@
+# History files
+.Rhistory
+.Rapp.history
+# Session Data files
+.RData
+# User Data files
+.Ruserdata
+# Example code in package build process
+*-Ex.R
+# RStudio files
+.Rproj.user
