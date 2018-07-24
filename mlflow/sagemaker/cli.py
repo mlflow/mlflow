@@ -32,9 +32,11 @@ def commands():
 @click.option("--archive", "-ar", is_flag=True, help="If specified, any SageMaker resources that"
               " become inactive (i.e as the result of replacement) will be preserved")
 @click.option("--instance-type", "-t", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
-              help="The type of Amazon EC2 instance on which to deploy the model")
+              help="The type of SageMaker ML instance on which to deploy the model. For a list of
+                    supported instance types, see"
+                    " https://aws.amazon.com/sagemaker/pricing/instance-types/").
 @click.option("--instance-count", "-c", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_COUNT,
-              help="The number of EC2 instances on which to deploy the model")
+              help="The number of SageMaker ML instances on which to deploy the model")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
            archive, instance_type, instance_count):
     """
