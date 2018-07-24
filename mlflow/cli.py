@@ -58,18 +58,18 @@ def cli():
 @click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
               help="Password for HTTP(S) Git authentication.")
 @click.option("--no-conda", is_flag=True,
-              help="If specified, will assume that MLflow is running within a Conda environment "
+              help="If specified, assume that MLflow is running within a Conda environment "
                    "with the necessary dependencies for the current project instead of attempting "
                    "to create a new conda environment. Only valid if running locally.")
 @click.option("--new-dir", is_flag=True,
               help="Only valid when `mode` is 'local' and `uri` points to a local directory."
                    "If specified, copies the project into a temporary working directory and "
                    "runs it from there. Otherwise, uses `uri` as the working directory when "
-                   "running the project. Note that Git projects are always run from a temporary "
+                   "running the project. Git projects are always run from a temporary "
                    "working directory.")
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when `mode` is local."
-                   "MLflow will download artifacts from distributed URIs passed to parameters of "
+                   "MLflow downloads artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
         git_password, no_conda, new_dir, storage_dir):
@@ -81,8 +81,8 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.
 
-    By default, Git projects will run in a new working directory with the given parameters, while
-    local projects will run from the project's root directory.
+    By default, Git projects run in a new working directory with the given parameters, while
+    local projects run from the project's root directory.
     """
     param_dict = {}
     for s in param_list:

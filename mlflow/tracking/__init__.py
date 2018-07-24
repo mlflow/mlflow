@@ -30,7 +30,7 @@ _tracking_uri = None
 
 
 def _get_user_id():
-    """ Gets the ID of the user for the current run. """
+    """ Get the ID of the user for the current run. """
     try:
         import pwd
         return pwd.getpwuid(os.getuid())[0]
@@ -40,8 +40,8 @@ def _get_user_id():
 
 def set_tracking_uri(uri):
     """
-    Sets the tracking server URI to the passed-in value. Note that this does not affect the
-    currently active run (if one exists), but will take effect for any successive runs.
+    Set the tracking server URI to the passed-in value. This does not affect the
+    currently active run (if one exists), but takes effect for successive runs.
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -49,9 +49,10 @@ def set_tracking_uri(uri):
 
 def get_tracking_uri():
     """
-    Returns the current tracking URI. Note that this may not correspond to the tracking URI of
-    the currently active run, since the tracking URI may be updated via `set_tracking_uri`.
-    :return: the tracking URI
+    Return the current tracking URI. This may not correspond to the tracking URI of
+    the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
+    
+    :return: the tracking URI.
     """
     global _tracking_uri
     if _tracking_uri is not None:
@@ -93,7 +94,7 @@ def _get_store():
         return _get_rest_store(store_uri)
 
     raise Exception("Tracking URI must be a local filesystem URI of the form '%s...' or a "
-                    "remote URI of the form '%s...'. Please update the tracking URI via "
+                    "remote URI of the form '%s...'. Update the tracking URI via "
                     "mlflow.set_tracking_uri" % (_LOCAL_FS_URI_PREFIX, _REMOTE_URI_PREFIX))
 
 
@@ -102,10 +103,9 @@ class ActiveRun(object):
     Class representing an active run. Has a reference to the store to which state for the run
     (e.g. run metadata, metrics, parameters, and artifacts) should be persisted.
 
-    Contains methods for logging metrics, parameters, etc under the current run.
+    Contains methods for logging metrics, parameters, etc. under the current run.
 
-    :param run_info: RunInfo describing the active run. A corresponding `Run` object is assumed to
-                     already be persisted with state "running" in `store`.
+    :param run_info: ``RunInfo`` describing the active run. A corresponding ``Run`` object is assumed to already be persisted with state "running" in ``store``.
     :param store: Backend store to which the current run should persist state updates.
     """
     def __init__(self, run_info, store):
@@ -152,14 +152,14 @@ class ActiveRun(object):
 
 def list_experiments():
     """
-    Returns a list of all experiments
+    Return a list of all experiments.
     """
     return _get_store().list_experiments()
 
 
 def create_experiment(experiment_name):
     """
-    Creates an experiment with the specified name and returns its ID.
+    Create an experiment with the specified name and return its ID.
     """
     if experiment_name is None or experiment_name == "":
         raise Exception("Invalid experiment name '%s'" % experiment_name)
@@ -210,7 +210,7 @@ def _create_run(experiment_id, source_name, source_version, entry_point_name, so
 
 
 def get_run(run_uuid):
-    """ Returns the run with the specified run UUID from the current tracking server."""
+    """ Return the run with the specified run UUID from the current tracking server."""
     return _get_store().get_run(run_uuid)
 
 
@@ -228,26 +228,26 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
               entry_point_name=None, source_type=None):
     """
     Start a new MLflow run, setting it as the active run under which metrics and params
-    will be logged. The return value can be used as a context manager within a `with` block;
-    otherwise, `end_run()` must be called to terminate the current run. Note that if `run_uuid`
-    is passed or the MLFLOW_RUN_ID environment variable is set, `start_run` will attempt to
-    resume a run with the specified run ID (with `run_uuid` taking precedence over MLFLOW_RUN_ID),
-    and other parameters will be ignored.
+    will be logged. The return value can be used as a context manager within a ``with`` block;
+    otherwise, ``end_run()`` must be called to terminate the current run. If ``run_uuid``
+    is passed or the ``MLFLOW_RUN_ID`` environment variable is set, ``start_run`` attempts to
+    resume a run with the specified run ID (with ``run_uuid`` taking precedence over ``MLFLOW_RUN_ID``),
+    and other parameters are ignored.
 
-    :param run_uuid: If specified, gets the run with the specified UUID and logs metrics
-                     and params under that run. The run's end time will be unset and its status
-                     will be set to running, but the run's other attributes will remain unchanged
-                     (the run's source_version, source_type, etc will not be changed).
-    :param experiment_id: Only used when run_uuid is unspecified. ID of the experiment under which
-                          to create the current run. If unspecified, the run will be created under
-                          a new experiment with a randomly-generated name
+    :param run_uuid: If specified, get the run with the specified UUID and log metrics
+                     and params under that run. The run's end time is unset and its status
+                     is set to running, but the run's other attributes remain unchanged
+                     (the run's ``source_version``, ``source_type``, etc. are not changed).
+    :param experiment_id: Used only when ``run_uuid`` is unspecified. ID of the experiment under which
+                          to create the current run. If unspecified, the run is created under
+                          a new experiment with a randomly generated name.
     :param source_name: Name of the source file or URI of the project to be associated with the run.
                         Defaults to the current file if none provided.
     :param source_version: Optional Git commit hash to associate with the run.
     :param entry_point_name: Optional name of the entry point for to the current run.
-    :param source_type: Integer enum value describing the type of the run ("local", "project", etc).
-                        Defaults to mlflow.entities.source_type.SourceType.LOCAL.
-    :return: A :class:`ActiveRun` object that acts as a context manager wrapping the run's state
+    :param source_type: Integer enum value describing the type of the run ("local", "project", etc.).
+                        Defaults to ``mlflow.entities.source_type.SourceType.LOCAL``.
+    :return: :py:class:`mlflow.tracking.ActiveRun` object that acts as a context manager wrapping the run's state.
     """
     global _active_run
     if _active_run:
@@ -284,7 +284,7 @@ def end_run(status="FINISHED"):
 
 
 def active_run():
-    """ Returns the currently active `Run`, or None if no such run exists. """
+    """ Return the currently active ``Run``, or None if no such run exists. """
     if _active_run:
         return _active_run.get_run()
     else:
@@ -293,7 +293,8 @@ def active_run():
 
 def log_param(key, value):
     """
-    Logs the passed-in parameter under the current run, creating a run if necessary.
+    Log the passed-in parameter under the current run, creating a run if necessary.
+    
     :param key: Parameter name (string)
     :param value: Parameter value (string)
     """
@@ -302,9 +303,10 @@ def log_param(key, value):
 
 def log_metric(key, value):
     """
-    Logs the passed-in metric under the current run, creating a run if necessary.
-    :param key: Metric name (string)
-    :param value: Metric value (float)
+    Log the passed-in metric under the current run, creating a run if necessary.
+    
+    :param key: Metric name (string).
+    :param value: Metric value (float).
     """
     if not isinstance(value, numbers.Number):
         print("WARNING: The metric {}={} was not logged because the value is not a number.".format(
@@ -325,8 +327,7 @@ def log_artifacts(local_dir, artifact_path=None):
 
 def get_artifact_uri():
     """
-    Returns the artifact URI of the currently active run. Calls to `log_artifact`, `log_artifacts`
-    will write artifact(s) to subdirectories of the returned URI.
+    Return the artifact URI of the currently active run. Calls to ``log_artifact`` and ``log_artifacts`` write artifact(s) to subdirectories of the returned URI.
     """
     return _get_or_start_run().get_artifact_uri()
 
@@ -357,8 +358,8 @@ def _get_git_commit(path):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound
     except ImportError as e:
-        print("Notice: failed to import git (the git executable is probably not on your PATH),"
-              " so git sha will not be available. Error: %s" % e, file=sys.stderr)
+        print("Notice: failed to import Git (the git executable is probably not on your PATH),"
+              " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
         return None
     try:
         if os.path.isfile(path):

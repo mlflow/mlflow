@@ -30,7 +30,7 @@ def commands():
               " Must be one of the following: {mds}".format(
                   mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
 @click.option("--archive", "-ar", is_flag=True, help="If specified, any SageMaker resources that"
-              " become inactive (i.e as the result of replacement) will be preserved")
+              " become inactive (i.e as the result of replacement) are preserved.")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
            archive):
     """
@@ -46,13 +46,13 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
 @commands.command("delete")
 @click.option("--app-name", "-a", help="Application name", required=True)
 @click.option("--region-name", "-r", default="us-west-2",
-              help="Name of the AWS region in which to deploy the application")
+              help="Name of the AWS region in which to deploy the application.")
 @click.option("--archive", "-ar", is_flag=True, help="If specified, resources associated with"
-              " the application will be preserved. Otherwise, these resources will be deleted.")
+              " the application are preserved. Otherwise, these resources are deleted.")
 def delete(app_name, region_name, archive):
     """
-    Delete the specified application. Unless `archive` is set to `True`, all SageMaker resources
-    associated with the application will be deleted as well.
+    Delete the specified application. Unless ``archive`` is set to ``True``, all SageMaker resources
+    associated with the application are deleted as well.
     """
     mlflow.sagemaker.delete(
         app_name=app_name, region_name=region_name, archive=archive)
@@ -73,16 +73,16 @@ def run_local(model_path, run_id, port, image):
 
 @commands.command("build-and-push-container")
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
-@click.option("--push/--no-push", default=True, help="Push the container to amazon ecr if set.")
+@click.option("--push/--no-push", default=True, help="Push the container to AWS ECR if set.")
 @click.option("--container", "-c", default=IMAGE, help="image name")
 @cli_args.MLFLOW_HOME
 def build_and_push_container(build, push, container, mlflow_home):
     """
-    Build new MLflow Sagemaker image, assign it given name and push to ECR.
+    Build new MLflow Sagemaker image, assign it a name, and push to ECR.
 
     This function builds an MLflow Docker image.
     The image is built locally and it requires Docker to run.
-    The image is pushed to ECR under current active AWS account and to current active aws region.
+    The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
     if not (build or push):
         print("skipping both build nad push, have nothing to do!")

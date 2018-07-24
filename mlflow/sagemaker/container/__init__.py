@@ -55,11 +55,11 @@ def _serve():
     """
     Serve the model.
 
-    Read the MLmodel config, initialize the conda environment if needed and start python server.
+    Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
     m = Model.load("/opt/ml/model/MLmodel")
     if pyfunc.FLAVOR_NAME not in m.flavors:
-        raise Exception("Currently can only deal with pyfunc models and this is not one.")
+        raise Exception("Only supports pyfunc models and this is not one.")
     conf = m.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:

@@ -11,7 +11,7 @@ from mlflow.utils.logging_utils import eprint
 def monitor_run(pollable_run, active_run):
     """
     Polls the run for termination, sending updates on the run's status to a tracking server via
-    the passed-in `ActiveRun` instance. This function is intended to be run asynchronously
+    the passed-in ``ActiveRun`` instance. This function is intended to be run asynchronously
     in a subprocess.
     """
     # Add a SIGTERM & SIGINT handler to the current process that cancels the run
@@ -36,7 +36,7 @@ def monitor_run(pollable_run, active_run):
 class SubmittedRun(object):
     """
     Class exposing information about an MLflow project run submitted for execution.
-    Note that methods that return run information (e.g. `run_id` and `get_status`) may return None
+    Note that methods that return run information (e.g. ``run_id`` and ``get_status``) may return None
     if we launched a run against a tracking server that our local client cannot access.
     """
     def __init__(self, active_run, pollable_run_obj):
@@ -49,7 +49,7 @@ class SubmittedRun(object):
 
     @property
     def run_id(self):
-        """Returns the MLflow run ID of the current run"""
+        """Return the MLflow run ID of the current run."""
         # TODO: we handle the case where the local client can't access the tracking server to
         # support e.g. running projects on Databricks without specifying a tracking server.
         # Should be able to remove this logic once Databricks has a hosted tracking server.
@@ -58,7 +58,7 @@ class SubmittedRun(object):
         return None
 
     def get_status(self):
-        """Gets the human-readable status of the MLflow run from the tracking server."""
+        """Get the human-readable status of the MLflow run from the tracking server."""
         if not self._active_run:
             eprint("Can't get MLflow run status; the run's status has not been "
                    "persisted to an accessible tracking server.")
@@ -67,7 +67,7 @@ class SubmittedRun(object):
 
     def wait(self):
         """
-        Waits for the run to complete. Note that in some cases (e.g. remote execution on
+        Wait for the run to complete. In some cases (e.g. remote execution on
         Databricks), we may wait until the remote job completes rather than until the MLflow run
         completes.
         """
@@ -75,7 +75,7 @@ class SubmittedRun(object):
 
     def cancel(self):
         """
-        Attempts to cancel the current run by interrupting the monitoring process; note that this
+        Attempt to cancel the current run by interrupting the monitoring process; note that this
         will not cancel the run if it has already completed.
         """
         try:

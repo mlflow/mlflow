@@ -1,4 +1,4 @@
-"""APIs for running MLflow Projects locally or remotely."""
+"""APIs for running MLflow projects locally or remotely."""
 
 from __future__ import print_function
 
@@ -60,13 +60,13 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Run an MLflow project from the given URI.
 
     Supports downloading projects from Git URIs with a specified version, or copying them from
-    the file system. For Git-based projects, a commit can be specified as the `version`.
+    the file system. For Git-based projects, a commit can be specified as the ``version``.
 
     Raises:
-      `mlflow.projects.ExecutionException` if a run launched in blocking mode is unsuccessful.
+      ``mlflow.projects.ExecutionException`` if a run launched in blocking mode is unsuccessful.
 
     :param entry_point: Entry point to run within the project. If no entry point with the specified
-                        name is found, attempts to run the project file `entry_point` as a script,
+                        name is found, attempts to run the project file ``entry_point`` as a script,
                         using "python" to run .py files and the default shell (specified by
                         environment variable $SHELL) to run .sh files.
     :param experiment_id: ID of experiment under which to launch the run.
@@ -79,19 +79,19 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                       installs project dependencies within that environment. Otherwise, runs the
                       project in the current environment without installing any project
                       dependencies.
-    :param use_temp_cwd: Only used if `mode` is "local" and `uri` is a local directory.
+    :param use_temp_cwd: Used only if ``mode`` is "local" and ``uri`` is a local directory.
                          If True, copies project to a temporary working directory before running it.
-                         Otherwise (the default), runs project using `uri` (the project's path) as
+                         Otherwise (the default), runs project using ``uri`` (the project's path) as
                          the working directory.
-    :param storage_dir: Only used if `mode` is local. MLflow will download artifacts from
+    :param storage_dir: Only used if ``mode`` is local. MLflow will download artifacts from
                         distributed URIs passed to parameters of type 'path' to subdirectories of
-                        storage_dir.
+                        ``storage_dir``.
     :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
-                  Note that if `block` is False and mode is "local", this method will return, but
+                  Note that if ``block`` is False and mode is "local", this method will return, but
                   the current process will block when exiting until the local run completes.
                   If the current process is interrupted, any asynchronous runs launched via this
                   method will be terminated.
-    :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run.
+    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run.
     """
     submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
                              parameters=parameters,
@@ -114,7 +114,7 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     Run an MLflow project from the given URI in a new directory.
 
     Supports downloading projects from Git URIs with a specified version, or copying them from
-    the file system. For Git-based projects, a commit can be specified as the `version`.
+    the file system. For Git-based projects, a commit can be specified as the ``version``.
     """
     eprint("=== Fetching project from %s ===" % uri)
 
@@ -135,7 +135,7 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
 def _get_work_dir(uri, use_temp_cwd):
     """
     Returns a working directory to use for fetching & running the project with the specified URI.
-    :param use_temp_cwd: Only used if `uri` is a local directory. If True, returns a temporary
+    :param use_temp_cwd: Used only if ``uri`` is a local directory. If True, returns a temporary
                          working directory.
     """
     if _GIT_URI_REGEX.match(uri) or use_temp_cwd:
@@ -157,7 +157,7 @@ def _expand_uri(uri):
 
 
 def _fetch_project(uri, version, dst_dir, git_username, git_password):
-    """Download a project to the target `dst_dir` from a Git URI or local path."""
+    """Download a project to the target ``dst_dir`` from a Git URI or local path."""
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
         _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
@@ -177,9 +177,9 @@ def _fetch_project(uri, version, dst_dir, git_username, git_password):
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     """
-    Clones the git repo at `uri` into `dst_dir`, checking out commit `version` (or defaulting
-    to the head commit of the repository's master branch if version is unspecified). If git_username
-    and git_password are specified, uses them to authenticate while fetching the repo. Otherwise,
+    Clones the git repo at ``uri`` into ``dst_dir``, checking out commit ``version`` (or defaulting
+    to the head commit of the repository's master branch if version is unspecified). If ``git_username``
+    and ``git_password`` are specified, uses them to authenticate while fetching the repo. Otherwise,
     assumes authentication parameters are specified by the environment, e.g. by a Git credential
     helper.
     """
@@ -216,7 +216,7 @@ def _maybe_create_conda_env(conda_env_path):
     try:
         process.exec_cmd(["conda", "--help"], throw_on_error=False)
     except EnvironmentError:
-        raise ExecutionException('conda is not installed properly. Please follow the instructions '
+        raise ExecutionException('Conda is not installed properly. Follow the instructions '
                                  'on https://conda.io/docs/user-guide/install/index.html')
     (_, stdout, _) = process.exec_cmd(["conda", "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
@@ -233,11 +233,11 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
     the run's exit status.
 
-    :param active_run: `ActiveRun` to which to post status updates for the launched run
+    :param active_run: ``ActiveRun`` to which to post status updates for the launched run
     :param command: Entry point command to execute
-    :param work_dir: Working directory to use when executing `command`
+    :param work_dir: Working directory to use when executing ``command``
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
-    :return `SubmittedRun` corresponding to the launched run.
+    :return ``SubmittedRun`` corresponding to the launched run.
     """
     from mlflow.projects.pollable_run import LocalPollableRun
     pollable_run = LocalPollableRun(
@@ -247,7 +247,7 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
                  experiment_id, block):
-    """Locally run a project that has been checked out in `work_dir`."""
+    """Locally run a project that has been checked out in ``work_dir``."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
