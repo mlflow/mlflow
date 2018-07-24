@@ -149,8 +149,8 @@ def test_run_databricks_validations(
         cluster_spec_mock, cli_configured_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, dbfs_mocks, create_run_mock):  # pylint: disable=unused-argument
     """
-    Tests that running on Databricks fails before making any API requests if parameters are
-    mis-specified
+    Tests that running on Databricks fails before making any API requests if project parameters
+    or the cluster spec are mis-specified.
     """
     with mock.patch("mlflow.utils.rest_utils.databricks_api_request") as db_api_req_mock:
         with pytest.raises(ExecutionException):

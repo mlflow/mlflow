@@ -65,6 +65,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Raises:
       `mlflow.projects.ExecutionException` if a run launched in blocking mode is unsuccessful.
 
+    :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
+                path or a git repository URI (e.g. https://github.com/databricks/mlflow-example)
+                pointing to a project directory containing an MLproject file.
     :param entry_point: Entry point to run within the project. If no entry point with the specified
                         name is found, attempts to run the project file `entry_point` as a script,
                         using "python" to run .py files and the default shell (specified by
