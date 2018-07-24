@@ -242,18 +242,26 @@ class GCSArtifactRepository(ArtifactRepository):
         dest_path = artifact_path
         if path:
             dest_path = build_path(dest_path, path)
-        infos = []
         prefix = dest_path + "/"
 
-        results = self.gcs.Client().get_bucket(bucket).list_blobs(prefix=prefix)
+        bkt = self.gcs.Client().get_bucket(bucket)
+
+        infos = self._list_folders(bkt, prefix)
+
+        results = bkt.list_blobs(prefix=prefix, delimiter="/")
         for result in results:
-            is_dir = result.name.endswith('/')
-            if is_dir:
-                blob_path = path[:-1]
-            else:
-                blob_path = result.name[len(artifact_path)+1:]
-            infos.append(FileInfo(blob_path, is_dir, result.size))
+            blob_path = result.name[len(artifact_path)+1:]
+            infos.append(FileInfo(blob_path, False, result.size))
+
         return sorted(infos, key=lambda f: f.path)
+
+    def _list_folders(self, bkt, prefix):
+        results = bkt.list_blobs(prefix=prefix, delimiter="/")
+        dir_paths = set()
+        for page in results.pages:
+            dir_paths.update(page.prefixes)
+
+        return [FileInfo(path[len(prefix):-1], True, None)for path in dir_paths]
 
     def download_artifacts(self, artifact_path):
         with TempDir(remove_on_exit=False) as tmp:

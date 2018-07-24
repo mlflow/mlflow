@@ -28,7 +28,9 @@ Name
 Dependencies
     Libraries needed to run the project. MLflow currently uses the
     `Conda <https://conda.io/docs>`_ package manager, which supports both Python packages and native
-    libraries (for example, CuDNN or Intel MKL), to specify dependencies.
+    libraries (for example, CuDNN or Intel MKL), to specify dependencies. MLflow will use the
+    conda executable given by the ``MLFLOW_CONDA`` environment variable if specified, and
+    default to running "conda" otherwise.
 
 Entry Points
     Commands that can be executed within the project, and information about their
