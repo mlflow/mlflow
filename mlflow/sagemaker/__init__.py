@@ -208,7 +208,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                     (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
-                          For a list of supported instance types, see 
+                          For a list of supported instance types, see
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     """
