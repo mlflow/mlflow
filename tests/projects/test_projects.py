@@ -123,7 +123,10 @@ def test_cancel_run():
         submitted_run0.cancel()
         validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
         # Sanity check: cancelling one run has no effect on the other
-        submitted_run1.wait()
+        assert submitted_run1.wait()
+        validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
+        # Try cancelling after calling wait()
+        submitted_run1.cancel()
         validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
 
 

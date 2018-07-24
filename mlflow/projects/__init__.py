@@ -92,7 +92,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                   the current process will block when exiting until the local run completes.
                   If the current process is interrupted, any asynchronous runs launched via this
                   method will be terminated.
-    :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run.
+    :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run. Note that
+             the returned `SubmittedRun` is not thread-safe.
     """
     submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
                              parameters=parameters,
