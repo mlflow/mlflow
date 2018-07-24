@@ -24,6 +24,7 @@ def _kill_active_runs(exception_type, exception_value, traceback):
     excepthook won't be overridden upon forking.
     """
     old_hook(exception_type, exception_value, traceback)
+    print("@SId in excepthook")
     for run in _all_runs:
         run.cancel()
 

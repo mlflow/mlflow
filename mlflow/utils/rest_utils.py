@@ -22,7 +22,7 @@ def get_databricks_hostname_and_auth():
                         "configured as described in "
                         "https://github.com/databricks/databricks-cli" % cfg_file)
     else:
-        config = provider.get_config_for_profile("es-6939")
+        config = provider.get_config_for_profile(provider.DEFAULT_SECTION)
         if config.username is not None and config.password is not None:
             return config.host, (config.username, config.password), config.token
         return config.host, None, config.token
