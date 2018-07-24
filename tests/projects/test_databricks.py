@@ -93,9 +93,9 @@ def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=u
 
 
 @pytest.fixture()
-def cli_configured_mock():  # pylint: disable=unused-argument
-    with mock.patch("mlflow.projects.databricks._check_databricks_cli_configured") as cli_mock:
-        yield cli_mock
+def auth_available_mock():  # pylint: disable=unused-argument
+    with mock.patch("mlflow.projects.databricks._check_databricks_auth_available") as check_auth:
+        yield check_auth
 
 
 def _get_mock_run_state(succeeded):
@@ -146,7 +146,7 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
 
 
 def test_run_databricks_validations(
-        cluster_spec_mock, cli_configured_mock,  # pylint: disable=unused-argument
+        cluster_spec_mock, auth_available_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, dbfs_mocks, create_run_mock):  # pylint: disable=unused-argument
     """
     Tests that running on Databricks fails before making any API requests if project parameters
@@ -166,7 +166,7 @@ def test_run_databricks_validations(
 
 @pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks(
-        cli_configured_mock,  # pylint: disable=unused-argument
+        auth_available_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
         dbfs_mocks,  # pylint: disable=unused-argument
         runs_submit_mock, runs_get_mock, cluster_spec_mock):
@@ -183,7 +183,7 @@ def test_run_databricks(
 
 @pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks_cancel(
-        cli_configured_mock,  # pylint: disable=unused-argument
+        auth_available_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, create_run_mock,  # pylint: disable=unused-argument
         runs_submit_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
         runs_get_mock, cluster_spec_mock):

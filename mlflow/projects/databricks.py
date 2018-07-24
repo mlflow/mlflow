@@ -83,19 +83,15 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, parameters):
     return ["bash", "-c", shell_command]
 
 
-def _check_databricks_cli_configured():
-    cfg_file = os.path.join(os.path.expanduser("~"), ".databrickscfg")
+def _check_databricks_auth_available():
     try:
         process.exec_cmd(["databricks", "--version"])
     except process.ShellCommandException:
         raise ExecutionException(
             "Could not find Databricks CLI on PATH. Please install and configure the Databricks "
             "CLI as described in https://github.com/databricks/databricks-cli")
-    if not os.path.exists(cfg_file):
-        raise ExecutionException("Could not find profile for Databricks CLI in %s. Make sure the "
-                                 "the Databricks CLI is installed and that credentials have been "
-                                 "configured as described in "
-                                 "https://github.com/databricks/databricks-cli" % cfg_file)
+    # Verify that we can get Databricks auth
+    rest_utils.get_databricks_hostname_and_auth()
 
 
 def _upload_to_dbfs(src_path, dbfs_uri):
@@ -230,7 +226,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    _check_databricks_cli_configured()
+    _check_databricks_auth_available()
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
                                  "on Databricks.")
