@@ -99,9 +99,6 @@ def test_run_databricks_cancel(
     submitted_run = run_databricks_project(cluster_spec_mock)
     submitted_run.cancel()
     assert runs_cancel_mock.call_count == 1
-    runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-    assert not submitted_run.wait()
-    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Test that we raise an exception when a blocking Databricks run fails
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     with pytest.raises(mlflow.projects.ExecutionException):
