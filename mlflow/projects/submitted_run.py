@@ -2,8 +2,9 @@ from abc import abstractmethod
 
 import os
 import signal
-
 import sys
+
+from mlflow.entities.run_status import RunStatus
 
 _all_runs = []
 
@@ -50,7 +51,7 @@ class SubmittedRun(object):
     @abstractmethod
     def get_status(self):
         """
-        Get status of the run from the MLflow tracking server
+        Get status of the run.
         """
         pass
 
@@ -76,11 +77,11 @@ class LocalSubmittedRun(SubmittedRun):
     Instance of SubmittedRun corresponding to a subprocess launched to run an entry point command
     locally.
     """
-    def __init__(self, command_proc, command):
+    def __init__(self, run_id, command_proc, command):
         super(LocalSubmittedRun, self).__init__()
+        self.run_id = run_id
         self.command_proc = command_proc
         self.command = command
-        self.active_run = active_run
 
     def wait(self):
         return self.command_proc.wait() == 0
@@ -90,9 +91,18 @@ class LocalSubmittedRun(SubmittedRun):
             os.kill(self.command_proc.pid, signal.SIGINT)
         except OSError:
             pass
+        self.command_proc.wait()
 
     def describe(self):
         return "shell command: '%s'" % self.command
 
+    def _get_status(self):
+        exit_code = self.command_proc.poll()
+        if exit_code is None:
+            return RunStatus.RUNNING
+        if exit_code == 0:
+            return RunStatus.FINISHED
+        return RunStatus.FAILED
+
     def get_status(self):
-        return self.active_run.get_run().info.status
+        return RunStatus.to_string(self._get_status())

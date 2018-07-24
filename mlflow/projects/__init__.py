@@ -227,7 +227,7 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_local_run(command, work_dir, env_map, stream_output):
+def _launch_local_run(run_id, command, work_dir, env_map, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
     the run's exit status.
@@ -248,7 +248,7 @@ def _launch_local_run(command, work_dir, env_map, stream_output):
         popen = subprocess.Popen(
             rewritten_command, cwd=work_dir, env=final_env, universal_newlines=True,
             stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"))
-    return LocalSubmittedRun(popen, command)
+    return LocalSubmittedRun(run_id, popen, command)
 
 
 def _maybe_set_run_terminated(active_run, status):
@@ -325,4 +325,5 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     eprint("=== Running command '%s' in run with ID '%s' === "
            % (command, active_run.run_info.run_uuid))
 
-    return _launch_local_run(command, work_dir, env_map, stream_output=block)
+    return _launch_local_run(active_run.run_info.run_uuid, command, work_dir, env_map,
+                             stream_output=block)

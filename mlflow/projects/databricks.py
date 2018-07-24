@@ -3,6 +3,7 @@ import time
 
 from six.moves import shlex_quote
 
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
 from mlflow.projects.submitted_run import SubmittedRun
@@ -171,5 +172,13 @@ class DatabricksSubmittedRun(SubmittedRun):
     def describe(self):
         return "Databricks Job run with id: %s" % self.databricks_run_id
 
+    def _get_status(self):
+        run_state = _get_run_result_state(self.databricks_run_id)
+        if run_state is None:
+            return RunStatus.RUNNING
+        if run_state == "FINISHED":
+            return RunStatus.FINISHED
+        return RunStatus.FAILED
+
     def get_status(self):
-        return self.active_run.get_run().info.status
+        return RunStatus.to_string(self._get_status())
