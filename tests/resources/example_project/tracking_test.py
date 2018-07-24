@@ -1,7 +1,7 @@
 """ Example script that calls tracking APIs within / outside of a start_run() block. """
 import mlflow
 import sys
-import time
+
 
 def call_tracking_apis():
     mlflow.log_metric("some_key", 3)
@@ -15,11 +15,6 @@ def main(use_start_run):
     else:
         print("Running without start_run API")
         call_tracking_apis()
-
-    try:
-        time.sleep(30)
-    except KeyboardInterrupt:
-        print("Got keyboardinterrupt, exiting")
 
 
 if __name__ == "__main__":
