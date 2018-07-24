@@ -8,17 +8,18 @@ python_unix_binary <- function(bin) {
 }
 
 #' @importFrom processx run
-python_run <- function(command, ...) {
+python_run <- function(command, ..., echo = TRUE) {
   args <- list(...)
 
   # find command usually switch between python 2 and 3.
   candidates <- sapply(command, python_unix_binary)
-  if (all(is.null(candidates))) stop("Could not find ", paste(command, sep = " or "), ".")
-  command <- command[which(!is.null(candidates))]
+  candidates_valid <- sapply(candidates, is.null)
+  if (all(candidates_valid)) stop("Could not find ", paste(command, sep = " or "), ".")
+  command <- command[which(!candidates_valid)]
 
   # execute command
   path <- python_unix_binary(command)
-  result <- run(command, args = unlist(args), echo = TRUE)
+  result <- run(command, args = unlist(args), echo = echo)
 
   invisible(result)
 }
