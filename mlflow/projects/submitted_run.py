@@ -16,14 +16,14 @@ def _add_run(run):
 old_hook = sys.excepthook
 
 
-def _kill_active_runs(type, value, traceback):
+def _kill_active_runs(exception_type, exception_value, traceback):
     """
     Hook that runs when the program exits with an exception - attempts to cancel all ongoing runs.
     Note that the addition of this hook makes the project execution APIs not fork-safe, in that
     a forked process may attempt to cancel the same set of projects. TODO(Sid): I think actually the
     excepthook won't be overridden upon forking.
     """
-    old_hook(type, value, traceback)
+    old_hook(exception_type, exception_value, traceback)
     for run in _all_runs:
         run.cancel()
 

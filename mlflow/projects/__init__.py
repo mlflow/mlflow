@@ -238,7 +238,7 @@ def _launch_local_run(run_id, command, work_dir, env_map, stream_output):
     :return `SubmittedRun` corresponding to the launched run.
     """
     from mlflow.projects.submitted_run import LocalSubmittedRun
-    rewritten_command = list(["mlflow", "_run_internal", command])
+    rewritten_command = list(["mlflow", "internals", "_run_internal", command])
     final_env = os.environ.copy()
     final_env.update(env_map)
     if stream_output:
@@ -269,7 +269,7 @@ def _run_entry_point_command(command):
     store = tracking._get_store()
     run_info = tracking.get_run(run_id).info
     active_run = tracking.ActiveRun(store=store, run_info=run_info)
-    process = subprocess.Popen(["bash", "-c", command])
+    process = subprocess.Popen(["bash", "-c", command], close_fds=True)
     try:
         exit_code = process.wait()
         if exit_code == 0:

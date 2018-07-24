@@ -11,6 +11,7 @@ import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
 import mlflow.sagemaker.cli
+import mlflow.utils.internal_cli
 import mlflow.server
 
 from mlflow.entities.experiment import Experiment
@@ -118,15 +119,6 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
 
 
 @cli.command()
-@click.argument("command")
-def _run_internal(command):
-    """
-    Internally-used CLI command for running entry points locally.
-    """
-    mlflow.projects._run_entry_point_command(command)
-
-
-@cli.command()
 @click.option("--file-store", metavar="PATH", default=None,
               help="The root of the backing file store for experiment and run data "
                    "(default: ./mlruns).")
@@ -189,6 +181,7 @@ cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.experiments.commands)
+cli.add_command(mlflow.utils.internal_cli.commands)
 
 if __name__ == '__main__':
     cli()
