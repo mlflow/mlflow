@@ -17,7 +17,8 @@ def _kill_active_runs(type, value, traceback):
     """
     Hook that runs when the program exits with an exception - attempts to cancel all ongoing runs.
     Note that the addition of this hook makes the project execution APIs not fork-safe, in that
-    a forked process
+    a forked process may attempt to cancel the same set of projects. TODO(Sid): I think actually the
+    excepthook won't be overridden upon forking.
     """
     old_hook(type, value, traceback)
     for run in _all_runs:
@@ -28,15 +29,33 @@ sys.excepthook = _kill_active_runs
 
 
 class SubmittedRun(object):
-    """
-    Class exposing information about an MLflow project run submitted for execution.
-    Note that methods that return run information (e.g. `run_id` and `get_status`) may return None
-    if we launched a run against a tracking server that our local client cannot access.
-    """
-    def __init__(self, active_run, pollable_run_obj):
-        self._active_run = active_run
-        self._pollable_run_obj = pollable_run_obj
+    """Class exposing information about an MLflow project run submitted for execution."""
+    def __init__(self):
         _add_run(self)
+
+    def wait(self):
+        pass
+
+
+class LocalSubmittedRun(SubmittedRun):
+
+    def __init__(self, run_id, command_proc, command):
+        super(LocalSubmittedRun, self).__init__()
+        self.run_id = run_id
+        self.command_proc = command_proc
+        self.command = command
+
+    def wait(self):
+        return self.command_proc.wait() == 0
+
+    def cancel(self):
+        try:
+            os.kill(self.command_proc.pid, signal.SIGINT)
+        except OSError:
+            pass
+
+    def describe(self):
+        return "shell command: '%s'" % self.command
 
     @property
     def run_id(self):

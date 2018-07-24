@@ -15,8 +15,6 @@ from distutils import dir_util
 
 
 from mlflow.projects._project_spec import Project
-from mlflow.projects.submitted_run import SubmittedRun, maybe_set_run_terminated
-
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
@@ -231,18 +229,17 @@ def _maybe_create_conda_env(conda_env_path):
                           conda_env_path], stream_output=True)
 
 
-def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
+def _launch_local_run(command, work_dir, env_map, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
     the run's exit status.
 
-    :param active_run: `ActiveRun` to which to post status updates for the launched run
     :param command: Entry point command to execute
     :param work_dir: Working directory to use when executing `command`
     :param env_map: Dict of environment variable key-value pairs to set in the process for `command`
     :return `SubmittedRun` corresponding to the launched run.
     """
-    from mlflow.projects.pollable_run import LocalPollableRun
+    from mlflow.projects.submitted_run import LocalSubmittedRun
     rewritten_command = list(["mlflow", "_run_internal", command])
     final_env = os.environ.copy()
     final_env.update(env_map)
@@ -253,8 +250,7 @@ def _launch_local_run(active_run, command, work_dir, env_map, stream_output):
         popen = subprocess.Popen(
             rewritten_command, cwd=work_dir, env=final_env, universal_newlines=True,
             stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"))
-    pollable_run = LocalPollableRun(popen, command)
-    return SubmittedRun(active_run, pollable_run)
+    return LocalSubmittedRun(popen, command)
 
 
 def _maybe_set_run_terminated(active_run, status):
@@ -331,4 +327,4 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     eprint("=== Running command '%s' in run with ID '%s' === "
            % (command, active_run.run_info.run_uuid))
 
-    return _launch_local_run(active_run, command, work_dir, env_map, stream_output=block)
+    return _launch_local_run(command, work_dir, env_map, stream_output=block)
