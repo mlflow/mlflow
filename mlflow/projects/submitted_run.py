@@ -37,8 +37,9 @@ class SubmittedRun(object):
     This class defines the interface that the MLflow project runner uses to manage the lifecycle
     of runs launched in different environments (e.g. runs launched locally / on Databricks).
 
-    Note that SubmittedRun is not thread-safe (that is, calls to wait() / cancel() from multiple
-    threads may corrupt run state).
+    Note that SubmittedRun is not thread-safe. That is, concurrent calls to wait() / cancel()
+    from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
+    run.
     """
     def __init__(self):
         pass
