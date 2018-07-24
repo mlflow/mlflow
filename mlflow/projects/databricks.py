@@ -158,7 +158,8 @@ def _monitor_databricks(databricks_run_id, sleep_interval=30):
 class DatabricksSubmittedRun(SubmittedRun):
     """
     Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
-    project. Note that run_id may be None, e.g. if
+    project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
+    server accessible to the local client.
     """
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
