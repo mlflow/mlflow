@@ -193,7 +193,7 @@ Running a Tracking Server
 
 The MLflow tracking server launched via ``mlflow server`` also hosts REST APIs for tracking runs,
 writing data to the local filesystem. You can specify a tracking server URI
-via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs will automatically
+via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs automatically
 communicate with the tracking server at that URI to create/get run information, log metrics, and so on.
 
 An example configuration for a server is as follows:
@@ -207,33 +207,32 @@ An example configuration for a server is as follows:
 
 Storage
 ^^^^^^^
-There are two properties related to how data is stored:
 
-The **File Store** (exposed via ``--file-store``) is where the server will store run and experiment metadata.
-It defaults to the local ./mlruns directory (same as when running ``mlflow run`` locally), but when
-running in a server, make sure that this points to a persistent (i.e., non-ephemeral) file system location.
+The tracking server has two properties related to how data is stored: File Store and Artifact Store.
+
+The **File Store** (exposed via ``--file-store``) is where the *server* stores run and experiment metadata.
+It defaults to the local ``./mlruns`` directory (same as when running ``mlflow run`` locally), but when
+running a server, make sure that this points to a persistent (that is, non-ephemeral) file system location.
 
 The **Artifact Store** is a location suitable for large data (such as an S3 bucket or shared NFS file system)
-where clients log their artifact output (for example, models). The Artifact Store is actually a property
-of an Experiment, but the ``--default-artifact-root`` flag is used to set the artifact root URI for
-newly-created experments that do not specify one. Note that once an experiment is created,
-the ``--default-artifact-root`` is no longer relevant to it.
+where *clients* log their artifact output (for example, models). The Artifact Store is a property
+of an experiment, but the ``--default-artifact-root`` flag sets the artifact root URI for
+newly-created experiments that do not specify one. Once you create an experiment, the ``--default-artifact-root`` is no longer relevant to it.
 
-For the clients and server to access the artifact location, you should configure your cloud
+To allow the clients and server to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
-To utilize Google Cloud Storage you can set the artifact-root to ``gs://<storage_bucket>``, and you will need to provide auth as per
-the documentation for `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
+To use Google Cloud storage, you set ``--default-artifact-root`` to ``gs://<storage_bucket>``, and you will need to provide authentication as described in `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 
-Warning: If you do not specify a ``--default-artifact-root``, nor do you specify an artifact URI when creating
-the experiment (e.g., ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
-will be a path inside the File Store. Typically this is not an appropriate location, as the client and
-server will probably be referring to different physical locations (i.e., the same path on different disks).
+.. important:: 
+  
+  If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root will be a path inside the File Store. Typically this is not an appropriate location, as the client and server will probably be referring to different physical locations (that is, the same path on different disks).
 
 
 Networking
 ^^^^^^^^^^
+
 The ``--host`` option exposes the service on all interfaces. If running a server in production, we
 would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
 and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
