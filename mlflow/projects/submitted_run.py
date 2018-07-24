@@ -1,7 +1,9 @@
-import sys
+from abc import abstractmethod
 
-from mlflow.entities.run_status import RunStatus
-from mlflow.utils.logging_utils import eprint
+import os
+import signal
+
+import sys
 
 _all_runs = []
 
@@ -29,21 +31,56 @@ sys.excepthook = _kill_active_runs
 
 
 class SubmittedRun(object):
-    """Class exposing information about an MLflow project run submitted for execution."""
+    """
+    Class wrapping a MLflow project run (e.g. a subprocess running an entry point
+    command or a Databricks Job run) and exposing methods for waiting on / cancelling the run.
+    This class defines the interface that the MLflow project runner uses to manage the lifecycle
+    of runs launched in different environments (e.g. runs launched locally / on Databricks).
+    """
     def __init__(self):
-        _add_run(self)
+        pass
 
+    @abstractmethod
     def wait(self):
+        """
+        Wait for the run to finish, returning True if the run succeeded and false otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def get_status(self):
+        """
+        Get status of the run from the MLflow tracking server
+        """
+        pass
+
+
+    @abstractmethod
+    def cancel(self):
+        """
+        Cancels the run (interrupts the command subprocess, cancels the Databricks run, etc)
+        """
+        pass
+
+    @abstractmethod
+    def describe(self):
+        """
+        Returns a string describing the current run, used when logging information about run
+        success or failure.
+        """
         pass
 
 
 class LocalSubmittedRun(SubmittedRun):
-
-    def __init__(self, run_id, command_proc, command):
+    """
+    Instance of SubmittedRun corresponding to a subprocess launched to run an entry point command
+    locally.
+    """
+    def __init__(self, command_proc, command):
         super(LocalSubmittedRun, self).__init__()
-        self.run_id = run_id
         self.command_proc = command_proc
         self.command = command
+        self.active_run = active_run
 
     def wait(self):
         return self.command_proc.wait() == 0
@@ -57,35 +94,5 @@ class LocalSubmittedRun(SubmittedRun):
     def describe(self):
         return "shell command: '%s'" % self.command
 
-    @property
-    def run_id(self):
-        """Returns the MLflow run ID of the current run"""
-        # TODO: we handle the case where the local client can't access the tracking server to
-        # support e.g. running projects on Databricks without specifying a tracking server.
-        # Should be able to remove this logic once Databricks has a hosted tracking server.
-        if self._active_run:
-            return self._active_run.run_info.run_uuid
-        return None
-
     def get_status(self):
-        """Gets the human-readable status of the MLflow run from the tracking server."""
-        if not self._active_run:
-            eprint("Can't get MLflow run status; the run's status has not been "
-                   "persisted to an accessible tracking server.")
-            return None
-        return RunStatus.to_string(self._active_run.get_run().info.status)
-
-    def wait(self):
-        """
-        Waits for the run to complete. Note that in some cases (e.g. remote execution on
-        Databricks), we may wait until the remote job completes rather than until the MLflow run
-        completes.
-        """
-        self._pollable_run_obj.wait()
-
-    def cancel(self):
-        """
-        Attempts to cancel the current run by interrupting the monitoring process; note that this
-        will not cancel the run if it has already completed.
-        """
-        self._pollable_run_obj.cancel()
+        return self.active_run.get_run().info.status

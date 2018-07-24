@@ -5,7 +5,6 @@ from six.moves import shlex_quote
 
 from mlflow.entities.source_type import SourceType
 
-from mlflow.projects.pollable_run import PollableRun
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils
 from mlflow.utils.logging_utils import eprint
@@ -135,7 +134,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         cluster_spec = json.load(handle)
     command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id))
+    return DatabricksSubmittedRun(db_run_id)
 
 
 def _cancel_databricks(databricks_run_id):
@@ -154,12 +153,13 @@ def _monitor_databricks(databricks_run_id, sleep_interval=30):
     return result_state == "SUCCESS"
 
 
-class DatabricksPollableRun(PollableRun):
+class DatabricksSubmittedRun(SubmittedRun):
     """
-    Instance of PollableRun corresponding to a Databricks Job run launched to run an MLflow project.
+    Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
+    project.
     """
-    def __init__(self, databricks_run_id):
-        super(DatabricksPollableRun, self).__init__()
+    def __init__(self, databricks_run_id, active_run):
+        super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
 
     def wait(self):
@@ -170,3 +170,6 @@ class DatabricksPollableRun(PollableRun):
 
     def describe(self):
         return "Databricks Job run with id: %s" % self.databricks_run_id
+
+    def get_status(self):
+        return self.active_run.get_run().info.status

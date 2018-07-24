@@ -72,12 +72,8 @@ def test_run():
                 TEST_PROJECT_DIR, entry_point="test_tracking",
                 parameters={"use_start_run": use_start_run},
                 use_conda=False, experiment_id=0)
-            # Blocking runs should be finished when they return
-            validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
-            # Test that we can call wait() on a synchronous run & that the run has the correct
-            # status after calling wait().
-            submitted_run.wait()
-            validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+            # Check that wait returns True for successful synchronous run
+            assert submitted_run.wait()
             # Validate run contents in the FileStore
             run_uuid = submitted_run.run_id
             store = FileStore(tmp_dir)
@@ -103,13 +99,11 @@ def test_run_async():
         submitted_run0 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
             use_conda=False, experiment_id=0, block=False)
-        validate_exit_status(submitted_run0.get_status(), RunStatus.RUNNING)
-        submitted_run0.wait()
-        validate_exit_status(submitted_run0.get_status(), RunStatus.FINISHED)
+        assert submitted_run0.wait()
         submitted_run1 = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
             use_conda=False, experiment_id=0, block=False)
-        submitted_run1.wait()
+        assert not submitted_run1.wait()
         validate_exit_status(submitted_run1.get_status(), RunStatus.FAILED)
 
 
@@ -121,10 +115,9 @@ def test_cancel_run():
             TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
             use_conda=False, experiment_id=0, block=False) for _ in range(2)]
         submitted_run0.cancel()
-        validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
+        assert not submitted_run0.wait()
         # Sanity check: cancelling one run has no effect on the other
-        submitted_run1.wait()
-        validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
+        assert submitted_run1.wait()
 
 
 def test_get_work_dir():

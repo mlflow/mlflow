@@ -101,11 +101,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                              git_password=git_password, use_conda=use_conda,
                              use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
     if block:
-        submitted_run_obj.wait()
-        status = submitted_run_obj.get_status()
-        if RunStatus.from_string(status) != RunStatus.FINISHED:
-            raise ExecutionException("=== Run (%s) was unsuccessful, had status %s ===" %
-                                     (submitted_run_obj.run_id, status))
+        if not submitted_run_obj.wait():
+            raise ExecutionException("=== Run (%s, MLflow run id: %s) was unsuccessful ===" %
+                                     (submitted_run_obj.describe(), submitted_run_obj.run_id))
     return submitted_run_obj
 
 
