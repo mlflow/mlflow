@@ -112,7 +112,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             storage_dir=storage_dir,
             block=True,
         )
-    except projects.ExecutionException as e:
+    except projects.ExecutionException:
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
