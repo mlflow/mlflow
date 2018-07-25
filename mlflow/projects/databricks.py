@@ -11,16 +11,10 @@ from six.moves import shlex_quote, urllib
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
-<<<<<<< HEAD
-from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.utils import rest_utils
-=======
-from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project,\
-    _expand_uri
-from mlflow.projects.pollable_run import DatabricksPollableRun
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
->>>>>>> master
+from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project,\
+    _expand_uri
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
@@ -279,7 +273,6 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
     run_id = remote_run.run_info.run_uuid if remote_run else None
     return DatabricksSubmittedRun(db_run_id, run_id)
-
 
 
 def _cancel_databricks(databricks_run_id):
