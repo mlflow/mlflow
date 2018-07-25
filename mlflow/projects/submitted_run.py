@@ -65,7 +65,8 @@ class SubmittedRun(object):
     def cancel(self):
         """
         Cancels the run (interrupts the command subprocess, cancels the Databricks run, etc) and
-        waits for it to terminate.
+        waits for it to terminate. Note that the MLflow run status may not be set correctly
+        upon run cancellation.
         """
         pass
 
@@ -95,14 +96,13 @@ class LocalSubmittedRun(SubmittedRun):
     def cancel(self):
         # Interrupt child process if it hasn't already exited
         if self.command_proc.poll() is None:
-            # Terminate the child process (MLflow CLI command) by interrupting it, which should
-            # record the run as failed & terminate the entry point command subprocess
+            # Terminate the child process (MLflow CLI command)
             try:
-                os.kill(self.command_proc.pid, signal.SIGINT)
+                self.command_proc.terminate()
             except OSError:
                 # The child process may have exited before we attempted to terminate it, so we
                 # ignore OSErrors raised during child process termination
-                eprint("Failed to send interrupt to child process (PID %s) corresponding to MLflow "
+                eprint("Failed to terminate child process (PID %s) corresponding to MLflow "
                        "run with ID %s. The process may have already "
                        "exited." % (self.command_proc.pid, self.run_id))
             self.command_proc.wait()

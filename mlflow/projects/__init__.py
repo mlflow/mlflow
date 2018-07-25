@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import sys
 import subprocess
 import tempfile
@@ -334,24 +335,30 @@ def _run_entry_point_command(command):
     run_info = tracking.get_run(run_id).info
     active_run = tracking.ActiveRun(store=store, run_info=run_info)
     eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
-    process = subprocess.Popen(["bash", "-c", command], close_fds=True, preexec_fn=os.setsid)
-    try:
-        exit_code = process.wait()
-        if exit_code == 0:
-            eprint("=== Shell command '%s' succeeded ===" % command)
-            _maybe_set_run_terminated(active_run, "FINISHED")
-            sys.exit(exit_code)
-        else:
-            eprint("=== Shell command '%s' failed with exit code %s ===" % (command, exit_code))
-            _maybe_set_run_terminated(active_run, "FAILED")
-            sys.exit(exit_code)
-    except KeyboardInterrupt:
+    # Set up signal handler to terminate the subprocess running the entry-point command
+    process = None
+
+    def handle_cancellation(signum, frame):
         eprint("=== Shell command '%s' interrupted, cancelling... ===" % command)
-        try:
-            process.terminate()
-        except OSError:
-            pass
+        if process is not None and process.poll() is None:
+            try:
+                process.terminate()
+            except OSError:
+                pass
+        # Mark the run as terminated if it hasn't already finished
         _maybe_set_run_terminated(active_run, "FAILED")
+        sys.exit(1)
+    signal.signal(signal.SIGTERM, handle_cancellation)
+    process = subprocess.Popen(["bash", "-c", command], close_fds=True, preexec_fn=os.setsid)
+    exit_code = process.wait()
+    if exit_code == 0:
+        eprint("=== Shell command '%s' succeeded ===" % command)
+        _maybe_set_run_terminated(active_run, "FINISHED")
+        sys.exit(exit_code)
+    else:
+        eprint("=== Shell command '%s' failed with exit code %s ===" % (command, exit_code))
+        _maybe_set_run_terminated(active_run, "FAILED")
+        sys.exit(exit_code)
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
