@@ -11,7 +11,6 @@ import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
 import mlflow.sagemaker.cli
-import mlflow.utils.internal_cli
 import mlflow.server
 
 from mlflow.entities.experiment import Experiment
@@ -186,7 +185,6 @@ cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.experiments.commands)
-cli.add_command(mlflow.utils.internal_cli.commands)
 
 if __name__ == '__main__':
     cli()
