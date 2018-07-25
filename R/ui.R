@@ -3,10 +3,6 @@ mlflow_view_url <- function(url) {
   getOption("page_viewer", browseURL)(url)
 }
 
-mlflow_ui_url <- function(mc) {
-  mc$url
-}
-
 #' MLflow User Interface
 #'
 #' Launches MLflow user interface.
@@ -26,5 +22,5 @@ mlflow_ui_url <- function(mc) {
 mlflow_ui <- function(mc) {
   mlflow_validate(mc)
 
-  mlflow_view_url(mlflow_ui_url(mc))
+  mlflow_view_url(mlflow_url(mc))
 }
