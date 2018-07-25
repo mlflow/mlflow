@@ -338,7 +338,7 @@ def _run_entry_point_command(command):
     # Set up signal handler to terminate the subprocess running the entry-point command
     process = None
 
-    def handle_cancellation(signum, frame):
+    def handle_cancellation(signum, frame):  # pylint: disable=unused-argument
         eprint("=== Shell command '%s' interrupted, cancelling... ===" % command)
         if process is not None and process.poll() is None:
             try:

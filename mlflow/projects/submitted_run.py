@@ -1,7 +1,6 @@
 from abc import abstractmethod
 
 import os
-import signal
 import sys
 
 from mlflow.entities.run_status import RunStatus
