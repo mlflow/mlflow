@@ -1,26 +1,30 @@
+#' @importFrom utils browseURL
 mlflow_view_url <- function(url) {
   getOption("page_viewer", browseURL)(url)
 }
 
-mlflow_ui_url <- function() {
-  getOption("mlflow.ui", "http://127.0.0.1:5000")
+mlflow_ui_url <- function(mc) {
+  mc$url
 }
 
 #' MLflow User Interface
 #'
 #' Launches MLflow user interface.
 #'
+#' @param mc The MLflow connection created using \code{mlflow_connect()}.
+#'
 #' @examples
 #' \dontrun{
 #' library(mlflow)
 #' mlflow_install()
 #'
-#' mlflow_ui()
+#' mc <- mlflow_connect()
+#' mlflow_ui(mc)
 #' }
 #'
 #' @export
-mlflow_ui <- function() {
-  mlflow_cli("ui", background = getOption("mlflow.ui.background", TRUE))
+mlflow_ui <- function(mc) {
+  mlflow_validate(mc)
 
-  mlflow_view_url(mlflow_ui_url())
+  mlflow_view_url(mlflow_ui_url(mc))
 }
