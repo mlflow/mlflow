@@ -314,12 +314,13 @@ def _run_local_noenv(
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
-    commands = [
-        project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run)]
+    commands = []
     if use_conda:
         conda_env_path = os.path.abspath(os.path.join(uri, project.conda_env))
         _maybe_create_conda_env(conda_env_path)
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
+    commands.append(
+        project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     _run_entry_point_command(" && ".join(commands))
 
 
@@ -332,6 +333,8 @@ def _run_entry_point_command(command):
     store = tracking._get_store()
     run_info = tracking.get_run(run_id).info
     active_run = tracking.ActiveRun(store=store, run_info=run_info)
+    eprint("=== Running command '%s' in run with ID '%s' === "
+           % (command, run_id))
     process = subprocess.Popen(["bash", "-c", command], close_fds=True, preexec_fn=os.setsid)
     try:
         exit_code = process.wait()
@@ -383,9 +386,6 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
         tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
         tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
     }
-
-    eprint("=== Running entry point '%s' in run with ID '%s' === "
-           % (entry_point, active_run.run_info.run_uuid))
 
     return _launch_local_run(
         project.uri, active_run.run_info.run_uuid, entry_point, parameters, work_dir, env_map,
