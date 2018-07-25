@@ -7,5 +7,14 @@
 mlflow_ui()
 }
 \description{
-Launches MLflow user interface in a web browser.
+Launches MLflow user interface.
+}
+\examples{
+\dontrun{
+library(mlflow)
+mlflow_install()
+
+mlflow_ui()
+}
+
 }

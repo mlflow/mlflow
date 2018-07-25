@@ -2,6 +2,7 @@
 
 export(mlflow_install)
 export(mlflow_ui)
+importFrom(processx,process)
 importFrom(processx,run)
 importFrom(reticulate,conda_install)
 importFrom(reticulate,conda_list)

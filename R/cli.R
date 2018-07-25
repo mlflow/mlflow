@@ -6,13 +6,20 @@ mlflow_cli_path <- function() {
 }
 
 #' @importFrom processx run
-mlflow_cli <- function(...) {
+#' @importFrom processx process
+mlflow_cli <- function(..., background = FALSE) {
   args <- list(...)
   args <- c(
     mlflow_cli_path(),
     args
   )
 
-  result <- run(python_bin(), args = unlist(args), echo = TRUE)
+  if (background) {
+    result <- process$new(python_bin(), args = unlist(args), echo = FALSE, supervise = TRUE)
+  }
+  else {
+    result <- run(python_bin(), args = unlist(args), echo = TRUE)
+  }
+
   invisible(result)
 }

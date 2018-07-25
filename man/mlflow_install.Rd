@@ -13,3 +13,10 @@ Installs MLflow for individual use.
 Notice that MLflow requires Python to be installed,
 see \url{https://www.python.org/getit/}.
 }
+\examples{
+\dontrun{
+library(mlflow)
+mlflow_install()
+}
+
+}
