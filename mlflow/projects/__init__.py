@@ -26,6 +26,9 @@ from mlflow.utils.logging_utils import eprint
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
+# Environment variable indicating a path to a conda installation. MLflow will default to running
+# "conda" if unset
+MLFLOW_CONDA = "MLFLOW_MLFLOW_CONDA"
 
 
 class ExecutionException(Exception):
@@ -35,28 +38,31 @@ class ExecutionException(Exception):
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
          mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-         use_temp_cwd=False, storage_dir=None, block=True):
+         use_temp_cwd=False, storage_dir=None, block=True, run_id=None):
     exp_id = experiment_id or tracking._get_experiment_id()
     if mode is None or mode == "local":
         return _run_local(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
             experiment_id=exp_id, use_conda=use_conda, use_temp_cwd=use_temp_cwd,
             storage_dir=storage_dir, git_username=git_username, git_password=git_password,
-            block=block)
+            block=block, run_id=run_id)
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
+    if mode == "local_noenv":
+        return _run_local_noenv(
+            uri=uri, entry_point=entry_point, parameters=parameters, storage_dir=storage_dir)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        use_temp_cwd=False, storage_dir=None, block=True):
+        mode=None, cluster_spec=None, git_username=None, git_password=None,
+        use_conda=True, use_temp_cwd=False, storage_dir=None, block=True, run_id=None):
     """
     Run an MLflow project from the given URI.
 
@@ -66,6 +72,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Raises:
       `mlflow.projects.ExecutionException` if a run launched in blocking mode is unsuccessful.
 
+    :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
+                path or a git repository URI (e.g. https://github.com/databricks/mlflow-example)
+                pointing to a project directory containing an MLproject file.
     :param entry_point: Entry point to run within the project. If no entry point with the specified
                         name is found, attempts to run the project file `entry_point` as a script,
                         using "python" to run .py files and the default shell (specified by
@@ -92,6 +101,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                   the current process will block when exiting until the local run completes.
                   If the current process is interrupted, any asynchronous runs launched via this
                   method will be terminated.
+    :param run_id: Note: this argument is used internally by the MLflow project APIs and should
+                   not be specified. If specified, the given run ID will be used instead of
+                   creating a new run.
     :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run. Note that
              the returned `SubmittedRun` is not thread-safe.
     """
@@ -100,7 +112,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                              experiment_id=experiment_id,
                              mode=mode, cluster_spec=cluster_spec, git_username=git_username,
                              git_password=git_password, use_conda=use_conda,
-                             use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block)
+                             use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block,
+                             run_id=run_id)
     if block:
         if not submitted_run_obj.wait():
             raise ExecutionException("=== Run (%s, MLflow run id: %s) was unsuccessful ===" %
@@ -108,8 +121,12 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     return submitted_run_obj
 
 
+def _load_project(work_dir, uri):
+    return Project(_expand_uri(uri), file_utils.read_yaml(work_dir, "MLproject"))
+
+
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
-               storage_dir, git_username, git_password, block):
+               storage_dir, git_username, git_password, block, run_id):
     """
     Run an MLflow project from the given URI in a new directory.
 
@@ -127,9 +144,10 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     # Load the MLproject file
     if not os.path.isfile(os.path.join(work_dir, "MLproject")):
         raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
+    project = _load_project(work_dir, uri)
     return _run_project(
-        project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, block)
+        project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, run_id,
+        block)
 
 
 def _get_work_dir(uri, use_temp_cwd):
@@ -211,24 +229,38 @@ def _get_conda_env_name(conda_env_path):
     return "mlflow-%s" % conda_env_hash
 
 
+def _conda_executable():
+    """
+    Returns path to a conda executable. Configurable via the mlflow.projects.MLFLOW_CONDA
+    environment variable.
+    """
+    return os.environ.get(MLFLOW_CONDA, "conda")
+
+
 def _maybe_create_conda_env(conda_env_path):
     conda_env = _get_conda_env_name(conda_env_path)
+    conda_path = _conda_executable()
     try:
-        process.exec_cmd(["conda", "--help"], throw_on_error=False)
+        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
-        raise ExecutionException('conda is not installed properly. Please follow the instructions '
-                                 'on https://conda.io/docs/user-guide/install/index.html')
-    (_, stdout, _) = process.exec_cmd(["conda", "env", "list", "--json"])
+        raise ExecutionException("Could not find conda executable at {0}. "
+                                 "Please ensure conda is installed as per the instructions "
+                                 "at https://conda.io/docs/user-guide/install/index.html. You may "
+                                 "also configure MLflow to look for a specific conda executable "
+                                 "by setting the {1} environment variable to the path of the conda "
+                                 "executable".format(conda_path, MLFLOW_CONDA))
+    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
     conda_action = 'create'
     if conda_env not in env_names:
         eprint('=== Creating conda environment %s ===' % conda_env)
-        process.exec_cmd(["conda", "env", conda_action, "-n", conda_env, "--file",
+        process.exec_cmd([conda_path, "env", conda_action, "-n", conda_env, "--file",
                           conda_env_path], stream_output=True)
 
 
-def _launch_local_run(run_id, command, work_dir, env_map, stream_output):
+def _launch_local_run(
+        uri, run_id, entry_point, work_dir, env_map, use_conda, storage_dir, stream_output):
     """
     Runs an entry point by launching its command in a subprocess, updating the tracking server with
     the run's exit status.
@@ -239,7 +271,14 @@ def _launch_local_run(run_id, command, work_dir, env_map, stream_output):
     :return `SubmittedRun` corresponding to the launched run.
     """
     from mlflow.projects.submitted_run import LocalSubmittedRun
-    rewritten_command = list(["mlflow", "internals", "_run_internal", command])
+    command = _load_project(work_dir, uri)
+    rewritten_command = ["mlflow", "run", work_dir, "-e", entry_point, "-m", "local_noenv"]
+    if storage_dir is not None:
+        rewritten_command.extend(["--storage-dir", storage_dir])
+    if not use_conda:
+        rewritten_command.append("--no-conda")
+    if run_id:
+        rewritten_command.extend(["--run-id", run_id])
     final_env = os.environ.copy()
     final_env.update(env_map)
     if stream_output:
@@ -259,6 +298,13 @@ def _maybe_set_run_terminated(active_run, status):
     """
     if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
         active_run.set_terminated(status)
+
+
+def _run_local_noenv(
+        uri, entry_point, parameters, storage_dir):
+    project = _load_project(work_dir=uri, uri=uri)
+    command = project.get_entry_point(entry_point).compute_command(parameters, storage_dir)
+    _run_entry_point_command(command)
 
 
 def _run_entry_point_command(command):
@@ -291,28 +337,34 @@ def _run_entry_point_command(command):
 
 
 def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_dir,
-                 experiment_id, block):
+                 experiment_id, run_id, block):
     """Locally run a project that has been checked out in `work_dir`."""
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
     # Try to build the command first in case the user mis-specified parameters
     run_project_command = project.get_entry_point(entry_point)\
-        .compute_command(parameters, storage_dir_for_run)
+        ._validate_parameters(parameters, storage_dir_for_run)
     commands = []
     if use_conda:
         conda_env_path = os.path.abspath(os.path.join(work_dir, project.conda_env))
         _maybe_create_conda_env(conda_env_path)
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
 
-    # Create a new run and log every provided parameter into it.
-    active_run = tracking._create_run(
-        experiment_id=experiment_id, source_name=project.uri,
-        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
-        source_type=SourceType.PROJECT)
-    if parameters is not None:
-        for key, value in parameters.items():
-            active_run.log_param(Param(key, value))
+    # Create a new run and log every provided parameter into it (or get an existing run if run_id
+    # is specified).
+    if run_id:
+        active_run = tracking._create_run(
+            experiment_id=experiment_id, source_name=project.uri,
+            source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
+            source_type=SourceType.PROJECT)
+        if parameters is not None:
+            for key, value in parameters.items():
+                active_run.log_param(Param(key, value))
+
+    else:
+        active_run = tracking._get_existing_run(run_id)
+
     # Add the run id into a magic environment variable that the subprocess will read,
     # causing it to reuse the run.
     env_map = {
@@ -326,5 +378,6 @@ def _run_project(project, entry_point, work_dir, parameters, use_conda, storage_
     eprint("=== Running command '%s' in run with ID '%s' === "
            % (command, active_run.run_info.run_uuid))
 
-    return _launch_local_run(active_run.run_info.run_uuid, command, work_dir, env_map,
-                             stream_output=block)
+    return _launch_local_run(
+        project.uri, active_run.run_info.run_uuid, entry_point, work_dir, env_map, use_conda,
+        storage_dir, stream_output=block)

@@ -72,8 +72,12 @@ def cli():
               help="Only valid when `mode` is local."
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
+@click.option("--run-id", metavar="RUN_ID",
+              help="Note: this argument is used internally by the MLflow project APIs "
+                   "and should not be specified. If specified, the given run ID will "
+                   "be used instead of creating a new run.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, new_dir, storage_dir):
+        git_password, no_conda, new_dir, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -112,6 +116,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             use_temp_cwd=new_dir,
             storage_dir=storage_dir,
             block=True,
+            run_id=run_id,
         )
     except projects.ExecutionException as e:
         print(e.message, file=sys.stderr)
