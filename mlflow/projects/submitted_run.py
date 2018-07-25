@@ -23,9 +23,10 @@ def _kill_active_runs(exception_type, exception_value, traceback):
     Note that this hook will not run in e.g. IPython notebooks.
     """
     old_hook(exception_type, exception_value, traceback)
+    eprint("=== Process %s exiting with exception of type %s, terminating all active project "
+           "runs ===" % (os.getpid(), exception_type))
     for run in _all_runs:
         run.cancel()
-
 
 sys.excepthook = _kill_active_runs
 
@@ -42,7 +43,7 @@ class SubmittedRun(object):
     run.
     """
     def __init__(self):
-        pass
+        _add_run(self)
 
     @abstractmethod
     def wait(self):

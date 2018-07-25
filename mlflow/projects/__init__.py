@@ -28,7 +28,8 @@ from mlflow.utils.logging_utils import eprint
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
-MLFLOW_CONDA = "MLFLOW_MLFLOW_CONDA"
+MLFLOW_CONDA = "MLFLOW_CONDA"
+MLFLOW_ENTRY_POINT_MODE = "_local_run_entry_point"
 
 
 class ExecutionException(Exception):
@@ -52,10 +53,6 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
-    if mode == "local_noenv":
-        return _run_local_noenv(
-            uri=uri, entry_point=entry_point, parameters=parameters, storage_dir=storage_dir,
-            use_conda=use_conda)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
@@ -108,6 +105,12 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run. Note that
              the returned `SubmittedRun` is not thread-safe.
     """
+    if mode == MLFLOW_ENTRY_POINT_MODE:
+        _run_local_noenv(
+            uri=uri, entry_point=entry_point, parameters=parameters, storage_dir=storage_dir,
+            use_conda=use_conda)
+        return None
+
     submitted_run_obj = _run(uri=uri, entry_point=entry_point, version=version,
                              parameters=parameters,
                              experiment_id=experiment_id,
@@ -274,7 +277,7 @@ def _launch_local_run(
     """
     from mlflow.projects.submitted_run import LocalSubmittedRun
     command = _load_project(work_dir, uri)
-    mlflow_run_arr = ["mlflow", "run", work_dir, "-e", entry_point, "-m", "local_noenv"]
+    mlflow_run_arr = ["mlflow", "run", work_dir, "-e", entry_point, "-m", MLFLOW_ENTRY_POINT_MODE]
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
     if not use_conda:
