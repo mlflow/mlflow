@@ -1,5 +1,7 @@
+import gzip
 import os
 import shutil
+import tarfile
 import tempfile
 
 import yaml
@@ -227,6 +229,24 @@ def write_to(filename, data):
 def append_to(filename, data):
     with open(filename, "a") as handle:
         handle.write(data)
+
+
+def make_tarfile(output_filename, source_dir, archive_name):
+    # Helper for filtering out modification timestamps
+    def _filter_timestamps(tar_info):
+        tar_info.mtime = 0
+        return tar_info
+    unzipped_filename = tempfile.mktemp()
+    try:
+        with tarfile.open(unzipped_filename, "w") as tar:
+            tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
+        # When gzipping the tar, don't include the tar's filename or modification time in the
+        # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
+        with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0)\
+                as gzipped_tar, open(unzipped_filename, 'rb') as tar:
+            gzipped_tar.write(tar.read())
+    finally:
+        os.remove(unzipped_filename)
 
 
 def _copy_project(src_path, dst_path=""):
