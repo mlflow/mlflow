@@ -74,11 +74,22 @@ class _H2OModelWrapper:
 
 
 def load_pyfunc(path):
+    """
+    When loading this model as a pyfunc-model, `h2o.init(...)` will be called.
+    Therefore, the right version of h2o(-py) has to be in the environment. The
+    arguments given to `h2o.init(...)` can be customized in `model.h2o/h2o.yaml`
+    under the key `init`.
+    """
     return _H2OModelWrapper(_load_model(path, init=True))
 
 
 def load_model(path, run_id=None):
-    """Load a SciKit-Learn model from a local file (if run_id is None) or a run."""
+    """
+    Load a H2O model from a local file (if run_id is None) or a run.
+
+    This function expects there is a h2o instance initialised with
+    `h2o.init()`.
+    """
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model(os.path.join(path, "model.h2o"))

@@ -199,6 +199,8 @@ H\ :sub:`2`\ O (``h2o``)
 
 With the H2O model flavor H2O models can be handled by mlflow. These models will be saved by using the :py:mod:`h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
 
+When loading a H2O model as a pyfunc-model, :py:mod:`h2o.init(...)` will be called. Therefore, the right version of h2o(-py) has to be in the environment. The arguments given to :py:mod:`h2o.init(...)` can be customized in ``model.h2o/h2o.yaml`` under the key ``init``.
+
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
