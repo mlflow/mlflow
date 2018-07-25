@@ -333,8 +333,7 @@ def _run_entry_point_command(command):
     store = tracking._get_store()
     run_info = tracking.get_run(run_id).info
     active_run = tracking.ActiveRun(store=store, run_info=run_info)
-    eprint("=== Running command '%s' in run with ID '%s' === "
-           % (command, run_id))
+    eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
     process = subprocess.Popen(["bash", "-c", command], close_fds=True, preexec_fn=os.setsid)
     try:
         exit_code = process.wait()
