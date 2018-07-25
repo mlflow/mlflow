@@ -10,8 +10,6 @@ mlflow_install()
 Installs MLflow for individual use.
 }
 \details{
-Notice that MLflow requires Python and pip to be installed.
-See \url{https://www.python.org/getit/} and \url{https://pip.pypa.io/}.
-
-@export
+Notice that MLflow requires Python to be installed,
+see \url{https://www.python.org/getit/}.
 }

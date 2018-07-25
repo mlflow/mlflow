@@ -1,24 +1,33 @@
-python_unix_binary <- function(bin) {
-  locations <- file.path(c("/usr/bin", "/usr/local/bin", path.expand("~/.local/bin")), bin)
-  locations <- locations[file.exists(locations)]
-  if (length(locations) > 0)
-    locations[[1]]
-  else
-    NULL
+#' @importFrom reticulate conda_list
+python_bin_conda <- function() {
+  envs <- conda_list()
+  mlflow_env <- envs[envs$name == "r-mlflow",]
+  if (nrow(mlflow_env) == 0) {
+    stop("MLflow virtualenv not configured, please run mlflow_install().")
+  }
+
+  mlflow_env$python
+}
+
+#' @importFrom reticulate get_virtualenv
+python_bin_virtualenv <- function() {
+  get_virtualenv("r-mlflow")
+}
+
+python_use_conda <- function() {
+  getOption("mlflow.conda", find_conda())
+}
+
+python_bin <- function(conda = python_use_conda()) {
+  python <- ifelse(conda, python_bin_conda(), python_bin_virtualenv())
+  path.expand(python)
 }
 
 #' @importFrom processx run
-python_run <- function(command, ..., echo = TRUE) {
+pip_run <- function(..., echo = TRUE) {
   args <- list(...)
 
-  # find command usually switch between python 2 and 3.
-  candidates <- sapply(command, python_unix_binary)
-  candidates_valid <- sapply(candidates, is.null)
-  if (all(candidates_valid)) stop("Could not find ", paste(command, sep = " or "), ".")
-  command <- command[which(!candidates_valid)]
-
-  # execute command
-  path <- python_unix_binary(command)
+  command <- file.path(dirname(python_bin()), "pip")
   result <- run(command, args = unlist(args), echo = echo)
 
   invisible(result)

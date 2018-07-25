@@ -5,12 +5,16 @@ Version: 0.1.0
 Author: Who wrote it
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+  Use four spaces when indenting paragraphs within the Description.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Depends:
-    R (>= 3.1.2)
+  R (>= 3.1.2)
 Imports:
-    processx
+  processx,
+  reticulate
 RoxygenNote: 6.0.1
+Remotes:
+  javierluraschi/reticulate@bugfix/expose-get-python
+  

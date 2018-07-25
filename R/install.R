@@ -2,11 +2,21 @@
 #'
 #' Installs MLflow for individual use.
 #'
-#' Notice that MLflow requires Python and pip to be installed.
-#' See \url{https://www.python.org/getit/} and \url{https://pip.pypa.io/}.
+#' Notice that MLflow requires Python to be installed,
+#' see \url{https://www.python.org/getit/}.
 #'
-#'  @export
+#' @importFrom reticulate conda_install
+#' @export
 mlflow_install <- function() {
-  python_run(c("pip3", "pip"), "install", "--user", "pandas")
-  python_run(c("pip3", "pip"), "install", "--user", "mlflow")
+  packages <- c(
+    "pandas",
+    "mlflow"
+  )
+
+  if (python_use_conda()) {
+    conda_install(packages, envname = "r-mlflow", pip = TRUE)
+  }
+  else {
+    py_install(packages, envname = "r-mlflow")
+  }
 }
