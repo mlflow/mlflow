@@ -106,6 +106,7 @@ def test_run():
                 assert metric.value == expected_metrics[metric.key]
 
 
+@pytest.mark.skip(reason="flaky running in travis py3.6")
 def test_run_async():
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         tmp_dir = tmp.path()
@@ -123,6 +124,7 @@ def test_run_async():
         validate_exit_status(submitted_run1.get_status(), RunStatus.FAILED)
 
 
+@pytest.mark.skip(reason="flaky running in travis py3.6")
 def test_cancel_run():
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         tmp_dir = tmp.path()
