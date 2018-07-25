@@ -20,7 +20,7 @@ mlflow_ui_url <- function() {
 #'
 #' @export
 mlflow_ui <- function() {
-  mlflow_cli("ui", background = TRUE)
+  mlflow_cli("ui", background = getOption("mlflow.ui.background", TRUE))
 
   mlflow_view_url(mlflow_ui_url())
 }

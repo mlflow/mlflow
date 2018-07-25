@@ -20,8 +20,9 @@ python_bin_virtualenv <- function() {
   python
 }
 
+#' @importFrom reticulate find_conda
 python_use_conda <- function() {
-  getOption("mlflow.conda", find_conda())
+  getOption("mlflow.conda", !is.null(find_conda()))
 }
 
 python_bin <- function(conda = python_use_conda()) {

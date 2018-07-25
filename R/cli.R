@@ -1,7 +1,7 @@
 mlflow_cli_path <- function() {
   result <- pip_run("show", "mlflow", echo = FALSE)
-  location_match <- regexec("Location: ([^\n]*)", r$stdout)
-  site_path <- regmatches(r$stdout, location_match)[[1]][[2]]
+  location_match <- regexec("Location: ([^\n]*)", result$stdout)
+  site_path <- regmatches(result$stdout, location_match)[[1]][[2]]
   file.path(site_path, "mlflow", "cli.py")
 }
 
@@ -14,12 +14,21 @@ mlflow_cli <- function(..., background = FALSE) {
     args
   )
 
-  if (background) {
-    result <- process$new(python_bin(), args = unlist(args), echo = FALSE, supervise = TRUE)
-  }
-  else {
-    result <- run(python_bin(), args = unlist(args), echo = TRUE)
-  }
+  verbose <- getOption("mlflow.verbose", FALSE)
+
+  python <- python_bin()
+  env <- list(
+    PATH = dirname(python)
+  )
+
+  withr::with_envvar(env, {
+    if (background) {
+      result <- process$new(python, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
+    }
+    else {
+      result <- run(python, args = unlist(args), echo = verbose, echo_cmd = verbose)
+    }
+  })
 
   invisible(result)
 }
