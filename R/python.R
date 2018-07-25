@@ -3,7 +3,7 @@ python_bin_conda <- function() {
   envs <- conda_list()
   mlflow_env <- envs[envs$name == "r-mlflow",]
   if (nrow(mlflow_env) == 0) {
-    stop("MLflow virtualenv not configured, please run mlflow_install().")
+    stop("MLflow not configured, please run mlflow_install().")
   }
 
   mlflow_env$python
@@ -11,7 +11,13 @@ python_bin_conda <- function() {
 
 #' @importFrom reticulate get_virtualenv
 python_bin_virtualenv <- function() {
-  get_virtualenv("r-mlflow")
+  python <- get_virtualenv("r-mlflow")
+
+  if (!file.exists(python)) {
+    stop("MLflow not configured, please run mlflow_install().")
+  }
+
+  python
 }
 
 python_use_conda <- function() {
