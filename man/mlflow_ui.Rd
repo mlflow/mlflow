@@ -17,8 +17,12 @@ Launches MLflow user interface.
 library(mlflow)
 mlflow_install()
 
-mc <- mlflow_connect()
-mlflow_ui(mc)
+# launch mlflow ui locally
+mlflow_ui()
+
+# launch mlflow ui for existing mlflow server
+mlflow_tracking_url("http://tracking-server:5000")
+mlflow_ui()
 }
 
 }

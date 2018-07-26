@@ -7,20 +7,26 @@ mlflow_view_url <- function(url) {
 #'
 #' Launches MLflow user interface.
 #'
-#' @param mc The MLflow connection created using \code{mlflow_connect()}.
-#'
 #' @examples
 #' \dontrun{
 #' library(mlflow)
 #' mlflow_install()
 #'
-#' mc <- mlflow_connect()
-#' mlflow_ui(mc)
+#' # launch mlflow ui locally
+#' mlflow_ui()
+#'
+#' # launch mlflow ui for existing mlflow server
+#' mlflow_tracking_url("http://tracking-server:5000")
+#' mlflow_ui()
 #' }
 #'
 #' @export
-mlflow_ui <- function(mc) {
-  mlflow_connection_validate(mc)
+mlflow_ui <- function() {
+  mc <- mlflow_connection_active_get()
+  if (is.null(mc)) {
+    mc <- mlflow_connect()
+    mlflow_connection_active_set(mc)
+  }
 
-  mlflow_view_url(mlflow_url(mc))
+  mlflow_view_url(mlflow_connection_url(mc))
 }

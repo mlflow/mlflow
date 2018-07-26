@@ -1,3 +1,13 @@
+.globals <- new.env(parent = emptyenv())
+
+mlflow_connection_active_get <- function() {
+  .globals$active
+}
+
+mlflow_connection_active_set <- function(mc) {
+  .globals$active <- mc
+}
+
 #' Connect to MLflow
 #'
 #' Connect to local or remote MLflow instance.
@@ -10,8 +20,6 @@
 #'   newly created experiments. Note that this flag
 #'   does not impact already-created experiments.
 #'   Defaults to a location inside \code{store}.
-#'
-#' @export
 mlflow_connect <- function(url = NULL,
                            store = NULL,
                            artifacts = NULL) {
@@ -51,18 +59,15 @@ mlflow_connect <- function(url = NULL,
 
 #' Disconnect from MLflow
 #'
-#' Disconnects from a local or remote MLflow instance.
+#' Disconnects from a local MLflow instance.
 #'
 #' @param mc The MLflow connection created using \code{mlflow_connect()}.
-#'
-#' @export
 mlflow_disconnect <- function(mc) {
   if (mc$handle$is_alive()) invisible(mc$handle$kill())
 }
 
-mlflow_connection_validate <- function(mc) {
-  if (!"mlflow_connection" %in% class(mc))
-    stop("Expecting mlflow_connection created with mlflow_connect().")
+mlflow_connection_url <- function(mc) {
+  mc$url
 }
 
 mlflow_connection_wait <- function(mc) {

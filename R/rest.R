@@ -1,7 +1,3 @@
-mlflow_url <- function(mc) {
-  mc$url
-}
-
 mlflow_rest_path <- function(version) {
   switch(
     version,
@@ -32,12 +28,11 @@ mlflow_rest_headers <- function() {
 #' @importFrom httr GET
 #' @importFrom httr POST
 #' @importFrom jsonlite fromJSON
-mlflow_rest <- function(mc, ..., data = NULL, verb = "GET", version = "2.0") {
+mlflow_rest <- function(..., data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
-  url <- mlflow_url(mc)
 
   api_url <- file.path(
-    mlflow_url(mc),
+    mlflow_tracking_url_get(),
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )

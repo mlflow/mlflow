@@ -2,20 +2,22 @@
 #'
 #' Retrieves MLflow experiments as a data frame.
 #'
-#' @param mc The MLflow connection created using \code{mlflow_connect()}.
-#'
 #' @examples
 #' \dontrun{
 #' library(mlflow)
 #' mlflow_install()
 #'
-#' mc <- mlflow_connect()
+#' # list local experiments
 #' mlflow_experiments(mc)
+#'
+#' # list experiments in remote MLflow server
+#' mlflow_tracking_url("http://tracking-server:5000")
+#' mlflow_experiments()
 #' }
 #'
 #' @export
-mlflow_experiments <- function(mc) {
-  response <- mlflow_rest(mc, "experiments", "list")
+mlflow_experiments <- function() {
+  response <- mlflow_rest("experiments", "list")
   response$experiments
 }
 
@@ -23,7 +25,6 @@ mlflow_experiments <- function(mc) {
 #'
 #' Creates an MLflow experiment.
 #'
-#' @param mc The MLflow connection created using \code{mlflow_connect()}.
 #' @param name The name of the experiment to create.
 #'
 #' @examples
@@ -31,12 +32,16 @@ mlflow_experiments <- function(mc) {
 #' library(mlflow)
 #' mlflow_install()
 #'
-#' mc <- mlflow_connect()
-#' mlflow_experiments(mc)
+#' # list local experiments
+#' mlflow_experiment_create(mc)
+#'
+#' # create experiment in remote MLflow server
+#' mlflow_tracking_url("http://tracking-server:5000")
+#' mlflow_experiments_create("My Experiment")
 #' }
 #'
 #' @export
-mlflow_experiment_create <- function(mc, name) {
-  response <- mlflow_rest(mc, "experiments", "create", verb = "POST", data = list(name = name))
+mlflow_experiments_create <- function(name) {
+  response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
   response
 }

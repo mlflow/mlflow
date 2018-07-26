@@ -4,10 +4,7 @@
 \alias{mlflow_experiments}
 \title{List Experiments}
 \usage{
-mlflow_experiments(mc)
-}
-\arguments{
-\item{mc}{The MLflow connection created using \code{mlflow_connect()}.}
+mlflow_experiments()
 }
 \description{
 Retrieves MLflow experiments as a data frame.
@@ -17,7 +14,11 @@ Retrieves MLflow experiments as a data frame.
 library(mlflow)
 mlflow_install()
 
-mc <- mlflow_connect()
+# list local experiments
+mlflow_experiments(mc)
+
+# list experiments in remote MLflow server
+mlflow_tracking_url("http://tracking-server:5000")
 mlflow_experiments(mc)
 }
 
