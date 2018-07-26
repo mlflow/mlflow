@@ -13,7 +13,7 @@ from mlflow.entities.source_type import SourceType
 
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
-from mlflow.projects.utils import ExecutionException, _fetch_project, _get_work_dir, _load_project,\
+from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project,\
     _expand_uri
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking

@@ -9,8 +9,7 @@ import pytest
 import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
-from mlflow.projects import databricks
-from mlflow.projects.utils import ExecutionException
+from mlflow.projects import databricks, ExecutionException
 from mlflow.utils import file_utils
 
 from tests.projects.utils import validate_exit_status
