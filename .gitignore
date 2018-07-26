@@ -10,3 +10,4 @@
 # RStudio files
 .Rproj.user
 mlruns/
+.DS_Store

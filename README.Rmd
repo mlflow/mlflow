@@ -1,0 +1,70 @@
+---
+title: "mlflow: R interface for MLflow"
+output:
+  github_document:
+    fig_width: 9
+    fig_height: 5
+---
+
+[![Build Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/rstudio/mlflow?branch=master&svg=true)](https://ci.appveyor.com/project/JavierLuraschi/mlflow) [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow) [![codecov](https://codecov.io/gh/rstudio/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/rstudio/mlflow) 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
+```
+
+- Install [MLflow]() from R to manage models and experiments locally.
+- Connect to remote MLflow servers to share, deploy and server models.
+
+## Installation
+
+You can install **mlflow** from GitHub as follows:
+
+```{r, eval=FALSE}
+devtools::install_github("rstudio/mlflow")
+```
+
+Then, install MLflow to manage models and experiments locally:
+
+```{r, eval=FALSE}
+library(mlflow)
+mlflow_install()
+```
+
+To upgrade to the latest version of mlflow, run the following command and restart your r session:
+
+```{r, eval=FALSE}
+devtools::install_github("rstudio/mlflow")
+```
+
+## Connecting
+
+You can connect to both local instances of MLflow as well as remote MLflow servers. Here we'll connect to a local instance of MLflow via the `mlflow_connect()` function: 
+
+```{r, message=FALSE}
+library(mlflow)
+mc <- mlflow_connect()
+```
+
+You can then launch the MLflow user interface by running:
+
+```{r eval=FALSE}
+mlflow_ui(mc)
+```
+
+<img src="tools/readme/mlflow-user-interface.png" class="screenshot" width=460 />
+
+## Experiments
+
+To list experiments, run:
+
+```{r}
+mlflow_experiments(mc)
+```
+
+## Termination
+
+To terminate a local MLflow instance, restart your R session or run explicitly:
+
+```{r}
+mlflow_disconnect(mc)
+```
