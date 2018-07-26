@@ -183,8 +183,7 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
     try:
-        _run_server(file_store, default_artifact_root, host, port, workers,
-                                  static_prefix)
+        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
