@@ -30,6 +30,8 @@ def test_entry_point_compute_params():
         # Raise exception on missing required parameter
         with pytest.raises(ExecutionException):
             entry_point.compute_parameters({}, storage_dir)
+        with pytest.raises(ExecutionException):
+            entry_point.compute_parameters(None, storage_dir)
 
 
 def test_entry_point_compute_command():

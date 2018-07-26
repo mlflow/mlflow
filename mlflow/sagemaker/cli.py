@@ -31,8 +31,14 @@ def commands():
                   mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
 @click.option("--archive", "-ar", is_flag=True, help="If specified, any SageMaker resources that"
               " become inactive (i.e as the result of replacement) will be preserved")
+@click.option("--instance-type", "-t", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
+              help="The type of SageMaker ML instance on which to deploy the model. For a list of"
+              " supported instance types, see"
+              " https://aws.amazon.com/sagemaker/pricing/instance-types/.")
+@click.option("--instance-count", "-c", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_COUNT,
+              help="The number of SageMaker ML instances on which to deploy the model")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
-           archive):
+           archive, instance_type, instance_count):
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
@@ -40,7 +46,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
     mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
                             image_url=image_url, region_name=region_name, mode=mode,
-                            archive=archive)
+                            archive=archive, instance_type=instance_type,
+                            instance_count=instance_count)
 
 
 @commands.command("delete")
