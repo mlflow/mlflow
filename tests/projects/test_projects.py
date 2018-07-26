@@ -43,34 +43,25 @@ def test_fetch_project(tmpdir):
     repo.index.commit("test")
     git_subdir_repo = "file://" + os.path.abspath(local_git_subdir)
 
-    # Test fetching a locally saved project.
-    dst_dir = tmpdir.join('local').strpath
+    # The tests are as follows:
+    # 1. Fetching a locally saved project.
+    # 2. Fetching a project located in a Git repo root directory.
+    # 3. Fetching a project located in a Git repo subdirectory.
+    # 4. Passing a subdirectory works for local directories.
+    test_list = [(TEST_PROJECT_DIR, '', TEST_PROJECT_DIR),
+                 (git_repo_uri, '', local_git),
+                 (git_subdir_repo, 'example_project',
+                  os.path.join(local_git_subdir, 'example_project')),
+                 (TEST_DIR, 'resources/example_project', TEST_PROJECT_DIR)]
 
-    work_dir = mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='', version=None,
-                                              dst_dir=dst_dir, git_username=None,
-                                              git_password=None)
-    _assert_dirs_equal(expected=TEST_PROJECT_DIR, actual=work_dir)
-
-    # Test fetching a project located in a Git repo root directory.
-    dst_dir = tmpdir.join('git-root-dir').strpath
-    work_dir = mlflow.projects._fetch_project(uri=git_repo_uri, subdirectory='',
-                                              version=None, dst_dir=dst_dir, git_username=None,
-                                              git_password=None)
-    _assert_dirs_equal(expected=local_git, actual=work_dir)
-
-    # Test fetching a project located in a Git repo subdirectory.
-    dst_dir = tmpdir.join('git-subdir').strpath
-    work_dir = mlflow.projects._fetch_project(uri=git_subdir_repo, subdirectory='example_project',
-                                              version=None, dst_dir=dst_dir, git_username=None,
-                                              git_password=None)
-    _assert_dirs_equal(expected=os.path.join(local_git_subdir, 'example_project'), actual=work_dir)
-
-    # Test passing a subdirectory with `#` works for local directories.
-    work_dir = mlflow.projects._fetch_project(uri=TEST_DIR,
-                                              subdirectory="resources/example_project",
-                                              version=None, dst_dir=dst_dir, git_username=None,
-                                              git_password=None)
-    _assert_dirs_equal(expected=TEST_PROJECT_DIR, actual=work_dir)
+    counter = 0
+    for uri, subdirectory, expected in test_list:
+        dst_dir = tmpdir.join(str(counter)).strpath
+        work_dir = mlflow.projects._fetch_project(uri=uri, subdirectory=subdirectory, version=None,
+                                                  dst_dir=dst_dir, git_username=None,
+                                                  git_password=None)
+        _assert_dirs_equal(expected=expected, actual=work_dir)
+        counter = counter + 1
 
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
@@ -142,7 +133,6 @@ def test_conda_path(mock_env, expected):
         assert mlflow.projects._conda_executable() == expected
 
 
-@pytest.mark.skip(reason="hangs in travis py3.6")
 def test_run():
     for use_start_run in map(str, [0, 1]):
         with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri")\
@@ -177,7 +167,6 @@ def test_run():
                 assert metric.value == expected_metrics[metric.key]
 
 
-@pytest.mark.skip(reason="flaky running in travis py3.6")
 def test_run_async():
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         tmp_dir = tmp.path()
@@ -195,7 +184,6 @@ def test_run_async():
         validate_exit_status(submitted_run1.get_status(), RunStatus.FAILED)
 
 
-@pytest.mark.skip(reason="flaky running in travis py3.6")
 def test_cancel_run():
     with TempDir() as tmp, mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
         tmp_dir = tmp.path()
