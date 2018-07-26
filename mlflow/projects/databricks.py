@@ -239,7 +239,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     # Fetch the project into work_dir & validate parameters
     work_dir = _get_work_dir(uri, use_temp_cwd=True)
     _fetch_project(uri, version, work_dir, git_username, git_password)
-    project = _load_project(work_dir, uri)
+    project = _load_project(project_dir=work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     # Upload the project to DBFS, get the URI of the project
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)

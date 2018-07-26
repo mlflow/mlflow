@@ -72,9 +72,9 @@ def cli():
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
 @click.option("--run-id", metavar="RUN_ID",
-              help="Note: this argument is used internally by the MLflow project APIs "
-                   "and should not be specified. If specified, the given run ID will "
-                   "be used instead of creating a new run.")
+              help="If specified, the given run ID will be used instead of creating a new run. "
+                   "Note: this argument is used internally by the MLflow project APIs "
+                   "and should not be specified.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
         git_password, no_conda, new_dir, storage_dir, run_id):
     """

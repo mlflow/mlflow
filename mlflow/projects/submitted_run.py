@@ -83,11 +83,11 @@ class LocalSubmittedRun(SubmittedRun):
     Instance of SubmittedRun corresponding to a subprocess launched to run an entry point command
     locally.
     """
-    def __init__(self, run_id, command_proc, command):
+    def __init__(self, run_id, command_proc, entry_point):
         super(LocalSubmittedRun, self).__init__()
         self.run_id = run_id
         self.command_proc = command_proc
-        self.command = command
+        self.entry_point = entry_point
 
     def wait(self):
         return self.command_proc.wait() == 0
@@ -109,7 +109,7 @@ class LocalSubmittedRun(SubmittedRun):
             eprint("Run %s was not active, unable to cancel." % self.run_id)
 
     def describe(self):
-        return "shell command: '%s'" % self.command
+        return "entry point: '%s'" % self.entry_point
 
     def _get_status(self):
         exit_code = self.command_proc.poll()
