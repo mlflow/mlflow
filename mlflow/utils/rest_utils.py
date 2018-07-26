@@ -38,7 +38,7 @@ def get_databricks_http_request_params_or_fail(profile=None):
     elif config.token:
         basic_auth_str = ("token:%s" % config.token).encode("utf-8")
     if not basic_auth_str:
-        fail_malformed_databricks_auth(profile)
+        _fail_malformed_databricks_auth(profile)
 
     headers = {
         "Authorization": "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")

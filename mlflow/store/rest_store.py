@@ -45,7 +45,7 @@ class RestException(Exception):
         message = json['error_code']
         if 'message' in json:
             message = "%s: %s" % (message, json['message'])
-        super(Exception, self).__init__(message)
+        super(RestException, self).__init__(message)
         self.json = json
 
 
