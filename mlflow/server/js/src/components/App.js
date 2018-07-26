@@ -18,7 +18,7 @@ import HomePage from './HomePage';
 class App extends Component {
   render() {
     return (
-      <Router basename={'/mlflow'}> // TODO: need this?
+      <Router>
         <div>
           <header className="App-header">
             <div className="mlflow-logo">
