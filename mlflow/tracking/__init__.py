@@ -72,13 +72,30 @@ def _is_http_uri(uri):
     return scheme == 'http' or scheme == 'https'
 
 
+def _is_databricks_uri(uri):
+    """Databricks URIs look like the word 'databricks' (default profile) or databricks://profile"""
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == 'databricks' or uri == 'databricks'
+
+
 def _get_file_store(store_uri):
     path = urllib.parse.urlparse(store_uri).path
     return FileStore(path)
 
 
 def _get_rest_store(store_uri):
-    return RestStore(store_uri)
+    return RestStore({'hostname': store_uri})
+
+
+def _get_databricks_rest_store(store_uri):
+    parsed_uri = urllib.parse.urlparse(uri)
+    scheme = urllib.parse.urlparse(uri).scheme
+
+    profile = None
+    if parsed_uri.scheme == 'databricks':
+        profile = parsed_uri.hostname
+    http_request_params = rest_utils.get_databricks_http_request_params_or_fail(profile)
+    return RestStore(http_request_params)
 
 
 def _get_store():
@@ -91,6 +108,8 @@ def _get_store():
         return _get_file_store(store_uri)
     if _is_http_uri(store_uri):
         return _get_rest_store(store_uri)
+    if _is_databricks_uri(store_uri):
+        return _get_databricks_rest_store(store_uri)
 
     raise Exception("Tracking URI must be a local filesystem URI of the form '%s...' or a "
                     "remote URI of the form '%s...'. Please update the tracking URI via "

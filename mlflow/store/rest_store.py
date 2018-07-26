@@ -41,24 +41,18 @@ _METHOD_TO_INFO = _api_method_to_info()
 class RestStore(AbstractStore):
     """ Client for a remote tracking server accessed via REST API calls """
 
-    def __init__(self, hostname):
+    def __init__(self, http_request_params):
         super(RestStore, self).__init__()
-        self.hostname = hostname
-
-    def _get_headers(self):  # noqa
-        """ Returns header for REST API requests. Can be overridden in subclasses """
-        return None
-
-    def _get_auth(self):  # noqa
-        """ Returns auth for REST API requests. Can be overridden in subclasses """
-        return None
+        self.http_request_params = http_request_params
+        if not http_request_params['hostname']:
+            raise Exception('hostname must be provided to RestStore')
 
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
         js_dict = http_request(hostname=self.hostname, endpoint=endpoint, method=method,
-                               auth=self._get_auth(), headers=self._get_headers(),
-                               req_body_json=json_body, params=None)
+                               auth=self.auth, headers=self.headers,
+                               req_body_json=json_body, params=None, **http_request_params)
         ParseDict(js_dict=js_dict, message=response_proto)
         return response_proto
 
