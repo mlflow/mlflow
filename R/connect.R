@@ -36,13 +36,17 @@ mlflow_connect <- function(url = NULL,
     url <- getOption("mlflow.ui", "http://127.0.0.1:5000")
   }
 
-  structure(
+  mc <- structure(
     class = "mlflow_connection",
     list(
       url = url,
       handle = handle
     )
   )
+
+  mlflow_connection_wait(mc)
+
+  mc
 }
 
 #' Disconnect from MLflow
@@ -56,7 +60,15 @@ mlflow_disconnect <- function(mc) {
   if (mc$handle$is_alive()) invisible(mc$handle$kill())
 }
 
-mlflow_validate <- function(mc) {
+mlflow_connection_validate <- function(mc) {
   if (!"mlflow_connection" %in% class(mc))
-    stop("Expecting mlflow_connection created with mlflow_create().")
+    stop("Expecting mlflow_connection created with mlflow_connect().")
+}
+
+mlflow_connection_wait <- function(mc) {
+  wait_for(
+    function() mlflow_api(mc, "experiments", "list"),
+    getOption("mlflow.connect.wait", 5),
+    getOption("mlflow.connect.sleep", 1)
+  )
 }

@@ -12,6 +12,7 @@ LazyData: true
 Depends:
   R (>= 3.1.2)
 Imports:
+  httr,
   processx,
   reticulate,
   withr

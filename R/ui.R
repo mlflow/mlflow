@@ -20,7 +20,7 @@ mlflow_view_url <- function(url) {
 #'
 #' @export
 mlflow_ui <- function(mc) {
-  mlflow_validate(mc)
+  mlflow_connection_validate(mc)
 
   mlflow_view_url(mlflow_url(mc))
 }
