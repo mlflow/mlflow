@@ -134,7 +134,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     """
     Push local Docker image to ECR.
 
-    The image is pushed under current active aws account and to current active AWS region.
+    The image is pushed under current active AWS account and to current active AWS region.
 
     :param image: image name
     """
@@ -550,21 +550,14 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
                                instance_count, mode, archive, role, sage_client, s3_client):
     """
-<<<<<<< HEAD
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
-    :param model_s3_path: S3 path where we stored the model artifacts.
-    :param run_id: Run ID that generated this model.
-    :param mode: Either ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD`` or
-                 ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``.
-=======
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into
-    :param model_s3_path: s3 path where we stored the model artifacts
-    :param run_id: RunId that generated this model
+    
+    :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
+    :param model_s3_path: S3 path where we stored the model artifacts
+    :param run_id: Run ID that generated this model
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
->>>>>>> upstream/master
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
                     (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
@@ -654,22 +647,13 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execution_role,
                             sage_client):
     """
-<<<<<<< HEAD
-    :param model_s3_path: S3 path where we stored the model artifacts.
-    :param run_id: Run ID that generated this model.
-    :param image_url: URL of the ECR-hosted docker image that will serve as the model's container.
-    :param sage_client: A boto3 client for SageMaker.
-    :param execution_role: The ARN of the role that SageMaker will assume when creating the model.
-    :return: AWS response containing metadata associated with the new model.
-=======
-    :param model_s3_path: s3 path where we stored the model artifacts
-    :param run_id: RunId that generated this model
-    :param image_url: URL of the ECR-hosted docker image that will serve as the
+    :param model_s3_path: S3 path where we stored the model artifacts
+    :param run_id: Run ID that generated this model
+    :param image_url: URL of the ECR-hosted Docker image that will serve as the
                       model's container
     :param execution_role: The ARN of the role that SageMaker will assume when creating the model
     :param sage_client: A boto3 client for SageMaker
     :return: AWS response containing metadata associated with the new model
->>>>>>> upstream/master
     """
     model_response = sage_client.create_model(
         ModelName=model_name,
