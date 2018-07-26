@@ -37,6 +37,14 @@ def _api_method_to_info():
 
 _METHOD_TO_INFO = _api_method_to_info()
 
+class RestException(Exception):
+    def __init__(self, json):
+        message = json['error_code']
+        if 'message' in json:
+            message = "%s: %s" % (message, json['message'])
+        super(Exception, self).__init__(message)
+        self.json = json
+
 
 class RestStore(AbstractStore):
     """ Client for a remote tracking server accessed via REST API calls """
@@ -50,9 +58,12 @@ class RestStore(AbstractStore):
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        js_dict = http_request(hostname=self.hostname, endpoint=endpoint, method=method,
-                               auth=self.auth, headers=self.headers,
-                               req_body_json=json_body, params=None, **http_request_params)
+        js_dict = http_request(endpoint=endpoint, method=method,
+                               req_body_json=json_body, params=None, **self.http_request_params)
+
+        if 'error_code' in js_dict:
+            raise RestException(js_dict)
+
         ParseDict(js_dict=js_dict, message=response_proto)
         return response_proto
 

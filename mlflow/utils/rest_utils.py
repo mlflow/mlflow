@@ -16,11 +16,11 @@ def _fail_malformed_databricks_auth(profile):
 def get_databricks_http_request_params_or_fail(profile=None):
     if not profile:
         profile = provider.DEFAULT_SECTION
-    config = provider._fail_malformed_databricks_auth(profile)
+    config = provider.get_config_for_profile(profile)
 
     hostname = config.host
     if not hostname:
-        fail_malformed_databricks_auth(profile)
+        _fail_malformed_databricks_auth(profile)
 
     basic_auth_str = None
     if config.username is not None and config.password is not None:
@@ -52,7 +52,7 @@ def databricks_api_request(endpoint, method, req_body_json=None, params=None):
                         params=params, **request_params)
 
 
-def http_request(hostname, endpoint, method, auth, headers, req_body_json, params,
+def http_request(hostname, endpoint, method, headers=None, req_body_json=None, params=None,
                  secure_verify=True, retries=3, retry_interval=3):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Retries
@@ -60,7 +60,6 @@ def http_request(hostname, endpoint, method, auth, headers, req_body_json, param
     `retry_interval` seconds between successive retries. Parses the API response (assumed to be
     JSON) into a Python object and returns it.
 
-    :param auth: Auth tuple for Basic/Digest/Custom HTTP Auth
     :param headers: Request headers to use when making the HTTP request
     :param req_body_json: Dictionary containing the request body
     :param params: Query parameters for the request
@@ -69,7 +68,7 @@ def http_request(hostname, endpoint, method, auth, headers, req_body_json, param
     url = "%s%s" % (hostname, endpoint)
     for i in range(retries):
         response = requests.request(method=method, url=url, headers=headers, verify=secure_verify,
-                                    params=params, json=req_body_json, auth=auth)
+                                    params=params, json=req_body_json)
         if response.status_code >= 200 and response.status_code < 500:
             return json.loads(response.text)
         else:

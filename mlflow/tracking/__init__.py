@@ -16,7 +16,7 @@ from mlflow.entities.source_type import SourceType
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils import env
+from mlflow.utils import env, rest_utils
 
 
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
@@ -88,8 +88,7 @@ def _get_rest_store(store_uri):
 
 
 def _get_databricks_rest_store(store_uri):
-    parsed_uri = urllib.parse.urlparse(uri)
-    scheme = urllib.parse.urlparse(uri).scheme
+    parsed_uri = urllib.parse.urlparse(store_uri)
 
     profile = None
     if parsed_uri.scheme == 'databricks':
@@ -104,12 +103,12 @@ def _get_store():
     if store_uri is None:
         return FileStore()
     # Pattern-match on the URI
+    if _is_databricks_uri(store_uri):
+        return _get_databricks_rest_store(store_uri)
     if is_local_uri(store_uri):
         return _get_file_store(store_uri)
     if _is_http_uri(store_uri):
         return _get_rest_store(store_uri)
-    if _is_databricks_uri(store_uri):
-        return _get_databricks_rest_store(store_uri)
 
     raise Exception("Tracking URI must be a local filesystem URI of the form '%s...' or a "
                     "remote URI of the form '%s...'. Please update the tracking URI via "
