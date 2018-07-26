@@ -13,7 +13,7 @@ knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
 ```
 
 - Install [MLflow]() from R to manage models and experiments locally.
-- Connect to remote MLflow servers to share, deploy and server models.
+- Connect to a remote MLflow server to share, deploy and serve models.
 
 ## Installation
 
