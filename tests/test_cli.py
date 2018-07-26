@@ -1,4 +1,3 @@
-from click import UsageError
 from click.testing import CliRunner
 from mock import mock
 

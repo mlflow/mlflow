@@ -143,7 +143,7 @@ def ui(file_store, host, port):
         sys.exit(1)
 
 
-def _validate_static_prefix(ctx, param, value):
+def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argument
     """
     Validate that the static_prefix option starts with a "/" and does not end in a "/".
     Conforms to the callback interface of click documented at
