@@ -8,7 +8,7 @@
 #' mlflow_install()
 #'
 #' # list local experiments
-#' mlflow_experiments(mc)
+#' mlflow_experiments()
 #'
 #' # list experiments in remote MLflow server
 #' mlflow_tracking_url("http://tracking-server:5000")
@@ -18,7 +18,11 @@
 #' @export
 mlflow_experiments <- function() {
   response <- mlflow_rest("experiments", "list")
-  response$experiments
+  exps <- response$experiments
+
+  exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
+
+  exps
 }
 
 #' Create Experiment
@@ -33,7 +37,7 @@ mlflow_experiments <- function() {
 #' mlflow_install()
 #'
 #' # list local experiments
-#' mlflow_experiment_create(mc)
+#' mlflow_experiment_create()
 #'
 #' # create experiment in remote MLflow server
 #' mlflow_tracking_url("http://tracking-server:5000")
@@ -44,4 +48,8 @@ mlflow_experiments <- function() {
 mlflow_experiments_create <- function(name) {
   response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
   response
+}
+
+mlflow_relative_paths <- function(paths) {
+  gsub(paste0("^", file.path(getwd(), "")), "", paths)
 }

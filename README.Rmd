@@ -12,7 +12,7 @@ output:
 knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
 ```
 
-- Install [MLflow]() from R to track experiments locally.
+- Install [MLflow](https://mlflow.org/) from R to track experiments locally.
 - Connect to MLflow servers to share experiments with others.
 - Use MLflow to export models that can be served locally and remotely.
 
@@ -31,6 +31,12 @@ library(mlflow)
 mlflow_install()
 ```
 
+```{r echo=FALSE, message=F, results='hide'}
+unlink("mlruns", recursive = T)
+mlflow:::mlflow_connect()
+mlflow::mlflow_tracking_url("http://127.0.0.1:5000")
+```
+
 To upgrade to the latest version of mlflow, run the following command and restart your r session:
 
 ```{r, eval=FALSE}
@@ -43,7 +49,7 @@ You can create a new experiment locally using `mlflow` as follows:
 
 ```{r, message=FALSE}
 library(mlflow)
-mlflow_experiment_create("New Experiment")
+mlflow_experiments_create("Test")
 ```
 
 Then you can list your experiments directly from R,
@@ -55,15 +61,15 @@ mlflow_experiments()
 or using MLflows user interface by running:
 
 ```{r eval=FALSE}
-mlflow_ui(mc)
+mlflow_ui()
 ```
 
 <img src="tools/readme/mlflow-user-interface.png" class="screenshot" width=460 />
 
-You can also use a MLflow server to track and share experiments, see [running a tracking server](https://www.mlflow.org/docs/latest/tracking.html#running-a-tracking-server) and then make use of this server by running:
+You can also use a MLflow server to track and share experiments, see [running a tracking server](https://www.mlflow.org/docs/latest/tracking.html#running-a-tracking-server), and then make use of this server by running:
 
 ```{r eval=FALSE}
 mlflow_tracking_url("http://tracking-server:5000")
 ```
 
-Once th tracking url is defined, the experiments will be stored and tracked in the specified server which others can also access with ease.
+Once the tracking url is defined, the experiments will be stored and tracked in the specified server which others will also be able to access.

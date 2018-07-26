@@ -10,5 +10,5 @@ mlflow_disconnect(mc)
 \item{mc}{The MLflow connection created using \code{mlflow_connect()}.}
 }
 \description{
-Disconnects from a local or remote MLflow instance.
+Disconnects from a local MLflow instance.
 }

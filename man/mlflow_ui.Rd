@@ -4,10 +4,7 @@
 \alias{mlflow_ui}
 \title{MLflow User Interface}
 \usage{
-mlflow_ui(mc)
-}
-\arguments{
-\item{mc}{The MLflow connection created using \code{mlflow_connect()}.}
+mlflow_ui()
 }
 \description{
 Launches MLflow user interface.

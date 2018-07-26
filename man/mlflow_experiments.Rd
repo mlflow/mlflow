@@ -15,11 +15,11 @@ library(mlflow)
 mlflow_install()
 
 # list local experiments
-mlflow_experiments(mc)
+mlflow_experiments()
 
 # list experiments in remote MLflow server
 mlflow_tracking_url("http://tracking-server:5000")
-mlflow_experiments(mc)
+mlflow_experiments()
 }
 
 }

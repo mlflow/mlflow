@@ -8,8 +8,10 @@ Status](https://ci.appveyor.com/api/projects/status/github/rstudio/mlflow?branch
 [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
 [![codecov](https://codecov.io/gh/rstudio/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/rstudio/mlflow)
 
-  - Install [MLflow]() from R to manage models and experiments locally.
-  - Connect to remote MLflow servers to share, deploy and server models.
+  - Install [MLflow](https://mlflow.org/) from R to track experiments
+    locally.
+  - Connect to MLflow servers to share experiments with others.
+  - Use MLflow to export models that can be served locally and remotely.
 
 ## Installation
 
@@ -33,43 +35,46 @@ and restart your r session:
 devtools::install_github("rstudio/mlflow")
 ```
 
-## Connecting
+## Experiments
 
-You can connect to both local instances of MLflow as well as remote
-MLflow servers. Here we’ll connect to a local instance of MLflow via the
-`mlflow_connect()` function:
+You can create a new experiment locally using `mlflow` as follows:
 
 ``` r
 library(mlflow)
-mc <- mlflow_connect()
+mlflow_experiments_create("Test")
 ```
 
-You can then launch the MLflow user interface by
+    ## $experimentId
+    ## [1] "1"
+
+Then you can list your experiments directly from R,
+
+``` r
+mlflow_experiments()
+```
+
+    ##   experiment_id    name artifact_location
+    ## 1             0 Default          mlruns/0
+    ## 2             1    Test          mlruns/1
+
+or using MLflows user interface by
 running:
 
 ``` r
-mlflow_ui(mc)
+mlflow_ui()
 ```
 
 <img src="tools/readme/mlflow-user-interface.png" class="screenshot" width=460 />
 
-## Experiments
-
-To list experiments,
-    run:
-
-``` r
-mlflow_experiments(mc)
-```
-
-    ##   experiment_id    name                             artifact_location
-    ## 1             0 Default /Users/javierluraschi/RStudio/mlflow/mlruns/0
-
-## Termination
-
-To terminate a local MLflow instance, restart your R session or run
-explicitly:
+You can also use a MLflow server to track and share experiments, see
+[running a tracking
+server](https://www.mlflow.org/docs/latest/tracking.html#running-a-tracking-server),
+and then make use of this server by running:
 
 ``` r
-mlflow_disconnect(mc)
+mlflow_tracking_url("http://tracking-server:5000")
 ```
+
+Once the tracking url is defined, the experiments will be stored and
+tracked in the specified server which others will also be able to
+access.
