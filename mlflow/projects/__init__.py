@@ -57,8 +57,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        use_temp_cwd=False, storage_dir=None, block=True):
+        mode=None, cluster_spec=None, git_username=None, git_password=None,
+        use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
     """
     Run an MLflow project from the given URI.
 
@@ -68,6 +68,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Raises:
       `mlflow.projects.ExecutionException` if a run launched in blocking mode is unsuccessful.
 
+    :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
+                path or a git repository URI (e.g. https://github.com/databricks/mlflow-example)
+                pointing to a project directory containing an MLproject file.
     :param entry_point: Entry point to run within the project. If no entry point with the specified
                         name is found, attempts to run the project file `entry_point` as a script,
                         using "python" to run .py files and the default shell (specified by
@@ -109,6 +112,10 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
             raise ExecutionException("=== Run %s was unsuccessful, status: '%s' ===" %
                                      (submitted_run_obj.run_id, run_status))
     return submitted_run_obj
+
+
+def _load_project(work_dir, uri):
+    return Project(_expand_uri(uri), file_utils.read_yaml(work_dir, "MLproject"))
 
 
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
