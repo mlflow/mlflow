@@ -13,7 +13,9 @@ mlflow_api_path <- function(version) {
   )
 }
 
+#' @importFrom httr content
 #' @importFrom httr GET
+#' @importFrom jsonlite fromJSON
 mlflow_api <- function(mc, ..., data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
   url <- mlflow_url(mc)
@@ -24,9 +26,12 @@ mlflow_api <- function(mc, ..., data = NULL, verb = "GET", version = "2.0") {
     paste(args, collapse = "/")
   )
 
-  switch(
+  response <- switch(
     verb,
     GET = GET(api_url),
     stop("Verb '", verb, "' is unsupported.")
   )
+
+  text <- content(response, "text", encoding = "UTF-8")
+  fromJSON(text)
 }
