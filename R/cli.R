@@ -12,6 +12,8 @@ mlflow_cli_path <- function() {
 #' @param ... The parameters to pass to the command line.
 #' @param background Should this command be triggered as a background task?
 #'   Defaults to \code{FALSE}.
+#' @param echo Print the standard output and error to the screen? Defaults to
+#'   \code{TRUE}, does not apply to background tasks.
 #'
 #' @examples
 #' \dontrun{
@@ -25,7 +27,7 @@ mlflow_cli_path <- function() {
 #' @importFrom processx process
 #' @importFrom withr with_envvar
 #' @export
-mlflow_cli <- function(..., background = FALSE) {
+mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
   args <- list(...)
   args <- c(
     mlflow_cli_path(),
@@ -44,9 +46,15 @@ mlflow_cli <- function(..., background = FALSE) {
       result <- process$new(python, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
     }
     else {
-      result <- run(python, args = unlist(args), echo = TRUE, echo_cmd = verbose)
+      result <- run(python, args = unlist(args), echo = echo, echo_cmd = verbose)
     }
   })
 
   invisible(result)
+}
+
+mlflow_cli_file_output <- function(response) {
+  temp_file <- tempfile(fileext = ".txt")
+  writeLines(response$stdout, temp_file)
+  temp_file
 }
