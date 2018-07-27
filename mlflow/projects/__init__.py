@@ -52,19 +52,30 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     elif mode == "local" or mode is None:
-        # Perform idempotent setup for run
-        work_dir = _idempotent_run_setup(
-            uri, entry_point, parameters, use_temp_cwd, version, git_username,
-            git_password, use_conda)
-        # Get or create run
-        active_run = _get_or_create_run(run_id, uri, exp_id, work_dir, entry_point, parameters)
+        # Fetch project into a working directory
+        work_dir = _get_project(uri, use_temp_cwd, version, git_username, git_password)
+        project = _load_project(project_dir=work_dir)
+        # Validate we specified correct params for the project
+        project.get_entry_point(entry_point)._validate_parameters(parameters)
+        if use_conda:
+            _maybe_create_conda_env(conda_env_path=os.path.join(work_dir, project.conda_env))
+        # Get or create ActiveRun; we use this to obtain a run UUID to expose to the caller / to
+        # send status updates to the tracking server
+        if run_id:
+            active_run = tracking._get_existing_run(run_id)
+        else:
+            active_run = _create_run(uri, exp_id, work_dir, entry_point, parameters)
+        # In blocking mode, run the entry point command in blocking fashion, sending status updates
+        # to the tracking server when finished. Note that the run state may not be persisted to the
+        # tracking server if interrupted
         if block:
-            return _run_entry_point(
-                work_dir=work_dir, entry_point=entry_point, parameters=parameters,
-                storage_dir=storage_dir, use_conda=use_conda, active_run=active_run)
+            command = _get_entry_point_command(
+                work_dir, entry_point, use_conda, parameters, storage_dir)
+            return _run_entry_point(command, work_dir, active_run=active_run)
+        # Otherwise, invoke `mlflow run` in a subprocess
         return _run_local(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
-            use_conda=use_conda, storage_dir=storage_dir, active_run=active_run)
+            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.run_info.run_uuid)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
@@ -122,6 +133,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
         experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
         use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block, run_id=run_id)
+    # Note: local, blocking runs will already have completed by the time we reach this block.
     if block:
         if not submitted_run_obj.wait():
             raise ExecutionException(
@@ -134,9 +146,22 @@ def _load_project(project_dir):
     return Project(file_utils.read_yaml(project_dir, "MLproject"))
 
 
-def _get_work_dir(uri, use_temp_cwd):
+def _parse_subdirectory(uri):
+    # Parses a uri and returns the uri and subdirectory as separate values.
+    # Uses '#' as a delimiter.
+    subdirectory = ''
+    parsed_uri = uri
+    if '#' in uri:
+        subdirectory = uri[uri.find('#')+1:]
+        parsed_uri = uri[:uri.find('#')]
+    if subdirectory and _GIT_URI_REGEX.match(parsed_uri) and '.' in subdirectory:
+        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
+    return parsed_uri, subdirectory
+
+
+def _get_dest_dir(uri, use_temp_cwd):
     """
-    Returns a working directory to use for fetching & running the project with the specified URI.
+    Returns a directory to use for fetching the project with the specified URI.
     :param use_temp_cwd: Only used if `uri` is a local directory. If True, returns a temporary
                          working directory.
     """
@@ -158,8 +183,12 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version, dst_dir, git_username, git_password):
-    """Download a project to the target `dst_dir` from a Git URI or local path."""
+def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_password):
+    """
+    Fetches the project from the uri. Makes sure the uri contains a valid MLproject file.
+    Returns the working directory for running the project.
+    """
+    # Download a project to the target `dst_dir` from a Git URI or local path.
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
         _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
@@ -175,6 +204,16 @@ def _fetch_project(uri, version, dst_dir, git_username, git_password):
     # how we log results locally)
     shutil.rmtree(os.path.join(dst_dir, "outputs"), ignore_errors=True)
     shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
+
+    # Make sure there is a MLproject file in the specified working directory.
+    if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
+        if subdirectory == '':
+            raise ExecutionException("No MLproject file found in %s" % uri)
+        else:
+            raise ExecutionException("No MLproject file found in subdirectory %s of %s" %
+                                     (subdirectory, uri))
+
+    return os.path.join(dst_dir, subdirectory)
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
@@ -260,46 +299,36 @@ def _get_entry_point_command(project_dir, entry_point, use_conda, parameters, st
     commands = []
     if use_conda:
         conda_env_path = os.path.abspath(os.path.join(project_dir, project.conda_env))
-        _maybe_create_conda_env(conda_env_path)
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     return " && ".join(commands)
 
 
-def _run_entry_point(work_dir, entry_point, use_conda, parameters, storage_dir, active_run):
+def _run_entry_point(command, work_dir, active_run):
     """
-    Runs an entry point command locally & reports its status to the tracking server.
+    Runs an entry point command in a subprocess, waits on the subprocess to finish, & reports its
+    status to the tracking server.
     """
-    command = _get_entry_point_command(work_dir, entry_point, use_conda, parameters, storage_dir)
     run_id = active_run.run_info.run_uuid
-
     eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
-    # Set up signal handler to terminate the subprocess running the entry-point command
-    process = None
-
-    def handle_cancellation(signum, frame):  # pylint: disable=unused-argument
-        eprint("=== Shell command '%s' interrupted, cancelling... ===" % command)
-        if process is not None and process.poll() is None:
-            try:
-                process.terminate()
-            except OSError:
-                pass
-            process.wait()
-        # Mark the run as terminated if it hasn't already finished
+    # We launch the entry point command under the assumption it will run in the same process group
+    # as the current process. Thus if the current process group is interrupted (via CTRL + C) or
+    # terminated (e.g. via SubmittedRun.cancel()), the signal will be forwarded to the child process
+    try:
+        process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir)
+        exit_code = process.wait()
+        if exit_code == 0:
+            eprint("=== Shell command '%s' succeeded ===" % command)
+            _maybe_set_run_terminated(active_run, "FINISHED")
+        else:
+            eprint("=== Shell command '%s' failed with exit code %s ===" % (command, exit_code))
+            _maybe_set_run_terminated(active_run, "FAILED")
+    except KeyboardInterrupt:
+        eprint("=== Run of shell command '%s' interrupted, cancelling... ===" % command)
         _maybe_set_run_terminated(active_run, "FAILED")
-        sys.exit(process.poll() if process is not None else 1)
-    signal.signal(signal.SIGTERM, handle_cancellation)
-    process = subprocess.Popen(
-        ["bash", "-c", command], close_fds=True, cwd=work_dir, preexec_fn=os.setsid)
-    exit_code = process.wait()
-    if exit_code == 0:
-        eprint("=== Shell command '%s' succeeded ===" % command)
-        _maybe_set_run_terminated(active_run, "FINISHED")
-    else:
-        eprint("=== Shell command '%s' failed with exit code %s ===" % (command, exit_code))
-        _maybe_set_run_terminated(active_run, "FAILED")
-    return LocalSubmittedRun(run_id, process, entry_point)
+        raise
+    return LocalSubmittedRun(run_id, process, description="shell command: %s" % command)
 
 
 def _build_mlflow_run_cmd(uri, entry_point, storage_dir, use_conda, run_id, parameters):
@@ -324,39 +353,26 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     """
     final_env = os.environ.copy()
     final_env.update(env_map)
+    # Note: We launch this subprocess in its own pgroup so that interrupts don't affect it &
+    # it can be properly interrupted via cancel() etc.
     return subprocess.Popen(
         mlflow_run_arr, env=final_env, universal_newlines=True,
-        stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"))
+        stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"), preexec_fn=os.setsid)
 
 
-def _get_project(uri, work_dir, version, git_username, git_password):
-    """Fetches a project into a local directory"""
-    _fetch_project(uri, version, work_dir, git_username, git_password)
-    # Load the MLproject file
-    if not os.path.isfile(os.path.join(work_dir, "MLproject")):
-        raise ExecutionException("No MLproject file found in %s" % uri)
-    return _load_project(project_dir=work_dir)
-
-
-def _idempotent_run_setup(
-        uri, entry_point, parameters, use_temp_cwd, version, git_username, git_password, use_conda):
+def _get_project(uri, use_temp_cwd, version, git_username, git_password):
+    """Fetches a project into a local directory. Wrapper around _fetch_project."""
     eprint("=== Fetching project from %s ===" % uri)
-    # Get the working directory to use for running the project & download it there
-    work_dir = _get_work_dir(uri, use_temp_cwd)
-    eprint("=== Work directory for this run: %s ===" % work_dir)
-    project = _get_project(uri, work_dir, version, git_username, git_password)
-    # Validate that the user properly specified parameters for the entry point
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
-    # Synchronously create the conda env before attempting to run the project to mitigate the risk
-    # of failures due to concurrent attempts to create the same conda environment.
-    if use_conda:
-        _maybe_create_conda_env(conda_env_path=os.path.join(work_dir, project.conda_env))
-    return work_dir
+    # Separating the uri from the subdirectory requested.
+    parsed_uri, subdirectory = _parse_subdirectory(uri)
+    # Get the directory to fetch the project into.
+    dst_dir = _get_dest_dir(parsed_uri, use_temp_cwd)
+    # Get the work directory for running the project and the uri to save in the project.
+    return _fetch_project(parsed_uri, subdirectory, version, dst_dir, git_username,
+                          git_password)
 
 
-def _get_or_create_run(run_id, uri, experiment_id, work_dir, entry_point, parameters):
-    if run_id:
-        return tracking._get_existing_run(run_id)
+def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
     active_run = tracking._create_run(
         experiment_id=experiment_id, source_name=_expand_uri(uri),
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
@@ -368,23 +384,17 @@ def _get_or_create_run(run_id, uri, experiment_id, work_dir, entry_point, parame
 
 
 def _run_local(
-        work_dir, entry_point, parameters, experiment_id, use_conda, storage_dir, active_run):
+        work_dir, entry_point, parameters, experiment_id, use_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI in a new directory.
 
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the `version`.
     """
-    project = _load_project(work_dir)
-    # Synchronously create the conda env before attempting to run the project to mitigate the risk
-    # of failures due to concurrent attempts to create the same conda environment.
-    if use_conda:
-        _maybe_create_conda_env(conda_env_path=os.path.join(work_dir, project.conda_env))
-
     # Add the run id into a magic environment variable that the subprocess will read,
     # causing it to reuse the run.
     env_map = {
-        tracking._RUN_ID_ENV_VAR: active_run.run_info.run_uuid,
+        tracking._RUN_ID_ENV_VAR: run_id,
         tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
         tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
     }
@@ -392,6 +402,6 @@ def _run_local(
     # a child process and monitor it.
     mlflow_run_arr = _build_mlflow_run_cmd(
         uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
-        run_id=active_run.run_info.run_uuid, parameters=parameters)
+        run_id=run_id, parameters=parameters)
     mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, env_map)
-    return LocalSubmittedRun(active_run.run_info.run_uuid, mlflow_run_subprocess, entry_point)
+    return LocalSubmittedRun(run_id, mlflow_run_subprocess, "MLflow run command")

@@ -1,33 +1,10 @@
 from abc import abstractmethod
 
 import os
-import sys
+import signal
 
 from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
-
-_all_runs = []
-
-
-def _add_run(run):
-    _all_runs.append(run)
-
-
-old_hook = sys.excepthook
-
-
-def _kill_active_runs(exception_type, exception_value, traceback):
-    """
-    Hook that runs when the program exits with an exception - attempts to cancel all ongoing runs.
-    Note that this hook will not run in e.g. IPython notebooks.
-    """
-    old_hook(exception_type, exception_value, traceback)
-    eprint("=== Process %s exiting with exception of type %s, terminating all active project "
-           "runs ===" % (os.getpid(), exception_type))
-    for run in _all_runs:
-        run.cancel()
-
-sys.excepthook = _kill_active_runs
 
 
 class SubmittedRun(object):
@@ -41,8 +18,6 @@ class SubmittedRun(object):
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
     """
-    def __init__(self):
-        _add_run(self)
 
     @abstractmethod
     def wait(self):
@@ -83,11 +58,11 @@ class LocalSubmittedRun(SubmittedRun):
     Instance of SubmittedRun corresponding to a subprocess launched to run an entry point command
     locally.
     """
-    def __init__(self, run_id, command_proc, entry_point):
+    def __init__(self, run_id, command_proc, description):
         super(LocalSubmittedRun, self).__init__()
         self.run_id = run_id
         self.command_proc = command_proc
-        self.entry_point = entry_point
+        self.entry_point = description
 
     def wait(self):
         return self.command_proc.wait() == 0
@@ -95,9 +70,10 @@ class LocalSubmittedRun(SubmittedRun):
     def cancel(self):
         # Interrupt child process if it hasn't already exited
         if self.command_proc.poll() is None:
-            # Terminate the child process (MLflow CLI command)
+            # Terminate the child process group (hopefully kill the process tree rooted at the
+            # child)
             try:
-                self.command_proc.terminate()
+                os.killpg(self.command_proc.pid, signal.SIGTERM)
             except OSError:
                 # The child process may have exited before we attempted to terminate it, so we
                 # ignore OSErrors raised during child process termination
@@ -109,7 +85,7 @@ class LocalSubmittedRun(SubmittedRun):
             eprint("Run %s was not active, unable to cancel." % self.run_id)
 
     def describe(self):
-        return "local run of entry point: '%s'" % self.entry_point
+        return "Local run (%s)" % self.description
 
     def _get_status(self):
         exit_code = self.command_proc.poll()

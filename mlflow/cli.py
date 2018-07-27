@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys
 
 import click
+from click import UsageError
 
 import mlflow.azureml.cli
 import mlflow.projects as projects
@@ -11,10 +12,10 @@ import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
 import mlflow.sagemaker.cli
-import mlflow.server
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
+from mlflow.server import _run_server
 from mlflow import tracking
 
 
@@ -140,11 +141,24 @@ def ui(file_store, host, port):
     """
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        mlflow.server._run_server(file_store, file_store, host, port, 1)
+        _run_server(file_store, file_store, host, port, 1, None)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
         sys.exit(1)
+
+
+def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argument
+    """
+    Validate that the static_prefix option starts with a "/" and does not end in a "/".
+    Conforms to the callback interface of click documented at
+    http://click.pocoo.org/5/options/#callbacks-for-validation.
+    """
+    if not value.startswith("/"):
+        raise UsageError("--static-prefix must begin with a '/'.")
+    if value.endswith("/"):
+        raise UsageError("--static-prefix should not end with a '/'.")
+    return value
 
 
 @cli.command()
@@ -163,7 +177,9 @@ def ui(file_store, host, port):
               help="The port to listen on (default: 5000).")
 @click.option("--workers", "-w", default=4,
               help="Number of gunicorn worker processes to handle requests (default: 4).")
-def server(file_store, default_artifact_root, host, port, workers):
+@click.option("--static-prefix", default=None, callback=_validate_static_prefix,
+              help="A prefix which will be prepended to the path of all static paths.")
+def server(file_store, default_artifact_root, host, port, workers, static_prefix):
     """
     Run the MLflow tracking server.
 
@@ -172,7 +188,7 @@ def server(file_store, default_artifact_root, host, port, workers):
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
     try:
-        mlflow.server._run_server(file_store, default_artifact_root, host, port, workers)
+        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
