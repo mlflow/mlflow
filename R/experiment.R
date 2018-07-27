@@ -56,3 +56,15 @@ mlflow_experiments_create <- function(name) {
 mlflow_relative_paths <- function(paths) {
   gsub(paste0("^", file.path(getwd(), "")), "", paths)
 }
+
+#' Log to MLflow
+#'
+#' Logs a value to MLflow for the active run.
+#'
+#' @param name The name to identify this log entry.
+#' @param value The value to log into this entry.
+#'
+#' @export
+mlflow_log <- function(name, value) {
+  invisible(NULL)
+}
