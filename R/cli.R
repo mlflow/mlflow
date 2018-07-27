@@ -1,15 +1,3 @@
-mlflow_cli_path <- function() {
-  if (is.null(.globals$mlflow_cli_path))
-  {
-    result <- pip_run("show", "mlflow", echo = FALSE)
-    location_match <- regexec("Location: ([^\n]*)", result$stdout)
-    site_path <- regmatches(result$stdout, location_match)[[1]][[2]]
-    .globals$mlflow_cli_path <- file.path(site_path, "mlflow", "cli.py")
-  }
-
-  .globals$mlflow_cli_path
-}
-
 #' MLflow Command
 #'
 #' Executes a generic MLflow command through the commmand line interface.
@@ -34,24 +22,21 @@ mlflow_cli_path <- function() {
 #' @export
 mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
   args <- list(...)
-  args <- c(
-    mlflow_cli_path(),
-    args
-  )
 
   verbose <- getOption("mlflow.verbose", FALSE)
 
-  python <- python_bin()
+  python <- dirname(python_bin())
+  mlflow_bin <- file.path(python, "mlflow")
   env <- list(
     PATH = dirname(python)
   )
 
   with_envvar(env, {
     if (background) {
-      result <- process$new(python, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
+      result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
     }
     else {
-      result <- run(python, args = unlist(args), echo = echo, echo_cmd = verbose)
+      result <- run(mlflow_bin, args = unlist(args), echo = echo, echo_cmd = verbose)
     }
   })
 

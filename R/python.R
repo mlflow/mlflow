@@ -10,8 +10,12 @@ python_bin_conda <- function() {
 }
 
 python_bin <- function(conda = python_use_conda()) {
-  python <- python_bin_conda()
-  path.expand(python)
+  if (is.null(.globals$python_bin)) {
+    python <- python_bin_conda()
+    .globals$python_bin <- path.expand(python)
+  }
+
+  .globals$python_bin
 }
 
 #' @importFrom processx run
