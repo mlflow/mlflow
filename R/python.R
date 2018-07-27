@@ -9,19 +9,8 @@ python_bin_conda <- function() {
   mlflow_env$python
 }
 
-#' @importFrom reticulate get_virtualenv
-python_bin_virtualenv <- function() {
-  python <- get_virtualenv("r-mlflow")
-
-  if (!file.exists(python)) {
-    stop("MLflow not configured, please run mlflow_install().")
-  }
-
-  python
-}
-
 python_bin <- function(conda = python_use_conda()) {
-  python <- ifelse(conda, python_bin_conda(), python_bin_virtualenv())
+  python <- python_bin_conda()
   path.expand(python)
 }
 
