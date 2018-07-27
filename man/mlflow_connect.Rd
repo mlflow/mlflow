@@ -4,11 +4,14 @@
 \alias{mlflow_connect}
 \title{Connect to MLflow}
 \usage{
-mlflow_connect(url = NULL, store = NULL, artifacts = NULL)
+mlflow_connect(url = NULL, port = mlflow_connect_port(), store = NULL,
+  artifacts = NULL)
 }
 \arguments{
 \item{url}{Optional URL to the remote MLflow server; otherwise,
 will launch and connect local instance.}
+
+\item{port}{The port used to launch the MLflow tracking server.}
 
 \item{store}{The root of the backing file store for
 experiment and run data. Defaults to \code{./mlruns}.}
