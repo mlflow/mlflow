@@ -22,7 +22,7 @@ public class MLeapModel extends ScalaModel {
 
     @Override
     public String predict(String input) {
-        return null;
+        return this.predictor.predict(input);
     }
 
     public static void main(String[] args) {
