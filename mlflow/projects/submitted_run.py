@@ -36,7 +36,7 @@ def monitor_run(pollable_run, active_run):
 class SubmittedRun(object):
     """
     Class exposing information about an MLflow project run submitted for execution.
-    Note that methods that return run information (e.g. ``run_id`` and ``get_status``) may return None
+    Methods that return run information (e.g. ``run_id`` and ``get_status``) may return None
     if we launched a run against a tracking server that our local client cannot access.
     """
     def __init__(self, active_run, pollable_run_obj):
