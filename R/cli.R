@@ -27,8 +27,11 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
 
   python <- dirname(python_bin())
   mlflow_bin <- file.path(python, "mlflow")
+  env <- list(
+    PATH = dirname(python)
+  )
 
-  with_path(dirname(python), {
+  with_envvar(env, {
     if (background) {
       result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
     }
