@@ -1,0 +1,67 @@
+package com.databricks.mlflow;
+
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.Optional;
+import java.io.File;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+class ModelConfig {
+    @JsonProperty("artifact_path") private String artifactPath;
+    @JsonProperty("run_id") private String runId;
+    @JsonProperty("utc_time_created") private String utcTimeCreated;
+    @JsonProperty("flavors") private Map<String, Object> flavors;
+
+    public static ModelConfig fromPath(String configPath) {
+        final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+        try {
+            return mapper.readValue(new File(configPath), ModelConfig.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Optional<String> getArtifactPath() {
+        return convertFieldToOptional(this.artifactPath);
+    }
+
+    public Optional<String> getUtcTimeCreated() {
+        return convertFieldToOptional(this.utcTimeCreated);
+    }
+
+    public Optional<String> getRunId() {
+        return convertFieldToOptional(this.runId);
+    }
+
+    public <T extends Flavor> Optional<T> getFlavor(String flavorName, Class<T> flavorClass) {
+        if (this.flavors.containsKey(flavorName)) {
+            final ObjectMapper mapper = new ObjectMapper();
+            T flavor = mapper.convertValue(this.flavors.get(flavorName), flavorClass);
+            return Optional.of(flavor);
+        } else {
+            return Optional.<T>empty();
+        }
+    }
+
+    private Optional<String> convertFieldToOptional(String field) {
+        if (field != null) {
+            return Optional.of(field);
+        } else {
+            return Optional.<String>empty();
+        }
+    }
+
+    public static void main(String[] args) {
+        // Testing
+        for (String arg : args) {
+            System.out.println(arg);
+        }
+        String path = args[0];
+        ModelConfig config = ModelConfig.fromPath(path);
+    }
+}
