@@ -19,5 +19,6 @@ mlflow_install <- function() {
     "mlflow"
   )
 
+  if (!"r-mlflow" %in% conda_list()$name) conda_create("r-mlflow")
   conda_install(packages, envname = "r-mlflow", pip = TRUE)
 }
