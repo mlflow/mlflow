@@ -7,8 +7,6 @@ import json
 import os
 import re
 import shutil
-import signal
-import sys
 import subprocess
 import tempfile
 
@@ -53,7 +51,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             git_password=git_password)
     elif mode == "local" or mode is None:
         # Fetch project into a working directory
-        work_dir = _get_project(uri, use_temp_cwd, version, git_username, git_password)
+        work_dir = _fetch_project(uri, use_temp_cwd, version, git_username, git_password)
         project = _load_project(project_dir=work_dir)
         # Validate we specified correct params for the project
         project.get_entry_point(entry_point)._validate_parameters(parameters)
@@ -133,13 +131,30 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
         experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
         use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block, run_id=run_id)
-    # Note: local, blocking runs will already have completed by the time we reach this block.
     if block:
-        if not submitted_run_obj.wait():
-            raise ExecutionException(
-                "=== Run (%s, MLflow run id: %s) was unsuccessful ===" %
-                (submitted_run_obj.describe(), submitted_run_obj.run_id))
+        _wait_for(submitted_run_obj)
     return submitted_run_obj
+
+
+def _wait_for(submitted_run_obj):
+    """Waits on the passed-in submitted run, reporting its status to the tracking server."""
+    run_id = submitted_run_obj.run_id()
+    active_run = None
+    # Note: there's a small chance we fail to report the run's status to the tracking server if
+    # we're interrupted before we reach the try block below
+    try:
+        active_run = tracking._get_existing_run(run_id) if run_id is not None else None
+        if submitted_run_obj.wait():
+            eprint("=== Run (ID '%s') succeeded ===" % run_id)
+            _maybe_set_run_terminated(active_run, "FINISHED")
+        else:
+            _maybe_set_run_terminated(active_run, "FAILED")
+            raise ExecutionException("=== Run (ID '%s') failed ===" % run_id)
+    except KeyboardInterrupt:
+        eprint("=== Run (ID '%s') === interrupted, cancelling run ===" % run_id)
+        submitted_run_obj.cancel()
+        _maybe_set_run_terminated(active_run, "FAILED")
+        raise
 
 
 def _load_project(project_dir):
@@ -183,22 +198,25 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_password):
+def _fetch_project(uri, use_temp_cwd, version=None, git_username=None, git_password=None):
     """
-    Fetches the project from the uri. Makes sure the uri contains a valid MLproject file.
-    Returns the working directory for running the project.
+    Fetches a project into a local directory, returning the path to the local project directory.
     """
+    # Separating the uri from the subdirectory requested.
+    parsed_uri, subdirectory = _parse_subdirectory(uri)
+    dst_dir = _get_dest_dir(parsed_uri, use_temp_cwd)
+    eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
     # Download a project to the target `dst_dir` from a Git URI or local path.
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
-        _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
+        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
         # TODO: don't copy mlruns directory here
         # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
         if uri != dst_dir:
-            dir_util.copy_tree(src=uri, dst=dst_dir)
+            dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
 
     # Make sure they don't have an outputs or mlruns directory (will need to change if we change
     # how we log results locally)
@@ -211,7 +229,7 @@ def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_passwo
             raise ExecutionException("No MLproject file found in %s" % uri)
         else:
             raise ExecutionException("No MLproject file found in subdirectory %s of %s" %
-                                     (subdirectory, uri))
+                                     (subdirectory, parsed_uri))
 
     return os.path.join(dst_dir, subdirectory)
 
@@ -312,23 +330,8 @@ def _run_entry_point(command, work_dir, active_run):
     """
     run_id = active_run.run_info.run_uuid
     eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
-    # We launch the entry point command under the assumption it will run in the same process group
-    # as the current process. Thus if the current process group is interrupted (via CTRL + C) or
-    # terminated (e.g. via SubmittedRun.cancel()), the signal will be forwarded to the child process
-    try:
-        process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir)
-        exit_code = process.wait()
-        if exit_code == 0:
-            eprint("=== Shell command '%s' succeeded ===" % command)
-            _maybe_set_run_terminated(active_run, "FINISHED")
-        else:
-            eprint("=== Shell command '%s' failed with exit code %s ===" % (command, exit_code))
-            _maybe_set_run_terminated(active_run, "FAILED")
-    except KeyboardInterrupt:
-        eprint("=== Run of shell command '%s' interrupted, cancelling... ===" % command)
-        _maybe_set_run_terminated(active_run, "FAILED")
-        raise
-    return LocalSubmittedRun(run_id, process, description="shell command: %s" % command)
+    process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir)
+    return LocalSubmittedRun(run_id, process)
 
 
 def _build_mlflow_run_cmd(uri, entry_point, storage_dir, use_conda, run_id, parameters):
@@ -353,23 +356,11 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     """
     final_env = os.environ.copy()
     final_env.update(env_map)
-    # Note: We launch this subprocess in its own pgroup so that interrupts don't affect it &
-    # it can be properly interrupted via cancel() etc.
+    # TODO: Would be nice to write the output of asynchronous local runs e.g. as artifacts for
+    # debugging, we currently just drop it.
     return subprocess.Popen(
         mlflow_run_arr, env=final_env, universal_newlines=True,
-        stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"), preexec_fn=os.setsid)
-
-
-def _get_project(uri, use_temp_cwd, version, git_username, git_password):
-    """Fetches a project into a local directory. Wrapper around _fetch_project."""
-    eprint("=== Fetching project from %s ===" % uri)
-    # Separating the uri from the subdirectory requested.
-    parsed_uri, subdirectory = _parse_subdirectory(uri)
-    # Get the directory to fetch the project into.
-    dst_dir = _get_dest_dir(parsed_uri, use_temp_cwd)
-    # Get the work directory for running the project and the uri to save in the project.
-    return _fetch_project(parsed_uri, subdirectory, version, dst_dir, git_username,
-                          git_password)
+        stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"))
 
 
 def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
@@ -391,6 +382,7 @@ def _run_local(
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the `version`.
     """
+    eprint("=== Asynchronously launching MLflow run with ID %s ===" % run_id)
     # Add the run id into a magic environment variable that the subprocess will read,
     # causing it to reuse the run.
     env_map = {
@@ -404,4 +396,4 @@ def _run_local(
         uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
         run_id=run_id, parameters=parameters)
     mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, env_map)
-    return LocalSubmittedRun(run_id, mlflow_run_subprocess, "MLflow run command")
+    return LocalSubmittedRun(run_id, mlflow_run_subprocess)

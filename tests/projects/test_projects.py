@@ -26,6 +26,12 @@ def _assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
+def _build_uri(base_uri, subdirectory):
+    if subdirectory != "":
+        return "%s#%s" % (base_uri, subdirectory)
+    return base_uri
+
+
 def test_fetch_project(tmpdir):
     # Creating a local Git repo containing a MLproject file.
     local_git = tmpdir.join('git_repo').strpath
@@ -53,39 +59,27 @@ def test_fetch_project(tmpdir):
                  (git_subdir_repo, 'example_project',
                   os.path.join(local_git_subdir, 'example_project')),
                  (TEST_DIR, 'resources/example_project', TEST_PROJECT_DIR)]
-
-    counter = 0
-    for uri, subdirectory, expected in test_list:
-        dst_dir = tmpdir.join(str(counter)).strpath
-        work_dir = mlflow.projects._fetch_project(uri=uri, subdirectory=subdirectory, version=None,
-                                                  dst_dir=dst_dir, git_username=None,
-                                                  git_password=None)
+    for i, (base_uri, subdirectory, expected) in enumerate(test_list):
+        work_dir = mlflow.projects._fetch_project(
+            uri=_build_uri(base_uri, subdirectory), use_temp_cwd=True)
         _assert_dirs_equal(expected=expected, actual=work_dir)
-        counter = counter + 1
+
+    # Verify that runs fail if given incorrect subdirectories via the `#` character.
+    for base_uri in [TEST_PROJECT_DIR, git_repo_uri]:
+        with pytest.raises(ExecutionException):
+            mlflow.projects._fetch_project(uri=_build_uri(base_uri, "fake"), use_temp_cwd=False)
 
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='', version="version",
-                                       dst_dir=dst_dir, git_username=None, git_password=None)
+        mlflow.projects._fetch_project(
+            uri=TEST_PROJECT_DIR, use_temp_cwd=True, version="version",)
 
     # Passing only one of git_username, git_password results in an error
     for username, password in [(None, "hi"), ("hi", None)]:
         with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='',
-                                           version="some-version", dst_dir=dst_dir,
-                                           git_username=username, git_password=password)
+            mlflow.projects._fetch_project(
+                git_repo_uri, use_temp_cwd=True, git_username=username, git_password=password)
 
-    # Verify that runs fail if given incorrect subdirectories via the `#` character.
-    # Local test.
-    with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='fake', version=None,
-                                       dst_dir=dst_dir, git_username=None, git_password=None)
-
-    # Tests that an exception is thrown when an invalid subdirectory is given.
-    dst_dir = tmpdir.join('git-bad-subdirectory').strpath
-    with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(uri=git_repo_uri, subdirectory='fake', version=None,
-                                       dst_dir=dst_dir, git_username=None, git_password=None)
 
 
 def test_parse_subdirectory():
@@ -150,7 +144,7 @@ def test_run():
             submitted_run.wait()
             validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
             # Validate run contents in the FileStore
-            run_uuid = submitted_run.run_id
+            run_uuid = submitted_run.run_id()
             store = FileStore(tmp_dir)
             run_infos = store.list_run_infos(experiment_id=0)
             assert len(run_infos) == 1

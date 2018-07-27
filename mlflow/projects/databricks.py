@@ -238,11 +238,8 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
                                  "on Databricks.")
 
     # Fetch the project into work_dir & validate parameters
-    dst_dir = _get_dest_dir(uri, use_temp_cwd=True)
-    parsed_uri, subdirectory = _parse_subdirectory(uri)
-    expanded_uri = _expand_uri(parsed_uri)
-    work_dir = _fetch_project(
-        expanded_uri, subdirectory, version, dst_dir, git_username, git_password)
+    work_dir = _fetch_project(uri=uri, use_temp_cwd=True, version=version,
+                              git_username=git_username, git_password=git_password)
     project = _load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     # Upload the project to DBFS, get the URI of the project
@@ -304,7 +301,7 @@ class DatabricksSubmittedRun(SubmittedRun):
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
-        self.run_id = run_id
+        self._run_id = run_id
 
     def wait(self):
         return _monitor_databricks(self.databricks_run_id)
@@ -312,9 +309,6 @@ class DatabricksSubmittedRun(SubmittedRun):
     def cancel(self):
         _cancel_databricks(self.databricks_run_id)
         self.wait()
-
-    def describe(self):
-        return "Databricks Job run with id: %s" % self.databricks_run_id
 
     def _get_status(self):
         run_state = _get_run_result_state(self.databricks_run_id)
@@ -326,3 +320,6 @@ class DatabricksSubmittedRun(SubmittedRun):
 
     def get_status(self):
         return RunStatus.to_string(self._get_status())
+
+    def run_id(self):
+        return self._run_id

@@ -1,7 +1,5 @@
 from abc import abstractmethod
 
-import os
-import signal
 
 from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
@@ -45,11 +43,8 @@ class SubmittedRun(object):
         pass
 
     @abstractmethod
-    def describe(self):
-        """
-        Returns a string describing the current run, used when logging information about run
-        success or failure.
-        """
+    def run_id(self):
+        """Returns the current run's MLflow run ID."""
         pass
 
 
@@ -58,11 +53,10 @@ class LocalSubmittedRun(SubmittedRun):
     Instance of SubmittedRun corresponding to a subprocess launched to run an entry point command
     locally.
     """
-    def __init__(self, run_id, command_proc, description):
+    def __init__(self, run_id, command_proc):
         super(LocalSubmittedRun, self).__init__()
-        self.run_id = run_id
+        self._run_id = run_id
         self.command_proc = command_proc
-        self.entry_point = description
 
     def wait(self):
         return self.command_proc.wait() == 0
@@ -70,22 +64,20 @@ class LocalSubmittedRun(SubmittedRun):
     def cancel(self):
         # Interrupt child process if it hasn't already exited
         if self.command_proc.poll() is None:
-            # Terminate the child process group (hopefully kill the process tree rooted at the
-            # child)
+            # Kill the child process
+            # TODO: We should probably kill the process group here (i.e. kill the process tree
+            # rooted at the child), but this seems to be flakier than calling terminate())
             try:
-                os.killpg(self.command_proc.pid, signal.SIGTERM)
+                self.command_proc.terminate()
             except OSError:
                 # The child process may have exited before we attempted to terminate it, so we
                 # ignore OSErrors raised during child process termination
                 eprint("Failed to terminate child process (PID %s) corresponding to MLflow "
                        "run with ID %s. The process may have already "
-                       "exited." % (self.command_proc.pid, self.run_id))
+                       "exited." % (self.command_proc.pid, self.run_id()))
             self.command_proc.wait()
         else:
-            eprint("Run %s was not active, unable to cancel." % self.run_id)
-
-    def describe(self):
-        return "Local run (%s)" % self.description
+            eprint("Run %s was not active, unable to cancel." % self.run_id())
 
     def _get_status(self):
         exit_code = self.command_proc.poll()
@@ -97,3 +89,6 @@ class LocalSubmittedRun(SubmittedRun):
 
     def get_status(self):
         return RunStatus.to_string(self._get_status())
+
+    def run_id(self):
+        return self._run_id
