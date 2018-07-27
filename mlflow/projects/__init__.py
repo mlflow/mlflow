@@ -217,9 +217,9 @@ def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_passwo
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     """
     Clone the git repo at ``uri`` into ``dst_dir``, checking out commit ``version`` (or defaulting
-    to the head commit of the repository's master branch if version is unspecified). 
-    If ``git_username`` and ``git_password`` are specified, uses them to authenticate while fetching 
-    the repo. Otherwise, assumes authentication parameters are specified by the environment, 
+    to the head commit of the repository's master branch if version is unspecified).
+    If ``git_username`` and ``git_password`` are specified, uses them to authenticate while fetching
+    the repo. Otherwise, assumes authentication parameters are specified by the environment,
     e.g. by a Git credential helper.
     """
     # We defer importing git until the last moment, because the import requires that the git

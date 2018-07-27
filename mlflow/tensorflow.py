@@ -3,9 +3,9 @@
 Manages logging and loading TensorFlow models as Python Functions. You are expected to save your own
 ``saved_models`` and pass their paths to ``log_saved_model()`` so that MLflow can track the models.
 
-In order to load the model to predict on it again, you can call 
-``model = mlflow.pyfunc.load_pyfunc(saved_model_dir)``, 
-followed by ``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a 
+In order to load the model to predict on it again, you can call
+``model = mlflow.pyfunc.load_pyfunc(saved_model_dir)``,
+followed by ``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a
 pandas DataFrame.
 
 The loaded PyFunc model does not expose any APIs for model training.

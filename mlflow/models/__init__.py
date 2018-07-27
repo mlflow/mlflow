@@ -44,7 +44,7 @@ class Model(object):
         Log model using supplied flavor module.
 
         :param artifact_path: Run relative path identifying this model.
-        :param flavor: Flavor module / object to save the model with. The module / object must have 
+        :param flavor: Flavor module / object to save the model with. The module / object must have
         the ``save_model`` function that will persist the model as a valid MLflow model.
         :param kwargs: Extra args passed to the model flavor.
         """

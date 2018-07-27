@@ -51,7 +51,7 @@ def get_tracking_uri():
     """
     Return the current tracking URI. This may not correspond to the tracking URI of
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
-    
+
     :return: the tracking URI.
     """
     global _tracking_uri
@@ -105,7 +105,7 @@ class ActiveRun(object):
 
     Contains methods for logging metrics, parameters, etc. under the current run.
 
-    :param run_info: ``RunInfo`` describing the active run. A corresponding ``Run`` object is 
+    :param run_info: ``RunInfo`` describing the active run. A corresponding ``Run`` object is
                      assumed to already be persisted with state "running" in ``store``.
     :param store: Backend store to which the current run should persist state updates.
     """
@@ -232,24 +232,24 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     will be logged. The return value can be used as a context manager within a ``with`` block;
     otherwise, ``end_run()`` must be called to terminate the current run. If ``run_uuid``
     is passed or the ``MLFLOW_RUN_ID`` environment variable is set, ``start_run`` attempts to
-    resume a run with the specified run ID (with ``run_uuid`` taking precedence over 
+    resume a run with the specified run ID (with ``run_uuid`` taking precedence over
     ``MLFLOW_RUN_ID``), and other parameters are ignored.
 
     :param run_uuid: If specified, get the run with the specified UUID and log metrics
                      and params under that run. The run's end time is unset and its status
                      is set to running, but the run's other attributes remain unchanged
                      (the run's ``source_version``, ``source_type``, etc. are not changed).
-    :param experiment_id: Used only when ``run_uuid`` is unspecified. ID of the experiment under 
+    :param experiment_id: Used only when ``run_uuid`` is unspecified. ID of the experiment under
                           which to create the current run. If unspecified, the run is created under
                           a new experiment with a randomly generated name.
     :param source_name: Name of the source file or URI of the project to be associated with the run.
                         Defaults to the current file if none provided.
     :param source_version: Optional Git commit hash to associate with the run.
     :param entry_point_name: Optional name of the entry point for to the current run.
-    :param source_type: Integer enum value describing the type of the run 
-                        ("local", "project", etc.). Defaults to 
+    :param source_type: Integer enum value describing the type of the run
+                        ("local", "project", etc.). Defaults to
                         ``mlflow.entities.source_type.SourceType.LOCAL``.
-    :return: :py:class:`mlflow.tracking.ActiveRun` object that acts as a context manager wrapping 
+    :return: :py:class:`mlflow.tracking.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
     global _active_run
@@ -330,7 +330,7 @@ def log_artifacts(local_dir, artifact_path=None):
 
 def get_artifact_uri():
     """
-    Return the artifact URI of the currently active run. Calls to ``log_artifact`` and 
+    Return the artifact URI of the currently active run. Calls to ``log_artifact`` and
     ``log_artifacts`` write artifact(s) to subdirectories of the returned URI.
     """
     return _get_or_start_run().get_artifact_uri()

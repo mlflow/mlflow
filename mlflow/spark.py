@@ -31,7 +31,7 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None):
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, defines environment for the 
+    :param conda_env: Path to a Conda environment file. If provided, defines environment for the
     model. At minimum, it should specify python, pyspark, and mlflow with appropriate versions.
     :param jars: List of JARs needed by the model.
     """
