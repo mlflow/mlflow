@@ -28,7 +28,6 @@ class ExperimentPage extends Component {
 
   static getDerivedStateFromProps(props, state) {
     if (props.experimentId !== state.lastExperimentId) {
-      console.log(`different ${props.experimentId} ${state.lastExperimentId}`);
       const newState = {
         paramKeyFilterSet: new Set(),
         metricKeyFilterSet: new Set(),
