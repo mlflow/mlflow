@@ -81,7 +81,6 @@ def test_fetch_project(tmpdir):
                 git_repo_uri, use_temp_cwd=True, git_username=username, git_password=password)
 
 
-
 def test_parse_subdirectory():
     # Make sure the parsing works as intended.
     test_uri = "uri#subdirectory"
