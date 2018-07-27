@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.io.IOException;
 
 public class MLeapModel extends ScalaModel {
-    private final ScalaModel predictor;
+    private final MLeapPredictor predictor;
 
     public MLeapModel(String modelDataPath) {
         this.predictor = new MLeapPredictor(modelDataPath);

@@ -43,16 +43,16 @@
         <artifactId>mleap-spark_2.11</artifactId>
         <version>0.4.0</version>
     </dependency>
-	<dependency>
-	    <groupId>ml.combust.mleap</groupId>
-	    <artifactId>mleap-runtime_2.11</artifactId>
-	    <version>0.10.0</version>
-	</dependency>
-    <!-- <dependency> -->
-    <!--     <groupId>org.apache.commons</groupId> -->
-    <!--     <artifactId>commons&#45;lang3</artifactId> -->
-    <!--     <version>3.7</version> -->
-    <!-- </dependency> -->
+    <dependency>
+        <groupId>ml.combust.mleap</groupId>
+        <artifactId>mleap-runtime_2.11</artifactId>
+        <version>0.10.0</version>
+    </dependency>
+    <dependency>
+        <groupId>com.sparkjava</groupId>
+        <artifactId>spark-core</artifactId>
+        <version>2.7.2</version>
+    </dependency>
   </dependencies>
   <build>
         <pluginManagement>

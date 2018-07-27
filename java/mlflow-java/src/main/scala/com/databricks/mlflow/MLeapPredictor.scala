@@ -10,7 +10,7 @@ import ml.combust.mleap.runtime.serialization.FrameReader
 
 import resource._
 
-class MLeapPredictor(var modelPath : String) extends ScalaModel {
+class MLeapPredictor(var modelPath : String) {
   val typedModelPath = "file:%s".format(modelPath)
   val bundle = (for(bundleFile <- managed(BundleFile(typedModelPath))) yield {
       bundleFile.loadMleapBundle().get
@@ -20,8 +20,8 @@ class MLeapPredictor(var modelPath : String) extends ScalaModel {
   val frameReader = FrameReader()
   val jsonCharset = Charset.forName("UTF-8")
 
-  // override def predict(input : InputBean): String = {
-  override def predict(input : String): String = {
+  // def predict(input : InputBean): String = {
+  def predict(input : String): String = {
     // val inputJson = input.getInputJson()
     // val inputBytes = inputJson.getBytes(jsonCharset)
     // val deserializedFrame = frameReader.fromBytes(inputBytes).get
