@@ -10,8 +10,8 @@ from six.moves import shlex_quote, urllib
 
 from mlflow.entities.source_type import SourceType
 
-from mlflow.projects import ExecutionException, _fetch_project, _get_work_dir, _load_project,\
-    _expand_uri
+from mlflow.projects import ExecutionException, _fetch_project, _get_dest_dir, _load_project,\
+    _expand_uri, _parse_subdirectory
 from mlflow.projects.pollable_run import DatabricksPollableRun
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
@@ -232,8 +232,11 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
                                  "on Databricks.")
 
     # Fetch the project into work_dir & validate parameters
-    work_dir = _get_work_dir(uri, use_temp_cwd=True)
-    _fetch_project(uri, version, work_dir, git_username, git_password)
+    dst_dir = _get_dest_dir(uri, use_temp_cwd=True)
+    parsed_uri, subdirectory = _parse_subdirectory(uri)
+    expanded_uri = _expand_uri(parsed_uri)
+    work_dir = _fetch_project(
+        expanded_uri, subdirectory, version, dst_dir, git_username, git_password)
     project = _load_project(work_dir, uri)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     # Upload the project to DBFS, get the URI of the project
