@@ -19,7 +19,6 @@ public class MLeapModel extends ScalaModel {
         if (!mleapConfig.isPresent()) {
             // Raise exception
         }
-        // Check that versions match
         return new MLeapModel(mleapConfig.get().getModelDataPath());
     }
 
