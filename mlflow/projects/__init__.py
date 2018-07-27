@@ -356,8 +356,10 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     """
     final_env = os.environ.copy()
     final_env.update(env_map)
-    # TODO: Would be nice to write the output of asynchronous local runs e.g. as artifacts for
-    # debugging, we currently just drop it.
+    # TODO: maybe write the output of asynchronous local runs e.g. as artifacts for
+    # debugging, we currently just drop it
+    # Launch `mlflow run` command as the leader of its own process group so that we can do a
+    # best-effort cleanup of all its descendant processes if needed
     return subprocess.Popen(
         mlflow_run_arr, env=final_env, universal_newlines=True,
         stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"), preexec_fn=os.setsid)
