@@ -2,8 +2,8 @@
 #'
 #' Installs MLflow for individual use.
 #'
-#' Notice that MLflow requires Python to be installed,
-#' see \url{https://www.python.org/getit/}.
+#' Notice that MLflow requires Python and Conda to be installed,
+#' see \url{https://www.python.org/getit/} and \url{https://conda.io/docs/installation.html}.
 #'
 #' @examples
 #' \dontrun{
@@ -20,10 +20,5 @@ mlflow_install <- function() {
     "mlflow"
   )
 
-  if (python_use_conda()) {
-    conda_install(packages, envname = "r-mlflow", pip = TRUE)
-  }
-  else {
-    py_install(packages, envname = "r-mlflow")
-  }
+  conda_install(packages, envname = "r-mlflow", pip = TRUE)
 }

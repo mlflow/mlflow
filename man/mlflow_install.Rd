@@ -10,8 +10,8 @@ mlflow_install()
 Installs MLflow for individual use.
 }
 \details{
-Notice that MLflow requires Python to be installed,
-see \url{https://www.python.org/getit/}.
+Notice that MLflow requires Python and Conda to be installed,
+see \url{https://www.python.org/getit/} and \url{https://conda.io/docs/installation.html}.
 }
 \examples{
 \dontrun{

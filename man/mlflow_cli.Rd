@@ -4,13 +4,16 @@
 \alias{mlflow_cli}
 \title{MLflow Command}
 \usage{
-mlflow_cli(..., background = FALSE)
+mlflow_cli(..., background = FALSE, echo = TRUE)
 }
 \arguments{
 \item{...}{The parameters to pass to the command line.}
 
 \item{background}{Should this command be triggered as a background task?
 Defaults to \code{FALSE}.}
+
+\item{echo}{Print the standard output and error to the screen? Defaults to
+\code{TRUE}, does not apply to background tasks.}
 }
 \description{
 Executes a generic MLflow command through the commmand line interface.

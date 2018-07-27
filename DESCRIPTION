@@ -18,6 +18,4 @@ Imports:
   reticulate,
   withr
 RoxygenNote: 6.0.1
-Remotes:
-  javierluraschi/reticulate@bugfix/expose-get-python
   
