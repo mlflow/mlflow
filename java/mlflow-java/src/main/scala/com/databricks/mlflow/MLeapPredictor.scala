@@ -1,4 +1,6 @@
-package com.databricks.mlflow;
+package com.databricks.mlflow.mleap;
+
+import com.databricks.mlflow.models.ScalaModel
 
 import java.nio.charset.Charset
 

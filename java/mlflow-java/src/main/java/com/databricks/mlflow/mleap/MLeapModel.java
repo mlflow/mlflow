@@ -1,4 +1,7 @@
-package com.databricks.mlflow;
+package com.databricks.mlflow.mleap;
+
+import com.databricks.mlflow.models.ScalaModel;
+import com.databricks.mlflow.models.ModelConfig;
 
 import java.util.Optional;
 

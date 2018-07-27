@@ -1,4 +1,6 @@
-package com.databricks.mlflow;
+package com.databricks.mlflow.mleap;
+
+import com.databricks.mlflow.Flavor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;

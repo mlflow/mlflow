@@ -1,4 +1,6 @@
-package com.databricks.mlflow;
+package com.databricks.mlflow.models;
+
+import com.databricks.mlflow.Flavor;
 
 import java.util.List;
 import java.util.Map;
@@ -10,7 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-class ModelConfig {
+public class ModelConfig {
     @JsonProperty("artifact_path") private String artifactPath;
     @JsonProperty("run_id") private String runId;
     @JsonProperty("utc_time_created") private String utcTimeCreated;

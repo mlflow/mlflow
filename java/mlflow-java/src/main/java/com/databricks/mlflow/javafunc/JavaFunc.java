@@ -1,4 +1,9 @@
-package com.databricks.mlflow;
+package com.databricks.mlflow.javafunc;
+
+import com.databricks.mlflow.Flavor;
+import com.databricks.mlflow.TrackingUtils;
+import com.databricks.mlflow.models.JavaModel;
+import com.databricks.mlflow.models.ModelConfig;
 
 import java.io.File;
 import java.util.Optional;
