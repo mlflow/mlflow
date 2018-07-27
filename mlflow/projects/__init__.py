@@ -360,7 +360,7 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     # debugging, we currently just drop it.
     return subprocess.Popen(
         mlflow_run_arr, env=final_env, universal_newlines=True,
-        stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"))
+        stderr=open(os.devnull, "w"), stdout=open(os.devnull, "w"), preexec_fn=os.setsid)
 
 
 def _create_run(uri, experiment_id, work_dir, entry_point, parameters):

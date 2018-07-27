@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import os, signal
 
 
 from mlflow.entities.run_status import RunStatus
@@ -64,11 +65,13 @@ class LocalSubmittedRun(SubmittedRun):
     def cancel(self):
         # Interrupt child process if it hasn't already exited
         if self.command_proc.poll() is None:
-            # Kill the child process
-            # TODO: We should probably kill the process group here (i.e. kill the process tree
-            # rooted at the child), but this seems to be flakier than calling terminate())
+            # Kill the the process tree rooted at the child if it's the leader of its own process
+            # group, otherwise just kill the child
             try:
-                self.command_proc.terminate()
+                if self.command_proc.pid == os.getpgid(self.command_proc.pid):
+                    os.killpg(self.command_proc.pid, signal.SIGTERM)
+                else:
+                    self.command_proc.terminate()
             except OSError:
                 # The child process may have exited before we attempted to terminate it, so we
                 # ignore OSErrors raised during child process termination
