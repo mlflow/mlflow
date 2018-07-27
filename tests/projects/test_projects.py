@@ -59,7 +59,7 @@ def test_fetch_project(tmpdir):
                  (git_subdir_repo, 'example_project',
                   os.path.join(local_git_subdir, 'example_project')),
                  (TEST_DIR, 'resources/example_project', TEST_PROJECT_DIR)]
-    for i, (base_uri, subdirectory, expected) in enumerate(test_list):
+    for base_uri, subdirectory, expected in test_list:
         work_dir = mlflow.projects._fetch_project(
             uri=_build_uri(base_uri, subdirectory), use_temp_cwd=True)
         _assert_dirs_equal(expected=expected, actual=work_dir)

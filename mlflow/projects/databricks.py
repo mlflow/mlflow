@@ -12,8 +12,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
 
-from mlflow.projects import ExecutionException, _fetch_project, _get_dest_dir, _load_project,\
-    _expand_uri, _parse_subdirectory
+from mlflow.projects import ExecutionException, _fetch_project, _load_project, _expand_uri
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
 from mlflow.utils.logging_utils import eprint
