@@ -45,17 +45,17 @@ devtools::install_github("rstudio/mlflow")
 
 MLflow Tracking allows you to logging parameters, code versions, metrics, and output files when running R code and for later visualizing the results.
 
-MLflow allows you to group runs under experiments, which can be useful for comparing runs intended to tackle a particular task. You can create a new experiment locally using `mlflow` as follows:
+MLflow allows you to group runs under experiments, which can be useful for comparing runs intended to tackle a particular task. You can create and activate a new experiment locally using `mlflow` as follows:
 
 ```{r, message=FALSE}
 library(mlflow)
-mlflow_experiments_create("Test")
+mlflow_experiment("Test")
 ```
 
 Then you can list your experiments directly from R,
 
 ```{r}
-mlflow_experiments()
+mlflow_experiment_list()
 ```
 
 or using MLflows user interface by running:
@@ -92,12 +92,13 @@ library(mlflow)
 # read parameters
 column <- mlflow_param("column", 1, "column index to use as feature")
 
-# log additional data
+# log total rows
 mlflow_log("rows", nrow(iris))
 
 # train model
 model <- lm(Sepal.Width ~ iris[[column]], iris)
 
+# log models intercept
 mlflow_log("intercept", model$coefficients[["(Intercept)"]])
 ```
 
@@ -105,7 +106,7 @@ mlflow_log("intercept", model$coefficients[["(Intercept)"]])
 
 An MLflow Model is a standard format for packaging machine learning models that can be used in a variety of downstream tools—for example, real-time serving through a REST API or batch inference on Apache Spark. They provide a convention to save a model in different “flavors” that can be understood by different downstream tools.
 
-To save a model use `mlflow_save_model()`. For instance, you can add the following lines to the previous `train.R`:
+To save a model use `mlflow_save_model()`. For instance, you can add the following lines to the previous `train.R` script:
 
 ```{r eval=FALSE}
 # train model (...)

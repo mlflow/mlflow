@@ -11,7 +11,7 @@
 #' mlflow_install()
 #' }
 #'
-#' @importFrom reticulate conda_install conda_create
+#' @importFrom reticulate conda_install conda_create conda_list
 #' @export
 mlflow_install <- function() {
   packages <- c(

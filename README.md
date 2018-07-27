@@ -43,19 +43,17 @@ the results.
 
 MLflow allows you to group runs under experiments, which can be useful
 for comparing runs intended to tackle a particular task. You can create
-a new experiment locally using `mlflow` as follows:
+and activate a new experiment locally using `mlflow` as follows:
 
 ``` r
 library(mlflow)
-mlflow_experiments_create("Test")
+mlflow_experiment("Test")
 ```
-
-    ## [1] "1"
 
 Then you can list your experiments directly from R,
 
 ``` r
-mlflow_experiments()
+mlflow_experiment_list()
 ```
 
     ##   experiment_id    name artifact_location
@@ -104,12 +102,13 @@ library(mlflow)
 # read parameters
 column <- mlflow_param("column", 1, "column index to use as feature")
 
-# log additional data
+# log total rows
 mlflow_log("rows", nrow(iris))
 
 # train model
 model <- lm(Sepal.Width ~ iris[[column]], iris)
 
+# log models intercept
 mlflow_log("intercept", model$coefficients[["(Intercept)"]])
 ```
 
@@ -122,7 +121,7 @@ They provide a convention to save a model in different “flavors” that
 can be understood by different downstream tools.
 
 To save a model use `mlflow_save_model()`. For instance, you can add the
-following lines to the previous `train.R`:
+following lines to the previous `train.R` script:
 
 ``` r
 # train model (...)
