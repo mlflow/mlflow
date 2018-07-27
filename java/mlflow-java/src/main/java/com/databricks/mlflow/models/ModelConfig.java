@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.io.File;
+import java.io.IOException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -18,14 +19,9 @@ public class ModelConfig {
     @JsonProperty("utc_time_created") private String utcTimeCreated;
     @JsonProperty("flavors") private Map<String, Object> flavors;
 
-    public static ModelConfig fromPath(String configPath) {
+    public static ModelConfig fromPath(String configPath) throws IOException {
         final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        try {
-            return mapper.readValue(new File(configPath), ModelConfig.class);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+        return mapper.readValue(new File(configPath), ModelConfig.class);
     }
 
     public Optional<String> getArtifactPath() {
@@ -56,14 +52,5 @@ public class ModelConfig {
         } else {
             return Optional.<String>empty();
         }
-    }
-
-    public static void main(String[] args) {
-        // Testing
-        for (String arg : args) {
-            System.out.println(arg);
-        }
-        String path = args[0];
-        ModelConfig config = ModelConfig.fromPath(path);
     }
 }

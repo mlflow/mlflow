@@ -6,28 +6,55 @@ import com.databricks.mlflow.models.JavaModel;
 import com.databricks.mlflow.models.ModelConfig;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Optional;
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 
-public class JavaFunc implements Flavor {
-    public static final String FLAVOR_NAME = "javafunc";
+public class JavaFunc {
+    private static final String LOADER_METHOD_NAME = "load";
 
-    @Override
-    public String getName() {
-        return FLAVOR_NAME;
-    }
-
-    public static JavaModel load(String path, Optional<String> runId) {
+    public static JavaModel load(String path, Optional<String> runId)
+        throws IOException, InvocationTargetException, LoaderModuleException {
         if (runId.isPresent()) {
             // Get the run-relative model logging directory
             path = TrackingUtils.getModelLogDir(path, runId.get());
         }
         String configPath = path + File.separator + "MLmodel";
         ModelConfig config = ModelConfig.fromPath(configPath);
-        Optional<JavaFunc> javaFuncFlavor = config.getFlavor(FLAVOR_NAME, JavaFunc.class);
+        Optional<JavaFuncConfig> javaFuncFlavor =
+            config.getFlavor(JavaFuncConfig.FLAVOR_NAME, JavaFuncConfig.class);
+
         if (!javaFuncFlavor.isPresent()) {
             // throw new Exception();
         }
 
-        return null;
+        // INSTALL DEPENDENCIES AND "IMPORT" CODE SPECIFIED
+        // BY javaFuncFlavor.getCodePath(), javaFuncFlavor.PackageDependencies()
+
+        return loadModelFromClass(
+            javaFuncFlavor.get().getLoaderClassName(), javaFuncFlavor.get().getModelDataPath());
+    }
+
+    private static JavaModel loadModelFromClass(String loaderClassName, String modelPath)
+        throws InvocationTargetException, LoaderModuleException {
+        try {
+            Class<?> loaderClass = Class.forName(loaderClassName);
+            Method loaderMethod = loaderClass.getMethod(LOADER_METHOD_NAME, String.class);
+            JavaModel model = (JavaModel) loaderMethod.invoke(null, modelPath);
+            return model;
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
+            e.printStackTrace();
+            throw new LoaderModuleException(loaderClassName);
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            String path = args[0];
+            JavaFunc.load(path, Optional.<String>empty());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
