@@ -1,8 +1,13 @@
 mlflow_cli_path <- function() {
-  result <- pip_run("show", "mlflow", echo = FALSE)
-  location_match <- regexec("Location: ([^\n]*)", result$stdout)
-  site_path <- regmatches(result$stdout, location_match)[[1]][[2]]
-  file.path(site_path, "mlflow", "cli.py")
+  if (is.null(.globals$mlflow_cli_path))
+  {
+    result <- pip_run("show", "mlflow", echo = FALSE)
+    location_match <- regexec("Location: ([^\n]*)", result$stdout)
+    site_path <- regmatches(result$stdout, location_match)[[1]][[2]]
+    .globals$mlflow_cli_path <- file.path(site_path, "mlflow", "cli.py")
+  }
+
+  .globals$mlflow_cli_path
 }
 
 #' MLflow Command
