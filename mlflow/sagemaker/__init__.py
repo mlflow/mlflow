@@ -172,34 +172,44 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     Currently active AWS account needs to have correct permissions set up.
 
     :param app_name: Name of the deployed application.
-    :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id`` is specified)
-    :param execution_role_arn: Amazon execution role with SageMaker rights. defaults to the currently-assumed role.
-    :param bucket: S3 bucket where model artifacts will be stored. defaults to a
+    :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id`` 
+    is specified.
+    :param execution_role_arn: Amazon execution role with SageMaker rights. 
+                               Defaults to the currently-assumed role.
+    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
     :param run_id: MLflow run ID.
     :param image: Name of the Docker image to be used. if not specified, uses a
                   publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
-
-
-    :param mode: The mode in which to deploy the application. 
-                 Must be one of the following:
+    :param mode: The mode in which to deploy the application. Must be one of the following:
 
                  ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``
-                    Create an application with the specified name and model. This fails if an application of the same name already exists.
+                    Create an application with the specified name and model. This fails if an 
+                    application of the same name already exists.
 
                  ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-                    If an application of the specified name exists, its model(s) is replaced with the specified model. If no such application exists, it is created with the specified name and model.
+                    If an application of the specified name exists, its model(s) is replaced with 
+                    the specified model. If no such application exists, it is created with the 
+                    specified name and model.
 
                  ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
-                    Add the specified model to a pre-existing application with the specified name, if one exists. If the application does not exist,  a new application is created with the specified name and model. NOTE: **If the application already exists**, the specified model is added to the application's corresponding SageMaker endpoint with an initial weight of zero (0). To route traffic to the model, update the application's associated endpoint configuration using either the AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in the `SageMaker API Documentation <https://docs.aws.amazon.com/sagemaker/latest/dg/ API_UpdateEndpointWeightsAndCapacities.html>`_.
+                    Add the specified model to a pre-existing application with the specified name, 
+                    if one exists. If the application does not exist,  a new application is created 
+                    with the specified name and model. NOTE: **If the application already exists**, 
+                    the specified model is added to the application's corresponding SageMaker 
+                    endpoint with an initial weight of zero (0). To route traffic to the model, 
+                    update the application's associated endpoint configuration using either the 
+                    AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in 
+                    the 
+                    `SageMaker API Documentation <https://docs.aws.amazon.com/sagemaker/latest/dg/ API_UpdateEndpointWeightsAndCapacities.html>`_.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode)
-                    are preserved. If False, these resources are deleted.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model.
-                          For a list of supported instance types, see
-                          `Amazon SageMaker ML Instance Types <https://aws.amazon.com/sagemaker/pricing/instance-types/`_.
+                    (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` 
+                    mode) are preserved. If False, these resources are deleted.
+    :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list 
+                          of supported instance types, see 
+    `Amazon SageMaker ML Instance Types <https://aws.amazon.com/sagemaker/pricing/instance-types/`_.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     """
     if mode not in DEPLOYMENT_MODES:
@@ -275,7 +285,8 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
     """
     Serve model locally in a SageMaker compatible Docker container.
     
-    :param model_path: path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id`` is specified.
+    :param model_path: path to the model. Either local if no ``run_id`` or MLflow-relative if 
+                                          ``run_id`` is specified.
     :param run_id: MLflow run ID.
     :param port: Local port.
     :param image: Name of the Docker image to be used.
@@ -470,7 +481,8 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
 
 def _get_sagemaker_resource_unique_id():
     """
-    :return: A unique identifier that can be appended to a user-readable resource name to avoid naming collisions.
+    :return: A unique identifier that can be appended to a user-readable resource name to avoid 
+             naming collisions.
     """
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the

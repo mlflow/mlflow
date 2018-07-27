@@ -31,7 +31,8 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None):
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, defines environment for the model. At minimum, it should specify python, pyspark, and mlflow with appropriate versions.
+    :param conda_env: Path to a Conda environment file. If provided, defines environment for the 
+    model. At minimum, it should specify python, pyspark, and mlflow with appropriate versions.
     :param jars: List of JARs needed by the model.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
@@ -74,7 +75,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
 def load_model(path, run_id=None):
     """
     Load the Spark MLlib model from the path.
-    
+
     :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
     :param path: Local filesystem path or run-relative artifact path to the model.
     :return: SparkML model.
@@ -92,7 +93,7 @@ def load_model(path, run_id=None):
 def load_pyfunc(path):
     """
     Load a Python Function model from a local file.
-    
+
     :param path: Local path.
     :return: The model as PyFunc.
     """

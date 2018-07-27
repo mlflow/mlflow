@@ -24,8 +24,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-           this model should be run in. At minimum, it should specify python, scikit-learn, and mlflow
-           with appropriate versions.
+           this model should be run in. At minimum, it should specify python, scikit-learn, 
+           and mlflow with appropriate versions.
     :param mlflow_model: MLflow model config this flavor is being added to.
     """
     if os.path.exists(path):
@@ -66,7 +66,7 @@ def _load_model_from_local_file(path):
 
 def load_pyfunc(path):
     """Load a Python Function model from a local file."""
-        
+
     with open(path, "rb") as f:
         return pickle.load(f)
 

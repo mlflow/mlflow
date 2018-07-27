@@ -1,8 +1,12 @@
 """MLflow integration for TensorFlow.
 
-Manages logging and loading TensorFlow models as Python Functions. You are expected to save your own ``saved_models`` and pass their paths to ``log_saved_model()`` so that MLflow can track the models.
+Manages logging and loading TensorFlow models as Python Functions. You are expected to save your own
+``saved_models`` and pass their paths to ``log_saved_model()`` so that MLflow can track the models.
 
-In order to load the model to predict on it again, you can call ``model = mlflow.pyfunc.load_pyfunc(saved_model_dir)``, followed by ``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a pandas DataFrame.
+In order to load the model to predict on it again, you can call 
+``model = mlflow.pyfunc.load_pyfunc(saved_model_dir)``, 
+followed by ``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a 
+pandas DataFrame.
 
 The loaded PyFunc model does not expose any APIs for model training.
 """
@@ -62,7 +66,8 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
 
     :param saved_model_dir: Directory where the exported TensorFlow model is saved.
     :param signature_def_key: The signature definition to use when loading the model again.
-                              See `SignatureDefs in SavedModel for TensorFlow Serving <https://www.tensorflow.org/serving/signature_defs>`_ for details.
+                              See `SignatureDefs in SavedModel for TensorFlow Serving
+                               <https://www.tensorflow.org/serving/signature_defs>`_ for details.
     :param artifact_path: Path (within the artifact directory for the current run) to which
                           artifacts of the model will be saved.
     """
