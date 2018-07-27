@@ -109,7 +109,7 @@ class LocalSubmittedRun(SubmittedRun):
             eprint("Run %s was not active, unable to cancel." % self.run_id)
 
     def describe(self):
-        return "entry point: '%s'" % self.entry_point
+        return "local run of entry point: '%s'" % self.entry_point
 
     def _get_status(self):
         exit_code = self.command_proc.poll()

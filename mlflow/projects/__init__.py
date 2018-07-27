@@ -14,7 +14,7 @@ import tempfile
 
 from distutils import dir_util
 
-
+from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects._project_spec import Project
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
@@ -34,6 +34,7 @@ MLFLOW_CONDA = "MLFLOW_CONDA"
 # subprocess and monitor it for completion. When `mlflow run` is invoked with mode='local', we
 # invoke `mlflow run` with this special mode in a subprocess, resulting in a process hierarchy of
 # "mlflow run -m local" -> "mlflow run -m MLFLOW_ENTRY_POINT_MODE" -> "exec <entry-point-command>"
+# projects.run() -> "mlflow run -m MLFLOW_ENTRY_POINT_MODE" -> "exec <entry-point-command>"
 MLFLOW_ENTRY_POINT_MODE = "_local_run_entry_point"
 
 
@@ -42,15 +43,35 @@ class ExecutionException(Exception):
     pass
 
 
+def run():
+    if mode == "databricks":
+        return _create_databricks_run()
+    elif mode == "local":
+        _init_run()
+        return _fork_mlflow_run_local()
+
+
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
          mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
          use_temp_cwd=False, storage_dir=None, block=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in mode.
-    Returns a `SubmittedRun` corresponding to the project run unless mode is
-    MLFLOW_ENTRY_POINT_MODE, in which case we return None.
+    Returns a `SubmittedRun` corresponding to the project run.
     """
     exp_id = experiment_id or tracking._get_experiment_id()
+
+    if mode == "databricks":
+        databricks_run = _create_databricks_run()
+        if block:
+            databricks_run.wait()
+        return databricks_run
+    elif mode == "local":
+        # No matter what set up conda env
+        _do_run_setup()
+        if block:
+            return _invoke_entrypoint()
+        return _fork_mlflow_run_local()
+
     if mode is None or mode == "local":
         return _run_local(
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
@@ -64,10 +85,9 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     if mode == MLFLOW_ENTRY_POINT_MODE:
-        _run_entry_point(
-            uri=uri, entry_point=entry_point, parameters=parameters, storage_dir=storage_dir,
+        return _run_entry_point(
+            work_dir=uri, entry_point=entry_point, parameters=parameters, storage_dir=storage_dir,
             use_conda=use_conda)
-        return None
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
@@ -120,17 +140,17 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :return: A `SubmittedRun` exposing information (e.g. run ID) about the launched run. Note that
              the returned `SubmittedRun` is not thread-safe.
     """
-    maybe_submitted_run_obj = _run(
+    submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
         experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
         use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block, run_id=run_id)
-    if block and mode != MLFLOW_ENTRY_POINT_MODE:
-        if not maybe_submitted_run_obj.wait():
+    if block:
+        if not submitted_run_obj.wait():
             raise ExecutionException(
                 "=== Run (%s, MLflow run id: %s) was unsuccessful ===" %
-                (maybe_submitted_run_obj.describe(), maybe_submitted_run_obj.run_id))
-    return maybe_submitted_run_obj
+                (submitted_run_obj.describe(), submitted_run_obj.run_id))
+    return submitted_run_obj
 
 
 def _load_project(project_dir):
@@ -270,11 +290,11 @@ def _get_entry_point_command(project_dir, entry_point, use_conda, parameters, st
     return " && ".join(commands)
 
 
-def _run_entry_point(uri, entry_point, use_conda, parameters, storage_dir):
+def _run_entry_point(work_dir, entry_point, use_conda, parameters, storage_dir):
     """
     Runs an entry point command locally & reports its status to the tracking server.
     """
-    command = _get_entry_point_command(uri, entry_point, use_conda, parameters, storage_dir)
+    command = _get_entry_point_command(work_dir, entry_point, use_conda, parameters, storage_dir)
     active_run = tracking._get_existing_run(run_uuid=os.environ[tracking._RUN_ID_ENV_VAR])
     run_id = active_run.run_info.run_uuid
 
@@ -294,16 +314,16 @@ def _run_entry_point(uri, entry_point, use_conda, parameters, storage_dir):
         _maybe_set_run_terminated(active_run, "FAILED")
         sys.exit(process.poll() if process is not None else 1)
     signal.signal(signal.SIGTERM, handle_cancellation)
-    process = subprocess.Popen(["bash", "-c", command], close_fds=True, preexec_fn=os.setsid)
+    process = subprocess.Popen(
+        ["bash", "-c", command], close_fds=True, cwd=work_dir, preexec_fn=os.setsid)
     exit_code = process.wait()
     if exit_code == 0:
         eprint("=== Shell command '%s' succeeded ===" % command)
         _maybe_set_run_terminated(active_run, "FINISHED")
-        sys.exit(exit_code)
     else:
         eprint("=== Shell command '%s' failed with exit code %s ===" % (command, exit_code))
         _maybe_set_run_terminated(active_run, "FAILED")
-        sys.exit(exit_code)
+    return LocalSubmittedRun(run_id, process, entry_point)
 
 
 def _build_mlflow_run_cmd(uri, entry_point, storage_dir, use_conda, run_id, parameters):
@@ -389,5 +409,4 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
         uri=work_dir, entry_point=entry_point,
         storage_dir=storage_dir, use_conda=use_conda, run_id=run_id, parameters=parameters)
     mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, env_map, stream_output=block)
-    from mlflow.projects.submitted_run import LocalSubmittedRun
     return LocalSubmittedRun(active_run.run_info.run_uuid, mlflow_run_subprocess, entry_point)
