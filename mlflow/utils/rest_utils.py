@@ -14,7 +14,7 @@ def _fail_malformed_databricks_auth(profile):
                     "https://github.com/databricks/databricks-cli." % profile)
 
 
-def get_databricks_http_request_params_or_fail(profile=None):
+def get_databricks_http_request_kwargs_or_fail(profile=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
@@ -57,7 +57,7 @@ def get_databricks_http_request_params_or_fail(profile=None):
 
 def databricks_api_request(endpoint, method, req_body_json=None, params=None):
     final_endpoint = "/api/2.0/%s" % endpoint
-    request_params = get_databricks_http_request_params_or_fail()
+    request_params = get_databricks_http_request_kwargs_or_fail()
     return http_request(endpoint=final_endpoint, method=method, req_body_json=req_body_json,
                         params=params, **request_params)
 

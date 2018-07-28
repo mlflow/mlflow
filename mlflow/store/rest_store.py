@@ -50,12 +50,16 @@ class RestException(Exception):
 
 
 class RestStore(AbstractStore):
-    """ Client for a remote tracking server accessed via REST API calls """
+    """
+    Client for a remote tracking server accessed via REST API calls
+    :param http_request_kwargs arguments to add to rest_utils.http_request for all requests.
+                               'hostname' is required.
+    """
 
-    def __init__(self, http_request_params):
+    def __init__(self, http_request_kwargs):
         super(RestStore, self).__init__()
-        self.http_request_params = http_request_params
-        if not http_request_params['hostname']:
+        self.http_request_kwargs = http_request_kwargs
+        if not http_request_kwargs['hostname']:
             raise Exception('hostname must be provided to RestStore')
 
     def _call_endpoint(self, api, json_body):
@@ -65,7 +69,7 @@ class RestStore(AbstractStore):
         if json_body:
             json_body = json.loads(json_body)
         js_dict = http_request(endpoint=endpoint, method=method,
-                               req_body_json=json_body, params=None, **self.http_request_params)
+                               req_body_json=json_body, params=None, **self.http_request_kwargs)
 
         if 'error_code' in js_dict:
             raise RestException(js_dict)

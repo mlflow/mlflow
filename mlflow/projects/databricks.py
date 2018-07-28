@@ -91,7 +91,7 @@ def _check_databricks_auth_available():
             "Could not find Databricks CLI on PATH. Please install and configure the Databricks "
             "CLI as described in https://github.com/databricks/databricks-cli")
     # Verify that we can get Databricks auth
-    rest_utils.get_databricks_http_request_params_or_fail()
+    rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
 def _upload_to_dbfs(src_path, dbfs_uri):

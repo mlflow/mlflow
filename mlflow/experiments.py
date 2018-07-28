@@ -19,7 +19,7 @@ def commands():
 @click.argument("experiment_name")
 def create(experiment_name):
     """
-    Creates a new experiment in FileStore backend.
+    Creates a new experiment in the configured tracking server.
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name)
@@ -29,7 +29,7 @@ def create(experiment_name):
 @commands.command("list")
 def list_experiments():
     """
-    List all experiment in FileStore backend.
+    List all experiments in the configured tracking server.
     """
     store = _get_store()
     experiments = store.list_experiments()

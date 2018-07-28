@@ -15,64 +15,73 @@ def _mock_profile(expected_profile, config):
     provider.get_config_for_profile = mock_get_config_for_profile
 
 
-def test_databricks_params_token():
-    _mock_profile("DEFAULT", DatabricksConfig("host", None, None, "mytoken", insecure=False))
-    params = rest_utils.get_databricks_http_request_params_or_fail()
+@mock.patch('databricks_cli.configure.provider.get_config_for_profile')
+def test_databricks_params_token(get_config_for_profile):
+    get_config_for_profile.return_value = \
+        DatabricksConfig("host", None, None, "mytoken", insecure=False)
+    params = rest_utils.get_databricks_http_request_kwargs_or_fail()
     assert params == {
-      'hostname': 'host',
-      'headers': {
-        'Authorization': 'Basic dG9rZW46bXl0b2tlbg=='
-      },
-      'secure_verify': True,
+        'hostname': 'host',
+        'headers': {
+            'Authorization': 'Basic dG9rZW46bXl0b2tlbg=='
+        },
+        'secure_verify': True,
+    }
+    get_config_for_profile.assert_called_with("DEFAULT")
+
+
+@mock.patch('databricks_cli.configure.provider.get_config_for_profile')
+def test_databricks_params_user_password(get_config_for_profile):
+    get_config_for_profile.return_value = \
+        DatabricksConfig("host", "user", "pass", None, insecure=False)
+    params = rest_utils.get_databricks_http_request_kwargs_or_fail()
+    assert params == {
+        'hostname': 'host',
+        'headers': {
+            'Authorization': 'Basic dXNlcjpwYXNz'
+        },
+        'secure_verify': True,
     }
 
 
-def test_databricks_params_user_password():
-    _mock_profile("DEFAULT", DatabricksConfig("host", "user", "pass", None, insecure=False))
-    params = rest_utils.get_databricks_http_request_params_or_fail()
-    assert params == {
-      'hostname': 'host',
-      'headers': {
-        'Authorization': 'Basic dXNlcjpwYXNz'
-      },
-      'secure_verify': True,
-    }
-
-
-def test_databricks_params_no_verify():
-    _mock_profile("DEFAULT", DatabricksConfig("host", "user", "pass", None, insecure=True))
-    params = rest_utils.get_databricks_http_request_params_or_fail()
+@mock.patch('databricks_cli.configure.provider.get_config_for_profile')
+def test_databricks_params_no_verify(get_config_for_profile):
+    get_config_for_profile.return_value = \
+        DatabricksConfig("host", "user", "pass", None, insecure=True)
+    params = rest_utils.get_databricks_http_request_kwargs_or_fail()
     assert params['secure_verify'] is False
 
 
-def test_databricks_params_custom_profile():
-    _mock_profile("profile", DatabricksConfig("host", "user", "pass", None, insecure=True))
-    params = rest_utils.get_databricks_http_request_params_or_fail("profile")
+@mock.patch('databricks_cli.configure.provider.get_config_for_profile')
+def test_databricks_params_custom_profile(get_config_for_profile):
+    get_config_for_profile.return_value = \
+        DatabricksConfig("host", "user", "pass", None, insecure=True)
+    params = rest_utils.get_databricks_http_request_kwargs_or_fail("profile")
     assert params['secure_verify'] is False
+    get_config_for_profile.assert_called_with("profile")
 
 
-def test_databricks_params_throws_errors():
-    _mock_profile("DEFAULT", DatabricksConfig("host", "user", "pass", None, insecure=False))
-
-    # No such profile
-    with pytest.raises(Exception):
-        rest_utils.get_databricks_http_request_params_or_fail("profile")
-
+@mock.patch('databricks_cli.configure.provider.get_config_for_profile')
+def test_databricks_params_throws_errors(get_config_for_profile):
     # No hostname
-    _mock_profile("DEFAULT", DatabricksConfig(None, "user", "pass", None, insecure=False))
+    get_config_for_profile.return_value = \
+        DatabricksConfig(None, "user", "pass", None, insecure=False)
     with pytest.raises(Exception):
-        rest_utils.get_databricks_http_request_params_or_fail()
+        rest_utils.get_databricks_http_request_kwargs_or_fail()
 
     # No authentication
-    _mock_profile("DEFAULT", DatabricksConfig("host", None, None, None, insecure=False))
+    get_config_for_profile.return_value = \
+        DatabricksConfig("host", None, None, None, insecure=False)
     with pytest.raises(Exception):
-        rest_utils.get_databricks_http_request_params_or_fail()
+        rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
-def test_databricks_http_request_integration():
+@mock.patch('requests.request')
+@mock.patch('databricks_cli.configure.provider.get_config_for_profile')
+def test_databricks_http_request_integration(get_config_for_profile, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
-    def confirm_requests(**kvargs):
-        assert kvargs == {
+    def confirm_request_params(**kwargs):
+        assert kwargs == {
             'method': 'PUT',
             'url': 'host/api/2.0/clusters/list',
             'headers': {
@@ -82,12 +91,14 @@ def test_databricks_http_request_integration():
             'params': 'x=y',
             'json': {'a': 'b'}
         }
-        response = mock.MagicMock()
-        response.status_code = 200
-        response.text = '{"OK": "woo"}'
-        return response
-    requests.request = confirm_requests
-    _mock_profile("DEFAULT", DatabricksConfig("host", "user", "pass", None, insecure=False))
+        http_response = mock.MagicMock()
+        http_response.status_code = 200
+        http_response.text = '{"OK": "woo"}'
+        return http_response
+    request.side_effect = confirm_request_params
+    get_config_for_profile.return_value = \
+        DatabricksConfig("host", "user", "pass", None, insecure=False)
+
     response = rest_utils.databricks_api_request('clusters/list', 'PUT',
                                                  req_body_json={'a': 'b'}, params='x=y')
     assert response == {'OK': 'woo'}

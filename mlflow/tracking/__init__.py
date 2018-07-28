@@ -93,8 +93,8 @@ def _get_databricks_rest_store(store_uri):
     profile = None
     if parsed_uri.scheme == 'databricks':
         profile = parsed_uri.hostname
-    http_request_params = rest_utils.get_databricks_http_request_params_or_fail(profile)
-    return RestStore(http_request_params)
+    http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(profile)
+    return RestStore(http_request_kwargs)
 
 
 def _get_store():
