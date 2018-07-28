@@ -5,7 +5,6 @@ from distutils import dir_util
 import os
 
 import boto3
-from google.cloud import storage as gcs_storage
 
 from mlflow.utils.file_utils import (mkdir, exists, list_all, get_relative_path,
                                      get_file_info, build_path, TempDir)
@@ -195,9 +194,12 @@ class GCSArtifactRepository(ArtifactRepository):
     """Stores artifacts on Google Cloud Storage.
        Assumes the google credentials are available in the environment,
        see https://google-cloud.readthedocs.io/en/latest/core/auth.html """
-
-    def __init__(self, artifact_uri, client=gcs_storage):
-        self.gcs = client
+    def __init__(self, artifact_uri, client=None):
+        if client:
+            self.gcs = client
+        else:
+            from google.cloud import storage as gcs_storage
+            self.gcs = gcs_storage
         super(GCSArtifactRepository, self).__init__(artifact_uri)
 
     @staticmethod
