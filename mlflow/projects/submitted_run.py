@@ -2,36 +2,10 @@ from abc import abstractmethod
 
 import os
 import signal
-import sys
 
 
 from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
-
-
-_all_runs = []
-
-
-def _add_run(run):
-    _all_runs.append(run)
-
-
-old_hook = sys.excepthook
-
-
-def _kill_active_runs(exception_type, exception_value, traceback):
-    """
-    Hook that runs when the program exits with an exception - attempts to cancel all ongoing runs.
-    Note that this hook will not run in e.g. IPython notebooks.
-    """
-    old_hook(exception_type, exception_value, traceback)
-    eprint("=== Program (pid: %s) exiting with exception of type %s, terminating all active "
-           "MLflow project runs ===" % (os.getpid(), exception_type))
-    for run in _all_runs:
-        run.cancel()
-
-
-sys.excepthook = _kill_active_runs
 
 
 class SubmittedRun(object):
@@ -45,9 +19,6 @@ class SubmittedRun(object):
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
     """
-    def __init__(self):
-        _add_run(self)
-
     @abstractmethod
     def wait(self):
         """
