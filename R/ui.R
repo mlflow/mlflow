@@ -22,6 +22,5 @@ mlflow_view_url <- function(url) {
 #'
 #' @export
 mlflow_ui <- function() {
-  mc <- mlflow_connection_active_get()
-  mlflow_view_url(mlflow_connection_url(mc))
+  mlflow_view_url(mlflow_tracking_url_get())
 }

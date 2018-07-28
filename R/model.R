@@ -1,4 +1,14 @@
+#' Save Model for MLflow
+#'
+#' Saves model in MLflow's format that can later be used
+#' for prediction and serving.
+#'
+#' @param f The serving function that will perform a prediction.
+#' @param path Destination path where this MLflow compatible model
+#'   will be saved.
+#'
 #' @importFrom yaml write_yaml
+#' @export
 mlflow_save_model <- function(f, path = "mlflow-model") {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
@@ -28,4 +38,17 @@ mlflow_save_model <- function(f, path = "mlflow-model") {
     ),
     file.path(path, "MLmodel")
   )
+}
+
+#' @export
+mlflow_load_model <- function(model_dir) {
+  list(
+    r_function = function(df) 1,
+    r_environment = list()
+  )
+}
+
+#' @export
+mlflow_predict_model <- function(model, df) {
+  model$r_function(df)
 }

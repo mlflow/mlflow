@@ -123,12 +123,35 @@ And trigger a run with that will also save your model as follows:
 Rscript -e "mlflow::mlflow_run('train.R')"
 ```
 
-Each MLflow Model is simply a directory containing arbitrary files, together with an MLmodel file in the root of the directory that can define multiple flavors that the model can be viewed in. We can view the contents of the exported model by running:
+Each MLflow Model is simply a directory containing arbitrary files, together with an MLmodel file in the root of the directory that can define multiple flavors that the model can be viewed in. 
 
-```{r}
+The directory containing the model looks as follows:
+
+```{r echo=FALSE}
 dir("mlflow-model")
 ```
 
-```{r}
+and the model definition `mlflow-model/MLmodel` like:
+
+```{r echo=FALSE}
 cat(paste(readLines("mlflow-model/MLmodel"), collapse = "\n"))
 ```
+
+## Deployment
+
+MLflow provides tools for deployment on a local machine and several production environments. You can use these tools to easily apply your models in a production environment.
+
+You can serve a model by running,
+
+```{bash eval=FALSE}
+mlflow rfunc serve mlflow-model
+```
+
+which is equivalent to running,
+
+```{bash eval=FALSE}
+Rscript -e "mlflow_serve('mlflow-model')"
+```
+
+<img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=460 />
+
