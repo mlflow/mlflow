@@ -10,6 +10,7 @@ from __future__ import print_function
 import argparse
 import os
 import mlflow
+import tempfile
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -145,13 +146,18 @@ with mlflow.start_run():
     for key, value in vars(args).iteritems():
         mlflow.log_param(key, value)
     
-    # Create a SummaryWriter to write TensorBoard revents into the mlflow run's output directory
-    output_dir = os.path.join(mlflow.get_artifact_uri(), "events")
+    # Create a SummaryWriter to write TensorBoard events locally
+    output_dir = dirpath = tempfile.mkdtemp()
     writer = SummaryWriter(output_dir)
-    print("Writing TensorBoard events to:\n%s\n" % output_dir)
+    print("Writing TensorBoard events locally to %s\n" % output_dir)
 
     # Perform the training
     for epoch in range(1, args.epochs + 1):
         train(epoch)
         test(epoch)
-    print("\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s" % output_dir)
+
+    # Upload the TensorBoard event logs as a run artifact
+    print("Uploading TensorBoard events as a run artifact...")
+    mlflow.log_artifacts(output_dir, artifact_path="events")
+    print("\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s" %
+        os.path.join(mlflow.get_artifact_uri(), "events"))
