@@ -16,6 +16,7 @@ from mlflow.utils import env
 
 
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR, validate_exit_status
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 def _assert_dirs_equal(expected, actual):
@@ -92,12 +93,12 @@ def test_dont_remove_mlruns(tmpdir):
     # Fetching a directory containing an "mlruns" folder doesn't remove the "mlruns" folder
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
+    src_dir.join("MLproject").write("dummy MLproject contents")
     dst_dir_path = tmpdir.join("mlruns-work-dir").strpath
-    src_dir_path = src_dir.strpath
     mlflow.projects._fetch_project(
-        uri=src_dir_path, subdirectory="", version=None, dst_dir=dst_dir_path,
-        git_username=None, git_password=None)
-    _assert_dirs_equal(expected=src_dir_path, actual=dst_dir_path)
+        uri=src_dir.strpath, subdirectory="", version=None, dst_dir=dst_dir_path, git_username=None,
+        git_password=None)
+    _assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir_path)
 
 
 def test_parse_subdirectory():
