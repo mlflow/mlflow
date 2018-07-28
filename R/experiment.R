@@ -8,15 +8,15 @@
 #' mlflow_install()
 #'
 #' # list local experiments
-#' mlflow_experiment_list()
+#' mlflow_list_experiments()
 #'
 #' # list experiments in remote MLflow server
 #' mlflow_tracking_url("http://tracking-server:5000")
-#' mlflow_experiment_list()
+#' mlflow_list_experiments()
 #' }
 #'
 #' @export
-mlflow_experiment_list <- function() {
+mlflow_list_experiments <- function() {
   response <- mlflow_rest("experiments", "list")
   exps <- response$experiments
 
@@ -78,11 +78,11 @@ mlflow_relative_paths <- function(paths) {
 #'
 #' @export
 mlflow_experiment <- function(name) {
-  if (!name %in% mlflow_experiment_list()$name) {
+  if (!name %in% mlflow_list_experiments()$name) {
     mlflow_experiment_create(name)
   }
 
-  exps <- mlflow_experiment_list()
+  exps <- mlflow_list_experiments()
   experiment_id <- exps[exps$name == "Test",]$experiment_id
 
   Sys.setenv(MLFLOW_EXPERIMENT_ID = experiment_id)
