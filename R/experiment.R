@@ -24,10 +24,6 @@ mlflow_list_experiments <- function() {
   exps
 }
 
-mlflow_experiments_rest <- function() {
-
-}
-
 #' Create Experiment
 #'
 #' Creates an MLflow experiment.
