@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import mock
 import pytest
-import requests
 
 from databricks_cli.configure import provider
 from databricks_cli.configure.provider import DatabricksConfig

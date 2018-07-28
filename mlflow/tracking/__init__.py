@@ -42,6 +42,14 @@ def set_tracking_uri(uri):
     """
     Sets the tracking server URI to the passed-in value. Note that this does not affect the
     currently active run (if one exists), but will take effect for any successive runs.
+
+    The provided URI may be one of three types:
+
+    - An empty string, or a local file path, prefixed with file:/. Data will be stored
+      locally at the provided file (or ./mlruns if empty).
+    - An HTTP URI like https://my-tracking-server:5000.
+    - A Databricks workspace, provided as just the string "databricks" or, to use a specific
+      Databricks profile (per the Databricks CLI), "databricks://profileName".
     """
     global _tracking_uri
     _tracking_uri = uri

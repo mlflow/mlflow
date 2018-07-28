@@ -60,7 +60,11 @@ ran your program. You can then run ``mlflow ui`` to see the logged runs. Set the
 ``MLFLOW_TRACKING_URI`` environment variable to a server's URI or call
 :py:func:`mlflow.set_tracking_uri` to log runs remotely.
 
-You can also :ref:`run your own tracking server <tracking_server>` to record runs.
+There are a different kinds of remote tracking URIs:
+
+- Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
+- HTTP server (specified as ``https://my-server:5000``), which is server hosting :ref:`your own tracking server <tracking_server>`.
+- Databricks workspace (specified as ``databricks``, or a specific Databricks CLI profile as ``databricks://profileName``. For more information on configuring a Databricks CLI, see `here <https://github.com/databricks/databricks-cli>`_. This only works for workspaces for which the Databricks MLflow Tracking Server is enabled; please contact Databricks if interested.
 
 Logging Data to Runs
 --------------------
