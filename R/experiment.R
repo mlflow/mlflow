@@ -40,7 +40,7 @@ mlflow_experiments_rest <- function() {
 #' mlflow_install()
 #'
 #' # create local experiment
-#' mlflow_experiment_create("My Experiment")
+#' mlflow_create_experiment("My Experiment")
 #'
 #' # create experiment in remote MLflow server
 #' mlflow_tracking_url("http://tracking-server:5000")
@@ -48,7 +48,7 @@ mlflow_experiments_rest <- function() {
 #' }
 #'
 #' @export
-mlflow_experiment_create <- function(name) {
+mlflow_create_experiment <- function(name) {
   response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
   response$experimentId
 }
@@ -79,7 +79,7 @@ mlflow_relative_paths <- function(paths) {
 #' @export
 mlflow_experiment <- function(name) {
   if (!name %in% mlflow_list_experiments()$name) {
-    mlflow_experiment_create(name)
+    mlflow_create_experiment(name)
   }
 
   exps <- mlflow_list_experiments()
