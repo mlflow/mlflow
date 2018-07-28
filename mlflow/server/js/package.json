@@ -35,7 +35,7 @@
     "lint": "react-scripts run lint"
   },
   "proxy": "http://localhost:5000",
-  "homepage": "/static-files",
+  "homepage": "static-files",
   "jest": {
     "collectCoverageFrom": [
       "src/**/*.{js,jsx}",

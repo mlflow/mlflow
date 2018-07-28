@@ -25,6 +25,9 @@ from mlflow.utils.logging_utils import eprint
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
+# Environment variable indicating a path to a conda installation. MLflow will default to running
+# "conda" if unset
+MLFLOW_CONDA = "MLFLOW_MLFLOW_CONDA"
 
 
 class ExecutionException(Exception):
@@ -54,8 +57,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        use_temp_cwd=False, storage_dir=None, block=True):
+        mode=None, cluster_spec=None, git_username=None, git_password=None,
+        use_conda=True, use_temp_cwd=False, storage_dir=None, block=True):
     """
     Run an MLflow project from the given URI.
 
@@ -65,6 +68,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Raises:
       `mlflow.projects.ExecutionException` if a run launched in blocking mode is unsuccessful.
 
+    :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
+                path or a git repository URI (e.g. https://github.com/databricks/mlflow-example)
+                pointing to a project directory containing an MLproject file.
     :param entry_point: Entry point to run within the project. If no entry point with the specified
                         name is found, attempts to run the project file `entry_point` as a script,
                         using "python" to run .py files and the default shell (specified by
@@ -108,6 +114,10 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     return submitted_run_obj
 
 
+def _load_project(work_dir, uri):
+    return Project(_expand_uri(uri), file_utils.read_yaml(work_dir, "MLproject"))
+
+
 def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, use_temp_cwd,
                storage_dir, git_username, git_password, block):
     """
@@ -117,24 +127,38 @@ def _run_local(uri, entry_point, version, parameters, experiment_id, use_conda, 
     the file system. For Git-based projects, a commit can be specified as the `version`.
     """
     eprint("=== Fetching project from %s ===" % uri)
-
-    # Get the working directory to use for running the project & download it there
-    work_dir = _get_work_dir(uri, use_temp_cwd)
+    # Separating the uri from the subdirectory requested.
+    parsed_uri, subdirectory = _parse_subdirectory(uri)
+    expanded_uri = _expand_uri(parsed_uri)
+    # Get the directory to fetch the project into.
+    dst_dir = _get_dest_dir(expanded_uri, use_temp_cwd)
+    # Get the work directory for running the project and the uri to save in the project.
+    work_dir = _fetch_project(expanded_uri, subdirectory, version, dst_dir, git_username,
+                              git_password)
+    final_uri = "%s#%s" % (expanded_uri, subdirectory) if subdirectory != '' else expanded_uri
     eprint("=== Work directory for this run: %s ===" % work_dir)
-    expanded_uri = _expand_uri(uri)
-    _fetch_project(expanded_uri, version, work_dir, git_username, git_password)
-
     # Load the MLproject file
-    if not os.path.isfile(os.path.join(work_dir, "MLproject")):
-        raise ExecutionException("No MLproject file found in %s" % uri)
-    project = Project(expanded_uri, file_utils.read_yaml(work_dir, "MLproject"))
+    project = Project(final_uri, file_utils.read_yaml(work_dir, "MLproject"))
     return _run_project(
         project, entry_point, work_dir, parameters, use_conda, storage_dir, experiment_id, block)
 
 
-def _get_work_dir(uri, use_temp_cwd):
+def _parse_subdirectory(uri):
+    # Parses a uri and returns the uri and subdirectory as separate values.
+    # Uses '#' as a delimiter.
+    subdirectory = ''
+    parsed_uri = uri
+    if '#' in uri:
+        subdirectory = uri[uri.find('#')+1:]
+        parsed_uri = uri[:uri.find('#')]
+    if subdirectory and _GIT_URI_REGEX.match(parsed_uri) and '.' in subdirectory:
+        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
+    return parsed_uri, subdirectory
+
+
+def _get_dest_dir(uri, use_temp_cwd):
     """
-    Returns a working directory to use for fetching & running the project with the specified URI.
+    Returns a directory to use for fetching the project with the specified URI.
     :param use_temp_cwd: Only used if `uri` is a local directory. If True, returns a temporary
                          working directory.
     """
@@ -156,8 +180,12 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version, dst_dir, git_username, git_password):
-    """Download a project to the target `dst_dir` from a Git URI or local path."""
+def _fetch_project(uri, subdirectory, version, dst_dir, git_username, git_password):
+    """
+    Fetches the project from the uri. Makes sure the uri contains a valid MLproject file.
+    Returns the working directory for running the project.
+    """
+    # Download a project to the target `dst_dir` from a Git URI or local path.
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
         _fetch_git_repo(uri, version, dst_dir, git_username, git_password)
@@ -168,6 +196,16 @@ def _fetch_project(uri, version, dst_dir, git_username, git_password):
         # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
         if uri != dst_dir:
             dir_util.copy_tree(src=uri, dst=dst_dir)
+
+    # Make sure there is a MLproject file in the specified working directory.
+    if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
+        if subdirectory == '':
+            raise ExecutionException("No MLproject file found in %s" % uri)
+        else:
+            raise ExecutionException("No MLproject file found in subdirectory %s of %s" %
+                                     (subdirectory, uri))
+
+    return os.path.join(dst_dir, subdirectory)
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
@@ -206,20 +244,33 @@ def _get_conda_env_name(conda_env_path):
     return "mlflow-%s" % conda_env_hash
 
 
+def _conda_executable():
+    """
+    Returns path to a conda executable. Configurable via the mlflow.projects.MLFLOW_CONDA
+    environment variable.
+    """
+    return os.environ.get(MLFLOW_CONDA, "conda")
+
+
 def _maybe_create_conda_env(conda_env_path):
     conda_env = _get_conda_env_name(conda_env_path)
+    conda_path = _conda_executable()
     try:
-        process.exec_cmd(["conda", "--help"], throw_on_error=False)
+        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
-        raise ExecutionException('conda is not installed properly. Please follow the instructions '
-                                 'on https://conda.io/docs/user-guide/install/index.html')
-    (_, stdout, _) = process.exec_cmd(["conda", "env", "list", "--json"])
+        raise ExecutionException("Could not find conda executable at {0}. "
+                                 "Please ensure conda is installed as per the instructions "
+                                 "at https://conda.io/docs/user-guide/install/index.html. You may "
+                                 "also configure MLflow to look for a specific conda executable "
+                                 "by setting the {1} environment variable to the path of the conda "
+                                 "executable".format(conda_path, MLFLOW_CONDA))
+    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
     conda_action = 'create'
     if conda_env not in env_names:
         eprint('=== Creating conda environment %s ===' % conda_env)
-        process.exec_cmd(["conda", "env", conda_action, "-n", conda_env, "--file",
+        process.exec_cmd([conda_path, "env", conda_action, "-n", conda_env, "--file",
                           conda_env_path], stream_output=True)
 
 

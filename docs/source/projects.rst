@@ -28,7 +28,9 @@ Name
 Dependencies
     Libraries needed to run the project. MLflow currently uses the
     `Conda <https://conda.io/docs>`_ package manager, which supports both Python packages and native
-    libraries (for example, CuDNN or Intel MKL), to specify dependencies.
+    libraries (for example, CuDNN or Intel MKL), to specify dependencies. MLflow will use the
+    conda executable given by the ``MLFLOW_CONDA`` environment variable if specified, and
+    default to running "conda" otherwise.
 
 Entry Points
     Commands that can be executed within the project, and information about their
@@ -153,7 +155,9 @@ the :py:func:`mlflow.run` Python API. Both tools take the following parameters:
 Project URI
     Can be either a directory on the local file system or a Git repository path,
     specified as a URI of the form ``https://<repo>`` (to use HTTPS) or ``user@host:path``
-    (to use Git over SSH).
+    (to use Git over SSH). To run against an MLproject file located in a subdirectory of the project, 
+    add a '#' to the end of the URI argument, followed by the relative path from the project's root directory
+    to the subdirectory containing the desired project.
 
 Project Version
     Which commit in the Git repository to run, for Git-based projects.
