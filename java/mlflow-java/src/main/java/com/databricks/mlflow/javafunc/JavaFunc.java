@@ -4,10 +4,12 @@ import com.databricks.mlflow.Flavor;
 import com.databricks.mlflow.TrackingUtils;
 import com.databricks.mlflow.models.JavaModel;
 import com.databricks.mlflow.models.ModelConfig;
+import com.databricks.mlflow.utils.PackageInstaller;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.List;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 
@@ -29,11 +31,16 @@ public class JavaFunc {
             // throw new Exception();
         }
 
-        // INSTALL DEPENDENCIES AND "IMPORT" CODE SPECIFIED
-        // BY javaFuncFlavor.getCodePath(), javaFuncFlavor.PackageDependencies()
+        installPackageDependencies(javaFuncFlavor.get().getPackageDependencies());
+        // "IMPORT" CODE SPECIFIED
+        // BY javaFuncFlavor.getCodePath()
 
         return loadModelFromClass(
             javaFuncFlavor.get().getLoaderClassName(), javaFuncFlavor.get().getModelDataPath());
+    }
+
+    private static void installPackageDependencies(List<String> packageDependencies) {
+        PackageInstaller.installPackages(packageDependencies);
     }
 
     private static JavaModel loadModelFromClass(String loaderClassName, String modelPath)
