@@ -28,7 +28,7 @@ mlflow_rest_headers <- function() {
 #' @importFrom httr GET
 #' @importFrom httr POST
 #' @importFrom jsonlite fromJSON
-mlflow_rest <- function(..., data = NULL, verb = "GET", version = "2.0") {
+mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
 
   api_url <- file.path(
@@ -39,7 +39,7 @@ mlflow_rest <- function(..., data = NULL, verb = "GET", version = "2.0") {
 
   response <- switch(
     verb,
-    GET = GET(api_url),
+    GET = GET(api_url, query = query),
     POST = POST(api_url,
                 body = mlflow_rest_body(data),
                 mlflow_rest_headers()),

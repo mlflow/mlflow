@@ -49,6 +49,17 @@ mlflow_create_experiment <- function(name) {
   response$experimentId
 }
 
+#' Get Experiment
+#'
+#' Get meta data for experiment and a list of runs for this experiment.
+#'
+#' @param experiment_id Identifer to get an experiment.
+#' @export
+mlflow_get_experiment <- function(experiment_id) {
+  response <- mlflow_rest("experiments", "get", query = list(experiment_id = experiment_id))
+  response
+}
+
 mlflow_relative_paths <- function(paths) {
   gsub(paste0("^", file.path(getwd(), "")), "", paths)
 }
