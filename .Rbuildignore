@@ -1,3 +1,4 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^mlruns$
+^mlflow-model$

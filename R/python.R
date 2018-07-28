@@ -27,3 +27,12 @@ pip_run <- function(..., echo = TRUE) {
 
   invisible(result)
 }
+
+python_conda_installed <- function() {
+  tryCatch({
+    reticulate::conda_binary()
+    TRUE
+  }, error = function(err) {
+    FALSE
+  })
+}

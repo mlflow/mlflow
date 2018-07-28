@@ -11,3 +11,4 @@
 .Rproj.user
 mlruns/
 .DS_Store
+mlflow-model/

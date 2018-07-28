@@ -22,11 +22,5 @@ mlflow_view_url <- function(url) {
 #'
 #' @export
 mlflow_ui <- function() {
-  mc <- mlflow_connection_active_get()
-  if (is.null(mc)) {
-    mc <- mlflow_connect()
-    mlflow_connection_active_set(mc)
-  }
-
-  mlflow_view_url(mlflow_connection_url(mc))
+  mlflow_view_url(mlflow_tracking_url_get())
 }
