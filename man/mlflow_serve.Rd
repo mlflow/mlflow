@@ -4,7 +4,7 @@
 \alias{mlflow_serve}
 \title{Serve a MLflow Model}
 \usage{
-mlflow_serve(model_dir, host = "127.0.0.1", port = 8089,
+mlflow_serve(model_dir, host = "127.0.0.1", port = 8090,
   daemonized = FALSE, browse = !daemonized)
 }
 \arguments{
@@ -27,9 +27,13 @@ Serve a MLflow Model as a local web api under \url{http://localhost:8090}.
 \dontrun{
 library(mlflow)
 
+# save simple model with constant prediction
 mlflow_save_model(function(df) 1, "mlflow_constant")
 
 # serve an existing model over a web interface
 mlflow_serve("mlflow_constant")
+
+# request prediction from server
+httr::POST("http://127.0.0.1:8090/predict/")
 }
 }

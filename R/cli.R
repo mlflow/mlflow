@@ -27,6 +27,7 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
 
   python <- dirname(python_bin())
   mlflow_bin <- file.path(python, "mlflow")
+
   env <- list(
     PATH = python
   )
