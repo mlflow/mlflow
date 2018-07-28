@@ -6,6 +6,7 @@ mlflow_rest_path <- function(version) {
 }
 
 mlflow_rest_body <- function(data) {
+  data <- Filter(length, data)
   paste0(
     "\"",
     gsub(
