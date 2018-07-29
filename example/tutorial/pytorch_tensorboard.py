@@ -143,7 +143,7 @@ def log_scalar(name, value, step):
 
 with mlflow.start_run():
     # Log our parameters into mlflow
-    for key, value in vars(args).iteritems():
+    for key, value in vars(args).items():
         mlflow.log_param(key, value)
     
     # Create a SummaryWriter to write TensorBoard events locally
