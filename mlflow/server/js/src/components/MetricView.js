@@ -92,7 +92,6 @@ const mapStateToProps = (state, ownProps) => {
       metrics[i][runUuid] = entries[i].value;
     }
   });
-  console.log("metrics", metrics);
   return {
     metrics,
     title: <span>{metricKey}</span>,
