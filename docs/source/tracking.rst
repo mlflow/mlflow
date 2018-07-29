@@ -223,13 +223,25 @@ For the clients and server to access the artifact location, you should configure
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
-To utilize Google Cloud Storage you can set the artifact-root to ``gs://<storage_bucket>``, and you will need to provide auth as per
-the documentation for `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 
 Warning: If you do not specify a ``--default-artifact-root``, nor do you specify an artifact URI when creating
 the experiment (e.g., ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
 will be a path inside the File Store. Typically this is not an appropriate location, as the client and
 server will probably be referring to different physical locations (i.e., the same path on different disks).
+
+Additional Storage Backends
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In addition to the S3 and local-filesystem Artifact Stores, MLflow includes support for the
+following storage backends:
+
+
+Google Cloud Storage
+~~~~~~~~~~~~~~~~~~~~
+You can specify a GCS bucket for artifact storage by launching your server with ``--artifact-root``
+set to ``gs://<storage_bucket>``. Note that you'll need to install the GCS Python client
+(via ``pip install google-cloud-storage``) on the client and tracking server. You should also
+configure credentials for accessing the GCS bucket on the client and server as described
+`here <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 
 
 Networking
