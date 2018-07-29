@@ -233,20 +233,33 @@ the experiment (e.g., ``mlflow experiments create --artifact-root s3://<my-bucke
 will be a path inside the File Store. Typically this is not an appropriate location, as the client and
 server will probably be referring to different physical locations (i.e., the same path on different disks).
 
-Additional Storage Backends
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-In addition to the S3 and local-filesystem Artifact Stores, MLflow includes support for the
-following storage backends:
+Supported Artifact Stores
+^^^^^^^^^^^^^^^^^^^^^^^^^
+In addition to local file paths, MLflow supports the following storage systems as artifact stores:
 
+Amazon S3
+~~~~~~~~~
+Specify a URI of the form ``s3://<bucket>/<path>`` to store artifacts in S3. MLflow will obtain
+credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
+the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
+these are available. See
+`Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more information on how to set credentials.
+
+Azure Blob Storage
+~~~~~~~~~~~~~~~~~~
+Use a URI of the form ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>`` to store
+artifacts in Azure Blob Storage. MLflow will look for your Azure Storage access key in the environment
+variable ``AZURE_STORAGE_ACCESS_KEY`` to access this container on both the client and the server.
+You will also need to ``pip install azure-storage`` separately (on both your client and the server)
+to access Azure Blob Storage; MLflow does not declare a dependency on this package by default.
 
 Google Cloud Storage
 ~~~~~~~~~~~~~~~~~~~~
-You can specify a GCS bucket for artifact storage by launching your server with ``--artifact-root``
-set to ``gs://<storage_bucket>``. Note that you'll need to install the GCS Python client
-(via ``pip install google-cloud-storage``) on the client and tracking server. You should also
-configure credentials for accessing the GCS bucket on the client and server as described
-`here <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
-
+Specify a URI of the form ``gs://<bucket>/<path>`` to store artifacts in Google Cloud Storage.
+You should configure credentials for accessing the GCS container on the client and server as described
+`in the GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
+Finally, you will need to ``pip install google-cloud-storage`` (on both your client and the server)
+to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
 Networking
 ^^^^^^^^^^
