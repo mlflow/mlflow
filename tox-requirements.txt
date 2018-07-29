@@ -1,4 +1,6 @@
 # Test reqs
+google-cloud-storage
+h2o
 mock==2.0.0
 moto
 prospector[with_pyroma]==0.12.7
@@ -11,4 +13,3 @@ pytest-cov
 rstcheck==3.2
 scipy
 tensorflow
-h2o
