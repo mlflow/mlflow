@@ -14,7 +14,6 @@ from mlflow.projects import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 
-
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR, validate_exit_status
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
