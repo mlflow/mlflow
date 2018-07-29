@@ -16,7 +16,7 @@ const COLORS = [
 
 class MetricView extends Component {
   static propTypes = {
-    title: PropTypes.string.isRequired,
+    title: PropTypes.element.isRequired,
     // Object with keys from Metric json and also
     metrics: PropTypes.arrayOf(Object).isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
@@ -38,9 +38,9 @@ class MetricView extends Component {
                             <Legend verticalAlign="bottom"/>
                             <YAxis/>
                             {this.props.runUuids.map((uuid, idx) => (
-                                <Bar  dataKey={uuid}
-                                      isAnimationActive={false}
-                                      fill={COLORS[idx % COLORS.length]}/>
+                                <Bar dataKey={uuid}
+                                     isAnimationActive={false}
+                                     fill={COLORS[idx % COLORS.length]}/>
                             ))}
                         </BarChart>
                     </ResponsiveContainer>
@@ -63,6 +63,7 @@ class MetricView extends Component {
                             {this.props.runUuids.map((uuid, idx) => (
                                 <Line type="linear"
                                       dataKey={uuid}
+                                      key={uuid}
                                       isAnimationActive={false}
                                       connectNulls
                                       stroke={COLORS[idx % COLORS.length]}/>
@@ -77,35 +78,26 @@ class MetricView extends Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { metricKey, runUuids } = ownProps;
-  const metricsByIdxList = [];
-  runUuids.forEach((runUuid) => {
-    const metricsByIdx = {};
-    getMetricsByKey(runUuid, metricKey, state).forEach((metricForRun, idx) =>{
-      metricsByIdx[idx] = metricForRun.value;
-    });
-    metricsByIdxList.push(metricsByIdx);
+  let maxLength = 0;
+  runUuids.forEach(runUuid => {
+    maxLength = Math.max(maxLength, getMetricsByKey(runUuid, metricKey, state).length)
   });
-  const mergedMetricsByIdx = Utils.mergeRuns(runUuids, metricsByIdxList);
-
-  const metrics = [];
-  Object.keys(mergedMetricsByIdx).sort().forEach((idx) => {
-    let metric = { index: parseInt(idx, 10) };
-    runUuids.forEach((runUuid) => {
-      metric[runUuid] = mergedMetricsByIdx[idx][runUuid] || null;
-    });
-    metrics.push(metric);
+  let metrics = new Array(maxLength);
+  for (let i = 0; i < metrics.length; i++) {
+    metrics[i] = {index: i};
+  }
+  runUuids.forEach(runUuid => {
+    const entries = getMetricsByKey(runUuid, metricKey, state);
+    for (let i = 0; i < entries.length; i++) {
+      metrics[i][runUuid] = entries[i].value;
+    }
   });
+  console.log("metrics", metrics);
   return {
     metrics,
-    title: Private.getTitle(metricKey, runUuids),
+    title: <span>{metricKey}</span>,
     runUuids: runUuids,
   }
 };
 
 export default connect(mapStateToProps)(MetricView);
-
-class Private {
-  static getTitle(metricKey, runUuids) {
-    return <span>{metricKey}</span>;
-  }
-}
