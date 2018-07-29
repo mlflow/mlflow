@@ -85,6 +85,8 @@ mlflow_create_run <- function(experiment_id = NULL, user_id = NULL, run_name = N
                               source_type = NULL, source_name = NULL, status = NULL,
                               start_time = NULL, end_time = NULL, source_version = NULL,
                               artifact_uri = NULL, entry_point_name = NULL, run_tags = NULL) {
+  if (is.null(start_time)) start_time <- current_time()
+
   response <- mlflow_rest("runs", "create", verb = "POST", data = list(
     experiment_id = experiment_id,
     user_id = user_id,
@@ -127,7 +129,7 @@ mlflow_get_run <- function(run_uuid) {
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
 #' @export
 mlflow_log_metric <- function(run_uuid, key, value, timestamp = NULL) {
-  if (is.null(timestamp)) timestamp <- as.integer(Sys.time())
+  if (is.null(timestamp)) timestamp <- current_time()
   response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
@@ -184,4 +186,8 @@ mlflow_experiment <- function(name) {
 #' @export
 mlflow_log <- function(name, value) {
   invisible(NULL)
+}
+
+current_time <- function() {
+  round(as.numeric(Sys.time()) * 1000)
 }
