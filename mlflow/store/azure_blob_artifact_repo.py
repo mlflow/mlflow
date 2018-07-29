@@ -23,7 +23,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             self.client = client
         else:
             from azure.storage.blob import BlockBlobService
-            (container, account, path) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
+            (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
             self.client = BlockBlobService(account_name=account,
                                            account_key=os.environ["AZURE_STORAGE_ACCESS_KEY"])
         super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
@@ -46,18 +46,16 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         return container, storage_account, path
 
     def log_artifact(self, local_file, artifact_path=None):
-        (container, account, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
+        (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         dest_path = build_path(dest_path, os.path.basename(local_file))
-
         self.client.create_blob_from_path(container, dest_path, local_file)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (container, account, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
+        (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
-
         local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
             upload_path = dest_path
@@ -70,7 +68,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         from azure.storage.blob.models import BlobPrefix
-        (container, account, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
+        (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
             dest_path = build_path(dest_path, path)
@@ -110,7 +108,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             for file_info in listing:
                 self._download_artifacts_into(file_info.path, local_path)
         else:
-            (container, account, remote_path) = self.parse_wasbs_uri(self.artifact_uri)
+            (container, _, remote_path) = self.parse_wasbs_uri(self.artifact_uri)
             remote_path = build_path(remote_path, artifact_path)
             self.client.get_blob_to_path(container, remote_path, local_path)
         return local_path
