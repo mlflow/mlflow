@@ -115,6 +115,28 @@ mlflow_get_run <- function(run_uuid) {
   lapply(run, as.data.frame)
 }
 
+#' Log Metric
+#'
+#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
+#'   During a single execution of a run, a particular metric can be logged several times.
+#'   Backend will keep track of historical values along with timestamps.
+#'
+#' @param run_uuid Unique ID for the run.
+#' @param key Name of the metric.
+#' @param value Float value for the metric being logged.
+#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
+#' @export
+mlflow_log_metric <- function(run_uuid, key, value, timestamp = NULL) {
+  if (is.null(timestamp)) timestamp <- as.integer(Sys.time())
+  response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
+    run_uuid = run_uuid,
+    key = key,
+    value = value,
+    timestamp = timestamp
+  ))
+  invisible(NULL)
+}
+
 mlflow_relative_paths <- function(paths) {
   gsub(paste0("^", file.path(getwd(), "")), "", paths)
 }
