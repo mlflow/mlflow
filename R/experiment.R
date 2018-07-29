@@ -195,7 +195,15 @@ mlflow_get_metric_history <- function(run_uuid, metric_key) {
   metric_history
 }
 
-
+#' Search Runs
+#'
+#' Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
+#'
+#' @param experiment_ids An array of integers.
+#' @param anded_expressions An array of SearchExpression.
+#' @export
+mlflow_search_runs <- function(experiment_ids, anded_expressions) {
+}
 
 
 mlflow_relative_paths <- function(paths) {
