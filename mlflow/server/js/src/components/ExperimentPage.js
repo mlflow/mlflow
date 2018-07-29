@@ -5,7 +5,7 @@ import { getExperimentApi, getUUID, searchRunsApi } from '../Actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
-import KeyFilter from "../utils/KeyFilter";
+import KeyFilter from '../utils/KeyFilter';
 
 
 class ExperimentPage extends Component {
@@ -19,8 +19,8 @@ class ExperimentPage extends Component {
   };
 
   state = {
-    paramKeyFilterSet: new KeyFilter(),
-    metricKeyFilterSet: new KeyFilter(),
+    paramKeyFilter: new KeyFilter(),
+    metricKeyFilter: new KeyFilter(),
     getExperimentRequestId: getUUID(),
     searchRunsRequestId: getUUID(),
     searchInput: '',
@@ -29,10 +29,9 @@ class ExperimentPage extends Component {
 
   static getDerivedStateFromProps(props, state) {
     if (props.experimentId !== state.lastExperimentId) {
-      console.log(`different ${props.experimentId} ${state.lastExperimentId}`);
       const newState = {
-        paramKeyFilterSet: new KeyFilter(),
-        metricKeyFilterSet: new KeyFilter(),
+        paramKeyFilter: new KeyFilter(),
+        metricKeyFilter: new KeyFilter(),
         getExperimentRequestId: getUUID(),
         searchRunsRequestId: getUUID(),
         searchInput: '',

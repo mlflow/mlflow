@@ -12,8 +12,8 @@ import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import KeyFilter from "../utils/KeyFilter";
-import Utils from "../utils/Utils";
+import KeyFilter from '../utils/KeyFilter';
+import Utils from '../utils/Utils';
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -52,11 +52,6 @@ class ExperimentView extends Component {
     searchInput: PropTypes.string.required,
   };
 
-  static defaultProps = {
-    paramKeyFilter: new KeyFilter(),
-    metricKeyFilter: new KeyFilter()
-  };
-
   state = {
     runsSelected: {},
     paramKeyFilterInput: '',
@@ -79,20 +74,18 @@ class ExperimentView extends Component {
 
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
-    let {
+    const {
       runInfos,
-      paramKeyList,
-      metricKeyList,
       paramsList,
       metricsList,
       paramKeyFilter,
       metricKeyFilter
     } = this.props;
 
-    // Apply the parameter and metric key filters to just pass the filtered, sorted lists
+    // Apply our parameter and metric key filters to just pass the filtered, sorted lists
     // of parameter and metric names around later
-    paramKeyList = paramKeyFilter.apply(paramKeyList);
-    metricKeyList = metricKeyFilter.apply(metricKeyList);
+    const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
+    const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
 
     const columns = ExperimentView.getColumnHeaders(paramKeyList, metricKeyList);
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);

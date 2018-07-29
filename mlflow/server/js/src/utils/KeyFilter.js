@@ -5,6 +5,8 @@
  * might want to switch to a more sophisticated filtering language in the future, such as allowing
  * a list of wildcard expressions. In any case, the apply method applies the filter to a list of
  * keys and returns the passing ones in the order we want to display them.
+ *
+ * NOTE: This class should stay immutable because it's part of some React components' state.
  */
 export default class KeyFilter {
   constructor(filterString) {
