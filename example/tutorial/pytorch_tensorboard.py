@@ -3,6 +3,9 @@
 # and weights in TensorBoard event format to the MLflow run's artifact directory. This stores the
 # TensorBoard events in MLflow for later access using the TensorBoard command line tool.
 #
+# NOTE: This example requires you to first install PyTorch (using the instructions at pytorch.org)
+#       and tensorboardX (using pip install tensorboardX).
+#
 # Code based on https://github.com/lanpa/tensorboard-pytorch-examples/blob/master/mnist/main.py.
 #
 
