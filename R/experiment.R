@@ -159,6 +159,45 @@ mlflow_log_parameter <- function(run_uuid, key, value) {
   invisible(NULL)
 }
 
+#' Get Metric
+#'
+#' API to retrieve the logged value for a metric during a run. For a run, if this
+#'   metric is logged more than once, this API will retrieve only the latest value logged.
+#'
+#' @param run_uuid Unique ID for the run for which metric is recorded.
+#' @param metric_key Name of the metric.
+#' @export
+mlflow_get_metric <- function(run_uuid, metric_key) {
+  response <- mlflow_rest("metrics", "get", query = list(
+    run_uuid = run_uuid,
+    metric_key = metric_key
+    ))
+  metric <- response$metric
+  metric$timestamp <- as.POSIXct(as.integer(metric$timestamp), origin = "1970-01-01")
+  as.data.frame(metric)
+}
+
+#' Get Metric History
+#'
+#' For cases that a metric is logged more than once during a run, this API can be used
+#'   to retrieve all logged values for this metric.
+#'
+#' @param run_uuid Unique ID for the run for which metric is recorded.
+#' @param key Name of the metric.
+#' @export
+mlflow_get_metric_history <- function(run_uuid, metric_key) {
+  response <- mlflow_rest("metrics", "get-history", query = list(
+    run_uuid = run_uuid,
+    metric_key = metric_key
+  ))
+  metric_history <- response$metrics
+  metric_history$timestamp <- as.POSIXct(as.integer(metric_history$timestamp), origin = "1970-01-01")
+  metric_history
+}
+
+
+
+
 mlflow_relative_paths <- function(paths) {
   gsub(paste0("^", file.path(getwd(), "")), "", paths)
 }
