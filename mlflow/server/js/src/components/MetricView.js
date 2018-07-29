@@ -88,7 +88,7 @@ const mapStateToProps = (state, ownProps) => {
   const mergedMetricsByIdx = Utils.mergeRuns(runUuids, metricsByIdxList);
 
   const metrics = [];
-  Object.keys(mergedMetricsByIdx).sort().forEach((idx) => {
+  Object.keys(mergedMetricsByIdx).forEach((idx) => {
     let metric = { index: parseInt(idx, 10) };
     runUuids.forEach((runUuid) => {
       metric[runUuid] = mergedMetricsByIdx[idx][runUuid] || null;
