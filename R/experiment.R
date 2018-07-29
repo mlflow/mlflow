@@ -205,6 +205,24 @@ mlflow_get_metric_history <- function(run_uuid, metric_key) {
 mlflow_search_runs <- function(experiment_ids, anded_expressions) {
 }
 
+#' Update Run
+#'
+#' @param run_uuid Unique identifier for the run.
+#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param end_time Unix timestamp of when the run ended in milliseconds.
+#' @export
+mlflow_update_run <- function(run_uuid,
+                              status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+                              end_time = NULL) {
+  status <- match.arg(status)
+  if (is.null(end_time)) end_time <- current_time()
+  response <- mlflow_rest("runs", "update", verb = "POST", data = list(
+    run_uuid = run_uuid,
+    status = status,
+    end_time = end_time
+  ))
+  as.data.frame(response$run_info)
+}
 
 mlflow_relative_paths <- function(paths) {
   gsub(paste0("^", file.path(getwd(), "")), "", paths)
