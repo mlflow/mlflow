@@ -102,6 +102,19 @@ mlflow_create_run <- function(experiment_id = NULL, user_id = NULL, run_name = N
   as.data.frame(response$run$info)
 }
 
+#' Get Run
+#'
+#' Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.
+#'
+#' @param run_uuid Unique ID for the run.
+#'
+#' @export
+mlflow_get_run <- function(run_uuid) {
+  response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
+  run <- Filter(length, response$run)
+  lapply(run, as.data.frame)
+}
+
 mlflow_relative_paths <- function(paths) {
   gsub(paste0("^", file.path(getwd(), "")), "", paths)
 }
