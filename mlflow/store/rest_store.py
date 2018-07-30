@@ -1,3 +1,4 @@
+import json
 from google.protobuf.json_format import MessageToJson, ParseDict
 
 
@@ -38,27 +39,41 @@ def _api_method_to_info():
 _METHOD_TO_INFO = _api_method_to_info()
 
 
+class RestException(Exception):
+    """Exception thrown on 400-level errors from the REST API"""
+    def __init__(self, json):
+        message = json['error_code']
+        if 'message' in json:
+            message = "%s: %s" % (message, json['message'])
+        super(RestException, self).__init__(message)
+        self.json = json
+
+
 class RestStore(AbstractStore):
-    """ Client for a remote tracking server accessed via REST API calls """
+    """
+    Client for a remote tracking server accessed via REST API calls
+    :param http_request_kwargs arguments to add to rest_utils.http_request for all requests.
+                               'hostname' is required.
+    """
 
-    def __init__(self, hostname):
+    def __init__(self, http_request_kwargs):
         super(RestStore, self).__init__()
-        self.hostname = hostname
-
-    def _get_headers(self):  # noqa
-        """ Returns header for REST API requests. Can be overridden in subclasses """
-        return None
-
-    def _get_auth(self):  # noqa
-        """ Returns auth for REST API requests. Can be overridden in subclasses """
-        return None
+        self.http_request_kwargs = http_request_kwargs
+        if not http_request_kwargs['hostname']:
+            raise Exception('hostname must be provided to RestStore')
 
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        js_dict = http_request(hostname=self.hostname, endpoint=endpoint, method=method,
-                               auth=self._get_auth(), headers=self._get_headers(),
-                               req_body_json=json_body, params=None)
+        # Convert json string to json dictionary, to pass to requests
+        if json_body:
+            json_body = json.loads(json_body)
+        js_dict = http_request(endpoint=endpoint, method=method,
+                               req_body_json=json_body, params=None, **self.http_request_kwargs)
+
+        if 'error_code' in js_dict:
+            raise RestException(js_dict)
+
         ParseDict(js_dict=js_dict, message=response_proto)
         return response_proto
 

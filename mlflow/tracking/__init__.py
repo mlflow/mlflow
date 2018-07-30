@@ -16,7 +16,7 @@ from mlflow.entities.source_type import SourceType
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils import env
+from mlflow.utils import env, rest_utils
 
 
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
@@ -41,7 +41,15 @@ def _get_user_id():
 def set_tracking_uri(uri):
     """
     Set the tracking server URI to the passed-in value. This does not affect the
-    currently active run (if one exists), but takes effect for successive runs.
+    currently active run (if one exists), but takes effect for any successive runs.
+
+    The provided URI can be one of three types:
+
+    - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
+      locally at the provided file (or ``./mlruns`` if empty).
+    - An HTTP URI like ``https://my-tracking-server:5000``.
+    - A Databricks workspace, provided as just the string 'databricks' or, to use a specific
+      Databricks profile (per the Databricks CLI), 'databricks://profileName'.
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -73,13 +81,29 @@ def _is_http_uri(uri):
     return scheme == 'http' or scheme == 'https'
 
 
+def _is_databricks_uri(uri):
+    """Databricks URIs look like the word 'databricks' (default profile) or 'databricks://profile'"""
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == 'databricks' or uri == 'databricks'
+
+
 def _get_file_store(store_uri):
     path = urllib.parse.urlparse(store_uri).path
     return FileStore(path)
 
 
 def _get_rest_store(store_uri):
-    return RestStore(store_uri)
+    return RestStore({'hostname': store_uri})
+
+
+def _get_databricks_rest_store(store_uri):
+    parsed_uri = urllib.parse.urlparse(store_uri)
+
+    profile = None
+    if parsed_uri.scheme == 'databricks':
+        profile = parsed_uri.hostname
+    http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(profile)
+    return RestStore(http_request_kwargs)
 
 
 def _get_store():
@@ -88,6 +112,8 @@ def _get_store():
     if store_uri is None:
         return FileStore()
     # Pattern-match on the URI
+    if _is_databricks_uri(store_uri):
+        return _get_databricks_rest_store(store_uri)
     if is_local_uri(store_uri):
         return _get_file_store(store_uri)
     if _is_http_uri(store_uri):
