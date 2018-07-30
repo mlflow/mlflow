@@ -58,9 +58,6 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir, "--new-dir",
                                             "--entry-point", entry_point]))
-    # TODO: we need this check since run ID may be undefined e.g. if we launch a Databricks run
-    # without specifying a tracking server. Remove this check once the Databricks tracking server is
-    # up.
     if run_id:
         mlflow_run_arr.extend(["--run-id", run_id])
     if parameters:

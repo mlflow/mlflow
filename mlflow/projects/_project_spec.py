@@ -45,8 +45,7 @@ class EntryPoint(object):
         from mlflow.projects import ExecutionException
         missing_params = []
         for name in self.parameters:
-            if user_parameters is None \
-                    or (name not in user_parameters and self.parameters[name].default is None):
+            if (name not in user_parameters and self.parameters[name].default is None):
                 missing_params.append(name)
         if len(missing_params) == 1:
             raise ExecutionException(
