@@ -8,7 +8,7 @@ from mlflow.utils.file_utils import TempDir
 
 
 class Model(object):
-    """A servable MLflow model that can support multiple model flavors."""
+    """A MLflow model that can support multiple model flavors."""
 
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=datetime.utcnow(),
                  flavors=None):
@@ -28,13 +28,13 @@ class Model(object):
         return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=False)
 
     def save(self, path):
-        """Write this servable as a YAML file to a local file."""
+        """Write this model as a YAML file to a local file."""
         with open(path, 'w') as out:
             self.to_yaml(out)
 
     @classmethod
     def load(cls, path):
-        """Load a servable from its YAML representation."""
+        """Load a model from its YAML representation."""
         with open(path) as f:
             return cls(**yaml.safe_load(f.read()))
 

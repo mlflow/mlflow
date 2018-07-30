@@ -30,7 +30,7 @@ _tracking_uri = None
 
 
 def _get_user_id():
-    """ Get the ID of the user for the current run. """
+    """Get the ID of the user for the current run."""
     try:
         import pwd
         return pwd.getpwuid(os.getuid())[0]
@@ -211,7 +211,7 @@ def _create_run(experiment_id, source_name, source_version, entry_point_name, so
 
 
 def get_run(run_uuid):
-    """ Return the run with the specified run UUID from the current tracking server."""
+    """Return the run with the specified run UUID from the current tracking server."""
     return _get_store().get_run(run_uuid)
 
 
@@ -287,7 +287,7 @@ def end_run(status="FINISHED"):
 
 
 def active_run():
-    """ Return the currently active ``Run``, or None if no such run exists. """
+    """Return the currently active ``Run``, or None if no such run exists."""
     if _active_run:
         return _active_run.get_run()
     else:

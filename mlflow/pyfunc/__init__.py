@@ -91,7 +91,8 @@ ENV = "env"
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None):
-    """ Add a pyfunc spec to the model configuration.
+    """
+    Add a pyfunc spec to the model configuration.
 
     Defines pyfunc configuration schema. Caller can use this to create a valid pyfunc model flavor
     out of an existing directory structure. For example, other model flavors can use this to specify
@@ -100,7 +101,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     NOTE: all paths are relative to the exported model root directory.
 
     :param loader_module: The module to be used to load the model.
-    :param model: Existing servable.
+    :param model: Existing model.
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
@@ -117,8 +118,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
 
 
 def load_pyfunc(path, run_id=None):
-    """ Load a model stored in Python function format.
-    """
+    """Load a model stored in Python function format."""
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)
     conf_path = os.path.join(path, "MLmodel")
@@ -143,7 +143,8 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
 
 
 def spark_udf(spark, path, run_id=None, result_type="double"):
-    """Return a Spark UDF that can be used to invoke the Python function formatted model.
+    """
+    Return a Spark UDF that can be used to invoke the Python function formatted model.
 
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
     simply ordinals (0, 1, ...).
@@ -155,12 +156,11 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
         df.withColumn("prediction", predict("name", "age")).show()
 
-    Args:
-        spark (SparkSession): A SparkSession object.
-        path (str): A path containing a pyfunc model.
-        run_id: ID of the run that produced this model. If provided, ``run_id`` is used to retrieve
-        the model logged with MLflow.
-        result_type (str): Spark UDF type returned by the model's prediction method. Default double.
+    :param spark: A SparkSession object.
+    :param path: A path containing a pyfunc model.
+    :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
+    retrieve the model logged with MLflow.
+    :param result_type: Spark UDF type returned by the model's prediction method. Default double.
     """
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
@@ -198,19 +198,18 @@ def _copy_file_or_tree(src, dst, dst_dir):
 
 def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=None,
                model=Model()):
-    """Export model as a generic Python function model.
+    """
+    Export model as a generic Python function model.
 
-   Args:
-       dst_path (str): Path where the model is stored.
-       loader_module (str): The module to be used to load the model.
-       data_path (str): Path to a file or directory containing model data.
-       code_path (list[str]): List of paths (file or dir) contains code dependencies not present in
-       the environment. Every path in the ``code_path`` is added to the Python path before the model
-       is loaded.
-       conda_env (str): Path to the Conda environment definition. This environment is activated
-       prior to running model code.
-   Returns:
-       Model config (servable) containing model info.
+    :param dst_path: Path where the model is stored.
+    :param loader_module: The module to be used to load the model.
+    :param data_path: Path to a file or directory containing model data.
+    :param code_path: List of paths (file or dir) contains code dependencies not present in
+    the environment. Every path in the ``code_path`` is added to the Python path before the model
+    is loaded.
+    :param conda_env: Path to the Conda environment definition. This environment is activated
+    prior to running model code.
+    :return: Model configuration containing model info.
     """
     if os.path.exists(dst_path):
         raise Exception("Path '{}' already exists".format(dst_path))
@@ -238,7 +237,8 @@ def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=
 
 
 def log_model(artifact_path, **kwargs):
-    """Export the model in Python function form and log it with current MLflow tracking service.
+    """
+    Export model in Python function form and log it with current MLflow tracking service.
 
     Model is exported by calling ``@save_model`` and logging the result with
     ``@tracking.log_output_files``.
@@ -255,7 +255,8 @@ def log_model(artifact_path, **kwargs):
 
 
 def get_module_loader_src(src_path, dst_path):
-    """ Generate Python source of the model loader.
+    """
+    Generate Python source of the model loader.
 
     Model loader contains ``load_pyfunc`` method with no parameters. It hardcodes model
     loading of the given model into a Python source. This is done so that the exported model has no
