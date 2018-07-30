@@ -207,16 +207,6 @@ mlflow_get_metric_history <- function(run_uuid, metric_key) {
   metric_history
 }
 
-#' Search Runs
-#'
-#' Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
-#'
-#' @param experiment_ids An array of integers.
-#' @param anded_expressions An array of SearchExpression.
-#' @export
-mlflow_search_runs <- function(experiment_ids, anded_expressions) {
-}
-
 #' Update Run
 #'
 #' @param run_uuid Unique identifier for the run.
@@ -271,18 +261,6 @@ mlflow_experiment <- function(name) {
   Sys.setenv(MLFLOW_EXPERIMENT_ID = experiment_id)
 
   invisible(experiment_id)
-}
-
-#' Log to MLflow
-#'
-#' Logs a value to MLflow for the active run.
-#'
-#' @param name The name to identify this log entry.
-#' @param value The value to log into this entry.
-#'
-#' @export
-mlflow_log <- function(name, value) {
-  invisible(NULL)
 }
 
 current_time <- function() {
