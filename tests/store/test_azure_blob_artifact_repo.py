@@ -103,7 +103,8 @@ def test_download_artifacts(mock_client, tmpdir):
 
     mock_client.list_blobs.return_value = MockBlobList([])
 
-    def create_file(container, cloud_path, local_path):   # noqa
+    def create_file(container, cloud_path, local_path):
+        # pylint: disable=unused-argument
         local_path = local_path.replace(tmpdir.strpath, '')
         f = tmpdir.join(local_path)
         f.write("hello world!")
