@@ -1,0 +1,136 @@
+---
+title: "MLflow R API Notes"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+
+## Overview
+
+As a baseline, we believe that we should reproduce the Python APIs nearly 1:1 for R. In addition, we'd like to extend the "convention based" philosophy evident in the core MLflow design to make things easier for R users (who are generally much less computationally sophisticated than Python or Scala users).
+
+Further, R users are not accustomed to using the terminal to invoke actions, so we will also create high-level R wrappers for terminal oriented commands. This will include integration with some new async jobs functionality in the RStudio IDE so that the console isn't blocked during longer training runs.
+
+Some addition notes on our proposed implementation approach:
+
+1) Don't use the reticulate package since it carries with it the complexity of managing Python environments (i.e. can conflict with user desires to use another Python enviroinment).
+
+2) For tracking, the CLI interface is much slower than using the REST API, so we propose to use the latter for all tracking features.
+
+3) We propose requiring conda for running MLflow, which will simplify our initial installation/support matrix (we can add support for virtualenv later as needed/requested).
+
+
+## Tracking
+
+As a baseline, we'd like to support an R tracking API that is nearly identical to the Python API. For example:
+
+```{r}
+library(mlflow)
+
+with(mlflow_start_run(), {
+
+  alpha <- mlflow_param("alpha", 0.5)
+    
+  # train model
+
+  mlflow_log_metric("accuracy", accuracy)
+    
+  #* @mlflow-serve-model
+  serve <- function(x) {
+
+  }
+}
+```
+
+Note that one difference with the Python API is that here we consolidate the parsing / logging of a parameter into a single call.
+
+The `@mlflow-serve-model` annoation allows us to capture and save the serving function as a closure (we will capture both the code as well as any object dependencies of the closure). This provides a very simple and accessible syntax for saving any type of R model that can be expressed as a function call. 
+
+### Script-level runs
+
+R users are very accustomed to working at the "top level" of scripts (nested scopes as above are not common and could prove confusing). Consequently, we propose to make available a facility for defining the "run" as simply the execution of a script (i.e. no explict `with` scope, the entire file defines the scope). For example:
+
+
+```{r}
+alpha <- mlflow_param("alpha", 0.5)
+
+# train model
+
+mlflow_log_metric("accuracy", accuracy)
+    
+#* @mlflow-serve-model
+serve <- function(x) {
+
+}
+```
+
+
+This script would be executed via a special invocation, e.g. from R:
+
+```r
+mlflow_run("train.R", params = c(alpha = 0.6))
+```
+
+Or of course from the shell:
+
+```bash
+$ mlflow run myproject -P alpha=0.5
+```
+
+We would also provide a facility for RStudio to tie the gesture to running/sourcing the script to the `mlflow::mlflow_run()` function.
+
+### Caret / tidymodels
+
+The closest analog to sklearn in the R world is the [caret](http://topepo.github.io/caret/index.html) package. The creator of caret is Max Kuhn and he currently works for RStudio. Max is also working on a successor to caret w/ Hadley Wickham called `tidymodels`.
+
+We'd like to provide a high level way to save caret and eventually tidymodles analagous to what MLflow currently does for sklearn. In this case, rather than saving a closure we'd save the model object itself (which similarly to sklearn should have all required metadata to impute a serving function).
+
+
+```{r}
+alpha <- mlflow_param("alpha", 0.5)
+
+model <- <create caret model>
+
+mlflow_rcaret_log_model(model)
+```
+
+
+## Projects
+
+The R interface to MFflow should support the identical project-file syntax and conventions (with the addition of an `r_requirements` field that can point to an R package manifest).
+
+However, for many scenarios users will not need to explicitly write out an MLflow project file (or will only need to write part of it). The name can be determined from the directory (as with the Python interface) and the depencencies can be determined automatically by the inclusion of an `r_requirements.txt` file (see below for discussion) and/or `conda.yaml` file.
+
+The entry points can also be determined automatically by analyzing the source code. Parmaeters and their defaults can be determined via instances of calls to `mlflow_param()` and entry points can be determined from top-level source files that call MLflow APIs and/or define MLflow runs. While we want to make the full project file facilities available to R users, we also want to automate as much as possible (via convention and code inspection) so that R users (who are significantly less computing savvy than Python or Scala users) have an easier time with initial onboarding.
+
+### R Dependencies
+
+R users are not accustomed to (nor do they have any conventional means to) specify the explicit version requirements for a project (although RStudio is working on a way to do this). Rather, for various deployment scenarios we use the `packrat` package to impute the current dependencies and generate a manifest which is sent to the deployment server.
+
+So, for MLflow we will want to use the same packrat-based imputation (we can enhance this once we have made our new dependency work available). This means that when a project is run we will analyze the code and write out an `r_requirements.txt` file to the main project directory. We will also write this file as a run artifact for improved reproducibility of runs.
+
+
+## Serving
+
+For serving, we propose using the R [plumber](https://www.rplumber.io/) package (it's author Jeff Allen also works for RStudio). Users will be able to add standard plumber annotations to their serving function to enable it to handle arbitrary numbers and types of parameters. For example:
+
+```{r}
+alpha <- mlflow_param("alpha", 0.5)
+
+# train model
+
+mlflow_log_metric("accuracy", accuracy)
+    
+#* @mlflow-serve-model
+serve <- function(x) {
+
+}
+```
+
+
+
+
+
+
