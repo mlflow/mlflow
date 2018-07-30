@@ -80,7 +80,7 @@ either a local directory or a GitHub URI:
 
     mlflow run example/tutorial -P alpha=0.5
 
-    mlflow run git@github.com:databricks/mlflow-example.git -P alpha=5
+    mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
 
 There's a sample project in ``example/tutorial``, including a ``MLproject`` file that
 specifies its dependencies. All projects that run also log their Tracking API data in the local
