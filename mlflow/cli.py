@@ -149,10 +149,11 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     Conforms to the callback interface of click documented at
     http://click.pocoo.org/5/options/#callbacks-for-validation.
     """
-    if not value.startswith("/"):
-        raise UsageError("--static-prefix must begin with a '/'.")
-    if value.endswith("/"):
-        raise UsageError("--static-prefix should not end with a '/'.")
+    if value is not None:
+        if not value.startswith("/"):
+            raise UsageError("--static-prefix must begin with a '/'.")
+        if value.endswith("/"):
+            raise UsageError("--static-prefix should not end with a '/'.")
     return value
 
 
