@@ -13,15 +13,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class ModelConfig {
+public class Model {
     @JsonProperty("artifact_path") private String artifactPath;
     @JsonProperty("run_id") private String runId;
     @JsonProperty("utc_time_created") private String utcTimeCreated;
     @JsonProperty("flavors") private Map<String, Object> flavors;
 
-    public static ModelConfig fromPath(String configPath) throws IOException {
+    public static Model fromPath(String configPath) throws IOException {
         final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        return mapper.readValue(new File(configPath), ModelConfig.class);
+        return mapper.readValue(new File(configPath), Model.class);
     }
 
     public Optional<String> getArtifactPath() {

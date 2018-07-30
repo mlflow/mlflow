@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class MLeapConfig implements Flavor {
+public class MLeapFlavor implements Flavor {
     public static final String FLAVOR_NAME = "mleap";
 
     @JsonProperty("mleap_version") private String mleapVersion;
@@ -17,11 +17,12 @@ public class MLeapConfig implements Flavor {
         return FLAVOR_NAME;
     }
 
-    public String getMleapVersion() {
-        return mleapVersion;
-    }
-
+    @Override
     public String getModelDataPath() {
         return modelDataPath;
+    }
+
+    public String getMleapVersion() {
+        return mleapVersion;
     }
 }

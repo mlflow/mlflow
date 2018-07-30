@@ -1,8 +1,8 @@
 package com.databricks.mlflow.models;
 
-import com.databricks.mlflow.models.UnsupportedInputTypeException;
+import com.databricks.mlflow.sagemaker.SageMakerServer;
 
-class TestModel extends JavaModel {
+class TestPredictor extends Predictor {
     @Override
     public String predict(String input) {
         System.out.println(input);
@@ -10,7 +10,7 @@ class TestModel extends JavaModel {
     }
 
     public static void main(String[] args) {
-        TestModel testModel = new TestModel();
-        testModel.serve();
+        TestPredictor predictor = new TestPredictor();
+        SageMakerServer.serve(predictor, 5000);
     }
 }

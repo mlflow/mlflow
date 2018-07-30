@@ -1,4 +1,4 @@
-package com.databricks.mlflow.javafunc;
+package com.databricks.mlflow;
 
 public class LoaderModuleException extends Exception {
     private final String className;

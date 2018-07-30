@@ -1,6 +1,6 @@
 package com.databricks.mlflow.mleap;
 
-import com.databricks.mlflow.models.ScalaModel
+import com.databricks.mlflow.models.Predictor
 
 import java.nio.charset.Charset
 
@@ -10,7 +10,7 @@ import ml.combust.mleap.runtime.serialization.FrameReader
 
 import resource._
 
-class MLeapPredictor(var modelPath : String) {
+class MLeapPredictor(var modelPath : String) extends Predictor {
   val typedModelPath = "file:%s".format(modelPath)
   val bundle = (for(bundleFile <- managed(BundleFile(typedModelPath))) yield {
       bundleFile.loadMleapBundle().get

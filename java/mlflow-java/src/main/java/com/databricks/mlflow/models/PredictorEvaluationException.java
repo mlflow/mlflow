@@ -1,9 +1,9 @@
 package com.databricks.mlflow.models;
 
-public class ModelEvaluationException extends Exception {
+public class PredictorEvaluationException extends Exception {
     private final String message;
 
-    public ModelEvaluationException(String message) {
+    public PredictorEvaluationException(String message) {
         this.message = message;
     }
 
