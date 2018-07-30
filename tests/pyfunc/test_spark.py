@@ -10,6 +10,7 @@ import pandas as pd
 import pyspark
 import pytest
 import sklearn.datasets
+from pyspark.sql.functions import struct
 from sklearn.neighbors import KNeighborsClassifier
 
 from mlflow.pyfunc import load_pyfunc, spark_udf
@@ -39,12 +40,14 @@ class TestSparkUDFs(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self._tmp)
 
-    @pytest.mark.large
     def test_spark_udf(self):
         pandas_df = self._pandas_df
         spark_df = self.spark.createDataFrame(pandas_df)
         pyfunc_udf = spark_udf(self.spark, self._model_path, result_type="integer")
-        new_df = spark_df.withColumn("prediction", pyfunc_udf(*self._pandas_df.columns))
+        # TODO: does not work why?
+        # TODO: new_df = spark_df.withColumn
+        # TODO: ("prediction", pyfunc_udf(struct(*self._pandas_df.columns)))
+        new_df = spark_df.withColumn("prediction", pyfunc_udf(self._pandas_df.columns))
         spark_results = new_df.collect()
 
         # Compare against directly running the model.

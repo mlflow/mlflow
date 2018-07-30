@@ -16,6 +16,7 @@ import pyspark
 from pyspark.ml.pipeline import PipelineModel
 from pyspark.ml.base import Transformer
 from pyspark.sql import SparkSession
+#from pyspark.sql.types import DataType, StructType
 
 import mlflow
 from mlflow import pyfunc
@@ -42,7 +43,7 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None):
                      jars=jars, conda_env=conda_env)
 
 
-def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None):
+def save_model(spark_model, path, mlflow_model=Model(), input_df = None, conda_env=None, jars=None):
     """
     Save Spark MLlib PipelineModel at given local path.
 
@@ -62,6 +63,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
     spark_model.save("file:" + os.path.abspath(os.path.join(path, "model")))
+
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
     if conda_env:
@@ -69,6 +71,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
     if jars:
         raise Exception("jar dependencies are not yet implemented")
+
     mlflow_model.add_flavor('spark', pyspark_version=pyspark_version, model_data="model")
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data="model",
                         env=model_conda_env)
@@ -92,7 +95,7 @@ def load_model(path, run_id=None):
     sc = SparkSession.builder.getOrCreate().sparkContext
     model_path = os.path.join(path, conf['model_data'])
     sc.addFile(model_path, recursive=True)
-    return PipelineModel.load(model_path)
+    return PipelineModel.load("file:" + model_path)
 
 
 def load_pyfunc(path):
@@ -103,8 +106,14 @@ def load_pyfunc(path):
     """
     spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
         .master("local[1]").getOrCreate()
-    spark._jsc.hadoopConfiguration().set('fs.default.name', 'file:///')
-    return _PyFuncModelWrapper(spark, PipelineModel.load(path))
+    path = os.path.abspath(path)
+    schema = None
+    # schema_file = os.path.join(path, "schema.json")
+    # if os.path.exists(schema_file):
+    #     schema = DataType.fromJson(open(schema_file, "r").read())
+    return _PyFuncModelWrapper(spark, #schema,
+                               PipelineModel.load("file:" + path))
+    # return _PyFuncModelWrapper(spark, schema, PipelineModel.load("file:" + os.path.join(path, "model")))
 
 
 class _PyFuncModelWrapper(object):
