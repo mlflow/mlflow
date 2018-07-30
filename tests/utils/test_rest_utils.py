@@ -7,13 +7,6 @@ from databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils import rest_utils
 
 
-def _mock_profile(expected_profile, config):
-    def mock_get_config_for_profile(profile):
-        assert profile == expected_profile
-        return config
-    provider.get_config_for_profile = mock_get_config_for_profile
-
-
 @mock.patch('databricks_cli.configure.provider.get_config_for_profile')
 def test_databricks_params_token(get_config_for_profile):
     get_config_for_profile.return_value = \
