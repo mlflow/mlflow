@@ -1,4 +1,5 @@
 import mock
+import six
 import unittest
 
 from mlflow.store.rest_store import RestStore, RestException
@@ -9,7 +10,7 @@ class TestRestStore(unittest.TestCase):
     def test_successful_http_request(self, request):
         def mock_request(**kwargs):
             # Filter out None arguments
-            kwargs = dict((k, v) for k, v in kwargs.iteritems() if v is not None)
+            kwargs = dict((k, v) for k, v in six.iteritems(kwargs) if v is not None)
             assert kwargs == {
                 'method': 'GET',
                 'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
@@ -37,7 +38,7 @@ class TestRestStore(unittest.TestCase):
         store = RestStore({'hostname': 'https://hello'})
         with self.assertRaises(RestException) as cm:
             store.list_experiments()
-        self.assertEqual(cm.exception.message, "RESOURCE_DOES_NOT_EXIST: No experiment")
+        self.assertIn("RESOURCE_DOES_NOT_EXIST: No experiment", str(cm.exception))
 
 if __name__ == '__main__':
     unittest.main()
