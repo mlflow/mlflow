@@ -23,6 +23,10 @@ div.artifact-view {
   width: 400px;
 }
 
+.artifact-left li {
+  white-space: nowrap;
+}
+
 .artifact-right {
   width: 100%;
 }
