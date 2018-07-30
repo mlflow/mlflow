@@ -26,10 +26,13 @@ def _assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
+<<<<<<< HEAD
 def _paths_equal(expected, actual):
     return os.path.realpath(expected) == os.path.realpath(actual)
 
 
+=======
+>>>>>>> master
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
         return "%s#%s" % (base_uri, subdirectory)
