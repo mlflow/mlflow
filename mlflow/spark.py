@@ -15,11 +15,13 @@ import shutil
 import pyspark
 from pyspark.ml.pipeline import PipelineModel
 from pyspark.ml.base import Transformer
-
+from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
+
+
 
 
 FLAVOR_NAME = "spark"
@@ -59,7 +61,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
             str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
-    spark_model.save("file:" + os.path.join(path, "model"))
+    spark_model.save("file:" + os.path.abspath(os.path.join(path, "model")))
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
     if conda_env:
@@ -87,7 +89,10 @@ def load_model(path, run_id=None):
     if FLAVOR_NAME not in m.flavors:
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
     conf = m.flavors[FLAVOR_NAME]
-    return PipelineModel.load(os.path.join(path, conf['model_data']))
+    sc = SparkSession.builder.getOrCreate().sparkContext
+    model_path = os.path.join(path, conf['model_data'])
+    sc.addFile(model_path, recursive=True)
+    return PipelineModel.load(model_path)
 
 
 def load_pyfunc(path):
@@ -98,6 +103,7 @@ def load_pyfunc(path):
     """
     spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
         .master("local[1]").getOrCreate()
+    spark._jsc.hadoopConfiguration().set('fs.default.name', 'file:///')
     return _PyFuncModelWrapper(spark, PipelineModel.load(path))
 
 
