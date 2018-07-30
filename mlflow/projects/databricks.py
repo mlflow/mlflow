@@ -300,7 +300,7 @@ class DatabricksSubmittedRun(SubmittedRun):
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
-        self._run_id = run_id
+        self.run_id = run_id
 
     def wait(self):
         return _monitor_databricks(self.databricks_run_id)
@@ -319,6 +319,3 @@ class DatabricksSubmittedRun(SubmittedRun):
 
     def get_status(self):
         return RunStatus.to_string(self._get_status())
-
-    def run_id(self):
-        return self._run_id

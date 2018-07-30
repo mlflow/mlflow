@@ -3,7 +3,6 @@ from abc import abstractmethod
 import os
 import signal
 
-
 from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
 
@@ -18,6 +17,9 @@ class SubmittedRun(object):
     Note that SubmittedRun is not thread-safe. That is, concurrent calls to wait() / cancel()
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
+
+    Note: Subclasses of SubmittedRun are expected to expose a `run_id` member containing the run's
+    MLflow run ID.
     """
     @abstractmethod
     def wait(self):
@@ -44,11 +46,6 @@ class SubmittedRun(object):
         """
         pass
 
-    @abstractmethod
-    def run_id(self):
-        """Returns the current run's MLflow run ID."""
-        pass
-
 
 class LocalSubmittedRun(SubmittedRun):
     """
@@ -57,7 +54,7 @@ class LocalSubmittedRun(SubmittedRun):
     """
     def __init__(self, run_id, command_proc):
         super(LocalSubmittedRun, self).__init__()
-        self._run_id = run_id
+        self.run_id = run_id
         self.command_proc = command_proc
 
     def wait(self):
@@ -78,7 +75,7 @@ class LocalSubmittedRun(SubmittedRun):
                 # ignore OSErrors raised during child process termination
                 eprint("Failed to terminate child process (PID %s) corresponding to MLflow "
                        "run with ID %s. The process may have already "
-                       "exited." % (self.command_proc.pid, self.run_id()))
+                       "exited." % (self.command_proc.pid, self.run_id))
             self.command_proc.wait()
 
     def _get_status(self):
@@ -91,6 +88,3 @@ class LocalSubmittedRun(SubmittedRun):
 
     def get_status(self):
         return RunStatus.to_string(self._get_status())
-
-    def run_id(self):
-        return self._run_id

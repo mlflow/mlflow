@@ -138,7 +138,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
 
 def _wait_for(submitted_run_obj):
     """Waits on the passed-in submitted run, reporting its status to the tracking server."""
-    run_id = submitted_run_obj.run_id()
+    run_id = submitted_run_obj.run_id
     active_run = None
     # Note: there's a small chance we fail to report the run's status to the tracking server if
     # we're interrupted before we reach the try block below
