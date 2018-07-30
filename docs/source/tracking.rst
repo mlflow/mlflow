@@ -60,7 +60,11 @@ ran your program. You can then run ``mlflow ui`` to see the logged runs. Set the
 ``MLFLOW_TRACKING_URI`` environment variable to a server's URI or call
 :py:func:`mlflow.set_tracking_uri` to log runs remotely.
 
-You can also :ref:`run your own tracking server <tracking_server>` to record runs.
+There are a different kinds of remote tracking URIs:
+
+- Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
+- HTTP server (specified as ``https://my-server:5000``), which is a server hosting :ref:`your own tracking server <tracking_server>`.
+- Databricks workspace (specified as ``databricks``, or a specific Databricks CLI profile as ``databricks://profileName``. For more information on configuring a Databricks CLI, see `here <https://github.com/databricks/databricks-cli>`_. This only works for workspaces for which the Databricks MLflow Tracking Server is enabled; please contact Databricks if interested.
 
 Logging Data to Runs
 --------------------
@@ -223,13 +227,25 @@ For the clients and server to access the artifact location, you should configure
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
-To utilize Google Cloud Storage you can set the artifact-root to ``gs://<storage_bucket>``, and you will need to provide auth as per
-the documentation for `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 
 Warning: If you do not specify a ``--default-artifact-root``, nor do you specify an artifact URI when creating
 the experiment (e.g., ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
 will be a path inside the File Store. Typically this is not an appropriate location, as the client and
 server will probably be referring to different physical locations (i.e., the same path on different disks).
+
+Additional Storage Backends
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In addition to the S3 and local-filesystem Artifact Stores, MLflow includes support for the
+following storage backends:
+
+
+Google Cloud Storage
+~~~~~~~~~~~~~~~~~~~~
+You can specify a GCS bucket for artifact storage by launching your server with ``--artifact-root``
+set to ``gs://<storage_bucket>``. Note that you'll need to install the GCS Python client
+(via ``pip install google-cloud-storage``) on the client and tracking server. You should also
+configure credentials for accessing the GCS bucket on the client and server as described
+`here <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 
 
 Networking

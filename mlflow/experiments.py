@@ -5,8 +5,8 @@ import os
 import click
 from tabulate import tabulate
 
-from mlflow.store import file_store as store
 from mlflow.data import is_uri
+from mlflow.tracking import _get_store
 
 
 @click.group("experiments")
@@ -16,31 +16,23 @@ def commands():
 
 
 @commands.command()
-@click.option("--file-store", default=None,
-              help="The root of the backing file store for experiment and run data "
-                   "(default: ./mlruns).")
-@click.option("--artifact-root", metavar="URI", default=None,
-              help="Local or S3 URI to store artifacts in (default: inside file store).")
 @click.argument("experiment_name")
-def create(file_store, artifact_root, experiment_name):
+def create(experiment_name):
     """
-    Creates a new experiment in FileStore backend.
+    Creates a new experiment in the configured tracking server.
     """
-    fs = store.FileStore(file_store, artifact_root)
-    exp_id = fs.create_experiment(experiment_name)
+    store = _get_store()
+    exp_id = store.create_experiment(experiment_name)
     print("Created experiment '%s' with id %d" % (experiment_name, exp_id))
 
 
 @commands.command("list")
-@click.option("--file-store", default=None,
-              help="The root of the backing file store for experiment and run data "
-                   "(default: ./mlruns).")
-def list_experiments(file_store):
+def list_experiments():
     """
-    List all experiment in FileStore backend.
+    List all experiments in the configured tracking server.
     """
-    fs = store.FileStore(file_store)
-    experiments = fs.list_experiments()
+    store = _get_store()
+    experiments = store.list_experiments()
     table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
               else os.path.abspath(exp.artifact_location)] for exp in experiments]
     print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))

@@ -5,7 +5,6 @@ from distutils import dir_util
 import os
 
 import boto3
-from google.cloud import storage as gcs_storage
 
 from mlflow.utils.file_utils import (mkdir, exists, list_all, get_relative_path,
                                      get_file_info, build_path, TempDir)
@@ -195,9 +194,12 @@ class GCSArtifactRepository(ArtifactRepository):
     """Stores artifacts on Google Cloud Storage.
        Assumes the google credentials are available in the environment,
        see https://google-cloud.readthedocs.io/en/latest/core/auth.html """
-
-    def __init__(self, artifact_uri, client=gcs_storage):
-        self.gcs = client
+    def __init__(self, artifact_uri, client=None):
+        if client:
+            self.gcs = client
+        else:
+            from google.cloud import storage as gcs_storage
+            self.gcs = gcs_storage
         super(GCSArtifactRepository, self).__init__(artifact_uri)
 
     @staticmethod
@@ -242,18 +244,26 @@ class GCSArtifactRepository(ArtifactRepository):
         dest_path = artifact_path
         if path:
             dest_path = build_path(dest_path, path)
-        infos = []
         prefix = dest_path + "/"
 
-        results = self.gcs.Client().get_bucket(bucket).list_blobs(prefix=prefix)
+        bkt = self.gcs.Client().get_bucket(bucket)
+
+        infos = self._list_folders(bkt, prefix)
+
+        results = bkt.list_blobs(prefix=prefix, delimiter="/")
         for result in results:
-            is_dir = result.name.endswith('/')
-            if is_dir:
-                blob_path = path[:-1]
-            else:
-                blob_path = result.name[len(artifact_path)+1:]
-            infos.append(FileInfo(blob_path, is_dir, result.size))
+            blob_path = result.name[len(artifact_path)+1:]
+            infos.append(FileInfo(blob_path, False, result.size))
+
         return sorted(infos, key=lambda f: f.path)
+
+    def _list_folders(self, bkt, prefix):
+        results = bkt.list_blobs(prefix=prefix, delimiter="/")
+        dir_paths = set()
+        for page in results.pages:
+            dir_paths.update(page.prefixes)
+
+        return [FileInfo(path[len(prefix):-1], True, None)for path in dir_paths]
 
     def download_artifacts(self, artifact_path):
         with TempDir(remove_on_exit=False) as tmp:
