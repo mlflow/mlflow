@@ -13,9 +13,9 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.utils.env import get_env
-from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists,
-                                     write_yaml, read_yaml, find, read_file,
-                                     list_files, build_path, write_to, append_to)
+from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
+                                     read_yaml, find, read_file, build_path, write_to, append_to,
+                                     make_containing_dirs)
 
 from mlflow.utils.search_utils import does_run_match_clause
 
@@ -195,7 +195,12 @@ class FileStore(AbstractStore):
         source_dirs = find(run_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
             raise Exception("Malformed run '%s'." % run_uuid)
-        return source_dirs[0], list_files(source_dirs[0], full_path=False)
+        file_names = []
+        for root, _, files in os.walk(source_dirs[0]):
+            for name in files:
+                abspath = os.path.join(root, name)
+                file_names.append(os.path.relpath(abspath, source_dirs[0]))
+        return source_dirs[0], file_names
 
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
@@ -280,9 +285,11 @@ class FileStore(AbstractStore):
     def log_metric(self, run_uuid, metric):
         run = self.get_run(run_uuid)
         metric_path = self._get_metric_path(run.info.experiment_id, run_uuid, metric.key)
+        make_containing_dirs(metric_path)
         append_to(metric_path, "%s %s\n" % (metric.timestamp, metric.value))
 
     def log_param(self, run_uuid, param):
         run = self.get_run(run_uuid)
         param_path = self._get_param_path(run.info.experiment_id, run_uuid, param.key)
+        make_containing_dirs(param_path)
         write_to(param_path, "%s\n" % param.value)

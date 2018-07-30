@@ -1,4 +1,6 @@
 # Test reqs
+google-cloud-storage
+h2o
 mock==2.0.0
 moto
 prospector[with_pyroma]==0.12.7

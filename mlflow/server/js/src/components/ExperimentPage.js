@@ -5,6 +5,7 @@ import { getExperimentApi, getUUID, searchRunsApi } from '../Actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
+import KeyFilter from '../utils/KeyFilter';
 
 
 class ExperimentPage extends Component {
@@ -18,8 +19,8 @@ class ExperimentPage extends Component {
   };
 
   state = {
-    paramKeyFilterSet: new Set(),
-    metricKeyFilterSet: new Set(),
+    paramKeyFilter: new KeyFilter(),
+    metricKeyFilter: new KeyFilter(),
     getExperimentRequestId: getUUID(),
     searchRunsRequestId: getUUID(),
     searchInput: '',
@@ -28,10 +29,9 @@ class ExperimentPage extends Component {
 
   static getDerivedStateFromProps(props, state) {
     if (props.experimentId !== state.lastExperimentId) {
-      console.log(`different ${props.experimentId} ${state.lastExperimentId}`);
       const newState = {
-        paramKeyFilterSet: new Set(),
-        metricKeyFilterSet: new Set(),
+        paramKeyFilter: new KeyFilter(),
+        metricKeyFilter: new KeyFilter(),
         getExperimentRequestId: getUUID(),
         searchRunsRequestId: getUUID(),
         searchInput: '',
@@ -43,8 +43,8 @@ class ExperimentPage extends Component {
     }
   }
 
-  onSearch(paramKeyFilterSet, metricKeyFilterSet, andedExpressions, searchInput) {
-    this.setState({paramKeyFilterSet, metricKeyFilterSet, searchInput});
+  onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput) {
+    this.setState({paramKeyFilter, metricKeyFilter, searchInput});
     const searchRunsRequestId = this.props.dispatchSearchRuns(this.props.experimentId,
       andedExpressions);
     this.setState({ searchRunsRequestId });
@@ -55,8 +55,8 @@ class ExperimentPage extends Component {
       <div className="ExperimentPage">
         <RequestStateWrapper requestIds={this.getRequestIds()}>
           <ExperimentView
-            paramKeyFilterSet={this.state.paramKeyFilterSet}
-            metricKeyFilterSet={this.state.metricKeyFilterSet}
+            paramKeyFilter={this.state.paramKeyFilter}
+            metricKeyFilter={this.state.metricKeyFilter}
             experimentId={this.props.experimentId}
             searchRunsRequestId={this.state.searchRunsRequestId}
             onSearch={this.onSearch}
