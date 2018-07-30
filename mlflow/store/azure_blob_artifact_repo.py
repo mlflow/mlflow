@@ -25,7 +25,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             from azure.storage.blob import BlockBlobService
             (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
             self.client = BlockBlobService(account_name=account,
-                                           account_key=os.environ["AZURE_STORAGE_ACCESS_KEY"])
+                                           account_key=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
         super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
 
     @staticmethod
