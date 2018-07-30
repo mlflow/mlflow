@@ -27,7 +27,7 @@ from mlflow.utils.logging_utils import eprint
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
-MLFLOW_MLFLOW_CONDA = "MLFLOW_CONDA"
+MLFLOW_CONDA = "MLFLOW_MLFLOW_CONDA"
 
 
 class ExecutionException(Exception):
@@ -43,17 +43,17 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     Returns a `SubmittedRun` corresponding to the project run.
     """
     exp_id = experiment_id or tracking._get_experiment_id()
-    params = parameters or {}
+    parameters = parameters or {}
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
-            uri=uri, entry_point=entry_point, version=version, parameters=params,
+            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     elif mode == "local" or mode is None:
         work_dir = _fetch_project(uri, use_temp_cwd, version, git_username, git_password)
         project = _load_project(project_dir=work_dir)
-        project.get_entry_point(entry_point)._validate_parameters(params)
+        project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
         if use_conda:
@@ -61,17 +61,17 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         if run_id:
             active_run = tracking._get_existing_run(run_id)
         else:
-            active_run = _create_run(uri, exp_id, work_dir, entry_point, params)
+            active_run = _create_run(uri, exp_id, work_dir, entry_point, parameters)
         # In blocking mode, run the entry point command in blocking fashion, sending status updates
         # to the tracking server when finished. Note that the run state may not be persisted to the
         # tracking server if interrupted
         if block:
             command = _get_entry_point_command(
-                work_dir, entry_point, use_conda, params, storage_dir)
+                work_dir, entry_point, use_conda, parameters, storage_dir)
             return _run_entry_point(command, work_dir, run_id=active_run.run_info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
-            work_dir=work_dir, entry_point=entry_point, parameters=params, experiment_id=exp_id,
+            work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.run_info.run_uuid)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -269,7 +269,7 @@ def _conda_executable():
     Returns path to a conda executable. Configurable via the mlflow.projects.MLFLOW_CONDA
     environment variable.
     """
-    return os.environ.get(MLFLOW_MLFLOW_CONDA, "conda")
+    return os.environ.get(MLFLOW_CONDA, "conda")
 
 
 def _maybe_create_conda_env(conda_env_path):
@@ -283,7 +283,7 @@ def _maybe_create_conda_env(conda_env_path):
                                  "at https://conda.io/docs/user-guide/install/index.html. You may "
                                  "also configure MLflow to look for a specific conda executable "
                                  "by setting the {1} environment variable to the path of the conda "
-                                 "executable".format(conda_path, MLFLOW_MLFLOW_CONDA))
+                                 "executable".format(conda_path, MLFLOW_CONDA))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
