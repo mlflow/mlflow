@@ -82,7 +82,7 @@ const mapStateToProps = (state, ownProps) => {
   runUuids.forEach(runUuid => {
     maxLength = Math.max(maxLength, getMetricsByKey(runUuid, metricKey, state).length)
   });
-  let metrics = new Array(maxLength);
+  const metrics = new Array(maxLength);
   for (let i = 0; i < metrics.length; i++) {
     metrics[i] = {index: i};
   }
