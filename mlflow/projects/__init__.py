@@ -217,11 +217,6 @@ def _fetch_project(uri, use_temp_cwd, version=None, git_username=None, git_passw
         if uri != dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
 
-    # Make sure they don't have an outputs or mlruns directory (will need to change if we change
-    # how we log results locally)
-    shutil.rmtree(os.path.join(dst_dir, "outputs"), ignore_errors=True)
-    shutil.rmtree(os.path.join(dst_dir, "mlruns"), ignore_errors=True)
-
     # Make sure there is a MLproject file in the specified working directory.
     if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
         if subdirectory == '':

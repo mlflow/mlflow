@@ -98,10 +98,11 @@ def test_log_metric():
             mlflow.log_metric("name_1", 25)
             mlflow.log_metric("name_2", -3)
             mlflow.log_metric("name_1", 30)
+            mlflow.log_metric("nested/nested/name", 40)
         finished_run = active_run.store.get_run(run_uuid)
         # Validate metrics
-        assert len(finished_run.data.metrics) == 2
-        expected_pairs = {"name_1": 30, "name_2": -3}
+        assert len(finished_run.data.metrics) == 3
+        expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
         for metric in finished_run.data.metrics:
             assert expected_pairs[metric.key] == metric.value
 
@@ -126,10 +127,11 @@ def test_log_param():
             mlflow.log_param("name_1", "a")
             mlflow.log_param("name_2", "b")
             mlflow.log_param("name_1", "c")
+            mlflow.log_param("nested/nested/name", 5)
         finished_run = active_run.store.get_run(run_uuid)
         # Validate params
-        assert len(finished_run.data.params) == 2
-        expected_pairs = {"name_1": "c", "name_2": "b"}
+        assert len(finished_run.data.params) == 3
+        expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
         for param in finished_run.data.params:
             assert expected_pairs[param.key] == param.value
 

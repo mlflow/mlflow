@@ -93,7 +93,7 @@ def _check_databricks_auth_available():
             "Could not find Databricks CLI on PATH. Please install and configure the Databricks "
             "CLI as described in https://github.com/databricks/databricks-cli")
     # Verify that we can get Databricks auth
-    rest_utils.get_databricks_hostname_and_auth()
+    rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
 def _upload_to_dbfs(src_path, dbfs_uri):
@@ -200,18 +200,13 @@ def _create_databricks_run(tracking_uri, experiment_id, source_name, source_vers
     status or log metrics/params for the run.
     """
     if tracking.is_local_uri(tracking_uri):
-        # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
         eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from "
                "Databricks will not be logged permanently." % tracking_uri)
-        return None
-    else:
-        # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g.
-        # localhost)
-        return tracking._create_run(experiment_id=experiment_id,
-                                    source_name=source_name,
-                                    source_version=source_version,
-                                    entry_point_name=entry_point_name,
-                                    source_type=SourceType.PROJECT)
+    return tracking._create_run(experiment_id=experiment_id,
+                                source_name=source_name,
+                                source_version=source_version,
+                                entry_point_name=entry_point_name,
+                                source_type=SourceType.PROJECT)
 
 
 def _parse_dbfs_uri_path(dbfs_uri):

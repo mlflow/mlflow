@@ -43,7 +43,6 @@ setup(
         'gitpython>=2.1.0',
         'pyyaml',
         'boto3',
-        'google-cloud-storage',
         'querystring_parser',
     ],
     entry_points='''
