@@ -12,6 +12,7 @@ signature
 
 predict(data: pandas.DataFrame) -> numpy.ndarray | pandas.Series | pandas.DataFrame
 
+
 This convention is relied upon by other mlflow components.
 
 Pyfunc model format is defined as a directory structure containing all required data, code and
