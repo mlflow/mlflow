@@ -179,12 +179,12 @@ Deployment Mode
     command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
 
 For example, in the tutorial we create and publish a MLproject which trains a linear model. The
-project is also published on GitHub at https://github.com/databricks/mlflow-example. To execute
+project is also published on GitHub at https://github.com/mlflow/mlflow-example. To execute
 this project run
 
 .. code::
 
-    mlflow run git@github.com:databricks/mlflow-example.git -P alpha=0.5
+    mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.5
 
 There are also additional options for disabling the creation of a Conda environment, which can be
 useful if you quickly want to test a project in your existing shell environment.

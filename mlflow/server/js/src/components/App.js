@@ -30,7 +30,7 @@ class App extends Component {
               </Link>
             </div>
             <div className="header-links">
-              <a href={'https://github.com/databricks/mlflow'}>
+              <a href={'https://github.com/mlflow/mlflow'}>
                 <div className="github">
                   <span>GitHub</span>
                 </div>
