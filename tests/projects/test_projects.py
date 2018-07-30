@@ -26,6 +26,12 @@ def _assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
+def _build_uri(base_uri, subdirectory):
+    if subdirectory != "":
+        return "%s#%s" % (base_uri, subdirectory)
+    return base_uri
+
+
 def test_fetch_project(tmpdir):
     # Creating a local Git repo containing a MLproject file.
     local_git = tmpdir.join('git_repo').strpath
@@ -53,39 +59,26 @@ def test_fetch_project(tmpdir):
                  (git_subdir_repo, 'example_project',
                   os.path.join(local_git_subdir, 'example_project')),
                  (TEST_DIR, 'resources/example_project', TEST_PROJECT_DIR)]
-
-    counter = 0
-    for uri, subdirectory, expected in test_list:
-        dst_dir = tmpdir.join(str(counter)).strpath
-        work_dir = mlflow.projects._fetch_project(uri=uri, subdirectory=subdirectory, version=None,
-                                                  dst_dir=dst_dir, git_username=None,
-                                                  git_password=None)
+    for base_uri, subdirectory, expected in test_list:
+        work_dir = mlflow.projects._fetch_project(
+            uri=_build_uri(base_uri, subdirectory), use_temp_cwd=True)
         _assert_dirs_equal(expected=expected, actual=work_dir)
-        counter = counter + 1
+
+    # Verify that runs fail if given incorrect subdirectories via the `#` character.
+    for base_uri in [TEST_PROJECT_DIR, git_repo_uri]:
+        with pytest.raises(ExecutionException):
+            mlflow.projects._fetch_project(uri=_build_uri(base_uri, "fake"), use_temp_cwd=False)
 
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='', version="version",
-                                       dst_dir=dst_dir, git_username=None, git_password=None)
+        mlflow.projects._fetch_project(
+            uri=TEST_PROJECT_DIR, use_temp_cwd=True, version="version",)
 
     # Passing only one of git_username, git_password results in an error
     for username, password in [(None, "hi"), ("hi", None)]:
         with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='',
-                                           version="some-version", dst_dir=dst_dir,
-                                           git_username=username, git_password=password)
-
-    # Verify that runs fail if given incorrect subdirectories via the `#` character.
-    # Local test.
-    with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, subdirectory='fake', version=None,
-                                       dst_dir=dst_dir, git_username=None, git_password=None)
-
-    # Tests that an exception is thrown when an invalid subdirectory is given.
-    dst_dir = tmpdir.join('git-bad-subdirectory').strpath
-    with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(uri=git_repo_uri, subdirectory='fake', version=None,
-                                       dst_dir=dst_dir, git_username=None, git_password=None)
+            mlflow.projects._fetch_project(
+                git_repo_uri, use_temp_cwd=True, git_username=username, git_password=password)
 
 
 def test_dont_remove_mlruns(tmpdir):
@@ -93,11 +86,10 @@ def test_dont_remove_mlruns(tmpdir):
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
     src_dir.join("MLproject").write("dummy MLproject contents")
-    dst_dir_path = tmpdir.join("mlruns-work-dir").strpath
-    mlflow.projects._fetch_project(
-        uri=src_dir.strpath, subdirectory="", version=None, dst_dir=dst_dir_path, git_username=None,
-        git_password=None)
-    _assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir_path)
+    dst_dir = mlflow.projects._fetch_project(
+        uri=src_dir.strpath, version=None, git_username=None,
+        git_password=None, use_temp_cwd=True)
+    _assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
 
 
 def test_parse_subdirectory():
@@ -131,7 +123,6 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
         os.environ["PATH"] = old_path
 
 
-@pytest.mark.skip(reason="flaky running in travis")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unused-argument
     submitted_run = mlflow.projects.run(
@@ -162,7 +153,6 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
         assert metric.value == expected_metrics[metric.key]
 
 
-@pytest.mark.skip(reason="flaky running in travis")
 def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
@@ -187,7 +177,6 @@ def test_conda_path(mock_env, expected):
         assert mlflow.projects._conda_executable() == expected
 
 
-@pytest.mark.skip(reason="flaky running in travis")
 def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0, submitted_run1 = [mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
@@ -195,7 +184,10 @@ def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0.cancel()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
     # Sanity check: cancelling one run has no effect on the other
-    submitted_run1.wait()
+    assert submitted_run1.wait()
+    validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
+    # Try cancelling after calling wait()
+    submitted_run1.cancel()
     validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
 
 

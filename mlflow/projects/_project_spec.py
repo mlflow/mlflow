@@ -9,9 +9,7 @@ from mlflow import data
 
 class Project(object):
     """A project specification loaded from an MLproject file."""
-    def __init__(self, uri, yaml_obj):
-        self.uri = uri
-        self.name = os.path.splitext(os.path.basename(os.path.abspath(uri)))[0]
+    def __init__(self, yaml_obj):
         self.conda_env = yaml_obj.get("conda_env")
         self.entry_points = {}
         for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
@@ -47,8 +45,7 @@ class EntryPoint(object):
         from mlflow.projects import ExecutionException
         missing_params = []
         for name in self.parameters:
-            if user_parameters is None \
-                    or (name not in user_parameters and self.parameters[name].default is None):
+            if (name not in user_parameters and self.parameters[name].default is None):
                 missing_params.append(name)
         if len(missing_params) == 1:
             raise ExecutionException(
