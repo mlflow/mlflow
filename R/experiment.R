@@ -60,6 +60,17 @@ mlflow_get_experiment <- function(experiment_id) {
   response
 }
 
+#' Active Experiment
+#'
+#' Retrieves the active experiment which got activated using \code{mlflow_experiment()} or
+#' the \code{MLFLOW_EXPERIMENT_ID} environemnt variable.
+#'
+#' @export
+mlflow_active_experiment <- function() {
+  exp <- Sys.getenv("MLFLOW_EXPERIMENT_ID")
+  if (nzchar(exp)) exp else NULL
+}
+
 #' Create Run
 #'
 #' reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
@@ -81,10 +92,11 @@ mlflow_get_experiment <- function(experiment_id) {
 #' @param entry_point_name Name of the entry point for the run.
 #' @param run_tags Additional metadata for run in key-value pairs.
 #' @export
-mlflow_create_run <- function(experiment_id = NULL, user_id = NULL, run_name = NULL,
-                              source_type = NULL, source_name = NULL, status = NULL,
-                              start_time = NULL, end_time = NULL, source_version = NULL,
-                              artifact_uri = NULL, entry_point_name = NULL, run_tags = NULL) {
+mlflow_create_run <- function(experiment_id = mlflow_active_experiment(), user_id = NULL,
+                              run_name = NULL, source_type = NULL, source_name = NULL,
+                              status = NULL, start_time = NULL, end_time = NULL,
+                              source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
+                              run_tags = NULL) {
   if (is.null(start_time)) start_time <- current_time()
 
   response <- mlflow_rest("runs", "create", verb = "POST", data = list(
@@ -254,7 +266,7 @@ mlflow_experiment <- function(name) {
   }
 
   exps <- mlflow_list_experiments()
-  experiment_id <- exps[exps$name == "Test",]$experiment_id
+  experiment_id <- exps[exps$name == name,]$experiment_id
 
   Sys.setenv(MLFLOW_EXPERIMENT_ID = experiment_id)
 
