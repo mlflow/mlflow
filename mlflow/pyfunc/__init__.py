@@ -147,7 +147,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
 
     Example:
         predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-        df.withColumn("prediction", predict("name", "age")).show()
+        df.withColumn("prediction", predict(struct("name", "age"))).show()
 
     Args:
         spark (SparkSession): a SparkSession object
@@ -167,7 +167,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
 
     archive_path = SparkModelCache.add_local_model(spark, path)
 
-    def predict(*args):
+    def predict(df):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
         # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
