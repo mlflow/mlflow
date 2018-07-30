@@ -212,10 +212,12 @@ def _fetch_project(uri, use_temp_cwd, version=None, git_username=None, git_passw
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
-        # TODO: don't copy mlruns directory here
         # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
-        if uri != dst_dir:
+        if os.path.realpath(uri) != os.path.realpath(dst_dir):
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+            dest_dir_mlruns = os.path.join(dst_dir, "mlruns")
+            if os.path.exists(dest_dir_mlruns):
+                shutil.rmtree(dest_dir_mlruns)
 
     # Make sure there is a MLproject file in the specified working directory.
     if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):

@@ -26,6 +26,10 @@ def _assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
+def _paths_equal(expected, actual):
+    return os.path.realpath(expected) == os.path.realpath(actual)
+
+
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
         return "%s#%s" % (base_uri, subdirectory)
@@ -81,15 +85,25 @@ def test_fetch_project(tmpdir):
                 git_repo_uri, use_temp_cwd=True, git_username=username, git_password=password)
 
 
-def test_dont_remove_mlruns(tmpdir):
-    # Fetching a directory containing an "mlruns" folder doesn't remove the "mlruns" folder
+def test_handling_mlruns(tmpdir):
+    # Fetching a local project containing an "mlruns" folder does not remove the "mlruns" folder
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
     src_dir.join("MLproject").write("dummy MLproject contents")
     dst_dir = mlflow.projects._fetch_project(
-        uri=src_dir.strpath, version=None, git_username=None,
-        git_password=None, use_temp_cwd=True)
+        uri=src_dir.strpath, version=None, git_username=None, git_password=None, use_temp_cwd=False)
+    assert _paths_equal(src_dir.strpath, dst_dir)
     _assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
+    # Fetching a project containing an "mlruns" folder into a temporary dir excludes the "mlruns"
+    # folder but not others
+    dst_dir = mlflow.projects._fetch_project(
+        uri=src_dir.strpath, version=None, git_username=None, git_password=None, use_temp_cwd=True)
+    assert not _paths_equal(src_dir.strpath, dst_dir)
+    dir_comparison = filecmp.dircmp(src_dir, dst_dir)
+    assert dir_comparison.left_only == ["mlruns"]
+    assert len(dir_comparison.right_only) == 0
+    assert len(dir_comparison.diff_files) == 0
+    assert len(dir_comparison.funny_files) == 0
 
 
 def test_parse_subdirectory():
