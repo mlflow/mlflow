@@ -17,7 +17,7 @@ def load_project():
     """ Loads an example project for use in tests, returning an in-memory `Project` object. """
     with open(os.path.join(TEST_PROJECT_DIR, "MLproject")) as mlproject_file:
         project_yaml = yaml.safe_load(mlproject_file.read())
-    return Project(uri=TEST_PROJECT_DIR, yaml_obj=project_yaml)
+    return Project(yaml_obj=project_yaml)
 
 
 def validate_exit_status(status_str, expected):
