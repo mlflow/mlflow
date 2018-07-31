@@ -25,27 +25,32 @@ class BenchmarkResults:
         with open(path, "w") as f:
             json.dump(results_dict, f, indent=4)
 
-def construct_mleap_query(url, headers, json_data, idx):
+def construct_mleap_query(batch_size, url, headers, json_data, idx):
     new_data = dict(json_data)
-    first_row = str(new_data["rows"][0][0])
-    first_words = first_row.split(" ")
-    np.random.shuffle(first_words)
-    new_first = " ".join(first_words) + " {}".format(idx)
-    new_data["rows"][0][0] = new_first 
+    new_data["rows"] = [new_data["rows"][0] for _ in range(batch_size)]
+    for i in range(batch_size):
+        first_row = str(json_data["rows"][0][0])
+        first_words = first_row.split(" ")
+        np.random.shuffle(first_words)
+        new_first = " ".join(first_words) + " {}".format(idx)
+        new_data["rows"][i][0] = new_first 
     new_query = Query(url=url, headers=headers, data=json.dumps(new_data))
     return new_query
 
-def construct_sparkml_query(url, headers, json_data, idx):
-    new_data = dict(json_data)
-    text = str(new_data["text"])
-    words = text.split(" ")
-    np.random.shuffle(words)
-    words.append(str(idx))
-    new_data["text"] = " ".join(words)
-    new_query = Query(url=url, headers=headers, data=json.dumps([new_data]))
+def construct_sparkml_query(batch_size, url, headers, json_data, idx):
+    new_data = []
+    for _ in range(batch_size):
+        data_copy = dict(json_data)
+        text = str(data_copy["text"])
+        words = text.split(" ")
+        np.random.shuffle(words)
+        words.append(str(idx))
+        data_copy["text"] = " ".join(words)
+        new_data.append(data_copy)
+    new_query = Query(url=url, headers=headers, data=json.dumps(new_data))
     return new_query
 
-def construct_queries(data_path, num_queries):
+def construct_queries(data_path, num_queries, batch_size):
     url = "http://localhost:8080/invocations"
     headers = {"Content-type" : "application/json"}
 
@@ -55,22 +60,21 @@ def construct_queries(data_path, num_queries):
     queries = []
     for i in range(num_queries):
         if "text" in json_data.keys():
-            new_query = construct_sparkml_query(url, headers, json_data, i)
+            new_query = construct_sparkml_query(batch_size, url, headers, json_data, i)
         else:
-            new_query = construct_mleap_query(url, headers, json_data, i)
+            new_query = construct_mleap_query(batch_size, url, headers, json_data, i)
         queries.append(new_query)
 
     return queries
 
 def send_query(query):
     response = requests.post(query.url, headers=query.headers, data=query.data)
-    print(response.text)
     return response.text
 
-def benchmark(data_path, num_queries):
+def benchmark(data_path, num_queries, batch_size):
     print("Benchmarking {} queries".format(num_queries))
 
-    queries = construct_queries(data_path, num_queries)
+    queries = construct_queries(data_path, num_queries, batch_size)
     begin = datetime.now()
     latencies = []
     for query in queries:
@@ -99,10 +103,11 @@ if __name__ == "__main__":
     parser.add_argument('--data_path', '-d', type=str, help="Path to query data")
     parser.add_argument('--output_path', '-o', type=str, help="Path to which to save results")
     parser.add_argument('--num_queries', '-n', type=int, default=1000, help="Number of queries to send during benchmark")
+    parser.add_argument('--batch_size', '-b', type=int, default=1, help="The size of each query batch")
 
     args = parser.parse_args()
     
-    results = benchmark(args.data_path, args.num_queries)
+    results = benchmark(args.data_path, args.num_queries, args.batch_size)
     results.save(args.output_path)
 
     print("Wrote results to: {}".format(args.output_path))
