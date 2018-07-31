@@ -2,7 +2,6 @@
 import mock
 import pytest
 
-from databricks_cli.configure import provider
 from databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils import rest_utils
 
