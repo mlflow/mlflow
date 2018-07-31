@@ -28,4 +28,3 @@ def test_can_parse_json_string():
     request.get_json.return_value = '{"name": "hello2"}'
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello2"
-
