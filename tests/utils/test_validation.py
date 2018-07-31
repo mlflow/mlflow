@@ -2,7 +2,7 @@ import pytest
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
 
-GOOD_METRIC_OR_PARAM_NAMES = ["a", "Ab_5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e."]
+GOOD_METRIC_OR_PARAM_NAMES = ["a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e."]
 BAD_METRIC_OR_PARAM_NAMES = ["", ".", "/", "..", "//", "a//b", "a/./b", "/a", "a/", ":", " ", "\\"]
 
 
