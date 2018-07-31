@@ -1,7 +1,8 @@
 import os
 import unittest
 
-from mlflow.store.artifact_repo import ArtifactRepository, LocalArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
 
