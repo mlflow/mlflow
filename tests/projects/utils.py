@@ -10,7 +10,7 @@ from mlflow.projects import Project
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
-GIT_PROJECT_URI = "https://github.com/databricks/mlflow-example"
+GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 
 
 def load_project():

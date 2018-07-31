@@ -195,8 +195,8 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
 def _create_databricks_run(tracking_uri, experiment_id, source_name, source_version,
                            entry_point_name):
     """
-    Makes an API request to the specified tracking server to create a new run with the specified
-    attributes. Returns an `ActiveRun` that can be used to query the tracking server for the run's
+    Make an API request to the specified tracking server to create a new run with the specified
+    attributes. Return an ``ActiveRun`` that can be used to query the tracking server for the run's
     status or log metrics/params for the run.
     """
     if tracking.is_local_uri(tracking_uri):

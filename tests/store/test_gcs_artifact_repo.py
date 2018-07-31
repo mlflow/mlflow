@@ -5,7 +5,8 @@ import pytest
 
 from google.cloud.storage import client as gcs_client
 
-from mlflow.store.artifact_repo import ArtifactRepository, GCSArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
 
 
 @pytest.fixture
