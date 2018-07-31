@@ -27,7 +27,7 @@ from mlflow.utils.logging_utils import eprint
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
-MLFLOW_CONDA = "MLFLOW_MLFLOW_CONDA"
+MLFLOW_CONDA = "MLFLOW_CONDA"
 
 
 class ExecutionException(Exception):
