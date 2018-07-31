@@ -11,8 +11,9 @@ import java.util.HashMap;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 
-import static spark.Spark.*;
 import spark.Request;
+import spark.Response;
+import static spark.Spark.*;
 
 public class SageMakerServer {
     private enum RequestContentType {
@@ -41,14 +42,38 @@ public class SageMakerServer {
         }
     }
 
-    public static void serve(Predictor predictor, int portNumber) {
-        port(portNumber);
+    private static final int DEFAULT_PORT = 8080;
+
+    public static void serve(Predictor predictor, Optional<Integer> portNumber) {
+        serve(Optional.of(predictor), portNumber);
+    }
+
+    public static void serve(
+        String modelPath, Optional<String> runId, Optional<Integer> portNumber) {
+        Optional<Predictor> predictor = Optional.empty();
+        try {
+            predictor = Optional.of(JavaFunc.load(modelPath, runId));
+        } catch (InvocationTargetException | LoaderModuleException | IOException e) {
+            e.printStackTrace();
+        }
+        serve(predictor, portNumber);
+    }
+
+    private static void serve(Optional<Predictor> predictor, Optional<Integer> portNumber) {
+        port(portNumber.orElse(DEFAULT_PORT));
         get("/ping", (request, response) -> {
+            if (!predictor.isPresent()) {
+                yieldMissingPredictorError(response);
+            }
             response.status(200);
             return "";
         });
 
         post("/invocations", (request, response) -> {
+            if (!predictor.isPresent()) {
+                yieldMissingPredictorError(response);
+            }
+
             try {
                 String result = evaluateRequest(predictor, request);
                 response.status(200);
@@ -66,18 +91,9 @@ public class SageMakerServer {
         });
     }
 
-    public static void serve(String modelPath, Optional<String> runId, int port) {
-        Optional<Predictor> predictor = Optional.empty();
-        try {
-            predictor = Optional.of(JavaFunc.load(modelPath, runId));
-        } catch (InvocationTargetException | LoaderModuleException | IOException e) {
-            e.printStackTrace();
-        }
-        serve(predictor, port);
-    }
-
-    private static void serve(Optional<Predictor> predictor, int port) {
-        serve(predictor, port);
+    private static String yieldMissingPredictorError(Response response) {
+        response.status(500);
+        return getErrorResponseJson("Error loading predictor! See container logs for details!");
     }
 
     private static String evaluateRequest(Predictor predictor, Request request)
@@ -109,5 +125,18 @@ public class SageMakerServer {
         protected UnsupportedContentTypeException(String contentType) {
             super(String.format("Unsupported request input type: %s", contentType));
         }
+    }
+
+    public static void main(String[] args) {
+        String modelPath = args[0];
+        Optional<String> runId = Optional.empty();
+        Optional<Integer> portNum = Optional.empty();
+        if (args.length > 1) {
+            runId = Optional.of(args[1]);
+        }
+        if (args.length > 2) {
+            portNum = Optional.of(args[2]);
+        }
+        serve(modelPath, runId, portNum);
     }
 }

@@ -20,17 +20,14 @@ class MLeapPredictor(var modelPath : String) extends Predictor {
   val frameReader = FrameReader()
   val jsonCharset = Charset.forName("UTF-8")
 
-  // def predict(input : InputBean): String = {
-  def predict(input : String): String = {
-    // val inputJson = input.getInputJson()
-    // val inputBytes = inputJson.getBytes(jsonCharset)
-    // val deserializedFrame = frameReader.fromBytes(inputBytes).get
-    //
-    // // TODO (Corey Zumar): Error handling
-    // val transformedFrame = pipeline.transform(deserializedFrame).get
-    // val output = new String(transformedFrame.writer().toBytes().get);
-    // output
-    "BLAH"
+  override def predict(inputJson : String): String = {
+    val inputBytes = inputJson.getBytes(jsonCharset)
+    val deserializedFrame = frameReader.fromBytes(inputBytes).get
+
+    // TODO (Corey Zumar): Error handling
+    val transformedFrame = pipeline.transform(deserializedFrame).get
+    val output = new String(transformedFrame.writer().toBytes().get);
+    output
   }
 
 }
