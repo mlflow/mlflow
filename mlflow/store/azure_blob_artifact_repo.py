@@ -24,8 +24,17 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         else:
             from azure.storage.blob import BlockBlobService
             (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
-            self.client = BlockBlobService(account_name=account,
-                                           account_key=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
+            if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
+                self.client = BlockBlobService(
+                    account_name=account,
+                    connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"))
+            elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
+                self.client = BlockBlobService(
+                    account_name=account,
+                    account_key=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
+            else:
+                raise Exception("You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
+                                "AZURE_STORAGE_ACCESS_KEY to access Azure storage.")
         super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
 
     @staticmethod
@@ -34,7 +43,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
             raise Exception("Not a WASBS URI: %s" % uri)
-        match = re.match("([^@]+)@([^.]+).blob.core.windows.net", parsed.netloc)
+        match = re.match("([^@]+)@([^.]+)\\.blob\\.core\\.windows\\.net", parsed.netloc)
         if match is None:
             raise Exception("WASBS URI must be of the form "
                             "<container>@<account>.blob.core.windows.net")
