@@ -260,7 +260,7 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
 def _get_conda_env_path(project_dir):
     project = _load_project(project_dir)
     if project.conda_env:
-        return os.abspath(os.path.join(project_dir, project.conda_env))
+        return os.path.abspath(os.path.join(project_dir, project.conda_env))
     return None
 
 
