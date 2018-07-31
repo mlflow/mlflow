@@ -11,6 +11,7 @@ import ml.combust.mleap.runtime.serialization.FrameReader
 import resource._
 
 class MLeapPredictor(var modelPath : String) extends Predictor {
+  print(modelPath)
   val typedModelPath = "file:%s".format(modelPath)
   val bundle = (for(bundleFile <- managed(BundleFile(typedModelPath))) yield {
       bundleFile.loadMleapBundle().get

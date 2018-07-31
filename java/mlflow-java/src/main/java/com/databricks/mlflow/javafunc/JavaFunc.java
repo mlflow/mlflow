@@ -1,6 +1,7 @@
 package com.databricks.mlflow.javafunc;
 
 import com.databricks.mlflow.Flavor;
+import com.databricks.mlflow.LoaderModule;
 import com.databricks.mlflow.LoaderModuleException;
 import com.databricks.mlflow.TrackingUtils;
 import com.databricks.mlflow.models.Predictor;
@@ -11,14 +12,16 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.List;
-import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Constructor;
 
 public class JavaFunc {
     private static final String LOADER_METHOD_NAME = "load";
 
     public static Predictor load(String path, Optional<String> runId)
-        throws IOException, InvocationTargetException, LoaderModuleException {
+        throws IOException, InvocationTargetException, InstantiationException,
+               LoaderModuleException {
         if (runId.isPresent()) {
             // Get the run-relative model logging directory
             path = TrackingUtils.getModelLogDir(path, runId.get());
@@ -36,12 +39,12 @@ public class JavaFunc {
     }
 
     private static Predictor loadModelFromClass(String loaderClassName, Model modelConfig)
-        throws InvocationTargetException, LoaderModuleException {
+        throws InvocationTargetException, InstantiationException, LoaderModuleException {
         try {
             Class<?> loaderClass = Class.forName(loaderClassName);
-            Method loaderMethod = loaderClass.getMethod(LOADER_METHOD_NAME, Model.class);
-            Predictor predictor = (Predictor) loaderMethod.invoke(null, modelConfig);
-            return predictor;
+            Constructor<?> cons = loaderClass.getConstructor();
+            LoaderModule loaderModule = (LoaderModule) cons.newInstance();
+            return loaderModule.load(modelConfig);
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
             e.printStackTrace();
             throw new LoaderModuleException(loaderClassName);

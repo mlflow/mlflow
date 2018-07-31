@@ -19,9 +19,16 @@ public class Model {
     @JsonProperty("utc_time_created") private String utcTimeCreated;
     @JsonProperty("flavors") private Map<String, Object> flavors;
 
+    private String basePath;
+
     public static Model fromPath(String configPath) throws IOException {
+        File configFile = new File(configPath);
         final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        return mapper.readValue(new File(configPath), Model.class);
+        Model model = mapper.readValue(configFile, Model.class);
+        // Set the base path to the directory containing the configuration file.
+        // This will be used to create an absolute path to the serialized model
+        model.setBasePath(configFile.getParentFile().getAbsolutePath());
+        return model;
     }
 
     public Optional<String> getArtifactPath() {
@@ -46,11 +53,19 @@ public class Model {
         }
     }
 
+    public Optional<String> getBasePath() {
+        return convertFieldToOptional(this.basePath);
+    }
+
     private Optional<String> convertFieldToOptional(String field) {
         if (field != null) {
             return Optional.of(field);
         } else {
             return Optional.<String>empty();
         }
+    }
+
+    private void setBasePath(String basePath) {
+        this.basePath = basePath;
     }
 }

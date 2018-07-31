@@ -53,7 +53,8 @@ public class SageMakerServer {
         Optional<Predictor> predictor = Optional.empty();
         try {
             predictor = Optional.of(JavaFunc.load(modelPath, runId));
-        } catch (InvocationTargetException | LoaderModuleException | IOException e) {
+        } catch (InstantiationException | InvocationTargetException | LoaderModuleException
+            | IOException e) {
             e.printStackTrace();
         }
         serve(predictor, portNumber);
@@ -71,11 +72,11 @@ public class SageMakerServer {
 
         post("/invocations", (request, response) -> {
             if (!predictor.isPresent()) {
-                yieldMissingPredictorError(response);
+                return yieldMissingPredictorError(response);
             }
 
             try {
-                String result = evaluateRequest(predictor, request);
+                String result = evaluateRequest(predictor.get(), request);
                 response.status(200);
                 return result;
             } catch (PredictorEvaluationException e) {
@@ -135,7 +136,7 @@ public class SageMakerServer {
             runId = Optional.of(args[1]);
         }
         if (args.length > 2) {
-            portNum = Optional.of(args[2]);
+            portNum = Optional.of(Integer.parseInt(args[2]));
         }
         serve(modelPath, runId, portNum);
     }

@@ -5,6 +5,7 @@ import com.databricks.mlflow.models.Predictor;
 import com.databricks.mlflow.Flavor;
 
 import java.util.Optional;
+import java.io.File;
 
 public abstract class LoaderModule<T extends Flavor> {
     public Predictor load(Model modelConfig) {
@@ -12,7 +13,14 @@ public abstract class LoaderModule<T extends Flavor> {
         if (!flavor.isPresent()) {
             // throw new Exception();
         }
-        return createPredictor(flavor.get().getModelDataPath());
+        Optional<String> basePath = modelConfig.getBasePath();
+        if (!basePath.isPresent()) {
+            // TODO: Raise exception!
+            // throw new Exception();
+        }
+        String absoluteModelPath =
+            basePath.get() + File.separator + flavor.get().getModelDataPath();
+        return createPredictor(absoluteModelPath);
     }
 
     protected abstract Predictor createPredictor(String modelDataPath);
