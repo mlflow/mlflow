@@ -326,7 +326,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     :param run_id: MLflow run ID associated with the entry point execution.
     """
     env = os.environ.copy()
-    env.update(_get_env_map(run_id, experiment_id))
+    env.update(_get_run_env_vars(run_id, experiment_id))
     eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
     process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
     return LocalSubmittedRun(run_id, process)
@@ -377,9 +377,11 @@ def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
     return active_run
 
 
-def _get_env_map(run_id, experiment_id):
-    # Add the run id into a magic environment variable that the subprocess will read,
-    # causing it to reuse the run.
+def _get_run_env_vars(run_id, experiment_id):
+    """
+    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
+    to run MLflow projects.
+    """
     return {
         tracking._RUN_ID_ENV_VAR: run_id,
         tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
@@ -397,5 +399,6 @@ def _invoke_mlflow_run_subprocess(
     mlflow_run_arr = _build_mlflow_run_cmd(
         uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
         run_id=run_id, parameters=parameters)
-    mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, _get_env_map(run_id, experiment_id))
+    mlflow_run_subprocess = _run_mlflow_run_cmd(
+        mlflow_run_arr, _get_run_env_vars(run_id, experiment_id))
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
