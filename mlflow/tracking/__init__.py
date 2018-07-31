@@ -82,7 +82,7 @@ def _is_http_uri(uri):
 
 
 def _is_databricks_uri(uri):
-    """Databricks URIs look like the word 'databricks' (default profile) or 'databricks://profile'"""
+    """Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'"""
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == 'databricks' or uri == 'databricks'
 
