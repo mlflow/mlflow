@@ -94,7 +94,7 @@ def test_handling_mlruns(tmpdir):
     dst_dir = mlflow.projects._fetch_project(
         uri=src_dir.strpath, version=None, git_username=None, git_password=None)
     assert not _paths_equal(src_dir.strpath, dst_dir)
-    dir_comparison = filecmp.dircmp(src_dir, dst_dir)
+    dir_comparison = filecmp.dircmp(src_dir.strpath, dst_dir)
     assert dir_comparison.left_only == ["mlruns"]
     assert len(dir_comparison.right_only) == 0
     assert len(dir_comparison.diff_files) == 0
