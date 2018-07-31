@@ -13,3 +13,5 @@ pytest-cov
 rstcheck==3.2
 scipy
 tensorflow
+# Hack to install cpu version of pytorch ~90MB vs ~500MB with CUDA support but installs as `pip install torch`
+http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl
