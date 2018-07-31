@@ -82,7 +82,6 @@ def _serve():
         os.system("conda env create -n {en} python={pyv}".format(en=env_name, pyv=py_version))
         bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
                 _server_dependencies_cmds()
-
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
     # link the log streams to stdout/err so they will be logged to the container logs
