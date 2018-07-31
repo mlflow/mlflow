@@ -88,6 +88,7 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+PY_VERSION = "python_version"
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None):
@@ -114,6 +115,9 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
         parms[DATA] = data
     if env:
         parms[ENV] = env
+
+    py_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major, vmin=sys.version_info.minor)
+    parms[PY_VERSION] = py_version 
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 

@@ -72,8 +72,17 @@ def _serve():
         # TODO: should we test that the environment does not include any of the server dependencies?
         # Those are gonna be reinstalled. should probably test this on the client side
         shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
-        os.system("conda env create -n custom_env -f {}".format(env_path_dst))
+        env_name = "custom_env"
+        os.system("conda env create -n {en} -f {ep}".format(en=env_name, ep=env_path_dst))
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
+    elif pyfunc.PY_VERSION in conf:
+        py_version = conf[pyfunc.PY_VERSION]
+        env_name = "py_env"
+        print("activating default environment for Python version {pyv}".format(pyv=py_version))
+        os.system("conda env create -n {en} python={pyv}".format(en=env_name, pyv=py_version))
+        bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
+                _server_dependencies_cmds()
+
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
     # link the log streams to stdout/err so they will be logged to the container logs
