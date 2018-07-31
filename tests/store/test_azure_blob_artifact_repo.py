@@ -39,9 +39,14 @@ def mock_client():
         os.environ['AZURE_STORAGE_CONNECTION_STRING'] = old_conn_string
 
 
-def test_artifact_uri_factory():
+def test_artifact_uri_factory(mock_client):
+    # pylint: disable=unused-argument
+    # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
+    # We do need to set up a fake access key for the code to run though
+    os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
     repo = ArtifactRepository.from_artifact_uri(TEST_URI)
     assert isinstance(repo, AzureBlobArtifactRepository)
+    del os.environ['AZURE_STORAGE_ACCESS_KEY']
 
 
 def test_exception_if_no_env_vars(mock_client):
