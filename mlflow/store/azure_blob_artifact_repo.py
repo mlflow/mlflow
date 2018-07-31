@@ -19,23 +19,26 @@ class AzureBlobArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, client=None):
+        super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
+
+        # Allow override for testing
         if client:
             self.client = client
+            return
+
+        from azure.storage.blob import BlockBlobService
+        (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
+        if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
+            self.client = BlockBlobService(
+                account_name=account,
+                connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"))
+        elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
+            self.client = BlockBlobService(
+                account_name=account,
+                account_key=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
         else:
-            from azure.storage.blob import BlockBlobService
-            (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
-            if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
-                self.client = BlockBlobService(
-                    account_name=account,
-                    connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"))
-            elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
-                self.client = BlockBlobService(
-                    account_name=account,
-                    account_key=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
-            else:
-                raise Exception("You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
-                                "AZURE_STORAGE_ACCESS_KEY to access Azure storage.")
-        super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
+            raise Exception("You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
+                            "AZURE_STORAGE_ACCESS_KEY to access Azure storage.")
 
     @staticmethod
     def parse_wasbs_uri(uri):
