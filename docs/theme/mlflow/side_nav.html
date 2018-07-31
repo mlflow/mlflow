@@ -1,0 +1,46 @@
+<div class="wy-side-scroll">
+  <div class="wy-side-nav-search">
+    {% block sidebartitle %}
+
+    {% if theme_display_version %}
+      {%- set nav_version = version %}
+      {% if READTHEDOCS and current_version %}
+        {%- set nav_version = current_version %}
+      {% endif %}
+      {% if nav_version %}
+        <div class="version">
+          {{ nav_version }}
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {% include "searchbox.html" %}
+
+    {% endblock %}
+  </div>
+
+  <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+    {% if not (logo and theme_logo_only) %}
+      <a href="{{ pathto(master_doc) }}" class="main-navigation-home"><img src="{{ pathto('_static/icons/nav-home.svg', 1) }}"> {{ project }}</a>
+    {% endif %}
+
+    {% block menu %}
+      {% set toctree = toctree(maxdepth=4, collapse=theme_collapse_navigation, includehidden=True) %}
+
+      {% if toctree %}
+        {{ toctree }}
+      {% else %}
+        <!-- Local TOC -->
+        <div class="local-toc">{{ toc }}</div>
+      {% endif %}
+    {% endblock %}
+  </div>
+
+  <div role="contentinfo">
+    {% include "build_info.html" %}
+
+    <p>
+      <a id='feedbacklink' href="https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst" target="_blank">Contribute</a>
+    </p>
+  </div>
+</div>

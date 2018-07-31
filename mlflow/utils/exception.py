@@ -1,0 +1,2 @@
+class MLflowException(Exception):
+    pass

@@ -1,0 +1,13 @@
+{%- if builder != 'singlehtml' %}
+<div role="search">
+  {% if use_algolia == '1' %}
+  <input id="algolia-search" type="text" name="q" placeholder="Search" />
+  {% else %}
+  <form id="rtd-search-form" class="wy-form" action="{{ pathto('search') }}" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+  </form>
+  {% endif %}
+</div>
+{% endif %}

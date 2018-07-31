@@ -1,0 +1,12 @@
+tox==2.9.1
+
+# Dev/Deployment
+sphinx
+sphinx_rtd_theme
+sphinx-autobuild
+nose
+codecov
+coverage
+pypi-publisher
+scikit-learn
+scipy

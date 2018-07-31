@@ -1,0 +1,14 @@
+.image-outer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 500px;
+  width: 100%;
+  padding-left: 16px;
+}
+.image-container {
+  background-repeat: no-repeat;
+  background-size: contain;
+  height: 100%;
+  width: 100%;
+}
