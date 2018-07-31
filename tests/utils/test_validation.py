@@ -25,6 +25,6 @@ def test_validate_param_name():
 def test_validate_run_id():
     for good_id in ["a" * 32, "f0" * 16, "abcdef0123456789" * 2]:
         _validate_run_id(good_id)
-    for bad_id in ["a" * 33, "a" * 31, "A" * 32, "g" * 32, "_" * 32]:
+    for bad_id in ["a" * 33, "a" * 31, "A" * 32, "g" * 32, "a/bc" * 8, "_" * 32]:
         with pytest.raises(Exception, match="Invalid run ID"):
             _validate_run_id(bad_id)
