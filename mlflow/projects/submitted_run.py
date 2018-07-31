@@ -14,12 +14,12 @@ class SubmittedRun(object):
     This class defines the interface that the MLflow project runner uses to manage the lifecycle
     of runs launched in different environments (e.g. runs launched locally / on Databricks).
 
-    Note that SubmittedRun is not thread-safe. That is, concurrent calls to wait() / cancel()
+    ``SubmittedRun`` is not thread-safe. That is, concurrent calls to wait() / cancel()
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
 
-    Note: Subclasses of SubmittedRun are expected to expose a `run_id` member containing the run's
-    MLflow run ID.
+    Note: Subclasses of ``SubmittedRun`` are expected to expose a ```run_id`` member containing the
+    run's MLflow run ID.
     """
     @abstractmethod
     def wait(self):
@@ -40,8 +40,8 @@ class SubmittedRun(object):
     @abstractmethod
     def cancel(self):
         """
-        Cancels the run (interrupts the command subprocess, cancels the Databricks run, etc) and
-        waits for it to terminate. Note that the MLflow run status may not be set correctly
+        Cancel the run (interrupts the command subprocess, cancels the Databricks run, etc) and
+        waits for it to terminate. The MLflow run status may not be set correctly
         upon run cancellation.
         """
         pass
@@ -49,8 +49,8 @@ class SubmittedRun(object):
 
 class LocalSubmittedRun(SubmittedRun):
     """
-    Instance of SubmittedRun corresponding to a subprocess launched to run an entry point command
-    locally.
+    Instance of ``SubmittedRun`` corresponding to a subprocess launched to run an entry point
+    command locally.
     """
     def __init__(self, run_id, command_proc):
         super(LocalSubmittedRun, self).__init__()

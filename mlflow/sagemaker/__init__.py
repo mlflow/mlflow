@@ -134,7 +134,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     """
     Push local Docker image to ECR.
 
-    The image is pushed under current active aws account and to current active AWS region.
+    The image is pushed under current active AWS account and to current active AWS region.
 
     :param image: image name
     """
@@ -169,47 +169,46 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
            instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT):
     """
     Deploy model on SageMaker.
-    Current active AWS account needs to have correct permissions setup.
+    Currently active AWS account needs to have correct permissions set up.
 
     :param app_name: Name of the deployed application.
-    :param path: Path to the model.
-                 Either local if no run_id or MLflow-relative if run_id is specified)
-    :param execution_role_arn: Amazon execution role with sagemaker rights. defaults
-                               to the currently-assumed role.
-    :param bucket: S3 bucket where model artifacts will be stored. defaults to a
+    :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``
+    is specified.
+    :param execution_role_arn: Amazon execution role with SageMaker rights.
+                               Defaults to the currently-assumed role.
+    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
-    :param run_id: MLflow run id.
-    :param image: name of the Docker image to be used. if not specified, uses a
+    :param run_id: MLflow run ID.
+    :param image: Name of the Docker image to be used. if not specified, uses a
                   publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
-                 mlflow.sagemaker.DEPLOYMENT_MODE_CREATE: Creates an application with the specified
-                     name and model. This will fail if an application of the same name already
-                     exists.
+                 ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``
+                    Create an application with the specified name and model. This fails if an
+                    application of the same name already exists.
 
-                 mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE: If an application of the specified name
-                     exists, its model(s) will be replaced with the specified model. If no such
-                     application exists, it will be created with the specified name and model.
+                 ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                    If an application of the specified name exists, its model(s) is replaced with
+                    the specified model. If no such application exists, it is created with the
+                    specified name and model.
 
-                 mlflow.sagemaker.DEPLOYMENT_MODE_ADD: Adds the specified model to a pre-existing
-                     application with the specified name, if one exists. If the application does
-                     not exist,  a new application will be created with the specified name and
-                     model. NOTE: **If the application already exists**, the specified model will
-                     be added to the application's corresponding SageMaker endpoint with an initial
-                     weight of zero (0). To route traffic to the model, update the application's
-                     associated endpoint configuration using either the AWS console or the
-                     `UpdateEndpointWeightsAndCapacities` function defined in the SageMaker API
-                     Documentation
-                     (https://docs.aws.amazon.com/sagemaker/latest/dg/
-                     API_UpdateEndpointWeightsAndCapacities.html).
+                 ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
+                    Add the specified model to a pre-existing application with the specified name,
+                    if one exists. If the application does not exist,  a new application is created
+                    with the specified name and model. NOTE: If the application **already exists**,
+                    the specified model is added to the application's corresponding SageMaker
+                    endpoint with an initial weight of zero (0). To route traffic to the model,
+                    update the application's associated endpoint configuration using either the
+                    AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
+https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
-                    will be preserved. If False, these resources will be deleted.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model.
-                          For a list of supported instance types, see
-                          https://aws.amazon.com/sagemaker/pricing/instance-types/.
+                    (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                    mode) are preserved. If False, these resources are deleted.
+    :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
+                          of supported instance types, see
+    `Amazon SageMaker ML Instance Types <https://aws.amazon.com/sagemaker/pricing/instance-types/`_.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     """
     if mode not in DEPLOYMENT_MODES:
@@ -284,11 +283,12 @@ def delete(app_name, region_name="us-west-2", archive=False):
 def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
     """
     Serve model locally in a SageMaker compatible Docker container.
-    :param model_path:  Path to the model.
-    Either local if no run_id or MLflow-relative if run_id is specified)
-    :param run_id: MLflow RUN-ID.
-    :param port: local port
-    :param image: name of the Docker image to be used.
+
+    :param model_path: path to the model. Either local if no ``run_id`` or MLflow-relative if
+                                          ``run_id`` is specified.
+    :param run_id: MLflow run ID.
+    :param port: Local port.
+    :param image: Name of the Docker image to be used.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
@@ -312,8 +312,8 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
 
 def _check_compatible(path):
     """
-    Check that we can handle this model and rasie exception if we can not.
-    :return: RUN_ID if it exists or None
+    Check that we can handle this model and raise exception if we can not.
+    :return: RUN_ID if it exists or None.
     """
     path = os.path.abspath(path)
     model = Model.load(os.path.join(path, "MLmodel"))
@@ -343,7 +343,7 @@ def _get_account_id():
 
 def _get_assumed_role_arn():
     """
-    :return: ARN of the user's current IAM role
+    :return: ARN of the user's current IAM role.
     """
     sess = boto3.Session()
     sts_client = sess.client("sts")
@@ -392,10 +392,10 @@ def _make_tarfile(output_filename, source_dir):
 def _upload_s3(local_model_path, bucket, prefix):
     """
     Upload dir to S3 as .tar.gz.
-    :param local_model_path: local path to a dir.
+    :param local_model_path: Local path to a dir.
     :param bucket: S3 bucket where to store the data.
-    :param prefix: path within the bucket.
-    :return: s3 path of the uploaded artifact
+    :param prefix: Path within the bucket.
+    :return: S3 path of the uploaded artifact.
     """
     sess = boto3.Session()
     with TempDir() as tmp:
@@ -421,9 +421,9 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     Deploy model on sagemaker.
     :param role: SageMaker execution ARN role
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into
-    :param app_name: Name of the deployed app
-    :param model_s3_path: s3 path where we stored the model artifacts
-    :param run_id: RunId that generated this model
+    :param app_name: Name of the deployed app.
+    :param model_s3_path: S3 path where we stored the model artifacts.
+    :param run_id: Run ID that generated this model.
     :param mode: The mode in which to deploy the application.
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
                     (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
@@ -480,8 +480,8 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
 
 def _get_sagemaker_resource_unique_id():
     """
-    :return: A unique identifier that can be appended to a user-readable
-    resource name to avoid naming collisions.
+    :return: A unique identifier that can be appended to a user-readable resource name to avoid
+             naming collisions.
     """
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the
@@ -509,9 +509,9 @@ def _get_sagemaker_config_name(endpoint_name):
 def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
                                instance_count, role, sage_client):
     """
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into
-    :param model_s3_path: s3 path where we stored the model artifacts
-    :param run_id: RunId that generated this model
+    :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
+    :param model_s3_path: S3 path where we stored the model artifacts.
+    :param run_id: Run ID that generated this model.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param role: SageMaker execution ARN role
@@ -561,9 +561,9 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
                                instance_count, mode, archive, role, sage_client, s3_client):
     """
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into
-    :param model_s3_path: s3 path where we stored the model artifacts
-    :param run_id: RunId that generated this model
+    :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
+    :param model_s3_path: S3 path where we stored the model artifacts
+    :param run_id: Run ID that generated this model
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
@@ -571,9 +571,9 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
                     (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
                     will be preserved. If False, these resources will be deleted.
-    :param role: SageMaker execution ARN role
-    :param sage_client: A boto3 client for SageMaker
-    :param s3_client: A boto3 client for S3
+    :param role: SageMaker execution ARN role.
+    :param sage_client: A boto3 client for SageMaker.
+    :param s3_client: A boto3 client for S3.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(
@@ -657,9 +657,9 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execution_role,
                             sage_client):
     """
-    :param model_s3_path: s3 path where we stored the model artifacts
-    :param run_id: RunId that generated this model
-    :param image_url: URL of the ECR-hosted docker image that will serve as the
+    :param model_s3_path: S3 path where the model artifacts are stored
+    :param run_id: Run ID that generated this model
+    :param image_url: URL of the ECR-hosted Docker image that will serve as the
                       model's container
     :param execution_role: The ARN of the role that SageMaker will assume when creating the model
     :param sage_client: A boto3 client for SageMaker
@@ -681,9 +681,9 @@ def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execut
 
 def _delete_sagemaker_model(model_name, sage_client, s3_client):
     """
-    :param sage_client: A boto3 client for SageMaker
-    :param s3_client: A boto3 client for S3
-    :return: ARN of the deleted model
+    :param sage_client: A boto3 client for SageMaker.
+    :param s3_client: A boto3 client for S3.
+    :return: ARN of the deleted model.
     """
     model_info = sage_client.describe_model(ModelName=model_name)
     model_arn = model_info["ModelArn"]
