@@ -56,7 +56,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
-        if use_conda:
+        if use_conda and project.conda_env:
             _maybe_create_conda_env(conda_env_path=os.path.join(work_dir, project.conda_env))
         if run_id:
             active_run = tracking._get_existing_run(run_id)
@@ -309,7 +309,7 @@ def _get_entry_point_command(project_dir, entry_point, use_conda, parameters, st
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
     commands = []
-    if use_conda:
+    if use_conda and project.conda_env:
         conda_env_path = os.path.abspath(os.path.join(project_dir, project.conda_env))
         commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
     commands.append(
