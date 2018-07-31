@@ -7,7 +7,6 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.utils.logging_utils import eprint
 
 
-
 class SubmittedRun(object):
     """
     Class wrapping a MLflow project run (e.g. a subprocess running an entry point
