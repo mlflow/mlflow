@@ -26,13 +26,10 @@ def _assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
-<<<<<<< HEAD
 def _paths_equal(expected, actual):
     return os.path.realpath(expected) == os.path.realpath(actual)
 
 
-=======
->>>>>>> master
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
         return "%s#%s" % (base_uri, subdirectory)
@@ -68,39 +65,34 @@ def test_fetch_project(tmpdir):
                  (TEST_DIR, 'resources/example_project', TEST_PROJECT_DIR)]
     for base_uri, subdirectory, expected in test_list:
         work_dir = mlflow.projects._fetch_project(
-            uri=_build_uri(base_uri, subdirectory), use_temp_cwd=True)
+            uri=_build_uri(base_uri, subdirectory))
         _assert_dirs_equal(expected=expected, actual=work_dir)
 
     # Verify that runs fail if given incorrect subdirectories via the `#` character.
     for base_uri in [TEST_PROJECT_DIR, git_repo_uri]:
         with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(uri=_build_uri(base_uri, "fake"), use_temp_cwd=False)
+            mlflow.projects._fetch_project(uri=_build_uri(base_uri, "fake"))
 
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
         mlflow.projects._fetch_project(
-            uri=TEST_PROJECT_DIR, use_temp_cwd=True, version="version",)
+            uri=TEST_PROJECT_DIR, version="version",)
 
     # Passing only one of git_username, git_password results in an error
     for username, password in [(None, "hi"), ("hi", None)]:
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(
-                git_repo_uri, use_temp_cwd=True, git_username=username, git_password=password)
+                git_repo_uri, git_username=username, git_password=password)
 
 
 def test_handling_mlruns(tmpdir):
-    # Fetching a local project containing an "mlruns" folder does not remove the "mlruns" folder
+    # Fetching a project containing an "mlruns" folder into a temporary dir excludes the "mlruns"
+    # folder but not others
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
     src_dir.join("MLproject").write("dummy MLproject contents")
     dst_dir = mlflow.projects._fetch_project(
-        uri=src_dir.strpath, version=None, git_username=None, git_password=None, use_temp_cwd=False)
-    assert _paths_equal(src_dir.strpath, dst_dir)
-    _assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
-    # Fetching a project containing an "mlruns" folder into a temporary dir excludes the "mlruns"
-    # folder but not others
-    dst_dir = mlflow.projects._fetch_project(
-        uri=src_dir.strpath, version=None, git_username=None, git_password=None, use_temp_cwd=True)
+        uri=src_dir.strpath, version=None, git_username=None, git_password=None)
     assert not _paths_equal(src_dir.strpath, dst_dir)
     dir_comparison = filecmp.dircmp(src_dir, dst_dir)
     assert dir_comparison.left_only == ["mlruns"]
@@ -206,17 +198,6 @@ def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     # Try cancelling after calling wait()
     submitted_run1.cancel()
     validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
-
-
-def test_get_dest_dir():
-    """ Test that we correctly determine the dest directory to use when fetching a project. """
-    for use_temp_cwd, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
-        dest_dir = mlflow.projects._get_dest_dir(uri=uri, use_temp_cwd=use_temp_cwd)
-        assert dest_dir != uri
-        assert os.path.exists(dest_dir)
-    for use_temp_cwd, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
-        assert mlflow.projects._get_dest_dir(uri=uri, use_temp_cwd=use_temp_cwd) ==\
-               os.path.abspath(TEST_PROJECT_DIR)
 
 
 def test_storage_dir(tmpdir):

@@ -62,12 +62,6 @@ def cli():
               help="If specified, will assume that MLflow is running within a Conda environment "
                    "with the necessary dependencies for the current project instead of attempting "
                    "to create a new conda environment. Only valid if running locally.")
-@click.option("--new-dir", is_flag=True,
-              help="Only valid when `mode` is 'local' and `uri` points to a local directory."
-                   "If specified, copies the project into a temporary working directory and "
-                   "runs it from there. Otherwise, uses `uri` as the working directory when "
-                   "running the project. Note that Git projects are always run from a temporary "
-                   "working directory.")
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when `mode` is local."
                    "MLflow will download artifacts from distributed URIs passed to parameters of "
@@ -77,7 +71,7 @@ def cli():
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, new_dir, storage_dir, run_id):
+        git_password, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -113,7 +107,6 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             git_username=git_username,
             git_password=git_password,
             use_conda=(not no_conda),
-            use_temp_cwd=new_dir,
             storage_dir=storage_dir,
             block=True,
             run_id=run_id,
