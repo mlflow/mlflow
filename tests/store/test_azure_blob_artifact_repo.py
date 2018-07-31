@@ -23,19 +23,52 @@ class MockBlobList(object):
 
 @pytest.fixture
 def mock_client():
-    # Make sure that the environment variable isn't set to actually access Azure
-    old_env_var = os.environ.get('AZURE_STORAGE_ACCESS_KEY')
-    os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
+    # Make sure that our environment variable aren't set to actually access Azure
+    old_access_key = os.environ.get('AZURE_STORAGE_ACCESS_KEY')
+    if old_access_key is not None:
+        del os.environ['AZURE_STORAGE_ACCESS_KEY']
+    old_conn_string = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
+    if old_conn_string is not None:
+        del os.environ['AZURE_STORAGE_CONNECTION_STRING']
 
     yield mock.MagicMock(autospec=BlockBlobService)
 
-    if old_env_var:
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = old_env_var
+    if old_access_key is not None:
+        os.environ['AZURE_STORAGE_ACCESS_KEY'] = old_access_key
+    if old_conn_string is not None:
+        os.environ['AZURE_STORAGE_CONNECTION_STRING'] = old_conn_string
 
 
 def test_artifact_uri_factory():
     repo = ArtifactRepository.from_artifact_uri(TEST_URI)
     assert isinstance(repo, AzureBlobArtifactRepository)
+
+
+def test_exception_if_no_env_vars(mock_client):
+    # pylint: disable=unused-argument
+    # We pass in the mock_client here to clear Azure environment variables, but we don't use it
+    with pytest.raises(Exception, match="AZURE_STORAGE_CONNECTION_STRING"):
+        AzureBlobArtifactRepository(TEST_URI)
+
+
+def test_parse_wasbs_uri():
+    parse = AzureBlobArtifactRepository.parse_wasbs_uri
+    assert parse("wasbs://cont@acct.blob.core.windows.net/path") == ("cont", "acct", "path")
+    assert parse("wasbs://cont@acct.blob.core.windows.net") == ("cont", "acct", "")
+    assert parse("wasbs://cont@acct.blob.core.windows.net/") == ("cont", "acct", "")
+    assert parse("wasbs://cont@acct.blob.core.windows.net/a/b") == ("cont", "acct", "a/b")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct.blob.core.evil.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://acct.blob.core.windows.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://@acct.blob.core.windows.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acctxblob.core.windows.net/path")
+    with pytest.raises(Exception, match="Not a WASBS URI"):
+        parse("wasb://cont@acct.blob.core.windows.net/path")
 
 
 def test_list_artifacts_empty(mock_client):
