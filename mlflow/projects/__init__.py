@@ -121,7 +121,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the given run ID will be used instead of
                    creating a new run.
-    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run. 
+    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run.
               The returned ``SubmittedRun`` is not thread-safe.
     """
     submitted_run_obj = _run(
@@ -348,7 +348,7 @@ def _build_mlflow_run_cmd(
 
 def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     """
-    Invoke ``mlflow run`` in a subprocess, which will in turn run the entry point in a child process.
+    Invoke ``mlflow run`` in a subprocess, which in turn runs the entry point in a child process.
     Returns a handle to the subprocess. Popen launched to invoke ``mlflow run``.
     """
     final_env = os.environ.copy()
