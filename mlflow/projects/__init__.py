@@ -57,6 +57,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
         if use_conda:
+            if not project.conda_env:
+                raise ExecutionException(
+                    "MLproject file must have a 'conda_env' field containing the path to a "
+                    "YAML conda environment file.")
             _maybe_create_conda_env(conda_env_path=os.path.join(work_dir, project.conda_env))
         if run_id:
             active_run = tracking._get_existing_run(run_id)
