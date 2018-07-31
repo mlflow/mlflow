@@ -244,10 +244,12 @@ these are available. See
 Azure Blob Storage
 ~~~~~~~~~~~~~~~~~~
 Use a URI of the form ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>`` to store
-artifacts in Azure Blob Storage. MLflow will look for your Azure Storage access key in the environment
-variable ``AZURE_STORAGE_ACCESS_KEY`` to access this container on both the client and the server.
-You will also need to ``pip install azure-storage`` separately (on both your client and the server)
-to access Azure Blob Storage; MLflow does not declare a dependency on this package by default.
+artifacts in Azure Blob Storage. MLflow will look for your Azure Storage access credentials in the
+``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
+a connection string if one is set), so you will need to set one of these variables on both your client
+application and your MLflow tracking server. Finally, you will need to ``pip install azure-storage``
+separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
+a dependency on this package by default.
 
 Google Cloud Storage
 ~~~~~~~~~~~~~~~~~~~~
