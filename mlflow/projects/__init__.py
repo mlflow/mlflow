@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 
@@ -57,11 +56,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
         if use_conda:
-            if not project.conda_env:
-                raise ExecutionException(
-                    "MLproject file must have a 'conda_env' field containing the path to a "
-                    "YAML conda environment file.")
-            _maybe_create_conda_env(conda_env_path=os.path.join(work_dir, project.conda_env))
+            _maybe_create_conda_env(work_dir)
         if run_id:
             active_run = tracking._get_existing_run(run_id)
         else:
@@ -262,10 +257,20 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         repo.heads.master.checkout()
 
 
-def _get_conda_env_name(conda_env_path):
-    with open(conda_env_path) as conda_env_file:
-        conda_env_hash = hashlib.sha1(conda_env_file.read().encode("utf-8")).hexdigest()
-    return "mlflow-%s" % conda_env_hash
+def _get_conda_env_path(project_dir):
+    project = _load_project(project_dir)
+    if project.conda_env:
+        return os.abspath(os.path.join(project_dir, project.conda_env))
+    return None
+
+
+def _get_conda_env_name(project_dir):
+    project = _load_project(project_dir)
+    conda_env_contents = ""
+    if project.conda_env:
+        with open(os.path.join(project_dir, project.conda_env)) as conda_env_file:
+            conda_env_contents = conda_env_file.read()
+    return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
 def _conda_executable():
@@ -276,8 +281,8 @@ def _conda_executable():
     return os.environ.get(MLFLOW_CONDA, "conda")
 
 
-def _maybe_create_conda_env(conda_env_path):
-    conda_env = _get_conda_env_name(conda_env_path)
+def _maybe_create_conda_env(project_dir):
+    conda_env_name = _get_conda_env_name(project_dir)
     conda_path = _conda_executable()
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
@@ -291,11 +296,14 @@ def _maybe_create_conda_env(conda_env_path):
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
-    conda_action = 'create'
-    if conda_env not in env_names:
-        eprint('=== Creating conda environment %s ===' % conda_env)
-        process.exec_cmd([conda_path, "env", conda_action, "-n", conda_env, "--file",
-                          conda_env_path], stream_output=True)
+    if conda_env_name not in env_names:
+        eprint('=== Creating conda environment %s ===' % conda_env_name)
+        conda_env_path = _get_conda_env_path(project_dir)
+        if conda_env_path:
+            process.exec_cmd([conda_path, "env", "create", "-n", conda_env_name, "--file",
+                              conda_env_path], stream_output=True)
+        else:
+            process.exec_cmd([conda_path, "create", "-n", conda_env_name], stream_output=True)
 
 
 def _maybe_set_run_terminated(active_run, status):
@@ -308,14 +316,13 @@ def _maybe_set_run_terminated(active_run, status):
 
 
 def _get_entry_point_command(project_dir, entry_point, use_conda, parameters, storage_dir):
-    project = _load_project(project_dir=project_dir)
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
+    project = _load_project(project_dir)
     commands = []
     if use_conda:
-        conda_env_path = os.path.abspath(os.path.join(project_dir, project.conda_env))
-        commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
+        commands.append("source activate %s" % _get_conda_env_name(project_dir))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     return " && ".join(commands)
