@@ -121,18 +121,18 @@ def test_log_artifact(mock_client, tmpdir):
 def test_log_artifacts(mock_client, tmpdir):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 
-    subd = tmpdir.mkdir("data").mkdir("subdir")
-    subd.join("a.txt").write("A")
+    parentd = tmpdir.mkdir("data")
+    subd = parentd.mkdir("subdir")
+    parentd.join("a.txt").write("A")
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
-    subd_path = subd.strpath
 
-    repo.log_artifacts(subd_path)
+    repo.log_artifacts(parentd.strpath)
 
     mock_client.create_blob_from_path.assert_has_calls([
-        mock.call("container", TEST_ROOT_PATH + "/a.txt", subd_path + "/a.txt"),
-        mock.call("container", TEST_ROOT_PATH + "/b.txt", subd_path + "/b.txt"),
-        mock.call("container", TEST_ROOT_PATH + "/c.txt", subd_path + "/c.txt"),
+        mock.call("container", TEST_ROOT_PATH + "/a.txt", parentd.strpath + "/a.txt"),
+        mock.call("container", TEST_ROOT_PATH + "/subdir/b.txt", subd.strpath + "/b.txt"),
+        mock.call("container", TEST_ROOT_PATH + "/subdir/c.txt", subd.strpath + "/c.txt"),
     ], any_order=True)
 
 
