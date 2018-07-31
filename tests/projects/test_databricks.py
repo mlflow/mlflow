@@ -164,7 +164,6 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
 
 
-@pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks(
         auth_available_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
@@ -175,23 +174,25 @@ def test_run_databricks(
     for run_succeeded, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
         runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
         submitted_run = run_databricks_project(cluster_spec_mock)
-        submitted_run.wait()
+        assert submitted_run.wait() == run_succeeded
         assert runs_submit_mock.call_count == 1
         runs_submit_mock.reset_mock()
         validate_exit_status(submitted_run.get_status(), expected_status)
 
 
-@pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks_cancel(
         auth_available_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, create_run_mock,  # pylint: disable=unused-argument
         runs_submit_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
         runs_get_mock, cluster_spec_mock):
-    # Test that MLflow properly handles Databricks run cancellation
-    runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
+    # Test that MLflow properly handles Databricks run cancellation. We mock the result of
+    # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
+    # waiting for run status.
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     submitted_run = run_databricks_project(cluster_spec_mock)
     submitted_run.cancel()
     validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
+    assert runs_cancel_mock.call_count == 1
     # Test that we raise an exception when a blocking Databricks run fails
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     with pytest.raises(mlflow.projects.ExecutionException):

@@ -8,11 +8,11 @@ import time
 
 from six.moves import shlex_quote, urllib
 
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
-from mlflow.projects import ExecutionException, _fetch_project, _get_dest_dir, _load_project,\
-    _expand_uri, _parse_subdirectory
-from mlflow.projects.pollable_run import DatabricksPollableRun
+
+from mlflow.projects import ExecutionException, _fetch_project, _load_project, _expand_uri
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
 from mlflow.utils.logging_utils import eprint
@@ -47,7 +47,7 @@ def _jobs_runs_submit(req_body_json):
         endpoint="jobs/runs/submit", method="POST", req_body_json=req_body_json)
 
 
-def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, parameters):
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     """
     Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
     """
@@ -58,6 +58,8 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, entry_point, parameters):
     project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir, "--new-dir",
                                             "--entry-point", entry_point]))
+    if run_id:
+        mlflow_run_arr.extend(["--run-id", run_id])
     if parameters:
         for key, value in parameters.items():
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
@@ -227,12 +229,9 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
                                  "on Databricks.")
 
     # Fetch the project into work_dir & validate parameters
-    dst_dir = _get_dest_dir(uri, use_temp_cwd=True)
-    parsed_uri, subdirectory = _parse_subdirectory(uri)
-    expanded_uri = _expand_uri(parsed_uri)
-    work_dir = _fetch_project(
-        expanded_uri, subdirectory, version, dst_dir, git_username, git_password)
-    project = _load_project(work_dir, uri)
+    work_dir = _fetch_project(uri=uri, use_temp_cwd=True, version=version,
+                              git_username=git_username, git_password=git_password)
+    project = _load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     # Upload the project to DBFS, get the URI of the project
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)
@@ -261,16 +260,18 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
                    "%s. " % cluster_spec)
             raise
     fuse_dst_dir = os.path.join("/dbfs/", _parse_dbfs_uri_path(dbfs_project_uri).lstrip("/"))
-    command = _get_databricks_run_cmd(fuse_dst_dir, entry_point, parameters)
+    final_run_id = remote_run.run_info.run_uuid if remote_run else None
+    command = _get_databricks_run_cmd(fuse_dst_dir, final_run_id, entry_point, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id))
+    run_id = remote_run.run_info.run_uuid if remote_run else None
+    return DatabricksSubmittedRun(db_run_id, run_id)
 
 
-def cancel_databricks(databricks_run_id):
+def _cancel_databricks(databricks_run_id):
     _jobs_runs_cancel(databricks_run_id)
 
 
-def monitor_databricks(databricks_run_id, sleep_interval=30):
+def _monitor_databricks(databricks_run_id, sleep_interval=30):
     """
     Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
     run's status every `sleep_interval` seconds.
@@ -280,3 +281,33 @@ def monitor_databricks(databricks_run_id, sleep_interval=30):
         time.sleep(sleep_interval)
         result_state = _get_run_result_state(databricks_run_id)
     return result_state == "SUCCESS"
+
+
+class DatabricksSubmittedRun(SubmittedRun):
+    """
+    Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
+    project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
+    server accessible to the local client.
+    """
+    def __init__(self, databricks_run_id, run_id):
+        super(DatabricksSubmittedRun, self).__init__()
+        self.databricks_run_id = databricks_run_id
+        self.run_id = run_id
+
+    def wait(self):
+        return _monitor_databricks(self.databricks_run_id)
+
+    def cancel(self):
+        _cancel_databricks(self.databricks_run_id)
+        self.wait()
+
+    def _get_status(self):
+        run_state = _get_run_result_state(self.databricks_run_id)
+        if run_state is None:
+            return RunStatus.RUNNING
+        if run_state == "SUCCESS":
+            return RunStatus.FINISHED
+        return RunStatus.FAILED
+
+    def get_status(self):
+        return RunStatus.to_string(self._get_status())
