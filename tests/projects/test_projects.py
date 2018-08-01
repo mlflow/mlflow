@@ -1,5 +1,4 @@
 import os
-import filecmp
 import git
 import tempfile
 
@@ -14,16 +13,9 @@ from mlflow.projects import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, validate_exit_status
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, validate_exit_status,\
+    assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
-
-def _assert_dirs_equal(expected, actual):
-    dir_comparison = filecmp.dircmp(expected, actual)
-    assert len(dir_comparison.left_only) == 0
-    assert len(dir_comparison.right_only) == 0
-    assert len(dir_comparison.diff_files) == 0
-    assert len(dir_comparison.funny_files) == 0
 
 
 def _build_uri(base_uri, subdirectory):
@@ -63,7 +55,7 @@ def test_fetch_project(local_git_repo, local_git_repo_uri):
     for base_uri, subdirectory, expected in test_list:
         work_dir = mlflow.projects._fetch_project(
             uri=_build_uri(base_uri, subdirectory), force_tempdir=False)
-        _assert_dirs_equal(expected=expected, actual=work_dir)
+        assert_dirs_equal(expected=expected, actual=work_dir)
     # Test that we correctly determine the dest directory to use when fetching a project.
     for force_tempdir, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
         dest_dir = mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir)
@@ -100,7 +92,7 @@ def test_dont_remove_mlruns(tmpdir):
     dst_dir = mlflow.projects._fetch_project(
         uri=src_dir.strpath, version=None, git_username=None,
         git_password=None, force_tempdir=False)
-    _assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
+    assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
 
 
 def test_parse_subdirectory():

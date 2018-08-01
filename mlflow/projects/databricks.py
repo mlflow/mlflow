@@ -56,7 +56,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     container_tar_path = os.path.abspath(os.path.join(DB_TARFILE_BASE,
                                                       os.path.basename(dbfs_fuse_tar_uri)))
     project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
-    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir, "--new-dir",
+    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
                                             "--entry-point", entry_point]))
     if run_id:
         mlflow_run_arr.extend(["--run-id", run_id])
@@ -217,6 +217,21 @@ def _parse_dbfs_uri_path(dbfs_uri):
     return urllib.parse.urlparse(dbfs_uri).path
 
 
+def _fetch_and_clean_project(uri, version=None, git_username=None, git_password=None):
+    """
+    Fetches the project at the passed-in URI & prepares it for upload to DBFS. Returns the path of
+    the temporary directory into which the project was fetched.
+    """
+    work_dir = _fetch_project(
+        uri=uri, force_tempdir=True, version=version, git_username=git_username,
+        git_password=git_password)
+    # Remove the mlruns directory from the fetched project to avoid cache-busting
+    mlruns_dir = os.path.join(work_dir, "mlruns")
+    if os.path.exists(mlruns_dir):
+        shutil.rmtree(mlruns_dir)
+    return work_dir
+
+
 def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                    git_username, git_password):
     """
@@ -227,16 +242,10 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
                                  "on Databricks.")
-    # Fetch the project into temporary work_dir & validate parameters
-    work_dir = _fetch_project(
-        uri=uri, force_tempdir=True, version=version, git_username=git_username,
-        git_password=git_password)
-    mlruns_dir = os.path.join(work_dir, "mlruns")
-    if os.path.exists(mlruns_dir):
-        shutil.rmtree(mlruns_dir)
+    work_dir = _fetch_and_clean_project(
+        uri=uri, version=version, git_username=git_username, git_password=git_password)
     project = _load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
-    # Upload the project to DBFS, get the URI of the project
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)
 
     # Create run object with remote tracking server. Get the git commit from the working directory,

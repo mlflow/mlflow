@@ -188,11 +188,15 @@ def _is_local_path(uri):
 def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
+    :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
+                          will fetch Git projects into a temporary directory but simply return the
+                          path of local projects (i.e. perform a no-op for local projects).
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = force_tempdir or not _is_local_path(uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else urllib.parse.urlparse(uri).path
-    eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
+    if use_temp_dst_dir:
+        eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
     # Download a project to the target `dst_dir` from a Git URI or local path.
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
