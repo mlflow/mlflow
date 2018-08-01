@@ -22,6 +22,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.version import VERSION as MLFLOW_VERSION
 
+# Supported versions are listed at https://conda.io/docs/user-guide/tasks/manage-python.html
 SUPPORTED_CONDA_PY_VERSIONS = [2.7, 3.4, 3.5, 3.6]
 
 def _init(cmd):
