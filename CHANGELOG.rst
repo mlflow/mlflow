@@ -18,6 +18,7 @@ Breaking changes:
 
 
 Features:
+
 - [Examples] Add a more advanced tracking example: using MLflow with PyTorch and TensorBoard (#203)
 - [Models] H2O model support (#170, @ToonKBC)
 - [Projects] Support for running projects in subdirectories of Git repos (#153, @juntai-zheng)
