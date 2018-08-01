@@ -10,6 +10,7 @@ import uuid
 import base64
 import boto3
 import mlflow
+import mlflow.version
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
