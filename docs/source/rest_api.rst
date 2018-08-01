@@ -6,7 +6,7 @@ REST API
 ========
 
 
-MLflow's REST API allows you to create, list, and get experiments and runs; and log params, metrics, and artifacts.
+The MLflow REST API allows you to create, list, and get experiments and runs, and log params, metrics, and artifacts.
 
 .. contents:: Table of Contents
     :local:
@@ -28,11 +28,8 @@ Create Experiment
 | ``2.0/preview/mlflow/experiments/create`` | ``POST``    |
 +-------------------------------------------+-------------+
 
-Creates an new Experiment with a given name and returns the ID of the newly created experiment.
-Backend validates that another experiment with the same name does not already exist.
-
-
-Fails if another experiment with the same name already exists.
+Create an experiment with a name. Returns the ID of the newly created experiment.
+Validates that another experiment with the same name does not already exist and fails if another experiment with the same name already exists.
 
 
 
@@ -49,7 +46,7 @@ Request Structure
 +------------+------------+-------------------------+
 | Field Name |    Type    |       Description       |
 +============+============+=========================+
-| name       | ``STRING`` |                         |
+| name       | ``STRING`` | Experiment name.        |
 |            |            | This field is required. |
 |            |            |                         |
 +------------+------------+-------------------------+
@@ -85,7 +82,7 @@ List Experiments
 | ``2.0/preview/mlflow/experiments/list`` | ``GET``     |
 +-----------------------------------------+-------------+
 
-Returns a list of all experiments.
+Return a list of all experiments.
 
 
 
@@ -114,7 +111,7 @@ Response Structure
 Get Experiment
 ==============
 
-Get meta data for experiment and a list of runs for this experiment.
+Get metadata for an experiment and a list of runs for the experiment.
 
 +----------------------------------------+-------------+
 |                Endpoint                | HTTP Method |
@@ -140,7 +137,7 @@ Request Structure
 +---------------+-----------+---------------------------------+
 |  Field Name   |   Type    |           Description           |
 +===============+===========+=================================+
-| experiment_id | ``INT64`` | Identifier to get an experiment |
+| experiment_id | ``INT64`` | Identifier to get an experiment.|
 |               |           | This field is required.         |
 |               |           |                                 |
 +---------------+-----------+---------------------------------+
@@ -158,9 +155,9 @@ Response Structure
 +------------+----------------------------------+--------------------------------------------------------------------+
 | Field Name |               Type               |                            Description                             |
 +============+==================================+====================================================================+
-| experiment | :ref:`mlflowexperiment`          | Returns experiment details                                         |
+| experiment | :ref:`mlflowexperiment`          | Experiment details.                                                |
 +------------+----------------------------------+--------------------------------------------------------------------+
-| runs       | An array of :ref:`mlflowruninfo` | All (max limit to be imposed) runs associated with this experiment |
+| runs       | An array of :ref:`mlflowruninfo` | All (max limit to be imposed) runs associated with this experiment.|
 +------------+----------------------------------+--------------------------------------------------------------------+
 
 ===========================
@@ -197,7 +194,7 @@ Request Structure
 +------------------+---------------------------------+---------------------------------------------------------+
 | user_id          | ``STRING``                      | User ID or LDAP for the user executing the run.         |
 +------------------+---------------------------------+---------------------------------------------------------+
-| run_name         | ``STRING``                      | Human readable name for run.                            |
+| run_name         | ``STRING``                      | Human readable name for a run.                          |
 +------------------+---------------------------------+---------------------------------------------------------+
 | source_type      | :ref:`mlflowsourcetype`         | Originating source for this run. One of ``Notebook``,   |
 |                  |                                 | ``Job``, ``Project``, ``Local`` or ``Unknown``.         |
@@ -210,7 +207,7 @@ Request Structure
 +------------------+---------------------------------+---------------------------------------------------------+
 | start_time       | ``INT64``                       | Unix timestamp of when the run started in milliseconds. |
 +------------------+---------------------------------+---------------------------------------------------------+
-| end_time         | ``INT64``                       | Unix timestamp of when the run ended in milliseconds    |
+| end_time         | ``INT64``                       | Unix timestamp of when the run ended in milliseconds.   |
 +------------------+---------------------------------+---------------------------------------------------------+
 | source_version   | ``STRING``                      | Git version of the source code used to create run.      |
 +------------------+---------------------------------+---------------------------------------------------------+
@@ -240,7 +237,7 @@ Response Structure
 +------------+----------------------+----------------------------------------+
 | Field Name |         Type         | Description                            |
 +============+======================+========================================+
-| run_info   | :ref:`mlflowruninfo` | Meta data of the newly created run.    |
+| run_info   | :ref:`mlflowruninfo` | Metadata of the newly created run.     |
 +------------+----------------------+----------------------------------------+
 
 ===========================
@@ -259,7 +256,7 @@ Get Run
 | ``2.0/preview/mlflow/runs/get`` | ``GET``     |
 +---------------------------------+-------------+
 
-Get meta data, params, tags, and metrics for run. Only last logged value for each  metric is returned.
+Get metadata, params, tags, and metrics for run. Only last logged value for each  metric is returned.
 
 
 
@@ -276,7 +273,7 @@ Request Structure
 +------------+------------+-------------------------+
 | Field Name |    Type    |       Description       |
 +============+============+=========================+
-| run_uuid   | ``STRING`` |                         |
+| run_uuid   | ``STRING`` | Run UUID.               |
 |            |            | This field is required. |
 |            |            |                         |
 +------------+------------+-------------------------+
@@ -294,7 +291,7 @@ Response Structure
 +------------+------------------+---------------------+
 | Field Name |       Type       |     Description     |
 +============+==================+=====================+
-| run        | :ref:`mlflowrun` | Returns run details |
+| run        | :ref:`mlflowrun` | Run details.        |
 +------------+------------------+---------------------+
 
 ===========================
@@ -313,8 +310,8 @@ Log Metric
 | ``2.0/preview/mlflow/runs/log-metric`` | ``POST``    |
 +----------------------------------------+-------------+
 
-API to log a metric for a run. Metrics key-value pair that record a single ``float`` measure.
-During a single execution of a run, a particular metric can be logged several times. Backend will keep track
+Log a metric for a run. Metrics key-value pair that record a single ``float`` measure.
+During a single execution of a run, a particular metric can be logged several times. Backend keeps track
 of historical values along with timestamps.
 
 
@@ -355,7 +352,7 @@ Log Parameter
 +-------------------------------------------+-------------+
 
 
-API to log a parameter used for this run. Examples are params and hyperparams used for ML training, or
+Log a parameter used for this run. Examples are params and hyperparameters used for ML training, or
 constant dates and values used in an ETL pipeline. A params is a ``STRING`` key-value pair.
 For a run, a single parameter is allowed to be logged only once.
 
@@ -373,7 +370,7 @@ Request Structure
 +==================+====================+=========================================================+
 | run_uuid         | ``STRING``         | Unique ID for the run for which parameter is recorded.  |
 +------------------+--------------------+---------------------------------------------------------+
-| key              | ``STRING``         | Name of the paramter.                                   |
+| key              | ``STRING``         | Name of the parameter.                                  |
 +------------------+--------------------+---------------------------------------------------------+
 | value            | ``STRING``         | String value of the parameter.                          |
 +------------------+--------------------+---------------------------------------------------------+
@@ -394,8 +391,8 @@ Get Metric
 | ``2.0/preview/mlflow/metrics/get`` | ``GET``     |
 +------------------------------------+-------------+
 
-API to retrieve the logged value for a metric during a run. For a run, if this metric is logged more than once,
-this API will retrieve only the latest value logged.
+Retrieve the logged value for a metric during a run. For a run, if this metric is logged more than once,
+this API retrieves only the latest value logged.
 
 
 
@@ -424,7 +421,7 @@ Response Structure
 +------------+---------------------+------------------------+
 | Field Name |        Type         |      Description       |
 +============+=====================+========================+
-| metric     | :ref:`mlflowmetric` | Latest reported metric |
+| metric     | :ref:`mlflowmetric` | Latest reported metric.|
 +------------+---------------------+------------------------+
 
 ===========================
@@ -443,8 +440,7 @@ Get Metrics History
 | ``2.0/preview/mlflow/metrics/get-history`` | ``GET``     |
 +--------------------------------------------+-------------+
 
-For cases that a metric is logged more than once during a run, this API can be used to retrieve all logged
-values for this metric.
+Retrieve all logged values for a metric.
 
 
 .. _mlflowGetMetricHistory:
@@ -471,7 +467,7 @@ Response Structure
 +------------+---------------------------------+-------------------------------------+
 | Field Name |              Type               |             Description             |
 +============+=================================+=====================================+
-| metrics    | An array of :ref:`mlflowmetric` | All logged values for this metric   |
+| metrics    | An array of :ref:`mlflowmetric` | All logged values for this metric.  |
 +------------+---------------------------------+-------------------------------------+
 
 ===========================
@@ -500,13 +496,13 @@ Request Structure
 
 
 
-+-------------------+-------------------------------------------+-------------+
-|    Field Name     |                   Type                    | Description |
-+===================+===========================================+=============+
-| experiment_ids    | An array of ``INT64``                     |             |
-+-------------------+-------------------------------------------+-------------+
-| anded_expressions | An array of :ref:`mlflowsearchexpression` |             |
-+-------------------+-------------------------------------------+-------------+
++-------------------+-------------------------------------------+--------------------------------------------------+
+|    Field Name     |                   Type                    | Description                                      |
++===================+===========================================+==================================================+
+| experiment_ids    | An array of ``INT64``                     | Identifier to get an experiment.                 |
++-------------------+-------------------------------------------+--------------------------------------------------+
+| anded_expressions | An array of :ref:`mlflowsearchexpression` | Expressions describing runs.                     |
++-------------------+-------------------------------------------+--------------------------------------------------+
 
 .. _mlflowSearchRunsResponse:
 
@@ -521,7 +517,7 @@ Response Structure
 +------------+------------------------------+--------------------------------------+
 | Field Name |             Type             | Description                          |
 +============+==============================+======================================+
-| runs       | An array of :ref:`mlflowrun` |  Runs that match the search criteria |
+| runs       | An array of :ref:`mlflowrun` | Runs that match the search criteria. |
 +------------+------------------------------+--------------------------------------+
 
 ===========================
@@ -558,9 +554,9 @@ Request Structure
 +------------+------------+---------------------------------------------------------+
 | Field Name |    Type    |                       Description                       |
 +============+============+=========================================================+
-| run_uuid   | ``STRING`` |                                                         |
+| run_uuid   | ``STRING`` | Run UUID.                                               |
 +------------+------------+---------------------------------------------------------+
-| path       | ``STRING`` | This is the relative_path to the output base directory. |
+| path       | ``STRING`` | The relative_path to the output base directory.         |
 +------------+------------+---------------------------------------------------------+
 
 .. _mlflowListArtifactsResponse:
@@ -574,7 +570,7 @@ Response Structure
 +------------+-----------------------------------+------------------------------------------------+
 | Field Name |               Type                |                  Description                   |
 +============+===================================+================================================+
-| root_uri   | ``STRING``                        | This is the root output directory for the run. |
+| root_uri   | ``STRING``                        | The root output directory for the run.         |
 +------------+-----------------------------------+------------------------------------------------+
 | files      | An array of :ref:`mlflowfileinfo` | File location and metadata for artifacts.      |
 +------------+-----------------------------------+------------------------------------------------+
@@ -613,7 +609,7 @@ Request Structure
 +------------+------------+--------------------------------------------+
 | Field Name |    Type    | Description                                |
 +============+============+============================================+
-| run_uuid   | ``STRING`` |                                            |
+| run_uuid   | ``STRING`` | Run UUID.                                  |
 +------------+------------+--------------------------------------------+
 | path       | ``STRING`` | Relative path from root artifact location. |
 +------------+------------+--------------------------------------------+
@@ -644,13 +640,13 @@ Request Structure
 +------------+------------------------+------------------------------------------------------+
 | Field Name |          Type          |       Description                                    |
 +============+========================+======================================================+
-| run_uuid   | ``STRING``             |                                                      |
+| run_uuid   | ``STRING``             | Run UUID.                                            |
 |            |                        | This field is required.                              |
 |            |                        |                                                      |
 +------------+------------------------+------------------------------------------------------+
-| status     | :ref:`mlflowrunstatus` |  Updated status of the run.                          |
+| status     | :ref:`mlflowrunstatus` | Updated status of the run.                           |
 +------------+------------------------+------------------------------------------------------+
-| end_time   | ``INT64``              | Unix timestamp of when the run ended in milliseconds |
+| end_time   | ``INT64``              | Unix timestamp of when the run ended in milliseconds.|
 +------------+------------------------+------------------------------------------------------+
 
 .. _Mlflowadd:
@@ -669,11 +665,11 @@ Experiment
 +-------------------+------------+-------------------------------------------------------------+
 |    Field Name     |    Type    |                         Description                         |
 +===================+============+=============================================================+
-| experiment_id     | ``INT64``  | Unique identifier for the experiment                        |
+| experiment_id     | ``INT64``  | Unique identifier for the experiment.                       |
 +-------------------+------------+-------------------------------------------------------------+
-| name              | ``STRING`` | Human readable name that identifies this experiment         |
+| name              | ``STRING`` | Human readable name that identifies this experiment.        |
 +-------------------+------------+-------------------------------------------------------------+
-| artifact_location | ``STRING`` | Location where all artifacts for this experiment are stored |
+| artifact_location | ``STRING`` | Location where artifacts for this experiment are stored.    |
 +-------------------+------------+-------------------------------------------------------------+
 
 .. _mlflowMetric:
@@ -688,11 +684,11 @@ Metric associated with a run. It is represented as a key-value pair.
 +------------+------------+-------------------------------------------------+
 | Field Name |    Type    |                   Description                   |
 +============+============+=================================================+
-| key        | ``STRING`` | Key identifying this metric                     |
+| key        | ``STRING`` | Key identifying this metric.                    |
 +------------+------------+-------------------------------------------------+
-| value      | ``FLOAT``  | Value associated with this metric               |
+| value      | ``FLOAT``  | Value associated with this metric.              |
 +------------+------------+-------------------------------------------------+
-| timestamp  | ``INT64``  | The timestamp at which this metric was recorded |
+| timestamp  | ``INT64``  | The timestamp at which this metric was recorded.|
 +------------+------------+-------------------------------------------------+
 
 
@@ -722,32 +718,32 @@ RunInfo
 +==================+=================================+==================================================================================+
 | run_uuid         | ``STRING``                      | Unique identifier for the run.                                                   |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| experiment_id    | ``INT64``                       | The experiment                                                                   |
+| experiment_id    | ``INT64``                       | The experiment ID.                                                               |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
 | name             | ``STRING``                      | Human readable name that identifies this run.                                    |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| source_type      | :ref:`mlflowsourcetype`         | Source type                                                                      |
+| source_type      | :ref:`mlflowsourcetype`         | Source type.                                                                     |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| source_name      | ``STRING``                      | Source identifier: github URL, name of notebook, name of job ... etc             |
+| source_name      | ``STRING``                      | Source identifier: GitHub URL, name of notebook, name of job, etc.               |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| user_id          | ``STRING``                      | User who initiated this run                                                      |
+| user_id          | ``STRING``                      | User who initiated the run.                                                      |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| status           | :ref:`mlflowrunstatus`          | Current status of the run                                                        |
+| status           | :ref:`mlflowrunstatus`          | Current status of the run.                                                       |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
 | start_time       | ``INT64``                       | Unix timestamp of when the run started in milliseconds.                          |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
 | end_time         | ``INT64``                       | Unix timestamp of when the run ended in milliseconds.                            |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| source_version   | ``STRING``                      | Git commit of the code used for the run                                          |
+| source_version   | ``STRING``                      | Git commit of the code used for the run.                                         |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| entry_point_name | ``STRING``                      | Name of the entry point for the run                                              |
+| entry_point_name | ``STRING``                      | Name of the entry point for the run.                                             |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
-| tags             | An array of :ref:`mlflowruntag` | Additional metadata key-value pairs                                              |
+| tags             | An array of :ref:`mlflowruntag` | Additional metadata key-value pairs.                                             |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
 | artifact_uri     | ``STRING``                      | URI of the directory where artifacts should be uploaded.                         |
 |                  |                                 | This can be a local path (starting with "/"), or a distributed file system (DFS) |
-|                  |                                 | path, like s3://bucket/directory or dbfs:/my/directory.                          |
-|                  |                                 | If not set, the local "./mlruns" directory will be chosen.                       |
+|                  |                                 | path, like ``s3://bucket/directory`` or ``dbfs:/my/directory``.                  |
+|                  |                                 | If not set, the local ``./mlruns`` directory is  chosen.                         |
 +------------------+---------------------------------+----------------------------------------------------------------------------------+
 
 
@@ -760,15 +756,17 @@ RunStatus
 Status of a run
 
 +-----------+----------------------------------+
-|  RUNNING  |        Has been initiated        |
+|  Status   | Description                      |
 +===========+==================================+
-| SCHEDULED | Scheduled to run at a later time |
+| RUNNING   | Run has been initiated.          |
 +-----------+----------------------------------+
-| FINISHED  | Run has complete                 |
+| SCHEDULED | Scheduled to run at a later time.|
 +-----------+----------------------------------+
-| FAILED    | Execution failed                 |
+| FINISHED  | Run has completed.               |
 +-----------+----------------------------------+
-| KILLED    | Was killed by user               |
+| FAILED    | Execution failed.                |
++-----------+----------------------------------+
+| KILLED    | Was killed by user.              |
 +-----------+----------------------------------+
 
 .. _mlflowSourceType:
@@ -780,15 +778,17 @@ SourceType
 Originating source for a run.
 
 +----------+----------------------------------------------------------------------------+
-| NOTEBOOK |                  Within Databricks Notebook environment.                   |
+| Source   | Description                                                                |
 +==========+============================================================================+
-| JOB      | Scheduled or Run Now Job.                                                  |
+| NOTEBOOK | Within Databricks notebook environment.                                    |
 +----------+----------------------------------------------------------------------------+
-| PROJECT  | As a prepackaged project: either a docker image or github source, ... etc. |
+| JOB      | Scheduled or Run Now job.                                                  |
 +----------+----------------------------------------------------------------------------+
-| LOCAL    | Local run: Using CLI, IDE, or local notebook                               |
+| PROJECT  | As a prepackaged project: either a Docker image or GitHub source.          |
 +----------+----------------------------------------------------------------------------+
-| UNKNOWN  | Unknown source type                                                        |
+| LOCAL    | Local run: CLI, IDE, or local notebook.                                    |
++----------+----------------------------------------------------------------------------+
+| UNKNOWN  | Unknown source type.                                                       |
 +----------+----------------------------------------------------------------------------+
 
 
@@ -800,13 +800,13 @@ RunTag
 Tag for a run
 
 
-+------------+------------+-------------+
-| Field Name |    Type    | Description |
-+============+============+=============+
-| key        | ``STRING`` |             |
-+------------+------------+-------------+
-| value      | ``STRING`` |             |
-+------------+------------+-------------+
++------------+------------+----------------+
+| Field Name |    Type    | Description    |
++============+============+================+
+| key        | ``STRING`` | The tag key.   |
++------------+------------+----------------+
+| value      | ``STRING`` | The tag value. |
++------------+------------+----------------+
 
 
 .. _mlflowRunData:
@@ -830,16 +830,16 @@ Param
 -----
 
 
-Parameters associated with a run: Key-Value pair of strings
+Parameters associated with a run: key-value pair of strings.
 
 
-+------------+------------+----------------------------+
-| Field Name |    Type    |        Description         |
-+============+============+============================+
-| key        | ``STRING`` | Key identifying this param |
-+------------+------------+----------------------------+
-| value      | ``STRING`` | Value for this parameter   |
-+------------+------------+----------------------------+
++------------+------------+--------------------------------+
+| Field Name |    Type    |        Description             |
++============+============+================================+
+| key        | ``STRING`` | Key identifying this parameter.|
++------------+------------+--------------------------------+
+| value      | ``STRING`` | Value for this parameter.      |
++------------+------------+--------------------------------+
 
 
 .. _mlflowFileInfo:
@@ -849,11 +849,11 @@ FileInfo
 
 
 +------------+------------+---------------------------------------------------------------+
-| Field Name |    Type    |                          Description                          |
+| Field Name |    Type    | Description                                                   |
 +============+============+===============================================================+
-| path       | ``STRING`` | This is the relative path to the root_output_uri for the run. |
+| path       | ``STRING`` | The relative path to the ``root_output_uri`` for the run.     |
 +------------+------------+---------------------------------------------------------------+
-| is_dir     | ``BOOL``   |                                                               |
+| is_dir     | ``BOOL``   | Whether the file is a directory.                              |
 +------------+------------+---------------------------------------------------------------+
 | file_size  | ``INT64``  | File size in bytes. Unset for directories.                    |
 +------------+------------+---------------------------------------------------------------+
@@ -884,7 +884,7 @@ MetricSearchExpression
 +------------+--------------------------+-------------------------------------+
 | Field Name |           Type           |  Description                        |
 +============+==========================+=====================================+
-| float      | :ref:`mlflowfloatclause` | Float clause for comparison         |
+| float      | :ref:`mlflowfloatclause` | Float clause for comparison.        |
 +------------+--------------------------+-------------------------------------+
 | key        | ``STRING``               | :ref:`mlflowMetric` key for search. |
 +------------+--------------------------+-------------------------------------+
@@ -933,5 +933,5 @@ Float Clause
 +============+============+======================================================+
 | comparator | ``STRING`` | OneOf (``>``, ``>=``, ``==``, ``!=``, ``<=``, ``<``) |
 +------------+------------+------------------------------------------------------+
-| value      | ``FLOAT``  | Float value for comparison                           |
+| value      | ``FLOAT``  | Float value for comparison.                          |
 +------------+------------+------------------------------------------------------+
