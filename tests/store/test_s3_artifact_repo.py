@@ -4,7 +4,8 @@ import unittest
 import boto3
 from moto import mock_s3
 
-from mlflow.store.artifact_repo import ArtifactRepository, S3ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
 

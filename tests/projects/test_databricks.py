@@ -1,14 +1,20 @@
+import filecmp
 import json
 import mock
+import os
+import shutil
 
 import pytest
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
+from mlflow.projects import databricks, ExecutionException
+from mlflow.utils import file_utils
 
-from tests.projects.utils import validate_exit_status, GIT_PROJECT_URI
+from tests.projects.utils import validate_exit_status
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+from tests.projects.utils import TEST_PROJECT_DIR
 
 
 @pytest.fixture()
@@ -42,7 +48,7 @@ def cluster_spec_mock(tmpdir):
 
 
 @pytest.fixture()
-def create_databricks_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
+def create_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
     # Mocks logic for creating an MLflow run against a tracking server to persist the run to a local
     # file store
     def create_run_mock(
@@ -55,6 +61,41 @@ def create_databricks_run_mock(tracking_uri_mock):  # pylint: disable=unused-arg
             mlflow.projects.databricks, "_create_databricks_run",
             new=create_run_mock) as create_db_run_mock:
         yield create_db_run_mock
+
+
+@pytest.fixture()
+def dbfs_root_mock(tmpdir):
+    yield str(tmpdir.join("dbfs-root"))
+
+
+@pytest.fixture()
+def upload_to_dbfs_mock(dbfs_root_mock):
+    def upload_mock_fn(src_path, dbfs_uri):
+        mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
+        os.makedirs(os.path.dirname(mock_dbfs_dst))
+        shutil.copy(src_path, mock_dbfs_dst)
+
+    with mock.patch.object(
+            mlflow.projects.databricks, "_upload_to_dbfs",
+            new=upload_mock_fn) as upload_mock:
+        yield upload_mock
+
+
+@pytest.fixture()
+def dbfs_path_exists_mock(dbfs_root_mock):  # pylint: disable=unused-argument
+    with mock.patch("mlflow.projects.databricks._dbfs_path_exists") as path_exists_mock:
+        yield path_exists_mock
+
+
+@pytest.fixture()
+def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=unused-argument
+    yield
+
+
+@pytest.fixture()
+def auth_available_mock():  # pylint: disable=unused-argument
+    with mock.patch("mlflow.projects.databricks._check_databricks_auth_available") as check_auth:
+        yield check_auth
 
 
 def _get_mock_run_state(succeeded):
@@ -74,34 +115,84 @@ def mock_runs_get_result(succeeded):
 
 def run_databricks_project(cluster_spec_path, block=False):
     return mlflow.projects.run(
-        uri=GIT_PROJECT_URI, mode="databricks", cluster_spec=cluster_spec_path, block=block)
+        uri=TEST_PROJECT_DIR, mode="databricks", cluster_spec=cluster_spec_path, block=block,
+        parameters={"alpha": "0.4"})
 
 
-@pytest.mark.skip(reason="flaky running in travis py2.7")
+def test_upload_project_to_dbfs(
+        dbfs_root_mock, tmpdir, dbfs_path_exists_mock,
+        upload_to_dbfs_mock):  # pylint: disable=unused-argument
+    # Upload project to a mock directory
+    dbfs_path_exists_mock.return_value = False
+    dbfs_uri = databricks._upload_project_to_dbfs(
+        project_dir=TEST_PROJECT_DIR, experiment_id=0)
+    # Get expected tar
+    local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
+    expected_tar_path = str(tmpdir.join("expected.tar.gz"))
+    file_utils.make_tarfile(
+        output_filename=expected_tar_path, source_dir=TEST_PROJECT_DIR,
+        archive_name=databricks.DB_TARFILE_ARCHIVE_NAME)
+    # Extract the tarred project, verify its contents
+    assert filecmp.cmp(local_tar_path, expected_tar_path, shallow=False)
+
+
+def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disable=unused-argument
+    # Check that we don't upload the project if it already exists on DBFS
+    with mock.patch("mlflow.projects.databricks._upload_to_dbfs") as upload_to_dbfs_mock:
+        dbfs_path_exists_mock.return_value = True
+        databricks._upload_project_to_dbfs(
+            project_dir=TEST_PROJECT_DIR, experiment_id=0)
+        assert upload_to_dbfs_mock.call_count == 0
+
+
+def test_run_databricks_validations(
+        cluster_spec_mock, auth_available_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock, dbfs_mocks, create_run_mock):  # pylint: disable=unused-argument
+    """
+    Tests that running on Databricks fails before making any API requests if project parameters
+    or the cluster spec are mis-specified.
+    """
+    with mock.patch("mlflow.utils.rest_utils.databricks_api_request") as db_api_req_mock:
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(
+                TEST_PROJECT_DIR, mode="databricks", entry_point="greeter",
+                block=True, cluster_spec=cluster_spec_mock)
+        assert db_api_req_mock.call_count == 0
+        db_api_req_mock.reset_mock()
+        with pytest.raises(ExecutionException):
+            mlflow.projects.run(TEST_PROJECT_DIR, mode="databricks", block=True, cluster_spec=None)
+        assert db_api_req_mock.call_count == 0
+
+
 def test_run_databricks(
-        tmpdir, runs_cancel_mock, create_databricks_run_mock,  # pylint: disable=unused-argument
+        auth_available_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
+        dbfs_mocks,  # pylint: disable=unused-argument
         runs_submit_mock, runs_get_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     # Test that MLflow gets the correct run status when performing a Databricks run
     for run_succeeded, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
         runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
         submitted_run = run_databricks_project(cluster_spec_mock)
-        submitted_run.wait()
+        assert submitted_run.wait() == run_succeeded
         assert runs_submit_mock.call_count == 1
         runs_submit_mock.reset_mock()
         validate_exit_status(submitted_run.get_status(), expected_status)
 
 
-@pytest.mark.skip(reason="flaky running in travis py2.7")
 def test_run_databricks_cancel(
-        tmpdir, create_databricks_run_mock,  # pylint: disable=unused-argument
-        runs_submit_mock, runs_cancel_mock,  # pylint: disable=unused-argument
+        auth_available_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock, create_run_mock,  # pylint: disable=unused-argument
+        runs_submit_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
         runs_get_mock, cluster_spec_mock):
-    # Test that MLflow properly handles Databricks run cancellation
-    runs_get_mock.return_value = mock_runs_get_result(succeeded=None)
+    # Test that MLflow properly handles Databricks run cancellation. We mock the result of
+    # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
+    # waiting for run status.
+    runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     submitted_run = run_databricks_project(cluster_spec_mock)
     submitted_run.cancel()
     validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
+    assert runs_cancel_mock.call_count == 1
     # Test that we raise an exception when a blocking Databricks run fails
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     with pytest.raises(mlflow.projects.ExecutionException):

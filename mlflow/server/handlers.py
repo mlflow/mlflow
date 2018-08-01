@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import six
 
 from flask import Response, request, send_file
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -31,18 +32,27 @@ def _get_store():
     return _store
 
 
-def _get_request_message(request_message, from_get=False):
-    if from_get and len(request.query_string) > 0:
+def _get_request_message(request_message, from_get=False, flask_request=request):
+    if from_get and len(flask_request.query_string) > 0:
         # This is a hack to make arrays of length 1 work with the parser.
         # for example experiment_ids%5B%5D=0 should be parsed to {experiment_ids: [0]}
         # but it gets parsed to {experiment_ids: 0}
         # but it doesn't. However, experiment_ids%5B0%5D=0 will get parsed to the right
         # result.
-        query_string = re.sub('%5B%5D', '%5B0%5D', request.query_string.decode("utf-8"))
+        query_string = re.sub('%5B%5D', '%5B0%5D', flask_request.query_string.decode("utf-8"))
         request_dict = parser.parse(query_string, normalized=True)
         ParseDict(request_dict, request_message)
         return request_message
-    request_json = json.loads(request.get_json(force=True, silent=True))
+
+    request_json = flask_request.get_json(force=True, silent=True)
+
+    # Older clients may post their JSON double-encoded as strings, so the get_json
+    # above actually converts it to a string. Therefore, we check this condition
+    # (which we can tell for sure because any proper request should be a dictionary),
+    # and decode it a second time.
+    if isinstance(request_json, six.string_types):
+        request_json = json.loads(request_json)
+
     # If request doesn't have json body then assume it's empty.
     if request_json is None:
         request_json = {}

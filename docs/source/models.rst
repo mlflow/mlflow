@@ -193,6 +193,13 @@ TensorFlow (``tensorflow``)
 
 The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.tensorflow`. 
 
+H\ :sub:`2`\ O (``h2o``)
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+With the H2O model flavor H2O models can be handled by mlflow. These models will be saved by using the :py:mod:`h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
+
+When loading a H2O model as a pyfunc-model, :py:mod:`h2o.init(...)` will be called. Therefore, the right version of h2o(-py) has to be in the environment. The arguments given to :py:mod:`h2o.init(...)` can be customized in ``model.h2o/h2o.yaml`` under the key ``init``.
+
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -203,7 +210,6 @@ SparkContext and converts pandas DataFrame input to a Spark DataFrame before sco
 the most efficient solution, especially for real-time scoring, it enables you to easily deploy any MLlib PipelineModel
 (as long as the PipelineModel has no external JAR dependencies) to any endpoint supported by
 MLflow. For more information, see :py:mod:`mlflow.spark`.
-
 
 Custom Flavors
 --------------

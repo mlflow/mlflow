@@ -60,7 +60,11 @@ ran your program. You can then run ``mlflow ui`` to see the logged runs. Set the
 ``MLFLOW_TRACKING_URI`` environment variable to a server's URI or call
 :py:func:`mlflow.set_tracking_uri` to log runs remotely.
 
-You can also :ref:`run your own tracking server <tracking_server>` to record runs.
+There are a different kinds of remote tracking URIs:
+
+- Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
+- HTTP server (specified as ``https://my-server:5000``), which is a server hosting :ref:`your own tracking server <tracking_server>`.
+- Databricks workspace (specified as ``databricks``, or a specific Databricks CLI profile as ``databricks://profileName``. For more information on configuring a Databricks CLI, see `here <https://github.com/databricks/databricks-cli>`_. This only works for workspaces for which the Databricks MLflow Tracking Server is enabled; please contact Databricks if interested.
 
 Logging Data to Runs
 --------------------
@@ -223,12 +227,41 @@ To allow the clients and server to access the artifact location, you should conf
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
-To use Google Cloud storage, you set ``--default-artifact-root`` to ``gs://<storage_bucket>``, and you will need to provide authentication as described in `Authentication <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 
 .. important:: 
   
   If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root will be a path inside the File Store. Typically this is not an appropriate location, as the client and server will probably be referring to different physical locations (that is, the same path on different disks).
 
+Supported Artifact Stores
+^^^^^^^^^^^^^^^^^^^^^^^^^
+In addition to local file paths, MLflow supports the following storage systems as artifact stores: 
+Amazon S3, Azure Blob Storage, and Google Cloud Storage.
+
+Amazon S3
+~~~~~~~~~
+Specify a URI of the form ``s3://<bucket>/<path>`` to store artifacts in S3. MLflow obtains
+credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
+the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
+these are available. See
+`Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more information on how to set credentials.
+
+Azure Blob Storage
+~~~~~~~~~~~~~~~~~~
+Specify a URI of the form ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>`` to store
+artifacts in Azure Blob Storage. MLflow looks for your Azure Storage access credentials in the
+``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
+a connection string if one is set), so you will need to set one of these variables on both your client
+application and your MLflow tracking server. Finally, you will need to ``pip install azure-storage``
+separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
+a dependency on this package by default.
+
+Google Cloud Storage
+~~~~~~~~~~~~~~~~~~~~
+Specify a URI of the form ``gs://<bucket>/<path>`` to store artifacts in Google Cloud Storage.
+You should configure credentials for accessing the GCS container on the client and server as described
+in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
+Finally, you will need to ``pip install google-cloud-storage`` (on both your client and the server)
+to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
 Networking
 ^^^^^^^^^^

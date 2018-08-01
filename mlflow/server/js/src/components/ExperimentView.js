@@ -12,7 +12,8 @@ import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import Utils from "../utils/Utils";
+import KeyFilter from '../utils/KeyFilter';
+import Utils from '../utils/Utils';
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -31,19 +32,23 @@ class ExperimentView extends Component {
     onSearch: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
+
+    // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(String).isRequired,
+    // List of all metric keys available in the runs we're viewing
     metricKeyList: PropTypes.arrayOf(String).isRequired,
-    // List of list of params.
+
+    // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(Array).isRequired,
-    // List of list of metrics.
+    // List of list of metrics in all the visible runs
     metricsList: PropTypes.arrayOf(Array).isRequired,
 
-    // Set of paramKeys to include
-    paramKeyFilterSet: PropTypes.instanceOf(Set).isRequired,
-    // Set of metricKeys to include
-    metricKeyFilterSet: PropTypes.instanceOf(Set).isRequired,
+    // Input to the paramKeyFilter field
+    paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
+    // Input to the paramKeyFilter field
+    metricKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
 
-    // The initial searchInput.
+    // The initial searchInput
     searchInput: PropTypes.string.required,
   };
 
@@ -56,9 +61,9 @@ class ExperimentView extends Component {
   };
 
   static getDerivedStateFromProps(nextProps, prevState) {
-    const { searchInput, paramKeyFilterSet, metricKeyFilterSet } = nextProps;
-    const paramKeyFilterInput = Array.from(paramKeyFilterSet.values()).join(", ");
-    const metricKeyFilterInput = Array.from(metricKeyFilterSet.values()).join(", ");
+    const { searchInput, paramKeyFilter, metricKeyFilter } = nextProps;
+    const paramKeyFilterInput = paramKeyFilter.getFilterString();
+    const metricKeyFilterInput = metricKeyFilter.getFilterString();
     return {
       ...prevState,
       searchInput,
@@ -71,30 +76,28 @@ class ExperimentView extends Component {
     const { experiment_id, name, artifact_location } = this.props.experiment;
     const {
       runInfos,
-      paramKeyList,
-      metricKeyList,
       paramsList,
       metricsList,
-      paramKeyFilterSet,
-      metricKeyFilterSet
+      paramKeyFilter,
+      metricKeyFilter
     } = this.props;
-    const columns = Private.getColumnHeaders(
-        paramKeyList,
-        metricKeyList,
-        paramKeyFilterSet,
-        metricKeyFilterSet);
-    const metricRanges = Private.computeMetricRanges(metricsList);
+
+    // Apply our parameter and metric key filters to just pass the filtered, sorted lists
+    // of parameter and metric names around later
+    const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
+    const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
+
+    const columns = ExperimentView.getColumnHeaders(paramKeyList, metricKeyList);
+    const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => ({
         key: runInfos[idx].run_uuid,
-        contents: Private.runInfoToRow(
+        contents: ExperimentView.runInfoToRow(
           runInfos[idx],
           this.onCheckbox,
           paramKeyList,
           metricKeyList,
           paramsList[idx],
           metricsList[idx],
-          paramKeyFilterSet,
-          metricKeyFilterSet,
           metricRanges)
       })
     );
@@ -180,8 +183,12 @@ class ExperimentView extends Component {
             <tbody>
             <tr>
               <th className="top-row" scope="colgroup" colSpan="5"></th>
-              <th className="top-row left-border" scope="colgroup" colSpan={Private.getNumParams(paramKeyList, paramKeyFilterSet)}>Parameters</th>
-              <th className="top-row left-border" scope="colgroup" colSpan={Private.getNumMetrics(metricKeyList, metricKeyFilterSet)}>Metrics</th>
+              <th className="top-row left-border" scope="colgroup"
+                  colSpan={paramKeyList.length}>Parameters
+              </th>
+              <th className="top-row left-border" scope="colgroup"
+                  colSpan={metricKeyList.length}>Metrics
+              </th>
             </tr>
             <tr>
               {columns}
@@ -224,35 +231,21 @@ class ExperimentView extends Component {
   onSearch(e) {
     e.preventDefault();
     const { paramKeyFilterInput, metricKeyFilterInput, searchInput } = this.state;
-    const paramKeyFilterSet = new Set();
-    const metricKeyFilterSet = new Set();
-    if (paramKeyFilterInput !== '') {
-      paramKeyFilterInput.split(',').forEach((key) => {
-        if (key.trim() !== "") {
-          paramKeyFilterSet.add(key.trim());
-        }
-      });
-    }
-    if (metricKeyFilterInput !== '') {
-      metricKeyFilterInput.split(',').forEach((key) => {
-        if (key.trim() !== "") {
-          metricKeyFilterSet.add(key.trim());
-        }
-      });
-    }
+    const paramKeyFilter = new KeyFilter(paramKeyFilterInput);
+    const metricKeyFilter = new KeyFilter(metricKeyFilterInput);
     try {
       const andedExpressions = SearchUtils.parseSearchInput(searchInput);
-      this.props.onSearch(paramKeyFilterSet, metricKeyFilterSet, andedExpressions, searchInput);
+      this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput);
     } catch(e) {
       this.setState({ searchErrorMessage: e.errorMessage });
     }
   }
 
   onClear() {
-    const paramKeyFilterSet = new Set();
-    const metricKeyFilterSet = new Set();
+    const paramKeyFilter = new KeyFilter();
+    const metricKeyFilter = new KeyFilter();
     const andedExpressions = [];
-    this.props.onSearch(paramKeyFilterSet, metricKeyFilterSet, andedExpressions, "");
+    this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, "");
   }
 
   onCompare() {
@@ -261,62 +254,19 @@ class ExperimentView extends Component {
   }
 
   onDownloadCsv() {
-    const csv = Private.runInfosToCsv(
+    const csv = ExperimentView.runInfosToCsv(
       this.props.runInfos,
-      this.props.paramKeyList,
-      this.props.metricKeyList,
+      this.props.paramKeyFilter.apply(this.props.paramKeyList),
+      this.props.metricKeyFilter.apply(this.props.metricKeyList),
       this.props.paramsList,
-      this.props.metricsList,
-      this.props.paramKeyFilterSet,
-      this.props.metricKeyFilterSet);
+      this.props.metricsList);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, "runs.csv");
   }
-}
 
-const mapStateToProps = (state, ownProps) => {
-  const { searchRunsRequestId } = ownProps;
-  const searchRunApi = getApis([searchRunsRequestId], state)[0];
-  // The runUuids we should serve.
-  let runUuids;
-  if (searchRunApi.data.runs) {
-    runUuids = new Set(searchRunApi.data.runs.map((r) => r.info.run_uuid));
-  } else {
-    runUuids = new Set();
-  }
-  const runInfos = getRunInfos(state).filter((rInfo) =>
-    runUuids.has(rInfo.getRunUuid())
-  );
-  const experiment = getExperiment(ownProps.experimentId, state);
-  const metricKeysSet = new Set();
-  const paramKeysSet = new Set();
-  const metricsList = runInfos.map((runInfo) => {
-    const metrics = Object.values(getLatestMetrics(runInfo.getRunUuid(), state));
-    metrics.forEach((metric) => {
-      metricKeysSet.add(metric.key);
-    });
-    return metrics
-  });
-  const paramsList = runInfos.map((runInfo) => {
-    const params = Object.values(getParams(runInfo.getRunUuid(), state));
-    params.forEach((param) => {
-      paramKeysSet.add(param.key);
-    });
-    return params;
-  });
-  return {
-    runInfos,
-    experiment,
-    metricKeyList: Array.from(metricKeysSet.values()).sort(),
-    paramKeyList: Array.from(paramKeysSet.values()).sort(),
-    metricsList,
-    paramsList,
-  };
-};
-
-export default withRouter(connect(mapStateToProps)(ExperimentView));
-
-class Private {
+  /**
+   * Generate a row for a specific run, extracting the params and metrics in the given lists.
+   */
   static runInfoToRow(
     runInfo,
     onCheckbox,
@@ -324,13 +274,10 @@ class Private {
     metricKeyList,
     params,
     metrics,
-    paramKeyFilterSet,
-    metricKeyFilterSet,
     metricRanges) {
 
-    const numParams = Private.getNumParams(paramKeyList, paramKeyFilterSet);
-    const numMetrics = Private.getNumMetrics(metricKeyList, metricKeyFilterSet);
-
+    const numParams = paramKeyList.length;
+    const numMetrics = metricKeyList.length;
     const row = [
       <td><input type="checkbox" onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
       <td>
@@ -343,21 +290,19 @@ class Private {
       <td>{Utils.renderVersion(runInfo)}</td>,
     ];
 
-    const paramsMap = Private.toParamsMap(params);
-    const metricsMap = Private.toMetricsMap(metrics);
+    const paramsMap = ExperimentView.toParamsMap(params);
+    const metricsMap = ExperimentView.toMetricsMap(metrics);
 
     let firstParam = true;
     paramKeyList.forEach((paramKey) => {
-      if (Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
-        const className = firstParam ? "left-border": undefined;
-        firstParam = false;
-        if (paramsMap[paramKey]) {
-          row.push(<td className={className}>
-            {paramsMap[paramKey].getValue()}
-          </td>);
-        } else {
-          row.push(<td className={className}/>);
-        }
+      const className = firstParam ? "left-border": undefined;
+      firstParam = false;
+      if (paramsMap[paramKey]) {
+        row.push(<td className={className}>
+          {paramsMap[paramKey].getValue()}
+        </td>);
+      } else {
+        row.push(<td className={className}/>);
       }
     });
     if (numParams === 0) {
@@ -366,30 +311,28 @@ class Private {
 
     let firstMetric = true;
     metricKeyList.forEach((metricKey) => {
-      if (Private.shouldIncludeKey(metricKey, metricKeyFilterSet)) {
-        const className = firstMetric ? "left-border": undefined;
-        firstMetric = false;
-        if (metricsMap[metricKey]) {
-          const metric = metricsMap[metricKey].getValue();
-          const range = metricRanges[metricKey];
-          let fraction = 1.0;
-          if (range.max > range.min) {
-            fraction = (metric - range.min) / (range.max - range.min);
-          }
-          const percent = (fraction * 100) + "%";
-          row.push(
-            <td className={className}>
-              <div className="metric-filler-bg">
-                <div className="metric-filler-fg" style={{width: percent}}/>
-                <div className="metric-text">
-                  {Utils.formatMetric(metric)}
-                </div>
-              </div>
-            </td>
-          );
-        } else {
-          row.push(<td className={className}/>);
+      const className = firstMetric ? "left-border": undefined;
+      firstMetric = false;
+      if (metricsMap[metricKey]) {
+        const metric = metricsMap[metricKey].getValue();
+        const range = metricRanges[metricKey];
+        let fraction = 1.0;
+        if (range.max > range.min) {
+          fraction = (metric - range.min) / (range.max - range.min);
         }
+        const percent = (fraction * 100) + "%";
+        row.push(
+          <td className={className}>
+            <div className="metric-filler-bg">
+              <div className="metric-filler-fg" style={{width: percent}}/>
+              <div className="metric-text">
+                {Utils.formatMetric(metric)}
+              </div>
+            </div>
+          </td>
+        );
+      } else {
+        row.push(<td className={className}/>);
       }
     });
     if (numMetrics === 0) {
@@ -398,9 +341,9 @@ class Private {
     return row;
   }
 
-  static getColumnHeaders(paramKeyList, metricKeyList, paramKeyFilterSet, metricKeyFilterSet) {
-    const numParams = Private.getNumParams(paramKeyList, paramKeyFilterSet);
-    const numMetrics = Private.getNumMetrics(metricKeyList, metricKeyFilterSet);
+  static getColumnHeaders(paramKeyList, metricKeyList) {
+    const numParams = paramKeyList.length;
+    const numMetrics = metricKeyList.length;
     const columns = [
       <th className="bottom-row"/>,  // TODO: checkbox for select-all
       <th className="bottom-row">Date</th>,
@@ -410,11 +353,9 @@ class Private {
     ];
     let firstParam = true;
     paramKeyList.forEach((paramKey) => {
-      if (Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
-        const className = "bottom-row" + (firstParam ? " left-border" : "");
-        firstParam = false;
-        columns.push(<th className={className}>{paramKey}</th>);
-      }
+      const className = "bottom-row" + (firstParam ? " left-border" : "");
+      firstParam = false;
+      columns.push(<th className={className}>{paramKey}</th>);
     });
     if (numParams === 0) {
       columns.push(<th className="bottom-row left-border">(n/a)</th>);
@@ -422,11 +363,9 @@ class Private {
 
     let firstMetric = true;
     metricKeyList.forEach((metricKey) => {
-      if (Private.shouldIncludeKey(metricKey, metricKeyFilterSet)) {
-        const className = "bottom-row" + (firstMetric ? " left-border" : "");
-        firstMetric = false;
-        columns.push(<th className={className}>{metricKey}</th>);
-      }
+      const className = "bottom-row" + (firstMetric ? " left-border" : "");
+      firstMetric = false;
+      columns.push(<th className={className}>{metricKey}</th>);
     });
     if (numMetrics === 0) {
       columns.push(<th className="bottom-row left-border">(n/a)</th>);
@@ -476,22 +415,6 @@ class Private {
     return ret;
   }
 
-  static getNumMetrics(metricKeyList, metricKeyFilterSet) {
-    return metricKeyList.filter((metricKey) =>
-      Private.shouldIncludeKey(metricKey, metricKeyFilterSet)
-    ).length;
-  }
-
-  static getNumParams(paramKeyList, paramKeyFilterSet) {
-    return paramKeyList.filter((paramKey) =>
-      Private.shouldIncludeKey(paramKey, paramKeyFilterSet)
-    ).length;
-  }
-
-  static shouldIncludeKey(key, filterSet) {
-    return filterSet.size === 0 || filterSet.has(key);
-  }
-
   /**
    * Format a string for insertion into a CSV file.
    */
@@ -516,7 +439,7 @@ class Private {
     let i;
 
     for (i = 0; i < columns.length; i++) {
-      csv += Private.csvEscape(columns[i]);
+      csv += ExperimentView.csvEscape(columns[i]);
       if (i < columns.length - 1) {
         csv += ',';
       }
@@ -525,7 +448,7 @@ class Private {
 
     for (i = 0; i < data.length; i++) {
       for (let j = 0; j < data[i].length; j++) {
-        csv += Private.csvEscape(data[i][j]);
+        csv += ExperimentView.csvEscape(data[i][j]);
         if (j < data[i].length - 1) {
           csv += ',';
         }
@@ -537,16 +460,15 @@ class Private {
   };
 
   /**
-   * Convert an array of run infos to a CSV string.
+   * Convert an array of run infos to a CSV string, extracting the params and metrics in the
+   * provided lists.
    */
   static runInfosToCsv(
     runInfos,
     paramKeyList,
     metricKeyList,
     paramsList,
-    metricsList,
-    paramKeyFilterSet,
-    metricKeyFilterSet) {
+    metricsList) {
 
     const columns = [
       "Run ID",
@@ -556,17 +478,11 @@ class Private {
       "User",
       "Status",
     ];
-
     paramKeyList.forEach(paramKey => {
-      if (Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
-        columns.push(paramKey);
-      }
+      columns.push(paramKey);
     });
-
     metricKeyList.forEach(metricKey => {
-      if (Private.shouldIncludeKey(metricKey, metricKeyFilterSet)) {
-        columns.push(metricKey);
-      }
+      columns.push(metricKey);
     });
 
     const data = runInfos.map((runInfo, index) => {
@@ -578,29 +494,67 @@ class Private {
         runInfo.user_id,
         runInfo.status,
       ];
-      const paramsMap = Private.toParamsMap(paramsList[index]);
-      const metricsMap = Private.toMetricsMap(metricsList[index]);
+      const paramsMap = ExperimentView.toParamsMap(paramsList[index]);
+      const metricsMap = ExperimentView.toMetricsMap(metricsList[index]);
       paramKeyList.forEach((paramKey) => {
-        if (Private.shouldIncludeKey(paramKey, paramKeyFilterSet)) {
-          if (paramsMap[paramKey]) {
-            row.push(paramsMap[paramKey].getValue());
-          } else {
-            row.push("");
-          }
+        if (paramsMap[paramKey]) {
+          row.push(paramsMap[paramKey].getValue());
+        } else {
+          row.push("");
         }
       });
       metricKeyList.forEach((metricKey) => {
-        if (Private.shouldIncludeKey(metricKey, metricKeyFilterSet)) {
-          if (metricsMap[metricKey]) {
-            row.push(metricsMap[metricKey].getValue());
-          } else {
-            row.push("");
-          }
+        if (metricsMap[metricKey]) {
+          row.push(metricsMap[metricKey].getValue());
+        } else {
+          row.push("");
         }
       });
       return row;
     });
 
-    return Private.tableToCsv(columns, data)
+    return ExperimentView.tableToCsv(columns, data)
   }
 }
+
+const mapStateToProps = (state, ownProps) => {
+  const { searchRunsRequestId } = ownProps;
+  const searchRunApi = getApis([searchRunsRequestId], state)[0];
+  // The runUuids we should serve.
+  let runUuids;
+  if (searchRunApi.data.runs) {
+    runUuids = new Set(searchRunApi.data.runs.map((r) => r.info.run_uuid));
+  } else {
+    runUuids = new Set();
+  }
+  const runInfos = getRunInfos(state).filter((rInfo) =>
+    runUuids.has(rInfo.getRunUuid())
+  );
+  const experiment = getExperiment(ownProps.experimentId, state);
+  const metricKeysSet = new Set();
+  const paramKeysSet = new Set();
+  const metricsList = runInfos.map((runInfo) => {
+    const metrics = Object.values(getLatestMetrics(runInfo.getRunUuid(), state));
+    metrics.forEach((metric) => {
+      metricKeysSet.add(metric.key);
+    });
+    return metrics
+  });
+  const paramsList = runInfos.map((runInfo) => {
+    const params = Object.values(getParams(runInfo.getRunUuid(), state));
+    params.forEach((param) => {
+      paramKeysSet.add(param.key);
+    });
+    return params;
+  });
+  return {
+    runInfos,
+    experiment,
+    metricKeyList: Array.from(metricKeysSet.values()).sort(),
+    paramKeyList: Array.from(paramKeysSet.values()).sort(),
+    metricsList,
+    paramsList,
+  };
+};
+
+export default withRouter(connect(mapStateToProps)(ExperimentView));

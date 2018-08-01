@@ -25,7 +25,7 @@ This tutorial uses MLflow, `conda <https://conda.io/docs/user-guide/install/inde
 
 .. code::
 
-    git clone https://github.com/databricks/mlflow
+    git clone https://github.com/mlflow/mlflow
 
 Training the Model
 ------------------
@@ -164,8 +164,8 @@ To run this project, invoke ``mlflow run example/tutorial -P alpha=0.42``. After
 this command, MLflow will run your training code in a new Conda environment with the dependencies
 specified in ``conda.yaml``.
 
-If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/databricks/mlflow-example repository
-which you can run with ``mlflow run git@github.com:databricks/mlflow-example.git -P alpha=0.42``.
+If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
+which you can run with ``mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.42``.
 
 Serving the Model
 -----------------
