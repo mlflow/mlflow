@@ -289,7 +289,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                         "run" % _active_run.run_info.run_uuid)
     existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
     if existing_run_uuid:
-        _validate_run_id(run_uuid)
+        _validate_run_id(existing_run_uuid)
         active_run_obj = _get_existing_run(existing_run_uuid)
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()
