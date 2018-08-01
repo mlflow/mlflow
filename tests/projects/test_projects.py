@@ -149,6 +149,7 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     for param in run.data.params:
         assert param.value == expected_params[param.key]
     expected_metrics = {"some_key": 3}
+    assert len(run.data.metrics) == len(expected_metrics)
     for metric in run.data.metrics:
         assert metric.value == expected_metrics[metric.key]
 
