@@ -62,7 +62,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         # tracking server if interrupted
         if block:
             command = _get_entry_point_command(
-                work_dir, entry_point, use_conda, parameters, storage_dir)
+                project, entry_point, use_conda, parameters, storage_dir)
             return _run_entry_point(command, work_dir, exp_id, run_id=active_run.run_info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
