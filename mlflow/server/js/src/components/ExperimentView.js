@@ -58,6 +58,12 @@ class ExperimentView extends Component {
     metricKeyFilterInput: '',
     searchInput: '',
     searchErrorMessage: undefined,
+    sort: {
+      ascending: true,
+      isMetric: false,
+      isParam: false,
+      key: "start_time"
+    }
   };
 
   static getDerivedStateFromProps(nextProps, prevState) {
@@ -87,25 +93,50 @@ class ExperimentView extends Component {
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
 
+    const sort = this.state.sort;
     const columns = ExperimentView.getColumnHeaders(
       paramKeyList,
       metricKeyList,
       this.onCheckAll.bind(this),
-      this.isAllChecked());
+      this.isAllChecked(),
+      this.onSortBy.bind(this),
+      sort);
+
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
-    const rows = [...Array(runInfos.length).keys()].map((idx) => ({
+    const rows = [...Array(runInfos.length).keys()].map((idx) => {
+      const paramsMap = ExperimentView.toParamsMap(paramsList[idx]);
+      const metricsMap = ExperimentView.toMetricsMap(metricsList[idx]);
+      return {
         key: runInfos[idx].run_uuid,
+        sortValue:
+          (sort.isMetric ? metricsMap :
+          sort.isParam ? paramsMap :
+          runInfos[idx])[sort.key],
         contents: ExperimentView.runInfoToRow(
           runInfos[idx],
           this.onCheckbox,
           paramKeyList,
           metricKeyList,
-          paramsList[idx],
-          metricsList[idx],
+          paramsMap,
+          metricsMap,
           metricRanges,
           !!this.state.runsSelected[runInfos[idx].run_uuid])
-      })
-    );
+      }
+    });
+    rows.sort((a, b) => {
+      let x = a.sortValue;
+      let y = b.sortValue;
+      if(x === undefined)
+        return 1;
+      if(y == undefined)
+        return -1;
+      if(!this.state.sort.ascending) {
+        x = b.sortValue;
+        y = a.sortValue;
+      }
+      return x == y ? 0 : x < y ? -1 : 1;
+    });
+
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     return (
       <div className="ExperimentView">
@@ -206,6 +237,23 @@ class ExperimentView extends Component {
     );
   }
 
+  onSortBy(isMetric, isParam, key) {
+    const sort = this.state.sort;
+    if(sort.key == key && sort.isMetric == isMetric && sort.isParam == isParam) {
+      this.setState({sort: {
+        ...sort,
+        ascending: !sort.ascending
+      }});
+    } else {
+      this.setState({sort: {
+        ascending: true,
+        key: key,
+        isMetric: isMetric,
+        isParam: isParam
+      }});
+    }
+  }
+
   onCheckbox(runUuid) {
     const newState = Object.assign({}, this.state);
     if (this.state.runsSelected[runUuid]) {
@@ -293,8 +341,8 @@ class ExperimentView extends Component {
     onCheckbox,
     paramKeyList,
     metricKeyList,
-    params,
-    metrics,
+    paramsMap,
+    metricsMap,
     metricRanges,
     selected) {
 
@@ -312,9 +360,6 @@ class ExperimentView extends Component {
       <td>{Utils.renderSource(runInfo)}</td>,
       <td>{Utils.renderVersion(runInfo)}</td>,
     ];
-
-    const paramsMap = ExperimentView.toParamsMap(params);
-    const metricsMap = ExperimentView.toMetricsMap(metrics);
 
     let firstParam = true;
     paramKeyList.forEach((paramKey) => {
@@ -364,23 +409,38 @@ class ExperimentView extends Component {
     return row;
   }
 
-  static getColumnHeaders(paramKeyList, metricKeyList, onCheckAll, isAllChecked) {
+  static getColumnHeaders(paramKeyList, metricKeyList,
+    onCheckAll,
+    isAllChecked,
+    onSortBy,
+    sortState) {
+    const sortedClassName = (isMetric, isParam, key) => {
+      if(sortState.isMetric != isMetric
+        || sortState.isParam != isParam
+        || sortState.key != key)
+        return "sortable"
+      return "sortable sorted " + (sortState.ascending?"asc":"desc");
+    }
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [
       <th className="bottom-row">
         <input type="checkbox" onClick={onCheckAll} checked={isAllChecked} />
       </th>,
-      <th className="bottom-row">Date</th>,
+      <th className={"bottom-row " + sortedClassName(false, false, "start_time")}
+        onClick={() => onSortBy(false, false, "start_time")}>Date</th>,
       <th className="bottom-row">User</th>,
       <th className="bottom-row">Source</th>,
       <th className="bottom-row">Version</th>,
     ];
     let firstParam = true;
     paramKeyList.forEach((paramKey) => {
-      const className = "bottom-row" + (firstParam ? " left-border" : "");
+      const className = "bottom-row "
+        + (firstParam ? "left-border " : "")
+        + sortedClassName(false, true, paramKey);
       firstParam = false;
-      columns.push(<th className={className}>{paramKey}</th>);
+      columns.push(<th className={className}
+        onClick={() => onSortBy(false, true, paramKey)}>{paramKey}</th>);
     });
     if (numParams === 0) {
       columns.push(<th className="bottom-row left-border">(n/a)</th>);
@@ -388,9 +448,12 @@ class ExperimentView extends Component {
 
     let firstMetric = true;
     metricKeyList.forEach((metricKey) => {
-      const className = "bottom-row" + (firstMetric ? " left-border" : "");
+      const className = "bottom-row "
+        + (firstMetric ? "left-border " : "")
+        + sortedClassName(true, false, metricKey);
       firstMetric = false;
-      columns.push(<th className={className}>{metricKey}</th>);
+      columns.push(<th className={className}
+        onClick={() => onSortBy(true, false, metricKey)}>{metricKey}</th>);
     });
     if (numMetrics === 0) {
       columns.push(<th className="bottom-row left-border">(n/a)</th>);
