@@ -1,6 +1,39 @@
 Changelog
 =========
 
+0.3.1 (2018-08-01)
+------------------
+
+Breaking changes:
+
+- [Projects] Removed the use_temp_cwd argument ``mlflow.projects.run()``
+  (--new-dir flag in the ``mlflow run`` CLI). Runs of local projects now use the local project
+  directory as their working directory. Git projects are still fetched into temporary directories
+  (#215, @smurching)
+- [Tracking] Made GCS Artifactory a pluggable dependency. To use GCS support, google-cloud-storage
+  must now be pip-installed on both the client and tracking server (#202, @smurching)
+
+
+Features:
+
+- [Models] H2O model support (#170, @ToonKBC)
+- [Projects] Support for running projects in subdirectories of Git repos (#153, @juntai-zheng)
+- [SageMaker] Support for specifying a compute specification when deploying to SageMaker (#185, @dbczumar)
+- [Server] Added --static-prefix option to serve UI from a specified prefix to MLflow UI and server (#116, @andrewmchen)
+- [Tracking] Azure blob storage support for artifacts (#206, @mateiz)
+- [Tracking] Add support for Databricks-backed RestStore (#200, @aarondav)
+- [UI] Enable productionizing frontend by adding CSRF support (#199, @aarondav)
+- [UI] Update metric and parameter filters to let users control column order (#186, @mateiz)
+
+Bug fixes:
+
+- Fixed incompatible file structure returned by GCSArtifactRepository (#173, @jakeret)
+- Fixed metric values going out of order on x axis (#204, @mateiz)
+- Fixed occasional hanging behavior when using the projects.run API (#193, @smurching)
+
+- Miscellaneous bug and documentation fixes from @aarondav, @andrewmchen, @arinto, @jakeret, @mateiz, @smurching, @stbof
+
+
 0.3.0 (2018-07-18)
 ------------------
 
