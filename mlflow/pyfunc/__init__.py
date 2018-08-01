@@ -117,16 +117,28 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
-def load_pyfunc(path, run_id=None):
-    """Load a model stored in Python function format."""
-    if run_id:
-        path = tracking._get_model_log_dir(path, run_id)
+def _load_model_conf(path):
+    """Load a model configuration stored in Python function format."""
     conf_path = os.path.join(path, "MLmodel")
     model = Model.load(conf_path)
     if FLAVOR_NAME not in model.flavors:
         raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
                                                                             path=conf_path))
-    conf = model.flavors[FLAVOR_NAME]
+    return model.flavors[FLAVOR_NAME]
+
+
+def load_model_env(path, run_id=None):
+    """Get ENV file string from a model configuration stored in Python Function format."""
+    if run_id:
+        path = tracking._get_model_log_dir(path, run_id)
+    return _load_model_conf(path).get(ENV, None)
+
+
+def load_pyfunc(path, run_id=None):
+    """Load a model stored in Python function format."""
+    if run_id:
+        path = tracking._get_model_log_dir(path, run_id)
+    conf = _load_model_conf(path)
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(path, conf[CODE])
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path

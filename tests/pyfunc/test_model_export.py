@@ -13,6 +13,7 @@ import sklearn.datasets
 import sklearn.linear_model
 import sklearn.neighbors
 
+import mlflow
 from mlflow import pyfunc
 import mlflow.pyfunc.cli
 from mlflow import tracking
@@ -122,3 +123,52 @@ class TestModelExport(unittest.TestCase):
             result_df = pandas.read_csv(output_csv_path, header=None)
             np.testing.assert_array_equal(result_df.values.transpose()[0],
                                           self._knn.predict(self._X))
+
+
+    def _cli_predict_with_conda_env(self, extra_args):
+        with TempDir() as tmp:
+            model_path = tmp.path("knn.pkl")
+            with open(model_path, "wb") as f:
+                pickle.dump(self._knn, f)
+
+            # create a conda yaml that installs mlflow from source in-place mode
+            conda_env_path = tmp.path("conda.yml")
+            with open(conda_env_path, "wb") as f:
+                f.write("""
+                        name: mlflow
+                        channels:
+                          - defaults
+                        dependencies:
+                          - pip:
+                            - -e {}
+                        """.format(os.path.abspath(os.path.join(mlflow.__path__[0],'..'))).encode('latin1'))
+
+            path = tmp.path("knn")
+            pyfunc.save_model(dst_path=path,
+                              data_path=model_path,
+                              loader_module=os.path.basename(__file__)[:-3],
+                              code_path=[__file__],
+                              conda_env = conda_env_path
+                              )
+            input_csv_path = tmp.path("input.csv")
+            pandas.DataFrame(self._X).to_csv(input_csv_path, header=True, index=False)
+            output_csv_path = tmp.path("output.csv")
+            runner = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"})
+            result = runner.invoke(mlflow.pyfunc.cli.commands,
+                                   ['predict', '--model-path', path, '-i',
+                                    input_csv_path, '-o', output_csv_path] +  extra_args)
+            print("result", result.output)
+            print(result.exc_info)
+            print(result.exception)
+            assert result.exit_code == 0
+            result_df = pandas.read_csv(output_csv_path, header=None)
+            np.testing.assert_array_equal(result_df.values.transpose()[0],
+                                          self._knn.predict(self._X))
+
+    def test_cli_predict_without_no_conda(self):
+        """Run prediction in MLModel specified conda env"""
+        self._cli_predict_with_conda_env([])
+
+    def test_cli_predict_with_no_conda(self):
+        """Run prediction in current conda env"""
+        self._cli_predict_with_conda_env(['--no-conda'])
