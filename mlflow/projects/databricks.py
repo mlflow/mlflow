@@ -1,3 +1,4 @@
+from distutils import dir_util
 import hashlib
 import json
 import os
@@ -227,10 +228,13 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
                                  "on Databricks.")
-
-    # Fetch the project into work_dir & validate parameters
-    work_dir = _fetch_project(uri=uri, version=version, git_username=git_username,
-                              git_password=git_password)
+    # Fetch the project into temporary work_dir & validate parameters
+    work_dir = _fetch_project(
+        uri=uri, force_tempdir=True, version=version, git_username=git_username,
+        git_password=git_password)
+    mlruns_dir = os.path.join(work_dir, "mlruns")
+    if os.path.exists(mlruns_dir):
+        shutil.rmtree(mlruns_dir)
     project = _load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     # Upload the project to DBFS, get the URI of the project

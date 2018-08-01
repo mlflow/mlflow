@@ -2,15 +2,15 @@
 
 from __future__ import print_function
 
+from distutils import dir_util
 import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 
-from distutils import dir_util
+from six.moves import urllib
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects._project_spec import Project
@@ -51,7 +51,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     elif mode == "local" or mode is None:
-        work_dir = _fetch_project(uri, version, git_username, git_password)
+        work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
+                                  git_username=git_username, git_password=git_password)
         project = _load_project(project_dir=work_dir)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
@@ -106,7 +107,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                       installs project dependencies within that environment. Otherwise, runs the
                       project in the current environment without installing any project
                       dependencies.
-    :param storage_dir: Only used if `mode` is local. MLflow will download artifacts from
+    :param storage_dir: Only used if ``mode`` is local. MLflow will download artifacts from
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         ``storage_dir``.
     :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
@@ -180,26 +181,27 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, version=None, git_username=None, git_password=None):
+def _is_local_path(uri):
+    return urllib.parse.urlparse(uri).scheme == ''
+
+
+def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
     """
-    # Separating the uri from the subdirectory requested.
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    dst_dir = tempfile.mkdtemp()
+    use_temp_dst_dir = force_tempdir or not _is_local_path(uri)
+    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else urllib.parse.urlparse(uri).path
     eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
     # Download a project to the target `dst_dir` from a Git URI or local path.
-
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
         _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
-        dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
-        dest_dir_mlruns = os.path.join(dst_dir, "mlruns")
-        if os.path.exists(dest_dir_mlruns):
-            shutil.rmtree(dest_dir_mlruns)
+        if use_temp_dst_dir:
+            dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
 
     # Make sure there is a MLproject file in the specified working directory.
     if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
@@ -209,7 +211,7 @@ def _fetch_project(uri, version=None, git_username=None, git_password=None):
             raise ExecutionException("No MLproject file found in subdirectory %s of %s" %
                                      (subdirectory, parsed_uri))
 
-    return os.path.join(dst_dir, subdirectory)
+    return os.path.abspath(os.path.join(dst_dir, subdirectory))
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
