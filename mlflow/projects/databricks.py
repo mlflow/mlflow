@@ -1,4 +1,3 @@
-from distutils import dir_util
 import hashlib
 import json
 import os
