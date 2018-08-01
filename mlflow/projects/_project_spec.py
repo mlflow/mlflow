@@ -1,22 +1,41 @@
 """Internal utilities for parsing MLproject YAML files."""
 
 import os
+import yaml
 
 from six.moves import shlex_quote
 
 from mlflow import data
 
 
+def load_project(directory):
+    mlproject_path = os.path.join(directory, "MLproject")
+    # TODO: Validate structure of YAML loaded from the file
+    if os.path.exists(mlproject_path):
+        with open(mlproject_path) as mlproject_file:
+            yaml_obj = yaml.safe_load(mlproject_file.read())
+    else:
+        yaml_obj = {}
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+    conda_path = yaml_obj.get("conda_env")
+    if conda_path:
+        return Project(
+            conda_env_path=os.path.join(directory, conda_path), entry_points=entry_points)
+    default_conda_path = os.path.join(directory, "conda.yaml")
+    if os.path.exists(default_conda_path):
+        return Project(conda_env_path=default_conda_path, entry_points=entry_points)
+    return Project(conda_env_path=None, entry_points=entry_points)
+
+
 class Project(object):
-    """A project specification loaded from an MLproject file."""
-    def __init__(self, yaml_obj):
-        self.conda_env = yaml_obj.get("conda_env")
-        self.entry_points = {}
-        for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-            parameters = entry_point_yaml.get("parameters", {})
-            command = entry_point_yaml.get("command")
-            self.entry_points[name] = EntryPoint(name, parameters, command)
-        # TODO: validate the spec, e.g. make sure paths in it are fine
+    """A project specification loaded from an MLproject file in the passed-in directory."""
+    def __init__(self, conda_env_path, entry_points):
+        self.conda_env_path = conda_env_path
+        self.entry_points = entry_points
 
     def get_entry_point(self, entry_point):
         from mlflow.projects import ExecutionException
@@ -31,6 +50,16 @@ class Project(object):
                                  "runnable script. Supported script file extensions: "
                                  "{2}".format(entry_point, list(self.entry_points.keys()),
                                               list(ext_to_cmd.keys())))
+
+    def load_conda_env(self):
+        """
+        Loads and returns the contents of the conda environment file for the current project if
+        one exists, otherwise returns the empty string.
+        """
+        if self.conda_env_path:
+            with open(self.conda_env_path) as handle:
+                return handle.read()
+        return ""
 
 
 class EntryPoint(object):

@@ -2,10 +2,9 @@ import mock
 import os
 
 import pytest
-import yaml
 
 from mlflow.entities.run_status import RunStatus
-from mlflow.projects import Project
+from mlflow.projects import _project_spec
 
 
 TEST_DIR = "tests"
@@ -15,9 +14,7 @@ GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 
 def load_project():
     """ Loads an example project for use in tests, returning an in-memory `Project` object. """
-    with open(os.path.join(TEST_PROJECT_DIR, "MLproject")) as mlproject_file:
-        project_yaml = yaml.safe_load(mlproject_file.read())
-    return Project(yaml_obj=project_yaml)
+    return _project_spec.load_project(TEST_PROJECT_DIR)
 
 
 def validate_exit_status(status_str, expected):

@@ -12,7 +12,8 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
 
-from mlflow.projects import ExecutionException, _fetch_project, _load_project, _expand_uri
+from mlflow.projects import ExecutionException, _fetch_project, _expand_uri
+from mlflow.projects._project_spec import load_project
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
 from mlflow.utils.logging_utils import eprint
@@ -195,8 +196,8 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
 def _create_databricks_run(tracking_uri, experiment_id, source_name, source_version,
                            entry_point_name):
     """
-    Make an API request to the specified tracking server to create a new run with the specified
-    attributes. Return an ``ActiveRun`` that can be used to query the tracking server for the run's
+    Makes an API request to the specified tracking server to create a new run with the specified
+    attributes. Returns an `ActiveRun` that can be used to query the tracking server for the run's
     status or log metrics/params for the run.
     """
     if tracking.is_local_uri(tracking_uri):
@@ -227,13 +228,11 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
                                  "on Databricks.")
-
-    # Fetch the project into work_dir & validate parameters
-    work_dir = _fetch_project(uri=uri, use_temp_cwd=True, version=version,
-                              git_username=git_username, git_password=git_password)
-    project = _load_project(work_dir)
+    work_dir = _fetch_project(
+        uri=uri, version=version, use_temp_cwd=False, git_username=git_username,
+        git_password=git_password)
+    project = load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
-    # Upload the project to DBFS, get the URI of the project
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)
 
     # Create run object with remote tracking server. Get the git commit from the working directory,
