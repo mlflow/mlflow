@@ -38,30 +38,27 @@ def test_project_get_unspecified_entry_point():
         project.get_entry_point("my_program.scala")
 
 
-# Parameters: conda env contents, MLproject contents, conda env path, expected results in project
-def test_load_project_partial_fields(tmpdir):
-    # Test that we can load a project from a directory without an MLproject file
+@pytest.mark.parametrize("mlproject, conda_env_path, conda_env_contents", [
+    (None, None, ""),
+    ("key: value", "conda.yaml", "hi"),
+    ("conda_env: some-env.yaml", "some-env.yaml", "hi")
+])
+def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents):
+    """
+    Test that we can load a project with various combinations of an MLproject / conda.yaml file
+    :param mlproject: Contents of MLproject file. If None, no MLproject file will be written
+    :param conda_env_path: Path to conda environment file. If None, no conda environment file will
+                           be written.
+    :param conda_env_contents: Contents of conda environment file (written if conda_env_path is
+                               not None)
+    """
+    if mlproject:
+        tmpdir.join("MLproject").write(mlproject)
+    if conda_env_path:
+        tmpdir.join(conda_env_path).write(conda_env_contents)
     project = _project_spec.load_project(tmpdir.strpath)
     assert project.entry_points == {}
-    assert project.conda_env_path is None
-    assert project.load_conda_env() == ""
-    # Test that we can detect a default conda.yaml file to use if not explicitly specified in an
-    # MLproject file
-    for i, mlproject_exists in enumerate([True, False]):
-        project_dir = tmpdir.mkdir("conda-yaml-%s" % i)
-        if mlproject_exists:
-            project_dir.join("MLproject").write("key: value")
-        project_dir.join("conda.yaml").write("hi")
-        project = _project_spec.load_project(project_dir.strpath)
-        assert project.conda_env_path == os.path.abspath(
-            os.path.join(project_dir.strpath, "conda.yaml"))
-        assert project.load_conda_env() == "hi"
-    # Test that we can detect a conda environment file specified in an MLproject file
-    conda_yaml_path = "some-env.yml"
-    project_dir = tmpdir.mkdir("configure-conda-yaml")
-    project_dir.join("MLproject").write("conda_env: %s" % conda_yaml_path)
-    project_dir.join(conda_yaml_path).write("hi")
-    project = _project_spec.load_project(project_dir.strpath)
-    assert project.conda_env_path == os.path.abspath(
-        os.path.join(project_dir.strpath, conda_yaml_path))
-    assert project.load_conda_env() == "hi"
+    expected_env_path = \
+        os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
+    assert project.conda_env_path == expected_env_path
+    assert project.load_conda_env() == conda_env_contents
