@@ -39,7 +39,6 @@ class Project(object):
         self.entry_points = entry_points
 
     def get_entry_point(self, entry_point):
-        from mlflow.projects import ExecutionException
         if entry_point in self.entry_points:
             return self.entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
@@ -75,7 +74,6 @@ class EntryPoint(object):
         assert isinstance(self.command, str)
 
     def _validate_parameters(self, user_parameters):
-        from mlflow.projects import ExecutionException
         missing_params = []
         for name in self.parameters:
             if (name not in user_parameters and self.parameters[name].default is None):
@@ -141,14 +139,12 @@ class Parameter(object):
             self.default = yaml_obj.get("default")
 
     def _compute_uri_value(self, user_param_value):
-        from mlflow.projects import ExecutionException
         if not data.is_uri(user_param_value):
             raise ExecutionException("Expected URI for parameter %s but got "
                                      "%s" % (self.name, user_param_value))
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir):
-        from mlflow.projects import ExecutionException
         if not data.is_uri(user_param_value):
             if not os.path.exists(user_param_value):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "
