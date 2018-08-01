@@ -58,12 +58,14 @@ def get_databricks_http_request_kwargs_or_fail(profile=None):
 def databricks_api_request(endpoint, method, req_body_json=None, params=None):
     final_endpoint = "/api/2.0/%s" % endpoint
     request_params = get_databricks_http_request_kwargs_or_fail()
-    return http_request(endpoint=final_endpoint, method=method, req_body_json=req_body_json,
-                        params=params, **request_params)
+    response = http_request(endpoint=final_endpoint, method=method, req_body_json=req_body_json,
+                            params=params, **request_params)
+    return json.loads(response.text)
 
 
-def http_request(hostname, endpoint, method, headers=None, req_body_json=None, params=None,
-                 secure_verify=True, retries=3, retry_interval=3):
+
+def http_request(hostname, endpoint, headers=None, req_body_json=None,
+                 secure_verify=True, retries=3, retry_interval=3, **kwargs):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Retries
     up to `retries` times if a request fails with a server error (e.g. error code 500), waiting
@@ -77,10 +79,11 @@ def http_request(hostname, endpoint, method, headers=None, req_body_json=None, p
     """
     url = "%s%s" % (hostname, endpoint)
     for i in range(retries):
-        response = requests.request(method=method, url=url, headers=headers, verify=secure_verify,
-                                    params=params, json=req_body_json)
+        response = requests.request(url=url, headers=headers, verify=secure_verify,
+                                    json=req_body_json, **kwargs)
         if response.status_code >= 200 and response.status_code < 500:
-            return json.loads(response.text)
+            # return json.loads(response.text)
+            return response
         else:
             eprint("API request to %s failed with code %s != 200, retrying up to %s more times. "
                    "API response body: %s" % (url, response.status_code, retries - i - 1,

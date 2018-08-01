@@ -1,5 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
+from mlflow.store.rest_store import DatabricksStore
+
 
 class ArtifactRepository:
     """
@@ -57,11 +59,12 @@ class ArtifactRepository:
         pass
 
     @staticmethod
-    def from_artifact_uri(artifact_uri):
+    def from_artifact_uri(artifact_uri, store):
         """
         Given an artifact URI for an Experiment Run (e.g., /local/file/path or s3://my/bucket),
         returns an ArtifactReposistory instance capable of logging and downloading artifacts
         on behalf of this URI.
+        :param store: An instance of AbstractStore which the artifacts are registered in.
         """
         if artifact_uri.startswith("s3:/"):
             # Import these locally to avoid creating a circular import loop
@@ -73,6 +76,11 @@ class ArtifactRepository:
         elif artifact_uri.startswith("wasbs:/"):
             from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
             return AzureBlobArtifactRepository(artifact_uri)
+        elif artifact_uri.startswith("dbfs:/"):
+            from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
+            assert isinstance(store, DatabricksStore), 'store must be an instance of ' \
+                                                       'DatabricksStore'
+            return DbfsArtifactRepository(artifact_uri, store.http_request_kwargs)
         else:
             from mlflow.store.local_artifact_repo import LocalArtifactRepository
             return LocalArtifactRepository(artifact_uri)

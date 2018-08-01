@@ -68,8 +68,9 @@ class RestStore(AbstractStore):
         # Convert json string to json dictionary, to pass to requests
         if json_body:
             json_body = json.loads(json_body)
-        js_dict = http_request(endpoint=endpoint, method=method,
-                               req_body_json=json_body, params=None, **self.http_request_kwargs)
+        response = http_request(endpoint=endpoint, method=method,
+                                req_body_json=json_body, params=None, **self.http_request_kwargs)
+        js_dict = json.loads(response.text)
 
         if 'error_code' in js_dict:
             raise RestException(js_dict)
@@ -228,3 +229,19 @@ class RestStore(AbstractStore):
         """
         runs = self.search_runs(experiment_ids=[experiment_id], search_expressions=[])
         return [run.info for run in runs]
+
+
+class DatabricksStore(RestStore):
+    """
+    A specific type of RestStore which includes authentication information to Databricks.
+    :param http_request_kwargs arguments to add to rest_utils.http_request for all requests.
+                               'hostname', 'headers', and 'secure_verify' are required.
+    """
+    def __init__(self, http_request_kwargs):
+        if not http_request_kwargs['hostname']:
+            raise Exception('hostname must be provided to DatabricksStore')
+        if not http_request_kwargs['headers']:
+            raise Exception('headers must be provided to DatabricksStore')
+        if not http_request_kwargs['secure_verify']:
+            raise Exception('secure_verify must be provided to DatabricksStore')
+        super(DatabricksStore, self).__init__(http_request_kwargs)
