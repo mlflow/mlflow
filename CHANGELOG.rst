@@ -10,8 +10,9 @@ Breaking changes:
   (--new-dir flag in the ``mlflow run`` CLI). Runs of local projects now use the local project
   directory as their working directory. Git projects are still fetched into temporary directories
   (#215, @smurching)
-- [Tracking] Made GCS Artifactory a pluggable dependency. To use GCS support, google-cloud-storage
-  must now be pip-installed on both the client and tracking server (#202, @smurching)
+- [Tracking] GCS artifact storage is now available as a pluggable dependency (no longer installed by default). 
+  To enable GCS support, install google-cloud-storage on both the client and tracking server via pip.
+  (#202, @smurching)
 
 
 Features:
