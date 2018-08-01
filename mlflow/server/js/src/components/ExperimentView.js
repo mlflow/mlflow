@@ -128,13 +128,13 @@ class ExperimentView extends Component {
       let y = b.sortValue;
       if(x === undefined)
         return 1;
-      if(y == undefined)
+      if(y === undefined)
         return -1;
       if(!this.state.sort.ascending) {
         x = b.sortValue;
         y = a.sortValue;
       }
-      return x == y ? 0 : x < y ? -1 : 1;
+      return x < y ? -1 : x > y ? 1 : 0;
     });
 
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
@@ -239,7 +239,7 @@ class ExperimentView extends Component {
 
   onSortBy(isMetric, isParam, key) {
     const sort = this.state.sort;
-    if(sort.key == key && sort.isMetric == isMetric && sort.isParam == isParam) {
+    if(sort.key === key && sort.isMetric === isMetric && sort.isParam === isParam) {
       this.setState({sort: {
         ...sort,
         ascending: !sort.ascending
@@ -270,7 +270,7 @@ class ExperimentView extends Component {
   }
 
   isAllChecked() {
-    return Object.keys(this.state.runsSelected).length == this.props.runInfos.length;
+    return Object.keys(this.state.runsSelected).length === this.props.runInfos.length;
   }
 
   onCheckAll() {
@@ -415,9 +415,9 @@ class ExperimentView extends Component {
     onSortBy,
     sortState) {
     const sortedClassName = (isMetric, isParam, key) => {
-      if(sortState.isMetric != isMetric
-        || sortState.isParam != isParam
-        || sortState.key != key)
+      if(sortState.isMetric !== isMetric
+        || sortState.isParam !== isParam
+        || sortState.key !== key)
         return "sortable"
       return "sortable sorted " + (sortState.ascending?"asc":"desc");
     }
