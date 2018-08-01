@@ -1,6 +1,45 @@
 Changelog
 =========
 
+0.4.0 (2018-08-01)
+------------------
+
+Breaking changes:
+
+- [Projects] Removed the ``use_temp_cwd`` argument to ``mlflow.projects.run()``
+  (``--new-dir`` flag in the ``mlflow run`` CLI). Runs of local projects now use the local project
+  directory as their working directory. Git projects are still fetched into temporary directories
+  (#215, @smurching)
+- [Tracking] GCS artifact storage is now a pluggable dependency (no longer installed by default). 
+  To enable GCS support, install ``google-cloud-storage`` on both the client and tracking server via pip.
+  (#202, @smurching)
+- [Tracking] Clients running MLflow 0.4.0 and above require a server running MLflow 0.4.0
+  or above, due to a fix that ensures clients no longer double-serialize JSON into strings when
+  sending data to the server (#200, @aarondav). However, the MLflow 0.4.0 server remains
+  backwards-compatible with older clients (#216, @aarondav)
+
+
+Features:
+
+- [Examples] Add a more advanced tracking example: using MLflow with PyTorch and TensorBoard (#203)
+- [Models] H2O model support (#170, @ToonKBC)
+- [Projects] Support for running projects in subdirectories of Git repos (#153, @juntai-zheng)
+- [SageMaker] Support for specifying a compute specification when deploying to SageMaker (#185, @dbczumar)
+- [Server] Added --static-prefix option to serve UI from a specified prefix to MLflow UI and server (#116, @andrewmchen)
+- [Tracking] Azure blob storage support for artifacts (#206, @mateiz)
+- [Tracking] Add support for Databricks-backed RestStore (#200, @aarondav)
+- [UI] Enable productionizing frontend by adding CSRF support (#199, @aarondav)
+- [UI] Update metric and parameter filters to let users control column order (#186, @mateiz)
+
+Bug fixes:
+
+- Fixed incompatible file structure returned by GCSArtifactRepository (#173, @jakeret)
+- Fixed metric values going out of order on x axis (#204, @mateiz)
+- Fixed occasional hanging behavior when using the projects.run API (#193, @smurching)
+
+- Miscellaneous bug and documentation fixes from @aarondav, @andrewmchen, @arinto, @jakeret, @mateiz, @smurching, @stbof
+
+
 0.3.0 (2018-07-18)
 ------------------
 
