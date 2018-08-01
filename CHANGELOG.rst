@@ -14,7 +14,9 @@ Breaking changes:
   To enable GCS support, install ``google-cloud-storage`` on both the client and tracking server via pip.
   (#202, @smurching)
 - [Tracking] Clients running MLflow 0.4.0 and above require a server running MLflow 0.4.0
-  or above. The MLflow 0.4.0 server remains backwards-compatible with older clients (#216, @aarondav)
+  or above, due to a fix that ensures clients no longer double-serialize JSON into strings when
+  sending data to the server (#200, @aarondav). However, the MLflow 0.4.0 server remains
+  backwards-compatible with older clients (#216, @aarondav)
 
 
 Features:
