@@ -87,7 +87,11 @@ class ExperimentView extends Component {
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
 
-    const columns = ExperimentView.getColumnHeaders(paramKeyList, metricKeyList);
+    const columns = ExperimentView.getColumnHeaders(
+      paramKeyList,
+      metricKeyList,
+      this.onCheckAll.bind(this),
+      this.isAllChecked());
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => ({
         key: runInfos[idx].run_uuid,
@@ -98,7 +102,8 @@ class ExperimentView extends Component {
           metricKeyList,
           paramsList[idx],
           metricsList[idx],
-          metricRanges)
+          metricRanges,
+          !!this.state.runsSelected[runInfos[idx].run_uuid])
       })
     );
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
@@ -216,6 +221,22 @@ class ExperimentView extends Component {
     }
   }
 
+  isAllChecked() {
+    return Object.keys(this.state.runsSelected).length == this.props.runInfos.length;
+  }
+
+  onCheckAll() {
+    if(this.isAllChecked())
+      this.setState({runsSelected: {}});
+    else {
+      const runsSelected = {};
+      this.props.runInfos.forEach(({run_uuid})=>{
+        runsSelected[run_uuid] = true;
+      });
+      this.setState({runsSelected: runsSelected});
+    }
+  }
+
   onParamKeyFilterInput(event) {
     this.setState({ paramKeyFilterInput: event.target.value });
   }
@@ -274,12 +295,14 @@ class ExperimentView extends Component {
     metricKeyList,
     params,
     metrics,
-    metricRanges) {
+    metricRanges,
+    selected) {
 
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const row = [
-      <td><input type="checkbox" onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
+      <td><input type="checkbox" checked={selected}
+        onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
       <td>
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
@@ -341,13 +364,15 @@ class ExperimentView extends Component {
     return row;
   }
 
-  static getColumnHeaders(paramKeyList, metricKeyList) {
+  static getColumnHeaders(paramKeyList, metricKeyList, onCheckAll, isAllChecked) {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [
-      <th className="bottom-row"/>,  // TODO: checkbox for select-all
+      <th className="bottom-row">
+        <input type="checkbox" onClick={onCheckAll} checked={isAllChecked} />
+      </th>,
       <th className="bottom-row">Date</th>,
-        <th className="bottom-row">User</th>,
+      <th className="bottom-row">User</th>,
       <th className="bottom-row">Source</th>,
       <th className="bottom-row">Version</th>,
     ];
