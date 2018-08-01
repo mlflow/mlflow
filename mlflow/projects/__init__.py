@@ -12,14 +12,15 @@ import tempfile
 from distutils import dir_util
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
-from mlflow.projects._project_spec import load_project
+from mlflow.projects import _project_spec
+from mlflow.projects.utils import ExecutionException
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
 
 
-from mlflow.utils import file_utils, process
+from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -28,10 +29,6 @@ _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # "conda" if unset
 MLFLOW_CONDA = "MLFLOW_CONDA"
 
-
-class ExecutionException(Exception):
-    """Exception thrown when executing a project fails."""
-    pass
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
@@ -51,7 +48,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             git_password=git_password)
     elif mode == "local" or mode is None:
         work_dir = _fetch_project(uri, use_temp_cwd, version, git_username, git_password)
-        project = load_project(work_dir)
+        project = _project_spec.load_project(work_dir)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
@@ -275,7 +272,7 @@ def _maybe_create_conda_env(project_dir):
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
-    project = Project(project_dir)
+    project = _project_spec.load_project(project_dir)
     project_env_name = _get_conda_env_name(project)
     if project_env_name not in env_names:
         eprint('=== Creating conda environment %s ===' % project_env_name)

@@ -13,7 +13,7 @@ from mlflow.entities.source_type import SourceType
 
 
 from mlflow.projects import ExecutionException, _fetch_project, _expand_uri
-from mlflow.projects._project_spec import load_project
+from mlflow.projects import _project_spec
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
 from mlflow.utils.logging_utils import eprint
@@ -231,7 +231,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     work_dir = _fetch_project(
         uri=uri, version=version, use_temp_cwd=False, git_username=git_username,
         git_password=git_password)
-    project = load_project(work_dir)
+    project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)
 

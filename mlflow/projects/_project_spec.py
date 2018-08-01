@@ -6,6 +6,7 @@ import yaml
 from six.moves import shlex_quote
 
 from mlflow import data
+from mlflow.projects.utils import ExecutionException
 
 
 def load_project(directory):
@@ -57,6 +58,9 @@ class Project(object):
         one exists, otherwise returns the empty string.
         """
         if self.conda_env_path:
+            if not os.path.exists(self.conda_env_path):
+                raise ExecutionException(
+                    "Could not find conda environment file at %s" % self.conda_env_path)
             with open(self.conda_env_path) as handle:
                 return handle.read()
         return ""
