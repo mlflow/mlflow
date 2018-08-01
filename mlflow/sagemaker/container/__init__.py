@@ -22,6 +22,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.version import VERSION as MLFLOW_VERSION
 
+SUPPORTED_CONDA_PY_VERSIONS = [2.7, 3.4, 3.5, 3.6]
 
 def _init(cmd):
     """
@@ -77,11 +78,21 @@ def _serve():
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     elif pyfunc.PY_VERSION in conf:
         py_version = conf[pyfunc.PY_VERSION]
-        env_name = "py_env"
-        print("activating default environment for Python version {pyv}".format(pyv=py_version))
-        os.system("conda env create -n {en} python={pyv}".format(en=env_name, pyv=py_version))
-        bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
-                _server_dependencies_cmds()
+        if py_version in SUPPORTED_CONDA_PY_VERSIONS:
+            env_name = "py_env"
+            print("activating default environment for Python version {pyv}".format(pyv=py_version))
+            os.system("conda create -n {en} python={pyv} anaconda".format(en=env_name, 
+                                                                          pyv=py_version))
+            bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
+                    _server_dependencies_cmds()
+        else:
+            default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
+                                                            vmin=sys.version_info.minor)
+            print("The version of python used to serialize the model: Python {mpyv} is not" 
+                  " supported by Anaconda. Using the default Anaconda environment with Python" 
+                  " {dpyv}, which may not be compatible with the model.".format(
+                      mpyv=py_version,
+                      dpyv=default_python_version))
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
     # link the log streams to stdout/err so they will be logged to the container logs
