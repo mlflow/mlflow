@@ -1,3 +1,4 @@
+import filecmp
 import mock
 import os
 
@@ -22,6 +23,14 @@ def load_project():
 
 def validate_exit_status(status_str, expected):
     assert RunStatus.from_string(status_str) == expected
+
+
+def assert_dirs_equal(expected, actual):
+    dir_comparison = filecmp.dircmp(expected, actual)
+    assert len(dir_comparison.left_only) == 0
+    assert len(dir_comparison.right_only) == 0
+    assert len(dir_comparison.diff_files) == 0
+    assert len(dir_comparison.funny_files) == 0
 
 
 @pytest.fixture()

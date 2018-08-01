@@ -2,15 +2,15 @@
 
 from __future__ import print_function
 
+from distutils import dir_util
 import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 
-from distutils import dir_util
+from six.moves import urllib
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects._project_spec import Project
@@ -37,7 +37,7 @@ class ExecutionException(Exception):
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
          mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-         use_temp_cwd=False, storage_dir=None, block=True, run_id=None):
+         storage_dir=None, block=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in mode.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -51,7 +51,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     elif mode == "local" or mode is None:
-        work_dir = _fetch_project(uri, use_temp_cwd, version, git_username, git_password)
+        work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
+                                  git_username=git_username, git_password=git_password)
         project = _load_project(project_dir=work_dir)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
@@ -68,7 +69,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         if block:
             command = _get_entry_point_command(
                 work_dir, entry_point, use_conda, parameters, storage_dir)
-            return _run_entry_point(command, work_dir, run_id=active_run.run_info.run_uuid)
+            return _run_entry_point(command, work_dir, exp_id, run_id=active_run.run_info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
@@ -79,8 +80,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None,
-        use_conda=True, use_temp_cwd=False, storage_dir=None, block=True, run_id=None):
+        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
+        storage_dir=None, block=True, run_id=None):
     """
     Run an MLflow project from the given URI.
 
@@ -106,10 +107,6 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                       installs project dependencies within that environment. Otherwise, runs the
                       project in the current environment without installing any project
                       dependencies.
-    :param use_temp_cwd: Used only if ``mode`` is "local" and ``uri`` is a local directory.
-                         If True, copies project to a temporary working directory before running it.
-                         Otherwise (the default), runs project using ``uri`` (the project's path) as
-                         the working directory.
     :param storage_dir: Only used if ``mode`` is local. MLflow will download artifacts from
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         ``storage_dir``.
@@ -128,7 +125,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
         experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
-        use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block, run_id=run_id)
+        storage_dir=storage_dir, block=block, run_id=run_id)
     if block:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
@@ -172,18 +169,6 @@ def _parse_subdirectory(uri):
     return parsed_uri, subdirectory
 
 
-def _get_dest_dir(uri, use_temp_cwd):
-    """
-    Return a directory to use for fetching the project with the URI.
-    :param use_temp_cwd: Only used if ``uri`` is a local directory. If True, returns a temporary
-    working directory.
-    """
-    if _GIT_URI_REGEX.match(uri) or use_temp_cwd:
-        # Create a temp directory to download and run the project in
-        return tempfile.mkdtemp(prefix="mlflow-")
-    return os.path.abspath(uri)
-
-
 def _get_storage_dir(storage_dir):
     if storage_dir is not None and not os.path.exists(storage_dir):
         os.makedirs(storage_dir)
@@ -196,25 +181,30 @@ def _expand_uri(uri):
     return os.path.abspath(uri)
 
 
-def _fetch_project(uri, use_temp_cwd, version=None, git_username=None, git_password=None):
+def _is_local_path(uri):
+    return urllib.parse.urlparse(uri).scheme == ''
+
+
+def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
+    :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
+                          will fetch Git projects into a temporary directory but simply return the
+                          path of local projects (i.e. perform a no-op for local projects).
     """
-    # Separating the uri from the subdirectory requested.
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    dst_dir = _get_dest_dir(parsed_uri, use_temp_cwd)
-    eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
+    use_temp_dst_dir = force_tempdir or not _is_local_path(uri)
+    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else urllib.parse.urlparse(uri).path
+    if use_temp_dst_dir:
+        eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
     # Download a project to the target `dst_dir` from a Git URI or local path.
-
     if _GIT_URI_REGEX.match(uri):
         # Use Git to clone the project
         _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
     else:
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
-        # TODO: don't copy mlruns directory here
-        # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
-        if uri != dst_dir:
+        if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
 
     # Make sure there is a MLproject file in the specified working directory.
@@ -225,7 +215,7 @@ def _fetch_project(uri, use_temp_cwd, version=None, git_username=None, git_passw
             raise ExecutionException("No MLproject file found in subdirectory %s of %s" %
                                      (subdirectory, parsed_uri))
 
-    return os.path.join(dst_dir, subdirectory)
+    return os.path.abspath(os.path.join(dst_dir, subdirectory))
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
@@ -317,7 +307,7 @@ def _get_entry_point_command(project_dir, entry_point, use_conda, parameters, st
     return " && ".join(commands)
 
 
-def _run_entry_point(command, work_dir, run_id):
+def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.
@@ -325,8 +315,10 @@ def _run_entry_point(command, work_dir, run_id):
     :param work_dir: Working directory in which to run the command
     :param run_id: MLflow run ID associated with the entry point execution.
     """
+    env = os.environ.copy()
+    env.update(_get_run_env_vars(run_id, experiment_id))
     eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
-    process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir)
+    process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
     return LocalSubmittedRun(run_id, process)
 
 
@@ -375,6 +367,18 @@ def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
     return active_run
 
 
+def _get_run_env_vars(run_id, experiment_id):
+    """
+    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
+    to run MLflow projects.
+    """
+    return {
+        tracking._RUN_ID_ENV_VAR: run_id,
+        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
+        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
+    }
+
+
 def _invoke_mlflow_run_subprocess(
         work_dir, entry_point, parameters, experiment_id, use_conda, storage_dir, run_id):
     """
@@ -382,15 +386,9 @@ def _invoke_mlflow_run_subprocess(
     a SubmittedRun that can be used to query run status.
     """
     eprint("=== Asynchronously launching MLflow run with ID %s ===" % run_id)
-    # Add the run id into a magic environment variable that the subprocess will read,
-    # causing it to reuse the run.
-    env_map = {
-        tracking._RUN_ID_ENV_VAR: run_id,
-        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
-    }
     mlflow_run_arr = _build_mlflow_run_cmd(
         uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
         run_id=run_id, parameters=parameters)
-    mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, env_map)
+    mlflow_run_subprocess = _run_mlflow_run_cmd(
+        mlflow_run_arr, _get_run_env_vars(run_id, experiment_id))
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)

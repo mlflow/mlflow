@@ -12,9 +12,8 @@ from mlflow.entities.source_type import SourceType
 from mlflow.projects import databricks, ExecutionException
 from mlflow.utils import file_utils
 
-from tests.projects.utils import validate_exit_status
+from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR, assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-from tests.projects.utils import TEST_PROJECT_DIR
 
 
 @pytest.fixture()
@@ -197,3 +196,17 @@ def test_run_databricks_cancel(
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     with pytest.raises(mlflow.projects.ExecutionException):
         run_databricks_project(cluster_spec_mock, block=True)
+
+
+def test_fetch_and_clean_project(tmpdir):
+    project_with_mlruns = tmpdir.mkdir("with-mlruns")
+    project_with_mlruns.mkdir("mlruns").join("some-file").write("hi")
+    project_without_mlruns = tmpdir.mkdir("without-mlruns")
+    for proj in [project_with_mlruns, project_without_mlruns]:
+        proj.join("MLproject").write("Hello")
+    fetched0 = databricks._fetch_and_clean_project(project_with_mlruns.strpath)
+    fetched1 = databricks._fetch_and_clean_project(project_without_mlruns.strpath)
+    assert_dirs_equal(fetched0, fetched1)
+    for fetched_dir in [fetched0, fetched1]:
+        with open(os.path.join(fetched_dir, "MLproject")) as handle:
+            assert handle.read() == "Hello"
