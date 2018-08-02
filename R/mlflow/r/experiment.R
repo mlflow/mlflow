@@ -278,3 +278,65 @@ mlflow_experiment <- function(name) {
 current_time <- function() {
   round(as.numeric(Sys.time()) * 1000)
 }
+
+#' Start Run
+#'
+#' Starts a new run within an experiment, should be used within a \code{with} block.
+#'
+#' @inheritParams mlflow_create_run
+#'
+#' @examples
+#' \dontrun{
+#' with(mlflow_start_run(), {
+#'   mlflow_log("test", 10)
+#' })
+#' }
+#'
+#' @export
+mlflow_start_run <- function(experiment_id = mlflow_active_experiment(), user_id = NULL,
+                             run_name = NULL, source_type = NULL, source_name = NULL,
+                             status = NULL, start_time = NULL, end_time = NULL,
+                             source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
+                             run_tags = NULL) {
+  structure(
+    class = c("mlflow_start_run_object"),
+    list(
+      experiment_id = experiment_id,
+      user_id = user_id,
+      run_name = run_name,
+      source_type = source_type,
+      source_name = source_name,
+      status = status,
+      start_time = start_time,
+      end_time = end_time,
+      source_version = source_version,
+      artifact_uri = artifact_uri,
+      entry_point_name = entry_point_name,
+      run_tags = run_tags
+    )
+  )
+}
+
+#' @export
+with.mlflow_start_run_object <- function(x, code) {
+  result <- mlflow_create_run(experiment_id = x$experiment_id,
+                              user_id = x$user_id,
+                              run_name = x$run_name,
+                              source_type = x$source_type,
+                              source_name = x$source_name,
+                              status = x$status,
+                              start_time = x$start_time,
+                              end_time = x$end_time,
+                              source_version = x$source_version,
+                              artifact_uri = x$artifact_uri,
+                              entry_point_name = x$entry_point_name,
+                              run_tags = x$run_tags)
+
+  runid <- as.character(result$run_uuid)
+  on.exit(mlflow_update_run(run_uuid = as.character(runid),
+                            status = "FINISHED",
+                            end_time = current_time()))
+
+  force(code)
+}
+
