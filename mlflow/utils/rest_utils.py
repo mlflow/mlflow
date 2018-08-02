@@ -1,11 +1,15 @@
 import base64
-import json
 import time
+from json import loads
 
 from databricks_cli.configure import provider
 import requests
 
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.string_utils import strip_suffix
+
+
+RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
 
 
 def _fail_malformed_databricks_auth(profile):
@@ -44,28 +48,25 @@ def get_databricks_http_request_kwargs_or_fail(profile=None):
         "Authorization": "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     }
 
-    secure_verify = True
+    verify = True
     if hasattr(config, 'insecure') and config.insecure:
-        secure_verify = False
+        verify = False
 
     return {
         'hostname': hostname,
         'headers': headers,
-        'secure_verify': secure_verify,
+        'verify': verify,
     }
 
 
-def databricks_api_request(endpoint, method, req_body_json=None, params=None):
+def databricks_api_request(endpoint, method, json=None):
     final_endpoint = "/api/2.0/%s" % endpoint
     request_params = get_databricks_http_request_kwargs_or_fail()
-    response = http_request(endpoint=final_endpoint, method=method, req_body_json=req_body_json,
-                            params=params, **request_params)
-    return json.loads(response.text)
+    response = http_request(endpoint=final_endpoint, method=method, json=json, **request_params)
+    return loads(response.text)
 
 
-
-def http_request(hostname, endpoint, headers=None, req_body_json=None,
-                 secure_verify=True, retries=3, retry_interval=3, **kwargs):
+def http_request(hostname, endpoint, retries=3, retry_interval=3, **kwargs):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Retries
     up to `retries` times if a request fails with a server error (e.g. error code 500), waiting
@@ -77,12 +78,11 @@ def http_request(hostname, endpoint, headers=None, req_body_json=None,
     :param params: Query parameters for the request
     :return: Parsed API response
     """
-    url = "%s%s" % (hostname, endpoint)
+    cleaned_hostname = strip_suffix(hostname, '/')
+    url = "%s%s" % (cleaned_hostname, endpoint)
     for i in range(retries):
-        response = requests.request(url=url, headers=headers, verify=secure_verify,
-                                    json=req_body_json, **kwargs)
+        response = requests.request(url=url, **kwargs)
         if response.status_code >= 200 and response.status_code < 500:
-            # return json.loads(response.text)
             return response
         else:
             eprint("API request to %s failed with code %s != 200, retrying up to %s more times. "

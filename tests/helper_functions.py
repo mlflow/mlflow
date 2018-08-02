@@ -1,5 +1,7 @@
 import os
 import random
+
+import pytest
 import requests
 import string
 from subprocess import Popen, PIPE, STDOUT

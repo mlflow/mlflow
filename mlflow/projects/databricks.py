@@ -34,17 +34,17 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 def _jobs_runs_get(databricks_run_id):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/get", method="GET", params={"run_id": databricks_run_id})
+        endpoint="jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
 
 
 def _jobs_runs_cancel(databricks_run_id):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/cancel", method="POST", req_body_json={"run_id": databricks_run_id})
+        endpoint="jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
 
 
 def _jobs_runs_submit(req_body_json):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/submit", method="POST", req_body_json=req_body_json)
+        endpoint="jobs/runs/submit", method="POST", json=req_body_json)
 
 
 def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
@@ -112,7 +112,7 @@ def _dbfs_path_exists(dbfs_uri):
     """
     dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
     json_response_obj = rest_utils.databricks_api_request(
-        endpoint="dbfs/get-status", method="GET", params={"path": dbfs_path})
+        endpoint="dbfs/get-status", method="GET", json={"path": dbfs_path})
     # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
     error_code_field = "error_code"
     if error_code_field in json_response_obj:

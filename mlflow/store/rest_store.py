@@ -69,7 +69,7 @@ class RestStore(AbstractStore):
         if json_body:
             json_body = json.loads(json_body)
         response = http_request(endpoint=endpoint, method=method,
-                                req_body_json=json_body, params=None, **self.http_request_kwargs)
+                                json=json_body, **self.http_request_kwargs)
         js_dict = json.loads(response.text)
 
         if 'error_code' in js_dict:
@@ -242,6 +242,6 @@ class DatabricksStore(RestStore):
             raise Exception('hostname must be provided to DatabricksStore')
         if not http_request_kwargs['headers']:
             raise Exception('headers must be provided to DatabricksStore')
-        if not http_request_kwargs['secure_verify']:
-            raise Exception('secure_verify must be provided to DatabricksStore')
+        if not http_request_kwargs['verify']:
+            raise Exception('verify must be provided to DatabricksStore')
         super(DatabricksStore, self).__init__(http_request_kwargs)
