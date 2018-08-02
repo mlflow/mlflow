@@ -33,34 +33,41 @@ def test_list_artifacts_empty(gcs_mock):
     assert repo.list_artifacts() == []
 
 
-def test_list_artifacts(gcs_mock):
-    dest_path = "/some/path/"
+def test_list_artifacts_with_subdir(gcs_mock):
+    dest_path = "/experiment_id/run_id/"
     repo = GCSArtifactRepository("gs://test_bucket" + dest_path, gcs_mock)
+
+    # mocked bucket/blob structure
+    # gs://test_bucket/experiment_id/run_id/model
+    #  | model.pb
+    #  | variables
 
     # mocking a single blob returned by bucket.list_blobs iterator
     # https://googlecloudplatform.github.io/google-cloud-python/latest/storage/buckets.html#google.cloud.storage.bucket.Bucket.list_blobs
-    dir_mock = mock.Mock()
-    dir_name = "0_subpath"
-    dir_mock.configure_mock(prefixes=(dest_path + dir_name + "/",))
+    dir_name = "model"
 
     obj_mock = mock.Mock()
-    file_name = '1_file'
+    file_name = dir_name + "/" + 'model.pb'
     obj_mock.configure_mock(name=dest_path + file_name, size=1)
 
+    subdir_mock = mock.Mock()
+    subdir_name = dir_name + "/" + 'variables'
+    subdir_mock.configure_mock(prefixes=(dest_path + subdir_name + "/",))
+
     mock_results = mock.MagicMock()
-    mock_results.configure_mock(pages=[dir_mock])
+    mock_results.configure_mock(pages=[subdir_mock])
     mock_results.__iter__.return_value = [obj_mock]
 
     gcs_mock.Client.return_value.get_bucket.return_value\
         .list_blobs.return_value = mock_results
 
-    artifacts = repo.list_artifacts()
-    assert artifacts[0].path == dir_name
-    assert artifacts[0].is_dir is True
-    assert artifacts[0].file_size is None
-    assert artifacts[1].path == file_name
-    assert artifacts[1].is_dir is False
-    assert artifacts[1].file_size == obj_mock.size
+    artifacts = repo.list_artifacts(dir_name)
+    assert artifacts[0].path == file_name
+    assert artifacts[0].is_dir is False
+    assert artifacts[0].file_size == obj_mock.size
+    assert artifacts[1].path == subdir_name
+    assert artifacts[1].is_dir is True
+    assert artifacts[1].file_size is None
 
 
 def test_log_artifact(gcs_mock, tmpdir):
