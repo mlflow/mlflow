@@ -33,7 +33,7 @@ def _get_store():
 
 
 def _get_request_message(request_message, flask_request=request):
-    if request.method == 'GET' and len(flask_request.query_string) > 0:
+    if flask_request.method == 'GET' and len(flask_request.query_string) > 0:
         # This is a hack to make arrays of length 1 work with the parser.
         # for example experiment_ids%5B%5D=0 should be parsed to {experiment_ids: [0]}
         # but it gets parsed to {experiment_ids: 0}

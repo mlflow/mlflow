@@ -184,13 +184,13 @@ def list_experiments():
     return _get_store().list_experiments()
 
 
-def create_experiment(experiment_name):
+def create_experiment(experiment_name, artifact_location=None):
     """
     Create an experiment with the specified name and return its ID.
     """
     if experiment_name is None or experiment_name == "":
         raise Exception("Invalid experiment name '%s'" % experiment_name)
-    return _get_store().create_experiment(experiment_name)
+    return _get_store().create_experiment(experiment_name, artifact_location)
 
 
 def _get_main_file():

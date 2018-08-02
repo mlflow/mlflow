@@ -45,7 +45,8 @@ class FileStore(AbstractStore):
         # Create default experiment if needed
         if not self._has_experiment(experiment_id=Experiment.DEFAULT_EXPERIMENT_ID):
             self._create_experiment_with_id(name="Default",
-                                            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID)
+                                            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
+                                            artifact_uri=None)
 
     def _check_root_dir(self):
         """
@@ -88,7 +89,7 @@ class FileStore(AbstractStore):
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
-    def create_experiment(self, name, artifact_location):
+    def create_experiment(self, name, artifact_location=None):
         self._check_root_dir()
         if name is None or name == "":
             raise Exception("Invalid experiment name '%s'" % name)

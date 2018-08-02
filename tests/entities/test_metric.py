@@ -13,7 +13,7 @@ class TestMetric(unittest.TestCase):
 
     def test_creation_and_hydration(self):
         key = random_str()
-        value = random_int()
+        value = 10000
         ts = int(time.time())
 
         metric = Metric(key, value, ts)
