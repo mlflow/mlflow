@@ -131,15 +131,25 @@ span.error-message {
 }
 
 .ExperimentView th.sortable {
-  padding-right: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+
+  /* Prevent double click text select */
+  -webkit-user-select: none; /* Safari */
+   -khtml-user-select: none; /* Konqueror HTML */
+     -moz-user-select: none; /* Firefox */
+      -ms-user-select: none; /* Internet Explorer/Edge */
+          user-select: none;
 }
 
-.ExperimentView th.sorted::after {
+.ExperimentView th.sortable::after {
   content: " ";
   font-size: 0;
   display: inline-block;
-  margin: 0 -13.7px 0 4px;
+  margin: 0 0 0 4px;
   border-style: solid;
+  border-color: transparent;
+  border-width: 0 5px 8.7px 5px;
 }
 
 .ExperimentView th.sorted.asc::after {

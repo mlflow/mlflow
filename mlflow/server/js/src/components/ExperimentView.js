@@ -59,7 +59,7 @@ class ExperimentView extends Component {
     searchInput: '',
     searchErrorMessage: undefined,
     sort: {
-      ascending: true,
+      ascending: false,
       isMetric: false,
       isParam: false,
       key: "start_time"
@@ -104,36 +104,50 @@ class ExperimentView extends Component {
 
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => {
+      const runInfo = runInfos[idx];
       const paramsMap = ExperimentView.toParamsMap(paramsList[idx]);
       const metricsMap = ExperimentView.toMetricsMap(metricsList[idx]);
+      let sortValue;
+      if (sort.isMetric || sort.isParam) {
+        sortValue = (sort.isMetric ? metricsMap : paramsMap)[sort.key];
+        sortValue = sortValue == undefined ? undefined : sortValue.value;
+      } else if (sort.key == 'user_id')
+        sortValue = Utils.formatUser(runInfo.user_id);
+      else if (sort.key == 'source')
+        sortValue = Utils.renderSource(runInfo);
+      else if (sort.key == 'version')
+        sortValue = Utils.renderVersion(runInfo);
+      else
+        sortValue = runInfo[sort.key];
+
       return {
-        key: runInfos[idx].run_uuid,
-        sortValue:
-          (sort.isMetric ? metricsMap :
-          sort.isParam ? paramsMap :
-          runInfos[idx])[sort.key],
+        key: runInfo.run_uuid,
+        sortValue: sortValue,
         contents: ExperimentView.runInfoToRow(
-          runInfos[idx],
+          runInfo,
           this.onCheckbox,
           paramKeyList,
           metricKeyList,
           paramsMap,
           metricsMap,
           metricRanges,
-          !!this.state.runsSelected[runInfos[idx].run_uuid])
+          !!this.state.runsSelected[runInfo.run_uuid])
       }
     });
     rows.sort((a, b) => {
+      if (a.sortValue === undefined)
+        return 1;
+      if (b.sortValue === undefined)
+        return -1;
+      if (!this.state.sort.ascending)
+        [a, b] = [b, a];
       let x = a.sortValue;
       let y = b.sortValue;
-      if(x === undefined)
-        return 1;
-      if(y === undefined)
-        return -1;
-      if(!this.state.sort.ascending) {
-        x = b.sortValue;
-        y = a.sortValue;
-      }
+      // Casting to number if possible
+      if (!isNaN(+x))
+        x = +x;
+      if (!isNaN(+y))
+        y = +y;
       return x < y ? -1 : x > y ? 1 : 0;
     });
 
@@ -239,7 +253,7 @@ class ExperimentView extends Component {
 
   onSortBy(isMetric, isParam, key) {
     const sort = this.state.sort;
-    if(sort.key === key && sort.isMetric === isMetric && sort.isParam === isParam) {
+    if (sort.key === key && sort.isMetric === isMetric && sort.isParam === isParam) {
       this.setState({sort: {
         ...sort,
         ascending: !sort.ascending
@@ -274,7 +288,7 @@ class ExperimentView extends Component {
   }
 
   onCheckAll() {
-    if(this.isAllChecked())
+    if (this.isAllChecked())
       this.setState({runsSelected: {}});
     else {
       const runsSelected = {};
@@ -415,23 +429,27 @@ class ExperimentView extends Component {
     onSortBy,
     sortState) {
     const sortedClassName = (isMetric, isParam, key) => {
-      if(sortState.isMetric !== isMetric
+      if (sortState.isMetric !== isMetric
         || sortState.isParam !== isParam
         || sortState.key !== key)
         return "sortable"
       return "sortable sorted " + (sortState.ascending?"asc":"desc");
     }
+    const getHeaderCell = (key, text) => {
+      return <th className={"bottom-row " + sortedClassName(false, false, key)}
+        onClick={() => onSortBy(false, false, key)}>{text}</th>
+    }
+
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [
       <th className="bottom-row">
         <input type="checkbox" onClick={onCheckAll} checked={isAllChecked} />
       </th>,
-      <th className={"bottom-row " + sortedClassName(false, false, "start_time")}
-        onClick={() => onSortBy(false, false, "start_time")}>Date</th>,
-      <th className="bottom-row">User</th>,
-      <th className="bottom-row">Source</th>,
-      <th className="bottom-row">Version</th>,
+      getHeaderCell("start_time", "Date"),
+      getHeaderCell("user_id", "User"),
+      getHeaderCell("source", "Source"),
+      getHeaderCell("version", "Version")
     ];
     let firstParam = true;
     paramKeyList.forEach((paramKey) => {
