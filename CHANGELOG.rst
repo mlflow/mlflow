@@ -4,33 +4,19 @@ Changelog
 0.4.1 (2018-08-02)
 ------------------
 
-Breaking changes:
-
-- [Projects] Removed the ``use_temp_cwd`` argument to ``mlflow.projects.run()``
-  (``--new-dir`` flag in the ``mlflow run`` CLI). Runs of local projects now use the local project
-  directory as their working directory. Git projects are still fetched into temporary directories
-  (#215, @smurching)
-- [Tracking] GCS artifact storage is now a pluggable dependency (no longer installed by default).
-  To enable GCS support, install ``google-cloud-storage`` on both the client and tracking server via pip.
-  (#202, @smurching)
-- [Tracking] Clients running MLflow 0.4.0 and above require a server running MLflow 0.4.0
-  or above, due to a fix that ensures clients no longer double-serialize JSON into strings when
-  sending data to the server (#200, @aarondav). However, the MLflow 0.4.0 server remains
-  backwards-compatible with older clients (#216, @aarondav)
-
+Breaking changes: None
 
 Features:
 
-- [Projects] MLflow will now use the conda installation at given by the MLFLOW_CONDA_HOME directory
-  if specified,
+- [Projects] MLflow will use the conda installation directory given by the $MLFLOW_CONDA_HOME
+  if specified (e.g. running conda commands by invoking "$MLFLOW_CONDA_HOME/bin/conda"), defaulting
+  to running "conda" otherwise.
 
 Bug fixes:
 
 - Add missing mlflow.version import to sagemaker module (#229, @dbczumar)
-- Validate metric, parameter and run IDs in file store and Python client (#224)
-- Fixed occasional hanging behavior when using the projects.run API (#193, @smurching)
-
-- Miscellaneous bug and documentation fixes from @aarondav, @andrewmchen, @arinto, @jakeret, @mateiz, @smurching, @stbof
+- Validate metric, parameter and run IDs in file store and Python client (#224, @mateiz)
+- Fix for launching Databricks runs without specifying a Tracking URI (#234, @smurching)
 
 
 
