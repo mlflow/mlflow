@@ -83,18 +83,16 @@ def _serve():
             env_name = "py_env"
             _print_flush("activating default environment for Python version {mpyv}".format(
                 mpyv=model_py_version))
-            os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name, 
+            os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name,
                                                                            mpyv=model_py_version))
             bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
                     _server_dependencies_cmds()
         else:
-            _print_flush("The version of python used to serialize the model: Python {mpyv} is not" 
+            _print_flush("The version of python used to serialize the model: Python {mpyv} is not"
                          " supported by Anaconda.".format(mpyv=model_py_version))
+            _warn_default_env()
     else:
-        default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
-                                                        vmin=sys.version_info.minor)
-        _print_flush("Using the default Anaconda environment with Python {dpyv}, which may not be" 
-                     " compatible with the model.".format(dpyv=default_python_version))
+        _warn_default_env()
 
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
@@ -117,6 +115,16 @@ def _serve():
         if pid in pids:
             break
     _sigterm_handler(nginx.pid, gunicorn.pid)
+
+def _warn_default_env():
+    """
+    Print a warning to the user indicating that the container will use a default
+    Anaconda environment that may be incompatible with their model.
+    """
+    default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
+                                                    vmin=sys.version_info.minor)
+    _print_flush("Using the default Anaconda environment with Python {dpyv}, which may not be"
+                 " compatible with the model.".format(dpyv=default_python_version))
 
 
 def _train():
