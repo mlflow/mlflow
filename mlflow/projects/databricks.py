@@ -192,23 +192,6 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
     return databricks_run_id
 
 
-def _create_databricks_run(tracking_uri, experiment_id, source_name, source_version,
-                           entry_point_name):
-    """
-    Make an API request to the specified tracking server to create a new run with the specified
-    attributes. Return an ``ActiveRun`` that can be used to query the tracking server for the run's
-    status or log metrics/params for the run.
-    """
-    if tracking.is_local_uri(tracking_uri):
-        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from "
-               "Databricks will not be logged permanently." % tracking_uri)
-    return tracking._create_run(experiment_id=experiment_id,
-                                source_name=source_name,
-                                source_version=source_version,
-                                entry_point_name=entry_point_name,
-                                source_type=SourceType.PROJECT)
-
-
 def _parse_dbfs_uri_path(dbfs_uri):
     """
     Parses and returns the absolute path within DBFS of the file with the specified URI. For
@@ -232,6 +215,20 @@ def _fetch_and_clean_project(uri, version=None, git_username=None, git_password=
     return work_dir
 
 
+def _get_run_env_vars(tracking_uri, experiment_id):
+    """Returns environment variables to use when launching MLflow project run on Databricks."""
+    env_vars = {}
+    if not tracking.is_local_uri(tracking_uri):
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking_uri
+        env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
+    return env_vars
+
+
+def _get_run_id(tracking_uri, run_id):
+    """Gets run ID to use in `mlflow run` command invoked on Databricks"""
+    return run_id if not tracking.is_local_uri(tracking_uri) else None
+
+
 def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                    git_username, git_password):
     """
@@ -251,20 +248,15 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     # Create run object with remote tracking server. Get the git commit from the working directory,
     # etc.
     tracking_uri = tracking.get_tracking_uri()
-    remote_run = _create_databricks_run(
-        tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=_expand_uri(uri),
-        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point)
-    # Set up environment variables for remote execution
-    env_vars = {}
-    if experiment_id is not None:
-        eprint("=== Using experiment ID %s ===" % experiment_id)
-        env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
-    if not tracking.is_local_uri(tracking_uri):
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking.get_tracking_uri()
-        run_id = remote_run.run_info.run_uuid
-        env_vars[tracking._RUN_ID_ENV_VAR] = run_id
-    else:
-        run_id = None
+    if tracking.is_local_uri(tracking_uri):
+        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from "
+               "Databricks will not be logged permanently." % tracking_uri)
+    remote_run = tracking._create_run(
+        experiment_id=experiment_id, source_name=_expand_uri(uri),
+        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
+        source_type=SourceType.PROJECT)
+    env_vars = _get_run_env_vars(tracking_uri, experiment_id)
+    run_id = _get_run_id(tracking_uri, remote_run.run_info.run_uuid)
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:

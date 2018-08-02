@@ -7,8 +7,8 @@ import shutil
 import pytest
 
 import mlflow
+from mlflow import tracking
 from mlflow.entities.run_status import RunStatus
-from mlflow.entities.source_type import SourceType
 from mlflow.projects import databricks, ExecutionException
 from mlflow.utils import file_utils
 
@@ -44,22 +44,6 @@ def cluster_spec_mock(tmpdir):
     cluster_spec_handle = tmpdir.join("cluster_spec.json")
     cluster_spec_handle.write(json.dumps(dict()))
     yield str(cluster_spec_handle)
-
-
-@pytest.fixture()
-def create_run_mock(tracking_uri_mock):  # pylint: disable=unused-argument
-    # Mocks logic for creating an MLflow run against a tracking server to persist the run to a local
-    # file store
-    def create_run_mock(
-            tracking_uri, experiment_id, source_name,  # pylint: disable=unused-argument
-            source_version, entry_point_name):
-        return mlflow.tracking._create_run(
-            experiment_id=experiment_id, source_name=source_name, source_version=source_version,
-            entry_point_name=entry_point_name, source_type=SourceType.PROJECT)
-    with mock.patch.object(
-            mlflow.projects.databricks, "_create_databricks_run",
-            new=create_run_mock) as create_db_run_mock:
-        yield create_db_run_mock
 
 
 @pytest.fixture()
@@ -146,7 +130,7 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
 
 def test_run_databricks_validations(
         cluster_spec_mock, auth_available_mock,  # pylint: disable=unused-argument
-        tracking_uri_mock, dbfs_mocks, create_run_mock):  # pylint: disable=unused-argument
+        tracking_uri_mock, dbfs_mocks):  # pylint: disable=unused-argument
     """
     Tests that running on Databricks fails before making any API requests if project parameters
     or the cluster spec are mis-specified.
@@ -165,8 +149,7 @@ def test_run_databricks_validations(
 
 def test_run_databricks(
         auth_available_mock,  # pylint: disable=unused-argument
-        tracking_uri_mock, runs_cancel_mock, create_run_mock,  # pylint: disable=unused-argument
-        dbfs_mocks,  # pylint: disable=unused-argument
+        tracking_uri_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
         runs_submit_mock, runs_get_mock, cluster_spec_mock):
     """Test running on Databricks with mocks."""
     # Test that MLflow gets the correct run status when performing a Databricks run
@@ -180,9 +163,8 @@ def test_run_databricks(
 
 
 def test_run_databricks_cancel(
-        auth_available_mock,  # pylint: disable=unused-argument
-        tracking_uri_mock, create_run_mock,  # pylint: disable=unused-argument
-        runs_submit_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
+        auth_available_mock, tracking_uri_mock, runs_submit_mock,  # pylint: disable=unused-argument
+        runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
         runs_get_mock, cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
@@ -210,3 +192,18 @@ def test_fetch_and_clean_project(tmpdir):
     for fetched_dir in [fetched0, fetched1]:
         with open(os.path.join(fetched_dir, "MLproject")) as handle:
             assert handle.read() == "Hello"
+
+
+def test_get_run_env_vars(tmpdir):
+    tests = [
+        ("http://", 1,
+         {tracking._EXPERIMENT_ID_ENV_VAR: 1, tracking._TRACKING_URI_ENV_VAR: "http://"}),
+        (tmpdir.strpath, 1, {})
+    ]
+    for tracking_uri, experiment_id, expected_env in tests:
+        assert databricks._get_run_env_vars(tracking_uri, experiment_id) == expected_env
+
+
+def test_get_run_id(tmpdir):
+    for tracking_uri, run_id, expected in [("http://", "a", "a"), (tmpdir.strpath, "b", None)]:
+        assert databricks._get_run_id(tracking_uri, run_id) == expected
