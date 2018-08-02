@@ -17,7 +17,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
-
+from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
 
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
@@ -25,6 +25,7 @@ _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _DEFAULT_USER_ID = "unknown"
 _LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
+
 _active_run = None
 _tracking_uri = None
 
@@ -149,9 +150,11 @@ class ActiveRun(object):
             end_time=_get_unix_timestamp())
 
     def log_metric(self, metric):
+        _validate_metric_name(metric.key)
         self.store.log_metric(self.run_info.run_uuid, metric)
 
     def log_param(self, param):
+        _validate_param_name(param.key)
         self.store.log_param(self.run_info.run_uuid, param)
 
     def log_artifact(self, local_path, artifact_path=None):
@@ -238,10 +241,12 @@ def _create_run(experiment_id, source_name, source_version, entry_point_name, so
 
 def get_run(run_uuid):
     """Return the run with the specified run UUID from the current tracking server."""
+    _validate_run_id(run_uuid)
     return _get_store().get_run(run_uuid)
 
 
 def _get_existing_run(run_uuid):
+    _validate_run_id(run_uuid)
     existing_run = get_run(run_uuid)
     if existing_run is None:
         raise Exception("Could not start run with UUID %s - no such run found." % run_uuid)
@@ -284,8 +289,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                         "run" % _active_run.run_info.run_uuid)
     existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
     if existing_run_uuid:
+        _validate_run_id(existing_run_uuid)
         active_run_obj = _get_existing_run(existing_run_uuid)
-
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()
         active_run_obj = _create_run(experiment_id=exp_id_for_run,
