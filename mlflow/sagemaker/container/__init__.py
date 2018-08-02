@@ -64,6 +64,7 @@ def _serve():
         raise Exception("Only supports pyfunc models and this is not one.")
     conf = m.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
+    env_name = None
     if pyfunc.ENV in conf:
         _print_flush("activating custom Anaconda environment")
         env = conf[pyfunc.ENV]
@@ -76,7 +77,6 @@ def _serve():
         shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
         env_name = "custom_env"
         os.system("conda env create -n {en} -f {ep}".format(en=env_name, ep=env_path_dst))
-        bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     elif pyfunc.PY_VERSION in conf:
         model_py_version = conf[pyfunc.PY_VERSION]
         if model_py_version in SUPPORTED_CONDA_PY_VERSIONS:
@@ -85,14 +85,18 @@ def _serve():
                 mpyv=model_py_version))
             os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name,
                                                                            mpyv=model_py_version))
-            bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
-                    _server_dependencies_cmds()
         else:
             _print_flush("The version of python used to serialize the model: Python {mpyv} is not"
                          " supported by Anaconda.".format(mpyv=model_py_version))
-            _warn_default_env()
+
+    if env_name is not None:
+        bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
+                _server_dependencies_cmds()
     else:
-        _warn_default_env()
+        default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
+                                                        vmin=sys.version_info.minor)
+        _print_flush("Using the default Anaconda environment with Python {dpyv}, which may not be"
+                     " compatible with the model.".format(dpyv=default_python_version))
 
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
@@ -115,16 +119,6 @@ def _serve():
         if pid in pids:
             break
     _sigterm_handler(nginx.pid, gunicorn.pid)
-
-def _warn_default_env():
-    """
-    Print a warning to the user indicating that the container will use a default
-    Anaconda environment that may be incompatible with their model.
-    """
-    default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
-                                                    vmin=sys.version_info.minor)
-    _print_flush("Using the default Anaconda environment with Python {dpyv}, which may not be"
-                 " compatible with the model.".format(dpyv=default_python_version))
 
 
 def _train():
