@@ -24,8 +24,6 @@ from mlflow import pyfunc
 from mlflow.models import Model
 
 
-
-
 FLAVOR_NAME = "spark"
 
 
@@ -105,11 +103,7 @@ def save_model(spark_model, path, mlflow_model=Model(), input_df = None, conda_e
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
     dfs_tmpdir = _tmp_path(32)
-    print("saving model to %s" % dfs_tmpdir)
     spark_model.save(dfs_tmpdir)
-    print(os.path.exists(dfs_tmpdir))
-    print("abs path", os.path.abspath(dfs_tmpdir))
-    x = spark_model.load(dfs_tmpdir)
     # The file might be stored on a distributed fs -> copy it to local
     _DFS.copy_to_local(dfs_tmpdir, os.path.abspath(os.path.join(path, "model")))
     pyspark_version = pyspark.version.__version__
@@ -156,14 +150,7 @@ def load_pyfunc(path):
     """
     spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
         .master("local[1]").getOrCreate()
-    path = os.path.abspath(path)
-    schema = None
-    # schema_file = os.path.join(path, "schema.json")
-    # if os.path.exists(schema_file):
-    #     schema = DataType.fromJson(open(schema_file, "r").read())
-    return _PyFuncModelWrapper(spark, #schema,
-                               PipelineModel.load("file:" + path))
-    # return _PyFuncModelWrapper(spark, schema, PipelineModel.load("file:" + os.path.join(path, "model")))
+    return _PyFuncModelWrapper(spark, PipelineModel.load("file:" + os.path.abspath(path)))
 
 
 class _PyFuncModelWrapper(object):
