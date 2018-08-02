@@ -259,9 +259,12 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     if experiment_id is not None:
         eprint("=== Using experiment ID %s ===" % experiment_id)
         env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
-    if remote_run is not None:
+    if not tracking.is_local_uri(tracking_uri):
         env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking.get_tracking_uri()
-        env_vars[tracking._RUN_ID_ENV_VAR] = remote_run.run_info.run_uuid
+        run_id = remote_run.run_info.run_uuid
+        env_vars[tracking._RUN_ID_ENV_VAR] = run_id
+    else:
+        run_id = None
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:
@@ -272,10 +275,8 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
                    "%s. " % cluster_spec)
             raise
     fuse_dst_dir = os.path.join("/dbfs/", _parse_dbfs_uri_path(dbfs_project_uri).lstrip("/"))
-    final_run_id = remote_run.run_info.run_uuid if remote_run else None
-    command = _get_databricks_run_cmd(fuse_dst_dir, final_run_id, entry_point, parameters)
+    command = _get_databricks_run_cmd(fuse_dst_dir, run_id, entry_point, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    run_id = remote_run.run_info.run_uuid if remote_run else None
     return DatabricksSubmittedRun(db_run_id, run_id)
 
 
