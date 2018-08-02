@@ -13,7 +13,6 @@ from mlflow.utils import cli_args
 from mlflow.projects import _maybe_create_conda_env, _get_conda_env_name
 
 
-
 def _rerun_in_conda(conda_env_path):
     """ Rerun CLI command inside a to-be-created conda environment."""
     conda_env_name = _get_conda_env_name(conda_env_path)
@@ -34,15 +33,15 @@ def _reconstruct_command_line():
     if not cmdline.startswith("mlflow"):
         cmdline = 'mlflow ' + cmdline
     params = ctx.params.copy()
-    #enforce newcommand to contaon --no-conda so we don't run into conda activation loop
-    params['no_conda'] = True  
+    # enforce newcommand to contaon --no-conda so we don't run into conda activation loop
+    params['no_conda'] = True
     for key, val in params.items():
         opt = " --" + key.replace('_', '-')
         if type(val) == bool:
             if val:
                 cmdline += opt
         elif type(val) == str:
-            cmdline += (opt  + " " + val)
+            cmdline += (opt + " " + val)
         elif val is None:
             pass
         else:
