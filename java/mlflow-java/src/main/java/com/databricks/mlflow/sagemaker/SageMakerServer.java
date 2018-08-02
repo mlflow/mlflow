@@ -48,11 +48,10 @@ public class SageMakerServer {
         serve(Optional.of(predictor), portNumber);
     }
 
-    public static void serve(
-        String modelPath, Optional<String> runId, Optional<Integer> portNumber) {
+    public static void serve(String modelPath, Optional<Integer> portNumber) {
         Optional<Predictor> predictor = Optional.empty();
         try {
-            predictor = Optional.of(JavaFunc.load(modelPath, runId));
+            predictor = Optional.of(JavaFunc.load(modelPath));
         } catch (InstantiationException | InvocationTargetException | LoaderModuleException
             | IOException e) {
             e.printStackTrace();
@@ -130,14 +129,10 @@ public class SageMakerServer {
 
     public static void main(String[] args) {
         String modelPath = args[0];
-        Optional<String> runId = Optional.empty();
         Optional<Integer> portNum = Optional.empty();
         if (args.length > 1) {
-            runId = Optional.of(args[1]);
-        }
-        if (args.length > 2) {
             portNum = Optional.of(Integer.parseInt(args[2]));
         }
-        serve(modelPath, runId, portNum);
+        serve(modelPath, portNum);
     }
 }
