@@ -215,15 +215,6 @@ def _fetch_and_clean_project(uri, version=None, git_username=None, git_password=
     return work_dir
 
 
-def _get_run_env_vars(tracking_uri, experiment_id):
-    """Returns environment variables to use when launching MLflow project run on Databricks."""
-    env_vars = {}
-    if not tracking.is_local_uri(tracking_uri):
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking_uri
-        env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
-    return env_vars
-
-
 def _before_run_validations(tracking_uri, cluster_spec):
     """Validations to perform before running a project on Databricks."""
     _check_databricks_auth_available()
@@ -254,8 +245,11 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         experiment_id=experiment_id, source_name=_expand_uri(uri),
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
-    env_vars = _get_run_env_vars(tracking_uri, experiment_id)
-    run_id = remote_run.run_info.run_uuid if not tracking.is_local_uri(tracking_uri) else None
+    env_vars = {
+         tracking._TRACKING_URI_ENV_VAR: tracking_uri,
+         tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+    }
+    run_id = remote_run.run_info.run_uuid
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:
