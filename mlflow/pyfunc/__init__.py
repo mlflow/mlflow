@@ -110,7 +110,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     :return: Updated model configuration.
     """
     parms = {MAIN: loader_module}
-    parms[PY_VERSION] = PYTHON_VERSION 
+    parms[PY_VERSION] = PYTHON_VERSION
     if code:
         parms[CODE] = code
     if data:
@@ -222,7 +222,8 @@ def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=
     env = None
 
     if data_path:
-        model_file = _copy_file_or_tree(src=data_path, dst=dst_path, dst_dir="data")
+        model_file = _copy_file_or_tree(
+            src=data_path, dst=dst_path, dst_dir="data")
         data = model_file
 
     if code_path:
@@ -231,10 +232,12 @@ def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=
         code = "code"
 
     if conda_env:
-        shutil.copy(src=conda_env, dst=os.path.join(dst_path, "mlflow_env.yml"))
+        shutil.copy(src=conda_env, dst=os.path.join(
+            dst_path, "mlflow_env.yml"))
         env = "mlflow_env.yml"
 
-    add_to_model(model, loader_module=loader_module, code=code, data=data, env=env)
+    add_to_model(model, loader_module=loader_module,
+                 code=code, data=data, env=env)
     model.save(os.path.join(dst_path, 'MLmodel'))
     return model
 
@@ -250,7 +253,8 @@ def log_model(artifact_path, **kwargs):
         local_path = tmp.path(artifact_path)
         run_id = tracking.active_run().info.run_uuid
         if 'model' in kwargs:
-            raise Exception("Unused argument 'model'. log_model creates a new model object")
+            raise Exception(
+                "Unused argument 'model'. log_model creates a new model object")
 
         save_model(dst_path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
                    **kwargs)
@@ -282,9 +286,11 @@ def get_module_loader_src(src_path, dst_path):
         dst_code_path = os.path.join(dst_path, conf[CODE])
         code_path = ["os.path.abspath('%s')" % x
                      for x in [dst_code_path] + _get_code_dirs(src_code_path, dst_code_path)]
-        update_path = "sys.path = {} + sys.path; ".format("[%s]" % ",".join(code_path))
+        update_path = "sys.path = {} + sys.path; ".format(
+            "[%s]" % ",".join(code_path))
 
-    data_path = os.path.join(dst_path, conf[DATA]) if (DATA in conf) else dst_path
+    data_path = os.path.join(dst_path, conf[DATA]) if (
+        DATA in conf) else dst_path
     return loader_template.format(update_path=update_path, main=conf[MAIN], data_path=data_path)
 
 
