@@ -82,7 +82,7 @@ class _DFS:
         cls.fs().delete(cls.remote_path(path), True)
 
 
-def save_model(spark_model, path, mlflow_model=Model(), input_df = None, conda_env=None, jars=None):
+def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None):
     """
     Save Spark MLlib PipelineModel at given local path.
 
