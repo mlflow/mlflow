@@ -75,6 +75,7 @@ def _not_implemented():
 
 
 def _message_to_json(message):
+    # preserving_proto_field_name keeps the JSON-serialized form snake_case
     return MessageToJson(message, preserving_proto_field_name=True)
 
 
