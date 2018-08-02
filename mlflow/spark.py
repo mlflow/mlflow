@@ -11,8 +11,6 @@ from __future__ import absolute_import
 
 import os
 import shutil
-import string
-import random
 
 import pyspark
 from pyspark import SparkContext
@@ -26,8 +24,10 @@ from mlflow.models import Model
 
 FLAVOR_NAME = "spark"
 
+# Default temporary directory on DFS. Used to write / read from Saprk ML models.
+DFS_TMP = "/tmp/mlflow"
 
-def log_model(spark_model, artifact_path, conda_env=None, jars=None):
+def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=DFS_TMP):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run.
 
@@ -36,53 +36,67 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None):
     :param conda_env: Path to a Conda environment file. If provided, defines environment for the
     model. At minimum, it should specify python, pyspark, and mlflow with appropriate versions.
     :param jars: List of JARs needed by the model.
+    :param dfs_tmpdir: Temporary directory path on DFS or local FS if running in local mode. The
+    model will be writen in this destination and than copied to requested local path. This is
+    necessary as Spark ML models read / write from / to DFS if running on a cluster. All temporary
+    files created on the DFS will be removed if this operation completes successfully.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
-                     jars=jars, conda_env=conda_env)
+                     jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir)
 
 
-def _tmp_path(len):
-    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len))
+def _tmp_path(dfs_tmp):
+    import uuid
+    return os.path.join(dfs_tmp, str(uuid.uuid4()))
 
 
-class _DFS:
-    _fs = None
+class _HadoopFileSystem:
+    """
+    Interface to org.apache.hadoop.fs.FileSystem.
+
+    Spark ML models expect to read from and write to Hadoop FileSystem when running on a cluster.
+    Sine MLflow works on local directories, we need this interface to copy teh files between
+    the current DFS and local dir.
+    """
+    _filesystem = None
+    _conf = None
 
     @classmethod
-    def jvm(cls):
+    def _jvm(cls):
         return SparkContext._gateway.jvm
 
     @classmethod
-    def fs(cls):
-        if not cls._fs:
+    def _fs(cls):
+        if not cls._filesystem:
             sc = SparkContext.getOrCreate()
-            cls._fs = cls.jvm().org.apache.hadoop.fs.FileSystem.get(sc._jsc.hadoopConfiguration())
-        return cls._fs
+            cls._conf = sc._jsc.hadoopConfiguration()
+            cls._filesystem = cls._jvm().org.apache.hadoop.fs.FileSystem.get(cls._conf)
+        return cls._filesystem
 
     @classmethod
-    def local_path(cls, path):
-        return cls.jvm().org.apache.hadoop.fs.Path("file:" + os.path.abspath(path))
+    def _local_path(cls, path):
+        return cls._jvm().org.apache.hadoop.fs.Path(os.path.abspath(path))
 
     @classmethod
-    def remote_path(cls, path):
-        return cls.fs().makeQualified(cls.jvm().org.apache.hadoop.fs.Path(path))
-
-
-    @classmethod
-    def copy_to_local(cls, src, dst):
-        remote = cls.remote_path(src)
-        cls.fs().copyToLocalFile(True, remote, cls.local_path(dst))
+    def _remote_path(cls, path):
+        return cls._fs().makeQualified(cls._jvm().org.apache.hadoop.fs.Path(path))
 
     @classmethod
-    def copy_from_local(cls, src, dst):
-       cls.fs().copyFromLocalFile(False, cls.local_path(src), cls.remote_path(dst))
+    def copy_to_local_file(cls, src, dst, removeSrc=True):
+        remote = cls._remote_path(src)
+        cls._fs().copyToLocalFile(removeSrc, remote, cls._local_path(dst))
 
     @classmethod
-    def remove(cls, path):
-        cls.fs().delete(cls.remote_path(path), True)
+    def copy_from_local_file(cls, src, dst, removeSrc=False):
+       cls._fs().copyFromLocalFile(removeSrc, cls._local_path(src), cls._remote_path(dst))
+
+    @classmethod
+    def delete(cls, path):
+        cls._fs().delete(cls._remote_path(path), True)
 
 
-def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None):
+def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
+               dfs_tmpdir=DFS_TMP):
     """
     Save Spark MLlib PipelineModel at given local path.
 
@@ -93,6 +107,10 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Conda environment this model depends on.
     :param jars: List of JARs needed by the model.
+    :param dfs_tmpdir: Temporary directory path on DFS or local FS if running in local mode. The
+    model will be writen in this destination and than copied to requested local path. This is
+    necessary as Spark ML models read / write from / to DFS if running on a cluster. All temporary
+    files created on the DFS will be removed if this operation completes successfully.
     """
     if jars:
         raise Exception("jar dependencies are not implemented")
@@ -102,13 +120,10 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can save only PipelineModels.")
     # Spark ML stores the model on DFS if running on a cluster
-    # Save it to a temp dir first and copy it to local path
-    dfs_tmpdir = _tmp_path(32)
-    spark_model.save(dfs_tmpdir)
-
-    _DFS.copy_to_local(dfs_tmpdir, os.path.abspath(os.path.join(path, "model")))
-
-    spark_model.save(os.path.join(path, "model"))
+    # Save it to a DFS temp dir first and copy it to local path
+    tmp_path = _tmp_path(dfs_tmpdir)
+    spark_model.save(tmp_path)
+    _HadoopFileSystem.copy_to_local_file(tmp_path, os.path.abspath(os.path.join(path, "model")))
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
     if conda_env:
@@ -122,7 +137,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def load_model(path, run_id=None):
+def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
     """
     Load the Spark MLlib model from the path.
 
@@ -138,13 +153,15 @@ def load_model(path, run_id=None):
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
     conf = m.flavors[FLAVOR_NAME]
     model_path = os.path.join(path, conf['model_data'])
-    dfs_tmp_path = _tmp_path(32)
-    # Spark ML expects the model to be stored on DFS
-    # Copy the model to a temp DFS location first.
-    _DFS.copy_from_local(model_path, dfs_tmp_path)
-    pipeline_model = PipelineModel.load(dfs_tmp_path)
-    _DFS.remove(dfs_tmp_path)
-    return pipeline_model
+    tmp_path = _tmp_path(dfs_tmpdir)
+    try:
+        # Spark ML expects the model to be stored on DFS
+        # Copy the model to a temp DFS location first.
+        _HadoopFileSystem.copy_from_local_file(model_path, tmp_path)
+        pipeline_model = PipelineModel.load(tmp_path)
+        return pipeline_model
+    finally:
+        _HadoopFileSystem.delete(tmp_path)
 
 
 def load_pyfunc(path):

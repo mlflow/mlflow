@@ -18,6 +18,17 @@ from mlflow.pyfunc.spark_model_cache import SparkModelCache
 import mlflow.sklearn
 
 
+def score_model_as_udf(model_path, run_id, pandas_df):
+    spark = pyspark.sql.SparkSession.builder \
+        .config(key="spark.python.worker.reuse", value=True) \
+        .master("local-cluster[2, 1, 1024]") \
+        .getOrCreate()
+    spark_df = spark.createDataFrame(pandas_df)
+    pyfunc_udf = spark_udf(spark, model_path, run_id, result_type="double")
+    new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
+    return [x['prediction'] for x in new_df.collect()]
+
+
 class TestSparkUDFs(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.mkdtemp("mlflow-spark-test", dir="/tmp")
@@ -45,10 +56,7 @@ class TestSparkUDFs(unittest.TestCase):
         pandas_df = self._pandas_df
         spark_df = self.spark.createDataFrame(pandas_df)
         pyfunc_udf = spark_udf(self.spark, self._model_path, result_type="integer")
-        # TODO: The following does not work why?
-        # TODO: new_df = spark_df.withColumn
-        # TODO: ("prediction", pyfunc_udf(struct(*self._pandas_df.columns)))
-        new_df = spark_df.withColumn("prediction", pyfunc_udf(self._pandas_df.columns))
+        new_df = spark_df.withColumn("prediction", pyfunc_udf(*self._pandas_df.columns))
         spark_results = new_df.collect()
 
         # Compare against directly running the model.
