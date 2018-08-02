@@ -11,12 +11,13 @@ from __future__ import absolute_import
 
 import os
 import shutil
+import string
+import random
 
 import pyspark
+from pyspark import SparkContext
 from pyspark.ml.pipeline import PipelineModel
 from pyspark.ml.base import Transformer
-from pyspark.sql import SparkSession
-#from pyspark.sql.types import DataType, StructType
 
 import mlflow
 from mlflow import pyfunc
@@ -43,6 +44,47 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None):
                      jars=jars, conda_env=conda_env)
 
 
+def _tmp_path(len):
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len))
+
+
+class _DFS:
+    _fs = None
+
+    @classmethod
+    def jvm(cls):
+        return SparkContext._gateway.jvm
+
+    @classmethod
+    def fs(cls):
+        if not cls._fs:
+            sc = SparkContext.getOrCreate()
+            cls._fs = cls.jvm().org.apache.hadoop.fs.FileSystem.get(sc._jsc.hadoopConfiguration())
+        return cls._fs
+
+    @classmethod
+    def local_path(cls, path):
+        return cls.jvm().org.apache.hadoop.fs.Path("file:" + os.path.abspath(path))
+
+    @classmethod
+    def remote_path(cls, path):
+        return cls.fs().makeQualified(cls.jvm().org.apache.hadoop.fs.Path(path))
+
+
+    @classmethod
+    def copy_to_local(cls, src, dst):
+        remote = cls.remote_path(src)
+        cls.fs().copyToLocalFile(True, remote, cls.local_path(dst))
+
+    @classmethod
+    def copy_from_local(cls, src, dst):
+       cls.fs().copyFromLocalFile(False, cls.local_path(src), cls.remote_path(dst))
+
+    @classmethod
+    def remove(cls, path):
+        cls.fs().delete(cls.remote_path(path), True)
+
+
 def save_model(spark_model, path, mlflow_model=Model(), input_df = None, conda_env=None, jars=None):
     """
     Save Spark MLlib PipelineModel at given local path.
@@ -62,8 +104,14 @@ def save_model(spark_model, path, mlflow_model=Model(), input_df = None, conda_e
             str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
-    spark_model.save("file:" + os.path.abspath(os.path.join(path, "model")))
-
+    dfs_tmpdir = _tmp_path(32)
+    print("saving model to %s" % dfs_tmpdir)
+    spark_model.save(dfs_tmpdir)
+    print(os.path.exists(dfs_tmpdir))
+    print("abs path", os.path.abspath(dfs_tmpdir))
+    x = spark_model.load(dfs_tmpdir)
+    # The file might be stored on a distributed fs -> copy it to local
+    _DFS.copy_to_local(dfs_tmpdir, os.path.abspath(os.path.join(path, "model")))
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
     if conda_env:
@@ -92,10 +140,12 @@ def load_model(path, run_id=None):
     if FLAVOR_NAME not in m.flavors:
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
     conf = m.flavors[FLAVOR_NAME]
-    sc = SparkSession.builder.getOrCreate().sparkContext
     model_path = os.path.join(path, conf['model_data'])
-    sc.addFile(model_path, recursive=True)
-    return PipelineModel.load("file:" + model_path)
+    dfs_tmp_path = _tmp_path(32)
+    _DFS.copy_from_local(model_path, dfs_tmp_path)
+    pipeline_model = PipelineModel.load(dfs_tmp_path)
+    _DFS.remove(dfs_tmp_path)
+    return pipeline_model
 
 
 def load_pyfunc(path):
