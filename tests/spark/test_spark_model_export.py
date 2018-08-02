@@ -53,7 +53,7 @@ def test_model_export(tmpdir):
     assert preds1 == preds3
 
 
-#@pytest.mark.large
+@pytest.mark.large
 def test_model_log(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])

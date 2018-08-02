@@ -103,7 +103,7 @@ def save_model(spark_model, path, mlflow_model=Model(), input_df = None, conda_e
         raise Exception("Not a PipelineModel. SparkML can save only PipelineModels.")
     dfs_tmpdir = _tmp_path(32)
     spark_model.save(dfs_tmpdir)
-    # The file might be stored on a distributed fs -> copy it to local
+    # Spark ML stores the model to DFS if funning on a cluster, copy it to local dir
     _DFS.copy_to_local(dfs_tmpdir, os.path.abspath(os.path.join(path, "model")))
 
     spark_model.save(os.path.join(path, "model"))
@@ -137,6 +137,7 @@ def load_model(path, run_id=None):
     conf = m.flavors[FLAVOR_NAME]
     model_path = os.path.join(path, conf['model_data'])
     dfs_tmp_path = _tmp_path(32)
+    # Spark ML expects the model to be on the current DFS, copy the model dir to DFS first
     _DFS.copy_from_local(model_path, dfs_tmp_path)
     pipeline_model = PipelineModel.load(dfs_tmp_path)
     _DFS.remove(dfs_tmp_path)
@@ -152,6 +153,7 @@ def load_pyfunc(path):
     """
     spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
         .master("local[1]").getOrCreate()
+    # We do not need any DFS here as pyfunc should create its own SparkContext with no executors
     return _PyFuncModelWrapper(spark, PipelineModel.load("file:" + os.path.abspath(path)))
 
 
