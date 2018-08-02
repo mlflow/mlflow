@@ -27,7 +27,7 @@ from mlflow.utils.logging_utils import eprint
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
-MLFLOW_CONDA = "MLFLOW_CONDA"
+MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 
 
 class ExecutionException(Exception):
@@ -254,17 +254,25 @@ def _get_conda_env_name(conda_env_path):
     return "mlflow-%s" % conda_env_hash
 
 
-def _conda_executable():
+def _get_conda_bin_executable(executable_name):
     """
-    Return path to a Conda executable. Configurable via the ``mlflow.projects.MLFLOW_CONDA``
-    environment variable.
+    Return path to the specified executable, assumed to be discoverable within the 'bin'
+    subdirectory of a conda installation.
+
+    The conda home directory (expected to contain a 'bin' subdirectory) is configurable via the
+    ``mlflow.projects.MLFLOW_CONDA_HOME`` environment variable. If
+    ``mlflow.projects.MLFLOW_CONDA_HOME`` is unspecified, this method simply returns the passed-in
+    executable name.
     """
-    return os.environ.get(MLFLOW_CONDA, "conda")
+    conda_home = os.environ.get(MLFLOW_CONDA_HOME)
+    if conda_home:
+        return os.path.join(conda_home, "bin/%s" % executable_name)
+    return executable_name
 
 
 def _maybe_create_conda_env(conda_env_path):
     conda_env = _get_conda_env_name(conda_env_path)
-    conda_path = _conda_executable()
+    conda_path = _get_conda_bin_executable("conda")
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
@@ -273,7 +281,7 @@ def _maybe_create_conda_env(conda_env_path):
                                  "at https://conda.io/docs/user-guide/install/index.html. You can "
                                  "also configure MLflow to look for a specific Conda executable "
                                  "by setting the {1} environment variable to the path of the Conda "
-                                 "executable".format(conda_path, MLFLOW_CONDA))
+                                 "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
@@ -301,7 +309,8 @@ def _get_entry_point_command(project_dir, entry_point, use_conda, parameters, st
     commands = []
     if use_conda:
         conda_env_path = os.path.abspath(os.path.join(project_dir, project.conda_env))
-        commands.append("source activate %s" % _get_conda_env_name(conda_env_path))
+        activate_path = _get_conda_bin_executable("activate")
+        commands.append("source %s %s" % (activate_path, _get_conda_env_name(conda_env_path)))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     return " && ".join(commands)

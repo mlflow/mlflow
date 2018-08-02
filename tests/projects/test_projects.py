@@ -172,13 +172,18 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
 
 
 @pytest.mark.parametrize(
-    "mock_env,expected",
-    [({}, "conda"), ({mlflow.projects.MLFLOW_CONDA: "/some/dir/conda"}, "/some/dir/conda")]
+    "mock_env,expected_conda,expected_activate",
+    [
+        ({}, "conda", "activate"),
+        ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
+         "/some/dir/bin/activate")
+     ]
 )
-def test_conda_path(mock_env, expected):
-    """Verify that we correctly determine the path to a conda executable"""
+def test_conda_path(mock_env, expected_conda, expected_activate):
+    """Verify that we correctly determine the path to conda executables"""
     with mock.patch.dict("os.environ", mock_env):
-        assert mlflow.projects._conda_executable() == expected
+        assert mlflow.projects._get_conda_bin_executable("conda") == expected_conda
+        assert mlflow.projects._get_conda_bin_executable("activate") == expected_activate
 
 
 def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
