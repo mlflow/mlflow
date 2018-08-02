@@ -103,7 +103,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         raise Exception("Not a PipelineModel. SparkML can save only PipelineModels.")
     dfs_tmpdir = _tmp_path(32)
     spark_model.save(dfs_tmpdir)
-    # Spark ML stores the model to DFS if funning on a cluster, copy it to local dir
+    # Spark ML stores the model to DFS if running on a cluster, copy it to local dir
     _DFS.copy_to_local(dfs_tmpdir, os.path.abspath(os.path.join(path, "model")))
 
     spark_model.save(os.path.join(path, "model"))
