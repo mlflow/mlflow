@@ -20,11 +20,16 @@ import mlflow.version
 
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.logging_utils import print_flush 
 from mlflow.version import VERSION as MLFLOW_VERSION
 
+# The default Anaconda environment is active when this function is called,
+# so `PYTHON_VERSION` is the correct version of the default environment 
+DEFAULT_CONDA_PYTHON_VERSION = PYTHON_VERSION
+
 # Supported versions are listed at https://conda.io/docs/user-guide/tasks/manage-python.html
-SUPPORTED_CONDA_PY_VERSIONS = ['2.7', '3.4', '3.5', '3.6']
+SUPPORTED_CONDA_MAJOR_PY_VERSIONS = ['2.7', '3.4', '3.5', '3.6']
 
 def _init(cmd):
     """
@@ -64,6 +69,10 @@ def _serve():
     if pyfunc.FLAVOR_NAME not in m.flavors:
         raise Exception("Only supports pyfunc models and this is not one.")
     conf = m.flavors[pyfunc.FLAVOR_NAME]
+    model_py_version = None
+    if pyfunc.PY_VERSION in conf:
+        model_py_version = conf[pyfunc.PY_VERSION] 
+   
     bash_cmds = []
     env_name = None
     if pyfunc.ENV in conf:
@@ -78,26 +87,29 @@ def _serve():
         shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
         env_name = "custom_env"
         os.system("conda env create -n {en} -f {ep}".format(en=env_name, ep=env_path_dst))
-    elif pyfunc.PY_VERSION in conf:
-        model_py_version = conf[pyfunc.PY_VERSION]
-        if model_py_version in SUPPORTED_CONDA_PY_VERSIONS:
-            print_flush("activating Anaconda environment with Python version {mpyv}".format(
-                mpyv=model_py_version))
-            env_name = "py_env"
-            os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name,
-                                                                           mpyv=model_py_version))
-        else:
-            print_flush("The version of python used to serialize the model: Python {mpyv} is not"
-                         " supported by Anaconda.".format(mpyv=model_py_version))
-
-    if env_name is not None:
         bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
                 _server_dependencies_cmds()
+    elif model_py_version is None:
+        print_flush("The model does not specify a Python version or a custom Anaconda environment"
+                    " to use.")
+        _warn_potentially_incompatible_conda_env()
+    elif not _conda_supports_py_version(model_py_version):
+        print_flush("The version of python used to serialize the model, Python {mpyv}, is not"
+                     " supported by Anaconda.".format(mpyv=model_py_version))
+        _warn_potentially_incompatible_conda_env()
+    elif model_py_version == PYTHON_VERSION:
+        print_flush("The model's Python version matches the default environment's"
+                    " Python version: {dpyv}. Using the default environment.".format(
+                        dpyv=DEFAULT_CONDA_PYTHON_VERSION))
+        # The default environment is already active, so there is no activation work to do
     else:
-        default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
-                                                        vmin=sys.version_info.minor)
-        print_flush("Using the default Anaconda environment with Python {dpyv}, which may not be"
-                     " compatible with the model.".format(dpyv=default_python_version))
+        print_flush("The model's Python version is {mpyv}. Activating Anaconda environment with" 
+                    " Python version {mpyv}".format(mpyv=model_py_version))
+        env_name = "py_env"
+        os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name,
+                                                                       mpyv=model_py_version))
+        bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
+                _server_dependencies_cmds()
 
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
@@ -120,6 +132,20 @@ def _serve():
         if pid in pids:
             break
     _sigterm_handler(nginx.pid, gunicorn.pid)
+
+
+def _conda_supports_py_version(py_version):
+    major_version = ".".join(py_version.split(".")[:2])
+    return (major_version in SUPPORTED_CONDA_MAJOR_PY_VERSIONS)
+
+
+def _warn_potentially_incompatible_conda_env():
+    """
+    Prints a warning message indicating that the default Anaconda environment,
+    which may not be compatible with the model, will be used for serving.
+    """
+    print_flush("Using the default Anaconda environment with Python {dpyv}, which may not be"
+                 " compatible with the model.".format(dpyv=DEFAULT_CONDA_PYTHON_VERSION))
 
 
 def _train():

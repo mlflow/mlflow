@@ -81,6 +81,7 @@ import pandas
 
 from mlflow import tracking
 from mlflow.models import Model
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.file_utils import TempDir
 
 FLAVOR_NAME = "python_function"
@@ -116,8 +117,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     if env:
         parms[ENV] = env
 
-    py_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major, vmin=sys.version_info.minor)
-    parms[PY_VERSION] = py_version 
+    parms[PY_VERSION] = PYTHON_VERSION 
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
