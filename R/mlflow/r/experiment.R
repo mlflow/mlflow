@@ -62,13 +62,22 @@ mlflow_get_experiment <- function(experiment_id) {
 
 #' Active Experiment
 #'
-#' Retrieves the active experiment which got activated using \code{mlflow_experiment()} or
-#' the \code{MLFLOW_EXPERIMENT_ID} environemnt variable.
+#' Retrieves the active experiment. An experiment is made active by calling
+#' \code{mlflow_experiment()}.
 #'
 #' @export
 mlflow_active_experiment <- function() {
-  exp <- Sys.getenv("MLFLOW_EXPERIMENT_ID")
-  if (nzchar(exp)) exp else NULL
+  .globals$active_experiment
+}
+
+#' Active Run
+#'
+#' Retrieves the active run. A run is made active by calling
+#' \code{mlflow_create_run()}.
+#'
+#' @export
+mlflow_active_run <- function() {
+  .globals$active_run
 }
 
 #' Create Run
@@ -113,6 +122,9 @@ mlflow_create_run <- function(experiment_id = mlflow_active_experiment(), user_i
     entry_point_name = entry_point_name,
     run_tags = run_tags
   ))
+
+  .globals$active_run <- response$run$info$run_uuid
+
   as.data.frame(response$run$info)
 }
 
@@ -258,7 +270,7 @@ mlflow_experiment <- function(name) {
   exps <- mlflow_list_experiments()
   experiment_id <- exps[exps$name == name,]$experiment_id
 
-  Sys.setenv(MLFLOW_EXPERIMENT_ID = experiment_id)
+  .globals$active_experiment <- experiment_id
 
   invisible(experiment_id)
 }

@@ -1,12 +1,10 @@
-.globals <- new.env(parent = emptyenv())
-
 mlflow_connection_active_get <- function() {
-  if (is.null(.globals$active)) {
+  if (is.null(.globals$active_connection)) {
     mc <- mlflow_connect()
-    .globals$active <- mc
+    .globals$active_connection <- mc
   }
 
-  .globals$active
+  .globals$active_connection
 }
 
 #' @importFrom openssl rand_num
