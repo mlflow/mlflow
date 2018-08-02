@@ -74,7 +74,6 @@ def _serve():
         model_py_version = conf[pyfunc.PY_VERSION] 
    
     bash_cmds = []
-    env_name = None
     if pyfunc.ENV in conf:
         print_flush("activating custom Anaconda environment")
         env = conf[pyfunc.ENV]
