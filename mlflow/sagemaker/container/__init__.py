@@ -21,11 +21,11 @@ import mlflow.version
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.logging_utils import print_flush 
+from mlflow.utils.logging_utils import print_flush
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 # The default Anaconda environment is active when this module is imported,
-# so `PYTHON_VERSION` is the correct version of the default environment 
+# so `PYTHON_VERSION` is the correct version of the default environment
 DEFAULT_CONDA_PYTHON_VERSION = PYTHON_VERSION
 
 # Supported versions are listed at https://conda.io/docs/user-guide/tasks/manage-python.html
@@ -71,8 +71,8 @@ def _serve():
     conf = m.flavors[pyfunc.FLAVOR_NAME]
     model_py_version = None
     if pyfunc.PY_VERSION in conf:
-        model_py_version = conf[pyfunc.PY_VERSION] 
-   
+        model_py_version = conf[pyfunc.PY_VERSION]
+
     bash_cmds = []
     if pyfunc.ENV in conf:
         print_flush("activating custom Anaconda environment")
@@ -102,7 +102,7 @@ def _serve():
                         dpyv=DEFAULT_CONDA_PYTHON_VERSION))
         # The default environment is already active, so there is no activation work to do
     else:
-        print_flush("The model's Python version is {mpyv}. Activating Anaconda environment with" 
+        print_flush("The model's Python version is {mpyv}. Activating Anaconda environment with"
                     " Python version {mpyv}".format(mpyv=model_py_version))
         env_name = "py_env"
         os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name,

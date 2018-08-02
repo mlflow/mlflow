@@ -110,7 +110,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     :return: Updated model configuration.
     """
     parms = {MAIN: loader_module}
-    parms[PY_VERSION] = PYTHON_VERSION 
+    parms[PY_VERSION] = PYTHON_VERSION
     if code:
         parms[CODE] = code
     if data:
