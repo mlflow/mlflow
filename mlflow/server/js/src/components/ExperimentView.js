@@ -110,12 +110,12 @@ class ExperimentView extends Component {
       let sortValue;
       if (sort.isMetric || sort.isParam) {
         sortValue = (sort.isMetric ? metricsMap : paramsMap)[sort.key];
-        sortValue = sortValue == undefined ? undefined : sortValue.value;
-      } else if (sort.key == 'user_id')
+        sortValue = sortValue === undefined ? undefined : sortValue.value;
+      } else if (sort.key === 'user_id')
         sortValue = Utils.formatUser(runInfo.user_id);
-      else if (sort.key == 'source')
+      else if (sort.key === 'source')
         sortValue = Utils.renderSource(runInfo);
-      else if (sort.key == 'version')
+      else if (sort.key === 'version')
         sortValue = Utils.renderVersion(runInfo);
       else
         sortValue = runInfo[sort.key];
