@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os
+import six
 import pickle
 import shutil
 import tempfile
@@ -23,7 +24,10 @@ from mlflow.utils.file_utils import TempDir
 
 def load_pyfunc(path):
     with open(path, "rb") as f:
-        return pickle.load(f)
+        if six.PY2:
+            return pickle.load(f)
+        else:
+            return pickle.load(f, encoding='latin1')
 
 
 class TestModelExport(unittest.TestCase):
@@ -132,7 +136,7 @@ class TestModelExport(unittest.TestCase):
 
             # create a conda yaml that installs mlflow from source in-place mode
             conda_env_path = tmp.path("conda.yml")
-            with open(conda_env_path, "wb") as f:
+            with open(conda_env_path, "w") as f:
                 f.write("""
                         name: mlflow
                         channels:
@@ -140,8 +144,7 @@ class TestModelExport(unittest.TestCase):
                         dependencies:
                           - pip:
                             - -e {}
-                        """.format(os.path.abspath(os.path.join(mlflow.__path__[0], '..')))
-                           .encode('latin1'))
+                        """.format(os.path.abspath(os.path.join(mlflow.__path__[0], '..'))))
 
             path = tmp.path("knn")
             pyfunc.save_model(dst_path=path,

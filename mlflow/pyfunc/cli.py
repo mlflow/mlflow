@@ -11,6 +11,7 @@ from mlflow.pyfunc import load_pyfunc, scoring_server, load_model_env
 from mlflow.tracking import _get_model_log_dir
 from mlflow.utils import cli_args
 from mlflow.projects import _maybe_create_conda_env, _get_conda_env_name
+import six
 
 
 def _rerun_in_conda(conda_env_path):
@@ -37,15 +38,15 @@ def _reconstruct_command_line():
     params['no_conda'] = True
     for key, val in params.items():
         opt = " --" + key.replace('_', '-')
-        if type(val) == bool:
+        if isinstance(val, bool):
             if val:
                 cmdline += opt
-        elif type(val) == str:
+        elif isinstance(val, six.string_types):
             cmdline += (opt + " " + val)
         elif val is None:
             pass
         else:
-            raise NotImplementedError('unknown arg type : ' + opt)
+            raise NotImplementedError('unknown {} arg {} {}'.format(type(val), opt, val))
 
     return cmdline
 
