@@ -150,6 +150,10 @@ service MlflowService {
   rpc searchRuns (SearchRuns) returns (SearchRuns.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/search"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/runs/search"
         since { major: 2, minor: 0 },
@@ -197,7 +201,6 @@ service MlflowService {
   }
 }
 
-
 // Descrption of the source that generated a run
 enum SourceType {
   // Within Databricks Notebook environment.
@@ -234,13 +237,13 @@ enum RunStatus {
   KILLED = 5;
 }
 
-// Metric associated with a run with string key and double value
+// Metric associated with a run with string key and float value
 message Metric {
   // Key identifying this metric
   optional string key = 1;
 
   // Value associated with this metric
-  optional double value = 2;
+  optional float value = 2;
 
   // The timestamp at which this metric was recorded
   optional int64 timestamp = 3;
@@ -313,7 +316,7 @@ message RunInfo {
   // URI of the directory where artifacts should be uploaded.
   // This can be a local path (starting with "/"), or a distributed file system (DFS)
   // path, like s3://bucket/directory or dbfs:/my/directory.
-  // If not set, the local "./mlruns" directory will be chosen.
+  // If not set, by default system will log artifacts to local "./mlruns" directory.
   optional string artifact_uri = 13;
 }
 
@@ -335,6 +338,10 @@ message CreateExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   optional string name = 1 [(validate_required) = true];
+
+  // Location where all artifacts for this experiment are stored.
+  // If not provided, the remote server will select an appropriate default.
+  optional string artifact_location = 2;
 
   message Response {
     optional int64 experiment_id = 1;
@@ -412,7 +419,7 @@ message LogMetric {
 
   optional string key = 2 [(validate_required) = true];
 
-  optional double value = 3 [(validate_required) = true];
+  optional float value = 3 [(validate_required) = true];
 
   optional int64 timestamp = 4 [(validate_required) = true];
 
@@ -505,7 +512,7 @@ message FloatClause {
   // OneOf (">", ">=", "==", "!=", "<=", "<")
   optional string comparator = 1;
 
-  optional double value = 2;
+  optional float value = 2;
 }
 
 message SearchRuns {

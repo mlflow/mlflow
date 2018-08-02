@@ -80,15 +80,15 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         return [self.get_experiment(exp_id) for exp_id in list_subdirs(self.root_directory)]
 
-    def _create_experiment_with_id(self, name, experiment_id):
+    def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_uri = build_path(self.artifact_root_uri, str(experiment_id))
+        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
-    def create_experiment(self, name):
+    def create_experiment(self, name, artifact_location):
         self._check_root_dir()
         if name is None or name == "":
             raise Exception("Invalid experiment name '%s'" % name)
@@ -99,7 +99,7 @@ class FileStore(AbstractStore):
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [e.experiment_id for e in self.list_experiments()]
         experiment_id = max(experiments_ids) + 1
-        return self._create_experiment_with_id(name, experiment_id)
+        return self._create_experiment_with_id(name, experiment_id, artifact_location)
 
     def _has_experiment(self, experiment_id):
         return len(find(self.root_directory, str(experiment_id), full_path=True)) > 0
