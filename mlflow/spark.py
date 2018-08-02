@@ -101,9 +101,11 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
             str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can save only PipelineModels.")
+    # Spark ML stores the model on DFS if running on a cluster
+    # Save it to a temp dir first and copy it to local path
     dfs_tmpdir = _tmp_path(32)
     spark_model.save(dfs_tmpdir)
-    # Spark ML stores the model to DFS if running on a cluster, copy it to local dir
+
     _DFS.copy_to_local(dfs_tmpdir, os.path.abspath(os.path.join(path, "model")))
 
     spark_model.save(os.path.join(path, "model"))
@@ -137,7 +139,8 @@ def load_model(path, run_id=None):
     conf = m.flavors[FLAVOR_NAME]
     model_path = os.path.join(path, conf['model_data'])
     dfs_tmp_path = _tmp_path(32)
-    # Spark ML expects the model to be on the current DFS, copy the model dir to DFS first
+    # Spark ML expects the model to be stored on DFS
+    # Copy the model to a temp DFS location first.
     _DFS.copy_from_local(model_path, dfs_tmp_path)
     pipeline_model = PipelineModel.load(dfs_tmp_path)
     _DFS.remove(dfs_tmp_path)
