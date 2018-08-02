@@ -27,7 +27,7 @@ def load_pyfunc(path):
         if six.PY2:
             return pickle.load(f)
         else:
-            return pickle.load(f, encoding='latin1')
+            return pickle.load(f, encoding='latin1')  # pylint: disable=unexpected-keyword-arg
 
 
 class TestModelExport(unittest.TestCase):
