@@ -23,7 +23,7 @@ from mlflow.models import Model
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 # Supported versions are listed at https://conda.io/docs/user-guide/tasks/manage-python.html
-SUPPORTED_CONDA_PY_VERSIONS = [2.7, 3.4, 3.5, 3.6]
+SUPPORTED_CONDA_PY_VERSIONS = ['2.7', '3.4', '3.5', '3.6']
 
 def _init(cmd):
     """
@@ -65,7 +65,7 @@ def _serve():
     conf = m.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
-        print("activating custom environment")
+        _print_flush("activating custom Anaconda environment")
         env = conf[pyfunc.ENV]
         env_path_dst = os.path.join("/opt/mlflow/", env)
         env_path_dst_dir = os.path.dirname(env_path_dst)
@@ -78,22 +78,24 @@ def _serve():
         os.system("conda env create -n {en} -f {ep}".format(en=env_name, ep=env_path_dst))
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     elif pyfunc.PY_VERSION in conf:
-        py_version = conf[pyfunc.PY_VERSION]
-        if py_version in SUPPORTED_CONDA_PY_VERSIONS:
+        model_py_version = conf[pyfunc.PY_VERSION]
+        if model_py_version in SUPPORTED_CONDA_PY_VERSIONS:
             env_name = "py_env"
-            print("activating default environment for Python version {pyv}".format(pyv=py_version))
-            os.system("conda create -n {en} python={pyv} anaconda".format(en=env_name, 
-                                                                          pyv=py_version))
+            _print_flush("activating default environment for Python version {mpyv}".format(
+                mpyv=model_py_version))
+            os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name, 
+                                                                           mpyv=model_py_version))
             bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
                     _server_dependencies_cmds()
         else:
-            default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
-                                                            vmin=sys.version_info.minor)
-            print("The version of python used to serialize the model: Python {mpyv} is not" 
-                  " supported by Anaconda. Using the default Anaconda environment with Python" 
-                  " {dpyv}, which may not be compatible with the model.".format(
-                      mpyv=py_version,
-                      dpyv=default_python_version))
+            _print_flush("The version of python used to serialize the model: Python {mpyv} is not" 
+                         " supported by Anaconda.".format(mpyv=model_py_version))
+    else:
+        default_python_version = "{vmaj}.{vmin}".format(vmaj=sys.version_info.major,
+                                                        vmin=sys.version_info.minor)
+        _print_flush("Using the default Anaconda environment with Python {dpyv}, which may not be" 
+                     " compatible with the model.".format(dpyv=default_python_version))
+
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
     # link the log streams to stdout/err so they will be logged to the container logs
@@ -119,6 +121,11 @@ def _serve():
 
 def _train():
     raise Exception("Train is not implemented.")
+
+
+def _print_flush(content):
+    print(content)
+    sys.stdout.flush()
 
 
 def _sigterm_handler(nginx_pid, gunicorn_pid):
