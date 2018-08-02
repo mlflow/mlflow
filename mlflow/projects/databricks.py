@@ -224,9 +224,17 @@ def _get_run_env_vars(tracking_uri, experiment_id):
     return env_vars
 
 
-def _get_run_id(tracking_uri, run_id):
-    """Gets run ID to use in `mlflow run` command invoked on Databricks"""
-    return run_id if not tracking.is_local_uri(tracking_uri) else None
+def _before_run_validations(tracking_uri, cluster_spec):
+    """Validations to perform before running a project on Databricks."""
+    _check_databricks_auth_available()
+    if cluster_spec is None:
+        raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
+                                 "on Databricks.")
+    if tracking.is_local_uri(tracking_uri):
+        raise ExecutionException(
+            "When running on Databricks, the MLflow tracking URI must be set to a remote URI "
+            "accessible to both the current client and code running on Databricks. Got local "
+            "tracking URI %s." % tracking_uri)
 
 
 def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
@@ -235,28 +243,19 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    _check_databricks_auth_available()
-    if cluster_spec is None:
-        raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
-                                 "on Databricks.")
+    tracking_uri = tracking.get_tracking_uri()
+    _before_run_validations(tracking_uri, cluster_spec)
     work_dir = _fetch_and_clean_project(
         uri=uri, version=version, git_username=git_username, git_password=git_password)
     project = _load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)
-
-    # Create run object with remote tracking server. Get the git commit from the working directory,
-    # etc.
-    tracking_uri = tracking.get_tracking_uri()
-    if tracking.is_local_uri(tracking_uri):
-        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from "
-               "Databricks will not be logged permanently." % tracking_uri)
     remote_run = tracking._create_run(
         experiment_id=experiment_id, source_name=_expand_uri(uri),
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
     env_vars = _get_run_env_vars(tracking_uri, experiment_id)
-    run_id = _get_run_id(tracking_uri, remote_run.run_info.run_uuid)
+    run_id = remote_run.run_info.run_uuid if not tracking.is_local_uri(tracking_uri) else None
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:
