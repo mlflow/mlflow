@@ -110,14 +110,13 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     :return: Updated model configuration.
     """
     parms = {MAIN: loader_module}
+    parms[PY_VERSION] = PYTHON_VERSION 
     if code:
         parms[CODE] = code
     if data:
         parms[DATA] = data
     if env:
         parms[ENV] = env
-
-    parms[PY_VERSION] = PYTHON_VERSION 
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
