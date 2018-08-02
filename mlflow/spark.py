@@ -66,7 +66,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
     if jars:
         raise Exception("JAR dependencies are not yet implemented")
-    mlflow_model.add_flavor('spark', pyspark_version=pyspark_version, model_data="model")
+    mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version, model_data="model")
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data="model",
                         env=model_conda_env)
     mlflow_model.save(os.path.join(path, "MLmodel"))
