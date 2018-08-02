@@ -24,7 +24,7 @@ from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.logging_utils import print_flush 
 from mlflow.version import VERSION as MLFLOW_VERSION
 
-# The default Anaconda environment is active when this function is called,
+# The default Anaconda environment is active when this module is imported,
 # so `PYTHON_VERSION` is the correct version of the default environment 
 DEFAULT_CONDA_PYTHON_VERSION = PYTHON_VERSION
 
