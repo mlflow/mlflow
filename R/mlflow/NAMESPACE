@@ -3,6 +3,7 @@
 S3method(mlflow_run,"function")
 S3method(mlflow_run,character)
 export(mlflow_active_experiment)
+export(mlflow_active_run)
 export(mlflow_cli)
 export(mlflow_create_experiment)
 export(mlflow_create_run)
