@@ -81,3 +81,21 @@ test("dropExtension", () => {
   expect(Utils.dropExtension("/.foo")).toEqual("/.foo");
   expect(Utils.dropExtension(".foo/.bar/.xyz")).toEqual(".foo/.bar/.xyz");
 });
+
+test("gitHubRegexMatch", () => {
+  const gitHubRegex = Utils.getGitHubRegex();
+  const urlAndExpected = [
+    ["http://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["https://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["http://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["https://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["git@github.com:mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git", null],
+    ["ssh@some-server:mlflow/mlflow-apps.git", null],
+  ]
+  urlAndExpected.forEach(lst => {
+    const url = lst[0];
+    const match = url.match(gitHubRegex);
+    expect(match == lst[1]);
+  })
+})
