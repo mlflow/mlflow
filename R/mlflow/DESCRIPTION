@@ -18,7 +18,8 @@ Imports:
   processx,
   reticulate,
   swagger,
-  withr
+  withr,
+  rlang
 RoxygenNote: 6.0.1
 Suggests: 
   testthat

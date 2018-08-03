@@ -101,12 +101,13 @@ mlflow_active_run <- function() {
 #' @param entry_point_name Name of the entry point for the run.
 #' @param run_tags Additional metadata for run in key-value pairs.
 #' @export
-mlflow_create_run <- function(experiment_id = mlflow_active_experiment(), user_id = NULL,
+mlflow_create_run <- function(user_id = NULL,
                               run_name = NULL, source_type = NULL, source_name = NULL,
                               status = NULL, start_time = NULL, end_time = NULL,
                               source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
-                              run_tags = NULL) {
-  if (is.null(start_time)) start_time <- current_time()
+                              run_tags = NULL, experiment_id = NULL) {
+  experiment_id <- experiment_id %||% mlflow_active_experiment()
+  start_time <- start_time %||% current_time()
 
   response <- mlflow_rest("runs", "create", verb = "POST", data = list(
     experiment_id = experiment_id,
@@ -135,7 +136,8 @@ mlflow_create_run <- function(experiment_id = mlflow_active_experiment(), user_i
 #' @param run_uuid Unique ID for the run.
 #'
 #' @export
-mlflow_get_run <- function(run_uuid) {
+mlflow_get_run <- function(run_uuid = NULL) {
+  run_uuid <- run_uuid %||% mlflow_active_run()
   response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
   run <- Filter(length, response$run)
   lapply(run, as.data.frame)
@@ -152,8 +154,9 @@ mlflow_get_run <- function(run_uuid) {
 #' @param value Float value for the metric being logged.
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
 #' @export
-mlflow_log_metric <- function(run_uuid, key, value, timestamp = NULL) {
-  if (is.null(timestamp)) timestamp <- current_time()
+mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
+  run_uuid <- run_uuid %||% mlflow_active_run()
+  timestamp <- timestamp %||% current_time()
   response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
@@ -174,7 +177,8 @@ mlflow_log_metric <- function(run_uuid, key, value, timestamp = NULL) {
 #' @param key Name of the parameter.
 #' @param value String value of the parameter.
 #' @export
-mlflow_log_parameter <- function(run_uuid, key, value) {
+mlflow_log_parameter <- function(key, value, run_uuid = NULL) {
+  run_uuid <- run_uuid %||% mlflow_active_run()
   response <- mlflow_rest("runs", "log-parameter", verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
@@ -191,11 +195,12 @@ mlflow_log_parameter <- function(run_uuid, key, value) {
 #' @param run_uuid Unique ID for the run for which metric is recorded.
 #' @param metric_key Name of the metric.
 #' @export
-mlflow_get_metric <- function(run_uuid, metric_key) {
+mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
+  run_uuid <- run_uuid %||% mlflow_active_run()
   response <- mlflow_rest("metrics", "get", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
-    ))
+  ))
   metric <- response$metric
   metric$timestamp <- as.POSIXct(as.integer(metric$timestamp), origin = "1970-01-01")
   as.data.frame(metric)
@@ -209,7 +214,8 @@ mlflow_get_metric <- function(run_uuid, metric_key) {
 #' @param run_uuid Unique ID for the run for which metric is recorded.
 #' @param key Name of the metric.
 #' @export
-mlflow_get_metric_history <- function(run_uuid, metric_key) {
+mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
+  run_uuid <- run_uuid %||% mlflow_active_run()
   response <- mlflow_rest("metrics", "get-history", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
@@ -225,11 +231,13 @@ mlflow_get_metric_history <- function(run_uuid, metric_key) {
 #' @param status Updated status of the run. Defaults to `FINISHED`.
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @export
-mlflow_update_run <- function(run_uuid,
-                              status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
-                              end_time = NULL) {
+mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+                              end_time = NULL,
+                              run_uuid = NULL) {
+  run_uuid <- run_uuid %||% mlflow_active_run()
   status <- match.arg(status)
-  if (is.null(end_time)) end_time <- current_time()
+  end_time <- end_time %||% current_time()
+
   response <- mlflow_rest("runs", "update", verb = "POST", data = list(
     run_uuid = run_uuid,
     status = status,
@@ -293,50 +301,49 @@ current_time <- function() {
 #' }
 #'
 #' @export
-mlflow_start_run <- function(experiment_id = mlflow_active_experiment(), user_id = NULL,
+mlflow_start_run <- function(user_id = NULL,
                              run_name = NULL, source_type = NULL, source_name = NULL,
                              status = NULL, start_time = NULL, end_time = NULL,
                              source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
-                             run_tags = NULL) {
+                             run_tags = NULL, experiment_id = NULL) {
+  experiment_id <- experiment_id %||% mlflow_active_experiment()
+  run_info <- mlflow_create_run(
+    experiment_id = experiment_id,
+    user_id = user_id,
+    run_name = run_name,
+    source_type = source_type,
+    source_name = source_name,
+    status = status,
+    start_time = start_time,
+    end_time = end_time,
+    source_version = source_version,
+    artifact_uri = artifact_uri,
+    entry_point_name = entry_point_name,
+    run_tags = run_tags
+  )
+
   structure(
-    class = c("mlflow_start_run_object"),
-    list(
-      experiment_id = experiment_id,
-      user_id = user_id,
-      run_name = run_name,
-      source_type = source_type,
-      source_name = source_name,
-      status = status,
-      start_time = start_time,
-      end_time = end_time,
-      source_version = source_version,
-      artifact_uri = artifact_uri,
-      entry_point_name = entry_point_name,
-      run_tags = run_tags
-    )
+    list(run_info = run_info),
+    class = c("mlflow_run_context")
   )
 }
 
 #' @export
-with.mlflow_start_run_object <- function(x, code) {
-  result <- mlflow_create_run(experiment_id = x$experiment_id,
-                              user_id = x$user_id,
-                              run_name = x$run_name,
-                              source_type = x$source_type,
-                              source_name = x$source_name,
-                              status = x$status,
-                              start_time = x$start_time,
-                              end_time = x$end_time,
-                              source_version = x$source_version,
-                              artifact_uri = x$artifact_uri,
-                              entry_point_name = x$entry_point_name,
-                              run_tags = x$run_tags)
+with.mlflow_run_context <- function(x, code) {
+  runid <- as.character(x$run_info$run_uuid)
 
-  runid <- as.character(result$run_uuid)
-  on.exit(mlflow_update_run(run_uuid = as.character(runid),
-                            status = "FINISHED",
-                            end_time = current_time()))
-
-  force(code)
+  tryCatch(
+    error = function(cnd) {
+      message(cnd)
+      mlflow_update_run(run_uuid = runid,status = "FAILED", end_time = current_time())
+    },
+    interrupt = function(cnd) mlflow_update_run(
+      run_uuid = runid, status = "KILLED", end_time = current_time()
+    ),
+    {
+      force(code)
+      mlflow_update_run(run_uuid = runid, status = "FINISHED", end_time = current_time())
+    }
+  )
 }
 
