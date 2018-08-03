@@ -59,6 +59,9 @@ class _HadoopFileSystem:
     Sine MLflow works on local directories, we need this interface to copy teh files between
     the current DFS and local dir.
     """
+
+    def __init__(self):
+        raise Exception("This class should not be instantiated")
     _filesystem = None
     _conf = None
 
