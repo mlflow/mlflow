@@ -180,6 +180,7 @@ def _expand_uri(uri):
 
 
 def _is_local_uri(uri):
+    """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
     return not _GIT_URI_REGEX.match(uri)
 
 
