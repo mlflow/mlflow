@@ -80,7 +80,7 @@ class _HadoopFileSystem:
 
     @classmethod
     def _remote_path(cls, path):
-        return cls._fs().makeQualified(cls._jvm().org.apache.hadoop.fs.Path(path))
+        return cls._jvm().org.apache.hadoop.fs.Path(path)
 
     @classmethod
     def copy_to_local_file(cls, src, dst, removeSrc):
