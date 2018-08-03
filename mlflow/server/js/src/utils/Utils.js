@@ -96,7 +96,7 @@ class Utils {
       if (run.entry_point && run.entry_point !== "main") {
         res += ":" + run.entry_point;
       }
-      const GITHUB_RE = /[:@]github.com[:/]([^/.]+)\/([^/.]+)/;
+      const GITHUB_RE = /[@/]github.com[:/]([^/.\n]+)\/([^/.\n]+)/;
       const match = run.source_name.match(GITHUB_RE);
       if (match) {
         const url = "https://github.com/" + match[1] + "/" + match[2];
@@ -112,7 +112,7 @@ class Utils {
     if (run.source_version) {
       const shortVersion = run.source_version.substring(0, 6);
       if (run.source_type === "PROJECT") {
-        const GITHUB_RE = /[:@]github.com[:/]([^/.]+)\/([^/.]+)/;
+        const GITHUB_RE = /[@/]github.com[:/]([^/.\n]+)\/([^/.\n]+)/;
         const match = run.source_name.match(GITHUB_RE);
         if (match) {
           const url = "https://github.com/" + match[1] + "/" + match[2] + "/tree/" + run.source_version;
