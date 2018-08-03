@@ -50,11 +50,11 @@ def test_hadoop_filesystem(tmpdir):
             assert expected_f.read() == actual_f.read()
 
     # make sure we cleanup
-    assert not os.path.exists(FS._remote_path(remote).toString()[5:])  # skip file: prefix
+    assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
     FS.copy_from_local_file(test_dir_0, remote, removeSrc=False)
-    assert os.path.exists(FS._remote_path(remote).toString()[5:])  # skip file: prefix
+    assert os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
     FS.delete(remote)
-    assert not os.path.exists(FS._remote_path(remote).toString()[5:])  # skip file: prefix
+    assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
 
 
 @pytest.mark.large
