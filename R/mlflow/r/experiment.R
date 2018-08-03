@@ -321,29 +321,20 @@ mlflow_start_run <- function(experiment_id = mlflow_active_experiment(), user_id
 
 #' @export
 with.mlflow_run_context <- function(x, code) {
-
   runid <- as.character(x$run_info$run_uuid)
 
   tryCatch(
-    error = function(e) mlflow_update_run(
-      run_uuid = runid,
-      status = "FAILED",
-      end_time = current_time()
-    ),
-    interrupt = function(e) mlflow_update_run(
-      run_uuid = runid,
-      status = "KILLED",
-      end_time = current_time()
+    error = function(cnd) {
+      message(cnd)
+      mlflow_update_run(run_uuid = runid,status = "FAILED", end_time = current_time())
+    },
+    interrupt = function(cnd) mlflow_update_run(
+      run_uuid = runid, status = "KILLED", end_time = current_time()
     ),
     {
       force(code)
-      mlflow_update_run(
-        run_uuid = runid,
-        status = "FINISHED",
-        end_time = current_time()
-      )
+      mlflow_update_run(run_uuid = runid, status = "FINISHED", end_time = current_time())
     }
   )
-
 }
 
