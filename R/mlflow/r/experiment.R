@@ -195,7 +195,7 @@ mlflow_get_metric <- function(run_uuid, metric_key) {
   response <- mlflow_rest("metrics", "get", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
-    ))
+  ))
   metric <- response$metric
   metric$timestamp <- as.POSIXct(as.integer(metric$timestamp), origin = "1970-01-01")
   as.data.frame(metric)
@@ -333,10 +333,27 @@ with.mlflow_start_run_object <- function(x, code) {
                               run_tags = x$run_tags)
 
   runid <- as.character(result$run_uuid)
-  on.exit(mlflow_update_run(run_uuid = as.character(runid),
-                            status = "FINISHED",
-                            end_time = current_time()))
 
-  force(code)
+  tryCatch(
+    error = function(e) mlflow_update_run(
+      run_uuid = runid,
+      status = "FAILED",
+      end_time = current_time()
+    ),
+    interrupt = function(e) mlflow_update_run(
+      run_uuid = runid,
+      status = "KILLED",
+      end_time = current_time()
+    ),
+    {
+      force(code)
+      mlflow_update_run(
+        run_uuid = runid,
+        status = "FINISHED",
+        end_time = current_time()
+      )
+    }
+  )
+
 }
 
