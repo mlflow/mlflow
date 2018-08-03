@@ -107,7 +107,7 @@ mlflow_create_run <- function(user_id = NULL,
                               source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
                               run_tags = NULL, experiment_id = NULL) {
   experiment_id <- experiment_id %||% mlflow_active_experiment()
-  if (is.null(start_time)) start_time <- current_time()
+  start_time <- start_time %||% current_time()
 
   response <- mlflow_rest("runs", "create", verb = "POST", data = list(
     experiment_id = experiment_id,
@@ -156,7 +156,7 @@ mlflow_get_run <- function(run_uuid = NULL) {
 #' @export
 mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
   run_uuid <- run_uuid %||% mlflow_active_run()
-  if (is.null(timestamp)) timestamp <- current_time()
+  timestamp <- timestamp %||% current_time()
   response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
@@ -236,7 +236,8 @@ mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KIL
                               run_uuid = NULL) {
   run_uuid <- run_uuid %||% mlflow_active_run()
   status <- match.arg(status)
-  if (is.null(end_time)) end_time <- current_time()
+  end_time <- end_time %||% current_time()
+
   response <- mlflow_rest("runs", "update", verb = "POST", data = list(
     run_uuid = run_uuid,
     status = status,
