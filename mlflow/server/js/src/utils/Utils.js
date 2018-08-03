@@ -91,7 +91,7 @@ class Utils {
   }
 
   static getGitHubRegex() {
-    return /[@/]github.com[:/]([^/.\n]+)\/([^/.\n]+)/;
+    return /[@/]github.com[:/]([^/.]+)\/([^/.]+)/;
   }
 
   static renderSource(run) {
@@ -100,7 +100,7 @@ class Utils {
       if (run.entry_point && run.entry_point !== "main") {
         res += ":" + run.entry_point;
       }
-      const match = run.source_name.match(getGitHubRegex());
+      const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
         const url = "https://github.com/" + match[1] + "/" + match[2];
         res = <a href={url}>{res}</a>;
@@ -115,7 +115,7 @@ class Utils {
     if (run.source_version) {
       const shortVersion = run.source_version.substring(0, 6);
       if (run.source_type === "PROJECT") {
-        const match = run.source_name.match(getGitHubRegex());
+        const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
           const url = "https://github.com/" + match[1] + "/" + match[2] + "/tree/" + run.source_version;
           return <a href={url}>{shortVersion}</a>;
