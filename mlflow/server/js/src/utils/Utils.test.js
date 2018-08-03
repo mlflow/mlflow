@@ -82,7 +82,7 @@ test("dropExtension", () => {
   expect(Utils.dropExtension(".foo/.bar/.xyz")).toEqual(".foo/.bar/.xyz");
 });
 
-test("gitHubRegexMatch", () => {
+test("getGitHubRegex", () => {
   const gitHubRegex = Utils.getGitHubRegex();
   const urlAndExpected = [
     ["http://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
