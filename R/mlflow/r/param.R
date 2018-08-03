@@ -13,5 +13,5 @@ mlflow_param <- function(name, default = NULL, type = NULL, description = NULL) 
     stop("At least one of `default` or `type` must be specified", call. = FALSE)
   if (!is.null(default) && !is.null(type) && !identical(typeof(default), type))
     stop("`default` value is not of type ", type, ".", call. = FALSE)
-  default
+  .globals$run_params[[name]] %||% default
 }
