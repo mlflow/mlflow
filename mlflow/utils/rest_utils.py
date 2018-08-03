@@ -2,6 +2,7 @@ import base64
 import json
 import time
 
+import numpy
 from databricks_cli.configure import provider
 import requests
 
@@ -87,3 +88,14 @@ def http_request(hostname, endpoint, method, headers=None, req_body_json=None, p
                                               response.text))
             time.sleep(retry_interval)
     raise Exception("API request to %s failed to return code 200 after %s tries" % (url, retries))
+
+
+def default(o):
+    """
+    Default function for json dumps, to serialize numpy.int64 in Python3.
+    :param o: The object to be serialized
+    :return: integer value from param o if o is numpy.int64
+    """
+    if isinstance(o, numpy.int64):
+        return int(o)
+    raise TypeError
