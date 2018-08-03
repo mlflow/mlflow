@@ -148,6 +148,7 @@ def _create_conda_env(env):
         cmd += ["python={pyv}".format(pyv=env.py_version), "anaconda"]
 
     cmd = " ".join(cmd)
+    print("ISSUING COMMAND: {}".format(cmd))
     os.system(cmd)
 
 
