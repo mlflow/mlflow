@@ -228,6 +228,15 @@ def run_qubole(uri, entry_point, version, parameters, experiment_id, cluster_spe
     return QuboleSubmittedRun(command, run_id)
 
 
+def _monitor_qubole(command, sleep_interval=30):
+    """
+    Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
+    run's status every `sleep_interval` seconds.
+    """
+    while not command.is_done(command.status):
+        time.sleep(sleep_interval)
+    return command.is_success(command.status)
+
 class QuboleSubmittedRun(SubmittedRun):
     """
     Instance of SubmittedRun corresponding to a Qubole Job run launched to run an MLflow
@@ -239,8 +248,12 @@ class QuboleSubmittedRun(SubmittedRun):
         self.command = command
         self.run_id = run_id
 
+    def wait(self):
+        return _monitor_qubole(self.command)
+
     def cancel(self):
         self.command.cancel()
+        self.wait()
 
     def _get_status(self):
         status = self.command.status

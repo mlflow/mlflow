@@ -50,6 +50,12 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             uri=uri, entry_point=entry_point, version=version, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
+    elif mode == "qubole":
+        from mlflow.projects.qubole import run_qubole
+        return run_qubole(
+            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
+            experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
+            git_password=git_password)
     elif mode == "local" or mode is None:
         work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
                                   git_username=git_username, git_password=git_password)
