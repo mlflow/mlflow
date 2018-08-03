@@ -4,14 +4,14 @@
 \alias{mlflow_log_parameter}
 \title{Log Parameter}
 \usage{
-mlflow_log_parameter(run_uuid, key, value)
+mlflow_log_parameter(key, value, run_uuid = NULL)
 }
 \arguments{
-\item{run_uuid}{Unique ID for the run for which parameter is recorded.}
-
 \item{key}{Name of the parameter.}
 
 \item{value}{String value of the parameter.}
+
+\item{run_uuid}{Unique ID for the run for which parameter is recorded.}
 }
 \description{
 API to log a parameter used for this run. Examples are params and hyperparams

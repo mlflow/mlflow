@@ -4,7 +4,7 @@
 \alias{mlflow_get_run}
 \title{Get Run}
 \usage{
-mlflow_get_run(run_uuid)
+mlflow_get_run(run_uuid = NULL)
 }
 \arguments{
 \item{run_uuid}{Unique ID for the run.}

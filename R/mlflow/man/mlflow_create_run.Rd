@@ -4,15 +4,12 @@
 \alias{mlflow_create_run}
 \title{Create Run}
 \usage{
-mlflow_create_run(experiment_id = mlflow_active_experiment(),
-  user_id = NULL, run_name = NULL, source_type = NULL,
+mlflow_create_run(user_id = NULL, run_name = NULL, source_type = NULL,
   source_name = NULL, status = NULL, start_time = NULL, end_time = NULL,
   source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
-  run_tags = NULL)
+  run_tags = NULL, experiment_id = NULL)
 }
 \arguments{
-\item{experiment_id}{Unique identifier for the associated experiment.}
-
 \item{user_id}{User ID or LDAP for the user executing the run.}
 
 \item{run_name}{Human readable name for run.}
@@ -36,6 +33,8 @@ directory will be chosen by default.}
 \item{entry_point_name}{Name of the entry point for the run.}
 
 \item{run_tags}{Additional metadata for run in key-value pairs.}
+
+\item{experiment_id}{Unique identifier for the associated experiment.}
 }
 \description{
 reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.

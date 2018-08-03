@@ -4,16 +4,16 @@
 \alias{mlflow_log_metric}
 \title{Log Metric}
 \usage{
-mlflow_log_metric(run_uuid, key, value, timestamp = NULL)
+mlflow_log_metric(key, value, timestamp = NULL, run_uuid = NULL)
 }
 \arguments{
-\item{run_uuid}{Unique ID for the run.}
-
 \item{key}{Name of the metric.}
 
 \item{value}{Float value for the metric being logged.}
 
 \item{timestamp}{Unix timestamp in milliseconds at the time metric was logged.}
+
+\item{run_uuid}{Unique ID for the run.}
 }
 \description{
 API to log a metric for a run. Metrics key-value pair that record a single float measure.

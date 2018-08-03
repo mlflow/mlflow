@@ -4,12 +4,12 @@
 \alias{mlflow_get_metric}
 \title{Get Metric}
 \usage{
-mlflow_get_metric(run_uuid, metric_key)
+mlflow_get_metric(metric_key, run_uuid = NULL)
 }
 \arguments{
-\item{run_uuid}{Unique ID for the run for which metric is recorded.}
-
 \item{metric_key}{Name of the metric.}
+
+\item{run_uuid}{Unique ID for the run for which metric is recorded.}
 }
 \description{
 API to retrieve the logged value for a metric during a run. For a run, if this

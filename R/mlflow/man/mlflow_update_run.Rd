@@ -4,15 +4,15 @@
 \alias{mlflow_update_run}
 \title{Update Run}
 \usage{
-mlflow_update_run(run_uuid, status = c("FINISHED", "SCHEDULED", "FAILED",
-  "KILLED"), end_time = NULL)
+mlflow_update_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+  end_time = NULL, run_uuid = NULL)
 }
 \arguments{
-\item{run_uuid}{Unique identifier for the run.}
-
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
 
 \item{end_time}{Unix timestamp of when the run ended in milliseconds.}
+
+\item{run_uuid}{Unique identifier for the run.}
 }
 \description{
 Update Run

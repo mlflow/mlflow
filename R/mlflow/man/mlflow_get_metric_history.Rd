@@ -4,7 +4,7 @@
 \alias{mlflow_get_metric_history}
 \title{Get Metric History}
 \usage{
-mlflow_get_metric_history(run_uuid, metric_key)
+mlflow_get_metric_history(metric_key, run_uuid = NULL)
 }
 \arguments{
 \item{run_uuid}{Unique ID for the run for which metric is recorded.}
