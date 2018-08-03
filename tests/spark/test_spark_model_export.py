@@ -23,7 +23,6 @@ from tests.pyfunc.test_spark import score_model_as_udf
 def test_hadoop_filesystem(tmpdir):
     # copy local dir to and back from HadoopFS and make sure the results match
     from mlflow.spark import _HadoopFileSystem as FS
-    # from mlflow.sagemaker import _make_tarfile
     test_dir_0 = os.path.join(str(tmpdir), "expected")
     test_file_0 = os.path.join(test_dir_0, "root", "file_0")
     test_dir_1 = os.path.join(test_dir_0, "root", "subdir")
@@ -35,13 +34,13 @@ def test_hadoop_filesystem(tmpdir):
     with open(test_file_1, "w") as f:
         f.write("test1")
     remote = "/tmp/mlflow/test0"
-    FS.copy_from_local_file(test_dir_0, remote)
+    FS.copy_from_local_file(test_dir_0, remote, removeSrc=False)
     local = os.path.join(str(tmpdir), "actual")
-    FS.copy_to_local_file(remote, local)
-    assert sorted(os.listdir(os.path.join(local, "root"))) == sorted(["subdir", "file_0",
-                                                                      ".file_0.crc"])
-    assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted(["file_1",
-                                                                      ".file_1.crc"])
+    FS.copy_to_local_file(remote, local, removeSrc=True)
+    assert sorted(os.listdir(os.path.join(local, "root"))) == sorted([
+        "subdir", "file_0", ".file_0.crc"])
+    assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted([
+        "file_1", ".file_1.crc"])
     # compare the files
     with open(os.path.join(test_dir_0, "root", "file_0")) as expected_f:
         with open(os.path.join(local, "root", "file_0")) as actual_f:
@@ -51,11 +50,12 @@ def test_hadoop_filesystem(tmpdir):
             assert expected_f.read() == actual_f.read()
 
     # make sure we cleanup
-    assert not os.path.exists(FS._remote_path(remote).toString()[5:]) # skip file: prefix
-    FS.copy_from_local_file(test_dir_0, remote)
+    assert not os.path.exists(FS._remote_path(remote).toString()[5:])  # skip file: prefix
+    FS.copy_from_local_file(test_dir_0, remote, removeSrc=False)
     assert os.path.exists(FS._remote_path(remote).toString()[5:])  # skip file: prefix
     FS.delete(remote)
     assert not os.path.exists(FS._remote_path(remote).toString()[5:])  # skip file: prefix
+
 
 @pytest.mark.large
 def test_model_export(tmpdir):
@@ -101,7 +101,7 @@ def test_model_log(tmpdir):
     _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
     iris = datasets.load_iris()
     feature_names = ["0", "1", "2", "3"]
-    pandas_df = pd.DataFrame(iris.data, columns=feature_names) # to make spark_udf work
+    pandas_df = pd.DataFrame(iris.data, columns=feature_names)  # to make spark_udf work
     pandas_df['label'] = pd.Series(iris.target)
     spark_session = pyspark.sql.SparkSession.builder \
         .config(key="spark_session.python.worker.reuse", value=True) \
@@ -121,6 +121,7 @@ def test_model_log(tmpdir):
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         for dfs_tmp_dir in [None, os.path.join(tmpdir, "test")]:
+            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
             try:
                 tracking_dir = os.path.abspath(str(tmpdir.mkdir("mlruns")))
                 tracking.set_tracking_uri("file://%s" % tracking_dir)
@@ -155,4 +156,3 @@ def test_model_log(tmpdir):
                 tracking.end_run()
                 tracking.set_tracking_uri(old_tracking_uri)
                 shutil.rmtree(tracking_dir)
-

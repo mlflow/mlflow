@@ -10,7 +10,6 @@ import pandas as pd
 import pyspark
 import pytest
 import sklearn.datasets
-from pyspark.sql.functions import struct
 from sklearn.neighbors import KNeighborsClassifier
 
 from mlflow.pyfunc import load_pyfunc, spark_udf
