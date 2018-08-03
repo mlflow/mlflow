@@ -4,8 +4,9 @@ import pytest
 import mock
 from mock import Mock
 
-from mlflow.exceptions import IllegalArtifactPathError
+from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
+
 
 @pytest.fixture()
 def dbfs_artifact_repo():
@@ -50,13 +51,12 @@ class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
         repo = DbfsArtifactRepository('dbfs:/test/', {})
         assert repo.artifact_uri == 'dbfs:/test'
-        with pytest.raises(AssertionError):
+        with pytest.raises(MlflowException):
             DbfsArtifactRepository('s3://test', {})
 
     @pytest.mark.parametrize("artifact_path,expected_endpoint", [
         (None, '/dbfs/test/test.txt'),
-        ('output.txt', '/dbfs/test/output.txt'),
-        ('subdir/output.txt', '/dbfs/test/subdir/output.txt'),
+        ('output', '/dbfs/test/output/test.txt'),
     ])
     def test_log_artifact(self, dbfs_artifact_repo, test_file, artifact_path, expected_endpoint):
         with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
@@ -71,7 +71,7 @@ class TestDbfsArtifactRepository(object):
 
     @pytest.mark.parametrize("artifact_path", [
         None,
-        '', # should behave like '/' and exclude base name of logged_dir
+        '',  # should behave like '/' and exclude base name of logged_dir
         # We should add '.',
     ])
     def test_log_artifacts(self, dbfs_artifact_repo, test_dir, artifact_path):
@@ -99,29 +99,28 @@ class TestDbfsArtifactRepository(object):
             http_request_mock.return_value.text = json.dumps(LIST_ARTIFACTS_RESPONSE)
             artifacts = dbfs_artifact_repo.list_artifacts()
             assert len(artifacts) == 2
-            assert artifacts[0].path == '/a.txt'
-            assert artifacts[0].is_dir == False
+            assert artifacts[0].path == 'a.txt'
+            assert artifacts[0].is_dir is False
             assert artifacts[0].file_size == 100
-            assert artifacts[1].path == '/dir'
-            assert artifacts[1].is_dir == True
+            assert artifacts[1].path == 'dir'
+            assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
 
     def test_download_artifacts(self, dbfs_artifact_repo):
-        with mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_is_dir') as is_dir_mock:
-            with mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_list_api') as list_mock:
-                with mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_download') as download_mock:
-                    is_dir_mock.side_effect = [
-                        True,
-                        False,
-                        True,
-                    ]
-                    list_mock.side_effect = [
-                        Mock(text=json.dumps(LIST_ARTIFACTS_RESPONSE)),
-                        Mock(text='{}')  # this call is for listing `/dir`.
-                    ]
-                    dbfs_artifact_repo.download_artifacts('/')
-                    assert list_mock.call_count == 2
-                    assert download_mock.call_count == 1
-                    _, kwargs = download_mock.call_args
-                    assert kwargs['endpoint'] == '/dbfs/test/a.txt'
-
+        with mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_is_dir') as is_dir_mock,\
+                mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_list_api') as list_mock, \
+                mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_download') as download_mock:
+            is_dir_mock.side_effect = [
+                True,
+                False,
+                True,
+            ]
+            list_mock.side_effect = [
+                Mock(text=json.dumps(LIST_ARTIFACTS_RESPONSE)),
+                Mock(text='{}')  # this call is for listing `/dir`.
+            ]
+            dbfs_artifact_repo.download_artifacts('/')
+            assert list_mock.call_count == 2
+            assert download_mock.call_count == 1
+            _, kwargs = download_mock.call_args
+            assert kwargs['endpoint'] == '/dbfs/test/a.txt'

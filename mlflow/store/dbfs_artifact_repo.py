@@ -2,7 +2,7 @@ import json
 import os
 
 from mlflow.entities.file_info import FileInfo
-from mlflow.exceptions import IllegalArtifactPathError
+from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
 from mlflow.utils.rest_utils import http_request, RESOURCE_DOES_NOT_EXIST
@@ -27,10 +27,10 @@ def _dbfs_download(output_path, endpoint, http_request_kwargs):
     """
     with open(output_path, 'wb') as f:
         response = http_request(endpoint=endpoint, method='GET', stream=True,
-                     **http_request_kwargs)
+                                **http_request_kwargs)
         try:
-            for bytes in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-                f.write(bytes)
+            for content in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                f.write(content)
         finally:
             response.close()
 
@@ -61,8 +61,8 @@ class DbfsArtifactRepository(ArtifactRepository):
         """
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
-        assert cleaned_artifact_uri.startswith('dbfs:/'), 'DbfsArtifactRepository URI must start ' \
-                                                          'with dbfs:/'
+        if not cleaned_artifact_uri.startswith('dbfs:/'):
+            raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
         self.http_request_kwargs = http_request_kwargs
 
     def _get_dbfs_path(self, artifact_path):
@@ -73,13 +73,14 @@ class DbfsArtifactRepository(ArtifactRepository):
         return "/dbfs%s" % self._get_dbfs_path(artifact_path)
 
     def log_artifact(self, local_file, artifact_path=None):
+        basename = os.path.basename(local_file)
         if artifact_path == '':
             raise IllegalArtifactPathError('artifact_path cannot be the empty string.')
         if artifact_path:
-            http_endpoint = self._get_dbfs_endpoint(artifact_path)
+            http_endpoint = self._get_dbfs_endpoint(os.path.join(artifact_path, basename))
         else:
             http_endpoint = self._get_dbfs_endpoint(os.path.basename(local_file))
-        with open(local_file, 'r') as f:
+        with open(local_file, 'rb') as f:
             http_request(endpoint=http_endpoint, method='POST', data=f, **self.http_request_kwargs)
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -114,7 +115,7 @@ class DbfsArtifactRepository(ArtifactRepository):
         for dbfs_file in dbfs_files:
             is_dir = dbfs_file['is_dir']
             artifact_size = None if is_dir else dbfs_file['file_size']
-            stripped_path = strip_prefix(dbfs_file['path'], artifact_prefix)
+            stripped_path = strip_prefix(dbfs_file['path'], artifact_prefix + '/')
             infos.append(FileInfo(stripped_path, is_dir, artifact_size))
         return sorted(infos, key=lambda f: f.path)
 

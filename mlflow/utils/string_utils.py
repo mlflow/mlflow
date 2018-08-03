@@ -5,6 +5,6 @@ def strip_prefix(original, prefix):
 
 
 def strip_suffix(original, suffix):
-    if original.endswith(suffix):
+    if original.endswith(suffix) and suffix != '':
         return original[:-len(suffix)]
     return original

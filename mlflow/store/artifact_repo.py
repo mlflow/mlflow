@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABCMeta
 
+from mlflow.exceptions import MlflowException
 from mlflow.store.rest_store import DatabricksStore
 
 
@@ -78,8 +79,8 @@ class ArtifactRepository:
             return AzureBlobArtifactRepository(artifact_uri)
         elif artifact_uri.startswith("dbfs:/"):
             from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
-            assert isinstance(store, DatabricksStore), 'store must be an instance of ' \
-                                                       'DatabricksStore'
+            if not isinstance(store, DatabricksStore):
+                raise MlflowException('`store` must be an instance of DatabricksStore.')
             return DbfsArtifactRepository(artifact_uri, store.http_request_kwargs)
         else:
             from mlflow.store.local_artifact_repo import LocalArtifactRepository
