@@ -32,7 +32,7 @@ DEFAULT_CONDA_PYTHON_VERSION = PYTHON_VERSION
 # Supported versions are listed at https://conda.io/docs/user-guide/tasks/manage-python.html
 SUPPORTED_CONDA_MAJOR_PY_VERSIONS = ['2.7', '3.4', '3.5', '3.6']
 
-CondaEnv = namedtuple("CondaEnv", ["name", "config", "py_version"], verbose=True)
+CondaEnv = namedtuple("CondaEnv", ["name", "config", "py_version"])
 
 def _init(cmd):
     """
@@ -104,10 +104,10 @@ def _serve():
 
 
 def _get_conda_env(model_config):
-    if pyfunc.PYTHON_VERSION in model_config:
+    model_py_version = None
+    if pyfunc.PY_VERSION in model_config:
         model_py_version = model_config[pyfunc.PY_VERSION]
 
-    conda_env = None
     if pyfunc.ENV in model_config:
         print_flush("activating custom Anaconda environment")
         env = model_config[pyfunc.ENV]
@@ -118,26 +118,27 @@ def _get_conda_env(model_config):
         # TODO: should we test that the environment does not include any of the server dependencies?
         # Those are gonna be reinstalled. should probably test this on the client side
         shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
-        conda_env = CondaEnv(name="custom_env", config=env, py_version=None)
+        return CondaEnv(name="custom_env", config=env, py_version=None)
     elif model_py_version is None:
         print_flush("The model does not specify a Python version or a custom Anaconda environment"
                     " to use.")
         _warn_potentially_incompatible_conda_env()
+        return None
     elif not _conda_supports_py_version(model_py_version):
         print_flush("The version of python used to serialize the model, Python {mpyv}, is not"
                      " supported by Anaconda.".format(mpyv=model_py_version))
         _warn_potentially_incompatible_conda_env()
+        return None
     elif model_py_version == PYTHON_VERSION:
         print_flush("The model's Python version matches the default environment's"
                     " Python version: {dpyv}. Using the default environment.".format(
                         dpyv=DEFAULT_CONDA_PYTHON_VERSION))
-        # The default environment is already active, so there is no activation work to do
+        return None
     else:
         print_flush("The model's Python version is {mpyv}. Activating Anaconda environment with"
                     " Python version {mpyv}".format(mpyv=model_py_version))
-        conda_env = CondaEnv(name="py_env", config=None, py_version=model_py_version)
+        return CondaEnv(name="py_env", config=None, py_version=model_py_version)
 
-    return conda_env
 
 def _create_conda_env(env):
     cmd = "conda create -n {en}".format(en=env.name).split(" ")
