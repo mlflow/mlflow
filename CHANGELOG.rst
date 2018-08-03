@@ -16,7 +16,7 @@ Features:
 Bug fixes:
 
 - Fix GCSArtifactRepository issue when calling list_artifacts on a path containing nested directories (#233, @jakeret)
-- Fix Spark model support when saving models to DBFS (#180, @tomasatdatabricks)
+- Fix Spark model support when saving models to distributed filesystems (#180, @tomasatdatabricks)
 - Add missing mlflow.version import to sagemaker module (#229, @dbczumar)
 - Validate metric, parameter and run IDs in file store and Python client (#224, @mateiz)
 - Validate that the tracking URI is a remote URI for Databricks project runs (#234, @smurching)
