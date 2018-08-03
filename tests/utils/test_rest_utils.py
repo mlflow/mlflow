@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import mock
+import numpy
 import pytest
 
 from databricks_cli.configure.provider import DatabricksConfig
@@ -93,3 +94,15 @@ def test_databricks_http_request_integration(get_config_for_profile, request):
     response = rest_utils.databricks_api_request('clusters/list', 'PUT',
                                                  req_body_json={'a': 'b'}, params='x=y')
     assert response == {'OK': 'woo'}
+
+
+def test_json_dumps_default_numpy_int64():
+    test_number = numpy.int64(42)
+    defaulted_val = rest_utils.default(test_number)
+    assert defaulted_val is 42
+
+
+def test_json_dumps_default_non_serializable():
+    test_number = numpy.int32(42)
+    with pytest.raises(TypeError):
+        rest_utils.default(test_number)
