@@ -69,49 +69,25 @@ def _serve():
     if pyfunc.FLAVOR_NAME not in m.flavors:
         raise Exception("Only supports pyfunc models and this is not one.")
     conf = m.flavors[pyfunc.FLAVOR_NAME]
-    model_py_version = None
-    if pyfunc.PY_VERSION in conf:
-        model_py_version = conf[pyfunc.PY_VERSION]
 
     bash_cmds = []
-    if pyfunc.ENV in conf:
-        print_flush("activating custom Anaconda environment")
-        env = conf[pyfunc.ENV]
-        env_path_dst = os.path.join("/opt/mlflow/", env)
-        env_path_dst_dir = os.path.dirname(env_path_dst)
-        if not os.path.exists(env_path_dst_dir):
-            os.makedirs(env_path_dst_dir)
-        # TODO: should we test that the environment does not include any of the server dependencies?
-        # Those are gonna be reinstalled. should probably test this on the client side
-        shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
-        env_name = "custom_env"
-        os.system("conda env create -n {en} -f {ep}".format(en=env_name, ep=env_path_dst))
+    custom_env_config, custom_env_msg = _get_conda_env_custom(conf)
+    py_env_version, py_env_safe, py_env_msg = _get_conda_env_py_version(conf)
+    if custom_env_config is not None or py_env_version != PYTHON_VERSION:
+        msg = custom_env_msg if custom_env_config is not None else py_env_msg
+        print_flush(msg)
+        env_name = "container_env"
+        _create_conda_env(name=env_name, config=custom_env_config, py_version=py_env_version) 
         bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
                 _server_dependencies_cmds()
-    elif model_py_version is None:
-        print_flush("The model does not specify a Python version or a custom Anaconda environment"
-                    " to use.")
-        _warn_potentially_incompatible_conda_env()
-    elif not _conda_supports_py_version(model_py_version):
-        print_flush("The version of python used to serialize the model, Python {mpyv}, is not"
-                     " supported by Anaconda.".format(mpyv=model_py_version))
-        _warn_potentially_incompatible_conda_env()
-    elif model_py_version == PYTHON_VERSION:
-        print_flush("The model's Python version matches the default environment's"
-                    " Python version: {dpyv}. Using the default environment.".format(
-                        dpyv=DEFAULT_CONDA_PYTHON_VERSION))
-        # The default environment is already active, so there is no activation work to do
     else:
-        print_flush("The model's Python version is {mpyv}. Activating Anaconda environment with"
-                    " Python version {mpyv}".format(mpyv=model_py_version))
-        env_name = "py_env"
-        os.system("conda create -n {en} python={mpyv} anaconda".format(en=env_name,
-                                                                       mpyv=model_py_version))
-        bash_cmds += ["source /miniconda/bin/activate {en}".format(en=env_name)] + \
-                _server_dependencies_cmds()
+        print_flush(py_env_msg)
+        if not py_env_safe:
+            _warn_potentially_incompatible_conda_env()
 
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
+
     # link the log streams to stdout/err so they will be logged to the container logs
     check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
     check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
@@ -131,6 +107,55 @@ def _serve():
         if pid in pids:
             break
     _sigterm_handler(nginx.pid, gunicorn.pid)
+
+
+def _create_conda_env(name, config=None, py_version=None):
+    cmd = "conda create -n {en}".format(en=name).split(" ")
+    if config:
+        cmd += ["-f", config]
+    elif py_version:
+        cmd += ["python={pyv}".format(pyv=py_version), "anaconda"]
+
+    cmd = " ".join(cmd)
+    return os.system(cmd)
+
+def _get_conda_env_custom(conf):
+    env = None
+    if pyfunc.ENV in conf:
+        msg = "Using custom Anaconda environment"
+        env = conf[pyfunc.ENV]
+        env_path_dst = os.path.join("/opt/mlflow/", env)
+        env_path_dst_dir = os.path.dirname(env_path_dst)
+        if not os.path.exists(env_path_dst_dir):
+            os.makedirs(env_path_dst_dir)
+        # TODO: should we test that the environment does not include any of the server dependencies?
+        # Those are gonna be reinstalled. should probably test this on the client side
+        shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
+    else:
+        msg = "No custom environment found."
+    
+    return env, msg 
+
+def _get_conda_env_py_version(conf):
+    if not pyfunc.PY_VERSION in conf:
+        msg = "The model does not specify a Python version or a custom Anaconda environment to use."
+        return DEFAULT_CONDA_PYTHON_VERSION, False, msg
+
+    model_py_version = conf[pyfunc.PY_VERSION]
+    if not _conda_supports_py_version(model_py_version):
+        msg = ("The version of python used to serialize the model, Python {mpyv}," 
+               " is not supported by Anaconda.".format(mpyv=model_py_version))
+        return DEFAULT_CONDA_PYTHON_VERSION, False, msg
+    
+    if model_py_version == DEFAULT_CONDA_PYTHON_VERSION:
+        msg = ("The model's Python version matches the default environment's"
+               " Python version: {dpyv}. Using the default environment.".format(
+                        dpyv=DEFAULT_CONDA_PYTHON_VERSION))
+    else:
+        msg = ("Using an Anaconda environment with Python version: {mpyv}".format(
+                    mpyv=model_py_version)) 
+
+    return model_py_version, True, msg
 
 
 def _conda_supports_py_version(py_version):
