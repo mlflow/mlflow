@@ -19,7 +19,10 @@ Imports:
   reticulate,
   swagger,
   withr,
-  rlang
+  rlang,
+  config,
+  yaml,
+  purrr
 RoxygenNote: 6.0.1
 Suggests: 
   testthat

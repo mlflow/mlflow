@@ -4,10 +4,12 @@
 \alias{mlflow_run}
 \title{Run in MLflow}
 \usage{
-mlflow_run(x)
+mlflow_run(x, params = NULL)
 }
 \arguments{
-\item{x}{A file, expression or function to run.}
+\item{x}{A directory or an R script.}
+
+\item{params}{A list of parameters.}
 }
 \description{
 Runs the given file, expression or function within

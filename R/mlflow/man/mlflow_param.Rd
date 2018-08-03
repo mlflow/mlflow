@@ -4,12 +4,14 @@
 \alias{mlflow_param}
 \title{Read Command Line Parameter}
 \usage{
-mlflow_param(name, default = NULL, description = NULL)
+mlflow_param(name, default = NULL, type = NULL, description = NULL)
 }
 \arguments{
 \item{name}{The name for this parameter.}
 
 \item{default}{The default value for this parameter.}
+
+\item{type}{Type of this parameter. Required if `default` is not set.}
 
 \item{description}{Optional description for this parameter.}
 }
