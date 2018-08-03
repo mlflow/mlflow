@@ -64,7 +64,6 @@ def test_fetch_project(local_git_repo, local_git_repo_uri):
     for force_tempdir, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
         assert mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir) == \
                os.path.abspath(TEST_PROJECT_DIR)
-    assert mlflow.projects._should_use_temp_dir("git@localhost:%s.git" % local_git_repo)
 
 
 def test_fetch_project_validations(local_git_repo_uri):

@@ -12,7 +12,6 @@ import tempfile
 
 from six.moves import urllib
 
-import mlflow.data
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects._project_spec import Project
 from mlflow.entities.run_status import RunStatus
@@ -177,20 +176,9 @@ def _get_storage_dir(storage_dir):
 
 
 def _expand_uri(uri):
-    if _is_git_uri(uri):
+    if _GIT_URI_REGEX.match(uri):
         return uri
     return os.path.abspath(uri)
-
-
-def _is_git_uri(uri):
-    return _GIT_URI_REGEX.match(uri) is not None
-
-
-def _should_use_temp_dir(parsed_uri):
-    """
-    Returns True if we should fetch the project at the passed-in URI into a temporary directory.
-    """
-    return _is_git_uri(parsed_uri) or mlflow.data.is_uri(parsed_uri)
 
 
 def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
@@ -201,7 +189,7 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
                           path of local projects (i.e. perform a no-op for local projects).
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    use_temp_dst_dir = force_tempdir or _should_use_temp_dir(uri)
+    use_temp_dst_dir = force_tempdir or _GIT_URI_REGEX.match(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
     if use_temp_dst_dir:
         eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
