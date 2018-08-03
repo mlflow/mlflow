@@ -10,13 +10,18 @@ Features:
 
 - [Projects] MLflow will use the conda installation directory given by the $MLFLOW_CONDA_HOME
   if specified (e.g. running conda commands by invoking "$MLFLOW_CONDA_HOME/bin/conda"), defaulting
-  to running "conda" otherwise.
+  to running "conda" otherwise. (#231, @smurching)
+- [UI] Show GitHub links in the UI for projects run from http(s):// GitHub URLs (#235, @smurching)
 
 Bug fixes:
 
+- Fix GCSArtifactRepository issue when calling list_artifacts on a path containing nested directories (#233, @jakeret)
+- Fix Spark model support when saving models to DBFS (#180, @tomasatdatabricks)
 - Add missing mlflow.version import to sagemaker module (#229, @dbczumar)
 - Validate metric, parameter and run IDs in file store and Python client (#224, @mateiz)
-- Fix for launching Databricks runs without specifying a Tracking URI (#234, @smurching)
+- Validate that the tracking URI is a remote URI for Databricks project runs (#234, @smurching)
+- Fix bug where we'd fetch git projects at SSH URIs into a local directory with the same name as
+  the URI, instead of into a temporary directory (#236, @smurching)
 
 
 
