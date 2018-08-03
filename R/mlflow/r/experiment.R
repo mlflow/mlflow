@@ -298,41 +298,31 @@ mlflow_start_run <- function(experiment_id = mlflow_active_experiment(), user_id
                              status = NULL, start_time = NULL, end_time = NULL,
                              source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
                              run_tags = NULL) {
+  run_info <- mlflow_create_run(
+    experiment_id = experiment_id,
+    user_id = user_id,
+    run_name = run_name,
+    source_type = source_type,
+    source_name = source_name,
+    status = status,
+    start_time = start_time,
+    end_time = end_time,
+    source_version = source_version,
+    artifact_uri = artifact_uri,
+    entry_point_name = entry_point_name,
+    run_tags = run_tags
+  )
+
   structure(
-    class = c("mlflow_start_run_object"),
-    list(
-      experiment_id = experiment_id,
-      user_id = user_id,
-      run_name = run_name,
-      source_type = source_type,
-      source_name = source_name,
-      status = status,
-      start_time = start_time,
-      end_time = end_time,
-      source_version = source_version,
-      artifact_uri = artifact_uri,
-      entry_point_name = entry_point_name,
-      run_tags = run_tags
-    )
+    list(run_info = run_info),
+    class = c("mlflow_run_context")
   )
 }
 
 #' @export
-with.mlflow_start_run_object <- function(x, code) {
-  result <- mlflow_create_run(experiment_id = x$experiment_id,
-                              user_id = x$user_id,
-                              run_name = x$run_name,
-                              source_type = x$source_type,
-                              source_name = x$source_name,
-                              status = x$status,
-                              start_time = x$start_time,
-                              end_time = x$end_time,
-                              source_version = x$source_version,
-                              artifact_uri = x$artifact_uri,
-                              entry_point_name = x$entry_point_name,
-                              run_tags = x$run_tags)
+with.mlflow_run_context <- function(x, code) {
 
-  runid <- as.character(result$run_uuid)
+  runid <- as.character(x$run_info$run_uuid)
 
   tryCatch(
     error = function(e) mlflow_update_run(
