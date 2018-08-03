@@ -1,7 +1,7 @@
 import pytest
 
 from mlflow import cli
-from tests.integration.utils import invoke_cli_runner
+from tests.integration.utils import invoke_cli_runner, update_temp_env
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
@@ -25,5 +25,7 @@ def test_run_git_https(tracking_uri_mock):  # pylint: disable=unused-argument
 
 @pytest.mark.large
 def test_run_git_ssh(tracking_uri_mock):  # pylint: disable=unused-argument
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "-P", "alpha=0.5"])
+    # Disable host-key checking so the test can run without prompting for approval
+    with update_temp_env({"GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=no"}):
+        invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "-P", "alpha=0.5"])
+        invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "-P", "alpha=0.5"])

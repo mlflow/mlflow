@@ -10,8 +10,6 @@ import re
 import subprocess
 import tempfile
 
-from six.moves import urllib
-
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects._project_spec import Project
 from mlflow.entities.run_status import RunStatus
@@ -164,8 +162,8 @@ def _parse_subdirectory(uri):
     if '#' in uri:
         subdirectory = uri[uri.find('#')+1:]
         parsed_uri = uri[:uri.find('#')]
-    if subdirectory and _GIT_URI_REGEX.match(parsed_uri) and '.' in subdirectory:
-        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
+    if subdirectory and '.' in subdirectory:
+        raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
 
 
@@ -176,9 +174,13 @@ def _get_storage_dir(storage_dir):
 
 
 def _expand_uri(uri):
-    if _GIT_URI_REGEX.match(uri):
-        return uri
-    return os.path.abspath(uri)
+    if _is_local_uri(uri):
+        return os.path.abspath(uri)
+    return uri
+
+
+def _is_local_uri(uri):
+    return not _GIT_URI_REGEX.match(uri)
 
 
 def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
@@ -189,19 +191,18 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
                           path of local projects (i.e. perform a no-op for local projects).
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    use_temp_dst_dir = force_tempdir or _GIT_URI_REGEX.match(parsed_uri)
+    use_temp_dst_dir = force_tempdir or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
     if use_temp_dst_dir:
         eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
-    # Download a project to the target `dst_dir` from a Git URI or local path.
-    if _GIT_URI_REGEX.match(parsed_uri):
-        # Use Git to clone the project
-        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
-    else:
+    if _is_local_uri(uri):
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+    else:
+        assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
+        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
 
     # Make sure there is a MLproject file in the specified working directory.
     if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
