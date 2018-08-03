@@ -24,7 +24,6 @@ Bug fixes:
   the URI, instead of into a temporary directory (#236, @smurching)
 
 
-
 0.4.0 (2018-08-01)
 ------------------
 
