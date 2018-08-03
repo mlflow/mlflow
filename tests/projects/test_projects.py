@@ -59,11 +59,12 @@ def test_fetch_project(local_git_repo, local_git_repo_uri):
     # Test that we correctly determine the dest directory to use when fetching a project.
     for force_tempdir, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
         dest_dir = mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir)
-        assert dest_dir != uri
+        assert os.path.commonprefix([dest_dir, tempfile.gettempdir()]) == tempfile.gettempdir()
         assert os.path.exists(dest_dir)
     for force_tempdir, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
         assert mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir) == \
                os.path.abspath(TEST_PROJECT_DIR)
+    assert mlflow.projects._should_use_temp_dir("git@localhost:%s.git" % local_git_repo)
 
 
 def test_fetch_project_validations(local_git_repo_uri):
