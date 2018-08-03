@@ -26,7 +26,7 @@ def test_run_git_https(tracking_uri_mock):  # pylint: disable=unused-argument
 
 @pytest.mark.large
 def test_run_git_ssh(tracking_uri_mock):  # pylint: disable=unused-argument
-    assert SSH_PROJECT_URI.startswith("https")
+    assert SSH_PROJECT_URI.startswith("git@")
     # Disable host-key checking so the test can run without prompting for approval
     with update_temp_env({"GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=no"}):
         invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "-P", "alpha=0.5"])
