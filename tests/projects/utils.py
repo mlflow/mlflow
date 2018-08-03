@@ -12,6 +12,7 @@ from mlflow.projects import Project
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
+SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
 
 
 def load_project():
