@@ -10,6 +10,9 @@
 mlflow_run <- function(x, params = NULL) {
   # Suppose `x` is a script for now.
 
+  # Create dependencies snapshot
+  mlflow_snapshot()
+
   .globals$run_params <- list()
   command_args <- parse_command_line(commandArgs(trailingOnly = TRUE))
 
