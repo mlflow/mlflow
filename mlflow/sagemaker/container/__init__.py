@@ -141,14 +141,10 @@ def _get_conda_env(model_config):
 
 
 def _create_conda_env(env):
-    cmd = "conda create -n {en}".format(en=env.name).split(" ")
     if env.config is not None:
-        cmd += ["-f", env.config]
+        cmd = "conda env create -n {en} -f {cfg}".format(en=env.name, cfg=env.config)
     elif env.py_version is not None:
-        cmd += ["python={pyv}".format(pyv=env.py_version), "anaconda"]
-
-    cmd = " ".join(cmd)
-    print("ISSUING COMMAND: {}".format(cmd))
+        cmd = "conda create -n {en} python={pyv} anaconda".format(en=env.name, pyv=env.py_version)
     os.system(cmd)
 
 
