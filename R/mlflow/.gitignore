@@ -13,3 +13,5 @@ mlruns/
 .DS_Store
 mlflow-model/
 internal
+packrat.lock
+r-dependencies.txt
