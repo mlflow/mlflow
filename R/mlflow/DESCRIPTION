@@ -12,17 +12,19 @@ LazyData: true
 Depends:
   R (>= 3.1.2)
 Imports:
+  config,
   httpuv,
   httr,
   jsonlite,
   processx,
   reticulate,
+  rlang,
+  packrat,
+  purrr,
   swagger,
   withr,
-  rlang,
-  config,
-  yaml,
-  purrr
+  xml2,
+  yaml
 RoxygenNote: 6.0.1
 Suggests: 
   testthat
