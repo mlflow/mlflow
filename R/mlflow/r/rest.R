@@ -25,6 +25,11 @@ mlflow_rest_headers <- function() {
   add_headers("Content-Type" = "application/json")
 }
 
+#' @importFrom httr timeout
+mlflow_rest_timeout <- function() {
+  timeout(getOption("mlflow.rest.timeout", 1))
+}
+
 #' @importFrom httr content
 #' @importFrom httr GET
 #' @importFrom httr POST
@@ -40,10 +45,11 @@ mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = 
 
   response <- switch(
     verb,
-    GET = GET(api_url, query = query),
+    GET = GET(api_url, query = query, mlflow_rest_timeout()),
     POST = POST(api_url,
                 body = mlflow_rest_body(data),
-                mlflow_rest_headers()),
+                mlflow_rest_headers(),
+                mlflow_rest_timeout()),
     stop("Verb '", verb, "' is unsupported.")
   )
 
