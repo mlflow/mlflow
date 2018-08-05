@@ -15,8 +15,8 @@ _RUN_ID_REGEX = re.compile(r"^[0-9a-f]{32}$")
 
 # An error message which strives to be concise and mostly-correct.
 CONCISE_EXPLANATION_MESSAGE = (
-    "Names must contain at least one alphanumeric, underscore (_) or dash (-), and may be"
-    " composed additionally of periods (.), whitespace ( ), and slashes (/)."
+    "Names must contain at least one alphanumeric, underscore (_) or dash (-), and may"
+    " also include periods (.), whitespace ( ), and slashes (/)."
 )
 
 
