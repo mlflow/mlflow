@@ -37,7 +37,6 @@ def _validate_metric_name(name):
 
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
-    print ("A %s %s" % (name, _VALID_PARAM_AND_METRIC_NAMES.match(name)))
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise Exception("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
     if _path_not_unique(name):
