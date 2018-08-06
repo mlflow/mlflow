@@ -6,6 +6,7 @@ import pickle
 import tempfile
 import pytest
 import yaml
+from collections import namedtuple
 
 import pandas as pd
 import sklearn.datasets as _sklearn_datasets
@@ -15,13 +16,10 @@ import tests.sagemaker.test_utils as sagemaker_test_utils
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 from mlflow import pyfunc
-
 from mlflow import sklearn as mlflow_sklearn
-
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION
 
-from collections import namedtuple
 
 SerializationConfig = namedtuple("SerializationConfig",
         ["model_path", "config_path", "data_path", "model_file", "mlflow_model"])
