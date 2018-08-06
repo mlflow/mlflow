@@ -34,7 +34,7 @@ class GCSArtifactRepository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def log_artifact(self, local_file, artifact_path=None, **kw_args):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
@@ -42,9 +42,9 @@ class GCSArtifactRepository(ArtifactRepository):
 
         gcs_bucket = self.gcs.Client().get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
-        blob.upload_from_filename(local_file)
+        blob.upload_from_filename(local_file, **kw_args)
 
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def log_artifacts(self, local_dir, artifact_path=None, **kw_args):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
@@ -58,9 +58,9 @@ class GCSArtifactRepository(ArtifactRepository):
                 upload_path = build_path(dest_path, rel_path)
             for f in filenames:
                 path = build_path(upload_path, f)
-                gcs_bucket.blob(path).upload_from_filename(build_path(root, f))
+                gcs_bucket.blob(path, **kw_args).upload_from_filename(build_path(root, f))
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path=None, **kw_args):
         (bucket, artifact_path) = self.parse_gcs_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
@@ -71,7 +71,7 @@ class GCSArtifactRepository(ArtifactRepository):
 
         infos = self._list_folders(bkt, prefix, artifact_path)
 
-        results = bkt.list_blobs(prefix=prefix, delimiter="/")
+        results = bkt.list_blobs(prefix=prefix, delimiter="/", **kw_args)
         for result in results:
             blob_path = result.name[len(artifact_path)+1:]
             infos.append(FileInfo(blob_path, False, result.size))
@@ -86,11 +86,11 @@ class GCSArtifactRepository(ArtifactRepository):
 
         return [FileInfo(path[len(artifact_path)+1:-1], True, None)for path in dir_paths]
 
-    def download_artifacts(self, artifact_path):
+    def download_artifacts(self, artifact_path, **kw_args):
         with TempDir(remove_on_exit=False) as tmp:
-            return self._download_artifacts_into(artifact_path, tmp.path())
+            return self._download_artifacts_into(artifact_path, tmp.path(), **kw_args)
 
-    def _download_artifacts_into(self, artifact_path, dest_dir):
+    def _download_artifacts_into(self, artifact_path, dest_dir, **kw_args):
         """Private version of download_artifacts that takes a destination directory."""
         basename = os.path.basename(artifact_path)
         local_path = build_path(dest_dir, basename)
@@ -104,5 +104,5 @@ class GCSArtifactRepository(ArtifactRepository):
             (bucket, remote_path) = self.parse_gcs_uri(self.artifact_uri)
             remote_path = build_path(remote_path, artifact_path)
             gcs_bucket = self.gcs.Client().get_bucket(bucket)
-            gcs_bucket.get_blob(remote_path).download_to_filename(local_path)
+            gcs_bucket.get_blob(remote_path).download_to_filename(local_path, **kw_args)
         return local_path

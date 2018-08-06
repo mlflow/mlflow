@@ -22,15 +22,15 @@ class S3ArtifactRepository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def log_artifact(self, local_file, artifact_path=None, **kw_args):
         (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         dest_path = build_path(dest_path, os.path.basename(local_file))
 
-        boto3.client('s3').upload_file(local_file, bucket, dest_path)
+        boto3.client('s3').upload_file(local_file, bucket, dest_path, **kw_args)
 
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def log_artifacts(self, local_dir, artifact_path=None, **kw_args):
         (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
@@ -42,9 +42,9 @@ class S3ArtifactRepository(ArtifactRepository):
                 rel_path = get_relative_path(local_dir, root)
                 upload_path = build_path(dest_path, rel_path)
             for f in filenames:
-                s3.upload_file(build_path(root, f), bucket, build_path(upload_path, f))
+                s3.upload_file(build_path(root, f), bucket, build_path(upload_path, f), **kw_args)
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path=None, **kw_args):
         (bucket, artifact_path) = self.parse_s3_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
@@ -52,7 +52,7 @@ class S3ArtifactRepository(ArtifactRepository):
         infos = []
         prefix = dest_path + "/"
         paginator = boto3.client('s3').get_paginator("list_objects_v2")
-        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/')
+        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/', **kw_args)
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
@@ -67,11 +67,11 @@ class S3ArtifactRepository(ArtifactRepository):
                 infos.append(FileInfo(name, False, size))
         return sorted(infos, key=lambda f: f.path)
 
-    def download_artifacts(self, artifact_path):
+    def download_artifacts(self, artifact_path, **kw_args):
         with TempDir(remove_on_exit=False) as tmp:
-            return self._download_artifacts_into(artifact_path, tmp.path())
+            return self._download_artifacts_into(artifact_path, tmp.path(), **kw_args)
 
-    def _download_artifacts_into(self, artifact_path, dest_dir):
+    def _download_artifacts_into(self, artifact_path, dest_dir, **kw_args):
         """Private version of download_artifacts that takes a destination directory."""
         basename = os.path.basename(artifact_path)
         local_path = build_path(dest_dir, basename)
@@ -84,5 +84,5 @@ class S3ArtifactRepository(ArtifactRepository):
         else:
             (bucket, s3_path) = self.parse_s3_uri(self.artifact_uri)
             s3_path = build_path(s3_path, artifact_path)
-            boto3.client('s3').download_file(bucket, s3_path, local_path)
+            boto3.client('s3').download_file(bucket, s3_path, local_path, **kw_args)
         return local_path

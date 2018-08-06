@@ -13,7 +13,7 @@ class ArtifactRepository:
         self.artifact_uri = artifact_uri
 
     @abstractmethod
-    def log_artifact(self, local_file, artifact_path=None):
+    def log_artifact(self, local_file, artifact_path=None, **kw_args):
         """
         Logs a local file as an artifact, optionally taking an ``artifact_path`` to place it in
         within the run's artifacts. Run artifacts can be organized into directories, so you can
@@ -25,7 +25,7 @@ class ArtifactRepository:
         pass
 
     @abstractmethod
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def log_artifacts(self, local_dir, artifact_path=None, **kw_args):
         """
         Logs the files in the specified local directory as artifacts, optionally taking
         an ``artifact_path`` to place them in within the run's artifacts.
@@ -36,7 +36,7 @@ class ArtifactRepository:
         pass
 
     @abstractmethod
-    def list_artifacts(self, path):
+    def list_artifacts(self, path, **kw_args):
         """
         Return all the artifacts for this run_uuid directly under path.
         :param path: Relative source path that contain desired artifacts
@@ -45,7 +45,7 @@ class ArtifactRepository:
         pass
 
     @abstractmethod
-    def download_artifacts(self, artifact_path):
+    def download_artifacts(self, artifact_path, **kw_args):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
@@ -57,7 +57,7 @@ class ArtifactRepository:
         pass
 
     @staticmethod
-    def from_artifact_uri(artifact_uri):
+    def from_artifact_uri(artifact_uri, **kw_args):
         """
         Given an artifact URI for an Experiment Run (e.g., /local/file/path or s3://my/bucket),
         returns an ArtifactReposistory instance capable of logging and downloading artifacts

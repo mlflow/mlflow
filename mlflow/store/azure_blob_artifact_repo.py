@@ -57,14 +57,14 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             path = path[1:]
         return container, storage_account, path
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def log_artifact(self, local_file, artifact_path=None, **kw_args):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         dest_path = build_path(dest_path, os.path.basename(local_file))
-        self.client.create_blob_from_path(container, dest_path, local_file)
+        self.client.create_blob_from_path(container, dest_path, local_file, **kw_args)
 
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def log_artifacts(self, local_dir, artifact_path=None, **kw_args):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
@@ -76,9 +76,9 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 upload_path = build_path(dest_path, rel_path)
             for f in filenames:
                 path = build_path(upload_path, f)
-                self.client.create_blob_from_path(container, path, build_path(root, f))
+                self.client.create_blob_from_path(container, path, build_path(root, f), **kw_args)
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path=None, **kw_args):
         from azure.storage.blob.models import BlobPrefix
         (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
         dest_path = artifact_path
@@ -88,7 +88,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         prefix = dest_path + "/"
         marker = None  # Used to make next list request if this one exceeded the result limit
         while True:
-            results = self.client.list_blobs(container, prefix=prefix, delimiter='/', marker=marker)
+            results = self.client.list_blobs(container, prefix=prefix, delimiter='/', marker=marker, **kw_args)
             for r in results:
                 if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
                     subdir = r.name[len(artifact_path)+1:]
@@ -105,11 +105,11 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 break
         return sorted(infos, key=lambda f: f.path)
 
-    def download_artifacts(self, artifact_path):
+    def download_artifacts(self, artifact_path, **kw_args):
         with TempDir(remove_on_exit=False) as tmp:
-            return self._download_artifacts_into(artifact_path, tmp.path())
+            return self._download_artifacts_into(artifact_path, tmp.path(), **kw_args)
 
-    def _download_artifacts_into(self, artifact_path, dest_dir):
+    def _download_artifacts_into(self, artifact_path, dest_dir, **kw_args):
         """Private version of download_artifacts that takes a destination directory."""
         basename = os.path.basename(artifact_path)
         local_path = build_path(dest_dir, basename)
@@ -122,5 +122,5 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         else:
             (container, _, remote_path) = self.parse_wasbs_uri(self.artifact_uri)
             remote_path = build_path(remote_path, artifact_path)
-            self.client.get_blob_to_path(container, remote_path, local_path)
+            self.client.get_blob_to_path(container, remote_path, local_path, **kw_args)
         return local_path
