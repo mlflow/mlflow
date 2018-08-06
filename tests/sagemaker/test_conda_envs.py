@@ -232,13 +232,14 @@ def test_sagemaker_container_serves__sklearn_model_with_compatible_py_version(
     model_path = tempfile.mktemp(dir="/tmp")
     mlflow_sklearn.save_model(sk_model=_sklearn_model, 
                               path=model_path)
-    sample = _sklearn_data.samples[0]
-    sample_df = pd.DataFrame(sample, _sklearn_data.sample_schema)
-    sample_prediction = _sklearn_model.predict([sample])
+    sample = [_sklearn_data.samples[0]]
+    sample_df = pd.DataFrame(sample, columns=_sklearn_data.sample_schema)
+    sample_prediction = _sklearn_model.predict(sample)
 
     response = score_model_in_sagemaker_docker_container(model_path, sample_df, timeout_seconds=600)
     assert type(response) == list
     assert len(response) == 1
     response_prediction = response[0]
+    # The sklearn model is a binary classifier, so we should expect identical labels
     assert sample_prediction == response_prediction
     
