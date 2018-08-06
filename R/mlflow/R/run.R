@@ -7,10 +7,13 @@
 #' @param entry_point Entry point within project, defaults to `main` if not specified.
 #' @param param_list A list of parameters.
 #' @param experiment_id ID of the experiment under which to launch the run.
+#' @param new_dir If `TRUE`, copies the project into a temporary working directory and
+#'   runs it from there. Otherwise, uses `uri` as the working directory when running the
+#'   project.
 #'
 #' @export
 mlflow_run <- function(uri, entry_point = NULL, param_list = NULL,
-                       experiment_id = NULL) {
+                       experiment_id = NULL, new_dir = FALSE) {
   if (!is.null(experiment_id)) mlflow_experiment(experiment_id)
 
   # Parameter value precedence:
@@ -20,7 +23,8 @@ mlflow_run <- function(uri, entry_point = NULL, param_list = NULL,
   passed_params <- config::merge(param_list, command_args)
 
   # Identify the script to run.
-  script <- if (fs::is_dir(uri)) {
+  is_directory <- fs::is_dir(uri)
+  script <- if (is_directory) {
     # If `uri` is a directory, check for MLProject.
     if (fs::file_exists(fs::path(uri, "MLProject"))) {
       # MLProject found.
@@ -77,17 +81,30 @@ mlflow_run <- function(uri, entry_point = NULL, param_list = NULL,
     uri
   }
 
+  # Get absolute path to script.
+  script <- fs::path_abs(script)
+
   if (!is.null(passed_params)) {
     purrr::iwalk(passed_params, function(value, key) {
       .globals$run_params[[key]] <- value
     })
   }
 
-  source(script, local = parent.frame())
-  clear_run()
+  working_dir <- if (is_directory) {
+    if (new_dir)
+      fs::dir_copy(uri, fs::path_temp())
+    else
+      uri
+  } else
+    fs::path_dir(script)
 
-  # Create dependencies snapshot
-  mlflow_snapshot()
+  withr::with_dir(working_dir, {
+    source(script, local = parent.frame())
+    clear_run()
+
+    # Create dependencies snapshot
+    mlflow_snapshot()
+  })
 
   invisible(NULL)
 }

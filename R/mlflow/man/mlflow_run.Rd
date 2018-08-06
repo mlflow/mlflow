@@ -5,7 +5,7 @@
 \title{Run in MLflow}
 \usage{
 mlflow_run(uri, entry_point = NULL, param_list = NULL,
-  experiment_id = NULL)
+  experiment_id = NULL, new_dir = FALSE)
 }
 \arguments{
 \item{uri}{A directory or an R script.}
@@ -15,6 +15,10 @@ mlflow_run(uri, entry_point = NULL, param_list = NULL,
 \item{param_list}{A list of parameters.}
 
 \item{experiment_id}{ID of the experiment under which to launch the run.}
+
+\item{new_dir}{If `TRUE`, copies the project into a temporary working directory and
+runs it from there. Otherwise, uses `uri` as the working directory when running the
+project.}
 }
 \description{
 Runs the given file, expression or function within
