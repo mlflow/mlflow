@@ -18,10 +18,11 @@ from pkg_resources import resource_filename
 import mlflow
 import mlflow.version
 
-from mlflow import pyfunc
+from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.version import VERSION as MLFLOW_VERSION
 
+MODEL_PATH = "/opt/ml/model"
 
 def _init(cmd):
     """
@@ -57,10 +58,18 @@ def _serve():
 
     Read the MLmodel config, initialize the conda environment if needed and start python server.
     """
-    m = Model.load("/opt/ml/model/MLmodel")
-    if pyfunc.FLAVOR_NAME not in m.flavors:
-        raise Exception("Currently can only deal with pyfunc models and this is not one.")
-    conf = m.flavors[pyfunc.FLAVOR_NAME]
+    model_config_path = os.path.join(MODEL_PATH, "MLmodel")
+    m = Model.load(model_config_path)
+    if mleap.FLAVOR_NAME in m.flavors:
+        _serve_mleap(m)
+    elif pyfunc.FLAVOR_NAME in m.flavors:
+        _serve_pyfunc(m)
+    else:
+        raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
+
+
+def _serve_pyfunc(model):
+    conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
         print("activating custom environment")
@@ -95,6 +104,10 @@ def _serve():
         if pid in pids:
             break
     _sigterm_handler(nginx.pid, gunicorn.pid)
+
+
+def _serve_mleap(model):
+    os.system("mvn exec:java -Dexec.mainClass=com.databricks.mlflow.sagemaker.SageMakerServer -Dexec.args {mp}".format(mp=MODEL_PATH)) 
 
 
 def _train():
