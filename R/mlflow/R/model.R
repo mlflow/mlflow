@@ -52,3 +52,37 @@ mlflow_load_model <- function(model_dir) {
 mlflow_predict_model <- function(model, df) {
   model$r_function(df)
 }
+
+#' Predict using MLflow Model
+#'
+#' Predict using a MLflow Model from a 'JSON' file.
+#'
+#' @param model_dir The path to the MLflow model, as a string.
+#' @param data_file 'JSON' file containing data frame to be used for prediction.
+#' @param restore Should \code{mlflow_restore()} be called before serving?
+#'
+#' @examples
+#' \dontrun{
+#' library(mlflow)
+#'
+#' # save simple model which roundtrips data as prediction
+#' mlflow_save_model(function(df) df, "mlflow_roundtrip")
+#'
+#' # save data as json
+#' jsonlite::write_json(iris, "iris.json")
+#'
+#' # serve an existing model over a web interface
+#' mlflow_predict("mlflow_roundtrip", "iris.json")
+#' }
+#'
+#' @export
+mlflow_predict <- function(
+  model_dir,
+  data_file,
+  restore = FALSE
+) {
+  if (restore) mlflow_restore()
+
+  model <- mlflow_load_model(model_dir)
+  mlflow_predict_model()
+}
