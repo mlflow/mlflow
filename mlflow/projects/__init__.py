@@ -291,6 +291,7 @@ def _maybe_create_conda_env(conda_env_path):
 
     return conda_env
 
+
 def _maybe_set_run_terminated(active_run, status):
     """
     If the passed-in active run is defined and still running (i.e. hasn't already been terminated

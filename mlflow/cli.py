@@ -19,6 +19,7 @@ from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
 
+
 @click.group()
 @click.version_option()
 def cli():

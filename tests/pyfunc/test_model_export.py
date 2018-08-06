@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import os
-import signal
 import time
 import six
 import pickle
@@ -95,7 +94,7 @@ class TestModelExport(unittest.TestCase):
                 # Remove the log directory in order to avoid adding new tests to pytest...
                 shutil.rmtree(tracking_dir)
 
-    def _model_serve_with_conda_env(self, extra_args = []):
+    def _model_serve_with_conda_env(self, extra_args=[]):
         with TempDir() as tmp:
             model_path = tmp.path("knn.pkl")
             with open(model_path, "wb") as f:
@@ -122,32 +121,29 @@ class TestModelExport(unittest.TestCase):
                               )
             input_csv_path = tmp.path("input.csv")
             pandas.DataFrame(self._X).to_csv(input_csv_path, header=True, index=False)
-            output_csv_path = tmp.path("output.csv")
-
             runner = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"})
             port = 5000
 
             def runserver():
                 result = runner.invoke(mlflow.pyfunc.cli.commands,
-                      ['serve', '--model-path', path, '--port', port] + extra_args)
+                                       ['serve', '--model-path', path, '--port', port] + extra_args)
                 print(result.exc_info)
                 if result.exit_code != 0:
                     return -1
 
             process = Process(target=runserver)
             process.start()
-            success=False
+            success = False
             while not success:
                 try:
                     response = requests.post("http://localhost:{}/invocations".format(port),
-                                             data=open(input_csv_path,'rb'),
-                                             headers = {'Content-type': 'text/csv'})
+                                             data=open(input_csv_path, 'rb'),
+                                             headers={'Content-type': 'text/csv'})
                     response.close()
-                    success=True
+                    success = True
                 except requests.ConnectionError:
                     pass
                 time.sleep(5)
-
 
             assert process.is_alive(), "rest server died"
             for p in psutil.Process(process.pid).children(recursive=True):

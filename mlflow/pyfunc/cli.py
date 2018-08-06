@@ -24,6 +24,7 @@ def _rerun_in_conda(conda_env_path):
     commands.append("source {} {}".format(activate_path, conda_env_name))
     commands.append(_reconstruct_command_line())
     commandline = " && ".join(commands)
+    eprint("=== Running command '{}'".format(commandline))
     child = subprocess.Popen(["bash", "-c", commandline], close_fds=True)
     exit_code = child.wait()
     return exit_code
