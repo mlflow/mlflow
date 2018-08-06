@@ -14,9 +14,50 @@ mlflow_snapshot <- function() {
     fallback.ok = getOption("mlflow.snapshot.fallback", FALSE)
   )
 
+  file.copy("packrat/packrat.lock", "r-dependencies.txt")
+  mlflow_lock_delete()
+}
+
+mlflow_lock_delete <- function() {
   if (file.exists("packrat/packrat.lock")) {
-    file.copy("packrat/packrat.lock", "r-dependencies.txt")
     unlink("packrat/packrat.lock")
     if (length(dir("packrat")) == 0) unlink("packrat", recursive = TRUE)
   }
+}
+
+#' Restore Snapshot
+#'
+#' Restores a snapshot of all dependencies required to run the files in the
+#' current directory
+#'
+#' @export
+mlflow_restore <- function() {
+
+  if (!file.exists("r-dependencies.txt")) {
+    stop("r-dependencies.txt expected but does not exist, run 'mlflow_run()' or 'mlflow_snapshot()'.")
+  }
+
+  if (!file.exists("packrat")) dir.create("packrat")
+  file.copy("r-dependencies.txt", "packrat/packrat.lock")
+  on.exit(mlflow_lock_delete)
+
+  if (nchar(Sys.getenv("MLFLOW_SNAPSHOT_CACHE")) > 0) {
+    Sys.setenv(R_PACKRAT_CACHE_DIR = Sys.getenv("MLFLOW_SNAPSHOT_CACHE"))
+  }
+
+  options(packrat.verbose.cache = getOption("mlflow.verbose", FALSE),
+          packrat.connect.timeout = 10)
+
+  packrat::set_opts(
+    auto.snapshot = FALSE,
+    use.cache = TRUE,
+    project = getwd(),
+    persist = FALSE
+  )
+
+  packrat::restore(overwrite.dirty = TRUE,
+                   prompt = FALSE,
+                   restart = FALSE)
+
+  packrat::on()
 }

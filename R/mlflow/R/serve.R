@@ -9,6 +9,7 @@
 #'   are not blocked to handle requests. To terminate a daemonized server, call
 #'   'httpuv::stopDaemonizedServer()' with the handle returned from this call.
 #' @param browse Launch browser with serving landing page?
+#' @param restore Should \code{mlflow_restore()} be called before serving?
 #'
 #' @examples
 #' \dontrun{
@@ -33,8 +34,11 @@ mlflow_serve <- function(
   host = "127.0.0.1",
   port = 8090,
   daemonized = FALSE,
-  browse = !daemonized
+  browse = !daemonized,
+  restore = FALSE
 ) {
+  if (restore) mlflow_restore()
+
   httpuv_start <- if (daemonized) startDaemonizedServer else runServer
   serve_run(model_dir, host, port, httpuv_start, browse && interactive())
 }
