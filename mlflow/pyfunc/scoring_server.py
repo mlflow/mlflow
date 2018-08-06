@@ -16,7 +16,6 @@ import json
 
 import pandas as pd
 import flask
-from mlflow.utils.rest_utils import default
 from mlflow.utils.rest_utils import NumpyEncoder
 
 try:
