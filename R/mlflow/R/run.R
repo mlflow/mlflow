@@ -3,12 +3,12 @@
 #' Runs the given file, expression or function within
 #' the context of an MLflow run.
 #'
-#' @param x A directory or an R script.
+#' @param uri A directory or an R script.
 #' @param entry_point Entry point within project, defaults to `main` if not specified.
 #' @param param_list A list of parameters.
 #'
 #' @export
-mlflow_run <- function(x, entry_point = NULL, param_list = NULL) {
+mlflow_run <- function(uri, entry_point = NULL, param_list = NULL) {
   # Parameter value precedence:
   #   Command line args > `param_list` > MLProject defaults > defaults in script
   .globals$run_params <- list()
@@ -16,11 +16,11 @@ mlflow_run <- function(x, entry_point = NULL, param_list = NULL) {
   passed_params <- config::merge(param_list, command_args)
 
   # Identify the script to run.
-  script <- if (fs::is_dir(x)) {
-    # If `x` is a directory, check for MLProject.
-    if (fs::file_exists(fs::path(x, "MLProject"))) {
+  script <- if (fs::is_dir(uri)) {
+    # If `uri` is a directory, check for MLProject.
+    if (fs::file_exists(fs::path(uri, "MLProject"))) {
       # MLProject found.
-      mlproject <- yaml::yaml.load_file(fs::path(x, "MLProject"))
+      mlproject <- yaml::yaml.load_file(fs::path(uri, "MLProject"))
       entry_points <- names(mlproject$entry_points)
 
       if (!is.null(entry_point)) {
@@ -58,7 +58,7 @@ mlflow_run <- function(x, entry_point = NULL, param_list = NULL) {
       script_path
     } else {
       # MLProject not found, we check if there's a single R script.
-      scripts <- fs::dir_ls(x, regexp = "\\.R$")
+      scripts <- fs::dir_ls(uri, regexp = "\\.R$")
       if (length(scripts) == 1) {
         # If there's a single R script, we'll use that as our entry point.
         scripts[[1]]
@@ -69,8 +69,8 @@ mlflow_run <- function(x, entry_point = NULL, param_list = NULL) {
       }
     }
   } else {
-    # `x` is a file, so we assume it's the R script to be executed.
-    x
+    # `uri` is a file, so we assume it's the R script to be executed.
+    uri
   }
 
   if (!is.null(passed_params)) {
