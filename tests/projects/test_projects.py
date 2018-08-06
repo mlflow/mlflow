@@ -1,5 +1,4 @@
 import os
-import filecmp
 import git
 import tempfile
 
@@ -14,16 +13,9 @@ from mlflow.projects.utils import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, TEST_DIR, validate_exit_status
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, validate_exit_status,\
+    assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
-
-def _assert_dirs_equal(expected, actual):
-    dir_comparison = filecmp.dircmp(expected, actual)
-    assert len(dir_comparison.left_only) == 0
-    assert len(dir_comparison.right_only) == 0
-    assert len(dir_comparison.diff_files) == 0
-    assert len(dir_comparison.funny_files) == 0
 
 
 def _build_uri(base_uri, subdirectory):
@@ -32,53 +24,64 @@ def _build_uri(base_uri, subdirectory):
     return base_uri
 
 
-def test_fetch_project(tmpdir):
-    # Creating a local Git repo containing a MLproject file.
+@pytest.fixture()
+def local_git_repo(tmpdir):
     local_git = tmpdir.join('git_repo').strpath
     repo = git.Repo.init(local_git)
     dir_util.copy_tree(src=TEST_PROJECT_DIR, dst=local_git)
+    dir_util.copy_tree(src=os.path.dirname(TEST_PROJECT_DIR), dst=local_git)
     repo.git.add(A=True)
     repo.index.commit("test")
-    git_repo_uri = "file://" + os.path.abspath(local_git)
+    yield os.path.abspath(local_git)
 
-    # Creating a local Git repo with a MLproject file in a subdirectory.
-    local_git_subdir = tmpdir.join('subdir_git_repo').strpath
-    repo = git.Repo.init(local_git_subdir)
-    dir_util.copy_tree(src=os.path.join(TEST_DIR, "resources"), dst=local_git_subdir)
-    repo.git.add(A=True)
-    repo.index.commit("test")
-    git_subdir_repo = "file://" + os.path.abspath(local_git_subdir)
 
+@pytest.fixture()
+def local_git_repo_uri(local_git_repo):
+    return "file://%s" % local_git_repo
+
+
+def test_fetch_project(local_git_repo, local_git_repo_uri):
     # The tests are as follows:
     # 1. Fetching a locally saved project.
     # 2. Fetching a project located in a Git repo root directory.
     # 3. Fetching a project located in a Git repo subdirectory.
     # 4. Passing a subdirectory works for local directories.
-    test_list = [(TEST_PROJECT_DIR, '', TEST_PROJECT_DIR),
-                 (git_repo_uri, '', local_git),
-                 (git_subdir_repo, 'example_project',
-                  os.path.join(local_git_subdir, 'example_project')),
-                 (TEST_DIR, 'resources/example_project', TEST_PROJECT_DIR)]
+    test_list = [
+        (TEST_PROJECT_DIR, '', TEST_PROJECT_DIR),
+        (local_git_repo_uri, '', local_git_repo),
+        (local_git_repo_uri, 'example_project', os.path.join(local_git_repo, 'example_project')),
+        (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR),
+    ]
     for base_uri, subdirectory, expected in test_list:
         work_dir = mlflow.projects._fetch_project(
-            uri=_build_uri(base_uri, subdirectory), use_temp_cwd=True)
-        _assert_dirs_equal(expected=expected, actual=work_dir)
+            uri=_build_uri(base_uri, subdirectory), force_tempdir=False)
+        assert_dirs_equal(expected=expected, actual=work_dir)
+    # Test that we correctly determine the dest directory to use when fetching a project.
+    for force_tempdir, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
+        dest_dir = mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir)
+        assert os.path.commonprefix([dest_dir, tempfile.gettempdir()]) == tempfile.gettempdir()
+        assert os.path.exists(dest_dir)
+    for force_tempdir, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
+        assert mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir) == \
+               os.path.abspath(TEST_PROJECT_DIR)
 
+
+def test_fetch_project_validations(local_git_repo_uri):
     # Verify that runs fail if given incorrect subdirectories via the `#` character.
-    for base_uri in [TEST_PROJECT_DIR, git_repo_uri]:
+    for base_uri in [TEST_PROJECT_DIR, local_git_repo_uri]:
         with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(uri=_build_uri(base_uri, "fake"), use_temp_cwd=False)
+            mlflow.projects._fetch_project(uri=_build_uri(base_uri, "fake"), force_tempdir=False)
 
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(
-            uri=TEST_PROJECT_DIR, use_temp_cwd=True, version="version",)
+        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
 
     # Passing only one of git_username, git_password results in an error
     for username, password in [(None, "hi"), ("hi", None)]:
         with pytest.raises(ExecutionException):
             mlflow.projects._fetch_project(
-                git_repo_uri, use_temp_cwd=True, git_username=username, git_password=password)
+                local_git_repo_uri, force_tempdir=False, git_username=username,
+                git_password=password)
 
 
 def test_dont_remove_mlruns(tmpdir):
@@ -88,8 +91,8 @@ def test_dont_remove_mlruns(tmpdir):
     src_dir.join("MLproject").write("dummy MLproject contents")
     dst_dir = mlflow.projects._fetch_project(
         uri=src_dir.strpath, version=None, git_username=None,
-        git_password=None, use_temp_cwd=True)
-    _assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
+        git_password=None, force_tempdir=False)
+    assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
 
 
 def test_parse_subdirectory():
@@ -169,13 +172,18 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
 
 
 @pytest.mark.parametrize(
-    "mock_env,expected",
-    [({}, "conda"), ({mlflow.projects.MLFLOW_CONDA: "/some/dir/conda"}, "/some/dir/conda")]
+    "mock_env,expected_conda,expected_activate",
+    [
+        ({}, "conda", "activate"),
+        ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
+         "/some/dir/bin/activate")
+     ]
 )
-def test_conda_path(mock_env, expected):
-    """Verify that we correctly determine the path to a conda executable"""
+def test_conda_path(mock_env, expected_conda, expected_activate):
+    """Verify that we correctly determine the path to conda executables"""
     with mock.patch.dict("os.environ", mock_env):
-        assert mlflow.projects._conda_executable() == expected
+        assert mlflow.projects._get_conda_bin_executable("conda") == expected_conda
+        assert mlflow.projects._get_conda_bin_executable("activate") == expected_activate
 
 
 def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
@@ -190,17 +198,6 @@ def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     # Try cancelling after calling wait()
     submitted_run1.cancel()
     validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
-
-
-def test_get_dest_dir():
-    """ Test that we correctly determine the dest directory to use when fetching a project. """
-    for use_temp_cwd, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
-        dest_dir = mlflow.projects._get_dest_dir(uri=uri, use_temp_cwd=use_temp_cwd)
-        assert dest_dir != uri
-        assert os.path.exists(dest_dir)
-    for use_temp_cwd, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
-        assert mlflow.projects._get_dest_dir(uri=uri, use_temp_cwd=use_temp_cwd) ==\
-               os.path.abspath(TEST_PROJECT_DIR)
 
 
 def test_storage_dir(tmpdir):

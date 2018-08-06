@@ -2,14 +2,13 @@
 
 from __future__ import print_function
 
+from distutils import dir_util
 import hashlib
 import json
 import os
 import re
 import subprocess
 import tempfile
-
-from distutils import dir_util
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects import _project_spec
@@ -27,12 +26,12 @@ from mlflow.utils.logging_utils import eprint
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
-MLFLOW_CONDA = "MLFLOW_CONDA"
+MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
          mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-         use_temp_cwd=False, storage_dir=None, block=True, run_id=None):
+         storage_dir=None, block=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in mode.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -46,7 +45,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     elif mode == "local" or mode is None:
-        work_dir = _fetch_project(uri, use_temp_cwd, version, git_username, git_password)
+        work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
+                                  git_username=git_username, git_password=git_password)
         project = _project_spec.load_project(work_dir)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
@@ -74,8 +74,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None,
-        use_conda=True, use_temp_cwd=False, storage_dir=None, block=True, run_id=None):
+        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
+        storage_dir=None, block=True, run_id=None):
     """
     Run an MLflow project from the given URI.
 
@@ -101,10 +101,6 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                       installs project dependencies within that environment. Otherwise, runs the
                       project in the current environment without installing any project
                       dependencies.
-    :param use_temp_cwd: Used only if ``mode`` is "local" and ``uri`` is a local directory.
-                         If True, copies project to a temporary working directory before running it.
-                         Otherwise (the default), runs project using ``uri`` (the project's path) as
-                         the working directory.
     :param storage_dir: Only used if ``mode`` is local. MLflow will download artifacts from
                         distributed URIs passed to parameters of type 'path' to subdirectories of
                         ``storage_dir``.
@@ -123,7 +119,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
         experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
-        use_temp_cwd=use_temp_cwd, storage_dir=storage_dir, block=block, run_id=run_id)
+        storage_dir=storage_dir, block=block, run_id=run_id)
     if block:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
@@ -158,21 +154,9 @@ def _parse_subdirectory(uri):
     if '#' in uri:
         subdirectory = uri[uri.find('#')+1:]
         parsed_uri = uri[:uri.find('#')]
-    if subdirectory and _GIT_URI_REGEX.match(parsed_uri) and '.' in subdirectory:
-        raise ExecutionException("'.' and '..' are not allowed in Git URI subdirectory paths.")
+    if subdirectory and '.' in subdirectory:
+        raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
-
-
-def _get_dest_dir(uri, use_temp_cwd):
-    """
-    Return a directory to use for fetching the project with the URI.
-    :param use_temp_cwd: Only used if ``uri`` is a local directory. If True, returns a temporary
-    working directory.
-    """
-    if _GIT_URI_REGEX.match(uri) or use_temp_cwd:
-        # Create a temp directory to download and run the project in
-        return tempfile.mkdtemp(prefix="mlflow-")
-    return os.path.abspath(uri)
 
 
 def _get_storage_dir(storage_dir):
@@ -182,32 +166,36 @@ def _get_storage_dir(storage_dir):
 
 
 def _expand_uri(uri):
-    if _GIT_URI_REGEX.match(uri):
-        return uri
-    return os.path.abspath(uri)
+    if _is_local_uri(uri):
+        return os.path.abspath(uri)
+    return uri
 
 
-def _fetch_project(uri, use_temp_cwd, version=None, git_username=None, git_password=None):
+def _is_local_uri(uri):
+    """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
+    return not _GIT_URI_REGEX.match(uri)
+
+
+def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
+    :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
+                          will fetch Git projects into a temporary directory but simply return the
+                          path of local projects (i.e. perform a no-op for local projects).
     """
-    # Separating the uri from the subdirectory requested.
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    dst_dir = _get_dest_dir(parsed_uri, use_temp_cwd)
-    eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
-    # Download a project to the target `dst_dir` from a Git URI or local path.
-
-    if _GIT_URI_REGEX.match(uri):
-        # Use Git to clone the project
-        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
-    else:
+    use_temp_dst_dir = force_tempdir or not _is_local_uri(parsed_uri)
+    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
+    if use_temp_dst_dir:
+        eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
+    if _is_local_uri(uri):
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
-        # TODO: don't copy mlruns directory here
-        # Note: uri might be equal to dst_dir, e.g. if we're not using a temporary work dir
-        if uri != dst_dir:
+        if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
-
+    else:
+        assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
+        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
     res = os.path.join(dst_dir, subdirectory)
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
@@ -249,16 +237,24 @@ def _get_conda_env_name(project):
     return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
-def _conda_executable():
+def _get_conda_bin_executable(executable_name):
     """
-    Return path to a Conda executable. Configurable via the ``mlflow.projects.MLFLOW_CONDA``
-    environment variable.
+    Return path to the specified executable, assumed to be discoverable within the 'bin'
+    subdirectory of a conda installation.
+
+    The conda home directory (expected to contain a 'bin' subdirectory) is configurable via the
+    ``mlflow.projects.MLFLOW_CONDA_HOME`` environment variable. If
+    ``mlflow.projects.MLFLOW_CONDA_HOME`` is unspecified, this method simply returns the passed-in
+    executable name.
     """
-    return os.environ.get(MLFLOW_CONDA, "conda")
+    conda_home = os.environ.get(MLFLOW_CONDA_HOME)
+    if conda_home:
+        return os.path.join(conda_home, "bin/%s" % executable_name)
+    return executable_name
 
 
 def _maybe_create_conda_env(project_dir):
-    conda_path = _conda_executable()
+    conda_path = _get_conda_bin_executable("conda")
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
@@ -267,7 +263,7 @@ def _maybe_create_conda_env(project_dir):
                                  "at https://conda.io/docs/user-guide/install/index.html. You can "
                                  "also configure MLflow to look for a specific Conda executable "
                                  "by setting the {1} environment variable to the path of the Conda "
-                                 "executable".format(conda_path, MLFLOW_CONDA))
+                                 "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
@@ -297,7 +293,8 @@ def _get_entry_point_command(project, entry_point, use_conda, parameters, storag
            "type 'path' ===" % storage_dir_for_run)
     commands = []
     if use_conda:
-        commands.append("source activate %s" % _get_conda_env_name(project))
+        activate_path = _get_conda_bin_executable("activate")
+        commands.append("source %s %s" % (activate_path, _get_conda_env_name(conda_env_path)))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     return " && ".join(commands)

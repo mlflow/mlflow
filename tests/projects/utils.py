@@ -1,3 +1,4 @@
+import filecmp
 import mock
 import os
 
@@ -10,6 +11,7 @@ from mlflow.projects import _project_spec
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
+SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
 
 
 def load_project():
@@ -19,6 +21,14 @@ def load_project():
 
 def validate_exit_status(status_str, expected):
     assert RunStatus.from_string(status_str) == expected
+
+
+def assert_dirs_equal(expected, actual):
+    dir_comparison = filecmp.dircmp(expected, actual)
+    assert len(dir_comparison.left_only) == 0
+    assert len(dir_comparison.right_only) == 0
+    assert len(dir_comparison.diff_files) == 0
+    assert len(dir_comparison.funny_files) == 0
 
 
 @pytest.fixture()
