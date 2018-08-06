@@ -88,7 +88,7 @@ def _sklearn_model(_sklearn_data):
     return linear_lr
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_sagemaker_container_activates_custom_conda_env(_serialization_config):
     custom_env_name = "custom_env"
     conda_env = _create_conda_env_yaml(env_name=custom_env_name,
@@ -115,7 +115,7 @@ def test_sagemaker_container_activates_custom_conda_env(_serialization_config):
     assert docker_env_name == custom_env_name
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_sagemaker_container_uses_py_version_specified_by_custom_conda_env(_serialization_config):
     custom_env_name = "custom_env"
     custom_env_py_version = "3.6.4"
@@ -142,7 +142,7 @@ def test_sagemaker_container_uses_py_version_specified_by_custom_conda_env(_seri
     assert docker_py_version == custom_env_py_version 
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_sagemaker_container_adds_model_py_version_to_custom_env_when_py_version_is_unspecified(
         _serialization_config):
     custom_env_name = "custom_env"
@@ -169,7 +169,7 @@ def test_sagemaker_container_adds_model_py_version_to_custom_env_when_py_version
     assert docker_py_version == PYTHON_VERSION
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_sagemaker_container_uses_default_env_for_absent_py_version_and_custom_env(
         _serialization_config):
     predictor = sagemaker_test_utils.DockerTestPredictor(func=sagemaker_test_utils.get_env_name)
@@ -187,7 +187,7 @@ def test_sagemaker_container_uses_default_env_for_absent_py_version_and_custom_e
     assert docker_env_name == sagemaker_test_utils.DEFAULT_ENV_NAME
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_sagemaker_container_uses_conda_supported_python_version_for_absent_custom_env(
         _serialization_config):
     predictor = sagemaker_test_utils.DockerTestPredictor(func=sagemaker_test_utils.get_py_version)
@@ -205,7 +205,7 @@ def test_sagemaker_container_uses_conda_supported_python_version_for_absent_cust
     assert docker_py_version == PYTHON_VERSION
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_sagemaker_container_uses_default_env_for_unsupported_py_version_and_absent_custom_env(
         _serialization_config):
     unsupported_py_version = "3.3"
@@ -226,7 +226,7 @@ def test_sagemaker_container_uses_default_env_for_unsupported_py_version_and_abs
     assert docker_minor_py_version >= 6
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_sagemaker_container_serves__sklearn_model_with_compatible_py_version(
         _sklearn_model, _sklearn_data):
     model_path = tempfile.mktemp(dir="/tmp")
