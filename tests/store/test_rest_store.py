@@ -40,5 +40,6 @@ class TestRestStore(unittest.TestCase):
             store.list_experiments()
         self.assertIn("RESOURCE_DOES_NOT_EXIST: No experiment", str(cm.exception))
 
+
 if __name__ == '__main__':
     unittest.main()

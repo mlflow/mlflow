@@ -92,7 +92,8 @@ def http_request(hostname, endpoint, method, headers=None, req_body_json=None, p
 
 class NumpyEncoder(json.JSONEncoder):
     """ Special json encoder for numpy types.
-    Note that some numpy types doesn't have native python equivalence, hence json.dumps will raise TypeError.
+    Note that some numpy types doesn't have native python equivalence,
+    hence json.dumps will raise TypeError.
     In this case, you'll need to convert your numpy types into its closest python equivalence.
     """
 
