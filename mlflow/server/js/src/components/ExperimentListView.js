@@ -41,18 +41,18 @@ class ExperimentListView extends Component {
                 className = `${className} active-experiment-list-item`
               }
               return (
-                <div
-                  className={className}
-                  key={e.getExperimentId()}
-                  title={e.getName()}
+                <Link
+                  style={{ textDecoration: 'none', color: 'unset' }}
+                  to={Routes.getExperimentPageRoute(e.getExperimentId())}
                 >
-                  <Link
-                    style={{ textDecoration: 'none', color: 'unset' }}
-                    to={Routes.getExperimentPageRoute(e.getExperimentId())}
+                  <div
+                    className={className}
+                    key={e.getExperimentId()}
+                    title={e.getName()}
                   >
                     {e.getName()}
-                  </Link>
-                </div>
+                  </div>
+                </Link>
               );
             })}
           </div>
