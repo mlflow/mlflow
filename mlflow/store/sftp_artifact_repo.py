@@ -81,6 +81,5 @@ class SFTPArtifactRepository(ArtifactRepository):
                     self.sftp.get_r('.', tmp_path)
                 return tmp_path
             else:
-                local_file = os.path.join(tmp_path, os.path.basename(local_file))
+                local_file = os.path.join(tmp_path, os.path.basename(artifact_path))
                 self.sftp.get(artifact_path, local_file)
-                local_file
