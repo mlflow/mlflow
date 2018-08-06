@@ -28,11 +28,17 @@ pip_run <- function(..., echo = TRUE) {
   invisible(result)
 }
 
+#' @importFrom reticulate conda_binary
 python_conda_installed <- function() {
   tryCatch({
-    reticulate::conda_binary()
+    conda_binary()
     TRUE
   }, error = function(err) {
     FALSE
   })
+}
+
+#' @importFrom reticulate conda_binary
+python_conda_home <- function() {
+  dirname(dirname(conda_binary()))
 }

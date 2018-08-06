@@ -29,7 +29,8 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
   mlflow_bin <- file.path(python, "mlflow")
 
   env <- list(
-    PATH = python
+    PATH = python,
+    MLFLOW_CONDA_HOME = python_conda_home()
   )
 
   with_envvar(env, {
