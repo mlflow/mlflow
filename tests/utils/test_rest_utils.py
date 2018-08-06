@@ -5,6 +5,7 @@ import pytest
 
 from databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils import rest_utils
+from mlflow.utils.rest_utils import NumpyEncoder
 
 
 @mock.patch('databricks_cli.configure.provider.get_config_for_profile')
@@ -96,13 +97,15 @@ def test_databricks_http_request_integration(get_config_for_profile, request):
     assert response == {'OK': 'woo'}
 
 
-def test_json_dumps_default_numpy_int64():
+def test_numpy_encoder():
     test_number = numpy.int64(42)
-    defaulted_val = rest_utils.default(test_number)
+    ne = NumpyEncoder()
+    defaulted_val = ne.default(test_number)
     assert defaulted_val is 42
 
 
-def test_json_dumps_default_non_serializable():
-    test_number = numpy.int32(42)
+def test_numpy_encoder_fail():
+    test_number = numpy.float128
     with pytest.raises(TypeError):
-        rest_utils.default(test_number)
+        ne = NumpyEncoder()
+        ne.default(test_number)

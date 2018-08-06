@@ -90,12 +90,13 @@ def http_request(hostname, endpoint, method, headers=None, req_body_json=None, p
     raise Exception("API request to %s failed to return code 200 after %s tries" % (url, retries))
 
 
-def default(o):
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types.
+    Note that some numpy types doesn't have native python equivalence, hence json.dumps will raise TypeError.
+    In this case, you'll need to convert your numpy types into its closest python equivalence.
     """
-    Default function for json dumps, to serialize numpy.int64 in Python3.
-    :param o: The object to be serialized
-    :return: integer value from param o if o is numpy.int64
-    """
-    if isinstance(o, numpy.int64):
-        return int(o)
-    raise TypeError
+
+    def default(self, obj):
+        if isinstance(obj, numpy.generic):
+            return numpy.asscalar(obj)
+        return json.JSONEncoder.default(self, obj)
