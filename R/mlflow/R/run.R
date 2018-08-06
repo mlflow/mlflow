@@ -51,8 +51,8 @@ mlflow_run <- function(uri, entry_point = NULL, param_list = NULL,
         config::merge(passed_params)
 
       # Return the script path.
-      script_path <- mlproject$entry_points[[entry_point]]$command %>%
-        stringr::str_extract("(?<=\").*\\.R")
+      command <- mlproject$entry_points[[entry_point]]$command
+      script_path <- regmatches(command, regexpr("(?<=\"|\').*\\.R", command, perl = TRUE))
       if (is.na(script_path))
         stop("Unable to extract script path from entry point entry for \"", entry_point, "\"",
              call. = FALSE)
