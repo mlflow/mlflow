@@ -57,8 +57,6 @@ def _save_model(serialization_config, predictor, conda_env, py_version=PYTHON_VE
     return serialization_config.model_path
 
 
-
-
 @pytest.fixture
 def _serialization_config():
     model_path = tempfile.mkdtemp(dir="/tmp")
