@@ -94,7 +94,7 @@ class TestModelExport(unittest.TestCase):
                 # Remove the log directory in order to avoid adding new tests to pytest...
                 shutil.rmtree(tracking_dir)
 
-    def _model_serve_with_conda_env(self, extra_args=[]):
+    def _model_serve_with_conda_env(self, extra_args):
         with TempDir() as tmp:
             model_path = tmp.path("knn.pkl")
             with open(model_path, "wb") as f:
@@ -160,7 +160,7 @@ class TestModelExport(unittest.TestCase):
                                               self._knn.predict(self._X))
 
     def test_model_serve_without_no_conda(self):
-        self._model_serve_with_conda_env()
+        self._model_serve_with_conda_env(extra_args=[])
 
     def test_model_serve_with_no_conda(self):
         self._model_serve_with_conda_env(extra_args=['--no-conda'])
