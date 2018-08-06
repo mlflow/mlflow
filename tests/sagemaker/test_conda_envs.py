@@ -29,9 +29,6 @@ SerializationConfig = namedtuple("SerializationConfig",
 DataSet = namedtuple("DataSet", ["samples", "sample_schema", "labels"])
 
 
-
-
-
 def _create_conda_env_yaml(env_name, dependencies=[]):
     conda_env = { "name" : env_name, 
                   "dependencies" : dependencies 
@@ -235,8 +232,13 @@ def test_sagemaker_container_serves__sklearn_model_with_compatible_py_version(
     model_path = tempfile.mktemp(dir="/tmp")
     mlflow_sklearn.save_model(sk_model=_sklearn_model, 
                               path=model_path)
-    sample = pd.DataFrame(_sklearn_data[0])
-    response = score_model_in_sagemaker_docker_container(model_path, sample, timeout_seconds=600)
-    response = pd.read_json(response)
-    assert response.empty == False
+    sample = _sklearn_data.samples[0]
+    sample_df = pd.DataFrame(sample, _sklearn_data.sample_schema)
+    sample_prediction = _sklearn_model.predict([sample])
+
+    response = score_model_in_sagemaker_docker_container(model_path, sample_df, timeout_seconds=600)
+    assert type(response) == list
+    assert len(response) == 1
+    response_prediction = response[0]
+    assert sample_prediction == response_prediction
     
