@@ -17,6 +17,7 @@ import json
 import pandas as pd
 import flask
 from mlflow.utils.rest_utils import default
+from mlflow.utils.rest_utils import NumpyEncoder
 
 try:
     from StringIO import StringIO
@@ -65,7 +66,7 @@ def init(model):
 
         # Do the prediction
         predictions = get_jsonable_obj(model.predict(data))
-        result = json.dumps(predictions, default=default)
+        result = json.dumps(predictions, cls=NumpyEncoder)
         return flask.Response(response=result, status=200, mimetype='application/json')
 
     return app
