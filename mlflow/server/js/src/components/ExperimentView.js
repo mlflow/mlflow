@@ -114,9 +114,7 @@ class ExperimentView extends Component {
       } else if (sort.key === 'user_id')
         sortValue = Utils.formatUser(runInfo.user_id);
       else if (sort.key === 'source')
-        sortValue = Utils.renderSource(runInfo);
-      else if (sort.key === 'version')
-        sortValue = Utils.renderVersion(runInfo);
+        sortValue = Utils.baseName(runInfo.source_name);
       else
         sortValue = runInfo[sort.key];
 
@@ -449,7 +447,7 @@ class ExperimentView extends Component {
       getHeaderCell("start_time", "Date"),
       getHeaderCell("user_id", "User"),
       getHeaderCell("source", "Source"),
-      getHeaderCell("version", "Version")
+      getHeaderCell("source_version", "Version")
     ];
     let firstParam = true;
     paramKeyList.forEach((paramKey) => {
