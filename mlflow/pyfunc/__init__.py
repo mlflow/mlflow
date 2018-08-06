@@ -153,7 +153,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
                    spyv=PYTHON_VERSION))
     elif model_py_version != PYTHON_VERSION:
         print("The version of Python that the model was saved in, Python {mpyv}, differs from the"
-              " version of Python that is currently running, Python {spyv}," 
+              " version of Python that is currently running, Python {spyv},"
               " and may be incompatible.".format( mpyv=model_py_version, spyv=PYTHON_VERSION))
 
 

@@ -13,7 +13,7 @@ class DockerTestPredictor:
 
     def __init__(self, func):
         self.func = func
-    
+
     def predict(self, *args, **kwargs):
         return self.func(*args, **kwargs)
 
