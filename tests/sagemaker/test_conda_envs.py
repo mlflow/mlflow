@@ -228,7 +228,7 @@ def test_sagemaker_container_uses_conda_supported_python_version_for_absent_cust
                             py_version=PYTHON_VERSION)
 
     data = pd.DataFrame()
-    response = score_model_in_sagemaker_docker_container(model_path, data)
+    response = score_model_in_sagemaker_docker_container(model_path, data, timeout_seconds=600)
     response = json.loads(response)
 
     assert RESPONSE_KEY_PYTHON_VERSION in response
@@ -264,7 +264,7 @@ def test_sagemaker_container_serves__sklearn_model_with_compatible_py_version(
     mlflow_sklearn.save_model(sk_model=_sklearn_model, 
                               path=model_path)
     sample = pd.DataFrame(_sklearn_data[0])
-    response = score_model_in_sagemaker_docker_container(model_path, sample, timeout_seconds=1200)
+    response = score_model_in_sagemaker_docker_container(model_path, sample, timeout_seconds=600)
     response = pd.read_json(response)
     assert response.empty == False
     

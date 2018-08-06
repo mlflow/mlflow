@@ -176,7 +176,7 @@ def _create_conda_env(env):
     if env.config is not None:
         cmd = "conda env create -n {en} -f {cfg}".format(en=env.name, cfg=env.config)
     elif env.py_version is not None:
-        cmd = "conda create -n {en} python={pyv} anaconda".format(en=env.name, pyv=env.py_version)
+        cmd = "conda create -n {en} python={pyv}".format(en=env.name, pyv=env.py_version)
     os.system(cmd)
 
 
