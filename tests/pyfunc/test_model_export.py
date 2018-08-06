@@ -54,6 +54,8 @@ class TestModelExport(unittest.TestCase):
             print("m1", m.__dict__)
             print("m2", m2.__dict__)
             assert m.__dict__ == m2.__dict__
+            assert pyfunc.FLAVOR in m2.flavors
+            assert pyfunc.PY_VERSION in m2.flavors[pyfunc.FLAVOR]
             x = pyfunc.load_pyfunc(path)
             xpred = x.predict(self._X)
             np.testing.assert_array_equal(self._knn_predict, xpred)
@@ -76,50 +78,11 @@ class TestModelExport(unittest.TestCase):
                 path = tracking._get_model_log_dir("linear", run_id)
                 m = Model.load(os.path.join(path, "MLmodel"))
                 print(m.__dict__)
+                assert pyfunc.FLAVOR in m.flavors
+                assert pyfunc.PY_VERSION in m.flavors[pyfunc.FLAVOR]
                 x = pyfunc.load_pyfunc("linear", run_id=run_id)
                 xpred = x.predict(self._X)
                 np.testing.assert_array_equal(self._linear_lr_predict, xpred)
-            finally:
-                tracking.end_run()
-                tracking.set_tracking_uri(None)
-                # Remove the log directory in order to avoid adding new tests to pytest...
-                shutil.rmtree(tracking_dir)
-
-    def test_model_save_persists_python_version(self):
-        with TempDir() as tmp:
-            model_path = tmp.path("knn.pkl")
-            with open(model_path, "wb") as f:
-                pickle.dump(self._knn, f)
-            path = tmp.path("knn")
-            m = Model(run_id="test", artifact_path="testtest")
-            pyfunc.save_model(dst_path=path,
-                              data_path=model_path,
-                              loader_module=os.path.basename(__file__)[:-3],
-                              code_path=[__file__],
-                              model=m)
-            m2 = Model.load(os.path.join(path, "MLmodel"))
-            assert pyfunc.FLAVOR in m2.flavors
-            assert pyfunc.PY_VERSION in m2.flavors[pyfunc.FLAVOR]
-
-    def test_log_model_persists_python_version(self):
-        with TempDir(chdr=True, remove_on_exit=True) as tmp:
-            model_path = tmp.path("linear.pkl")
-            with open(model_path, "wb") as f:
-                pickle.dump(self._linear_lr, f)
-            tracking_dir = os.path.abspath(tmp.path("mlruns"))
-            tracking.set_tracking_uri("file://%s" % tracking_dir)
-            tracking.start_run()
-            try:
-                pyfunc.log_model(artifact_path="linear",
-                                 data_path=model_path,
-                                 loader_module=os.path.basename(__file__)[:-3],
-                                 code_path=[__file__])
-
-                run_id = tracking.active_run().info.run_uuid
-                path = tracking._get_model_log_dir("linear", run_id)
-                m = Model.load(os.path.join(path, "MLmodel"))
-                assert pyfunc.FLAVOR in m.flavors
-                assert pyfunc.PY_VERSION in m.flavors[pyfunc.FLAVOR]
             finally:
                 tracking.end_run()
                 tracking.set_tracking_uri(None)
