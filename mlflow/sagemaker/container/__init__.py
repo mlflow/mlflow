@@ -185,7 +185,7 @@ def _conda_supports_py_version(py_version):
     return (major_version in SUPPORTED_CONDA_MAJOR_PY_VERSIONS)
 
 
-def _warn_potentially_incompatible_conda_env(default_conda_py_version):
+def _warn_potentially_incompatible_conda_env():
     """
     Prints a warning message indicating that the default Anaconda environment,
     which may not be compatible with the model, will be used for serving.
