@@ -6,9 +6,13 @@
 #' @param uri A directory or an R script.
 #' @param entry_point Entry point within project, defaults to `main` if not specified.
 #' @param param_list A list of parameters.
+#' @param experiment_id ID of the experiment under which to launch the run.
 #'
 #' @export
-mlflow_run <- function(uri, entry_point = NULL, param_list = NULL) {
+mlflow_run <- function(uri, entry_point = NULL, param_list = NULL,
+                       experiment_id = NULL) {
+  if (!is.null(experiment_id)) mlflow_experiment(experiment_id)
+
   # Parameter value precedence:
   #   Command line args > `param_list` > MLProject defaults > defaults in script
   .globals$run_params <- list()

@@ -4,7 +4,8 @@
 \alias{mlflow_run}
 \title{Run in MLflow}
 \usage{
-mlflow_run(uri, entry_point = NULL, param_list = NULL)
+mlflow_run(uri, entry_point = NULL, param_list = NULL,
+  experiment_id = NULL)
 }
 \arguments{
 \item{uri}{A directory or an R script.}
@@ -12,6 +13,8 @@ mlflow_run(uri, entry_point = NULL, param_list = NULL)
 \item{entry_point}{Entry point within project, defaults to `main` if not specified.}
 
 \item{param_list}{A list of parameters.}
+
+\item{experiment_id}{ID of the experiment under which to launch the run.}
 }
 \description{
 Runs the given file, expression or function within
