@@ -5,7 +5,7 @@
 \title{Serve a MLflow Model}
 \usage{
 mlflow_serve(model_dir, host = "127.0.0.1", port = 8090,
-  daemonized = FALSE, browse = !daemonized)
+  daemonized = FALSE, browse = !daemonized, restore = FALSE)
 }
 \arguments{
 \item{model_dir}{The path to the MLflow model, as a string.}
@@ -19,6 +19,8 @@ are not blocked to handle requests. To terminate a daemonized server, call
 'httpuv::stopDaemonizedServer()' with the handle returned from this call.}
 
 \item{browse}{Launch browser with serving landing page?}
+
+\item{restore}{Should \code{mlflow_restore()} be called before serving?}
 }
 \description{
 Serve a MLflow Model as a local web api under \url{http://localhost:8090}.
