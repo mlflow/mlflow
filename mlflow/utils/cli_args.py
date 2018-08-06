@@ -12,3 +12,8 @@ MLFLOW_HOME = click.option("--mlflow-home", default=None, metavar="PATH",
 
 RUN_ID = click.option("--run-id", "-r", default=None, required=False, metavar="ID",
                       help="ID of the MLflow run that generated the referenced content.")
+
+NO_CONDA = click.option("--no-conda", is_flag=True,
+                         help="If specified, will assume that MLModel is running within a Conda environment "
+                         "with the necessary dependencies for the current project instead of attempting "
+                         "to create a new conda environment.")

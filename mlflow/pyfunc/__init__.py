@@ -127,8 +127,12 @@ def _load_model_conf(path):
     return model.flavors[FLAVOR_NAME]
 
 
-def load_model_env(path, run_id=None):
-    """Get ENV file string from a model configuration stored in Python Function format."""
+def _load_model_env(path, run_id=None):
+    """
+        Get ENV file string from a model configuration stored in Python Function format.
+        Returned value is a model-relative path to a Conda Environment file,
+        or None if none was specified at model save time
+    """
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)
     return _load_model_conf(path).get(ENV, None)

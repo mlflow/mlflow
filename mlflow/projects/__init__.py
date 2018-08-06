@@ -289,6 +289,7 @@ def _maybe_create_conda_env(conda_env_path):
         process.exec_cmd([conda_path, "env", conda_action, "-n", conda_env, "--file",
                           conda_env_path], stream_output=True)
 
+    return conda_env
 
 def _maybe_set_run_terminated(active_run, status):
     """
