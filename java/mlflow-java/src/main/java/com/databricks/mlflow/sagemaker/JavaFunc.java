@@ -1,4 +1,4 @@
-package com.databricks.mlflow.javafunc;
+package com.databricks.mlflow.sagemaker;
 
 import com.databricks.mlflow.Flavor;
 import com.databricks.mlflow.LoaderModule;
@@ -16,10 +16,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 
-public class JavaFunc {
+class JavaFunc {
     private static final String LOADER_METHOD_NAME = "load";
 
-    public static Predictor load(String path, Optional<String> runId)
+    protected static Predictor load(String path, Optional<String> runId)
         throws IOException, InvocationTargetException, InstantiationException,
                LoaderModuleException {
         if (runId.isPresent()) {

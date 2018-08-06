@@ -1,4 +1,4 @@
-package com.databricks.mlflow.javafunc;
+package com.databricks.mlflow.sagemaker;
 
 import com.databricks.mlflow.Flavor;
 

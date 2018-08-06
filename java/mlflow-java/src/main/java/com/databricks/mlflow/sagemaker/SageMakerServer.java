@@ -1,7 +1,6 @@
 package com.databricks.mlflow.sagemaker;
 
 import com.databricks.mlflow.LoaderModuleException;
-import com.databricks.mlflow.javafunc.JavaFunc;
 import com.databricks.mlflow.models.Predictor;
 import com.databricks.mlflow.models.PredictorEvaluationException;
 
