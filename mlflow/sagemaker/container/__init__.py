@@ -12,6 +12,7 @@ import shutil
 import signal
 from subprocess import check_call, Popen
 import sys
+import yaml
 from collections import namedtuple
 
 from pkg_resources import resource_filename
@@ -109,15 +110,17 @@ def _get_conda_env(model_config):
         model_py_version = model_config[pyfunc.PY_VERSION]
 
     if pyfunc.ENV in model_config:
-        print_flush("activating custom Anaconda environment")
+        print_flush("Activating custom Anaconda environment")
         env = model_config[pyfunc.ENV]
+        env_path_src = os.path.join("/opt/ml/model", env)
+        _add_py_version_to_conda_env_if_necessary(env_path_src, model_py_version)
         env_path_dst = os.path.join("/opt/mlflow/", env)
         env_path_dst_dir = os.path.dirname(env_path_dst)
         if not os.path.exists(env_path_dst_dir):
             os.makedirs(env_path_dst_dir)
         # TODO: should we test that the environment does not include any of the server dependencies?
         # Those are gonna be reinstalled. should probably test this on the client side
-        shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
+        shutil.copyfile(env_path_src, env_path_dst)
         return CondaEnv(name="custom_env", config=env, py_version=None)
     elif model_py_version is None:
         print_flush("The model does not specify a Python version or a custom Anaconda environment"
@@ -136,8 +139,37 @@ def _get_conda_env(model_config):
         return None
     else:
         print_flush("The model's Python version is {mpyv}. Activating Anaconda environment with"
-                    " Python version {mpyv}".format(mpyv=model_py_version))
+                    " Python version {mpyv}.".format(mpyv=model_py_version))
         return CondaEnv(name="py_env", config=None, py_version=model_py_version)
+
+
+def _add_py_version_to_conda_env_if_necessary(env_path, model_py_version):
+    try:
+        with open(env_path, "r") as f:
+            env_yaml = yaml.load(f)
+
+        deps = env_yaml["dependencies"]
+        env_py_versions = list(filter(
+            lambda item : "=" in item and item.split("=")[0].lower() == "python", deps))
+        env_contains_python = len(env_py_versions) > 0
+        if env_contains_python:
+            env_py_version = env_py_versions[-1].split("=")[1]
+            print_flush("Using Python version specified by the custom Anaconda environment:" 
+                        " Python {epyv}.".format(epyv=env_py_version))
+        else:
+            print_flush("The custom Anaconda environment does not specify a version of Python to use.")
+            if model_py_version is not None:
+                print_flush("Using the version of the Python associated with the model:" 
+                            " Python {mpyv}".format(mpyv=model_py_version))
+                deps.append("python={mpyv}".format(mpyv=model_py_version))
+            else:
+                deps.append("python={dpyv}".format(dpyv=DEFAULT_CONDA_PYTHON_VERSION))
+                _warn_potentially_incompatible_conda_env()
+
+        with open(env_path, "w") as out:
+            yaml.dump(env_yaml, out, default_flow_style=False)
+    except Exception as e:
+        print(e)
 
 
 def _create_conda_env(env):
