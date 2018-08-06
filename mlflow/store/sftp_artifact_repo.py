@@ -71,11 +71,16 @@ class SFTPArtifactRepository(ArtifactRepository):
                 infos.append(FileInfo(file_path, False, self.sftp.stat(full_file_path).st_size))
         return infos
 
-    def download_artifacts(self, artifact_path=None):
-        artifact_dir = os.path.join(self.path, artifact_path) \
-            if artifact_path else self.path
+    def download_artifacts(self, path=None):
+        artifact_path = os.path.join(self.path, path) \
+            if path else self.path
         with TempDir(remove_on_exit=False) as tmp:
             tmp_path = tmp.path()
-            with self.sftp.cd(artifact_dir):
-                self.sftp.get_r('.', tmp_path)
-            return tmp_path
+            if self.sftp.isdir(artifact_path):
+                with self.sftp.cd(artifact_path):
+                    self.sftp.get_r('.', tmp_path)
+                return tmp_path
+            else:
+                local_file = os.path.join(tmp_path, os.path.basename(local_file))
+                self.sftp.get(artifact_path, local_file)
+                local_file
