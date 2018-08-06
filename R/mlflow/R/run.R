@@ -4,20 +4,74 @@
 #' the context of an MLflow run.
 #'
 #' @param x A directory or an R script.
+#' @param entry_point Entry point within project, defaults to `main` if not specified.
 #' @param params A list of parameters.
 #'
 #' @export
-mlflow_run <- function(x, params = NULL) {
-  # Suppose `x` is a script for now.
-
-  # Create dependencies snapshot
-  mlflow_snapshot()
-
+mlflow_run <- function(x, entry_point = NULL, params = NULL) {
+  # Parameter value precedence:
+  #   Command line args > `params` > MLProject defaults > defaults in script
   .globals$run_params <- list()
   command_args <- parse_command_line(commandArgs(trailingOnly = TRUE))
-
-  # Precedence: Command line args > `params` > defaults in script
   passed_params <- config::merge(params, command_args)
+
+  # Identify the script to run.
+  script <- if (fs::is_dir(x)) {
+    # If `x` is a directory, check for MLProject.
+    if (fs::file_exists(fs::path(x, "MLProject"))) {
+      # MLProject found.
+      mlproject <- yaml::yaml.load_file(fs::path(x, "MLProject"))
+      entry_points <- names(mlproject$entry_points)
+
+      if (!is.null(entry_point)) {
+        # If `entry_point` is specified, check that it's one of the entry points listed.
+        if (!entry_point %in% entry_points)
+          stop("Entry point \"" , entry_point, "\" is not found in `MLProject`.", call. = FALSE)
+      } else {
+        # If no entry point is specified, we go to the sole entry point if it exists.
+        if (length(entry_points) == 1) {
+          entry_point <- entry_points
+        } else {
+          # If no entry point is specified, and there are multiple entry points, we default to `main`.
+          if (!"main" %in% entry_points)
+            stop("`entry_point` must be specified when `MLProject` contains multiple entry points, none of which is \"main\".",
+                 call = FALSE)
+          entry_point <- "main"
+        }
+      }
+
+      # Extract parameter defaults from `MLProject` and merge it with `passed_params`.
+      passed_params <<- mlproject$entry_points[[entry_point]]$parameters %>%
+        purrr::map("default") %>%
+        purrr::compact() %>%
+        config::merge(passed_params)
+
+      # Return the script path.
+      script_path <- mlproject$entry_points[[entry_point]]$command %>%
+        stringr::str_extract("(?<=\").*\\.R")
+      if (is.na(script_path))
+        stop("Unable to extract script path from entry point entry for \"", entry_point, "\"",
+             call. = FALSE)
+      if (!fs::file_exists(script_path))
+        stop("The file ", script_path, " associated with the entry point ", entry_point, " does not exist.",
+             call. = FALSE)
+      script_path
+    } else {
+      # MLProject not found, we check if there's a single R script.
+      scripts <- fs::dir_ls(x, regexp = "\\.R$")
+      if (length(scripts) == 1) {
+        # If there's a single R script, we'll use that as our entry point.
+        scripts[[1]]
+      } else {
+        # Otherwise, we throw an error.
+        stop("There are multiple R scripts in the directory; can't determine which one to execute.",
+             call. = FALSE)
+      }
+    }
+  } else {
+    # `x` is a file, so we assume it's the R script to be executed.
+    x
+  }
 
   if (!is.null(passed_params)) {
     purrr::iwalk(passed_params, function(value, key) {
@@ -25,8 +79,12 @@ mlflow_run <- function(x, params = NULL) {
     })
   }
 
-  source(x, local = parent.frame())
+  source(script, local = parent.frame())
   clear_run()
+
+  # Create dependencies snapshot
+  mlflow_snapshot()
+
   invisible(NULL)
 }
 

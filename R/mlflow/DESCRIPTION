@@ -24,7 +24,9 @@ Imports:
   swagger,
   withr,
   xml2,
-  yaml
+  yaml,
+  fs,
+  stringr
 RoxygenNote: 6.0.1
 Suggests: 
   testthat
