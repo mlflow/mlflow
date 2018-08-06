@@ -12,7 +12,7 @@ import tempfile
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects import _project_spec
-from mlflow.projects.utils import ExecutionException
+from mlflow.utils.exception import ExecutionException
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
@@ -196,7 +196,7 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     else:
         assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
         _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
-    res = os.path.join(dst_dir, subdirectory)
+    res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
     return res
@@ -294,7 +294,7 @@ def _get_entry_point_command(project, entry_point, use_conda, parameters, storag
     commands = []
     if use_conda:
         activate_path = _get_conda_bin_executable("activate")
-        commands.append("source %s %s" % (activate_path, _get_conda_env_name(conda_env_path)))
+        commands.append("source %s %s" % (activate_path, _get_conda_env_name(project)))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     return " && ".join(commands)

@@ -6,7 +6,7 @@ import yaml
 from six.moves import shlex_quote
 
 from mlflow import data
-from mlflow.projects.utils import ExecutionException
+from mlflow.utils.exception import ExecutionException
 
 
 def load_project(directory):

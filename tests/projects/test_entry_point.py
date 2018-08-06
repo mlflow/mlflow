@@ -5,7 +5,7 @@ import pytest
 from six.moves import shlex_quote
 
 
-from mlflow.projects.utils import ExecutionException
+from mlflow.utils.exception import ExecutionException
 from mlflow.utils.file_utils import TempDir
 from tests.projects.utils import load_project, TEST_PROJECT_DIR
 

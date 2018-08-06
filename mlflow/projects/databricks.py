@@ -12,10 +12,10 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
 
-from mlflow.projects import ExecutionException, _fetch_project, _expand_uri
-from mlflow.projects import _project_spec
+from mlflow.projects import _fetch_project, _expand_uri, _project_spec
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
+from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
