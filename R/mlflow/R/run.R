@@ -5,15 +5,15 @@
 #'
 #' @param x A directory or an R script.
 #' @param entry_point Entry point within project, defaults to `main` if not specified.
-#' @param params A list of parameters.
+#' @param param_list A list of parameters.
 #'
 #' @export
-mlflow_run <- function(x, entry_point = NULL, params = NULL) {
+mlflow_run <- function(x, entry_point = NULL, param_list = NULL) {
   # Parameter value precedence:
-  #   Command line args > `params` > MLProject defaults > defaults in script
+  #   Command line args > `param_list` > MLProject defaults > defaults in script
   .globals$run_params <- list()
   command_args <- parse_command_line(commandArgs(trailingOnly = TRUE))
-  passed_params <- config::merge(params, command_args)
+  passed_params <- config::merge(param_list, command_args)
 
   # Identify the script to run.
   script <- if (fs::is_dir(x)) {

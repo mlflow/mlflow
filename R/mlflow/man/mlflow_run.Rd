@@ -4,14 +4,14 @@
 \alias{mlflow_run}
 \title{Run in MLflow}
 \usage{
-mlflow_run(x, entry_point = NULL, params = NULL)
+mlflow_run(x, entry_point = NULL, param_list = NULL)
 }
 \arguments{
 \item{x}{A directory or an R script.}
 
 \item{entry_point}{Entry point within project, defaults to `main` if not specified.}
 
-\item{params}{A list of parameters.}
+\item{param_list}{A list of parameters.}
 }
 \description{
 Runs the given file, expression or function within
