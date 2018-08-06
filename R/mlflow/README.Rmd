@@ -120,7 +120,7 @@ mlflow_save_model(function(data) {
 And trigger a run with that will also save your model as follows:
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow::mlflow_run('train.R')"
+mlflow run train.R
 ```
 
 Each MLflow Model is simply a directory containing arbitrary files, together with an MLmodel file in the root of the directory that can define multiple flavors that the model can be viewed in. 

@@ -177,7 +177,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
 #' @param key Name of the parameter.
 #' @param value String value of the parameter.
 #' @export
-mlflow_log_parameter <- function(key, value, run_uuid = NULL) {
+mlflow_log_param <- function(key, value, run_uuid = NULL) {
   run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
   response <- mlflow_rest("runs", "log-parameter", verb = "POST", data = list(
     run_uuid = run_uuid,
