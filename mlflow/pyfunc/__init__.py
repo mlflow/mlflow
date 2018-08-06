@@ -120,8 +120,14 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
-def load_pyfunc(path, run_id=None):
-    """Load a model stored in Python function format."""
+def load_pyfunc(path, run_id=None, disable_warnings=False):
+    """
+    Load a model stored in Python function format.
+
+    :param disable_warnings: If True, non-fatal warning messages associated with the model
+                             loading process will be suppressed. If False, these warning messages
+                             will be emitted.
+    """
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)
     conf_path = os.path.join(path, "MLmodel")
@@ -130,11 +136,25 @@ def load_pyfunc(path, run_id=None):
         raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
                                                                             path=conf_path))
     conf = model.flavors[FLAVOR_NAME]
+    model_py_version = conf[PY_VERSION] if PY_VERSION in conf else None
+    if not disable_warnings:
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(path, conf[CODE])
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
     return importlib.import_module(conf[MAIN]).load_pyfunc(data_path)
+
+
+def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
+    if model_py_version is None:
+        print("The specified model does not have a specified Python version. It may be incompatible"
+              " with the version of Python that is currently running: Python {spyv}".format(
+                   pyv=PYTHON_VERSION))
+    elif model_py_version != PYTHON_VERSION:
+        print("The version of Python that the model was saved in, Python {mpyv}, differs from the"
+              " version of Python that is currently running, Python {spyv}," 
+              " and may be incompatible.".format( mpyv=model_py_version, spyv=PYTHON_VERSION))
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
