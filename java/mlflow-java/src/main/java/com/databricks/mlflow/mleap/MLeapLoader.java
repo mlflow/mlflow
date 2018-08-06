@@ -7,10 +7,12 @@ import com.databricks.mlflow.LoaderModule;
 import java.util.Optional;
 import java.io.IOException;
 
-import ml.combust.mleap.runtime.transformer.Pipeline;
+import ml.combust.mleap.runtime.frame.Transformer;
 
 public class MLeapLoader extends LoaderModule<MLeapFlavor> {
-    public Pipeline getPipeline(String modelDataPath) {}
+    public Transformer loadPipeline(String modelDataPath) {
+        return ((MLeapPredictor) createPredictor(modelDataPath)).getPipeline();
+    }
 
     @Override
     protected Predictor createPredictor(String modelDataPath) {

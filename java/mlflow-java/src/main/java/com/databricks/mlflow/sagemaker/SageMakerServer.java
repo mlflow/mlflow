@@ -16,6 +16,8 @@ import spark.Response;
 import static spark.Spark.*;
 
 public class SageMakerServer {
+    public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
+
     private enum RequestContentType {
         Csv("text/csv"),
         Json("application/json"),
@@ -51,7 +53,7 @@ public class SageMakerServer {
     public static void serve(String modelPath, Optional<Integer> portNumber) {
         Optional<Predictor> predictor = Optional.empty();
         try {
-            predictor = Optional.of(JavaFunc.load(modelPath));
+            predictor = Optional.of(JavaFunc.load(modelPath, Optional.<String>empty()));
         } catch (InstantiationException | InvocationTargetException | LoaderModuleException
             | IOException e) {
             e.printStackTrace();
@@ -117,8 +119,9 @@ public class SageMakerServer {
     }
 
     private static String getErrorResponseJson(String errorMessage) {
-        // TODO: Make this JSON-formatted
-        return errorMessage;
+        String response =
+            String.format("{ \"%s\" : %s }", RESPONSE_KEY_ERROR_MESSAGE, errorMessage);
+        return response;
     }
 
     static class UnsupportedContentTypeException extends PredictorEvaluationException {
