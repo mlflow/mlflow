@@ -3,6 +3,7 @@
 import os
 import yaml
 
+import six
 from six.moves import shlex_quote
 
 from mlflow import data
@@ -78,7 +79,7 @@ class EntryPoint(object):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
         self.command = command
-        assert isinstance(self.command, str)
+        assert isinstance(self.command, six.text_type)
 
     def _validate_parameters(self, user_parameters):
         missing_params = []

@@ -276,7 +276,9 @@ def _get_or_create_conda_env(project):
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
                               project.conda_env_path], stream_output=True)
         else:
-            process.exec_cmd([conda_path, "create", "-n", project_env_name], stream_output=True)
+            process.exec_cmd(
+                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
+    return project_env_name
 
 
 def _maybe_set_run_terminated(active_run, status):
