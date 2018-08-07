@@ -132,6 +132,13 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     copied to requested local path. This is necessary as Spark ML models read / write from / to DFS
     if running on a cluster. All temporary files created on the DFS will be removed if this
     operation completes successfully.
+
+    >>> from mlflow import spark
+    >>> from pyspark.ml.pipeline.PipelineModel
+    >>>
+    >>> #your pyspark.ml.pipeline.PipelineModel type
+    >>> model = ...
+    >>> mlflow.spark.save_model(model, "spark-model")
     """
     if jars:
         raise Exception("jar dependencies are not implemented")
@@ -204,6 +211,9 @@ def load_pyfunc(path):
 
     :param path: Local path.
     :return: The model as PyFunc.
+    
+    >>> pyfunc_model = load_pyfunc("/tmp/pyfunc-spark-model")
+    >>> predictions = pyfunc_model.predict(test_pandas_df)
     """
     spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
         .master("local[1]").getOrCreate()
