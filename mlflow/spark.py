@@ -40,13 +40,16 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None):
                      jars=jars, conda_env=conda_env)
 
 
-def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None):
+def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None, sample_input=None):
     """
     Save Spark MLlib PipelineModel at given local path.
 
     Uses Spark MLlib persistence mechanism.
 
     :param spark_model: Spark PipelineModel to be saved. Currently can only save PipelineModels.
+    :param sample_input: A sample input that the model can evaluate. This is required in order to
+                         add the MLeap flavor to the model. If `sample_input` is `None`, the MLeap
+                         flavor will not be added.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Conda environment this model depends on.
@@ -54,11 +57,6 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     """
     if jars:
         raise Exception("jar dependencies are not implemented")
-    if not isinstance(spark_model, Transformer):
-        raise Exception("Unexpected type {}. SparkML model works only with Transformers".format(
-            str(type(spark_model))))
-    if not isinstance(spark_model, PipelineModel):
-        raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
     spark_model.save(os.path.join(path, "model"))
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
@@ -71,6 +69,29 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data="model",
                         env=model_conda_env)
     mlflow_model.save(os.path.join(path, "MLmodel"))
+
+
+def _add_sparkml_flavor(spark_model, model_config):
+    if not isinstance(spark_model, Transformer):
+        eprint("Unexpected type {}. SparkML model works only with Transformers".format(
+            str(type(spark_model))))
+        # raise Exception("Unexpected type {}. SparkML model works only with Transformers".format(
+        #     str(type(spark_model))))
+        return False
+    if not isinstance(spark_model, PipelineModel):
+        eprint("Not a PipelineModel. SparkML can currently only save PipelineModels.")
+        return False
+        # raise Exception("Not a PipelineModel. SparkML can currently only save PipelineModels.")
+    pass
+
+
+def _add_mleap_flavor(spsark_model, model_config):
+    if not isinstance(spark_model, Transformer):
+        raise Exception("Unexpected type {}. MLeap model works only with Transformers".format(
+            str(type(spark_model))))
+    if not isinstance(spark_model, PipelineModel):
+        raise Exception("Not a PipelineModel. MLeap can currently only save PipelineModels.")
+    pass
 
 
 def load_model(path, run_id=None):

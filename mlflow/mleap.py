@@ -24,6 +24,23 @@ MLEAP_MAVEN_PACKAGE_COORDINATES = "mleap-spark_2.11-0.10.1"
 
 LOADER_MODULE = "com.databricks.mlflow.mleap.MLeapModel"
 
+def add_to_model(model_config, spark_model, sample_input):
+    if not isinstance(spark_model, Transformer):
+        raise Exception("Unexpected type {}. MLeap model works only with Transformers".format(
+            str(type(spark_model))))
+    if not isinstance(spark_model, PipelineModel):
+        raise Exception("Not a PipelineModel. MLeap can currently only save PipelineModels.")
+
+    dataset = spark_model.transform(sample_input)
+    model_path = "file:{mp}".format(mp=os.path.join(path, "model"))
+    spark_model.serializeToBundle(path=model_path,
+                                  dataset=dataset)
+
+    mlflow_model.add_flavor(FLAVOR_NAME, 
+                            mleap_version=mleap.version.__version__, 
+                            model_data="model")
+
+
 def save_model(spark_model, sample_input, path, mlflow_model=Model()):
     """
     Save Spark MLlib PipelineModel at given local path.
