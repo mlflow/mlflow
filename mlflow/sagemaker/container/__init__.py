@@ -48,7 +48,7 @@ def _server_dependencies_cmds():
     """
     # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
-            "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow")
+            "pip install /opt/mlflow/." if _container_includes_mlflow_source() 
             else "pip install mlflow=={}".format(MLFLOW_VERSION)]
 
 
@@ -60,7 +60,7 @@ def _serve():
     """
     model_config_path = os.path.join(MODEL_PATH, "MLmodel")
     m = Model.load(model_config_path)
-    if mleap.FLAVOR_NAME in m.flavors:
+    if mleap.FLAVOR_NAME in m.flavors and _container_includes_mlflow_source():
         _serve_mleap(m)
     elif pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m)
@@ -108,6 +108,10 @@ def _serve_pyfunc(model):
 
 def _serve_mleap(model):
     os.system("mvn exec:java -Dexec.mainClass=com.databricks.mlflow.sagemaker.SageMakerServer -Dexec.args {mp}".format(mp=MODEL_PATH)) 
+
+
+def _container_includes_mlflow_source():
+    return os.path.isdir("/opt/mlflow")
 
 
 def _train():

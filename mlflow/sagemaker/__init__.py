@@ -10,6 +10,7 @@ import uuid
 import base64
 import boto3
 import mlflow
+import mlflow.version
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking import _get_model_log_dir
@@ -49,6 +50,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          cmake \
          openjdk-8-jdk \
          git-core \
+         maven \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and setup miniconda
@@ -61,6 +63,8 @@ RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\
 
 %s
+
+RUN if [ -d "/opt/mlflow" ]; then mvn clean install /opt/mlflow/java/mlflow-java fi
 
 # Set up the program in the image
 WORKDIR /opt/mlflow
