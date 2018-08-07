@@ -83,7 +83,7 @@ from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.logging_utils import
+from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
