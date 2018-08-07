@@ -53,7 +53,7 @@ mlflow_experiment("Test")
 Then you can list your experiments directly from R,
 
 ``` r
-mlflow_experiment_list()
+mlflow_list_experiments()
 ```
 
     ##   experiment_id    name artifact_location
@@ -87,29 +87,37 @@ access.
 An MLflow Project is a format for packaging data science code in a
 reusable and reproducible way.
 
-MLflow projects are created, simply, by running your code under
-`mlflow_run()` from R or the terminal:
+MLflow projects can be [explicitly
+created](https://www.mlflow.org/docs/latest/projects.html#specifying-projects)
+or implicitly used by running `R` files using `mlflow_run()`, from the
+terminal we can run:
+
+``` bash
+mlflow run train.R
+```
+
+which is equivalent to running,
 
 ``` bash
 Rscript -e "mlflow::mlflow_run('train.R')"
 ```
 
-With `train.R` performing training and logging as follows:
+and `train.R` performing training and logging as follows:
 
 ``` r
 library(mlflow)
 
 # read parameters
-column <- mlflow_param("column", 1, "column index to use as feature")
+column <- mlflow_log_param("column", 1)
 
 # log total rows
-mlflow_log("rows", nrow(iris))
+mlflow_log_metric("rows", nrow(iris))
 
 # train model
 model <- lm(Sepal.Width ~ iris[[column]], iris)
 
 # log models intercept
-mlflow_log("intercept", model$coefficients[["(Intercept)"]])
+mlflow_log_metric("intercept", model$coefficients[["(Intercept)"]])
 ```
 
 ## Models
@@ -135,7 +143,7 @@ mlflow_save_model(function(data) {
 And trigger a run with that will also save your model as follows:
 
 ``` bash
-Rscript -e "mlflow::mlflow_run('train.R')"
+mlflow run train.R
 ```
 
 Each MLflow Model is simply a directory containing arbitrary files,
@@ -148,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `mlflow-model/MLmodel` like:
 
-    ## time_created: 1.5327199e+09
+    ## time_created: 1.5336097e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
@@ -174,3 +182,46 @@ Rscript -e "mlflow_serve('mlflow-model')"
 ```
 
 <img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=460 />
+
+You can also run:
+
+``` bash
+mlflow rfunc predict mlflow-model data.json
+```
+
+which is equivalent to
+running,
+
+``` bash
+Rscript -e "mlflow_predict('mlflow-model', jsonlite::read_json('data.json'))"
+```
+
+## Dependencies
+
+When running a project, `mlflow_snapshot()` is automatically called to
+generate a `r-dependencies.txt` file which contains a list of required
+packages and versions.
+
+However, restoring dependencies is not automatic since it’s usually an
+expensive operation. To restore dependencies run:
+
+``` r
+mlflow_restore()
+```
+
+Notice that the `MLFLOW_SNAPSHOT_CACHE` environment variable can be set
+to a cache directory to improve the time required to restore
+dependencies.
+
+## Contributing
+
+In order to contribute, follow the [contribution
+guidelines](../../CONTRIBUTING.rst). After performing python changes, or
+to pick the latest changes, you can install with the following code.
+Note that
+[mlflow/pull/193](https://github.com/databricks/mlflow/pull/193) is
+currently required to run python projects locally.
+
+``` r
+reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
+```

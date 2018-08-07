@@ -96,7 +96,7 @@ and `train.R` performing training and logging as follows:
 library(mlflow)
 
 # read parameters
-column <- mlflow_log_param("column", 1, "column index to use as feature")
+column <- mlflow_log_param("column", 1)
 
 # log total rows
 mlflow_log_metric("rows", nrow(iris))
@@ -114,7 +114,7 @@ An MLflow Model is a standard format for packaging machine learning models that 
 
 To save a model use `mlflow_save_model()`. For instance, you can add the following lines to the previous `train.R` script:
 
-```{r eval=FALSE}
+```{r}
 # train model (...)
 
 # save model
@@ -189,6 +189,6 @@ Notice that the `MLFLOW_SNAPSHOT_CACHE` environment variable can be set to a cac
 
 In order to contribute, follow the [contribution guidelines](../../CONTRIBUTING.rst). After performing python changes, or to pick the latest changes, you can install with the following code. Note that [mlflow/pull/193](https://github.com/databricks/mlflow/pull/193) is currently required to run python projects locally.
 
-```{r}
+```{r eval=FALSE}
 reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
 ```

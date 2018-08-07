@@ -163,7 +163,8 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
     value = value,
     timestamp = timestamp
   ))
-  invisible(NULL)
+
+  invisible(value)
 }
 
 #' Log Parameter
@@ -184,7 +185,8 @@ mlflow_log_param <- function(key, value, run_uuid = NULL) {
     key = key,
     value = as.character(value)
   ))
-  invisible(NULL)
+
+  invisible(value)
 }
 
 #' Get Metric
@@ -349,7 +351,8 @@ with.mlflow_run_context <- function(x, code) {
 
 mlflow_ensure_run <- function(run_uuid) {
   if (is.null(run_uuid)) {
-    stop("Operation must be run inside a 'with(mlflow_start_run(), {})' block or 'run_uuid' specified.")
+    mlflow_create_run()
+    run_uuid <- mlflow_active_run()
   }
 
   run_uuid
