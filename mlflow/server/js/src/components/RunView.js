@@ -134,7 +134,7 @@ class RunView extends Component {
           {run.source_version ?
             <div className="run-info">
               <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{run.source_version.substring(0, 20)}</span>
+              <span className="metadata-info">{Utils.renderVersion(run)}</span>
             </div>
             : null
           }
