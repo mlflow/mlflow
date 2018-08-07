@@ -81,7 +81,7 @@ import pandas
 
 from mlflow import tracking
 from mlflow.models import Model
-from mlflow.utils import PYTHON_VERSION
+from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir
 
 FLAVOR_NAME = "python_function"
@@ -151,7 +151,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
         print("The specified model does not have a specified Python version. It may be incompatible"
               " with the version of Python that is currently running: Python {version}".format(
                    version=PYTHON_VERSION))
-    elif model_py_version != PYTHON_VERSION:
+    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
         print("The version of Python that the model was saved in, Python {model_version}, differs"
               " from the version of Python that is currently running, Python {system_version},"
               " and may be incompatible".format(
