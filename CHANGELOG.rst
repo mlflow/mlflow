@@ -1,6 +1,24 @@
 Changelog
 =========
 
+0.4.2 (2018-08-07)
+------------------
+
+Breaking changes: None
+
+Features:
+
+- MLflow experiments REST API and ``mlflow experiments create`` now support providing ``--artifact-location`` (#232, @aarondav)
+- [UI] Runs can now be sorted by columns (#227, @ToonKBC)
+- Databricks File System (DBFS) artifactory support added (#226, @andrewmchen)
+- databricks-cli version upgraded to >= 0.8.0 to support new DatabricksConfigProvider interface (#257, @aarondav)
+
+Bug fixes:
+
+- MLflow client sends REST API calls using snake_case instead of camelCase field names (#232, @aarondav)
+- Minor bug fixes (#243, #242, @aarondav; #251, @javierluraschi; #245, @smurching; #252, @mateiz)
+
+
 0.4.1 (2018-08-03)
 ------------------
 
