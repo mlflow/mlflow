@@ -154,8 +154,9 @@ def test_run_databricks_validations(
             mlflow.projects.run(TEST_PROJECT_DIR, mode="databricks", block=True, cluster_spec=None)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
-        # Test that validations pass with a good tracking URI
+        # Test that validations pass with good tracking URIs
         databricks._before_run_validations("http://", cluster_spec_mock)
+        databricks._before_run_validations("databricks", cluster_spec_mock)
 
 
 def test_run_databricks(
