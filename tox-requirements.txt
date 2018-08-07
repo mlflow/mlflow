@@ -14,4 +14,3 @@ pytest-cov
 rstcheck==3.2
 scipy
 tensorflow
-simplejson
