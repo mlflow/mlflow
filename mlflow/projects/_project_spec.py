@@ -23,7 +23,7 @@ class Project(object):
         if entry_point in self.entry_points:
             return self.entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
-        ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
+        ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash"), ".R": "Rscript"}
         if file_extension in ext_to_cmd:
             command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
             return EntryPoint(name=entry_point, parameters={}, command=command)
@@ -39,7 +39,7 @@ class EntryPoint(object):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
         self.command = command
-        assert isinstance(self.command, str)
+        assert isinstance(self.command, str) or isinstance(self.command, unicode)
 
     def _validate_parameters(self, user_parameters):
         from mlflow.projects import ExecutionException
