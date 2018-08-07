@@ -97,7 +97,7 @@ class NumpyEncoder(json.JSONEncoder):
     In this case, you'll need to convert your numpy types into its closest python equivalence.
     """
 
-    def default(self, o): # pylint: disable=E0202
+    def default(self, o):  # pylint: disable=E0202
         if isinstance(o, numpy.generic):
             return numpy.asscalar(o)
         return json.JSONEncoder.default(self, o)
