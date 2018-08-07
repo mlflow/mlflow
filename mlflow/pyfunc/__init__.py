@@ -150,14 +150,14 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
     if model_py_version is None:
         eprint("The specified model does not have a specified Python version. It may be"
-              " incompatible with the version of Python that is currently running:"
-              " Python {version}".format(
+               " incompatible with the version of Python that is currently running:"
+               " Python {version}".format(
                    version=PYTHON_VERSION))
     elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
         eprint("The version of Python that the model was saved in, Python {model_version}, differs"
-              " from the version of Python that is currently running, Python {system_version},"
-              " and may be incompatible".format(
-                  model_version=model_py_version, system_version=PYTHON_VERSION))
+               " from the version of Python that is currently running, Python {system_version},"
+               " and may be incompatible".format(
+                   model_version=model_py_version, system_version=PYTHON_VERSION))
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
