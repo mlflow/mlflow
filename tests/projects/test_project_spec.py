@@ -57,7 +57,7 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents):
     if conda_env_path:
         tmpdir.join(conda_env_path).write(conda_env_contents)
     project = _project_spec.load_project(tmpdir.strpath)
-    assert project.entry_points == {}
+    assert project._entry_points == {}
     expected_env_path = \
         os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
     assert project.conda_env_path == expected_env_path

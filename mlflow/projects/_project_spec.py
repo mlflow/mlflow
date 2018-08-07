@@ -53,6 +53,8 @@ class Project(object):
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
             command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
+            if type(command) not in six.string_types:
+                command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
                                  "runnable script. Supported script file extensions: "
@@ -79,7 +81,7 @@ class EntryPoint(object):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
         self.command = command
-        assert isinstance(self.command, six.text_type)
+        assert isinstance(self.command, str)
 
     def _validate_parameters(self, user_parameters):
         missing_params = []
