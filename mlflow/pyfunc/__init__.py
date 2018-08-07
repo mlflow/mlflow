@@ -136,7 +136,7 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
         raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
                                                                             path=conf_path))
     conf = model.flavors[FLAVOR_NAME]
-    model_py_version = conf[PY_VERSION] if PY_VERSION in conf else None
+    model_py_version = conf.get(PY_VERSION) if PY_VERSION in conf else None
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
@@ -146,15 +146,16 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
     return importlib.import_module(conf[MAIN]).load_pyfunc(data_path)
 
 
-def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
+def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
     if model_py_version is None:
         print("The specified model does not have a specified Python version. It may be incompatible"
-              " with the version of Python that is currently running: Python {spyv}".format(
-                   spyv=PYTHON_VERSION))
+              " with the version of Python that is currently running: Python {version}".format(
+                   version=PYTHON_VERSION))
     elif model_py_version != PYTHON_VERSION:
-        print("The version of Python that the model was saved in, Python {mpyv}, differs from the"
-              " version of Python that is currently running, Python {spyv},"
-              " and may be incompatible.".format( mpyv=model_py_version, spyv=PYTHON_VERSION))
+        print("The version of Python that the model was saved in, Python {model_version}, differs" 
+              " from the version of Python that is currently running, Python {system_version},"
+              " and may be incompatible".format(
+                  model_version=model_py_version, system_version=PYTHON_VERSION))
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
