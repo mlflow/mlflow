@@ -245,14 +245,15 @@ def _list_experiments():
 
 
 def _get_artifact_repo(run):
+    store = _get_store()
     if run.info.artifact_uri:
-        return ArtifactRepository.from_artifact_uri(run.info.artifact_uri)
+        return ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
 
     # TODO(aaron) Remove this once everyone locally only has runs from after
     # the introduction of "artifact_uri".
-    uri = os.path.join(_get_store().root_directory, str(run.info.experiment_id),
+    uri = os.path.join(store.root_directory, str(run.info.experiment_id),
                        run.info.run_uuid, "artifacts")
-    return ArtifactRepository.from_artifact_uri(uri)
+    return ArtifactRepository.from_artifact_uri(uri, store)
 
 
 def _get_paths(base_path):
