@@ -14,7 +14,7 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.store.file_store import FileStore
-from mlflow.store.rest_store import RestStore
+from mlflow.store.rest_store import RestStore, DatabricksStore
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
@@ -104,7 +104,7 @@ def _get_databricks_rest_store(store_uri):
     if parsed_uri.scheme == 'databricks':
         profile = parsed_uri.hostname
     http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(profile)
-    return RestStore(http_request_kwargs)
+    return DatabricksStore(http_request_kwargs)
 
 
 def _get_store():
@@ -135,14 +135,12 @@ class ActiveRun(object):
     :param run_info: ``RunInfo`` describing the active run. A corresponding ``Run`` object is
                      assumed to already be persisted with state "running" in ``store``.
     :param store: Backend store to which the current run should persist state updates.
+    :param artifact_repo: The ArtifactRepository to which the current run should persist artifacts.
     """
-    def __init__(self, run_info, store):
+    def __init__(self, run_info, store, artifact_repo):
         self.store = store
         self.run_info = run_info
-        if run_info.artifact_uri:
-            self.artifact_repo = ArtifactRepository.from_artifact_uri(run_info.artifact_uri)
-        else:
-            self.artifact_repo = _get_legacy_artifact_repo(store, run_info)
+        self.artifact_repo = artifact_repo
 
     def set_terminated(self, status):
         self.run_info = self.store.update_run_info(
@@ -228,6 +226,13 @@ def _get_unix_timestamp():
     return int(time.time() * 1000)
 
 
+def _get_artifact_repo(run_info, store):
+    if run_info.artifact_uri:
+        return ArtifactRepository.from_artifact_uri(run_info.artifact_uri, store)
+    else:
+        return _get_legacy_artifact_repo(store, run_info)
+
+
 def _create_run(experiment_id, source_name, source_version, entry_point_name, source_type):
     store = _get_store()
     run = store.create_run(experiment_id=experiment_id, user_id=_get_user_id(), run_name=None,
@@ -236,7 +241,8 @@ def _create_run(experiment_id, source_name, source_version, entry_point_name, so
                            entry_point_name=entry_point_name,
                            start_time=_get_unix_timestamp(),
                            source_version=source_version, tags=[])
-    return ActiveRun(run.info, store)
+    run_info = run.info
+    return ActiveRun(run_info, store, _get_artifact_repo(run_info, store))
 
 
 def get_run(run_uuid):
@@ -253,7 +259,7 @@ def _get_existing_run(run_uuid):
     store = _get_store()
     updated_info = store.update_run_info(
         run_uuid=run_uuid, run_status=RunStatus.RUNNING, end_time=None)
-    return ActiveRun(updated_info, store)
+    return ActiveRun(updated_info, store, _get_artifact_repo(updated_info, store))
 
 
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
@@ -373,11 +379,12 @@ atexit.register(end_run)
 def _get_model_log_dir(model_name, run_id):
     if not run_id:
         raise Exception("Must specify a run_id to get logging directory for a model.")
-    run = _get_store().get_run(run_id)
+    store = _get_store()
+    run = store.get_run(run_id)
     if run.info.artifact_uri:
-        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri)
+        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
     else:
-        artifact_repo = _get_legacy_artifact_repo(_get_store(), run.info)
+        artifact_repo = _get_legacy_artifact_repo(store, run.info)
     return artifact_repo.download_artifacts(model_name)
 
 
@@ -386,7 +393,7 @@ def _get_legacy_artifact_repo(file_store, run_info):
     # the introduction of "artifact_uri".
     uri = os.path.join(file_store.root_directory, str(run_info.experiment_id),
                        run_info.run_uuid, "artifacts")
-    return ArtifactRepository.from_artifact_uri(uri)
+    return ArtifactRepository.from_artifact_uri(uri, file_store)
 
 
 def _get_git_commit(path):

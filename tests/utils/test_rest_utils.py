@@ -16,7 +16,7 @@ def test_databricks_params_token(get_config_for_profile):
         'headers': {
             'Authorization': 'Basic dG9rZW46bXl0b2tlbg=='
         },
-        'secure_verify': True,
+        'verify': True,
     }
     get_config_for_profile.assert_called_with("DEFAULT")
 
@@ -31,7 +31,7 @@ def test_databricks_params_user_password(get_config_for_profile):
         'headers': {
             'Authorization': 'Basic dXNlcjpwYXNz'
         },
-        'secure_verify': True,
+        'verify': True,
     }
 
 
@@ -40,7 +40,7 @@ def test_databricks_params_no_verify(get_config_for_profile):
     get_config_for_profile.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=True)
     params = rest_utils.get_databricks_http_request_kwargs_or_fail()
-    assert params['secure_verify'] is False
+    assert params['verify'] is False
 
 
 @mock.patch('databricks_cli.configure.provider.get_config_for_profile')
@@ -48,7 +48,7 @@ def test_databricks_params_custom_profile(get_config_for_profile):
     get_config_for_profile.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=True)
     params = rest_utils.get_databricks_http_request_kwargs_or_fail("profile")
-    assert params['secure_verify'] is False
+    assert params['verify'] is False
     get_config_for_profile.assert_called_with("profile")
 
 
@@ -79,7 +79,6 @@ def test_databricks_http_request_integration(get_config_for_profile, request):
                 'Authorization': 'Basic dXNlcjpwYXNz'
             },
             'verify': True,
-            'params': 'x=y',
             'json': {'a': 'b'}
         }
         http_response = mock.MagicMock()
@@ -91,5 +90,5 @@ def test_databricks_http_request_integration(get_config_for_profile, request):
         DatabricksConfig("host", "user", "pass", None, insecure=False)
 
     response = rest_utils.databricks_api_request('clusters/list', 'PUT',
-                                                 req_body_json={'a': 'b'}, params='x=y')
+                                                 json={'a': 'b'})
     assert response == {'OK': 'woo'}
