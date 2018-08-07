@@ -1,11 +1,10 @@
 import os
 import random
-
 import requests
 import string
 from subprocess import Popen, PIPE, STDOUT
 import time
-import math
+
 
 def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
@@ -19,16 +18,15 @@ def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
 
 
-def score_model_in_sagemaker_docker_container(model_path, data, timeout_seconds=250):
+def score_model_in_sagemaker_docker_container(model_path, data):
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', model_path], stdout=PIPE, stderr=STDOUT,
                  universal_newlines=True, env=env)
     try:
-        sleep_duration_seconds = 5
-        for i in range(int(math.ceil(float(timeout_seconds) / sleep_duration_seconds))):
+        for i in range(0, 50):
             assert proc.poll() is None, "scoring process died"
-            time.sleep(sleep_duration_seconds)
+            time.sleep(5)
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url='http://localhost:5000/ping')
