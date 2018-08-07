@@ -2,9 +2,11 @@ import os
 import unittest
 
 import boto3
+from mock import Mock
 from moto import mock_s3
 
-from mlflow.store.artifact_repo import ArtifactRepository, S3ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
 
@@ -21,7 +23,7 @@ class TestS3ArtifactRepo(unittest.TestCase):
             s3 = boto3.client("s3")
             s3.create_bucket(Bucket="test_bucket")
 
-            repo = ArtifactRepository.from_artifact_uri("s3://test_bucket/some/path")
+            repo = ArtifactRepository.from_artifact_uri("s3://test_bucket/some/path", Mock())
             self.assertIsInstance(repo, S3ArtifactRepository)
             self.assertListEqual(repo.list_artifacts(), [])
             with self.assertRaises(Exception):

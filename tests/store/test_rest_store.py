@@ -14,7 +14,6 @@ class TestRestStore(unittest.TestCase):
             assert kwargs == {
                 'method': 'GET',
                 'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
-                'verify': True,
             }
             response = mock.MagicMock
             response.status_code = 200

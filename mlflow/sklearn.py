@@ -1,4 +1,4 @@
-"""MLflow integration for SciKit-Learn."""
+"""MLflow integration for scikit-learn."""
 
 from __future__ import absolute_import
 
@@ -19,13 +19,13 @@ import mlflow.tracking
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     """
-    Save a SciKit-Learn model to a path on the local file system.
+    Save a scikit-learn model to a path on the local file system.
 
-    :param sk_model: Scikit-Learn model to be saved.
+    :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-           this model should be run it. At minimum, it should specify python, sklearn and mlflow
-           with appropriate versions.
+           this model should be run in. At minimum, it should specify python, scikit-learn,
+           and mlflow with appropriate versions.
     :param mlflow_model: MLflow model config this flavor is being added to.
     """
     if os.path.exists(path):
@@ -43,7 +43,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
 
 
 def log_model(sk_model, artifact_path):
-    """Log a SciKit-Learn model as an MLflow artifact for the current run."""
+    """Log a scikit-learn model as an MLflow artifact for the current run."""
 
     with TempDir() as tmp:
         local_path = tmp.path("model")
@@ -55,7 +55,7 @@ def log_model(sk_model, artifact_path):
 
 
 def _load_model_from_local_file(path):
-    """Load a SciKit-Learn model saved as an MLflow artifact on the local file system."""
+    """Load a scikit-learn model saved as an MLflow artifact on the local file system."""
     # TODO: we could validate the SciKit-Learn version here
     model = Model.load(os.path.join(path, "MLmodel"))
     assert "sklearn" in model.flavors
@@ -65,12 +65,14 @@ def _load_model_from_local_file(path):
 
 
 def load_pyfunc(path):
+    """Load a Python Function model from a local file."""
+
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
 def load_model(path, run_id=None):
-    """Load a SciKit-Learn model from a local file (if run_id is None) or a run."""
+    """Load a scikit-learn model from a local file (if ``run_id`` is None) or a run."""
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model_from_local_file(path)
@@ -78,7 +80,7 @@ def load_model(path, run_id=None):
 
 @click.group("sklearn")
 def commands():
-    """Serve SciKit-Learn models."""
+    """Serve scikit-learn models."""
     pass
 
 
@@ -92,9 +94,9 @@ def commands():
                    "inside of docker.")
 def serve_model(model_path, run_id=None, port=None, host="127.0.0.1"):
     """
-    Serve a SciKit-Learn model saved with MLflow.
+    Serve a scikit-learn model saved with MLflow.
 
-    If a run_id is specified, MODEL_PATH is treated as an artifact path within that run;
+    If ``run_id`` is specified, ``model_path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.
     """
     model = load_model(run_id=run_id, path=model_path)
