@@ -221,7 +221,7 @@ def _before_run_validations(tracking_uri, cluster_spec):
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
                                  "on Databricks.")
-    if tracking.is_local_uri(tracking_uri):
+    if not tracking._is_databricks_uri(tracking_uri) and tracking.is_local_uri(tracking_uri):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be set to a remote URI "
             "accessible to both the current client and code running on Databricks. Got local "
