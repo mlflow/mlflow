@@ -10,6 +10,7 @@ class RunPage extends Component {
   static propTypes = {
     match: PropTypes.object.isRequired,
     runUuid: PropTypes.string.isRequired,
+    experimentId: PropTypes.number.isRequired,
   };
 
   state = {
@@ -34,7 +35,9 @@ class RunPage extends Component {
         >
           <RunView
             runUuid={this.props.runUuid}
-            getMetricPagePath={(key) => Routes.getMetricPageRoute([this.props.runUuid], key)}
+            getMetricPagePath={
+              (key) => Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
+            }
             experimentId={this.props.experimentId}
           />
         </RequestStateWrapper>

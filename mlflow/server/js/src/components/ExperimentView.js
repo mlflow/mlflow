@@ -330,7 +330,8 @@ class ExperimentView extends Component {
 
   onCompare() {
     const runsSelectedList = Object.keys(this.state.runsSelected);
-    this.props.history.push(Routes.getCompareRunPageRoute(runsSelectedList));
+    this.props.history.push(Routes.getCompareRunPageRoute(
+      runsSelectedList, this.props.experiment.getExperimentId()));
   }
 
   onDownloadCsv() {
@@ -428,13 +429,13 @@ class ExperimentView extends Component {
       if (sortState.isMetric !== isMetric
         || sortState.isParam !== isParam
         || sortState.key !== key)
-        return "sortable"
+        return "sortable";
       return "sortable sorted " + (sortState.ascending?"asc":"desc");
-    }
+    };
     const getHeaderCell = (key, text) => {
       return <th key={"meta-"+key} className={"bottom-row " + sortedClassName(false, false, key)}
         onClick={() => onSortBy(false, false, key)}>{text}</th>
-    }
+    };
 
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;

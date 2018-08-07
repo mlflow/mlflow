@@ -115,17 +115,15 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <h1 className="run-uuid">Run {run.getRunUuid()}</h1>
+          <h1>
+            <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>
+            <i className="fas fa-chevron-right breadcrumb-chevron"></i>
+            Run {run.getRunUuid()}
+          </h1>
         </div>
         <div className="run-info-container">
           <div className="run-info">
-            <span className="metadata-header">Experiment Name: </span>
-            <Link to={Routes.getExperimentPageRoute(experimentId)}>
-              <span className="metadata-info">{experiment.getName()}</span>
-            </Link>
-          </div>
-          <div className="run-info">
-            <span className="metadata-header">Start Time: </span>
+            <span className="metadata-header">Date: </span>
             <span className="metadata-info">{startTime}</span>
           </div>
           <div className="run-info">

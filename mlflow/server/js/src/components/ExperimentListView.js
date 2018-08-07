@@ -38,7 +38,9 @@ class ExperimentListView extends Component {
         <div>
           <h1 className="experiments-header">Experiments</h1>
           <div className="collapser-container">
-            <i onClick={this.props.onClickListExperiments} className="collapser fa fa-chevron-left login-icon"/>
+            <i onClick={this.props.onClickListExperiments}
+               title="Hide experiment list"
+               className="collapser fa fa-chevron-left login-icon"/>
           </div>
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
             {this.props.experiments.map((e) => {

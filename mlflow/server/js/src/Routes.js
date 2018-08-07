@@ -8,13 +8,21 @@ class Routes {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
   static runPageRoute = "/experiments/:experimentId/runs/:runUuid";
-  static getMetricPageRoute(runUuids, metricKey) {
-    return `/metric/${metricKey}?runs=${JSON.stringify(runUuids)}`;
+  static getMetricPageRoute(runUuids, metricKey, experimentId) {
+    let route = `/metric/${metricKey}?runs=${JSON.stringify(runUuids)}`;
+    if (experimentId !== undefined) {
+      route += `&experiment=${experimentId}`;
+    }
+    return route;
   }
   static metricPageRoute = "/metric/:metricKey";
 
-  static getCompareRunPageRoute(runUuids) {
-    return `/compare-runs?runs=${JSON.stringify(runUuids)}`
+  static getCompareRunPageRoute(runUuids, experimentId) {
+    let route = `/compare-runs?runs=${JSON.stringify(runUuids)}`;
+    if (experimentId !== undefined) {
+      route += `&experiment=${experimentId}`;
+    }
+    return route;
   }
   static compareRunPageRoute = "/compare-runs"
 }

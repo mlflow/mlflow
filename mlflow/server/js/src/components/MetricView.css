@@ -3,3 +3,7 @@ div.MetricView {
     max-width: 1200px;
     max-height: 10%;
 }
+
+h1.MetricView-title {
+    padding-bottom: 16px;
+}
