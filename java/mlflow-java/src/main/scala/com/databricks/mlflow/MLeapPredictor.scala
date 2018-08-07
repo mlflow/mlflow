@@ -1,6 +1,4 @@
-package com.databricks.mlflow.mleap;
-
-import com.databricks.mlflow.models.Predictor
+package com.databricks.mlflow.sagemaker;
 
 import java.nio.charset.Charset
 
@@ -26,14 +24,10 @@ class MLeapPredictor(var modelPath : String) extends Predictor {
     this.pipeline
   }
 
-  override def predict(inputJson : String): String = {
-    val inputBytes = inputJson.getBytes(jsonCharset)
-    val deserializedFrame = frameReader.fromBytes(inputBytes).get
-
+  override def predict(inputFrame : DataFrame): DataFrame = {
     // TODO (Corey Zumar): Error handling
-    val transformedFrame = pipeline.transform(deserializedFrame).get
-    val output = new String(transformedFrame.writer().toBytes().get);
-    output
+    val transformedFrame = pipeline.transform(inputFrame.getLeapFrame()).get
+    new DataFrame(transformedFrame)
   }
 
 }

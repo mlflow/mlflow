@@ -45,6 +45,7 @@ setup(
         'boto3',
         'google-cloud-storage',
         'querystring_parser',
+        'mleap>=0.8.1'
     ],
     entry_points='''
         [console_scripts]

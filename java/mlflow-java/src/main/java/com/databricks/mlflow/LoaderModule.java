@@ -1,7 +1,7 @@
 package com.databricks.mlflow;
 
 import com.databricks.mlflow.models.Model;
-import com.databricks.mlflow.models.Predictor;
+import com.databricks.mlflow.sagemaker.Predictor;
 import com.databricks.mlflow.Flavor;
 
 import java.util.Optional;

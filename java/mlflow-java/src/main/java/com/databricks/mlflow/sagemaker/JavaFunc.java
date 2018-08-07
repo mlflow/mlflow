@@ -4,7 +4,6 @@ import com.databricks.mlflow.Flavor;
 import com.databricks.mlflow.LoaderModule;
 import com.databricks.mlflow.LoaderModuleException;
 import com.databricks.mlflow.TrackingUtils;
-import com.databricks.mlflow.models.Predictor;
 import com.databricks.mlflow.models.Model;
 import com.databricks.mlflow.utils.PackageInstaller;
 

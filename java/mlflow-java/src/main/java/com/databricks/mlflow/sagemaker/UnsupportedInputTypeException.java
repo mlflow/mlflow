@@ -1,4 +1,4 @@
-package com.databricks.mlflow.models;
+package com.databricks.mlflow.sagemaker;
 
 class UnsupportedInputTypeException extends PredictorEvaluationException {
     protected UnsupportedInputTypeException() {

@@ -1,7 +1,7 @@
 package com.databricks.mlflow.mleap;
 
-import com.databricks.mlflow.mleap.MLeapPredictor;
-import com.databricks.mlflow.models.Predictor;
+import com.databricks.mlflow.sagemaker.MLeapPredictor;
+import com.databricks.mlflow.sagemaker.Predictor;
 import com.databricks.mlflow.LoaderModule;
 
 import java.util.Optional;

@@ -1,8 +1,6 @@
 package com.databricks.mlflow.sagemaker;
 
 import com.databricks.mlflow.LoaderModuleException;
-import com.databricks.mlflow.models.Predictor;
-import com.databricks.mlflow.models.PredictorEvaluationException;
 
 import java.util.Optional;
 import java.util.Map;
@@ -16,6 +14,9 @@ import static spark.Spark.*;
 
 public class SageMakerServer {
     public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
+
+    private static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
+    private static final int HTTP_RESPONSE_CODE_SUCCESS = 200;
 
     private enum RequestContentType {
         Csv("text/csv"),
@@ -77,15 +78,15 @@ public class SageMakerServer {
 
             try {
                 String result = evaluateRequest(predictor.get(), request);
-                response.status(200);
+                response.status(HTTP_RESPONSE_CODE_SUCCESS);
                 return result;
             } catch (PredictorEvaluationException e) {
-                response.status(500);
+                response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
                 String errorMessage = e.getMessage();
                 return getErrorResponseJson(errorMessage);
             } catch (Exception e) {
                 e.printStackTrace();
-                response.status(500);
+                response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
                 String errorMessage = "An unknown error occurred while evaluating the model!";
                 return getErrorResponseJson(errorMessage);
             }
@@ -93,28 +94,30 @@ public class SageMakerServer {
     }
 
     private static String yieldMissingPredictorError(Response response) {
-        response.status(500);
+        response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
         return getErrorResponseJson("Error loading predictor! See container logs for details!");
     }
 
     private static String evaluateRequest(Predictor predictor, Request request)
         throws PredictorEvaluationException {
         RequestContentType inputType = RequestContentType.fromValue(request.contentType());
-        Optional<String> parsedInput = Optional.<String>empty();
         switch (inputType) {
-            case Json:
+            case Json: {
                 // TODO: Do something case-specific
-                parsedInput = Optional.of(request.body());
-                break;
-            case Csv:
+                DataFrame parsedInput = DataFrame.fromJson(request.body());
+                DataFrame result = predictor.predict(parsedInput);
+                return result.toJson();
+            }
+            case Csv: {
                 // TODO: Do something case-specific
-                parsedInput = Optional.of(request.body());
-                break;
+                DataFrame parsedInput = DataFrame.fromCsv(request.body());
+                DataFrame result = predictor.predict(parsedInput);
+                return result.toCsv();
+            }
             case Invalid:
             default:
                 throw new UnsupportedContentTypeException(request.contentType());
         }
-        return predictor.predict(parsedInput.get());
     }
 
     private static String getErrorResponseJson(String errorMessage) {

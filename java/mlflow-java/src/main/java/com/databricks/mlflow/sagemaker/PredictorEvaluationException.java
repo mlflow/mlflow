@@ -1,4 +1,4 @@
-package com.databricks.mlflow.models;
+package com.databricks.mlflow.sagemaker;
 
 public class PredictorEvaluationException extends Exception {
     private final String message;
