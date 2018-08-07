@@ -1,4 +1,5 @@
 # Test reqs
+azure-storage
 google-cloud-storage
 h2o
 mock==2.0.0

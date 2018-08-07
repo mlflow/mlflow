@@ -197,7 +197,7 @@ Running a Tracking Server
 
 The MLflow tracking server launched via ``mlflow server`` also hosts REST APIs for tracking runs,
 writing data to the local filesystem. You can specify a tracking server URI
-via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs will automatically
+via the ``MLFLOW_TRACKING_URI`` environment variable and MLflow's tracking APIs automatically
 communicate with the tracking server at that URI to create/get run information, log metrics, and so on.
 
 An example configuration for a server is as follows:
@@ -211,45 +211,61 @@ An example configuration for a server is as follows:
 
 Storage
 ^^^^^^^
-There are two properties related to how data is stored:
 
-The **File Store** (exposed via ``--file-store``) is where the server will store run and experiment metadata.
-It defaults to the local ./mlruns directory (same as when running ``mlflow run`` locally), but when
-running in a server, make sure that this points to a persistent (i.e., non-ephemeral) file system location.
+The tracking server has two properties related to how data is stored: File Store and Artifact Store.
+
+The **File Store** (exposed via ``--file-store``) is where the *server* stores run and experiment metadata.
+It defaults to the local ``./mlruns`` directory (same as when running ``mlflow run`` locally), but when
+running a server, make sure that this points to a persistent (that is, non-ephemeral) file system location.
 
 The **Artifact Store** is a location suitable for large data (such as an S3 bucket or shared NFS file system)
-where clients log their artifact output (for example, models). The Artifact Store is actually a property
-of an Experiment, but the ``--default-artifact-root`` flag is used to set the artifact root URI for
-newly-created experments that do not specify one. Note that once an experiment is created,
-the ``--default-artifact-root`` is no longer relevant to it.
+where *clients* log their artifact output (for example, models). The Artifact Store is a property
+of an experiment, but the ``--default-artifact-root`` flag sets the artifact root URI for
+newly-created experiments that do not specify one. Once you create an experiment, the ``--default-artifact-root`` is no longer relevant to it.
 
-For the clients and server to access the artifact location, you should configure your cloud
+To allow the clients and server to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
-Warning: If you do not specify a ``--default-artifact-root``, nor do you specify an artifact URI when creating
-the experiment (e.g., ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
-will be a path inside the File Store. Typically this is not an appropriate location, as the client and
-server will probably be referring to different physical locations (i.e., the same path on different disks).
+.. important:: 
+  
+  If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root will be a path inside the File Store. Typically this is not an appropriate location, as the client and server will probably be referring to different physical locations (that is, the same path on different disks).
 
-Additional Storage Backends
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-In addition to the S3 and local-filesystem Artifact Stores, MLflow includes support for the
-following storage backends:
+Supported Artifact Stores
+^^^^^^^^^^^^^^^^^^^^^^^^^
+In addition to local file paths, MLflow supports the following storage systems as artifact stores: 
+Amazon S3, Azure Blob Storage, and Google Cloud Storage.
 
+Amazon S3
+~~~~~~~~~
+Specify a URI of the form ``s3://<bucket>/<path>`` to store artifacts in S3. MLflow obtains
+credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
+the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
+these are available. See
+`Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more information on how to set credentials.
+
+Azure Blob Storage
+~~~~~~~~~~~~~~~~~~
+Specify a URI of the form ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>`` to store
+artifacts in Azure Blob Storage. MLflow looks for your Azure Storage access credentials in the
+``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
+a connection string if one is set), so you will need to set one of these variables on both your client
+application and your MLflow tracking server. Finally, you will need to ``pip install azure-storage``
+separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
+a dependency on this package by default.
 
 Google Cloud Storage
 ~~~~~~~~~~~~~~~~~~~~
-You can specify a GCS bucket for artifact storage by launching your server with ``--artifact-root``
-set to ``gs://<storage_bucket>``. Note that you'll need to install the GCS Python client
-(via ``pip install google-cloud-storage``) on the client and tracking server. You should also
-configure credentials for accessing the GCS bucket on the client and server as described
-`here <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
-
+Specify a URI of the form ``gs://<bucket>/<path>`` to store artifacts in Google Cloud Storage.
+You should configure credentials for accessing the GCS container on the client and server as described
+in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
+Finally, you will need to ``pip install google-cloud-storage`` (on both your client and the server)
+to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
 Networking
 ^^^^^^^^^^
+
 The ``--host`` option exposes the service on all interfaces. If running a server in production, we
 would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
 and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
