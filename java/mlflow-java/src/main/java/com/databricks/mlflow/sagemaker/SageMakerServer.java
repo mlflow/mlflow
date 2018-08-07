@@ -65,7 +65,7 @@ public class SageMakerServer {
         port(portNumber.orElse(DEFAULT_PORT));
         get("/ping", (request, response) -> {
             if (!predictor.isPresent()) {
-                yieldMissingPredictorError(response);
+                return yieldMissingPredictorError(response);
             }
             response.status(200);
             return "";
@@ -122,7 +122,7 @@ public class SageMakerServer {
 
     private static String getErrorResponseJson(String errorMessage) {
         String response =
-            String.format("{ \"%s\" : %s }", RESPONSE_KEY_ERROR_MESSAGE, errorMessage);
+            String.format("{ \"%s\" : \"%s\" }", RESPONSE_KEY_ERROR_MESSAGE, errorMessage);
         return response;
     }
 
