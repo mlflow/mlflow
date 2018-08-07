@@ -1,4 +1,4 @@
-from mock import MagicMock
+from mock import Mock, MagicMock
 import unittest
 
 import pysftp
@@ -16,7 +16,8 @@ class SFTPArtifactRepositryTest(unittest.TestCase):
         self.assertRaises(
             SSHException,
             lambda: ArtifactRepository.from_artifact_uri(
-                "sftp://user:pass@test_sftp:123/some/path"))
+                "sftp://user:pass@test_sftp:123/some/path",
+                Mock()))
 
     def test_list_artifacts_empty(self):
         repo = SFTPArtifactRepository("sftp://test_sftp/some/path", self.sftp)
