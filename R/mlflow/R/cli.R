@@ -30,7 +30,8 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
 
   env <- list(
     PATH = paste(Sys.getenv("PATH"), python, sep = ":"),
-    MLFLOW_CONDA_HOME = python_conda_home()
+    MLFLOW_CONDA_HOME = python_conda_home(),                     # devel version
+    MLFLOW_MLFLOW_CONDA = file.path(python_conda_bin(), "conda") # pip version (deprecated)
   )
 
   with_envvar(env, {

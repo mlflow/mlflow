@@ -39,6 +39,10 @@ python_conda_installed <- function() {
 }
 
 #' @importFrom reticulate conda_binary
+python_conda_bin <- function() {
+  dirname(conda_binary())
+}
+
 python_conda_home <- function() {
-  dirname(dirname(conda_binary()))
+  dirname(python_conda_bin())
 }

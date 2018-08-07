@@ -5,5 +5,5 @@ conda_env: conda.yaml
 entry_points:
   main:
     parameters:
-      parameter: {type: integer, default: 0}
+      parameter: {type: float, default: 0.0}
     command: "python logging.py -r {parameter}"

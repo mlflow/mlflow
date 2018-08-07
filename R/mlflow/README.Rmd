@@ -55,7 +55,7 @@ mlflow_experiment("Test")
 Then you can list your experiments directly from R,
 
 ```{r}
-mlflow_experiment_list()
+mlflow_list_experiments()
 ```
 
 or using MLflows user interface by running:
@@ -173,7 +173,7 @@ which is equivalent to running,
 Rscript -e "mlflow_predict('mlflow-model', jsonlite::read_json('data.json'))"
 ```
 
-# Dependencies
+## Dependencies
 
 When running a project, `mlflow_snapshot()` is automatically called to generate a `r-dependencies.txt` file which contains a list of required packages and versions.
 
@@ -184,3 +184,11 @@ mlflow_restore()
 ```
 
 Notice that the `MLFLOW_SNAPSHOT_CACHE` environment variable can be set to a cache directory to improve the time required to restore dependencies.
+
+## Contributing
+
+In order to contribute, follow the [contribution guidelines](../../CONTRIBUTING.rst). After performing python changes, or to pick the latest changes, you can install with the following code. Note that [mlflow/pull/193](https://github.com/databricks/mlflow/pull/193) is currently required to run python projects locally.
+
+```{r}
+reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
+```
