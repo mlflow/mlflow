@@ -54,8 +54,8 @@ class TestModelExport(unittest.TestCase):
             print("m1", m.__dict__)
             print("m2", m2.__dict__)
             assert m.__dict__ == m2.__dict__
-            assert pyfunc.FLAVOR in m2.flavors
-            assert pyfunc.PY_VERSION in m2.flavors[pyfunc.FLAVOR]
+            assert pyfunc.FLAVOR_NAME in m2.flavors
+            assert pyfunc.PY_VERSION in m2.flavors[pyfunc.FLAVOR_NAME]
             x = pyfunc.load_pyfunc(path)
             xpred = x.predict(self._X)
             np.testing.assert_array_equal(self._knn_predict, xpred)
@@ -78,8 +78,8 @@ class TestModelExport(unittest.TestCase):
                 path = tracking._get_model_log_dir("linear", run_id)
                 m = Model.load(os.path.join(path, "MLmodel"))
                 print(m.__dict__)
-                assert pyfunc.FLAVOR in m.flavors
-                assert pyfunc.PY_VERSION in m.flavors[pyfunc.FLAVOR]
+                assert pyfunc.FLAVOR_NAME in m.flavors
+                assert pyfunc.PY_VERSION in m.flavors[pyfunc.FLAVOR_NAME]
                 x = pyfunc.load_pyfunc("linear", run_id=run_id)
                 xpred = x.predict(self._X)
                 np.testing.assert_array_equal(self._linear_lr_predict, xpred)
