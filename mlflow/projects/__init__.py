@@ -51,8 +51,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
-        if use_conda:
-            _maybe_create_conda_env(work_dir)
+        conda_env_name = _get_or_create_conda_env(project) if use_conda else None
         if run_id:
             active_run = tracking._get_existing_run(run_id)
         else:
@@ -62,7 +61,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         # tracking server if interrupted
         if block:
             command = _get_entry_point_command(
-                project, entry_point, use_conda, parameters, storage_dir)
+                project, entry_point, parameters, conda_env_name, storage_dir)
             return _run_entry_point(command, work_dir, exp_id, run_id=active_run.run_info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
@@ -253,7 +252,11 @@ def _get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _maybe_create_conda_env(project_dir):
+def _get_or_create_conda_env(project):
+    """
+    Given a `Project`, creates a conda environment containing the project's dependencies if such a
+    conda environment doesn't already exist. Returns the name of the conda environment.
+    """
     conda_path = _get_conda_bin_executable("conda")
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
@@ -266,8 +269,6 @@ def _maybe_create_conda_env(project_dir):
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
-
-    project = _project_spec.load_project(project_dir)
     project_env_name = _get_conda_env_name(project)
     if project_env_name not in env_names:
         eprint('=== Creating conda environment %s ===' % project_env_name)
@@ -287,14 +288,24 @@ def _maybe_set_run_terminated(active_run, status):
         active_run.set_terminated(status)
 
 
-def _get_entry_point_command(project, entry_point, use_conda, parameters, storage_dir):
+def _get_entry_point_command(project, entry_point, parameters, conda_env_name, storage_dir):
+    """
+    Returns the shell command to execute in order to run the specified entry point.
+    :param project: Project containing the target entry point
+    :param entry_point: Entry point to run
+    :param parameters: Parameters (dictionary) for the entry point command
+    :param conda_env_name: Name of conda environment to use for command execution, or None if no
+                           conda environment should be used.
+    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
+                        arguments of type 'path'. If None, a temporary base directory is used.
+    """
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
     commands = []
-    if use_conda:
+    if conda_env_name:
         activate_path = _get_conda_bin_executable("activate")
-        commands.append("source %s %s" % (activate_path, _get_conda_env_name(project)))
+        commands.append("source %s %s" % (activate_path, conda_env_name))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     return " && ".join(commands)

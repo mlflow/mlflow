@@ -9,8 +9,12 @@ from mlflow import data
 from mlflow.utils.exception import ExecutionException
 
 
+MLPROJECT_FILE_NAME = "MLproject"
+DEFAULT_CONDA_FILE_NAME = "conda.yaml"
+
+
 def load_project(directory):
-    mlproject_path = os.path.join(directory, "MLproject")
+    mlproject_path = os.path.join(directory, MLPROJECT_FILE_NAME)
     # TODO: Validate structure of YAML loaded from the file
     if os.path.exists(mlproject_path):
         with open(mlproject_path) as mlproject_file:
@@ -24,9 +28,12 @@ def load_project(directory):
         entry_points[name] = EntryPoint(name, parameters, command)
     conda_path = yaml_obj.get("conda_env")
     if conda_path:
-        return Project(
-            conda_env_path=os.path.join(directory, conda_path), entry_points=entry_points)
-    default_conda_path = os.path.join(directory, "conda.yaml")
+        conda_env_path = os.path.join(directory, conda_path)
+        if not os.path.exists(conda_env_path):
+            raise ExecutionException("Project specified conda environment file %s, but no such "
+                                     "file was found." % conda_env_path)
+        return Project(conda_env_path=conda_env_path, entry_points=entry_points)
+    default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(conda_env_path=default_conda_path, entry_points=entry_points)
     return Project(conda_env_path=None, entry_points=entry_points)
@@ -36,11 +43,11 @@ class Project(object):
     """A project specification loaded from an MLproject file in the passed-in directory."""
     def __init__(self, conda_env_path, entry_points):
         self.conda_env_path = conda_env_path
-        self.entry_points = entry_points
+        self._entry_points = entry_points
 
     def get_entry_point(self, entry_point):
-        if entry_point in self.entry_points:
-            return self.entry_points[entry_point]
+        if entry_point in self._entry_points:
+            return self._entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
@@ -48,7 +55,7 @@ class Project(object):
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
                                  "runnable script. Supported script file extensions: "
-                                 "{2}".format(entry_point, list(self.entry_points.keys()),
+                                 "{2}".format(entry_point, list(self._entry_points.keys()),
                                               list(ext_to_cmd.keys())))
 
     def load_conda_env(self):
