@@ -35,19 +35,19 @@ class ExperimentListView extends Component {
           </div>
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
             {this.props.experiments.map((e) => {
-
+              const active = parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId;
               let className = "experiment-list-item";
-              if (parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId) {
-                className = `${className} active-experiment-list-item`
-              }
+              if (active)
+                className = `${className} active-experiment-list-item`;
               return (
                 <Link
                   style={{ textDecoration: 'none', color: 'unset' }}
+                  key={e.getExperimentId()}
                   to={Routes.getExperimentPageRoute(e.getExperimentId())}
+                  onClick={active?e => e.preventDefault():e=>e}
                 >
                   <div
                     className={className}
-                    key={e.getExperimentId()}
                     title={e.getName()}
                   >
                     {e.getName()}

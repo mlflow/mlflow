@@ -19,7 +19,7 @@ class AppErrorBoundary extends Component {
         <div>
           <h1 className={"center"}>Oops! Something went wrong.</h1>
           <h4 className={"center"}>If this error persists, please report an issue to our Github.</h4>
-          <img className="niagara" alt="Niagara falls picture." src={niagara}/>
+          <img className="niagara" alt="The niagara falls." src={niagara}/>
         </div>
       );
     }

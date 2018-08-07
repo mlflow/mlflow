@@ -12,9 +12,9 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 
 class CompareRunView extends Component {
   static propTypes = {
-    runInfos: PropTypes.arrayOf(RunInfo).required,
-    metricLists: PropTypes.arrayOf(Array).required,
-    paramLists: PropTypes.arrayOf(Array).required,
+    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    metricLists: PropTypes.arrayOf(Array).isRequired,
+    paramLists: PropTypes.arrayOf(Array).isRequired,
   };
 
   render() {
@@ -42,15 +42,19 @@ class CompareRunView extends Component {
         <div className="run-metadata-container">
           <div className="run-metadata-label">Run UUID:</div>
           <div className="run-metadata-row">
-            {this.props.runInfos.map((r) => <div className="run-metadata-item">{r.getRunUuid()}</div>)}
+            {this.props.runInfos.map((r, idx) =>
+              <div className="run-metadata-item" key={idx}>
+                {r.getRunUuid()}
+              </div>
+            )}
           </div>
         </div>
         <div className="run-metadata-container last-run-metadata-container">
           <div className="run-metadata-label">Start Time:</div>
           <div className="run-metadata-row">
-            {this.props.runInfos.map((run) => {
+            {this.props.runInfos.map((run, idx) => {
                const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-               return <div className="run-metadata-item">{startTime}</div>;
+               return <div className="run-metadata-item" key={idx}>{startTime}</div>;
              }
             )}
           </div>
@@ -128,8 +132,6 @@ class Private {
     });
 
     const mergedMetrics = Utils.mergeRuns(runInfos.map((r) => r.run_uuid), metricKeyValueList);
-
-    const runUuids = runInfos.map((r) => r.run_uuid);
     Object.keys(mergedMetrics).sort().forEach((metricKey) => {
       // Figure out which runUuids actually have this metric.
       const runUuidsWithMetric = Object.keys(mergedMetrics[metricKey]);

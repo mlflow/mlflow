@@ -23,12 +23,12 @@ class HtmlTableView extends Component {
               } else {
                 style = styles['th'];
               }
-              return <th style={style} key={`header-${c}`}>{c}</th>;
+              return <th key={idx} style={style}>{c}</th>;
             }
           )}
         </tr>
-          { this.props.values.map((vArray) => (
-            <tr style={styles['tr']}>
+          { this.props.values.map((vArray, index) => (
+            <tr key={index} style={styles['tr']}>
               { vArray.map((v, idx) => {
                 let style;
                 if (idx === 0) {
@@ -36,7 +36,7 @@ class HtmlTableView extends Component {
                 } else {
                   style = styles['td'];
                 }
-                  return <td style={style}>{v}</td>;
+                  return <td key={idx} style={style}>{v}</td>;
                 }
               )}
             </tr>

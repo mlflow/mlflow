@@ -25,7 +25,7 @@ class ShowArtifactPage extends Component {
       <div className="select-preview-outer-container">
         <div className="select-preview-container">
           <div className="select-preview-image-container">
-            <img className="select-preview-image" src={previewIcon}/>
+            <img className="select-preview-image" alt="A preview icon." src={previewIcon}/>
           </div>
           <div className="select-preview-text">
             <span className="select-preview-header">Select a file to preview</span>
