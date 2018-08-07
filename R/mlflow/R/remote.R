@@ -11,10 +11,13 @@ mlflow_tracking_url <- function(url) {
 }
 
 mlflow_tracking_url_get <- function() {
-  Sys.getenv(
-    "MLFLOW_TRACKING_URI",
+  env_url <- Sys.getenv("MLFLOW_TRACKING_URI")
+
+  if (startsWith(env_url, "http")) {
+    env_url
+  } else {
     mlflow_connection_url(mlflow_connection_active_get())
-  )
+  }
 }
 
 mlflow_tracking_url_remote <- function() {
