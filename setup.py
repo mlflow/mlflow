@@ -44,6 +44,7 @@ setup(
         'pyyaml',
         'boto3',
         'querystring_parser',
+        'simplejson',
     ],
     entry_points='''
         [console_scripts]
