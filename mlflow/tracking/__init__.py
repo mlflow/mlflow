@@ -14,10 +14,10 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.store.file_store import FileStore
-from mlflow.store.rest_store import RestStore
+from mlflow.store.rest_store import RestStore, DatabricksStore
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
-
+from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
 
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
@@ -25,6 +25,7 @@ _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _DEFAULT_USER_ID = "unknown"
 _LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
+
 _active_run = None
 _tracking_uri = None
 
@@ -103,7 +104,7 @@ def _get_databricks_rest_store(store_uri):
     if parsed_uri.scheme == 'databricks':
         profile = parsed_uri.hostname
     http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(profile)
-    return RestStore(http_request_kwargs)
+    return DatabricksStore(http_request_kwargs)
 
 
 def _get_store():
@@ -134,14 +135,12 @@ class ActiveRun(object):
     :param run_info: ``RunInfo`` describing the active run. A corresponding ``Run`` object is
                      assumed to already be persisted with state "running" in ``store``.
     :param store: Backend store to which the current run should persist state updates.
+    :param artifact_repo: The ArtifactRepository to which the current run should persist artifacts.
     """
-    def __init__(self, run_info, store):
+    def __init__(self, run_info, store, artifact_repo):
         self.store = store
         self.run_info = run_info
-        if run_info.artifact_uri:
-            self.artifact_repo = ArtifactRepository.from_artifact_uri(run_info.artifact_uri)
-        else:
-            self.artifact_repo = _get_legacy_artifact_repo(store, run_info)
+        self.artifact_repo = artifact_repo
 
     def set_terminated(self, status):
         self.run_info = self.store.update_run_info(
@@ -149,9 +148,11 @@ class ActiveRun(object):
             end_time=_get_unix_timestamp())
 
     def log_metric(self, metric):
+        _validate_metric_name(metric.key)
         self.store.log_metric(self.run_info.run_uuid, metric)
 
     def log_param(self, param):
+        _validate_param_name(param.key)
         self.store.log_param(self.run_info.run_uuid, param)
 
     def log_artifact(self, local_path, artifact_path=None):
@@ -184,13 +185,13 @@ def list_experiments():
     return _get_store().list_experiments()
 
 
-def create_experiment(experiment_name):
+def create_experiment(experiment_name, artifact_location=None):
     """
     Create an experiment with the specified name and return its ID.
     """
     if experiment_name is None or experiment_name == "":
         raise Exception("Invalid experiment name '%s'" % experiment_name)
-    return _get_store().create_experiment(experiment_name)
+    return _get_store().create_experiment(experiment_name, artifact_location)
 
 
 def _get_main_file():
@@ -225,6 +226,13 @@ def _get_unix_timestamp():
     return int(time.time() * 1000)
 
 
+def _get_artifact_repo(run_info, store):
+    if run_info.artifact_uri:
+        return ArtifactRepository.from_artifact_uri(run_info.artifact_uri, store)
+    else:
+        return _get_legacy_artifact_repo(store, run_info)
+
+
 def _create_run(experiment_id, source_name, source_version, entry_point_name, source_type):
     store = _get_store()
     run = store.create_run(experiment_id=experiment_id, user_id=_get_user_id(), run_name=None,
@@ -233,22 +241,25 @@ def _create_run(experiment_id, source_name, source_version, entry_point_name, so
                            entry_point_name=entry_point_name,
                            start_time=_get_unix_timestamp(),
                            source_version=source_version, tags=[])
-    return ActiveRun(run.info, store)
+    run_info = run.info
+    return ActiveRun(run_info, store, _get_artifact_repo(run_info, store))
 
 
 def get_run(run_uuid):
     """Return the run with the specified run UUID from the current tracking server."""
+    _validate_run_id(run_uuid)
     return _get_store().get_run(run_uuid)
 
 
 def _get_existing_run(run_uuid):
+    _validate_run_id(run_uuid)
     existing_run = get_run(run_uuid)
     if existing_run is None:
         raise Exception("Could not start run with UUID %s - no such run found." % run_uuid)
     store = _get_store()
     updated_info = store.update_run_info(
         run_uuid=run_uuid, run_status=RunStatus.RUNNING, end_time=None)
-    return ActiveRun(updated_info, store)
+    return ActiveRun(updated_info, store, _get_artifact_repo(updated_info, store))
 
 
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
@@ -284,8 +295,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                         "run" % _active_run.run_info.run_uuid)
     existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
     if existing_run_uuid:
+        _validate_run_id(existing_run_uuid)
         active_run_obj = _get_existing_run(existing_run_uuid)
-
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()
         active_run_obj = _create_run(experiment_id=exp_id_for_run,
@@ -368,11 +379,12 @@ atexit.register(end_run)
 def _get_model_log_dir(model_name, run_id):
     if not run_id:
         raise Exception("Must specify a run_id to get logging directory for a model.")
-    run = _get_store().get_run(run_id)
+    store = _get_store()
+    run = store.get_run(run_id)
     if run.info.artifact_uri:
-        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri)
+        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
     else:
-        artifact_repo = _get_legacy_artifact_repo(_get_store(), run.info)
+        artifact_repo = _get_legacy_artifact_repo(store, run.info)
     return artifact_repo.download_artifacts(model_name)
 
 
@@ -381,12 +393,12 @@ def _get_legacy_artifact_repo(file_store, run_info):
     # the introduction of "artifact_uri".
     uri = os.path.join(file_store.root_directory, str(run_info.experiment_id),
                        run_info.run_uuid, "artifacts")
-    return ArtifactRepository.from_artifact_uri(uri)
+    return ArtifactRepository.from_artifact_uri(uri, file_store)
 
 
 def _get_git_commit(path):
     try:
-        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound
+        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
         print("Notice: failed to import Git (the git executable is probably not on your PATH),"
               " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
@@ -397,5 +409,5 @@ def _get_git_commit(path):
         repo = Repo(path, search_parent_directories=True)
         commit = repo.head.commit.hexsha
         return commit
-    except (InvalidGitRepositoryError, GitCommandNotFound, ValueError):
+    except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
         return None

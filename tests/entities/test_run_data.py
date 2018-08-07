@@ -24,7 +24,8 @@ class TestRunData(unittest.TestCase):
 
     @staticmethod
     def _create():
-        metrics = [Metric(random_str(10), random_int(), int(time.time() + random_int(-1e4, 1e4)))
+        metrics = [Metric(random_str(10), random_int(0, 1000),
+                          int(time.time() + random_int(-1e4, 1e4)))
                    for _ in range(100)]
         params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
         rd = RunData()
