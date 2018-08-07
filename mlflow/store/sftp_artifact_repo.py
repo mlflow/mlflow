@@ -62,9 +62,9 @@ class SFTPArtifactRepository(ArtifactRepository):
         list_dir = os.path.join(artifact_dir, path) if path else artifact_dir
         artifact_files = self.sftp.listdir(list_dir)
         infos = []
-        for file in artifact_files:
-            file_path = file if path is None else os.path.join(path, file)
-            full_file_path = os.path.join(list_dir, file)
+        for file_name in artifact_files:
+            file_path = file_name if path is None else os.path.join(path, file_name)
+            full_file_path = os.path.join(list_dir, file_name)
             if self.sftp.isdir(full_file_path):
                 infos.append(FileInfo(file_path, True, None))
             else:
