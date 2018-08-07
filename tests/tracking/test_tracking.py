@@ -171,3 +171,26 @@ def test_log_artifact():
             assert len(dir_comparison.right_only) == 0
             assert len(dir_comparison.diff_files) == 0
             assert len(dir_comparison.funny_files) == 0
+
+
+def test_uri_types():
+    assert tracking.is_local_uri("mlruns")
+    assert tracking.is_local_uri("./mlruns")
+    assert tracking.is_local_uri("file:///foo/mlruns")
+    assert not tracking.is_local_uri("https://whatever")
+    assert not tracking.is_local_uri("http://whatever")
+    assert not tracking.is_local_uri("databricks")
+    assert not tracking.is_local_uri("databricks:whatever")
+    assert not tracking.is_local_uri("databricks://whatever")
+
+    assert tracking._is_databricks_uri("databricks")
+    assert tracking._is_databricks_uri("databricks:whatever")
+    assert tracking._is_databricks_uri("databricks://whatever")
+    assert not tracking._is_databricks_uri("mlruns")
+    assert not tracking._is_databricks_uri("http://whatever")
+
+    assert tracking._is_http_uri("http://whatever")
+    assert tracking._is_http_uri("https://whatever")
+    assert not tracking._is_http_uri("file://whatever")
+    assert not tracking._is_http_uri("databricks://whatever")
+    assert not tracking._is_http_uri("mlruns")
