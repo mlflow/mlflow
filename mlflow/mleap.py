@@ -2,14 +2,6 @@ from __future__ import absolute_import
 
 import os
 
-from pyspark.ml.pipeline import PipelineModel
-from pyspark.ml.base import Transformer
-
-
-import mleap.version
-from mleap.pyspark.spark_support import SimpleSparkSerializer
-
-
 from mlflow.utils.exception import SaveModelException 
 
 FLAVOR_NAME = "mleap"
@@ -26,6 +18,11 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     :param sample_input: A sample input that the model can evaluate. This is required by MLeap
                          for data schema inference.
     """
+    from pyspark.ml.pipeline import PipelineModel
+    from pyspark.ml.base import Transformer
+    import mleap.version
+    from mleap.pyspark.spark_support import SimpleSparkSerializer
+
     if sample_input is None:
         raise SaveModelException("A sample input must be specified" 
                                  " in order to add the MLeap flavor!")
@@ -39,13 +36,14 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
 
     # TODO(czumar): Additional validation - no custom transformers!
 
+    mleap_path_full = os.path.join(path, "mleap")
     mleap_datapath_sub = os.path.join("mleap", "model")
     mleap_datapath_full = os.path.join(path, mleap_datapath_sub)
-    if os.path.exists(mleap_datapath_full):
+    if os.path.exists(mleap_path_full):
         raise SaveModelException("MLeap model data path already exists at: {path}".format(
-            path=mleap_datapath_full))
+            path=mleap_path_full))
 
-    os.makedirs(mleap_datapath_full)
+    os.makedirs(mleap_path_full)
 
     dataset = spark_model.transform(sample_input)
     model_path = "file:{mp}".format(mp=mleap_datapath_full)

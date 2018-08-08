@@ -62,9 +62,9 @@ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\
 
-%s
+RUN if [ -d "/opt/mlflow" ]; then cd /opt/mlflow/java/ && mvn clean install ;fi
 
-RUN if [ -d "/opt/mlflow" ]; then mvn clean install /opt/mlflow/java/mlflow-java fi
+%s
 
 # Set up the program in the image
 WORKDIR /opt/mlflow

@@ -18,7 +18,8 @@ from pkg_resources import resource_filename
 import mlflow
 import mlflow.version
 
-from mlflow import pyfunc, mleap
+from mlflow import pyfunc
+from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
 from mlflow.models import Model
 from mlflow.version import VERSION as MLFLOW_VERSION
 
@@ -60,7 +61,7 @@ def _serve():
     """
     model_config_path = os.path.join(MODEL_PATH, "MLmodel")
     m = Model.load(model_config_path)
-    if mleap.FLAVOR_NAME in m.flavors and _container_includes_mlflow_source():
+    if MLEAP_FLAVOR_NAME in m.flavors and _container_includes_mlflow_source():
         _serve_mleap(m)
     elif pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m)
@@ -107,7 +108,9 @@ def _serve_pyfunc(model):
 
 
 def _serve_mleap(model):
-    os.system("mvn exec:java -Dexec.mainClass=com.databricks.mlflow.sagemaker.SageMakerServer -Dexec.args {mp}".format(mp=MODEL_PATH)) 
+    os.system("cd /opt/mlflow/java &&" 
+              " mvn exec:java -Dexec.mainClass=com.databricks.mlflow.sagemaker.SageMakerServer" 
+              " -Dexec.args {mp}".format(mp=MODEL_PATH)) 
 
 
 def _container_includes_mlflow_source():
