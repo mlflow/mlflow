@@ -58,7 +58,7 @@ mlflow_predict_model <- function(model, df) {
 #' Predict using a MLflow Model from a 'JSON' file.
 #'
 #' @param model_dir The path to the MLflow model, as a string.
-#' @param data_file 'JSON' file containing data frame to be used for prediction.
+#' @param data_file 'JSON' or 'CSV' file containing data frame to be used for prediction.
 #' @param restore Should \code{mlflow_restore()} be called before serving?
 #'
 #' @examples
@@ -83,6 +83,12 @@ mlflow_predict <- function(
 ) {
   if (restore) mlflow_restore()
 
+  data <- switch(
+    fs::path_ext(data_file),
+    json = jsonlite::read_json(data_file),
+    csv = read.csv(data_file)
+  )
+
   model <- mlflow_load_model(model_dir)
-  mlflow_predict_model()
+  mlflow_predict_model(model, data)
 }
