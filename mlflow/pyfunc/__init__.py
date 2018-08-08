@@ -122,7 +122,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
 
 
 
-def _load_model_conf(path):
+def _load_model_conf(path, run_id=None):
     """Load a model configuration stored in Python function format."""
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)
@@ -139,9 +139,7 @@ def _load_model_env(path, run_id=None):
         Returned value is a model-relative path to a Conda Environment file,
         or None if none was specified at model save time
     """
-    if run_id:
-        path = tracking._get_model_log_dir(path, run_id)
-    return _load_model_conf(path).get(ENV, None)
+    return _load_model_conf(path, run_id).get(ENV, None)
 
 def load_pyfunc(path, run_id=None, suppress_warnings=False):
     """
