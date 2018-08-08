@@ -121,7 +121,6 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
-
 def _load_model_conf(path, run_id=None):
     """Load a model configuration stored in Python function format."""
     if run_id:
@@ -133,6 +132,7 @@ def _load_model_conf(path, run_id=None):
                                                                             path=conf_path))
     return model.flavors[FLAVOR_NAME]
 
+
 def _load_model_env(path, run_id=None):
     """
         Get ENV file string from a model configuration stored in Python Function format.
@@ -140,6 +140,7 @@ def _load_model_env(path, run_id=None):
         or None if none was specified at model save time
     """
     return _load_model_conf(path, run_id).get(ENV, None)
+
 
 def load_pyfunc(path, run_id=None, suppress_warnings=False):
     """
