@@ -36,3 +36,7 @@ def get_jsonable_obj(data):
         return pd.DataFrame(data).to_dict(orient='records')
     else:  # by default just return whatever this is and hope for the best
         return data
+
+
+def get_major_minor_py_version(py_version):
+    return ".".join(py_version.split(".")[:2])

@@ -81,13 +81,16 @@ import pandas
 
 from mlflow import tracking
 from mlflow.models import Model
+from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+PY_VERSION = "python_version"
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None):
@@ -108,6 +111,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     :return: Updated model configuration.
     """
     parms = {MAIN: loader_module}
+    parms[PY_VERSION] = PYTHON_VERSION
     if code:
         parms[CODE] = code
     if data:
@@ -117,8 +121,14 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
-def load_pyfunc(path, run_id=None):
-    """Load a model stored in Python function format."""
+def load_pyfunc(path, run_id=None, suppress_warnings=False):
+    """
+    Load a model stored in Python function format.
+
+    :param suppress_warnings: If True, non-fatal warning messages associated with the model
+                              loading process will be suppressed. If False, these warning messages
+                              will be emitted.
+    """
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)
     conf_path = os.path.join(path, "MLmodel")
@@ -127,11 +137,27 @@ def load_pyfunc(path, run_id=None):
         raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
                                                                             path=conf_path))
     conf = model.flavors[FLAVOR_NAME]
+    model_py_version = conf.get(PY_VERSION)
+    if not suppress_warnings:
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(path, conf[CODE])
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
     return importlib.import_module(conf[MAIN]).load_pyfunc(data_path)
+
+
+def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
+    if model_py_version is None:
+        eprint("The specified model does not have a specified Python version. It may be"
+               " incompatible with the version of Python that is currently running:"
+               " Python {version}".format(
+                   version=PYTHON_VERSION))
+    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
+        eprint("The version of Python that the model was saved in, Python {model_version}, differs"
+               " from the version of Python that is currently running, Python {system_version},"
+               " and may be incompatible".format(
+                   model_version=model_py_version, system_version=PYTHON_VERSION))
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
