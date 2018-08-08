@@ -385,7 +385,7 @@ Request Structure
 
 .. _mlflowMlflowServicegetParam:
 
-Get Params
+Get Param
 =================
 
 
