@@ -4,8 +4,8 @@
 \alias{mlflow_run}
 \title{Run in MLflow}
 \usage{
-mlflow_run(uri, entry_point = NULL, param_list = NULL,
-  experiment_id = NULL, new_dir = FALSE)
+mlflow_run(uri, entry_point = NULL, version = NULL, param_list = NULL,
+  experiment_id = NULL, mode = NULL)
 }
 \arguments{
 \item{uri}{A directory or an R script.}
@@ -16,11 +16,21 @@ mlflow_run(uri, entry_point = NULL, param_list = NULL,
 
 \item{experiment_id}{ID of the experiment under which to launch the run.}
 
-\item{new_dir}{If `TRUE`, copies the project into a temporary working directory and
-runs it from there. Otherwise, uses `uri` as the working directory when running the
-project.}
+\item{mode}{Execution mode to use for run.}
+
+\item{cluster_spec}{Path to JSON file describing the cluster to use when launching a run on Databricks.}
+
+\item{git_username}{Username for HTTP(S) Git authentication.}
+
+\item{git_password}{Password for HTTP(S) Git authentication.}
+
+\item{no_conda}{If specified, assume that MLflow is running within a Conda environment with the necessary
+dependencies for the current project instead of attempting to create a new conda environment. Only
+valid if running locally.}
+
+\item{storage_dir}{Only valid when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
+parameters of type 'path' to subdirectories of storage_dir.}
 }
 \description{
-Runs the given file, expression or function within
-the context of an MLflow run.
+Wrapper for `mlflow run`.
 }

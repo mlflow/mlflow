@@ -99,7 +99,7 @@ mlflow run examples/ --entry-point train.R
 Notice that is equivalent to running,
 
 ``` bash
-Rscript -e "mlflow::mlflow_script('train.R')"
+Rscript -e "mlflow::mlflow_source('train.R')"
 ```
 
 and `train.R` performing training and logging as follows:
@@ -156,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `mlflow-model/MLmodel` like:
 
-    ## time_created: 1.5337016e+09
+    ## time_created: 1.533712e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
