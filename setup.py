@@ -28,7 +28,7 @@ setup(
     install_requires=[
         'awscli',
         'click>=6.7',
-        'databricks-cli',
+        'databricks-cli>=0.8.0',
         'requests>=2.17.3',
         'six>=1.10.0',
         'uuid',
@@ -43,7 +43,6 @@ setup(
         'gitpython>=2.1.0',
         'pyyaml',
         'boto3',
-        'google-cloud-storage',
         'querystring_parser',
         'mleap>=0.8.1'
     ],

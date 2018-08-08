@@ -101,6 +101,16 @@ def mkdir(root, name=None):  # noqa
         raise e
 
 
+def make_containing_dirs(path):
+    """
+    Create the base directory for a given file path if it does not exist; also creates parent
+    directories.
+    """
+    dir_name = os.path.dirname(path)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+
+
 def write_yaml(root, file_name, data, overwrite=False):
     """
     Write dictionary data in yaml format.

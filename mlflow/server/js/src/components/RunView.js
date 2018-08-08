@@ -83,7 +83,7 @@ class RunView extends Component {
   render() {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-    const duration = run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : '(unknown)';
+    const duration = run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
     const experimentId = experiment.getExperimentId();
     const tableStyles = {
       table: {
@@ -134,7 +134,7 @@ class RunView extends Component {
           {run.source_version ?
             <div className="run-info">
               <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{run.source_version.substring(0, 20)}</span>
+              <span className="metadata-info">{Utils.renderVersion(run)}</span>
             </div>
             : null
           }
@@ -149,10 +149,13 @@ class RunView extends Component {
             <span className="metadata-header">User: </span>
             <span className="metadata-info">{run.getUserId()}</span>
           </div>
-          <div className="run-info">
-            <span className="metadata-header">Duration: </span>
-            <span className="metadata-info">{Utils.formatDuration(duration)}</span>
-          </div>
+          {duration !== null ?
+            <div className="run-info">
+              <span className="metadata-header">Duration: </span>
+              <span className="metadata-info">{Utils.formatDuration(duration)}</span>
+            </div>
+            : null
+          }
         </div>
         {runCommand ?
           <div className="RunView-info">

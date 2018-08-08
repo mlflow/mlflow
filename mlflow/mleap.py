@@ -1,3 +1,15 @@
+"""
+MLflow integration of the Spark MLlib serialization tool.
+
+This module provides utilities for saving models using the MLeap 
+using the MLeap library's persistence mechanism.
+
+A companion module for loading MLFlow models with the MLeap flavor format is available in the
+`mlflow/java` package.
+
+For more information about MLeap, see https://github.com/combust/mleap.
+"""
+
 from __future__ import absolute_import
 
 import os

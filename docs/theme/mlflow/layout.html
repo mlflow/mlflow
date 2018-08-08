@@ -21,12 +21,8 @@
   {% block htmltitle %}
   <title>{{ title|striptags|e }}{{ titlesuffix }}</title>
   {% endblock %}
-  {# CANONICAL #}
-  {% if target_cloud == 'azure' %}  
-    <link rel="canonical" href="https://docs.azuredatabricks.net/{{ pagename }}.html">
-  {% else %}
-    <link rel="canonical" href="https://docs.databricks.com/{{ pagename }}.html">
-  {% endif %}
+  {# CANONICAL #} 
+  <link rel="canonical" href="https://www.mlflow.org/docs/latest/{{ pagename }}.html">
   {# FAVICON #}
   {% if favicon %}
     <link rel="shortcut icon" href="{{ pathto('_static/' + favicon, 1) }}"/>

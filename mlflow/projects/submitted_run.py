@@ -1,89 +1,90 @@
-import multiprocessing
+from abc import abstractmethod
+
 import os
 import signal
-import sys
 
 from mlflow.entities.run_status import RunStatus
-from mlflow.projects.pollable_run import maybe_set_run_terminated
 from mlflow.utils.logging_utils import eprint
-
-
-def monitor_run(pollable_run, active_run):
-    """
-    Polls the run for termination, sending updates on the run's status to a tracking server via
-    the passed-in `ActiveRun` instance. This function is intended to be run asynchronously
-    in a subprocess.
-    """
-    # Add a SIGTERM & SIGINT handler to the current process that cancels the run
-    def handler(signal_num, stack_frame):  # pylint: disable=unused-argument
-        eprint("=== Run (%s) was interrupted, cancelling run... ===" % pollable_run.describe())
-        pollable_run.cancel()
-        maybe_set_run_terminated(active_run, "FAILED")
-        sys.exit(0)
-    signal.signal(signal.SIGTERM, handler)
-    signal.signal(signal.SIGINT, handler)
-    # Perform any necessary setup for the pollable run, then wait on it to finish
-    pollable_run.setup()
-    run_succeeded = pollable_run.wait()
-    if run_succeeded:
-        eprint("=== Run (%s) succeeded ===" % pollable_run.describe())
-        maybe_set_run_terminated(active_run, "FINISHED")
-    else:
-        eprint("=== Run (%s) failed ===" % pollable_run.describe())
-        maybe_set_run_terminated(active_run, "FAILED")
 
 
 class SubmittedRun(object):
     """
-    Class exposing information about an MLflow project run submitted for execution.
-    Note that methods that return run information (e.g. `run_id` and `get_status`) may return None
-    if we launched a run against a tracking server that our local client cannot access.
+    Class wrapping a MLflow project run (e.g. a subprocess running an entry point
+    command or a Databricks Job run) and exposing methods for waiting on / cancelling the run.
+    This class defines the interface that the MLflow project runner uses to manage the lifecycle
+    of runs launched in different environments (e.g. runs launched locally / on Databricks).
+
+    ``SubmittedRun`` is not thread-safe. That is, concurrent calls to wait() / cancel()
+    from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
+    run.
+
+    Note: Subclasses of ``SubmittedRun`` are expected to expose a ```run_id`` member containing the
+    run's MLflow run ID.
     """
-    def __init__(self, active_run, pollable_run_obj):
-        self._active_run = active_run
-        # Launch subprocess that watches our pollable run & sends status updates to the tracking
-        # server
-        self._monitoring_subprocess = multiprocessing.Process(
-            target=monitor_run, args=(pollable_run_obj, self._active_run,))
-        self._monitoring_subprocess.start()
-
-    @property
-    def run_id(self):
-        """Returns the MLflow run ID of the current run"""
-        # TODO: we handle the case where the local client can't access the tracking server to
-        # support e.g. running projects on Databricks without specifying a tracking server.
-        # Should be able to remove this logic once Databricks has a hosted tracking server.
-        if self._active_run:
-            return self._active_run.run_info.run_uuid
-        return None
-
-    def get_status(self):
-        """Gets the human-readable status of the MLflow run from the tracking server."""
-        if not self._active_run:
-            eprint("Can't get MLflow run status; the run's status has not been "
-                   "persisted to an accessible tracking server.")
-            return None
-        return RunStatus.to_string(self._active_run.get_run().info.status)
-
+    @abstractmethod
     def wait(self):
         """
-        Waits for the run to complete. Note that in some cases (e.g. remote execution on
-        Databricks), we may wait until the remote job completes rather than until the MLflow run
-        completes.
+        Wait for the run to finish, returning True if the run succeeded and false otherwise. Note
+        that in some cases (e.g. remote execution on Databricks), we may wait until the remote job
+        completes rather than until the MLflow run completes.
         """
-        self._monitoring_subprocess.join()
+        pass
 
+    @abstractmethod
+    def get_status(self):
+        """
+        Get status of the run.
+        """
+        pass
+
+    @abstractmethod
     def cancel(self):
         """
-        Attempts to cancel the current run by interrupting the monitoring process; note that this
-        will not cancel the run if it has already completed.
+        Cancel the run (interrupts the command subprocess, cancels the Databricks run, etc) and
+        waits for it to terminate. The MLflow run status may not be set correctly
+        upon run cancellation.
         """
-        try:
-            os.kill(self._monitoring_subprocess.pid, signal.SIGTERM)
-        except OSError:
-            pass
-        self._monitoring_subprocess.join()
-        # In rare cases, it's possible that we cancel the monitoring subprocess before it has a
-        # chance to set up a signal handler. In this case we should update the status of the MLflow
-        # run here.
-        maybe_set_run_terminated(self._active_run, "FAILED")
+        pass
+
+
+class LocalSubmittedRun(SubmittedRun):
+    """
+    Instance of ``SubmittedRun`` corresponding to a subprocess launched to run an entry point
+    command locally.
+    """
+    def __init__(self, run_id, command_proc):
+        super(LocalSubmittedRun, self).__init__()
+        self.run_id = run_id
+        self.command_proc = command_proc
+
+    def wait(self):
+        return self.command_proc.wait() == 0
+
+    def cancel(self):
+        # Interrupt child process if it hasn't already exited
+        if self.command_proc.poll() is None:
+            # Kill the the process tree rooted at the child if it's the leader of its own process
+            # group, otherwise just kill the child
+            try:
+                if self.command_proc.pid == os.getpgid(self.command_proc.pid):
+                    os.killpg(self.command_proc.pid, signal.SIGTERM)
+                else:
+                    self.command_proc.terminate()
+            except OSError:
+                # The child process may have exited before we attempted to terminate it, so we
+                # ignore OSErrors raised during child process termination
+                eprint("Failed to terminate child process (PID %s) corresponding to MLflow "
+                       "run with ID %s. The process may have already "
+                       "exited." % (self.command_proc.pid, self.run_id))
+            self.command_proc.wait()
+
+    def _get_status(self):
+        exit_code = self.command_proc.poll()
+        if exit_code is None:
+            return RunStatus.RUNNING
+        if exit_code == 0:
+            return RunStatus.FINISHED
+        return RunStatus.FAILED
+
+    def get_status(self):
+        return RunStatus.to_string(self._get_status())

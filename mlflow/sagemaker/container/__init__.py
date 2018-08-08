@@ -57,8 +57,9 @@ def _serve():
     """
     Serve the model.
 
-    Read the MLmodel config, initialize the conda environment if needed and start python server.
+    Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
+<<<<<<< HEAD
     model_config_path = os.path.join(MODEL_PATH, "MLmodel")
     m = Model.load(model_config_path)
     if MLEAP_FLAVOR_NAME in m.flavors and _container_includes_mlflow_source():
@@ -71,6 +72,12 @@ def _serve():
 
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
+=======
+    m = Model.load("/opt/ml/model/MLmodel")
+    if pyfunc.FLAVOR_NAME not in m.flavors:
+        raise Exception("Only supports pyfunc models and this is not one.")
+    conf = m.flavors[pyfunc.FLAVOR_NAME]
+>>>>>>> origin/master
     bash_cmds = []
     if pyfunc.ENV in conf:
         print("activating custom environment")

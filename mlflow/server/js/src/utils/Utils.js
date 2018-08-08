@@ -90,14 +90,17 @@ class Utils {
     return path.replace(/(.*[^/])\.[^/.]+$/, "$1")
   }
 
+  static getGitHubRegex() {
+    return /[@/]github.com[:/]([^/.]+)\/([^/.]+)/;
+  }
+
   static renderSource(run) {
     if (run.source_type === "PROJECT") {
       let res = Utils.dropExtension(Utils.baseName(run.source_name));
       if (run.entry_point && run.entry_point !== "main") {
         res += ":" + run.entry_point;
       }
-      const GITHUB_RE = /[:@]github.com[:/]([^/.]+)\/([^/.]+)/;
-      const match = run.source_name.match(GITHUB_RE);
+      const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
         const url = "https://github.com/" + match[1] + "/" + match[2];
         res = <a href={url}>{res}</a>;
@@ -112,8 +115,7 @@ class Utils {
     if (run.source_version) {
       const shortVersion = run.source_version.substring(0, 6);
       if (run.source_type === "PROJECT") {
-        const GITHUB_RE = /[:@]github.com[:/]([^/.]+)\/([^/.]+)/;
-        const match = run.source_name.match(GITHUB_RE);
+        const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
           const url = "https://github.com/" + match[1] + "/" + match[2] + "/tree/" + run.source_version;
           return <a href={url}>{shortVersion}</a>;

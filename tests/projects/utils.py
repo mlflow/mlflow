@@ -1,3 +1,4 @@
+import filecmp
 import mock
 import os
 
@@ -10,18 +11,27 @@ from mlflow.projects import Project
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
-GIT_PROJECT_URI = "https://github.com/databricks/mlflow-example"
+GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
+SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
 
 
 def load_project():
     """ Loads an example project for use in tests, returning an in-memory `Project` object. """
     with open(os.path.join(TEST_PROJECT_DIR, "MLproject")) as mlproject_file:
         project_yaml = yaml.safe_load(mlproject_file.read())
-    return Project(uri=TEST_PROJECT_DIR, yaml_obj=project_yaml)
+    return Project(yaml_obj=project_yaml)
 
 
 def validate_exit_status(status_str, expected):
     assert RunStatus.from_string(status_str) == expected
+
+
+def assert_dirs_equal(expected, actual):
+    dir_comparison = filecmp.dircmp(expected, actual)
+    assert len(dir_comparison.left_only) == 0
+    assert len(dir_comparison.right_only) == 0
+    assert len(dir_comparison.diff_files) == 0
+    assert len(dir_comparison.funny_files) == 0
 
 
 @pytest.fixture()

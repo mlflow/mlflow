@@ -6,14 +6,14 @@ to MLflow locally.
 Prerequisites
 -------------
 
-We recommend installing MLflow in its own virtualenv for development, as follows:
+We recommend installing MLflow in its own conda environment for development, as follows:
 
 .. code:: bash
 
-    virtualenv env
-    source env/bin/activate
+    conda create --name mlflow-dev-env
+    source activate mlflow-dev-env
     pip install -r dev-requirements.txt
-    pip install -r tox-requirements.txt
+    pip install -r test-requirements.txt
     pip install -e .  # installs mlflow from current checkout
 
 
