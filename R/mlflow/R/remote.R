@@ -16,7 +16,7 @@ mlflow_tracking_url_get <- function() {
   if (startsWith(env_url, "http")) {
     env_url
   } else {
-    mlflow_connection_url(mlflow_connection_active_get())
+    mlflow_connection_url(mlflow_get_or_create_active_connection())
   }
 }
 
