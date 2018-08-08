@@ -4,6 +4,8 @@
 \name{reexports}
 \alias{reexports}
 \alias{\%||\%}
+\alias{reexports}
+\alias{\%>\%}
 \title{Objects exported from other packages}
 \keyword{internal}
 \description{
@@ -11,6 +13,8 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
+  \item{purrr}{\code{\link[purrr]{\%>\%}}}
+
   \item{rlang}{\code{\link[rlang]{\%||\%}}}
 }}
 
