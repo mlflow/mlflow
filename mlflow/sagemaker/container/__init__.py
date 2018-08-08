@@ -18,8 +18,7 @@ from pkg_resources import resource_filename
 import mlflow
 import mlflow.version
 
-from mlflow import pyfunc
-from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
+from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.version import VERSION as MLFLOW_VERSION
 
@@ -59,10 +58,9 @@ def _serve():
 
     Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
-<<<<<<< HEAD
     model_config_path = os.path.join(MODEL_PATH, "MLmodel")
     m = Model.load(model_config_path)
-    if MLEAP_FLAVOR_NAME in m.flavors and _container_includes_mlflow_source():
+    if mleap.FLAVOR_NAME in m.flavors and _container_includes_mlflow_source():
         _serve_mleap(m)
     elif pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m)
@@ -72,12 +70,6 @@ def _serve():
 
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
-=======
-    m = Model.load("/opt/ml/model/MLmodel")
-    if pyfunc.FLAVOR_NAME not in m.flavors:
-        raise Exception("Only supports pyfunc models and this is not one.")
-    conf = m.flavors[pyfunc.FLAVOR_NAME]
->>>>>>> origin/master
     bash_cmds = []
     if pyfunc.ENV in conf:
         print("activating custom environment")
@@ -88,7 +80,7 @@ def _serve_pyfunc(model):
             os.makedirs(env_path_dst_dir)
         # TODO: should we test that the environment does not include any of the server dependencies?
         # Those are gonna be reinstalled. should probably test this on the client side
-        shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
+        shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
         os.system("conda env create -n custom_env -f {}".format(env_path_dst))
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
