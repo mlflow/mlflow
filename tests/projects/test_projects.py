@@ -1,7 +1,5 @@
-import git
-import hashlib
 import os
-import subprocess
+import git
 import tempfile
 
 from distutils import dir_util
@@ -11,7 +9,6 @@ import pytest
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
-from mlflow.projects import _project_spec
 from mlflow.utils.exception import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
@@ -210,13 +207,3 @@ def test_storage_dir(tmpdir):
     """
     assert os.path.dirname(mlflow.projects._get_storage_dir(tmpdir.strpath)) == tmpdir.strpath
     assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()
-
-
-@pytest.mark.large
-def test_create_empty_env():
-    """Verify that we create an empty conda env when running a project without a conda env."""
-    project = _project_spec.Project(conda_env_path=None, entry_points={})
-    expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
-    assert mlflow.projects._get_or_create_conda_env(project) == expected_env_name
-    # Try activating the environment in a subprocess, verify that it works
-    subprocess.check_output(["bash", "-c", "source activate %s" % expected_env_name])
