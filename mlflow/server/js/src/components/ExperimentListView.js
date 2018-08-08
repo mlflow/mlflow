@@ -18,7 +18,14 @@ class ExperimentListView extends Component {
   };
 
   componentDidMount() {
-    window.addEventListener('resize', () => { this.setState({height: window.innerHeight })});
+    this.resizeListener = () => { 
+      this.setState({height: window.innerHeight });
+    };
+    window.addEventListener('resize', this.resizeListener);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.resizeListener);
   }
 
   render() {
