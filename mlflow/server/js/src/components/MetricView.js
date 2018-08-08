@@ -23,7 +23,7 @@ class MetricView extends Component {
   };
 
     render() {
-        if (this.props.metrics.length == 1) {
+        if (this.props.metrics.length === 1) {
             return (
                 <div className="MetricView">
                     <h2 className="MetricView-title">{this.props.title} </h2>
