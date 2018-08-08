@@ -154,9 +154,9 @@ The directory containing the model looks as follows:
 
     ## [1] "MLmodel"     "r_model.bin"
 
-and the model definition `mlflow-model/MLmodel` like:
+and the model definition `model/MLmodel` like:
 
-    ## time_created: 1.533712e+09
+    ## time_created: 1.5337677e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
@@ -171,14 +171,14 @@ models in a production environment.
 You can serve a model by running,
 
 ``` bash
-mlflow rfunc serve mlflow-model
+mlflow rfunc serve model
 ```
 
 which is equivalent to
 running,
 
 ``` bash
-Rscript -e "mlflow_serve('mlflow-model')"
+Rscript -e "mlflow_serve('model')"
 ```
 
 <img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=460 />
@@ -186,14 +186,13 @@ Rscript -e "mlflow_serve('mlflow-model')"
 You can also run:
 
 ``` bash
-mlflow rfunc predict mlflow-model data.json
+mlflow rfunc predict model data.json
 ```
 
-which is equivalent to
-running,
+which is equivalent to running,
 
 ``` bash
-Rscript -e "mlflow_predict('mlflow-model', jsonlite::read_json('data.json'))"
+Rscript -e "mlflow_predict('model', jsonlite::read_json('data.json'))"
 ```
 
 ## Dependencies

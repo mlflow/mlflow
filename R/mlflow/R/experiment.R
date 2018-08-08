@@ -385,6 +385,6 @@ mlflow_log_artifact <- function(path) {
 #'   will be saved.
 #'
 #' @export
-mlflow_log_model <- function(f, path = "mlflow-model") {
+mlflow_log_model <- function(f, path = "model") {
   stop("Not implemented.")
 }

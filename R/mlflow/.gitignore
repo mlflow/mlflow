@@ -11,7 +11,7 @@
 .Rproj.user
 mlruns/
 .DS_Store
-mlflow-model/
+model/
 internal
 packrat.lock
 r-dependencies.txt

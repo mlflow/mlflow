@@ -134,13 +134,13 @@ Each MLflow Model is simply a directory containing arbitrary files, together wit
 The directory containing the model looks as follows:
 
 ```{r echo=FALSE}
-dir("mlflow-model")
+dir("model")
 ```
 
-and the model definition `mlflow-model/MLmodel` like:
+and the model definition `model/MLmodel` like:
 
 ```{r echo=FALSE}
-cat(paste(readLines("mlflow-model/MLmodel"), collapse = "\n"))
+cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
 ## Deployment
@@ -150,13 +150,13 @@ MLflow provides tools for deployment on a local machine and several production e
 You can serve a model by running,
 
 ```{bash eval=FALSE}
-mlflow rfunc serve mlflow-model
+mlflow rfunc serve model
 ```
 
 which is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow_serve('mlflow-model')"
+Rscript -e "mlflow_serve('model')"
 ```
 
 <img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=460 />
@@ -164,13 +164,13 @@ Rscript -e "mlflow_serve('mlflow-model')"
 You can also run:
 
 ```{bash eval=FALSE}
-mlflow rfunc predict mlflow-model data.json
+mlflow rfunc predict model data.json
 ```
 
 which is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow_predict('mlflow-model', jsonlite::read_json('data.json'))"
+Rscript -e "mlflow_predict('model', jsonlite::read_json('data.json'))"
 ```
 
 ## Dependencies
