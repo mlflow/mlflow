@@ -45,7 +45,8 @@ class JavaFunc {
             return loaderModule.load(modelConfig);
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
             e.printStackTrace();
-            throw new LoaderModuleException(loaderClassName);
+            throw new LoaderModuleException(String.format(
+                "Failed to load model using loader module with name %s", loaderClassName));
         }
     }
 

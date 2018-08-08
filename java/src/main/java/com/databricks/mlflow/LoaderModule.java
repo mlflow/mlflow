@@ -27,7 +27,7 @@ public abstract class LoaderModule<T extends Flavor> {
         return createPredictor(absoluteModelPath);
     }
 
-    protected abstract Predictor createPredictor(String modelDataPath);
+    protected abstract Predictor createPredictor(String modelDataPath) throws LoaderModuleException;
 
     protected abstract Class<T> getFlavorClass();
 
