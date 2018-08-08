@@ -18,8 +18,7 @@ class JavaFunc {
     private static final String LOADER_METHOD_NAME = "load";
 
     protected static Predictor load(String path, Optional<String> runId)
-        throws IOException, InvocationTargetException, InstantiationException,
-               LoaderModuleException {
+        throws LoaderModuleException {
         if (runId.isPresent()) {
             // Get the run-relative model logging directory
             try {
@@ -30,9 +29,17 @@ class JavaFunc {
                     "The model could not be loaded as a java function from a run-relative path");
             }
         }
-        Model config = Model.fromRootPath(path);
+
+        Optional<Model> config = Optional.<Model>empty();
+        try {
+            config = Optional.of(Model.fromRootPath(path));
+        } catch (IOException e) {
+            throw new LoaderModuleException(
+                String.format("Failed to load model cofiguration file with path: %s", path));
+        }
+
         Optional<JavaFuncFlavor> javaFuncFlavor =
-            config.getFlavor(JavaFuncFlavor.FLAVOR_NAME, JavaFuncFlavor.class);
+            config.get().getFlavor(JavaFuncFlavor.FLAVOR_NAME, JavaFuncFlavor.class);
 
         if (!javaFuncFlavor.isPresent()) {
             throw new LoaderModuleException(
@@ -41,17 +48,18 @@ class JavaFunc {
                     JavaFuncFlavor.FLAVOR_NAME));
         }
 
-        return loadModelFromClass(javaFuncFlavor.get().getLoaderClassName(), config);
+        return loadModelFromClass(javaFuncFlavor.get().getLoaderClassName(), config.get());
     }
 
     private static Predictor loadModelFromClass(String loaderClassName, Model modelConfig)
-        throws InvocationTargetException, InstantiationException, LoaderModuleException {
+        throws LoaderModuleException {
         try {
             Class<?> loaderClass = Class.forName(loaderClassName);
             Constructor<?> cons = loaderClass.getConstructor();
             LoaderModule loaderModule = (LoaderModule) cons.newInstance();
             return loaderModule.load(modelConfig);
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException
+            | InvocationTargetException | InstantiationException e) {
             e.printStackTrace();
             throw new LoaderModuleException(String.format(
                 "Failed to load model using loader module with name %s", loaderClassName));
