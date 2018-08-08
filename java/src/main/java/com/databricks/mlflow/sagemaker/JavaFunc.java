@@ -65,13 +65,4 @@ class JavaFunc {
                 "Failed to load model using loader module with name %s", loaderClassName));
         }
     }
-
-    public static void main(String[] args) {
-        try {
-            String path = args[0];
-            JavaFunc.load(path, Optional.<String>empty());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 }
