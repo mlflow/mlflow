@@ -1,9 +1,10 @@
 #' Run Script
 #'
-#' Run's an R script in the context of 'MLflow', designed to be used by
+#' Runs an R script in the context of 'MLflow', designed to be used by
 #' tools like terminal or RStudio.
 #'
+#' @param script Path to the script to be run.
 #' @export
-mlflow_script <- function(...) {
-
+mlflow_script <- function(script) {
+  source(script)
 }

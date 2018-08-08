@@ -4,9 +4,12 @@
 \alias{mlflow_script}
 \title{Run Script}
 \usage{
-mlflow_script(...)
+mlflow_script(script)
+}
+\arguments{
+\item{script}{Path to the script to be run.}
 }
 \description{
-Run's an R script in the context of 'MLflow', designed to be used by
+Runs an R script in the context of 'MLflow', designed to be used by
 tools like terminal or RStudio.
 }
