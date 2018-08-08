@@ -351,7 +351,13 @@ with.mlflow_run_context <- function(x, code) {
 
 mlflow_ensure_run <- function(run_uuid) {
   if (is.null(run_uuid)) {
+    # ensure connection is available and initialized
+    mlflow_connection_active_get()
+
+    # create active run
     mlflow_create_run()
+
+    # retrieve active run
     run_uuid <- mlflow_active_run()
   }
 
