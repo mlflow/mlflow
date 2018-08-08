@@ -28,8 +28,8 @@ install:
   - conda info -a
   - pip install --upgrade pip
   - pip install .
-  - pip install -r -q dev-requirements.txt
-  - pip install -r -q tox-requirements.txt
+  - pip install -r dev-requirements.txt -q
+  - pip install -r tox-requirements.txt -q
   - export MLFLOW_HOME=$(pwd)
   # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
   - sudo rm -f /etc/boto.cfg
