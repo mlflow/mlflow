@@ -10,7 +10,6 @@ from mlflow.projects import _project_spec
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
-TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
 
