@@ -1,6 +1,6 @@
 package com.databricks.mlflow.sagemaker;
 
-import com.databricks.mlflow.sagemaker.LeapFrameUtils;
+import com.databricks.mlflow.mleap.LeapFrameUtils;
 
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 

@@ -1,4 +1,4 @@
-package com.databricks.mlflow;
+package com.databricks.mlflow.utils;
 
 public class TrackingUtils {
     public static String getModelLogDir(String path, String runId)

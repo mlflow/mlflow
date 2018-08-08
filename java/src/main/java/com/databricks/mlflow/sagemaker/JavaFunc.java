@@ -3,9 +3,8 @@ package com.databricks.mlflow.sagemaker;
 import com.databricks.mlflow.Flavor;
 import com.databricks.mlflow.LoaderModule;
 import com.databricks.mlflow.LoaderModuleException;
-import com.databricks.mlflow.TrackingUtils;
 import com.databricks.mlflow.models.Model;
-import com.databricks.mlflow.utils.PackageInstaller;
+import com.databricks.mlflow.utils.TrackingUtils;
 
 import java.io.File;
 import java.io.IOException;

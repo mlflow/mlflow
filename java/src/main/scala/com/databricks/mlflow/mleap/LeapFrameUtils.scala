@@ -1,4 +1,4 @@
-package com.databricks.mlflow.sagemaker;
+package com.databricks.mlflow.mleap;
 
 import java.nio.charset.Charset
 
