@@ -23,7 +23,6 @@ class SFTPArtifactRepository(ArtifactRepository):
             'password': parsed.password
         }
         self.path = parsed.path
-        # TODO read environment variables
 
         if client:
             self.sftp = client
@@ -38,6 +37,10 @@ class SFTPArtifactRepository(ArtifactRepository):
                     ssh_config.parse(f)
 
             user_config = ssh_config.lookup(self.config['host'])
+
+            if self.config['username'] is None and 'username' in user_config:
+                self.config['username'] = user_config['username']
+
             if 'identityfile' in user_config:
                 self.config['private_key'] = user_config['identityfile'][0]
 
