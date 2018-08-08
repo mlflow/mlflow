@@ -9,8 +9,8 @@ import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer} from 'recharts';
-
+import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label} from 'recharts';
+import './CompareRunScatter.css';
 
 class CompareRunScatter extends Component {
   static propTypes = {
@@ -18,13 +18,6 @@ class CompareRunScatter extends Component {
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
   };
-
-  state = {
-    scatter: {
-      x: null,
-      y: null,
-    }
-  }
 
   constructor(props) {
     super(props);
@@ -103,44 +96,68 @@ class CompareRunScatter extends Component {
       scatterData.push({index, x: +x, y: +y});
     });
 
-    return (
-      <div>
-        <h2>Scatter Plot</h2>
-        <div style={{width: "25%", float: "right"}}>
-          <p>
-            <label htmlFor="selectXAxis">X-axis</label> 
-            {this.renderSelect("selectXAxis", "x")}
-          </p>
-          <p>
-            <label htmlFor="selectYAxis">Y-axis</label> 
-            {this.renderSelect("selectYAxis", "y")}
-          </p>
+    return (<div>
+      <h2>Scatter Plot</h2>
+      <div className="container">
+        <div className="row">
+          <form className="col-xs-3">
+            <div className="form-group">
+              <label htmlFor="y-axis-selector">X-axis:</label>
+              {this.renderSelect("x")}
+            </div>
+            <div className="form-group">
+              <label htmlFor="y-axis-selector">Y-axis:</label>
+              {this.renderSelect("y")}
+            </div>
+          </form>
+          <div className="col-xs-9">
+            <ResponsiveContainer width="100%" aspect={1.55}>
+              <ScatterChart>
+                <XAxis type="number" dataKey='x' name='x'>
+                  {this.renderAxisLabel('x')}
+                </XAxis>
+                <YAxis type="number" dataKey='y' name='y'>
+                  {this.renderAxisLabel('y')}
+                </YAxis>
+                <CartesianGrid />
+                <Tooltip 
+                  active={true}
+                  cursor={{strokeDasharray: '3 3'}}
+                  content={this.renderTooltip.bind(this)}/>
+                <Scatter data={scatterData} fill='#8884d8' />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <ResponsiveContainer width="70%" aspect={1.55}>
-          <ScatterChart>
-            <XAxis type="number" dataKey={'x'} name={'x'}/>
-            <YAxis type="number" dataKey={'y'} name={'y'}/>
-            <CartesianGrid />
-            <Tooltip cursor={{strokeDasharray: '3 3'}}
-              content={this.renderTooltip.bind(this)}/>
-            <Scatter data={scatterData} fill='#8884d8' />
-          </ScatterChart>
-        </ResponsiveContainer>
-      </div>);
+      </div>
+    </div>);
   }
 
-  renderSelect(id, axis) {
-    const onChangeSelect = (axis) => (e) => {
-      const isMetric = !!+e.target.value.slice(0,1);
-      const key = e.target.value.slice(1);
-      this.setState({[axis]: {isMetric, key}});
-    };
+  renderAxisLabel(axis) {
+    const key = this.state[axis];
+    return (<Label
+      angle={axis === "x" ? 0 : -90}
+      offset={axis === "x"? -5 : 5}
+      value={
+        (key.isMetric ? "Metric" : "Parameter")
+        + ": "
+        + key.key
+      }
+      position={axis === "x" ? "insideBottom" : "insideLeft"}/>);
+  }
 
+  renderSelect(axis) {
     return (
-      <select id={id}
-              onChange={onChangeSelect(axis)}
-              value={(this.state[axis].isMetric?"1":"0")
-                +this.state[axis].key}>
+      <select
+        className="form-control"
+        id={axis + "-axis-selector"}
+        onChange={(e) => {
+          const isMetric = !!+e.target.value.slice(0,1);
+          const key = e.target.value.slice(1);
+          this.setState({[axis]: {isMetric, key}});
+        }}
+        value={(this.state[axis].isMetric?"1":"0")
+          +this.state[axis].key}>
         <optgroup label="Parameter">
           {this.paramKeys.map((p) =>
             <option key={p} value={"0"+p}>{p}</option>
@@ -158,21 +175,33 @@ class CompareRunScatter extends Component {
   renderTooltip(item) {
     if(item.payload.length > 0) {
       const i = item.payload[0].payload.index;
-      return <div>
-        {this.props.runInfos[i].run_uuid}
-        <h4>Parameters</h4>
-        <ul>{
-          this.props.paramLists[i].map((p) =>
-            <li>{p.key}: {p.value}</li>
-          )
-        }</ul>
-        <h4>Metrics</h4>
-        <ul>{
-          this.props.metricLists[i].map((p) =>
-            <li>{p.key}: {Utils.formatMetric(p.value)}</li>
-          )
-        }</ul>
-      </div>
+      return (
+        <div className="panel panel-default scatter-tooltip">
+          <div className="panel-heading">
+            <h3 className="panel-title">{this.props.runInfos[i].run_uuid}</h3>
+          </div>
+          <div className="panel-body">
+            <div className="row">
+              <div className="col-xs-6">
+                <h4>Parameters</h4>
+                <ul>{
+                  this.props.paramLists[i].map((p) =>
+                    <li key={p.key}>{p.key}: <span className="value">{p.value}</span></li>
+                  )
+                }</ul>
+              </div>
+              <div className="col-xs-6">
+                <h4>Metrics</h4>
+                <ul>
+                  {this.props.metricLists[i].map((p) =>
+                    <li key={p.key}>{p.key}: {Utils.formatMetric(p.value)}</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
   }
 }
