@@ -4,11 +4,13 @@
 \alias{mlflow_connect}
 \title{Connect to MLflow}
 \usage{
-mlflow_connect(url = NULL, ...)
+mlflow_connect(url = NULL, activate = TRUE, ...)
 }
 \arguments{
 \item{url}{Optional URL to the remote MLflow server. If not specified,
 will launch and connect to a local instance listening on a random port.}
+
+\item{activate}{Whether to set the connction as the active connection, defaults to `TRUE`.}
 
 \item{...}{Options arguments passed to `mlflow_server()`.}
 }
