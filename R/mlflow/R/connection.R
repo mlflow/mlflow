@@ -73,7 +73,7 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
   )
 
   url <- getOption("mlflow.ui", paste(host, port, sep = ":"))
-  new_mlflow_connection(url, handle)
+  new_mlflow_connection(url, handle, file_store = file_store)
 }
 
 #' Connect to MLflow
@@ -99,11 +99,12 @@ mlflow_connect <- function(url = NULL, activate = TRUE, ...) {
   mc
 }
 
-new_mlflow_connection <- function(url, handle) {
+new_mlflow_connection <- function(url, handle, ...) {
   mc <- structure(
     list(
       url = if (startsWith(url, "http")) url else paste0("http://", url),
-      handle = handle
+      handle = handle,
+      ...
     ),
     class = "mlflow_connection"
   )
