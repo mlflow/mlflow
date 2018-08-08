@@ -14,7 +14,7 @@ def test_databricks_params_token(get_config):
     assert params == {
         'hostname': 'host',
         'headers': {
-            'Authorization': 'Basic dG9rZW46bXl0b2tlbg=='
+            'Authorization': 'Bearer mytoken'
         },
         'verify': True,
     }
