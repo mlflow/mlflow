@@ -12,9 +12,10 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 
 
-from mlflow.projects import ExecutionException, _fetch_project, _load_project, _expand_uri
+from mlflow.projects import _fetch_project, _expand_uri, _project_spec
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, process
+from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
@@ -34,17 +35,17 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 def _jobs_runs_get(databricks_run_id):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/get", method="GET", params={"run_id": databricks_run_id})
+        endpoint="jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
 
 
 def _jobs_runs_cancel(databricks_run_id):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/cancel", method="POST", req_body_json={"run_id": databricks_run_id})
+        endpoint="jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
 
 
 def _jobs_runs_submit(req_body_json):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/submit", method="POST", req_body_json=req_body_json)
+        endpoint="jobs/runs/submit", method="POST", json=req_body_json)
 
 
 def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
@@ -65,7 +66,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     mlflow_run_cmd = " ".join(mlflow_run_arr)
     shell_command = textwrap.dedent("""
-    export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin &&
+    export PATH=$DB_HOME/conda/bin:$DB_HOME/python/bin:$PATH &&
     mlflow --version &&
     # Make local directories in the container into which to copy/extract the tarred project
     mkdir -p {tarfile_base} {projects_base} &&
@@ -112,7 +113,7 @@ def _dbfs_path_exists(dbfs_uri):
     """
     dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
     json_response_obj = rest_utils.databricks_api_request(
-        endpoint="dbfs/get-status", method="GET", params={"path": dbfs_path})
+        endpoint="dbfs/get-status", method="GET", json={"path": dbfs_path})
     # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
     error_code_field = "error_code"
     if error_code_field in json_response_obj:
@@ -238,7 +239,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     _before_run_validations(tracking_uri, cluster_spec)
     work_dir = _fetch_and_clean_project(
         uri=uri, version=version, git_username=git_username, git_password=git_password)
-    project = _load_project(work_dir)
+    project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)
     remote_run = tracking._create_run(

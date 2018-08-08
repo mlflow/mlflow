@@ -12,7 +12,7 @@ def test_get_endpoints():
 
 def test_can_parse_json():
     request = mock.MagicMock()
-    request.query_string = ""
+    request.method = "POST"
     request.get_json = mock.MagicMock()
     request.get_json.return_value = {"name": "hello"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
@@ -23,7 +23,7 @@ def test_can_parse_json():
 # so this test ensures continued compliance with such clients.
 def test_can_parse_json_string():
     request = mock.MagicMock()
-    request.query_string = ""
+    request.method = "POST"
     request.get_json = mock.MagicMock()
     request.get_json.return_value = '{"name": "hello2"}'
     msg = _get_request_message(CreateExperiment(), flask_request=request)
