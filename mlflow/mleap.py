@@ -20,8 +20,6 @@ FLAVOR_NAME = "mleap"
 
 
 def add_to_model(mlflow_model, path, spark_model, sample_input):
-    # TODO(czumar): How does this work with the mlflow_model artifact path?
-
     """
     :param mlflow_model: MLFlow model config to which this flavor is being added
     :param path: Path of the MLFlow model to which this flavor is being added
