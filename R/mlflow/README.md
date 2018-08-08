@@ -89,17 +89,17 @@ reusable and reproducible way.
 
 MLflow projects can be [explicitly
 created](https://www.mlflow.org/docs/latest/projects.html#specifying-projects)
-or implicitly used by running `R` files using `mlflow_run()`, from the
-terminal we can run:
+or implicitly used by running `R` with `mlflow` from the terminal as
+follows:
 
 ``` bash
-mlflow run train.R
+mlflow run examples/ --entry-point train.R
 ```
 
-which is equivalent to running,
+Notice that is equivalent to running,
 
 ``` bash
-Rscript -e "mlflow::mlflow_run('train.R')"
+Rscript -e "mlflow::mlflow_script('train.R')"
 ```
 
 and `train.R` performing training and logging as follows:
@@ -156,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `mlflow-model/MLmodel` like:
 
-    ## time_created: 1.5336097e+09
+    ## time_created: 1.5337016e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0

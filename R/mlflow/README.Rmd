@@ -78,16 +78,16 @@ Once the tracking url is defined, the experiments will be stored and tracked in 
 
 An MLflow Project is a format for packaging data science code in a reusable and reproducible way.
 
-MLflow projects can be [explicitly created](https://www.mlflow.org/docs/latest/projects.html#specifying-projects) or implicitly used by running `R` files using `mlflow_run()`, from the terminal we can run:
+MLflow projects can be [explicitly created](https://www.mlflow.org/docs/latest/projects.html#specifying-projects) or implicitly used by running `R` with `mlflow` from the terminal as follows:
 
 ```{bash eval=FALSE}
-mlflow run train.R
+mlflow run examples/ --entry-point train.R
 ```
 
-which is equivalent to running,
+Notice that is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow::mlflow_run('train.R')"
+Rscript -e "mlflow::mlflow_script('train.R')"
 ```
 
 and `train.R` performing training and logging as follows:
