@@ -20,7 +20,7 @@ public class DataFrame {
     }
 
     protected String toCsv() {
-        throw new UnsupportedOperationException("Not implemented yet!");
+        return LeapFrameUtils.getCsvFromLeapFrame(this.leapFrame);
     }
 
     protected static DataFrame fromJson(String frameJson) {
@@ -28,7 +28,6 @@ public class DataFrame {
     }
 
     protected static DataFrame fromCsv(String frameJson) {
-        throw new UnsupportedOperationException("Not implemented yet!");
-        // return new DataFrame(LeapFrameUtils.getLeapFrameFromCsv(frameJson));
+        return new DataFrame(LeapFrameUtils.getLeapFrameFromCsv(frameJson));
     }
 }

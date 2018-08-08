@@ -105,15 +105,25 @@ public class SageMakerServer {
         RequestContentType inputType = RequestContentType.fromValue(request.contentType());
         switch (inputType) {
             case Json: {
-                // TODO: Do something case-specific
-                DataFrame parsedInput = DataFrame.fromJson(request.body());
-                DataFrame result = predictor.predict(parsedInput);
+                Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
+                try {
+                    parsedInput = Optional.of(DataFrame.fromJson(request.body()));
+                } catch (UnsupportedOperationException e) {
+                    throw new PredictorEvaluationException(
+                        "This model does not yet support evaluating JSON inputs.");
+                }
+                DataFrame result = predictor.predict(parsedInput.get());
                 return result.toJson();
             }
             case Csv: {
-                // TODO: Do something case-specific
-                DataFrame parsedInput = DataFrame.fromCsv(request.body());
-                DataFrame result = predictor.predict(parsedInput);
+                Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
+                try {
+                    parsedInput = Optional.of(DataFrame.fromCsv(request.body()));
+                } catch (UnsupportedOperationException e) {
+                    throw new PredictorEvaluationException(
+                        "This model does not yet support evaluating CSV inputs.");
+                }
+                DataFrame result = predictor.predict(parsedInput.get());
                 return result.toCsv();
             }
             case Invalid:

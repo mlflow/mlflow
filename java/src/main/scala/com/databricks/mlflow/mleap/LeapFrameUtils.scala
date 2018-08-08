@@ -17,7 +17,8 @@ object LeapFrameUtils {
   }
 
   def getLeapFrameFromCsv(inputCsv : String) : DefaultLeapFrame = {
-    null
+    throw new UnsupportedOperationException(
+      "CSV to LeapFrame conversion has not been implemented yet!");
   }
 
   def getJsonFromLeapFrame(leapFrame : DefaultLeapFrame) : String = {
@@ -26,7 +27,8 @@ object LeapFrameUtils {
   }
 
   def getCsvFromLeapFrame(leapFrame : DefaultLeapFrame) : String = {
-    null
+    throw new UnsupportedOperationException(
+      "LeapFrame to CSV conversion has not been implemented yet!");
   }
 
 }
