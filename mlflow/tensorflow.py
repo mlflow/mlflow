@@ -66,10 +66,10 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
 
     :param saved_model_dir: Directory where the exported TensorFlow model is saved.
     :param signature_def_key: The signature definition to use when loading the model again.
-                              See `SignatureDefs in SavedModel for TensorFlow Serving
-                               <https://www.tensorflow.org/serving/signature_defs>`_ for details.
+        See `SignatureDefs in SavedModel for TensorFlow Serving
+        <https://www.tensorflow.org/serving/signature_defs>`_ for details.
     :param artifact_path: Path (within the artifact directory for the current run) to which
-                          artifacts of the model will be saved.
+        artifacts of the model will be saved.
     """
     run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
