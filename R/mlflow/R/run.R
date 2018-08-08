@@ -68,7 +68,9 @@ mlflow_source <- function(uri) {
     },
     interrupt = function(cnd) mlflow_update_run(status = "KILLED", end_time = current_time()),
     {
-      source(uri, local = parent.frame())
+      suppressPackageStartupMessages(
+        source(uri, local = parent.frame())
+      )
     }
   )
 
