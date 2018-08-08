@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 
 from mlflow import cli
@@ -19,7 +21,9 @@ def test_run_local(tracking_uri_mock):  # pylint: disable=unused-argument
 @pytest.mark.large
 def test_run_local_no_spec(tracking_uri_mock):  # pylint: disable=unused-argument
     # Run an example project that doesn't contain an MLproject file
-    invoke_cli_runner(cli.run, [TEST_NO_SPEC_PROJECT_DIR, "-e", "script.py"])
+    expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
+    invoke_cli_runner(cli.run, [TEST_NO_SPEC_PROJECT_DIR, "-e", "script.py", "-P",
+                                "conda-env-name=%s" % expected_env_name])
 
 
 @pytest.mark.large
