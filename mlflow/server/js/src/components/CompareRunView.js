@@ -43,7 +43,7 @@ class CompareRunView extends Component {
           <div className="run-metadata-label">Run UUID:</div>
           <div className="run-metadata-row">
             {this.props.runInfos.map((r, idx) =>
-              <div className="run-metadata-item" key={idx}>
+              <div className="run-metadata-item" key={r.run_uuid}>
                 {r.getRunUuid()}
               </div>
             )}
@@ -54,7 +54,7 @@ class CompareRunView extends Component {
           <div className="run-metadata-row">
             {this.props.runInfos.map((run, idx) => {
                const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-               return <div className="run-metadata-item" key={idx}>{startTime}</div>;
+               return <div className="run-metadata-item" key={run.run_uuid}>{startTime}</div>;
              }
             )}
           </div>

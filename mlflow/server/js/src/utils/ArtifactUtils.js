@@ -9,10 +9,11 @@ export class ArtifactNode {
 
   deepCopy() {
     let node = new ArtifactNode(this.isRoot, this.fileInfo, {});
-    if(this.children)
+    if (this.children) {
       Object.keys(this.children).forEach((name) => {
         node.children[name] = this.children[name].deepCopy();
       });
+    }
     return node;
   }
 

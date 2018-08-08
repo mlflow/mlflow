@@ -37,14 +37,15 @@ class ExperimentListView extends Component {
             {this.props.experiments.map((e) => {
               const active = parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId;
               let className = "experiment-list-item";
-              if (active)
+              if (active) {
                 className = `${className} active-experiment-list-item`;
+              }
               return (
                 <Link
                   style={{ textDecoration: 'none', color: 'unset' }}
                   key={e.getExperimentId()}
                   to={Routes.getExperimentPageRoute(e.getExperimentId())}
-                  onClick={active?e => e.preventDefault():e=>e}
+                  onClick={active ? e => e.preventDefault() : e => e}
                 >
                   <div
                     className={className}
