@@ -1,10 +1,19 @@
-mlflow_connection_active_get <- function() {
-  if (is.null(.globals$active_connection)) {
+mlflow_get_or_create_active_connection <- function() {
+  if (is.null(mlflow_active_connection())) {
     mc <- mlflow_connect()
-    .globals$active_connection <- mc
+    mlflow_set_active_connection(mc)
   }
 
+  mlflow_active_connection()
+}
+
+mlflow_active_connection <- function() {
   .globals$active_connection
+}
+
+mlflow_set_active_connection <- function(mc) {
+  .globals$active_connection <- mc
+  invisible(NULL)
 }
 
 #' @importFrom openssl rand_num
