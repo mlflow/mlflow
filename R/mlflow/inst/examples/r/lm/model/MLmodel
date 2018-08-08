@@ -1,0 +1,5 @@
+time_created: 1.5337659e+09
+flavors:
+  r_function:
+    version: 0.1.0
+    model: r_model.bin
