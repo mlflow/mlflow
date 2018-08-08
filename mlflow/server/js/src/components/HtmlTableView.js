@@ -36,7 +36,7 @@ class HtmlTableView extends Component {
                 } else {
                   style = styles['td'];
                 }
-                  return <td key={idx} style={style}>{v}</td>;
+                  return <td key={idx} style={style}>{isNaN(v) ? "" : v}</td>;
                 }
               )}
             </tr>
