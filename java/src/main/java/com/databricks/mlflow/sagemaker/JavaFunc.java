@@ -23,14 +23,23 @@ class JavaFunc {
                LoaderModuleException {
         if (runId.isPresent()) {
             // Get the run-relative model logging directory
-            path = TrackingUtils.getModelLogDir(path, runId.get());
+            try {
+                path = TrackingUtils.getModelLogDir(path, runId.get());
+            } catch (UnsupportedOperationException e) {
+                e.printStackTrace();
+                throw new LoaderModuleException(
+                    "The model could not be loaded as a java function from a run-relative path");
+            }
         }
         Model config = Model.fromRootPath(path);
         Optional<JavaFuncFlavor> javaFuncFlavor =
             config.getFlavor(JavaFuncFlavor.FLAVOR_NAME, JavaFuncFlavor.class);
 
         if (!javaFuncFlavor.isPresent()) {
-            // throw new Exception();
+            throw new LoaderModuleException(
+                String.format("Attempted to load a model using the %s flavor,"
+                        + " but  the model does not have this flavor.",
+                    JavaFuncFlavor.FLAVOR_NAME));
         }
 
         return loadModelFromClass(javaFuncFlavor.get().getLoaderClassName(), config);

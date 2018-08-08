@@ -1,7 +1,9 @@
 package com.databricks.mlflow;
 
 public class TrackingUtils {
-    public static String getModelLogDir(String path, String runId) throws IllegalArgumentException {
-        return null;
+    public static String getModelLogDir(String path, String runId)
+        throws UnsupportedOperationException {
+        throw new UnsupportedOperationException(
+            "Loading models based on run ids is not yet supported!");
     }
 }
