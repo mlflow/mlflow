@@ -63,7 +63,7 @@ mlflow_source <- function(uri) {
 
   tryCatch(
     error = function(cnd) {
-      message(cnd)
+      message(cnd, "\n")
       mlflow_update_run(status = "FAILED", end_time = current_time())
     },
     interrupt = function(cnd) mlflow_update_run(status = "KILLED", end_time = current_time()),
