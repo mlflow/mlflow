@@ -1,8 +1,6 @@
 # Import a dependency in MLflow's setup.py that's not included by default in conda environments,
 # verify that it fails
 
-import sys
-print("Debugging: sys.path: %s, sys.executable: %s" % (sys.path, sys.executable))
 import argparse
 import os
 
@@ -10,9 +8,9 @@ import os
 def main(expected_env_name):
     try:
         actual_conda_env = os.environ.get("CONDA_DEFAULT_ENV", None)
-        print("CONDA_DEFAULT_ENV: %s" % actual_conda_env)
-        print("PATH: %s" % os.environ["PATH"])
-        assert actual_conda_env == expected_env_name
+        assert actual_conda_env == expected_env_name,\
+            "Script expected to be run from conda env %s but was actually run from env" \
+            " %s" % (expected_env_name, actual_conda_env)
         import gunicorn
     except ImportError:
         print("Import of gunicorn failed as expected")
