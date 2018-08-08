@@ -80,18 +80,22 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
 #'
 #' Connect to local or remote MLflow instance.
 #'
-#' @param url Optional URL to the remote MLflow server. If not specified,
-#'   will launch and connect to a local instance listening on a random port.
+#' @param x (Optional) Either a URL to the remote MLflow server or the file store,
+#'   i.e. the root of the backing file store for experiment and run data. If not
+#'   specified, will launch and connect to a local instance listening on a random port.
 #' @param activate Whether to set the connction as the active connection, defaults to `TRUE`.
-#' @param ... Options arguments passed to `mlflow_server()`.
+#' @param ... Optional arguments passed to `mlflow_server()`.
 #' @export
-mlflow_connect <- function(url = NULL, activate = TRUE, ...) {
-  mc <- if (is.null(url)) {
+mlflow_connect <- function(x = NULL, activate = TRUE, ...) {
+  mc <- if (!is.null(x) && startsWith(x, "http")) {
+    new_mlflow_connection(x = x, handle = handle)
+  } else {
     dots <- list(...)
     dots[["port"]] <- dots[["port"]] %||% mlflow_connect_port()
+    if (!is.null(dots[["file_store"]]) && !is.null(x))
+      stop("`x` and `file_store` cannot both be specified.", call. = FALSE)
+    dots[["file_store"]] <- dots[["file_store"]] %||% x
     do.call(mlflow_server, dots)
-  } else {
-    new_mlflow_connection(url = url, handle = handle)
   }
 
   if (activate) mlflow_set_active_connection(mc)
