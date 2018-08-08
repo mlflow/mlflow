@@ -14,97 +14,43 @@
 #' @export
 mlflow_run <- function(uri, entry_point = NULL, param_list = NULL,
                        experiment_id = NULL, new_dir = FALSE) {
-  if (!is.null(experiment_id)) mlflow_experiment(experiment_id)
+  invisible(NULL)
+}
 
-  # Parameter value precedence:
-  #   Command line args > `param_list` > MLProject defaults > defaults in script
+#' Source a Script with MLflow Params
+#'
+#' This function should not be used interactively. It is designed to be called via `Rscript` from
+#'   the terminal or through the MLflow CLI.
+#'
+#' @param uri Path to an R script.
+#' @keywords internal
+#' @export
+mlflow_source <- function(uri) {
+  if (interactive()) stop(
+    "`mlflow_source()` cannot be used interactively; use `mlflow_run()` instead.",
+    call. = FALSE
+  )
   .globals$run_params <- list()
   command_args <- parse_command_line(commandArgs(trailingOnly = TRUE))
-  passed_params <- config::merge(param_list, command_args)
 
-  # Identify the script to run.
-  is_directory <- fs::is_dir(uri)
-  script <- if (is_directory) {
-    # If `uri` is a directory, check for MLProject.
-    if (fs::file_exists(fs::path(uri, "MLProject"))) {
-      # MLProject found.
-      mlproject <- yaml::yaml.load_file(fs::path(uri, "MLProject"))
-      entry_points <- names(mlproject$entry_points)
-
-      if (!is.null(entry_point)) {
-        # If `entry_point` is specified, check that it's one of the entry points listed.
-        if (!entry_point %in% entry_points)
-          stop("Entry point \"" , entry_point, "\" is not found in `MLProject`.", call. = FALSE)
-      } else {
-        # If no entry point is specified, we go to the sole entry point if it exists.
-        if (length(entry_points) == 1) {
-          entry_point <- entry_points
-        } else {
-          # If no entry point is specified, and there are multiple entry points, we default to `main`.
-          if (!"main" %in% entry_points)
-            stop("`entry_point` must be specified when `MLProject` contains multiple entry points, none of which is \"main\".",
-                 call = FALSE)
-          entry_point <- "main"
-        }
-      }
-
-      # Extract parameter defaults from `MLProject` and merge it with `passed_params`.
-      passed_params <<- mlproject$entry_points[[entry_point]]$parameters %>%
-        purrr::map("default") %>%
-        purrr::compact() %>%
-        config::merge(passed_params)
-
-      # Return the script path.
-      command <- mlproject$entry_points[[entry_point]]$command
-      script_path <- regmatches(command, regexpr("(?<=\"|\').*\\.R", command, perl = TRUE))
-      if (is.na(script_path))
-        stop("Unable to extract script path from entry point entry for \"", entry_point, "\"",
-             call. = FALSE)
-      if (!fs::file_exists(script_path))
-        stop("The file ", script_path, " associated with the entry point ", entry_point, " does not exist.",
-             call. = FALSE)
-      script_path
-    } else {
-      # MLProject not found, we check if there's a single R script.
-      scripts <- fs::dir_ls(uri, regexp = "\\.R$")
-      if (length(scripts) == 1) {
-        # If there's a single R script, we'll use that as our entry point.
-        scripts[[1]]
-      } else {
-        # Otherwise, we throw an error.
-        stop("There are multiple R scripts in the directory; can't determine which one to execute.",
-             call. = FALSE)
-      }
-    }
-  } else {
-    # `uri` is a file, so we assume it's the R script to be executed.
-    uri
-  }
-
-  # Get absolute path to script.
-  script <- fs::path_abs(script)
-
-  if (!is.null(passed_params)) {
-    purrr::iwalk(passed_params, function(value, key) {
+  if (!is.null(command_args)) {
+    purrr::iwalk(command_args, function(value, key) {
       .globals$run_params[[key]] <- value
     })
   }
 
-  working_dir <- if (is_directory) {
-    if (new_dir)
-      fs::dir_copy(uri, fs::path_temp())
-    else
-      uri
-  } else
-    fs::path_dir(script)
-
-  withr::with_dir(working_dir, {
-    source(script, local = parent.frame())
-    clear_run()
-
-    # Create dependencies snapshot
-    mlflow_snapshot()
-  })
+  tryCatch(
+    error = function(cnd) {
+      message(cnd)
+      mlflow_update_run(run_uuid = runid,status = "FAILED", end_time = current_time())
+    },
+    interrupt = function(cnd) mlflow_update_run(
+      run_uuid = runid, status = "KILLED", end_time = current_time()
+    ),
+    {
+      source(uri, local = parent.frame())
+    }
+  )
 
   invisible(NULL)
 }
@@ -112,6 +58,8 @@ mlflow_run <- function(uri, entry_point = NULL, param_list = NULL,
 clear_run <- function() {
   .globals$run_params <- NULL
 }
+
+
 
 # from rstudio/tfruns R/flags.R
 # parse command line arguments

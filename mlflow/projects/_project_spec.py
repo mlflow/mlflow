@@ -28,7 +28,7 @@ class Project(object):
             command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
             return EntryPoint(name=entry_point, parameters={}, command=command)
         elif file_extension == ".R":
-            command = "Rscript -e \"mlflow::mlflow_script('%s')\"" % shlex_quote(entry_point)
+            command = "Rscript -e \"mlflow::mlflow_source('%s')\"" % shlex_quote(entry_point)
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
                                  "runnable script. Supported script file extensions: "

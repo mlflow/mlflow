@@ -87,7 +87,7 @@ mlflow run examples/ --entry-point train.R
 Notice that is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow::mlflow_script('train.R')"
+Rscript -e "mlflow::mlflow_source('train.R')"
 ```
 
 and `train.R` performing training and logging as follows:
