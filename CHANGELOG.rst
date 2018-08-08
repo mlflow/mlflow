@@ -9,7 +9,7 @@ Breaking changes: None
 Features:
 
 - MLflow experiments REST API and ``mlflow experiments create`` now support providing ``--artifact-location`` (#232, @aarondav)
-- [UI] Runs can now be sorted by columns (#227, @ToonKBC)
+- [UI] Runs can now be sorted by columns, and added a Select All button (#227, @ToonKBC)
 - Databricks File System (DBFS) artifactory support added (#226, @andrewmchen)
 - databricks-cli version upgraded to >= 0.8.0 to support new DatabricksConfigProvider interface (#257, @aarondav)
 
