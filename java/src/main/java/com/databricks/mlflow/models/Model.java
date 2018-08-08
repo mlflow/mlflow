@@ -21,7 +21,12 @@ public class Model {
 
     private String basePath;
 
-    public static Model fromPath(String configPath) throws IOException {
+    public static Model fromRootPath(String modelRootPath) throws IOException {
+        String configPath = modelRootPath + File.separator + "MLmodel";
+        return fromConfigPath(configPath);
+    }
+
+    public static Model fromConfigPath(String configPath) throws IOException {
         File configFile = new File(configPath);
         final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
         Model model = mapper.readValue(configFile, Model.class);

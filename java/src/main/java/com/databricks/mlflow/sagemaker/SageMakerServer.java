@@ -1,6 +1,8 @@
 package com.databricks.mlflow.sagemaker;
 
 import com.databricks.mlflow.LoaderModuleException;
+import com.databricks.mlflow.mleap.MLeapLoader;
+import com.databricks.mlflow.models.Model;
 
 import java.util.Optional;
 import java.util.Map;
@@ -17,6 +19,7 @@ public class SageMakerServer {
 
     private static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
     private static final int HTTP_RESPONSE_CODE_SUCCESS = 200;
+    private static final int DEFAULT_PORT = 8080;
 
     private enum RequestContentType {
         Csv("text/csv"),
@@ -44,8 +47,6 @@ public class SageMakerServer {
         }
     }
 
-    private static final int DEFAULT_PORT = 8080;
-
     public static void serve(Predictor predictor, Optional<Integer> portNumber) {
         serve(Optional.of(predictor), portNumber);
     }
@@ -53,9 +54,10 @@ public class SageMakerServer {
     public static void serve(String modelPath, Optional<Integer> portNumber) {
         Optional<Predictor> predictor = Optional.empty();
         try {
-            predictor = Optional.of(JavaFunc.load(modelPath, Optional.<String>empty()));
-        } catch (InstantiationException | InvocationTargetException | LoaderModuleException
-            | IOException e) {
+            Model config = Model.fromRootPath(modelPath);
+            predictor = Optional.of((new MLeapLoader()).load(config));
+            // predictor = Optional.of(JavaFunc.load(modelPath, Optional.<String>empty()));
+        } catch (LoaderModuleException | IOException e) {
             e.printStackTrace();
         }
         serve(predictor, portNumber);

@@ -25,8 +25,7 @@ class JavaFunc {
             // Get the run-relative model logging directory
             path = TrackingUtils.getModelLogDir(path, runId.get());
         }
-        String configPath = path + File.separator + "MLmodel";
-        Model config = Model.fromPath(configPath);
+        Model config = Model.fromRootPath(path);
         Optional<JavaFuncFlavor> javaFuncFlavor =
             config.getFlavor(JavaFuncFlavor.FLAVOR_NAME, JavaFuncFlavor.class);
 
