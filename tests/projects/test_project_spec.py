@@ -2,7 +2,8 @@ import os
 
 import pytest
 
-from mlflow.projects import ExecutionException
+from mlflow.utils.exception import ExecutionException
+from mlflow.projects import _project_spec
 from tests.projects.utils import load_project
 
 
@@ -35,3 +36,29 @@ def test_project_get_unspecified_entry_point():
     assert entry_point.parameters == {}
     with pytest.raises(ExecutionException):
         project.get_entry_point("my_program.scala")
+
+
+@pytest.mark.parametrize("mlproject, conda_env_path, conda_env_contents", [
+    (None, None, ""),
+    ("key: value", "conda.yaml", "hi"),
+    ("conda_env: some-env.yaml", "some-env.yaml", "hi")
+])
+def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents):
+    """
+    Test that we can load a project with various combinations of an MLproject / conda.yaml file
+    :param mlproject: Contents of MLproject file. If None, no MLproject file will be written
+    :param conda_env_path: Path to conda environment file. If None, no conda environment file will
+                           be written.
+    :param conda_env_contents: Contents of conda environment file (written if conda_env_path is
+                               not None)
+    """
+    if mlproject:
+        tmpdir.join("MLproject").write(mlproject)
+    if conda_env_path:
+        tmpdir.join(conda_env_path).write(conda_env_contents)
+    project = _project_spec.load_project(tmpdir.strpath)
+    assert project._entry_points == {}
+    expected_env_path = \
+        os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
+    assert project.conda_env_path == expected_env_path
+    assert project.load_conda_env() == conda_env_contents
