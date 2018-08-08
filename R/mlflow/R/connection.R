@@ -15,7 +15,7 @@ mlflow_connect_port <- function() {
   )
 }
 
-mlflow_server_param <- function(args, param, value)
+mlflow_cli_param <- function(args, param, value)
 {
   if (!is.null(value)) {
     args <- c(
@@ -50,9 +50,9 @@ mlflow_connect <- function(url = NULL,
   if (is.null(url)) {
     args <- list()
 
-    args <- mlflow_server_param(args, "--port", port)
-    args <- mlflow_server_param(args, "--file-store", store)
-    args <- mlflow_server_param(args, "--default-artifact-root", artifacts)
+    args <- mlflow_cli_param(args, "--port", port)
+    args <- mlflow_cli_param(args, "--file-store", store)
+    args <- mlflow_cli_param(args, "--default-artifact-root", artifacts)
 
     handle <- do.call(
       "mlflow_cli",
