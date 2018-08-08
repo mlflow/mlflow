@@ -4,22 +4,13 @@
 \alias{mlflow_connect}
 \title{Connect to MLflow}
 \usage{
-mlflow_connect(url = NULL, port = mlflow_connect_port(), store = NULL,
-  artifacts = NULL)
+mlflow_connect(url = NULL, ...)
 }
 \arguments{
-\item{url}{Optional URL to the remote MLflow server; otherwise,
-will launch and connect local instance.}
+\item{url}{Optional URL to the remote MLflow server. If not specified,
+will launch and connect to a local instance listening on a random port.}
 
-\item{port}{The port used to launch the MLflow tracking server.}
-
-\item{store}{The root of the backing file store for
-experiment and run data. Defaults to \code{./mlruns}.}
-
-\item{artifacts}{Local or S3 URI to store artifacts in, for
-newly created experiments. Note that this flag
-does not impact already-created experiments.
-Defaults to a location inside \code{store}.}
+\item{...}{Options arguments passed to `mlflow_server()`.}
 }
 \description{
 Connect to local or remote MLflow instance.
