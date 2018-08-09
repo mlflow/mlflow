@@ -45,15 +45,19 @@ class CompareRunView extends Component {
         <div className="run-metadata-container">
           <div className="run-metadata-label">Run UUID:</div>
           <div className="run-metadata-row">
-            {this.props.runInfos.map((r) => <div className="run-metadata-item">{r.getRunUuid()}</div>)}
+            {this.props.runInfos.map((r, idx) =>
+              <div className="run-metadata-item" key={r.run_uuid}>
+                {r.getRunUuid()}
+              </div>
+            )}
           </div>
         </div>
         <div className="run-metadata-container last-run-metadata-container">
           <div className="run-metadata-label">Start Time:</div>
           <div className="run-metadata-row">
-            {this.props.runInfos.map((run) => {
+            {this.props.runInfos.map((run, idx) => {
                const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-               return <div className="run-metadata-item">{startTime}</div>;
+               return <div className="run-metadata-item" key={run.run_uuid}>{startTime}</div>;
              }
             )}
           </div>
@@ -133,8 +137,6 @@ class Private {
     });
 
     const mergedMetrics = Utils.mergeRuns(runInfos.map((r) => r.run_uuid), metricKeyValueList);
-
-    const runUuids = runInfos.map((r) => r.run_uuid);
     Object.keys(mergedMetrics).sort().forEach((metricKey) => {
       // Figure out which runUuids actually have this metric.
       const runUuidsWithMetric = Object.keys(mergedMetrics[metricKey]);

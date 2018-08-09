@@ -20,13 +20,12 @@ def deploy(app_name, model_path, run_id, mlflow_home):
     NOTE:
 
         - This command must be called from a console launched from Azure ML Workbench. Caller is
-        reponsible for setting up Azure ML environment and accounts.
+          reponsible for setting up Azure ML environment and accounts.
 
         - Azure ML can not handle any Conda environment. In particular the Python version is fixed.
-        If the model contains Conda environment and it has been trained outside of Azure ML, the
-        Conda environment might need to be edited to work with Azure ML.
+          If the model contains Conda environment and it has been trained outside of Azure ML, the
+          Conda environment might need to be edited to work with Azure ML.
 
-    :param mlflow_home:
     :param app_name: Name of the deployed application.
     :param model_path: Local or MLflow-run-relative path to the model to be exported.
     :param run_id: If provided, ``run_id`` is used to retrieve the model logged with MLflow.
@@ -55,7 +54,8 @@ def export(output, model_path, run_id, mlflow_home):
         - This command does not need an Azure ML environment to run.
 
         - Azure ML can not handle any Conda environment. If the model contains Conda environment
-        and it has been trained outside of Azure ML, the Conda environment might need to be edited.
+          and it has been trained outside of Azure ML, the Conda environment might need to be
+          edited.
 
     :param output: Output folder where the model is going to be exported to.
     :param model_path: Local or MLflow run relative path to the model to be exported.

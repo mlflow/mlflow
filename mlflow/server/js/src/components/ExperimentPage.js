@@ -41,6 +41,7 @@ class ExperimentPage extends Component {
       props.dispatch(searchRunsApi([props.experimentId], [], newState.searchRunsRequestId));
       return newState;
     }
+    return null;
   }
 
   onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput) {
@@ -78,7 +79,7 @@ const mapStateToProps = (state, ownProps) => {
   if (match.url === "/") {
     return { experimentId: 0 };
   }
-  return { experimentId: match.params.experimentId };
+  return { experimentId: parseInt(match.params.experimentId, 10) };
 };
 
 const mapDispatchToProps = (dispatch, ownProps) => {

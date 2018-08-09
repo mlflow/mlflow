@@ -43,13 +43,16 @@ Request Structure
 
 
 
-+------------+------------+-------------------------+
-| Field Name |    Type    |       Description       |
-+============+============+=========================+
-| name       | ``STRING`` | Experiment name.        |
-|            |            | This field is required. |
-|            |            |                         |
-+------------+------------+-------------------------+
++-------------------+------------+------------------------------------------------------------------------+
+|    Field Name     |    Type    |                              Description                               |
++===================+============+========================================================================+
+| name              | ``STRING`` | Experiment name.                                                       |
+|                   |            | This field is required.                                                |
+|                   |            |                                                                        |
++-------------------+------------+------------------------------------------------------------------------+
+| artifact_location | ``STRING`` | Location where all artifacts for this experiment are stored.           |
+|                   |            | If not provided, the remote server will select an appropriate default. |
++-------------------+------------+------------------------------------------------------------------------+
 
 .. _mlflowCreateExperimentResponse:
 
@@ -380,6 +383,57 @@ Request Structure
 
 
 
+.. _mlflowMlflowServicegetParam:
+
+Get Param
+=================
+
+
++-----------------------------------+-------------+
+|             Endpoint              | HTTP Method |
++===================================+=============+
+| ``2.0/preview/mlflow/params/get`` | ``GET``     |
++-----------------------------------+-------------+
+
+Get a parameter value.
+
+
+
+
+.. _mlflowGetParam:
+
+Request Structure
+-----------------
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| run_uuid   | ``STRING`` |                         |
+|            |            | This field is required. |
+|            |            |                         |
++------------+------------+-------------------------+
+| param_name | ``STRING`` |                         |
+|            |            | This field is required. |
+|            |            |                         |
++------------+------------+-------------------------+
+
+.. _mlflowGetParamResponse:
+
+Response Structure
+------------------
+
+
++------------+--------------------+-----------------+
+| Field Name |        Type        |   Description   |
++============+====================+=================+
+| parameter  | :ref:`mlflowparam` | Parameter value |
++------------+--------------------+-----------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicegetMetric:
 
 Get Metric
@@ -483,7 +537,7 @@ Search Runs
 +------------------------------------+-------------+
 |              Endpoint              | HTTP Method |
 +====================================+=============+
-| ``2.0/preview/mlflow/runs/search`` | ``GET``     |
+| ``2.0/preview/mlflow/runs/search`` | ``POST``    |
 +------------------------------------+-------------+
 
 Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and :ref:`mlflowParam` keys.

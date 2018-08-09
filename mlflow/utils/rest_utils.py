@@ -28,24 +28,30 @@ def get_databricks_http_request_kwargs_or_fail(profile=None):
     :return: Dictionary with parameters that can be passed to http_request(). This will
              at least include the hostname and headers sufficient to authenticate to Databricks.
     """
-    if not profile:
-        profile = provider.DEFAULT_SECTION
-    config = provider.get_config_for_profile(profile)
+    if not hasattr(provider, 'get_config'):
+        eprint("Warning: support for databricks-cli<0.8.0 is deprecated and will be removed"
+               " in a future version.")
+        config = provider.get_config_for_profile(profile)
+    elif profile:
+        config = provider.ProfileConfigProvider(profile).get_config()
+    else:
+        config = provider.get_config()
 
     hostname = config.host
     if not hostname:
         _fail_malformed_databricks_auth(profile)
 
-    basic_auth_str = None
+    auth_str = None
     if config.username is not None and config.password is not None:
         basic_auth_str = ("%s:%s" % (config.username, config.password)).encode("utf-8")
+        auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif config.token:
-        basic_auth_str = ("token:%s" % config.token).encode("utf-8")
-    if not basic_auth_str:
+        auth_str = "Bearer %s" % config.token
+    else:
         _fail_malformed_databricks_auth(profile)
 
     headers = {
-        "Authorization": "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
+        "Authorization": auth_str,
     }
 
     verify = True
