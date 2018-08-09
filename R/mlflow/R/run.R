@@ -22,19 +22,19 @@ mlflow_run <- function(uri, entry_point = NULL, version = NULL, param_list = NUL
                        storage_dir = NULL) {
   param_list <- if (!is.null(param_list)) param_list %>%
     purrr::imap_chr(~ paste0(.y, "=", .x)) %>%
-    paste0(collapse = " ")
+    purrr::reduce(~ mlflow_cli_param(.x, "--param-list", .y), .init = list())
 
   args <- list(uri) %>%
     mlflow_cli_param("--entry-point", entry_point) %>%
     mlflow_cli_param("--version", version) %>%
-    mlflow_cli_param("--param-list", param_list) %>%
     mlflow_cli_param("--experiment-id", experiment_id) %>%
     mlflow_cli_param("--mode", mode) %>%
     mlflow_cli_param("--cluster_spec", cluster_spec) %>%
     mlflow_cli_param("--git-username", git_username) %>%
     mlflow_cli_param("--git-password", git_password) %>%
     mlflow_cli_param("--no-conda", if (no_conda) "") %>%
-    mlflow_cli_param("--storage-dir", storage_dir)
+    mlflow_cli_param("--storage-dir", storage_dir) %>%
+    c(param_list)
 
   do.call(mlflow_cli, c("run", args))
 
