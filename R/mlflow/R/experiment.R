@@ -63,7 +63,17 @@ mlflow_experiment <- function(name) {
 #'
 #' Starts a new run within an experiment, should be used within a \code{with} block.
 #'
-#' @inheritParams mlflow_create_run
+#' @param run_uuid If specified, get the run with the specified UUID and log metrics
+#'   and params under that run. The run's end time is unset and its status is set to
+#'   running, but the run's other attributes remain unchanged.
+#' @param experiment_id Used only when ``run_uuid`` is unspecified. ID of the experiment under
+#'   which to create the current run. If unspecified, the run is created under
+#'   a new experiment with a randomly generated name.
+#' @param source_name Name of the source file or URI of the project to be associated with the run.
+#'   Defaults to the current file if none provided.
+#' @param source_version Optional Git commit hash to associate with the run.
+#' @param entry_point_name Optional name of the entry point for to the current run.
+#' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
 #'
 #' @examples
 #' \dontrun{
@@ -73,28 +83,60 @@ mlflow_experiment <- function(name) {
 #' }
 #'
 #' @export
-mlflow_start_run <- function(user_id = NULL,
-                             run_name = NULL, source_type = NULL, source_name = NULL,
-                             status = NULL, start_time = NULL, end_time = NULL,
-                             source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
-                             run_tags = NULL, experiment_id = NULL) {
-  experiment_id <- experiment_id %||% mlflow_active_experiment()
-  run_info <- mlflow_create_run(
-    experiment_id = experiment_id,
-    user_id = user_id,
-    run_name = run_name,
-    source_type = source_type,
-    source_name = source_name,
-    status = status,
-    start_time = start_time,
-    end_time = end_time,
-    source_version = source_version,
-    artifact_uri = artifact_uri,
-    entry_point_name = entry_point_name,
-    run_tags = run_tags
-  )
+mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name = NULL,
+                             source_version = NULL, entry_point_name = NULL,
+                             source_type = "LOCAL") {
+  active_run <- mlflow_active_run()
+  if (!is.null(active_run)) {
+    stop("Run with UUID ", active_run$run_info$run_uuid, " is already active.",
+         call. = FALSE)
+  }
+
+  existing_run_uuid <- run_uuid %||% {
+    env_run_id <- Sys.getenv("MLFLOW_RUN_ID")
+    if (nchar(env_run_id)) env_run_id
+  }
+
+  run_info <- if (!is.null(existing_run_uuid)) {
+    mlflow_get_run(existing_run_uuid)$info
+  } else {
+    experiment_id <- as.integer(
+      experiment_id %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
+    )
+
+    mlflow_create_run(
+      experiment_id = experiment_id,
+      source_name = source_name %||% get_source_name(),
+      source_version = source_version %||% get_source_version(),
+      entry_point_name = entry_point_name,
+      source_type = source_type %||% get_source_type()
+    )
+  }
 
   new_mlflow_active_run(run_info)
+}
+
+get_executing_file_name <- function() {
+  pattern <- "^--file="
+  v <- grep(pattern, commandArgs(), value = TRUE)
+  file_name <- gsub(pattern, "", v)
+  if (length(file_name)) file_name
+}
+
+get_source_name <- function() {
+  get_executing_file_name() %||% "<console>"
+}
+
+get_source_version <- function() {
+  file_name <- get_executing_file_name()
+  tryCatch(
+    error = function(cnd) NULL,
+    {
+      repo <- git2r::repository(file_name, discover = TRUE)
+      commit <- git2r::commits(repo, n = 1)
+      commit[[1]]@sha
+    }
+  )
 }
 
 #' End Run
@@ -112,10 +154,12 @@ mlflow_end_run <- function(status = "FINISHED") {
 }
 
 new_mlflow_active_run <- function(run_info) {
-  structure(
+  run <- structure(
     list(run_info = run_info),
     class = c("mlflow_active_run")
   )
+  mlflow_set_active_run(run)
+  run
 }
 
 #' @export
