@@ -33,11 +33,12 @@ def add_to_model(mlflow_model, path, spark_model, dfs_tmpdir):
                   cannot contain any custom transformers.
     """
     if not isinstance(spark_model, Transformer):
-        raise SaveModelException("Unexpected type {}. SparkML model works only with Transformers".
+        raise SaveModelException("Unexpected type {}." 
+                                 " Spark MLLib serialization only works with Spark Transformers".
                 format(str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise SaveModelException("Not a PipelineModel." 
-                                 " SparkML can currently only save PipelineModels.")
+                                 " Spark MLLib can currently only save PipelineModels.")
 
     spark_path_full = os.path.join(path, "sparkml")
     sparkml_datapath_sub = os.path.join("sparkml", "model")
