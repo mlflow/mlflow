@@ -87,13 +87,6 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
 
 
 def _check_databricks_auth_available():
-    try:
-        process.exec_cmd(["databricks", "--version"])
-    except process.ShellCommandException:
-        raise ExecutionException(
-            "Could not find Databricks CLI on PATH. Please install and configure the Databricks "
-            "CLI as described in https://github.com/databricks/databricks-cli")
-    # Verify that we can get Databricks auth
     rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
