@@ -1,7 +1,10 @@
 mlflow_get_or_create_active_connection <- function() {
   if (is.null(mlflow_active_connection())) {
-    mc <- mlflow_connect()
-    mlflow_set_active_connection(mc)
+    tracking_uri <- mlflow_tracking_uri()
+    if (startsWith(tracking_uri, "http"))
+      new_mlflow_connection(tracking_uri = tracking_uri, handle = NULL)
+    else
+      mlflow_connect(tracking_uri)
   }
 
   mlflow_active_connection()

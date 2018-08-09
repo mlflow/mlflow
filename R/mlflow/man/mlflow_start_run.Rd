@@ -4,37 +4,27 @@
 \alias{mlflow_start_run}
 \title{Start Run}
 \usage{
-mlflow_start_run(user_id = NULL, run_name = NULL, source_type = NULL,
-  source_name = NULL, status = NULL, start_time = NULL, end_time = NULL,
-  source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
-  run_tags = NULL, experiment_id = NULL)
+mlflow_start_run(run_uuid = NULL, experiment_id = NULL,
+  source_name = NULL, source_version = NULL, entry_point_name = NULL,
+  source_type = "LOCAL")
 }
 \arguments{
-\item{user_id}{User ID or LDAP for the user executing the run.}
+\item{run_uuid}{If specified, get the run with the specified UUID and log metrics
+and params under that run. The run's end time is unset and its status is set to
+running, but the run's other attributes remain unchanged.}
 
-\item{run_name}{Human readable name for run.}
+\item{experiment_id}{Used only when ``run_uuid`` is unspecified. ID of the experiment under
+which to create the current run. If unspecified, the run is created under
+a new experiment with a randomly generated name.}
 
-\item{source_type}{Originating source for this run. One of Notebook, Job, Project, Local or Unknown.}
+\item{source_name}{Name of the source file or URI of the project to be associated with the run.
+Defaults to the current file if none provided.}
 
-\item{source_name}{String descriptor for source. For example, name or description of the notebook, or job name.}
+\item{source_version}{Optional Git commit hash to associate with the run.}
 
-\item{status}{Current status of the run. One of RUNNING, SCHEDULE, FINISHED, FAILED, KILLED.}
+\item{entry_point_name}{Optional name of the entry point for to the current run.}
 
-\item{start_time}{Unix timestamp of when the run started in milliseconds.}
-
-\item{end_time}{Unix timestamp of when the run ended in milliseconds.}
-
-\item{source_version}{Git version of the source code used to create run.}
-
-\item{artifact_uri}{URI of the directory where artifacts should be uploaded This can be a local path (starting with “/”),
-or a distributed file system (DFS) path, like s3://bucket/directory or dbfs:/my/directory. If not set, the local ./mlruns
-directory will be chosen by default.}
-
-\item{entry_point_name}{Name of the entry point for the run.}
-
-\item{run_tags}{Additional metadata for run in key-value pairs.}
-
-\item{experiment_id}{Unique identifier for the associated experiment.}
+\item{source_type}{Integer enum value describing the type of the run  ("local", "project", etc.).}
 }
 \description{
 Starts a new run within an experiment, should be used within a \code{with} block.
