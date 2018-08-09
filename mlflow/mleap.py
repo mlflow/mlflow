@@ -12,9 +12,11 @@ For more information about MLeap, see https://github.com/combust/mleap.
 
 from __future__ import absolute_import
 
-import sys
 import os
+import sys
+import traceback
 
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.exception import SaveModelException 
 
 FLAVOR_NAME = "mleap"
@@ -63,14 +65,15 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     try:
         spark_model.serializeToBundle(path=model_path,
                                       dataset=dataset)
-        raise Py4JError()
+        raise Py4JError("WAHHH")
     except Py4JError as e:
-        traceback = sys.exc_info()[2]
+        tb = sys.exc_info()[2]
         error_str = ("MLeap encountered an error while serializing the model. Please ensure that"
                      " the model is compatible with MLeap" 
                      " (i.e does not contain any custom transformers). Error text: {err}".format(
                          err=str(e)))
-        raise SaveModelException(), error_str, traceback 
+        traceback.print_exc()
+        raise SaveModelException, error_str, tb 
         
     mlflow_model.add_flavor(FLAVOR_NAME, 
                             mleap_version=mleap.version.__version__, 

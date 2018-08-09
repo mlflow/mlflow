@@ -83,8 +83,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         mleap.add_to_model(mlflow_model, path, spark_model, sample_input)
         print("Added the MLeap flavor to the model.")
     except SaveModelException as e:
-        eprint("An error occurred while adding the MLeap flavor to the model!" 
-               " Error text: {err}".format(err=e))
+        eprint("An error occurred while adding the MLeap flavor to the model!")
+        eprint(e)
 
     try:
         sparkml.add_to_model(mlflow_model, path, spark_model, dfs_tmpdir)
@@ -96,7 +96,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     except SaveModelException as e:
         eprint("An error occurred while adding the SparkML flavor to the model! Because"
                " the SparkML flavor could not be added, the PyFunc flavor will also be"
-               " omitted. Error text: {err}".format(err=e))
+               " omitted.")
+        eprint(e)
 
     if len(mlflow_model.flavors) > 0:
         mlflow_model.save(os.path.join(path, "MLmodel"))
