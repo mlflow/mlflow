@@ -11,6 +11,7 @@ import mlflow.sklearn
 import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
+import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
@@ -193,6 +194,7 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
 cli.add_command(mlflow.sklearn.commands)
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
+cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.experiments.commands)
