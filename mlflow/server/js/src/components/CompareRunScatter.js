@@ -4,9 +4,6 @@ import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
-import HtmlTableView from './HtmlTableView';
-import Routes from '../Routes';
-import { Link } from 'react-router-dom';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label} from 'recharts';
@@ -55,7 +52,7 @@ class CompareRunScatter extends Component {
   static findInList(data, key) {
     let found = undefined;
     data.forEach((value) => {
-      if(value.key == key)
+      if(value.key === key)
         found = value;
     });
     return found;
