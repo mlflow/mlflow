@@ -19,9 +19,9 @@ import os
 
 import mlflow
 from mlflow import pyfunc, mleap, sparkml
+from mlflow.exceptions import SaveModelException 
 from mlflow.models import Model
 from mlflow.utils.environment import add_conda_env 
-from mlflow.utils.exception import SaveModelException 
 from mlflow.utils.logging_utils import eprint 
 
 

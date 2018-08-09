@@ -16,8 +16,12 @@ import os
 import sys
 import traceback
 
+
+from six import reraise
+
+
+from mlflow.exceptions import SaveModelException 
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.exception import SaveModelException 
 
 FLAVOR_NAME = "mleap"
 
@@ -41,7 +45,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     if not isinstance(spark_model, Transformer):
         raise SaveModelException("Unexpected type {}." 
                                  " MLeap serialization only works with Spark Transformers".format(
-            str(type(spark_model))))
+                                     str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise SaveModelException("Not a PipelineModel." 
                                  " MLeap can currently only save PipelineModels.")
@@ -65,7 +69,6 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     try:
         spark_model.serializeToBundle(path=model_path,
                                       dataset=dataset)
-        raise Py4JError("WAHHH")
     except Py4JError as e:
         tb = sys.exc_info()[2]
         error_str = ("MLeap encountered an error while serializing the model. Please ensure that"
@@ -73,7 +76,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                      " (i.e does not contain any custom transformers). Error text: {err}".format(
                          err=str(e)))
         traceback.print_exc()
-        raise SaveModelException, error_str, tb 
+        reraise(SaveModelException, error_str, tb)
         
     mlflow_model.add_flavor(FLAVOR_NAME, 
                             mleap_version=mleap.version.__version__, 

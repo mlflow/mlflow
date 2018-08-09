@@ -1,3 +1,0 @@
-class MLflowException(Exception):
-    pass
-

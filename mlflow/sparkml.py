@@ -17,7 +17,7 @@ from pyspark.ml.pipeline import PipelineModel
 from pyspark.ml.base import Transformer
 
 
-from mlflow.utils.exception import SaveModelException 
+from mlflow.exceptions import SaveModelException 
 
 FLAVOR_NAME = "sparkml"
 
