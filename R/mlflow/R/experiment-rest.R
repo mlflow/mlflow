@@ -104,8 +104,6 @@ mlflow_create_run <- function(user_id = NULL,
     run_tags = run_tags
   ))
 
-  .globals$active_run <- response$run$info$run_uuid
-
   as.data.frame(response$run$info, stringsAsFactors = FALSE)
 }
 
@@ -116,8 +114,7 @@ mlflow_create_run <- function(user_id = NULL,
 #' @param run_uuid Unique ID for the run.
 #'
 #' @export
-mlflow_get_run <- function(run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
+mlflow_get_run <- function(run_uuid) {
   response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
   run <- Filter(length, response$run)
   lapply(run, as.data.frame, stringsAsFactors = FALSE)
