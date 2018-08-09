@@ -154,17 +154,6 @@ mlflow_ensure_run <- function(run_uuid) {
   run_uuid
 }
 
-#' Log Artifact
-#'
-#' Logs an specific file or directory as an artifact.
-#'
-#' @param path The file or directory to log as an artifact.
-#'
-#' @export
-mlflow_log_artifact <- function(path) {
-  stop("Not implemented.")
-}
-
 #' Log Model
 #'
 #' Logs a model in the given run. Similar to `mlflow_save_model()`
