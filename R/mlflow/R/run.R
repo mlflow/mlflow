@@ -88,6 +88,8 @@ clear_run <- function() {
 # from rstudio/tfruns R/flags.R
 # parse command line arguments
 parse_command_line <- function(arguments) {
+  arguments <- arguments[!arguments == "--args"]
+
   if (!length(arguments)) return(NULL)
   # initialize some state
   values <- list()
@@ -100,10 +102,6 @@ parse_command_line <- function(arguments) {
     # skip any command line arguments without a '--' prefix
     if (!grepl("^--", argument))
       next
-
-    # terminate if we see "--args" (implies passthrough args)
-    if (grepl("^--args$", argument))
-      break
 
     # check to see if an '=' was specified for this argument
     equals_idx <- regexpr("=", argument)
