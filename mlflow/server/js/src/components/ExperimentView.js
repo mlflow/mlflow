@@ -360,21 +360,21 @@ class ExperimentView extends Component {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const row = [
-      <td key="Hcheck"><input type="checkbox" checked={selected}
+      <td key="meta-check"><input type="checkbox" checked={selected}
         onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
-      <td key="Hlink">
+      <td key="meta-link">
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
         </Link>
       </td>,
-      <td key="Huser">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td key="Hsource">{Utils.renderSource(runInfo)}</td>,
-      <td key="Hversion">{Utils.renderVersion(runInfo)}</td>,
+      <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
+      <td key="meta-source">{Utils.renderSource(runInfo)}</td>,
+      <td key="meta-version">{Utils.renderVersion(runInfo)}</td>,
     ];
 
     paramKeyList.forEach((paramKey, i) => {
       const className = i === 0 ? "left-border": undefined;
-      const keyname = "0" + paramKey;
+      const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
         row.push(<td className={className} key={keyname}>
           {paramsMap[paramKey].getValue()}
@@ -384,12 +384,12 @@ class ExperimentView extends Component {
       }
     });
     if (numParams === 0) {
-      row.push(<td className="left-border" key={"HParamEmpty"}/>);
+      row.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
 
     metricKeyList.forEach((metricKey, i) => {
       const className = i === 0 ? "left-border": undefined;
-      const keyname = "1" + metricKey;
+      const keyname = "metric-" + metricKey;
       if (metricsMap[metricKey]) {
         const metric = metricsMap[metricKey].getValue();
         const range = metricRanges[metricKey];
@@ -413,7 +413,7 @@ class ExperimentView extends Component {
       }
     });
     if (numMetrics === 0) {
-      row.push(<td className="left-border" key="HMetricEmpty" />);
+      row.push(<td className="left-border" key="meta-metric-empty" />);
     }
     return row;
   }
@@ -432,14 +432,14 @@ class ExperimentView extends Component {
       return "sortable sorted " + (sortState.ascending?"asc":"desc");
     }
     const getHeaderCell = (key, text) => {
-      return <th key={"H"+key} className={"bottom-row " + sortedClassName(false, false, key)}
+      return <th key={"meta-"+key} className={"bottom-row " + sortedClassName(false, false, key)}
         onClick={() => onSortBy(false, false, key)}>{text}</th>
     }
 
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [
-      <th key="Hcheck" className="bottom-row">
+      <th key="meta-check" className="bottom-row">
         <input type="checkbox" onChange={onCheckAll} checked={isAllChecked} />
       </th>,
       getHeaderCell("start_time", "Date"),
@@ -451,11 +451,11 @@ class ExperimentView extends Component {
       const className = "bottom-row "
         + (i === 0 ? "left-border " : "")
         + sortedClassName(false, true, paramKey);
-      columns.push(<th key={'0'+paramKey} className={className}
+      columns.push(<th key={'param-'+paramKey} className={className}
         onClick={() => onSortBy(false, true, paramKey)}>{paramKey}</th>);
     });
     if (numParams === 0) {
-      columns.push(<th key="HParamEmpty" className="bottom-row left-border">(n/a)</th>);
+      columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
     let firstMetric = true;
@@ -464,11 +464,11 @@ class ExperimentView extends Component {
         + (firstMetric ? "left-border " : "")
         + sortedClassName(true, false, metricKey);
       firstMetric = false;
-      columns.push(<th key={'1'+metricKey} className={className}
+      columns.push(<th key={'metric-'+metricKey} className={className}
         onClick={() => onSortBy(true, false, metricKey)}>{metricKey}</th>);
     });
     if (numMetrics === 0) {
-      columns.push(<th key="HMetricEmpty" className="bottom-row left-border">(n/a)</th>);
+      columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
     return columns;
