@@ -132,7 +132,7 @@ mlflow_get_run <- function(run_uuid) {
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
 #' @export
 mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
+  run_uuid <- mlflow_ensure_run(run_uuid)
   timestamp <- timestamp %||% current_time()
   response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
     run_uuid = run_uuid,
@@ -156,7 +156,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
 #' @param value String value of the parameter.
 #' @export
 mlflow_log_param <- function(key, value, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
+  run_uuid <- mlflow_ensure_run(run_uuid)
   response <- mlflow_rest("runs", "log-parameter", verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
@@ -175,7 +175,7 @@ mlflow_log_param <- function(key, value, run_uuid = NULL) {
 #' @param metric_key Name of the metric.
 #' @export
 mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
+  run_uuid <- mlflow_ensure_run(run_uuid)
   response <- mlflow_rest("metrics", "get", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
@@ -194,7 +194,7 @@ mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
 #' @param key Name of the metric.
 #' @export
 mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
+  run_uuid <- mlflow_ensure_run(run_uuid)
   response <- mlflow_rest("metrics", "get-history", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
@@ -213,7 +213,7 @@ mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
 mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
                               end_time = NULL,
                               run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
+  run_uuid <- mlflow_ensure_run(run_uuid)
   status <- match.arg(status)
   end_time <- end_time %||% current_time()
 

@@ -141,17 +141,10 @@ with.mlflow_active_run <- function(x, code) {
 
 mlflow_ensure_run <- function(run_uuid) {
   if (is.null(run_uuid)) {
-    # ensure connection is available and initialized
-    mlflow_get_or_create_active_connection()
-
-    # create active run
-    mlflow_create_run()
-
-    # retrieve active run
-    run_uuid <- mlflow_active_run()
+    mlflow_active_run()$run_info$run_uuid %||% mlflow_start_run()$run_info$run_uuid
+  } else {
+    mlflow_start_run(run_uuid)$run_info$run_uuid
   }
-
-  run_uuid
 }
 
 #' Log Artifact
