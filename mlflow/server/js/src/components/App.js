@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../static/home-logo.png';
-import ExperimentPage from './ExperimentPage';
 import {
   HashRouter as Router,
   Route,

@@ -8,7 +8,7 @@ import CompareRunView from './CompareRunView';
 
 class CompareRunPage extends Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).required,
+    runUuids: PropTypes.arrayOf(String).isRequired,
   };
 
   componentWillMount() {

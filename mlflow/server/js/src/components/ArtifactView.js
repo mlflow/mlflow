@@ -180,10 +180,9 @@ const TREEBEARD_STYLE = {
   tree: {
     base: {
       listStyle: 'none',
-      backgroundColor: '#efeeff',
       margin: 0,
       padding: 0,
-      'background-color': '#FAFAFA',
+      backgroundColor: '#FAFAFA',
       fontSize: '14px',
       maxWidth: '500px',
       height: '556px',

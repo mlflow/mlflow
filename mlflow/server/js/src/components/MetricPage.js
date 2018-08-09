@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import qs from 'qs';
-import { getMetricHistoryApi, getRunApi, getUUID } from '../Actions';
+import { getMetricHistoryApi, getUUID } from '../Actions';
 import RequestStateWrapper from './RequestStateWrapper';
 import NotFoundPage from './NotFoundPage';
 import MetricView from './MetricView';
