@@ -57,13 +57,14 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     container_tar_path = os.path.abspath(os.path.join(DB_TARFILE_BASE,
                                                       os.path.basename(dbfs_fuse_tar_uri)))
     project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
-    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
-                                            "--entry-point", entry_point]))
-    if run_id:
-        mlflow_run_arr.extend(["--run-id", run_id])
-    if parameters:
-        for key, value in parameters.items():
-            mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
+    # mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
+    #                                         "--entry-point", entry_point]))
+    mlflow_run_arr = ["databricks", "clusters", "list"]
+    # if run_id:
+    #     mlflow_run_arr.extend(["--run-id", run_id])
+    # if parameters:
+    #     for key, value in parameters.items():
+    #         mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     mlflow_run_cmd = " ".join(mlflow_run_arr)
     shell_command = textwrap.dedent("""
     export PATH=$DB_HOME/conda/bin:$DB_HOME/python/bin:$PATH &&
