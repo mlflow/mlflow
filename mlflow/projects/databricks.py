@@ -97,13 +97,18 @@ def _check_databricks_auth_available():
     rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
-def _upload_to_dbfs(src_path, dbfs_uri):
+def _upload_to_dbfs(src_path, dbfs_fuse_uri):
     """
     Uploads the file at `src_path` to the specified DBFS URI within the Databricks workspace
     corresponding to the default Databricks CLI profile.
     """
-    eprint("=== Uploading project to DBFS path %s ===" % dbfs_uri)
-    process.exec_cmd(cmd=["databricks", "fs", "cp", src_path, dbfs_uri])
+    eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
+    http_endpoint = dbfs_fuse_uri
+    http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail()
+    with open(src_path, 'rb') as f:
+        rest_utils.http_request(
+            endpoint=http_endpoint, method='POST', data=f,
+            **http_request_kwargs)
 
 
 def _dbfs_path_exists(dbfs_uri):
@@ -139,16 +144,16 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
         with open(temp_tar_filename, "rb") as tarred_project:
             tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
         # TODO: Get subdirectory for experiment from the tracking server
-        dbfs_uri = os.path.join("dbfs:/", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
+        dbfs_fuse_uri = os.path.join("/dbfs", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
                                 "projects-code", "%s.tar.gz" % tarfile_hash)
-        if not _dbfs_path_exists(dbfs_uri):
-            _upload_to_dbfs(temp_tar_filename, dbfs_uri)
-            eprint("=== Finished uploading project to %s ===" % dbfs_uri)
+        if not _dbfs_path_exists(dbfs_fuse_uri):
+            _upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
+            eprint("=== Finished uploading project to %s ===" % dbfs_fuse_uri)
         else:
             eprint("=== Project already exists in DBFS ===")
     finally:
         shutil.rmtree(temp_tarfile_dir)
-    return dbfs_uri
+    return dbfs_fuse_uri
 
 
 def _get_run_result_state(databricks_run_id):
@@ -241,7 +246,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         uri=uri, version=version, git_username=git_username, git_password=git_password)
     project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
-    dbfs_project_uri = _upload_project_to_dbfs(work_dir, experiment_id)
+    dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
     remote_run = tracking._create_run(
         experiment_id=experiment_id, source_name=_expand_uri(uri),
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
@@ -260,8 +265,7 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
             eprint("Error when attempting to load and parse JSON cluster spec from file "
                    "%s. " % cluster_spec)
             raise
-    fuse_dst_dir = os.path.join("/dbfs/", _parse_dbfs_uri_path(dbfs_project_uri).lstrip("/"))
-    command = _get_databricks_run_cmd(fuse_dst_dir, run_id, entry_point, parameters)
+    command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
     return DatabricksSubmittedRun(db_run_id, run_id)
 
