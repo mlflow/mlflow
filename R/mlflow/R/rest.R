@@ -38,8 +38,14 @@ mlflow_rest_timeout <- function() {
 mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
 
+  tracking_uri <- mlflow_tracking_uri()
+  tracking_uri <- if (startsWith(tracking_uri, "http")) tracking_uri else {
+    mc <- mlflow_connect()
+    mc$tracking_uri
+  }
+
   api_url <- file.path(
-    mlflow_tracking_uri(),
+    tracking_uri,
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
