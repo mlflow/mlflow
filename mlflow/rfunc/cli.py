@@ -20,6 +20,11 @@ def execute(command):
     process = subprocess.Popen(["Rscript", "-e", command], close_fds=True, env=env)
     process.wait()
 
+def str_optional(s):
+    if s is None:
+        return ''
+    return str(s)
+
 @commands.command("serve")
 @cli_args.MODEL_PATH
 @cli_args.RUN_ID
@@ -40,9 +45,9 @@ def serve(model_path, run_id, port):
 @commands.command("predict")
 @cli_args.MODEL_PATH
 @cli_args.RUN_ID
-@click.option("--input-path", "-i", help="JSON containing DataFrame to predict against.",
+@click.option("--input-path", "-i", help="JSON or CSV containing DataFrame to predict against.",
               required=True)
-@click.option("--output-path", "-o", help="File to output results to as JSON file." +
+@click.option("--output-path", "-o", help="File to output results to as JSON or CSV file." +
                                           " If not provided, output to stdout.")
 def predict(model_path, run_id, input_path, output_path):
     """
@@ -55,5 +60,5 @@ def predict(model_path, run_id, input_path, output_path):
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
 
-    command = "mlflow::mlflow_predict('{0}', '{1}', '{2}')".format(model_path, input_path, output_path)
+    command = "mlflow::mlflow_predict('{0}', '{1}', '{2}')".format(model_path, input_path, str_optional(output_path))
     execute(command)

@@ -86,22 +86,18 @@ mlflow_predict <- function(
   if (restore) mlflow_restore()
 
   data <- switch(
-    fs::path_ext(data_file),
-    json = jsonlite::read_json(data_file),
-    csv = read.csv(data_file)
+    fs::path_ext(input_file),
+    json = jsonlite::read_json(input_file),
+    csv = read.csv(input_file)
   )
 
   model <- mlflow_load_model(model_dir)
   prediction <- mlflow_predict_model(model, data)
 
-  if (is.null(output_file) || nchar(output_file) == 0) {
-    print(prediction)
-  }
-  else {
-    switch(
-      fs::path_ext(output_file),
-      json = jsonlite::write_json(prediction, output_file),
-      csv = write.csv(prediction, data_file, row.names = FALSE)
-    )
-  }
+  switch(
+    fs::path_ext(output_file),
+    json = jsonlite::write_json(prediction, output_file),
+    csv = write.csv(prediction, data_file, row.names = FALSE),
+    message(prediction)
+  )
 }
