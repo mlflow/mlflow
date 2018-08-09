@@ -1,6 +1,7 @@
 import base64
 import time
 from json import loads
+from json import JSONEncoder
 
 import numpy
 from databricks_cli.configure import provider
@@ -99,7 +100,7 @@ def http_request(hostname, endpoint, retries=3, retry_interval=3, **kwargs):
     raise Exception("API request to %s failed to return code 200 after %s tries" % (url, retries))
 
 
-class NumpyEncoder(json.JSONEncoder):
+class NumpyEncoder(JSONEncoder):
     """ Special json encoder for numpy types.
     Note that some numpy types doesn't have native python equivalence,
     hence json.dumps will raise TypeError.
@@ -109,4 +110,4 @@ class NumpyEncoder(json.JSONEncoder):
     def default(self, o):  # pylint: disable=E0202
         if isinstance(o, numpy.generic):
             return numpy.asscalar(o)
-        return json.JSONEncoder.default(self, o)
+        return JSONEncoder.default(self, o)
