@@ -327,6 +327,20 @@ mlflow_start_run <- function(user_id = NULL,
   new_mlflow_active_run(run_info)
 }
 
+#' End Run
+#'
+#' End the active run.
+#'
+#' @param status Ending status of the run, defaults to `FINISHED`.
+#' @export
+mlflow_end_run <- function(status = "FINISHED") {
+  if (!is.null(mlflow_active_run())) {
+    mlflow_update_run(status = status)
+    mlflow_set_active_run(NULL)
+  }
+  invisible(NULL)
+}
+
 new_mlflow_active_run <- function(run_info) {
   structure(
     list(run_info = run_info),
@@ -348,9 +362,11 @@ with.mlflow_active_run <- function(x, code) {
     ),
     {
       force(code)
-      mlflow_update_run(run_uuid = runid, status = "FINISHED", end_time = current_time())
+      mlflow_end_run()
     }
   )
+
+  invisible(NULL)
 }
 
 mlflow_ensure_run <- function(run_uuid) {
