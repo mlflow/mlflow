@@ -13,7 +13,7 @@ mlflow_active_connection <- function() {
 
 mlflow_set_active_connection <- function(mc) {
   .globals$active_connection <- mc
-  mlflow_set_tracking_uri(mc$url)
+  mlflow_set_tracking_uri(mc$tracking_uri)
   invisible(NULL)
 }
 
@@ -73,8 +73,8 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
     )
   )
 
-  url <- getOption("mlflow.ui", paste(host, port, sep = ":"))
-  new_mlflow_connection(url, handle, file_store = file_store)
+  tracking_uri <- getOption("mlflow.ui", paste(host, port, sep = ":"))
+  new_mlflow_connection(tracking_uri, handle, file_store = file_store)
 }
 
 #' Connect to MLflow
@@ -104,10 +104,10 @@ mlflow_connect <- function(x = NULL, activate = TRUE, ...) {
   mc
 }
 
-new_mlflow_connection <- function(url, handle, ...) {
+new_mlflow_connection <- function(tracking_uri, handle, ...) {
   mc <- structure(
     list(
-      url = if (startsWith(url, "http")) url else paste0("http://", url),
+      tracking_uri = if (startsWith(tracking_uri, "http")) tracking_uri else paste0("http://", tracking_uri),
       handle = handle,
       ...
     ),

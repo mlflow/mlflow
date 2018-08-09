@@ -33,19 +33,19 @@ mlflow_ui <- function(x, ...) {
 mlflow_ui.character <- function(x, ...) {
   file_store <- fs::path_abs(x)
   active_mc <- mlflow_active_connection()
-  url <- if (!is.null(active_mc) && identical(active_mc$file_store, file_store)) {
-    active_mc$url
+  tracking_uri <- if (!is.null(active_mc) && identical(active_mc$file_store, file_store)) {
+    active_mc$tracking_uri
   } else {
     mc <- mlflow_connect(file_store = file_store, ...)
-    mc$url
+    mc$tracking_uri
   }
 
-  mlflow_view_url(url)
+  mlflow_view_url(tracking_uri)
 }
 
 #' @export
 mlflow_ui.mlflow_connection <- function(x, ...) {
-  mlflow_view_url(x$url)
+  mlflow_view_url(x$tracking_uri)
 }
 
 #' @export
