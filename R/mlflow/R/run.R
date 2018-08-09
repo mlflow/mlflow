@@ -17,12 +17,14 @@
 #'  parameters of type 'path' to subdirectories of storage_dir.
 #' @export
 mlflow_run <- function(uri, entry_point = NULL, version = NULL, param_list = NULL,
-                       experiment_id = NULL, mode = NULL) {
+                       experiment_id = NULL, mode = NULL, cluster_spec = NULL,
+                       git_username = NULL, git_password = NULL, no_conda = FALSE,
+                       storage_dir = NULL) {
   param_list <- if (!is.null(param_list)) param_list %>%
     purrr::imap_chr(~ paste0(.y, "=", .x)) %>%
     paste0(collapse = " ")
 
-  args <- list() %>%
+  args <- list(uri) %>%
     mlflow_cli_param("--entry-point", entry_point) %>%
     mlflow_cli_param("--version", version) %>%
     mlflow_cli_param("--param-list", param_list) %>%
