@@ -126,7 +126,7 @@ mlflow_create_run <- function(user_id = NULL,
 
   .globals$active_run <- response$run$info$run_uuid
 
-  as.data.frame(response$run$info)
+  as.data.frame(response$run$info, stringsAsFactors = FALSE)
 }
 
 #' Get Run
@@ -140,7 +140,7 @@ mlflow_get_run <- function(run_uuid = NULL) {
   run_uuid <- mlflow_ensure_run(run_uuid %||% mlflow_active_run())
   response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
   run <- Filter(length, response$run)
-  lapply(run, as.data.frame)
+  lapply(run, as.data.frame, stringsAsFactors = FALSE)
 }
 
 #' Log Metric
@@ -205,7 +205,7 @@ mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
   ))
   metric <- response$metric
   metric$timestamp <- as.POSIXct(as.integer(metric$timestamp), origin = "1970-01-01")
-  as.data.frame(metric)
+  as.data.frame(metric, stringsAsFactors = FALSE)
 }
 
 #' Get Metric History
@@ -245,7 +245,7 @@ mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KIL
     status = status,
     end_time = end_time
   ))
-  as.data.frame(response$run_info)
+  as.data.frame(response$run_info, stringsAsFactors = FALSE)
 }
 
 mlflow_relative_paths <- function(paths) {
