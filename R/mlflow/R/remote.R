@@ -19,11 +19,3 @@ mlflow_tracking_uri <- function() {
     if (nchar(env_uri)) env_uri else fs::path_abs("mlruns")
   }
 }
-
-mlflow_tracking_url_remote <- function() {
-  Sys.getenv("MLFLOW_TRACKING_URI")
-}
-
-mlflow_tracking_is_remote <- function() {
-  !identical(mlflow_tracking_url_remote(), "")
-}
