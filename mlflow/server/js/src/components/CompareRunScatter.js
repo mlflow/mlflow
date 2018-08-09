@@ -95,7 +95,7 @@ class CompareRunScatter extends Component {
 
     return (<div>
       <h2>Scatter Plot</h2>
-      <div className="container">
+      <div className="container-fluid">
         <div className="row">
           <form className="col-xs-3">
             <div className="form-group">
@@ -118,10 +118,13 @@ class CompareRunScatter extends Component {
                 </YAxis>
                 <CartesianGrid />
                 <Tooltip 
-                  active={true}
+                  isAnimationActive={false}
                   cursor={{strokeDasharray: '3 3'}}
                   content={this.renderTooltip.bind(this)}/>
-                <Scatter data={scatterData} fill='#8884d8' />
+                <Scatter
+                  data={scatterData}
+                  fill='#8884d8'
+                  isAnimationActive={false} />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
