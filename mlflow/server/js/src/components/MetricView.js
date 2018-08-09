@@ -38,7 +38,8 @@ class MetricView extends Component {
                             <Legend verticalAlign="bottom"/>
                             <YAxis/>
                             {this.props.runUuids.map((uuid, idx) => (
-                                <Bar dataKey={uuid}
+                                <Bar key={uuid}
+                                     dataKey={uuid}
                                      isAnimationActive={false}
                                      fill={COLORS[idx % COLORS.length]}/>
                             ))}
