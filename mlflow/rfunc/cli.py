@@ -34,7 +34,7 @@ def serve(model_path, run_id, port):
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
     
-    command = "\"mlflow::mlflow_serve('{0}', port = {1})\"".format(model_path, port)
+    command = "mlflow::mlflow_serve('{0}', port = {1})".format(model_path, port)
     execute(command)
 
 @commands.command("predict")
@@ -55,5 +55,5 @@ def predict(model_path, run_id, input_path, output_path):
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
 
-    command = "\"mlflow::mlflow_predict('{0}', '{1}', '{2}')\"".format(model_path, input_path, output_path)
+    command = "mlflow::mlflow_predict('{0}', '{1}', '{2}')".format(model_path, input_path, output_path)
     execute(command)
