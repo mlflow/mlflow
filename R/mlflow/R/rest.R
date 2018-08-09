@@ -39,7 +39,7 @@ mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = 
   args <- list(...)
 
   api_url <- file.path(
-    mlflow_tracking_url_get(),
+    mlflow_tracking_uri(),
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )

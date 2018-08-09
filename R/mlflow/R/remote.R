@@ -7,16 +7,16 @@
 #'
 #' @export
 mlflow_set_tracking_uri <- function(uri) {
-  Sys.setenv(MLFLOW_TRACKING_URI = uri)
+  .globals$tracking_uri <- uri
 }
 
-mlflow_tracking_url_get <- function() {
-  env_url <- Sys.getenv("MLFLOW_TRACKING_URI")
-
-  if (startsWith(env_url, "http")) {
-    env_url
-  } else {
-    mlflow_connection_url(mlflow_get_or_create_active_connection())
+#' Get Remote Tracking URI
+#'
+#' @export
+mlflow_tracking_uri <- function() {
+  .globals$tracking_uri %||% {
+    env_uri <- Sys.getenv("MLFLOW_TRACKING_URI")
+    if (nchar(env_uri)) env_uri else fs::path_abs("mlruns")
   }
 }
 

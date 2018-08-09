@@ -13,6 +13,7 @@ mlflow_active_connection <- function() {
 
 mlflow_set_active_connection <- function(mc) {
   .globals$active_connection <- mc
+  mlflow_set_tracking_uri(mc$url)
   invisible(NULL)
 }
 
