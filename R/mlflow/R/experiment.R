@@ -109,7 +109,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
       source_name = source_name %||% get_source_name(),
       source_version = source_version %||% get_source_version(),
       entry_point_name = entry_point_name,
-      source_type = source_type %||% get_source_type()
+      source_type = source_type
     )
   }
 
