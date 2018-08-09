@@ -3,7 +3,7 @@
 S3method(mlflow_ui,"NULL")
 S3method(mlflow_ui,character)
 S3method(mlflow_ui,mlflow_connection)
-S3method(with,mlflow_run_context)
+S3method(with,mlflow_active_run)
 export(mlflow_active_experiment)
 export(mlflow_active_run)
 export(mlflow_cli)

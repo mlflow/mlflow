@@ -324,14 +324,18 @@ mlflow_start_run <- function(user_id = NULL,
     run_tags = run_tags
   )
 
+  new_mlflow_active_run(run_info)
+}
+
+new_mlflow_active_run <- function(run_info) {
   structure(
     list(run_info = run_info),
-    class = c("mlflow_run_context")
+    class = c("mlflow_active_run")
   )
 }
 
 #' @export
-with.mlflow_run_context <- function(x, code) {
+with.mlflow_active_run <- function(x, code) {
   runid <- as.character(x$run_info$run_uuid)
 
   tryCatch(
