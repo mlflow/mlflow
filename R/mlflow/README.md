@@ -93,10 +93,10 @@ or implicitly used by running `R` with `mlflow` from the terminal as
 follows:
 
 ``` bash
-mlflow run examples/ --entry-point train.R
+mlflow run examples/R/simple --entry-point train.R
 ```
 
-Notice that is equivalent to running,
+Notice that is equivalent to running from `examples/R/simple`,
 
 ``` bash
 Rscript -e "mlflow::mlflow_source('train.R')"
@@ -156,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `model/MLmodel` like:
 
-    ## time_created: 1.5337677e+09
+    ## time_created: 1.5337738e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
@@ -192,7 +192,7 @@ mlflow rfunc predict model data.json
 which is equivalent to running,
 
 ``` bash
-Rscript -e "mlflow_predict('model', jsonlite::read_json('data.json'))"
+Rscript -e "mlflow_predict('model', 'data.json')"
 ```
 
 ## Dependencies

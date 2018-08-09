@@ -81,10 +81,10 @@ An MLflow Project is a format for packaging data science code in a reusable and 
 MLflow projects can be [explicitly created](https://www.mlflow.org/docs/latest/projects.html#specifying-projects) or implicitly used by running `R` with `mlflow` from the terminal as follows:
 
 ```{bash eval=FALSE}
-mlflow run examples/ --entry-point train.R
+mlflow run examples/R/simple --entry-point train.R
 ```
 
-Notice that is equivalent to running,
+Notice that is equivalent to running from `examples/R/simple`,
 
 ```{bash eval=FALSE}
 Rscript -e "mlflow::mlflow_source('train.R')"
@@ -170,7 +170,7 @@ mlflow rfunc predict model data.json
 which is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow_predict('model', jsonlite::read_json('data.json'))"
+Rscript -e "mlflow_predict('model', 'data.json')"
 ```
 
 ## Dependencies
