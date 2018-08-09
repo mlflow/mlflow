@@ -5,10 +5,9 @@ import tempfile
 
 import mock
 import pytest
-import yaml
 
 from mlflow.data import is_uri, download_uri, DownloadException
-from mlflow.projects import Project
+from mlflow.projects import _project_spec
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
@@ -24,9 +23,7 @@ def temp_directory():
 
 
 def load_project():
-    with open(os.path.join(TEST_PROJECT_DIR, "MLproject")) as mlproject_file:
-        project_yaml = yaml.safe_load(mlproject_file.read())
-    return Project(uri=TEST_PROJECT_DIR, yaml_obj=project_yaml)
+    return _project_spec.load_project(directory=TEST_PROJECT_DIR)
 
 
 def test_is_uri():

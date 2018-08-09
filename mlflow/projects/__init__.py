@@ -11,14 +11,15 @@ import subprocess
 import tempfile
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
-from mlflow.projects._project_spec import Project
+from mlflow.projects import _project_spec
+from mlflow.utils.exception import ExecutionException
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
 import mlflow.tracking as tracking
 
 
-from mlflow.utils import file_utils, process
+from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -26,11 +27,6 @@ _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
-
-
-class ExecutionException(Exception):
-    """Exception thrown when executing a project fails."""
-    pass
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
@@ -51,12 +47,11 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     elif mode == "local" or mode is None:
         work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
                                   git_username=git_username, git_password=git_password)
-        project = _load_project(project_dir=work_dir)
+        project = _project_spec.load_project(work_dir)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
-        if use_conda:
-            _maybe_create_conda_env(conda_env_path=os.path.join(work_dir, project.conda_env))
+        conda_env_name = _get_or_create_conda_env(project) if use_conda else None
         if run_id:
             active_run = tracking._get_existing_run(run_id)
         else:
@@ -66,7 +61,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         # tracking server if interrupted
         if block:
             command = _get_entry_point_command(
-                work_dir, entry_point, use_conda, parameters, storage_dir)
+                project, entry_point, parameters, conda_env_name, storage_dir)
             return _run_entry_point(command, work_dir, exp_id, run_id=active_run.run_info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
@@ -150,10 +145,6 @@ def _wait_for(submitted_run_obj):
         raise
 
 
-def _load_project(project_dir):
-    return Project(file_utils.read_yaml(project_dir, "MLproject"))
-
-
 def _parse_subdirectory(uri):
     # Parses a uri and returns the uri and subdirectory as separate values.
     # Uses '#' as a delimiter.
@@ -204,16 +195,10 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     else:
         assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
         _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
-
-    # Make sure there is a MLproject file in the specified working directory.
-    if not os.path.isfile(os.path.join(dst_dir, subdirectory, "MLproject")):
-        if subdirectory == '':
-            raise ExecutionException("No MLproject file found in %s" % uri)
-        else:
-            raise ExecutionException("No MLproject file found in subdirectory %s of %s" %
-                                     (subdirectory, parsed_uri))
-
-    return os.path.abspath(os.path.join(dst_dir, subdirectory))
+    res = os.path.abspath(os.path.join(dst_dir, subdirectory))
+    if not os.path.exists(res):
+        raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
+    return res
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
@@ -246,10 +231,9 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         repo.heads.master.checkout()
 
 
-def _get_conda_env_name(conda_env_path):
-    with open(conda_env_path) as conda_env_file:
-        conda_env_hash = hashlib.sha1(conda_env_file.read().encode("utf-8")).hexdigest()
-    return "mlflow-%s" % conda_env_hash
+def _get_conda_env_name(project):
+    conda_env_contents = project.load_conda_env()
+    return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
 def _get_conda_bin_executable(executable_name):
@@ -268,8 +252,11 @@ def _get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _maybe_create_conda_env(conda_env_path):
-    conda_env = _get_conda_env_name(conda_env_path)
+def _get_or_create_conda_env(project):
+    """
+    Given a `Project`, creates a conda environment containing the project's dependencies if such a
+    conda environment doesn't already exist. Returns the name of the conda environment.
+    """
     conda_path = _get_conda_bin_executable("conda")
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
@@ -282,12 +269,16 @@ def _maybe_create_conda_env(conda_env_path):
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
-
-    conda_action = 'create'
-    if conda_env not in env_names:
-        eprint('=== Creating conda environment %s ===' % conda_env)
-        process.exec_cmd([conda_path, "env", conda_action, "-n", conda_env, "--file",
-                          conda_env_path], stream_output=True)
+    project_env_name = _get_conda_env_name(project)
+    if project_env_name not in env_names:
+        eprint('=== Creating conda environment %s ===' % project_env_name)
+        if project.conda_env_path:
+            process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
+                              project.conda_env_path], stream_output=True)
+        else:
+            process.exec_cmd(
+                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
+    return project_env_name
 
 
 def _maybe_set_run_terminated(active_run, status):
@@ -299,16 +290,24 @@ def _maybe_set_run_terminated(active_run, status):
         active_run.set_terminated(status)
 
 
-def _get_entry_point_command(project_dir, entry_point, use_conda, parameters, storage_dir):
-    project = _load_project(project_dir=project_dir)
+def _get_entry_point_command(project, entry_point, parameters, conda_env_name, storage_dir):
+    """
+    Returns the shell command to execute in order to run the specified entry point.
+    :param project: Project containing the target entry point
+    :param entry_point: Entry point to run
+    :param parameters: Parameters (dictionary) for the entry point command
+    :param conda_env_name: Name of conda environment to use for command execution, or None if no
+                           conda environment should be used.
+    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
+                        arguments of type 'path'. If None, a temporary base directory is used.
+    """
     storage_dir_for_run = _get_storage_dir(storage_dir)
     eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
            "type 'path' ===" % storage_dir_for_run)
     commands = []
-    if use_conda:
-        conda_env_path = os.path.abspath(os.path.join(project_dir, project.conda_env))
+    if conda_env_name:
         activate_path = _get_conda_bin_executable("activate")
-        commands.append("source %s %s" % (activate_path, _get_conda_env_name(conda_env_path)))
+        commands.append("source %s %s" % (activate_path, conda_env_name))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
     return " && ".join(commands)
