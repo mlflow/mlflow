@@ -70,7 +70,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                      " the model is compatible with MLeap" 
                      " (i.e does not contain any custom transformers). Error text: {err}".format(
                          err=str(e)))
-        raise SaveModelException.__class__, error_str, traceback 
+        raise SaveModelException(), error_str, traceback 
         
     mlflow_model.add_flavor(FLAVOR_NAME, 
                             mleap_version=mleap.version.__version__, 
