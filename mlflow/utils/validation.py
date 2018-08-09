@@ -10,7 +10,7 @@ _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 _RUN_ID_REGEX = re.compile(r"^[0-9a-f]{32}$")
 
 _BAD_CHARACTERS_MESSAGE = (
-    "Names may only include contain alphanumerics, underscores (_), dashes (-), periods (.),"
+    "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
     " spaces ( ), and slashes (/)."
 )
 
