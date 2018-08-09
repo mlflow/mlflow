@@ -69,7 +69,7 @@ mlflow_ui()
 You can also use a MLflow server to track and share experiments, see [running a tracking server](https://www.mlflow.org/docs/latest/tracking.html#running-a-tracking-server), and then make use of this server by running:
 
 ```{r eval=FALSE}
-mlflow_tracking_url("http://tracking-server:5000")
+mlflow_set_tracking_uri("http://tracking-server:5000")
 ```
 
 Once the tracking url is defined, the experiments will be stored and tracked in the specified server which others will also be able to access.

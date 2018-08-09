@@ -18,7 +18,7 @@ mlflow_install()
 mlflow_list_experiments()
 
 # list experiments in remote MLflow server
-mlflow_tracking_url("http://tracking-server:5000")
+mlflow_set_tracking_uri("http://tracking-server:5000")
 mlflow_list_experiments()
 }
 

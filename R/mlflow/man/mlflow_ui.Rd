@@ -25,7 +25,7 @@ mlflow_install()
 mlflow_ui()
 
 # launch mlflow ui for existing mlflow server
-mlflow_tracking_url("http://tracking-server:5000")
+mlflow_set_tracking_uri("http://tracking-server:5000")
 mlflow_ui()
 }
 

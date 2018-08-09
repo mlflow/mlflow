@@ -75,7 +75,7 @@ server](https://www.mlflow.org/docs/latest/tracking.html#running-a-tracking-serv
 and then make use of this server by running:
 
 ``` r
-mlflow_tracking_url("http://tracking-server:5000")
+mlflow_set_tracking_uri("http://tracking-server:5000")
 ```
 
 Once the tracking url is defined, the experiments will be stored and
@@ -156,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `model/MLmodel` like:
 
-    ## time_created: 1.5337738e+09
+    ## time_created: 1.5338276e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0

@@ -1,13 +1,13 @@
-#' Remote Tracking URL
+#' Set Remote Tracking URI
 #'
-#' Specifies the URL to the remote MLflow server that will be used
+#' Specifies the URI to the remote MLflow server that will be used
 #' to track experiments.
 #'
-#' @param url The URL to the remote MLflow server.
+#' @param uri The URI to the remote MLflow server.
 #'
 #' @export
-mlflow_tracking_url <- function(url) {
-  Sys.setenv(MLFLOW_TRACKING_URI = url)
+mlflow_set_tracking_uri <- function(uri) {
+  Sys.setenv(MLFLOW_TRACKING_URI = uri)
 }
 
 mlflow_tracking_url_get <- function() {
