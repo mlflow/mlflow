@@ -4,7 +4,7 @@
 \alias{mlflow_log_model}
 \title{Log Model}
 \usage{
-mlflow_log_model(f, path = "mlflow-model")
+mlflow_log_model(f, path = "model")
 }
 \arguments{
 \item{f}{The serving function that will perform a prediction.}

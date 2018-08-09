@@ -4,7 +4,7 @@
 \alias{mlflow_save_model}
 \title{Save Model for MLflow}
 \usage{
-mlflow_save_model(f, path = "mlflow-model")
+mlflow_save_model(f, path = "model")
 }
 \arguments{
 \item{f}{The serving function that will perform a prediction.}
