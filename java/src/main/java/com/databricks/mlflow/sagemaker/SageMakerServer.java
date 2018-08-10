@@ -56,7 +56,6 @@ public class SageMakerServer {
         try {
             Model config = Model.fromRootPath(modelPath);
             predictor = Optional.of((new MLeapLoader()).load(config));
-            // predictor = Optional.of(JavaFunc.load(modelPath, Optional.<String>empty()));
         } catch (LoaderModuleException | IOException e) {
             e.printStackTrace();
         }
