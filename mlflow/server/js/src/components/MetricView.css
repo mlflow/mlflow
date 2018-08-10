@@ -4,3 +4,6 @@ div.MetricView {
     max-height: 10%;
 }
 
+div.MetricView h1 {
+    margin-bottom: 24px;
+}
