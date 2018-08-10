@@ -81,8 +81,8 @@ mlflow_log_artifact <- function(path, artifact_path = NULL) {
   )
 
   if (dir.exists(path)) {
-    for (file in dir(path, full.names = TRUE))
-      mlflow_log_artifact_impl(artifact_uri, file, artifact_path)
+    for (file in dir(path, recursive = TRUE))
+      mlflow_log_artifact_impl(artifact_uri, fs::path(path, file), artifact_path)
   }
   else {
     mlflow_log_artifact_impl(artifact_uri, path, artifact_path)
