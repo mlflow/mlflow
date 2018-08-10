@@ -135,9 +135,7 @@ def test_log_artifacts():
         file1 = "meta.yaml"
         directory = "saved_model"
         file2 = "sk_model.pickle"
-        with TempDir(remove_on_exit=False) as local, TempDir(remove_on_exit=False) as remote:
-            print(local.path())
-            print(remote.path())
+        with TempDir() as local, TempDir() as remote:
             with open(os.path.join(local.path(), file1), "w") as f:
                 f.write(file_content_1)
             os.mkdir(os.path.join(local.path(), directory))

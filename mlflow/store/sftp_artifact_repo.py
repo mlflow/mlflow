@@ -3,11 +3,7 @@ import os
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import TempDir
-
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
 
 
 class SFTPArtifactRepository(ArtifactRepository):
