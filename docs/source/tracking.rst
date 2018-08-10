@@ -263,6 +263,11 @@ in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/au
 Finally, you will need to ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
+FTP
+~~~
+Specify a URI of the form ftp://user@host/path/to/directory to store artifacts in a FTP server. 
+You should log in with username and password just like ``ftp://pass:user@host/path/to/directory``.
+
 Networking
 ^^^^^^^^^^
 

@@ -77,6 +77,9 @@ class ArtifactRepository:
         elif artifact_uri.startswith("wasbs:/"):
             from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
             return AzureBlobArtifactRepository(artifact_uri)
+        elif artifact_uri.startswith("ftp:/"):
+            from mlflow.store.ftp_artifact_repo import FtpArtifactRepository
+            return FtpArtifactRepository(artifact_uri)
         elif artifact_uri.startswith("dbfs:/"):
             from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
             if not isinstance(store, DatabricksStore):
