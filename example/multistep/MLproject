@@ -1,0 +1,25 @@
+name: multistep_example
+
+conda_env: conda.yaml
+
+entry_points:
+  load_raw_data:
+    command: "python etl_data.py load_raw_data"
+  etl_data:
+    parameters:
+      ratings_csv: path
+    command: "python etl_data.py etl_data --ratings-csv {ratings_csv}"
+  als:
+    parameters:
+      ratings_data: path
+      max_iter: {type: int, default: 10}
+      reg_param: {type: float, default: 0.1}
+      rank: {type: int, default: 12}
+    command: "python als.py train_als --ratings-data {ratings_data} --max-iter {max_iter} --reg-param {reg_param} --rank {rank}"
+  keras_train:
+    parameters:
+      ratings_data: path
+      als_model_uri: string
+    command: "python keras_train.py keras_train --ratings-data {ratings_data} --als-model-uri {als_model_uri}"
+  multistep:
+    command: "python multistep.py workflow"
