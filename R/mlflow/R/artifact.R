@@ -73,33 +73,33 @@ mlflow_artifact_type <- function(artifact_uri) {
 mlflow_log_artifact <- function(path, artifact_path = NULL) {
 
   artifact_uri <- mlflow_active_artifact_uri()
-  artifact_type <- mlflow_artifact_type(artifact_path)
+  artifact_type <- mlflow_artifact_type(artifact_uri)
+
+  artifact_uri <- ifelse(
+    is.null(artifact_path),
+    artifact_uri,
+    fs::path(artifact_uri, artifact_path)
+  )
 
   artifact_uri <- structure(
     class = c(artifact_type),
-    artifact_path
+    artifact_uri
   )
 
   if (dir.exists(path)) {
     for (file in dir(path, recursive = TRUE))
-      mlflow_log_artifact_impl(artifact_uri, fs::path(path, file), artifact_path)
+      mlflow_log_artifact_impl(artifact_uri, fs::path(path, file))
   }
   else {
     mlflow_log_artifact_impl(artifact_uri, path, artifact_path)
   }
 }
 
-mlflow_log_artifact_impl <- function(artifact_uri, path, artifact_path) {
+mlflow_log_artifact_impl <- function(artifact_uri, path) {
   UseMethod("mlflow_log_artifact_impl")
 }
 
-mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path, artifact_path) {
-  destination_path <- ifelse(
-    is.null(artifact_path),
-    artifact_uri,
-    file.path(artifact_uri, artifact_path)
-  )
-
+mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path) {
   if (!dir.exists(destination_path)) {
     dir.create(destination_path, recursive = TRUE)
   }
@@ -108,15 +108,15 @@ mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path, artifact
   invisible(NULL)
 }
 
-mlflow_log_artifact_impl.s3_artifact <- function(artifact_uri, path, artifact_path) {
+mlflow_log_artifact_impl.s3_artifact <- function(artifact_uri, path) {
   mlflow_store_s3(path, artifact_uri)
 }
 
-mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path, artifact_path) {
+mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path) {
   mlflow_store_gs(path, artifact_uri)
 }
 
-mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path, artifact_path) {
+mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path) {
   mlflow_store_wasb(path, artifact_uri)
 }
 
