@@ -50,8 +50,8 @@ public class MLeapTransformerSchema {
     }
 
     /**
-     * Converts a Pandas dataframe in `record` format to `row` format
-     * using the schema defined by the calling object
+     * Converts a Pandas dataframe JSON in `record` format to MLeap frame JSON in
+     * `row` format using the schema defined by this schema object
      */
     public String applyToPandasRecordJson(String pandasJson) throws IOException {
         List<String> orderedFieldNames = getOrderedFieldNames();
