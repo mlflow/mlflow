@@ -10,12 +10,11 @@ import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
+import BreadcrumbTitle from "./BreadcrumbTitle";
 
 class CompareRunView extends Component {
   static propTypes = {
-    // This prop is optional in case we allow comparing runs across experiments in the future
-    experiment: PropTypes.instanceOf(Experiment),
-    // Other props are required
+    experiment: PropTypes.instanceOf(Experiment).isRequired,
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
@@ -41,19 +40,14 @@ class CompareRunView extends Component {
       },
     };
 
-    let experiment = this.props.experiment;
-    let experimentId = experiment ? experiment.getExperimentId() : undefined;
+    const experiment = this.props.experiment;
+    const experimentId = experiment.getExperimentId();
     return (
       <div className="CompareRunView">
-        {experiment ?
-            <h1>
-              <Link to={Routes.getExperimentPageRoute(experiment.getExperimentId())}>{experiment.getName()}</Link>
-              <i className="fas fa-chevron-right breadcrumb-chevron"></i>
-              Comparing {this.props.runInfos.length} Runs
-            </h1>
-          :
-            <h1>Comparing {this.props.runInfos.length} Runs</h1>
-        }
+        <BreadcrumbTitle
+          experiment={experiment}
+          title={"Comparing " + this.props.runInfos.length + " Runs"}
+        />
         <div className="run-metadata-container">
           <div className="run-metadata-label">Run ID:</div>
           <div className="run-metadata-row">
@@ -99,7 +93,7 @@ const mapStateToProps = (state, ownProps) => {
   const metricLists = [];
   const paramLists = [];
   const { experimentId, runUuids } = ownProps;
-  const experiment = experimentId !== null ? getExperiment(experimentId, state) : null;
+  const experiment = getExperiment(experimentId, state);
   runUuids.forEach((runUuid) => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
@@ -155,8 +149,9 @@ class Private {
       const runUuidsWithMetric = Object.keys(mergedMetrics[metricKey]);
       const curRow = [];
       curRow.push(
-        <Link to={Routes.getMetricPageRoute(runUuidsWithMetric, metricKey, experimentId)}>
+        <Link to={Routes.getMetricPageRoute(runUuidsWithMetric, metricKey, experimentId)} title="View chart">
           {metricKey}
+          <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
         </Link>
       );
       runInfos.forEach((r) => {

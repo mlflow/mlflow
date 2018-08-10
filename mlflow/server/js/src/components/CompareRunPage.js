@@ -8,17 +8,15 @@ import CompareRunView from './CompareRunView';
 
 class CompareRunPage extends Component {
   static propTypes = {
-    experimentId: PropTypes.number, // Optional in case we allow comparison across experiments later
+    experimentId: PropTypes.number.isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
   };
 
   componentWillMount() {
     this.requestIds = [];
-    if (this.props.experimentId !== null) {
-      const experimentRequestId = getUUID();
-      this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
-      this.requestIds.push(experimentRequestId);
-    }
+    const experimentRequestId = getUUID();
+    this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
+    this.requestIds.push(experimentRequestId);
     this.props.runUuids.forEach((runUuid) => {
       const requestId = getUUID();
       this.requestIds.push(requestId);
@@ -39,10 +37,7 @@ const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
   const runUuids = JSON.parse(searchValues["?runs"]);
-  let experimentId = null;
-  if (searchValues.hasOwnProperty("experiment")) {
-    experimentId = parseInt(searchValues["experiment"], 10);
-  }
+  const experimentId = parseInt(searchValues["experiment"], 10);
   return { experimentId, runUuids };
 };
 

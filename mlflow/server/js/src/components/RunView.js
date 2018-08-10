@@ -8,8 +8,8 @@ import { Link } from 'react-router-dom';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
-import Routes from '../Routes';
 import Utils from '../utils/Utils';
+import BreadcrumbTitle from "./BreadcrumbTitle";
 
 const PARAMATERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
@@ -85,7 +85,6 @@ class RunView extends Component {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration = run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
-    const experimentId = experiment.getExperimentId();
     const tableStyles = {
       table: {
         width: 'auto',
@@ -115,11 +114,7 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <h1>
-            <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>
-            <i className="fas fa-chevron-right breadcrumb-chevron"></i>
-            Run {run.getRunUuid()}
-          </h1>
+          <BreadcrumbTitle experiment={experiment} title={"Run " + run.getRunUuid()}/>
         </div>
         <div className="run-info-container">
           <div className="run-info">
@@ -245,7 +240,13 @@ const getTagValues = (tags) => {
 const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics).sort().map((m) => {
     const key = m.key;
-    return [<Link to={getMetricPagePath(key)}>{key}</Link>, Utils.formatMetric(m.value)]
+    return [
+      <Link to={getMetricPagePath(key)} title="View chart">
+        {key}
+        <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
+      </Link>,
+      Utils.formatMetric(m.value)
+    ]
   });
 };
 
