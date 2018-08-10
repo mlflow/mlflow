@@ -1,33 +1,43 @@
 package com.databricks.mlflow.sagemaker;
 
 import com.databricks.mlflow.mleap.LeapFrameUtils;
-
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 
 public class DataFrame {
-    private final DefaultLeapFrame leapFrame;
+    enum ContentType { Json, Csv }
 
-    protected DataFrame(DefaultLeapFrame leapFrame) {
-        this.leapFrame = leapFrame;
+    private final String content;
+    private final ContentType contentType;
+
+    private DataFrame(String content, ContentType contentType) {
+        this.content = content;
+        this.contentType = contentType;
     }
 
-    public DefaultLeapFrame getLeapFrame() {
-        return this.leapFrame;
+    protected static DataFrame fromJson(String jsonContent) {
+        return new DataFrame(jsonContent, ContentType.Json);
+    }
+
+    protected static DataFrame fromCsv(String csvContent) {
+        throw new UnsupportedOperationException(
+            "Loading dataframes from CSV is not yet supported!");
+    }
+
+    protected static DataFrame fromLeapFrame(DefaultLeapFrame leapFrame) {
+        return fromJson(LeapFrameUtils.getJsonFromLeapFrame(leapFrame));
     }
 
     protected String toJson() {
-        return LeapFrameUtils.getJsonFromLeapFrame(this.leapFrame);
+        if (this.contentType == ContentType.Json) {
+            return this.content;
+        } else {
+            throw new UnsupportedOperationException(
+                "Converting a dataframe of a non-JSON content type to JSON is not yet supported.");
+        }
     }
 
     protected String toCsv() {
-        return LeapFrameUtils.getCsvFromLeapFrame(this.leapFrame);
-    }
-
-    protected static DataFrame fromJson(String frameJson) {
-        return new DataFrame(LeapFrameUtils.getLeapFrameFromJson(frameJson));
-    }
-
-    protected static DataFrame fromCsv(String frameJson) {
-        return new DataFrame(LeapFrameUtils.getLeapFrameFromCsv(frameJson));
+        throw new UnsupportedOperationException(
+            "Converting a dataframe to CSV is not yet supported.");
     }
 }

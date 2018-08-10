@@ -1,17 +1,17 @@
 package com.databricks.mlflow.models;
 
 import com.databricks.mlflow.Flavor;
+import com.databricks.mlflow.utils.FileUtils;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.Optional;
-import java.io.File;
-import java.io.IOException;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class Model {
     @JsonProperty("artifact_path") private String artifactPath;
@@ -19,20 +19,19 @@ public class Model {
     @JsonProperty("utc_time_created") private String utcTimeCreated;
     @JsonProperty("flavors") private Map<String, Object> flavors;
 
-    private String basePath;
+    private String rootPath;
 
     public static Model fromRootPath(String modelRootPath) throws IOException {
-        String configPath = modelRootPath + File.separator + "MLmodel";
+        String configPath = FileUtils.join(modelRootPath, "MLmodel");
         return fromConfigPath(configPath);
     }
 
     public static Model fromConfigPath(String configPath) throws IOException {
         File configFile = new File(configPath);
-        final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        Model model = mapper.readValue(configFile, Model.class);
+        Model model = FileUtils.parseYamlFromFile(configFile, Model.class);
         // Set the base path to the directory containing the configuration file.
         // This will be used to create an absolute path to the serialized model
-        model.setBasePath(configFile.getParentFile().getAbsolutePath());
+        model.setRootPath(configFile.getParentFile().getAbsolutePath());
         return model;
     }
 
@@ -58,8 +57,8 @@ public class Model {
         }
     }
 
-    public Optional<String> getBasePath() {
-        return convertFieldToOptional(this.basePath);
+    public Optional<String> getRootPath() {
+        return convertFieldToOptional(this.rootPath);
     }
 
     private Optional<String> convertFieldToOptional(String field) {
@@ -70,7 +69,7 @@ public class Model {
         }
     }
 
-    private void setBasePath(String basePath) {
-        this.basePath = basePath;
+    private void setRootPath(String rootPath) {
+        this.rootPath = rootPath;
     }
 }

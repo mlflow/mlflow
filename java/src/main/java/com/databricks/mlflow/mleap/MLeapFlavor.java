@@ -11,6 +11,7 @@ public class MLeapFlavor implements Flavor {
 
     @JsonProperty("mleap_version") private String mleapVersion;
     @JsonProperty("model_data") private String modelDataPath;
+    @JsonProperty("input_schema") private String inputSchemaPath;
 
     @Override
     public String getName() {
@@ -24,5 +25,9 @@ public class MLeapFlavor implements Flavor {
 
     public String getMleapVersion() {
         return mleapVersion;
+    }
+
+    public String getInputSchemaPath() {
+        return inputSchemaPath;
     }
 }

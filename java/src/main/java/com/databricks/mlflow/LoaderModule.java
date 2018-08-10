@@ -5,7 +5,6 @@ import com.databricks.mlflow.sagemaker.Predictor;
 import com.databricks.mlflow.Flavor;
 
 import java.util.Optional;
-import java.io.File;
 
 public abstract class LoaderModule<T extends Flavor> {
     public Predictor load(Model modelConfig) throws LoaderModuleException {
@@ -16,18 +15,17 @@ public abstract class LoaderModule<T extends Flavor> {
                         + " but the model does not have this flavor.",
                     getFlavorName()));
         }
-        Optional<String> basePath = modelConfig.getBasePath();
-        if (!basePath.isPresent()) {
+        Optional<String> rootPath = modelConfig.getRootPath();
+        if (!rootPath.isPresent()) {
             throw new LoaderModuleException("An internal error occurred while loading the model:"
-                + " the model's base path could not be found. Please ensure that this"
+                + " the model's root path could not be found. Please ensure that this"
                 + " model was created using `Model.fromRootPath()` or `Model.fromConfigPath()`");
         }
-        String absoluteModelPath =
-            basePath.get() + File.separator + flavor.get().getModelDataPath();
-        return createPredictor(absoluteModelPath);
+        return createPredictor(rootPath.get(), flavor.get());
     }
 
-    protected abstract Predictor createPredictor(String modelDataPath) throws LoaderModuleException;
+    protected abstract Predictor createPredictor(String modelRootPath, T flavor)
+        throws LoaderModuleException;
 
     protected abstract Class<T> getFlavorClass();
 

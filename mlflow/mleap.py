@@ -15,6 +15,7 @@ from __future__ import absolute_import
 import os
 import sys
 import traceback
+import json
 
 
 from six import reraise
@@ -77,8 +78,15 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                          err=str(e)))
         traceback.print_exc()
         reraise(SaveModelException, error_str, tb)
-        
+
+    input_schema = json.loads(sample_input.schema.json())
+    mleap_schemapath_sub = os.path.join("mleap", "schema.json")
+    mleap_schemapath_full = os.path.join(path, mleap_schemapath_sub)
+    with open(mleap_schemapath_full, "w") as out:
+        json.dump(input_schema, out, indent=4)
+
     mlflow_model.add_flavor(FLAVOR_NAME, 
                             mleap_version=mleap.version.__version__, 
-                            model_data=mleap_datapath_sub)
+                            model_data=mleap_datapath_sub,
+                            input_schema=mleap_schemapath_sub)
 

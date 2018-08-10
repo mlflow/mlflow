@@ -1,8 +1,11 @@
 package com.databricks.mlflow.mleap;
 
+import com.databricks.mlflow.LoaderModule;
+import com.databricks.mlflow.LoaderModuleException;
+import com.databricks.mlflow.models.Model;
 import com.databricks.mlflow.sagemaker.MLeapPredictor;
 import com.databricks.mlflow.sagemaker.Predictor;
-import com.databricks.mlflow.LoaderModule;
+import com.databricks.mlflow.utils.FileUtils;
 
 import java.util.Optional;
 import java.io.IOException;
@@ -10,13 +13,22 @@ import java.io.IOException;
 import ml.combust.mleap.runtime.frame.Transformer;
 
 public class MLeapLoader extends LoaderModule<MLeapFlavor> {
-    public Transformer loadPipeline(String modelDataPath) {
-        return ((MLeapPredictor) createPredictor(modelDataPath)).getPipeline();
+    public Transformer loadPipeline(String modelRootPath) throws LoaderModuleException {
+        try {
+            return ((MLeapPredictor) load(Model.fromRootPath(modelRootPath))).getPipeline();
+        } catch (IOException e) {
+            throw new LoaderModuleException(
+                String.format("Failed to read model files from the supplied model root path: %s."
+                        + "Please ensure that this is the path to a valid MLFlow model.",
+                    modelRootPath));
+        }
     }
 
     @Override
-    protected Predictor createPredictor(String modelDataPath) {
-        return new MLeapPredictor(modelDataPath);
+    protected Predictor createPredictor(String modelRootPath, MLeapFlavor flavor) {
+        String modelDataPath = FileUtils.join(modelRootPath, flavor.getModelDataPath());
+        String inputSchemaPath = FileUtils.join(modelRootPath, flavor.getInputSchemaPath());
+        return new MLeapPredictor(modelDataPath, inputSchemaPath);
     }
 
     @Override
