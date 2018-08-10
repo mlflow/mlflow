@@ -87,3 +87,6 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Config file
+example/qubole_run_remote/cluster_spec.json
