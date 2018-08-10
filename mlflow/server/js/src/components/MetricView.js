@@ -5,8 +5,8 @@ import { connect } from 'react-redux';
 import Utils from '../utils/Utils';
 import { getMetricsByKey } from '../reducers/MetricReducer';
 import './MetricView.css';
-import {Experiment} from "../sdk/MlflowMessages";
-import {getExperiment} from "../reducers/Reducers";
+import { Experiment } from "../sdk/MlflowMessages";
+import { getExperiment } from "../reducers/Reducers";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 
 const COLORS = [

@@ -1,9 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import {getExperiment, getParams, getRunInfo} from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
-import {Experiment, RunInfo} from '../sdk/MlflowMessages';
+import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import HtmlTableView from './HtmlTableView';
 import CompareRunScatter from './CompareRunScatter';
 import Routes from '../Routes';

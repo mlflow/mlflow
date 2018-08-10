@@ -1,7 +1,7 @@
-import React, {Component} from "react";
+import React, { Component } from "react";
 import PropTypes from "prop-types";
-import {Experiment} from "../sdk/MlflowMessages";
-import {Link} from 'react-router-dom';
+import { Experiment } from "../sdk/MlflowMessages";
+import { Link } from 'react-router-dom';
 import Routes from "../Routes";
 
 /**

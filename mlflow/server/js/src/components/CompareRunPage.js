@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import qs from 'qs';
 import { connect } from 'react-redux';
-import {getExperimentApi, getRunApi, getUUID} from '../Actions';
+import { getExperimentApi, getRunApi, getUUID } from '../Actions';
 import RequestStateWrapper from './RequestStateWrapper';
 import CompareRunView from './CompareRunView';
 
