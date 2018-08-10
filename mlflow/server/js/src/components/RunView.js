@@ -159,7 +159,7 @@ class RunView extends Component {
         {runCommand ?
           <div className="RunView-info">
             <h2>Run Command</h2>
-            <textarea className="run-command text-area" readOnly={true}>{runCommand}</textarea>
+            <textarea className="run-command text-area" readOnly={true} value={runCommand}/>
           </div>
           : null
         }

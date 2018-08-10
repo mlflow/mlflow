@@ -48,7 +48,11 @@ class RunPage extends Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
-  return { runUuid: match.params.runUuid, match, experimentId: match.params.experimentId };
+  return {
+    runUuid: match.params.runUuid,
+    match,
+    experimentId: parseInt(match.params.experimentId, 10)
+  };
 };
 
 export default connect(mapStateToProps)(RunPage);
