@@ -259,6 +259,17 @@ def make_tarfile(output_filename, source_dir, archive_name):
         os.remove(unzipped_filename)
 
 
+def _copy_file_or_tree(src, dst, dst_dir):
+    name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
+    if dst_dir:
+        os.mkdir(os.path.join(dst, dst_dir))
+    if os.path.isfile(src):
+        shutil.copy(src=src, dst=os.path.join(dst, name))
+    else:
+        shutil.copytree(src=src, dst=os.path.join(dst, name))
+    return name
+
+
 def _copy_project(src_path, dst_path=""):
     """
     Internal function used to copy MLflow project during development.

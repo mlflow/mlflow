@@ -44,6 +44,7 @@ setup(
         'pyyaml',
         'boto3',
         'querystring_parser',
+        'mleap>=0.8.1'
     ],
     entry_points='''
         [console_scripts]

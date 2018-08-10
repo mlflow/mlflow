@@ -82,7 +82,7 @@ import pandas
 from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "python_function"
@@ -211,15 +211,6 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     return pandas_udf(predict, result_type)
 
 
-def _copy_file_or_tree(src, dst, dst_dir):
-    name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
-    if dst_dir:
-        os.mkdir(os.path.join(dst, dst_dir))
-    if os.path.isfile(src):
-        shutil.copy(src=src, dst=os.path.join(dst, name))
-    else:
-        shutil.copytree(src=src, dst=os.path.join(dst, name))
-    return name
 
 
 def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=None,

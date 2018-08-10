@@ -50,6 +50,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          cmake \
          openjdk-8-jdk \
          git-core \
+         maven \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and setup miniconda
@@ -60,6 +61,8 @@ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 RUN conda install -c anaconda gunicorn;\
     conda install -c anaconda gevent;\
+
+RUN if [ -d "/opt/mlflow" ]; then cd /opt/mlflow/java/ && mvn package ;fi
 
 %s
 
