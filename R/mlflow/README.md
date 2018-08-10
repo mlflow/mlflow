@@ -67,7 +67,7 @@ running:
 mlflow_ui()
 ```
 
-<img src="tools/readme/mlflow-user-interface.png" class="screenshot" width=460 />
+<img src="tools/readme/mlflow-user-interface.png" class="screenshot" width=520 />
 
 You can also use a MLflow server to track and share experiments, see
 [running a tracking
@@ -156,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `model/MLmodel` like:
 
-    ## time_created: 1.5338276e+09
+    ## time_created: 1.5339403e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
@@ -181,7 +181,7 @@ running,
 Rscript -e "mlflow_serve('model')"
 ```
 
-<img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=460 />
+<img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=520 />
 
 You can also run:
 
@@ -212,14 +212,22 @@ Notice that the `MLFLOW_SNAPSHOT_CACHE` environment variable can be set
 to a cache directory to improve the time required to restore
 dependencies.
 
+## RStudio
+
+To enable fast iteration while tracking with MLflow improvements over a
+model, [RStudio 1.2.897](https://dailies.rstudio.com/) an be configured
+to automatically trigger `mlflow_run()` when sourced. This is enabled by
+including a `# !source mlflow::mlflow_run` comment at the top of the R
+script as
+follows:
+
+<img src="tools/readme/mlflow-source-rstudio.png" class="screenshot" width=520 />
+
 ## Contributing
 
-In order to contribute, follow the [contribution
-guidelines](../../CONTRIBUTING.rst). After performing python changes, or
-to pick the latest changes, you can install with the following code.
-Note that
-[mlflow/pull/193](https://github.com/databricks/mlflow/pull/193) is
-currently required to run python projects locally.
+In order to contribute, follow the [MLflow contribution
+guidelines](../../CONTRIBUTING.rst). After performing python changes,
+you can make them available in R by running:
 
 ``` r
 reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
