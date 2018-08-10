@@ -37,7 +37,6 @@ class CompareRunView extends Component {
         width: '500px',
       },
     };
-    // Private.findInList(this.props.metricLists, '');
 
     return (
       <div className="CompareRunView">
@@ -96,8 +95,6 @@ const mapStateToProps = (state, ownProps) => {
 export default connect(mapStateToProps)(CompareRunView);
 
 class Private {
-
-
   static getParamRows(runInfos, paramLists) {
     const rows = [];
     // Map of parameter key to a map of (runUuid -> value)

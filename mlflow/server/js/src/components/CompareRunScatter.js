@@ -22,9 +22,9 @@ class CompareRunScatter extends Component {
     this.metricKeys = CompareRunScatter.getKeys(this.props.metricLists);
     this.paramKeys = CompareRunScatter.getKeys(this.props.paramLists);
 
-    if(this.paramKeys.length + this.metricKeys.length < 2)
+    if (this.paramKeys.length + this.metricKeys.length < 2) {
       this.state = {disabled: true};
-    else
+    } else {
       this.state = {
         disabled: false,
         x: this.paramKeys.length > 0 ?
@@ -44,6 +44,7 @@ class CompareRunScatter extends Component {
             isMetric: false
           }
       }
+    }
   }
 
   /**
@@ -52,44 +53,53 @@ class CompareRunScatter extends Component {
   static findInList(data, key) {
     let found = undefined;
     data.forEach((value) => {
-      if(value.key === key)
+      if (value.key === key) {
         found = value;
+      }
     });
     return found;
   }
 
+  /**
+   * Get all keys present in the data in ParamLists or MetricLists
+   */
   static getKeys(lists) {
     let keys = {};
     lists.forEach((list) => 
       list.forEach((item) => {
-        if(!(item.key in keys))
+        if (!(item.key in keys)) {
           keys[item.key] = true;
-        if(isNaN(parseFloat(item.value)))
+        }
+        if (isNaN(parseFloat(item.value))) {
           keys[item.key] = false;
+        }
       }
     ));
     return Object.keys(keys).filter(k => keys[k]).sort();
   }
 
-  // Get the value of the metric/param described by {key, isMetric}, in run i
+  /**
+   * Get the value of the metric/param described by {key, isMetric}, in run i
+   */
   getValue(i, {key, isMetric}) {
     const value = CompareRunScatter.findInList(
-      (isMetric?this.props.metricLists:this.props.paramLists)[i],
-      key);
+      (isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : value.value;
   }
 
   render() {
-    if(this.state.disabled)
+    if (this.state.disabled){
       return <div></div>
+    }
 
     const scatterData = [];
 
     this.props.runInfos.forEach((_, index) => {
       const x = this.getValue(index, this.state.x);
       const y = this.getValue(index, this.state.y);
-      if(x === undefined || y === undefined)
+      if (x === undefined || y === undefined) {
         return;
+      }
       scatterData.push({index, x: +x, y: +y});
     });
 
@@ -138,12 +148,9 @@ class CompareRunScatter extends Component {
     return (<Label
       angle={axis === "x" ? 0 : -90}
       offset={axis === "x"? -5 : 5}
-      value={
-        (key.isMetric ? "Metric" : "Parameter")
-        + ": "
-        + key.key
-      }
-      position={axis === "x" ? "insideBottom" : "insideLeft"}/>);
+      value={(key.isMetric ? "Metric" : "Parameter") + ": " + key.key}
+      position={axis === "x" ? "insideBottom" : "insideLeft"}
+    />);
   }
 
   renderSelect(axis) {
@@ -152,28 +159,28 @@ class CompareRunScatter extends Component {
         className="form-control"
         id={axis + "-axis-selector"}
         onChange={(e) => {
-          const isMetric = !!+e.target.value.slice(0,1);
-          const key = e.target.value.slice(1);
+          const [prefix, ...keyParts] = e.target.value.split("-");
+          const key = keyParts.join("-");
+          const isMetric = prefix === "metric";
           this.setState({[axis]: {isMetric, key}});
         }}
-        value={(this.state[axis].isMetric?"1":"0")
-          +this.state[axis].key}>
+        value={(this.state[axis].isMetric ? "metric-" : "param-") + this.state[axis].key}
+      >
         <optgroup label="Parameter">
           {this.paramKeys.map((p) =>
-            <option key={p} value={"0"+p}>{p}</option>
+            <option key={p} value={"param-"+p}>{p}</option>
           )}
         </optgroup>
         <optgroup label="Metric">
           {this.metricKeys.map((m) =>
-            <option key={m} value={"1"+m}>{m}</option>
+            <option key={m} value={"metric-"+m}>{m}</option>
           )}
         </optgroup>
       </select>);
   }
 
-
   renderTooltip(item) {
-    if(item.payload.length > 0) {
+    if (item.payload.length > 0) {
       const i = item.payload[0].payload.index;
       return (
         <div className="panel panel-default scatter-tooltip">
