@@ -174,14 +174,14 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
 
     :param app_name: Name of the deployed application.
     :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``
-                 is specified.
+        is specified.
     :param execution_role_arn: Amazon execution role with SageMaker rights.
-                               Defaults to the currently-assumed role.
+        Defaults to the currently-assumed role.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
-                   SageMaker-compatible bucket name.
+        SageMaker-compatible bucket name.
     :param run_id: MLflow run ID.
     :param image: Name of the Docker image to be used. if not specified, uses a
-                  publicly-available pre-built image.
+        publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
@@ -205,8 +205,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-                    mode) are preserved. If False, these resources are deleted.
+        (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+        mode) are preserved. If False, these resources are deleted.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
                           of supported instance types, see
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.

@@ -37,7 +37,7 @@ def _dbfs_download(output_path, endpoint, http_request_kwargs):
 
 def _dbfs_is_dir(dbfs_path, http_request_kwargs):
     response = http_request(endpoint=GET_STATUS_ENDPOINT, method='GET',
-                            req_body_json={'path': dbfs_path}, **http_request_kwargs)
+                            json={'path': dbfs_path}, **http_request_kwargs)
     json_response = json.loads(response.text)
     try:
         return json_response['is_dir']
