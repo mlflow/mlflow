@@ -80,7 +80,13 @@ mlflow_log_artifact <- function(path, artifact_path = NULL) {
     artifact_path
   )
 
-  mlflow_log_artifact_impl(artifact_uri, path, artifact_path)
+  if (dir.exists(path)) {
+    for (file in dir(path, full.names = TRUE))
+      mlflow_log_artifact_impl(artifact_uri, file, artifact_path)
+  }
+  else {
+    mlflow_log_artifact_impl(artifact_uri, path, artifact_path)
+  }
 }
 
 mlflow_log_artifact_impl <- function(artifact_uri, path, artifact_path) {
@@ -98,14 +104,7 @@ mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path, artifact
     dir.create(destination_path, recursive = TRUE)
   }
 
-  if (dir.exists(path)) {
-    for (file in dir(path))
-      file.copy(file.path(path, file), destination_path)
-  }
-  else {
-    file.copy(path, destination_path)
-  }
-
+  file.copy(path, destination_path)
   invisible(NULL)
 }
 
