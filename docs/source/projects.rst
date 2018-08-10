@@ -61,7 +61,9 @@ following conventions to determine its parameters:
 
 * The project's name is the name of the directory.
 * The `Conda environment <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
-  is specified in ``conda.yaml``, if present.
+  is specified in ``conda.yaml``, if present. If no ``conda.yaml`` file is present, MLflow
+  will use a conda environment containing only Python (specifically, the latest Python available to
+  conda) when running the project.
 * Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly
   declared. When you execute such a command with a set of parameters, MLflow will pass each
   parameter on the command line using ``--key value`` syntax.

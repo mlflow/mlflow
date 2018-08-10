@@ -41,16 +41,17 @@ def get_databricks_http_request_kwargs_or_fail(profile=None):
     if not hostname:
         _fail_malformed_databricks_auth(profile)
 
-    basic_auth_str = None
+    auth_str = None
     if config.username is not None and config.password is not None:
         basic_auth_str = ("%s:%s" % (config.username, config.password)).encode("utf-8")
+        auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif config.token:
-        basic_auth_str = ("token:%s" % config.token).encode("utf-8")
-    if not basic_auth_str:
+        auth_str = "Bearer %s" % config.token
+    else:
         _fail_malformed_databricks_auth(profile)
 
     headers = {
-        "Authorization": "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
+        "Authorization": auth_str,
     }
 
     verify = True

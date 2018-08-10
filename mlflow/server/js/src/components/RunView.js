@@ -59,6 +59,7 @@ class RunView extends Component {
         this.setState({ showArtifacts: !this.state.showArtifacts });
         return;
       }
+      default: {}
     }
   }
 
@@ -76,8 +77,8 @@ class RunView extends Component {
       case ARTIFACTS_KEY: {
         return this.state.showArtifacts ? 'fa-caret-down': 'fa-caret-right';
       }
+      default: {}
     }
-
   }
 
   render() {
