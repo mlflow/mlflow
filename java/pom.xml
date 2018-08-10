@@ -8,7 +8,7 @@
   <groupId>com.databricks.mlflow</groupId>
   <artifactId>mlflow-java</artifactId>
   <packaging>jar</packaging>
-  <version>1.0-SNAPSHOT</version>
+  <version>0.4.2</version>
   <name>mlflow-java</name>
   <url>http://maven.apache.org</url>
   <dependencies>

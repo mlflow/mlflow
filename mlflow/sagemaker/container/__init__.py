@@ -107,9 +107,10 @@ def _serve_pyfunc(model):
 
 
 def _serve_mleap(model):
-    os.system("cd /opt/mlflow/java &&" 
-              " mvn exec:java -Dexec.mainClass=com.databricks.mlflow.sagemaker.SageMakerServer" 
-              " -Dexec.args=\"{mp}\"".format(mp=MODEL_PATH)) 
+    os.system("cd /opt/mlflow/java/target &&"
+              " java -cp mlflow-java-{mlflow_version}-with-dependencies.jar"
+              " com.databricks.mlflow.sagemaker.SageMakerServer {mp}".format(
+                  mlflow_version=mlflow.version.VERSION, mp=MODEL_PATH))
 
 
 def _container_includes_mlflow_source():
