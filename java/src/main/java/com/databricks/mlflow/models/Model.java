@@ -29,7 +29,7 @@ public class Model {
     public static Model fromConfigPath(String configPath) throws IOException {
         File configFile = new File(configPath);
         Model model = FileUtils.parseYamlFromFile(configFile, Model.class);
-        // Set the base path to the directory containing the configuration file.
+        // Set the root path to the directory containing the configuration file.
         // This will be used to create an absolute path to the serialized model
         model.setRootPath(configFile.getParentFile().getAbsolutePath());
         return model;
