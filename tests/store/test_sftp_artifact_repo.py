@@ -1,100 +1,122 @@
 from mock import Mock, MagicMock
-import unittest
-
+import pytest
+from tempfile import NamedTemporaryFile
 import pysftp
-
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
+from mlflow.utils.file_utils import TempDir
+import os
+
+@pytest.fixture
+def sftp_mock():
+    return MagicMock(autospec=pysftp.Connection)
+
+def test_artifact_uri_factory(sftp_mock):
+    from paramiko.ssh_exception import SSHException
+    with pytest.raises(SSHException):
+        ArtifactRepository.from_artifact_uri(
+            "sftp://user:pass@test_sftp:123/some/path",
+            Mock())
+
+def test_list_artifacts_empty(sftp_mock):
+    repo = SFTPArtifactRepository("sftp://test_sftp/some/path", sftp_mock)
+    sftp_mock.listdir = MagicMock(return_value=[])
+    assert repo.list_artifacts() == []
+    sftp_mock.listdir.assert_called_once_with("/some/path")
+
+def test_list_artifacts(sftp_mock):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
+
+    # mocked file structure
+    #  |- file
+    #  |- model
+    #     |- model.pb
+
+    file_path = "file"
+    file_size = 678
+    dir_path = "model"
+    sftp_mock.isdir = MagicMock(side_effect=lambda path: {
+            (artifact_root_path+file_path): False,
+            (artifact_root_path+dir_path): True
+        }[path])
+    sftp_mock.listdir = MagicMock(return_value=[file_path, dir_path])
+
+    file_stat = MagicMock()
+    file_stat.configure_mock(st_size=file_size)
+    sftp_mock.stat = MagicMock(return_value=file_stat)
+
+    artifacts = repo.list_artifacts(path=None)
+
+    sftp_mock.listdir.assert_called_once_with(artifact_root_path)
+    sftp_mock.stat.assert_called_once_with(artifact_root_path + file_path)
+
+    assert len(artifacts) == 2
+    assert artifacts[0].path == file_path
+    assert artifacts[0].is_dir is False
+    assert artifacts[0].file_size == file_size
+    assert artifacts[1].path == dir_path
+    assert artifacts[1].is_dir is True
+    assert artifacts[1].file_size is None
+
+def test_list_artifacts_with_subdir(sftp_mock):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
+
+    # mocked file structure
+    #  |- model
+    #     |- model.pb
+    #     |- variables
+    dir_name = 'model'
+
+    # list artifacts at sub directory level
+    file_path = 'model.pb'
+    file_size = 345
+    subdir_name = 'variables'
+
+    sftp_mock.listdir = MagicMock(return_value=[file_path, subdir_name])
+
+    sftp_mock.isdir = MagicMock(side_effect=lambda path: {
+            (artifact_root_path+dir_name+'/'+file_path): False,
+            (artifact_root_path+dir_name+'/'+subdir_name): True
+        }[path])
+
+    file_stat = MagicMock()
+    file_stat.configure_mock(st_size=file_size)
+    sftp_mock.stat = MagicMock(return_value=file_stat)
+
+    artifacts = repo.list_artifacts(path=dir_name)
+
+    sftp_mock.listdir.assert_called_once_with(artifact_root_path + dir_name)
+    sftp_mock.stat.assert_called_once_with(artifact_root_path + dir_name + '/' + file_path)
+
+    assert len(artifacts) == 2
+    assert artifacts[0].path == dir_name + '/' + file_path
+    assert artifacts[0].is_dir is False
+    assert artifacts[0].file_size == file_size
+    assert artifacts[1].path == dir_name + '/' + subdir_name
+    assert artifacts[1].is_dir is True
+    assert artifacts[1].file_size is None
+
+@pytest.mark.requires_ssh
+def test_log_artifact():
+    for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
+        file_content = 'A simple test artifact\nThe artifact is located in: ' + str(artifact_path)
+        with NamedTemporaryFile(mode="w") as local, TempDir(remove_on_exit=True) as remote:
+            local.write(file_content)
+            local.flush()
+
+            sftp_path = "sftp://" + remote.path()
+            store = SFTPArtifactRepository(sftp_path)
+            store.log_artifact(local.name, artifact_path)
+
+            remote_file = os.path.join(
+                remote.path(),
+                '.' if artifact_path is None  else artifact_path,
+                os.path.basename(local.name))
+            assert os.path.isfile(remote_file)
+
+            with open(remote_file, 'r') as remote_content:
+                assert remote_content.read() == file_content
 
 
-class SFTPArtifactRepositryTest(unittest.TestCase):
-    def setUp(self):
-        self.sftp = MagicMock(autospec=pysftp.Connection)
-
-    def test_artifact_uri_factory(self):
-        from paramiko.ssh_exception import SSHException
-        self.assertRaises(
-            SSHException,
-            lambda: ArtifactRepository.from_artifact_uri(
-                "sftp://user:pass@test_sftp:123/some/path",
-                Mock()))
-
-    def test_list_artifacts_empty(self):
-        repo = SFTPArtifactRepository("sftp://test_sftp/some/path", self.sftp)
-        self.sftp.listdir = MagicMock(return_value=[])
-        assert repo.list_artifacts() == []
-        self.sftp.listdir.assert_called_once_with("/some/path")
-
-    def test_list_artifacts(self):
-        artifact_root_path = "/experiment_id/run_id/"
-        repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, self.sftp)
-
-        # mocked file structure
-        #  |- file
-        #  |- model
-        #     |- model.pb
-
-        file_path = "file"
-        file_size = 678
-        dir_path = "model"
-        self.sftp.isdir = MagicMock(side_effect=lambda path: {
-                (artifact_root_path+file_path): False,
-                (artifact_root_path+dir_path): True
-            }[path])
-        self.sftp.listdir = MagicMock(return_value=[file_path, dir_path])
-
-        file_stat = MagicMock()
-        file_stat.configure_mock(st_size=file_size)
-        self.sftp.stat = MagicMock(return_value=file_stat)
-
-        artifacts = repo.list_artifacts(path=None)
-
-        self.sftp.listdir.assert_called_once_with(artifact_root_path)
-        self.sftp.stat.assert_called_once_with(artifact_root_path + file_path)
-
-        assert len(artifacts) == 2
-        assert artifacts[0].path == file_path
-        assert artifacts[0].is_dir is False
-        assert artifacts[0].file_size == file_size
-        assert artifacts[1].path == dir_path
-        assert artifacts[1].is_dir is True
-        assert artifacts[1].file_size is None
-
-    def test_list_artifacts_with_subdir(self):
-        artifact_root_path = "/experiment_id/run_id/"
-        repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, self.sftp)
-
-        # mocked file structure
-        #  |- model
-        #     |- model.pb
-        #     |- variables
-        dir_name = 'model'
-
-        # list artifacts at sub directory level
-        file_path = 'model.pb'
-        file_size = 345
-        subdir_name = 'variables'
-
-        self.sftp.listdir = MagicMock(return_value=[file_path, subdir_name])
-
-        self.sftp.isdir = MagicMock(side_effect=lambda path: {
-                (artifact_root_path+dir_name+'/'+file_path): False,
-                (artifact_root_path+dir_name+'/'+subdir_name): True
-            }[path])
-
-        file_stat = MagicMock()
-        file_stat.configure_mock(st_size=file_size)
-        self.sftp.stat = MagicMock(return_value=file_stat)
-
-        artifacts = repo.list_artifacts(path=dir_name)
-
-        self.sftp.listdir.assert_called_once_with(artifact_root_path + dir_name)
-        self.sftp.stat.assert_called_once_with(artifact_root_path + dir_name + '/' + file_path)
-
-        assert len(artifacts) == 2
-        assert artifacts[0].path == dir_name + '/' + file_path
-        assert artifacts[0].is_dir is False
-        assert artifacts[0].file_size == file_size
-        assert artifacts[1].path == dir_name + '/' + subdir_name
-        assert artifacts[1].is_dir is True
-        assert artifacts[1].file_size is None

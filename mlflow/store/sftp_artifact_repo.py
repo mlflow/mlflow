@@ -30,6 +30,9 @@ class SFTPArtifactRepository(ArtifactRepository):
             import pysftp
             import paramiko
 
+            if self.config['host'] is None:
+                self.config['host'] = 'localhost'
+
             ssh_config = paramiko.SSHConfig()
             user_config_file = os.path.expanduser("~/.ssh/config")
             if os.path.exists(user_config_file):
@@ -37,6 +40,9 @@ class SFTPArtifactRepository(ArtifactRepository):
                     ssh_config.parse(f)
 
             user_config = ssh_config.lookup(self.config['host'])
+
+            if 'hostname' in user_config:
+                self.config['host'] = user_config['hostname']
 
             if self.config['username'] is None and 'username' in user_config:
                 self.config['username'] = user_config['username']
@@ -52,7 +58,7 @@ class SFTPArtifactRepository(ArtifactRepository):
         artifact_dir = os.path.join(self.path, artifact_path) \
             if artifact_path else self.path
         self.sftp.makedirs(artifact_dir)
-        self.sftp.put(local_file, artifact_dir)
+        self.sftp.put(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_dir = os.path.join(self.path, artifact_path) \
