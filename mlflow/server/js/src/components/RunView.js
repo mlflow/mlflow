@@ -241,7 +241,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics).sort().map((m) => {
     const key = m.key;
     return [
-      <Link to={getMetricPagePath(key)} title="View chart">
+      <Link to={getMetricPagePath(key)} title="Plot chart">
         {key}
         <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
       </Link>,

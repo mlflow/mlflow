@@ -149,7 +149,7 @@ class Private {
       const runUuidsWithMetric = Object.keys(mergedMetrics[metricKey]);
       const curRow = [];
       curRow.push(
-        <Link to={Routes.getMetricPageRoute(runUuidsWithMetric, metricKey, experimentId)} title="View chart">
+        <Link to={Routes.getMetricPageRoute(runUuidsWithMetric, metricKey, experimentId)} title="Plot chart">
           {metricKey}
           <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
         </Link>
