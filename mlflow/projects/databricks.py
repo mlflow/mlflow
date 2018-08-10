@@ -138,7 +138,7 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
             tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
         # TODO: Get subdirectory for experiment from the tracking server
         dbfs_fuse_uri = os.path.join("/dbfs", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
-                                "projects-code", "%s.tar.gz" % tarfile_hash)
+                                     "projects-code", "%s.tar.gz" % tarfile_hash)
         if not _dbfs_path_exists(dbfs_fuse_uri):
             _upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
             eprint("=== Finished uploading project to %s ===" % dbfs_fuse_uri)
