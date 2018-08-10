@@ -1,0 +1,26 @@
+name: tutorial
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      alpha: float
+      l1_ratio: {type: float, default: 0.1}
+    command: "python train.py {alpha} {l1_ratio}"
+
+  hyper_param_search_main:
+    parameters:
+      max_runs: {type: int, default: 50}
+      max_p: {type: int, default: 4}
+      alpha_min: {type: float, default 1e-10}
+      alpha_max: {type: float, default 1e10}
+      l1_min: {type: float, default 0}
+      l1_max: {type: float, default 1}
+#    tags:
+#      run_type: hyper_param_search
+    command: "pythonw search.py {max_runs} {max_p} {alpha_min} {alpha_max} {l1_min} {l1_max}"
+
+
+
+
