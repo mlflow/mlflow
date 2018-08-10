@@ -4,12 +4,12 @@
 \alias{mlflow_predict}
 \title{Predict using MLflow Model}
 \usage{
-mlflow_predict(model_dir, input_file, output_file = NULL, restore = FALSE)
+mlflow_predict(model_dir, data, output_file = NULL, restore = FALSE)
 }
 \arguments{
 \item{model_dir}{The path to the MLflow model, as a string.}
 
-\item{input_file}{'JSON' or 'CSV' file containing data frame to be used for prediction.}
+\item{data}{Data frame, 'JSON' or 'CSV' file to be used for prediction.}
 
 \item{output_file}{'JSON' or 'CSV' file where the prediction will be written to.}
 

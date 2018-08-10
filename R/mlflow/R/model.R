@@ -13,10 +13,14 @@ mlflow_save_model <- function(f, path = "model") {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
+  context_names <- names(formals(f))[2:length(formals(f))]
+  context <- lapply(context_names, function(n) get(n))
+  names(context) <- context_names
+
   model_raw <- serialize(
     list(
       r_function = f,
-      r_environment = as.list(.GlobalEnv)
+      context = context
     ),
     NULL
   )
@@ -42,15 +46,17 @@ mlflow_save_model <- function(f, path = "model") {
 
 #' @export
 mlflow_load_model <- function(model_dir) {
-  list(
-    r_function = function(df) 1,
-    r_environment = list()
-  )
+  spec <- yaml::read_yaml(fs::path(model_dir, "MLmodel"))
+
+  if (!"r_function" %in% names(spec$flavors))
+    stop("Model must define r_function to be used from R.")
+
+  unserialize(readRDS(fs::path(model_dir, spec$flavors$r_function$model)))
 }
 
 #' @export
 mlflow_predict_model <- function(model, df) {
-  model$r_function(df)
+  do.call(model$r_function, args = model$context)
 }
 
 #' Predict using MLflow Model
@@ -58,7 +64,7 @@ mlflow_predict_model <- function(model, df) {
 #' Predict using a MLflow Model from a 'JSON' file.
 #'
 #' @param model_dir The path to the MLflow model, as a string.
-#' @param input_file 'JSON' or 'CSV' file containing data frame to be used for prediction.
+#' @param data Data frame, 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_file 'JSON' or 'CSV' file where the prediction will be written to.
 #' @param restore Should \code{mlflow_restore()} be called before serving?
 #'
@@ -79,25 +85,36 @@ mlflow_predict_model <- function(model, df) {
 #' @export
 mlflow_predict <- function(
   model_dir,
-  input_file,
+  data,
   output_file = NULL,
   restore = FALSE
 ) {
   if (restore) mlflow_restore()
 
-  data <- switch(
-    fs::path_ext(input_file),
-    json = jsonlite::read_json(input_file),
-    csv = read.csv(input_file)
-  )
+  if (is.character(data))
+  {
+    data <- switch(
+      fs::path_ext(data),
+      json = jsonlite::read_json(data),
+      csv = read.csv(data)
+    )
+  }
+
+  if (!is.data.frame(data))
+    stop("Could not load data as a data frame.")
 
   model <- mlflow_load_model(model_dir)
   prediction <- mlflow_predict_model(model, data)
 
-  switch(
-    fs::path_ext(output_file),
-    json = jsonlite::write_json(prediction, output_file),
-    csv = write.csv(prediction, data_file, row.names = FALSE),
-    message(prediction)
-  )
+  if (is.null(output_file)) {
+    if (interactive()) prediction else message(prediction)
+  }
+  else {
+    switch(
+      fs::path_ext(output_file),
+      json = jsonlite::write_json(prediction, output_file),
+      csv = write.csv(prediction, data_file, row.names = FALSE),
+      stop("Unsupported output file format.")
+    )
+  }
 }

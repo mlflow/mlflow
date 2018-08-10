@@ -118,8 +118,8 @@ To save a model use `mlflow_save_model()`. For instance, you can add the followi
 # train model (...)
 
 # save model
-mlflow_save_model(function(data) {
-  predict(model, data)
+mlflow_save_model(function(df, model) {
+  predict(model, df)
 })
 ```
 
@@ -141,6 +141,12 @@ and the model definition `model/MLmodel` like:
 
 ```{r echo=FALSE}
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
+```
+
+Later on, the model can be deployed which will perform predictions using `mlflow_predict()`:
+
+```{r}
+mlflow_predict("model", iris)
 ```
 
 ## Deployment
