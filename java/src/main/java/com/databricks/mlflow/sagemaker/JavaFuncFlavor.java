@@ -8,6 +8,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * NOTE: This module is experimental and subject to change, pending investigation of the
+ * appropriate input format for java function objects. It provides functionality that parses
+ * a reasonable configuration format for serialized Java models. This configuration has not
+ * yet been solidified and is also subject to change.
+ */
 public class JavaFuncFlavor implements Flavor {
     public static final String FLAVOR_NAME = "java_function";
 

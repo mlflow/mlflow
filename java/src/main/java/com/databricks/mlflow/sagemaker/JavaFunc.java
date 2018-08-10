@@ -14,6 +14,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 
+/**
+ * NOTE: This module is experimental and subject to change, pending investigation of the
+ * appropriate input format for Java function objects. It implements the
+ * logic required to load serialized, Java-compatible models by leveraging a
+ * loader module that is specified within a configuration file.
+ */
 class JavaFunc {
     private static final String LOADER_METHOD_NAME = "load";
 
