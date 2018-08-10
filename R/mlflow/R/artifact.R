@@ -113,9 +113,19 @@ mlflow_log_artifact_impl.s3_artifact <- function(artifact_uri, path, artifact_pa
 }
 
 mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path, artifact_path) {
-  stop("Not implemented.")
+  mlflow_store_gs(path, artifact_uri)
 }
 
 mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path, artifact_path) {
   stop("Not implemented.")
+}
+
+mlflow_parse_bucket <- function(artifact_uri) {
+  match <- regexec("[^:]+://([^/]+)(.*)", artifact_uri)
+  results <- regmatches(artifact_uri, match)
+
+  list(
+    name = results[[1]][2],
+    path = results[[1]][3]
+  )
 }
