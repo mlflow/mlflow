@@ -205,25 +205,11 @@ Request Structure
 | source_name      | ``STRING``                      | String descriptor for source. For example, name         |
 |                  |                                 | or description of the notebook, or job name.            |
 +------------------+---------------------------------+---------------------------------------------------------+
-| status           | ``RunStatus``                   | Current status of the run. One of ``RUNNING``,          |
-|                  |                                 | ``SCHEDULE``, ``FINISHED``, ``FAILED``, ``KILLED``.     |
-+------------------+---------------------------------+---------------------------------------------------------+
 | start_time       | ``INT64``                       | Unix timestamp of when the run started in milliseconds. |
-+------------------+---------------------------------+---------------------------------------------------------+
-| end_time         | ``INT64``                       | Unix timestamp of when the run ended in milliseconds.   |
 +------------------+---------------------------------+---------------------------------------------------------+
 | source_version   | ``STRING``                      | Git version of the source code used to create run.      |
 +------------------+---------------------------------+---------------------------------------------------------+
-| artifact_uri     | ``STRING``                      | URI of the directory where artifacts should be uploaded |
-|                  |                                 | This can be a local path (starting with "/"), or a      |
-|                  |                                 | distributed file system (DFS) path, like                |
-|                  |                                 | ``s3://bucket/directory`` or ``dbfs:/my/directory.``    |
-|                  |                                 | If not set, the local ``./mlruns`` directory will be    |
-|                  |                                 | chosen by default.                                      |
-+------------------+---------------------------------+---------------------------------------------------------+
-| entry_point_name | ``STRING``                      | Name of the entry point for the run.                    |
-+------------------+---------------------------------+---------------------------------------------------------+
-| run_tags         | An array of :ref:`mlflowruntag` | Additional metadata for run in key-value pairs.         |
+| tags             | An array of :ref:`mlflowruntag` | Additional metadata for run in key-value pairs.         |
 +------------------+---------------------------------+---------------------------------------------------------+
 
 
@@ -240,7 +226,7 @@ Response Structure
 +------------+----------------------+----------------------------------------+
 | Field Name |         Type         | Description                            |
 +============+======================+========================================+
-| run_info   | :ref:`mlflowruninfo` | Metadata of the newly created run.     |
+| run        | :ref:`mlflowrun`     | The newly created run.                 |
 +------------+----------------------+----------------------------------------+
 
 ===========================
@@ -342,7 +328,7 @@ Request Structure
 
 
 
-.. _mlflowMlflowServicelogParameter:
+.. _mlflowMlflowServicelogParam:
 
 Log Parameter
 =============
@@ -362,7 +348,7 @@ For a run, a single parameter is allowed to be logged only once.
 
 
 
-.. _mlflowLogParameter:
+.. _mlflowLogParam:
 
 Request Structure
 -----------------
@@ -507,7 +493,7 @@ Request Structure
 +==================+====================+=========================================================+
 | run_uuid         | ``STRING``         | Unique ID for the run for which metric is recorded.     |
 +------------------+--------------------+---------------------------------------------------------+
-| key              | ``STRING``         | Name of the metric.                                     |
+| metric_key       | ``STRING``         | Name of the metric.                                     |
 +------------------+--------------------+---------------------------------------------------------+
 
 
