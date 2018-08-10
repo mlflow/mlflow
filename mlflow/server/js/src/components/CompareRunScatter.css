@@ -1,0 +1,31 @@
+.scatter-tooltip {
+  width: 300px;
+  font-size: 90%;
+}
+
+.scatter-tooltip h4 {
+  font-size: 110%;
+  margin: 4px 0 0 0;
+}
+
+.scatter-tooltip ul {
+  margin: 0;
+  padding: 0;
+}
+
+.scatter-tooltip ul li {
+  display: block;
+  margin: 0;
+  padding: 0 0 0 16px;
+  text-indent: -13px;
+}
+
+.scatter-tooltip ul li .value {
+  display: inline-block;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-indent: 0;
+  vertical-align: top;
+}
