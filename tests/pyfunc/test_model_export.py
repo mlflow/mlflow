@@ -209,7 +209,9 @@ class TestModelExport(unittest.TestCase):
             pandas.DataFrame(self._X).to_csv(input_csv_path, header=True, index=False)
             output_csv_path = tmp.path("output.csv")
             process = Popen(['mlflow', 'pyfunc', 'predict',
-                             '--model-path', path, '-i', input_csv_path, '-o', output_csv_path] + extra_args,
+                             '--model-path', path,
+                             '-i', input_csv_path,
+                             '-o', output_csv_path] + extra_args,
                             stderr=STDOUT,
                             preexec_fn=os.setsid)
             process.wait()
@@ -217,7 +219,7 @@ class TestModelExport(unittest.TestCase):
             np.testing.assert_array_equal(result_df.values.transpose()[0],
                                           self._knn.predict(self._X))
 
-    def test_cli_predict_without_no_conda(self):
+    def test_cli_predict_with_conda(self):
         """Run prediction in MLModel specified conda env"""
         self._cli_predict_with_conda_env([])
 

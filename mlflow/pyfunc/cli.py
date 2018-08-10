@@ -8,13 +8,13 @@ import json
 
 import click
 import pandas
-import six
 
 from mlflow.pyfunc import load_pyfunc, scoring_server, _load_model_env
 from mlflow.tracking import _get_model_log_dir
 from mlflow.utils import cli_args, process
 from mlflow.utils.logging_utils import eprint
-from mlflow.projects import _get_conda_bin_executable
+from mlflow.projects import _get_conda_bin_executable, MLFLOW_CONDA_HOME
+from mlflow.utils.exception import ExecutionException
 
 
 def _get_conda_env_name(conda_env_path):
@@ -34,7 +34,7 @@ def _maybe_create_conda_env(conda_env_path):
                                  "at https://conda.io/docs/user-guide/install/index.html. You may "
                                  "also configure MLflow to look for a specific conda executable "
                                  "by setting the {1} environment variable to the path of the conda "
-                                 "executable".format(conda_path, MLFLOW_CONDA))
+                                 "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
 
@@ -54,7 +54,6 @@ def _rerun_in_conda(conda_env_path):
     commands.append("source {} {}".format(activate_path, conda_env_name))
     commands.append(" ".join(sys.argv) + " --no-conda")
     commandline = " && ".join(commands)
-    print("X",commandline)
     eprint("=== Running command '{}'".format(commandline))
     child = subprocess.Popen(["bash", "-c", commandline], close_fds=True)
     exit_code = child.wait()
