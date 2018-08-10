@@ -20,6 +20,9 @@ mlflow_run <- function(uri, entry_point = NULL, version = NULL, param_list = NUL
                        experiment_id = NULL, mode = NULL, cluster_spec = NULL,
                        git_username = NULL, git_password = NULL, no_conda = FALSE,
                        storage_dir = NULL) {
+  if (file.exists(uri))
+    uri <- fs::path_expand(uri)
+
   param_list <- if (!is.null(param_list)) param_list %>%
     purrr::imap_chr(~ paste0(.y, "=", .x)) %>%
     purrr::reduce(~ mlflow_cli_param(.x, "--param-list", .y), .init = list())
