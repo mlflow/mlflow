@@ -23,7 +23,7 @@ class MetricView extends Component {
   };
 
     render() {
-        if (this.props.metrics.length == 1) {
+        if (this.props.metrics.length === 1) {
             return (
                 <div className="MetricView">
                     <h2 className="MetricView-title">{this.props.title} </h2>
@@ -38,7 +38,8 @@ class MetricView extends Component {
                             <Legend verticalAlign="bottom"/>
                             <YAxis/>
                             {this.props.runUuids.map((uuid, idx) => (
-                                <Bar dataKey={uuid}
+                                <Bar key={uuid}
+                                     dataKey={uuid}
                                      isAnimationActive={false}
                                      fill={COLORS[idx % COLORS.length]}/>
                             ))}
