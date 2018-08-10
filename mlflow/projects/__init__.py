@@ -280,8 +280,6 @@ def _get_or_create_conda_env(project):
                 [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
     return project_env_name
 
-    return conda_env
-
 
 def _maybe_set_run_terminated(active_run, status):
     """
