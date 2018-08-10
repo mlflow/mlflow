@@ -117,7 +117,7 @@ mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path, artifac
 }
 
 mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path, artifact_path) {
-  stop("Not implemented.")
+  mlflow_store_wasb(path, artifact_uri)
 }
 
 mlflow_parse_bucket <- function(artifact_uri) {
