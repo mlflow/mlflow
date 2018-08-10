@@ -265,10 +265,11 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 
 SFTP server
 ~~~~~~~~~~~
-If the specified URI has following format ``sftp://user@host/path/to/directory`` that sftp-server will be used as an artifact store.
-The client has to be setup to login without a password over ssh (e.g. public key, identityfile in ssh_config...).
+Specify a URI of the form sftp://user@host/path/to/directory to store artifacts in an SFTP server. You should configure the client to be able to login to the SFTP server without a password over SSH (e.g. public key, identityfile in ssh_config...).
 
 In principle the following format ``sftp://pass:user@host/`` is supported for logging in. But for safety reasons this is not recommended.
+
+When using this store, ``pysftp`` has to be installed on both client and server. Simply ``pip install pysftp`` will install the required package.
 
 Networking
 ^^^^^^^^^^
