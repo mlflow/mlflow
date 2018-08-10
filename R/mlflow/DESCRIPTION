@@ -12,6 +12,7 @@ LazyData: true
 Depends:
   R (>= 3.1.2)
 Imports:
+  aws.s3,
   config,
   fs,
   git2r,
