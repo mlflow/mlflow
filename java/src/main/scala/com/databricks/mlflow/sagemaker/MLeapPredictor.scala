@@ -19,15 +19,15 @@ class MLeapPredictor(var modelPath : String, var inputSchemaPath : String) exten
   val inputSchema = MLeapTransformerSchema.fromFile(inputSchemaPath)
 
   def getPipeline() : Transformer = {
-    this.pipeline
+      this.pipeline
   }
 
   override def predict(inputFrame : DataFrame): DataFrame = {
-    val frameJson = inputSchema.applyToPandasRecordJson(inputFrame.toJson())
-    val leapFrame = LeapFrameUtils.getLeapFrameFromJson(frameJson)
-    // TODO (Corey Zumar): Error handling
-    val transformedFrame = pipeline.transform(leapFrame).get
-    DataFrame.fromLeapFrame(transformedFrame)
+      val frameJson = inputSchema.applyToPandasRecordJson(inputFrame.toJson())
+      val leapFrame = LeapFrameUtils.getLeapFrameFromJson(frameJson)
+      // TODO (Corey Zumar): Error handling
+      val transformedFrame = pipeline.transform(leapFrame).get
+      DataFrame.fromLeapFrame(transformedFrame)
   }
 
 }
