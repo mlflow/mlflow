@@ -203,9 +203,7 @@ When loading a H2O model as a pyfunc-model, :py:mod:`h2o.init(...)` will be call
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
-The ``keras`` model flavor can be used to save a Keras model. This model will be saved in a ``h5`` file, via the facilities provided by Keras.
-
-Besides the ``keras`` flavor, there is also a ``python_function`` flavor available. See :py:mod:`mlflow.keras` for all available functions.
+The ``keras`` model flavor can be used to save a Keras model. This model will be saved in a HDF5 file format, via the model_save functionality provided by Keras. Additionally, model can be loaded back as ``Python Function``. For more information, see :py:mod:`mlflow.keras`.
 
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^

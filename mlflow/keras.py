@@ -55,8 +55,8 @@ class _KerasModelWrapper:
         return predicted
 
 
-def load_pyfunc(path):
-    return _KerasModelWrapper(_load_model(path))
+def load_pyfunc(model_file):
+    return _KerasModelWrapper(_load_model(model_file))
 
 
 def load_model(path, run_id=None):
