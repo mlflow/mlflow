@@ -88,7 +88,7 @@ List Experiments
 | ``2.0/preview/mlflow/experiments/list`` | ``GET``     |
 +-----------------------------------------+-------------+
 
-Return a list of all experiments.
+Get a list of all experiments.
 
 
 
@@ -202,8 +202,7 @@ Request Structure
 +------------------+---------------------------------+---------------------------------------------------------+
 | run_name         | ``STRING``                      | Human readable name for a run.                          |
 +------------------+---------------------------------+---------------------------------------------------------+
-| source_type      | :ref:`mlflowsourcetype`         | Originating source for this run. One of ``Notebook``,   |
-|                  |                                 | ``Job``, ``Project``, ``Local`` or ``Unknown``.         |
+| source_type      | :ref:`mlflowsourcetype`         | Originating source for this run.                        |
 +------------------+---------------------------------+---------------------------------------------------------+
 | source_name      | ``STRING``                      | String descriptor for source. For example, name         |
 |                  |                                 | or description of the notebook, or job name.            |
