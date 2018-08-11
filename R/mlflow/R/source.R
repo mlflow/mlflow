@@ -21,16 +21,13 @@ mlflow_source <- function(uri) {
   }
 
   tryCatch(
+    suppressPackageStartupMessages(source(uri, local = parent.frame())),
     error = function(cnd) {
       message(cnd, "\n")
-      mlflow_update_run(status = "FAILED", end_time = current_time())
+      mlflow_end_run(status = "FAILED")
     },
-    interrupt = function(cnd) mlflow_update_run(status = "KILLED", end_time = current_time()),
-    {
-      suppressPackageStartupMessages(
-        source(uri, local = parent.frame())
-      )
-    }
+    interrupt = function(cnd) mlflow_end_run(status = "KILLED"),
+    finally = mlflow_end_run()
   )
 
   invisible(NULL)
