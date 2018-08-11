@@ -6,7 +6,16 @@ import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label} from 'recharts';
+import {
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Label,
+} from 'recharts';
 import './CompareRunScatter.css';
 
 class CompareRunScatter extends Component {
@@ -18,6 +27,8 @@ class CompareRunScatter extends Component {
 
   constructor(props) {
     super(props);
+
+    this.renderTooltip = this.renderTooltip.bind(this);
 
     this.metricKeys = CompareRunScatter.getKeys(this.props.metricLists);
     this.paramKeys = CompareRunScatter.getKeys(this.props.paramLists);
@@ -126,15 +137,17 @@ class CompareRunScatter extends Component {
                 <YAxis type="number" dataKey='y' name='y'>
                   {this.renderAxisLabel('y')}
                 </YAxis>
-                <CartesianGrid />
-                <Tooltip 
+                <CartesianGrid/>
+                <Tooltip
                   isAnimationActive={false}
                   cursor={{strokeDasharray: '3 3'}}
-                  content={this.renderTooltip.bind(this)}/>
+                  content={this.renderTooltip}
+                />
                 <Scatter
                   data={scatterData}
-                  fill='#8884d8'
-                  isAnimationActive={false} />
+                  fill='#AE76A6'
+                  isAnimationActive={false}
+                />
               </ScatterChart>
             </ResponsiveContainer>
           </div>

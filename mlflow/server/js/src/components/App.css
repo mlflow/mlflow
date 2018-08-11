@@ -107,6 +107,10 @@ h1 {
   color: #333;
 }
 
+h1 a, h1 a:hover, h1 a:active, h1 a:visited {
+  color: #333;
+}
+
 h2 {
   font-size: 18px;
   font-weight: normal;
@@ -148,4 +152,10 @@ table th {
   background-color: #fafafa;
   color: #888888;
   font-weight: 500;
+}
+
+.breadcrumb-chevron {
+  font-size: 75%;
+  margin-left: 10px;
+  margin-right: 8px;
 }

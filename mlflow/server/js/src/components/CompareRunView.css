@@ -12,7 +12,7 @@
 
 .run-metadata-label {
   display: inline-block;
-  width: 500px;
+  width: 250px;
   font-size: 16px;
   color: #888;
 }
@@ -27,3 +27,4 @@
   padding-left: 8px;
   font-size: 16px;
 }
+
