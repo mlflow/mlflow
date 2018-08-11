@@ -156,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `model/MLmodel` like:
 
-    ## time_created: 1.5339443e+09
+    ## time_created: 1.5339457e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
