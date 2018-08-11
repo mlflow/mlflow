@@ -21,7 +21,7 @@ knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
 You can install **mlflow** from GitHub as follows:
 
 ```{r, eval=FALSE}
-devtools::install_github("rstudio/mlflow")
+devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
 ```
 
 Then, install MLflow to manage models and experiments locally:
@@ -38,7 +38,7 @@ mlflow_install()
 To upgrade to the latest version of mlflow, run the following command and restart your r session:
 
 ```{r, eval=FALSE}
-devtools::install_github("rstudio/mlflow")
+devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
 ```
 
 ## Tracking
@@ -145,7 +145,7 @@ cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 
 Later on, the model can be deployed which will perform predictions using `mlflow_predict()`:
 
-```{r}
+```{r, eval = FALSE}
 mlflow_predict("model", iris)
 ```
 
