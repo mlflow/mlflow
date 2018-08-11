@@ -3,7 +3,7 @@ import os
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from six.moves.urllib.parse import urlparse
+from six.moves import urllib
 
 
 class SFTPArtifactRepository(ArtifactRepository):
@@ -11,7 +11,7 @@ class SFTPArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri, client=None):
         self.uri = artifact_uri
-        parsed = urlparse(artifact_uri)
+        parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
             'host': parsed.hostname,
             'port': 22 if parsed.port is None else parsed.port,
