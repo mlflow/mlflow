@@ -113,6 +113,12 @@ h2 {
   color: #333;
 }
 
+h3 {
+  font-size: 16px;
+  font-weight: normal;
+  color: #333;
+}
+
 label {
   font-size: 14px;
   font-weight: normal;
