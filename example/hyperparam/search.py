@@ -1,22 +1,14 @@
-
 import os
-import re
 import sys
 import warnings
 
 import GPyOpt
-
-from subprocess import Popen, PIPE, STDOUT
-
 import numpy as np
 
 import mlflow
 import mlflow.sklearn
 import mlflow.tracking
 import mlflow.projects
-from mlflow.utils.logging_utils import eprint
-
-
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
@@ -27,6 +19,7 @@ if __name__ == "__main__":
     alpha_max = float(sys.argv[4]) if len(sys.argv) > 4 else 1
     l1_min = float(sys.argv[5]) if len(sys.argv) > 5 else 0
     l1_max = float(sys.argv[6]) if len(sys.argv) > 6 else 1
+    metric_name = float(sys.argv[7]) if len(sys.argv) > 7 else "rmse"
 
     bounds = [
         {'name': 'alpha', 'type': 'continuous', 'domain': (alpha_min, alpha_max)},
@@ -34,42 +27,19 @@ if __name__ == "__main__":
     ]
 
     def eval(parms):
-        print(parms)
-        print(parms.shape)
         alpha, l1_ratio = parms[0]
-        cmd = ["mlflow", "run", os.path.abspath(os.path.dirname(__file__))]
-        cmd += ["-P", "alpha={}".format(alpha)]
-        cmd += ["-P", "l1_ratio={}".format(l1_ratio)]
-        print(" ".join(cmd))
-        proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, env={
-            "PATH": os.environ.get("PATH"),
-            "LANG": os.environ.get("LANG")
-        },
-                     universal_newlines=True, preexec_fn=os.setsid)
-        output = []
-        for x in iter(proc.stdout.readline, ""):
-            m = re.search("=== Run [(]ID '(.*)'[)] (\w+) ===", x)
-            if m:
-                runId = m.group(1)
-                status = m.group(2)
-                if status == "succeeded":
-                    store = mlflow.tracking._get_store()
-                    rmse = store.get_metric(runId, "rmse")
-                    mlflow.log_metric(rmse.key, rmse.value)
-                    return rmse.value
-                else:
-                    output_str = "\n".join(output + [x])
-                    msg = "evaluation failed, captured output *** \n {} \n ***".format(output_str)
-                    raise Exception(msg)
-            else:
-                output.append(x)
-        output_str = "\n".join(output)
-        msg = "Evaluation did not fail nor succeed? output *** \n {} \n ***".format(output_str)
-        raise Exception(msg)
+        p = mlflow.projects.run(
+            uri=os.path.abspath(os.path.dirname(__file__)),
+            entry_point="main",
+            parameters={"alpha": alpha, "l1_ratio": l1_ratio}
+        )
+        p.wait()
+        store = mlflow.tracking._get_store()
+        metric_val = store.get_metric(p.run_id, metric_name)
+        # log the final metric to the hyperparam run.
+        mlflow.log_metric(metric_val.key, metric_val.value)
+        return metric_val.value
+
 
     myProblem = GPyOpt.methods.BayesianOptimization(eval, bounds, batch_size=max_p, num_cores=max_p)
     myProblem.run_optimization(max_runs)
-
-
-
-

@@ -17,9 +17,10 @@ entry_points:
       alpha_max: {type: float, default 1e10}
       l1_min: {type: float, default 0}
       l1_max: {type: float, default 1}
+      metric: {type: string, default "rmse"}
 #    tags:
 #      run_type: hyper_param_search
-    command: "pythonw search.py {max_runs} {max_p} {alpha_min} {alpha_max} {l1_min} {l1_max}"
+    command: "python search.py {max_runs} {max_p} {alpha_min} {alpha_max} {l1_min} {l1_max}"
 
 
 
