@@ -83,9 +83,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         mleap.add_to_model(mlflow_model, path, spark_model, sample_input)
         print("Added the MLeap flavor to the model.")
     except SaveModelException as e:
-        # eprint("An error occurred while adding the MLeap flavor to the model!")
-        # eprint(e)
-        pass
+        eprint("An error occurred while adding the MLeap flavor to the model!")
+        eprint(e)
 
     try:
         sparkml_data_path = sparkml.add_to_model(mlflow_model, path, spark_model, dfs_tmpdir)
