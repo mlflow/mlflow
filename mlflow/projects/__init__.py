@@ -365,7 +365,8 @@ def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
     """
     active_run = tracking._create_run(
         experiment_id=experiment_id, source_name=_expand_uri(uri),
-        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
+        source_version=None if _is_local_uri(uri) else tracking._get_git_commit(work_dir),
+        entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
     if parameters is not None:
         for key, value in parameters.items():
