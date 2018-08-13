@@ -29,7 +29,6 @@ Running a Sample App With the Tracking API
 ------------------------------------------
 The programs in ``example`` use the MLflow Tracking API. For instance, run::
 
-
     python example/quickstart/test.py
 
 This program will use `MLflow Tracking API <https://mlflow.org/docs/latest/tracking.html>`_,
