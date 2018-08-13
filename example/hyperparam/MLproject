@@ -20,7 +20,31 @@ entry_points:
       metric: {type: string, default "rmse"}
 #    tags:
 #      run_type: hyper_param_search
-    command: "python search.py {max_runs} {max_p} {alpha_min} {alpha_max} {l1_min} {l1_max}"
+    command: "python search.py {max_runs} {max_p} {alpha_min} {alpha_max} {l1_min} {l1_max} {metric}"
+
+  dl_train:
+    parameters:
+      epochs: int
+      learning_rate: float
+      drop_out_1: float
+      drop_out_2: float
+    command: "python keras_example.py {epochs} {learning_rate} {drop_out_1} {drop_out_2}"
+
+  hyper_param_search_dl:
+    parameters:
+      max_runs: {type: int, default: 50}
+      max_p: {type: int, default: 4}
+      max_epochs: {type: int, 1000}
+      lr_min: {type: float, default 0}
+      lr_max: {type: float, default 1}
+      drop_out_1_min:{type: float, default 0}
+      drop_out_1_max:{type: float, default .99}
+      drop_out_2_min:{type: float, default 0}
+      drop_out_2_max:{type: float, default .99}
+      metric: {type: string, default "rmse"}
+#    tags:
+#      run_type: hyper_param_search
+    command: "python search_keras.py {max_runs} {max_p} {max_epochs} {lr_min} {lr_max} {drop_out_1_min} {drop_out_1_max} {drop_out_2_min} {drop_out_2_max} {metric}"
 
 
 

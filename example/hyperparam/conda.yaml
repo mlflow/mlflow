@@ -11,4 +11,6 @@ dependencies:
     - mlflow
     - Gpy
     - GpyOpt
+    - tensorflow
+    - keras
 
