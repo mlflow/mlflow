@@ -17,6 +17,7 @@ import {
   Label,
 } from 'recharts';
 import './CompareRunScatter.css';
+import CompareRunUtil from './CompareRunUtil'
 
 class CompareRunScatter extends Component {
   static propTypes = {
@@ -30,8 +31,8 @@ class CompareRunScatter extends Component {
 
     this.renderTooltip = this.renderTooltip.bind(this);
 
-    this.metricKeys = CompareRunScatter.getKeys(this.props.metricLists);
-    this.paramKeys = CompareRunScatter.getKeys(this.props.paramLists);
+    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, true);
+    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
 
     if (this.paramKeys.length + this.metricKeys.length < 2) {
       this.state = {disabled: true};
@@ -59,41 +60,10 @@ class CompareRunScatter extends Component {
   }
 
   /**
-   * Find in a list of metrics/params a certain key
-   */
-  static findInList(data, key) {
-    let found = undefined;
-    data.forEach((value) => {
-      if (value.key === key) {
-        found = value;
-      }
-    });
-    return found;
-  }
-
-  /**
-   * Get all keys present in the data in ParamLists or MetricLists
-   */
-  static getKeys(lists) {
-    let keys = {};
-    lists.forEach((list) => 
-      list.forEach((item) => {
-        if (!(item.key in keys)) {
-          keys[item.key] = true;
-        }
-        if (isNaN(parseFloat(item.value))) {
-          keys[item.key] = false;
-        }
-      }
-    ));
-    return Object.keys(keys).filter(k => keys[k]).sort();
-  }
-
-  /**
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
   getValue(i, {key, isMetric}) {
-    const value = CompareRunScatter.findInList(
+    const value = CompareRunUtil.findInList(
       (isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : value.value;
   }
