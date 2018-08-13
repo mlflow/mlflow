@@ -200,6 +200,11 @@ With the H2O model flavor H2O models can be handled by mlflow. These models will
 
 When loading a H2O model as a pyfunc-model, :py:mod:`h2o.init(...)` will be called. Therefore, the right version of h2o(-py) has to be in the environment. The arguments given to :py:mod:`h2o.init(...)` can be customized in ``model.h2o/h2o.yaml`` under the key ``init``.
 
+Keras (``keras``)
+^^^^^^^^^^^^^^^^^
+
+The ``keras`` model flavor can be used to save a Keras model. This model will be saved in a HDF5 file format, via the model_save functionality provided by Keras. Additionally, model can be loaded back as ``Python Function``. For more information, see :py:mod:`mlflow.keras`.
+
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^
 

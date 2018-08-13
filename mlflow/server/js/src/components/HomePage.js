@@ -56,7 +56,9 @@ class HomePage extends Component {
       return (
         <div>
           <div className="collapsed-expander-container">
-            <i onClick={this.onClickListExperiments} className="expander fa fa-chevron-right login-icon"/>
+            <i onClick={this.onClickListExperiments}
+               title="Show experiment list"
+               className="expander fa fa-chevron-right login-icon"/>
           </div>
           <div className="experiment-page-container">
             <ExperimentPage match={this.props.match}/>
