@@ -6,7 +6,7 @@ REST API
 ========
 
 
-The MLflow REST API allows you to create, list, and get experiments and runs, and log params, 
+The MLflow REST API allows you to create, list, and get experiments and runs, and log params,
 metrics, and artifacts. The API is hosted under the ``/api`` route on the MLflow tracking
 server. For example, to list experiments on a tracking server hosted at
 ``http://localhost:5000``, access ``http://localhost:5000/api/2.0/preview/mlflow/experiments/list``.
@@ -72,11 +72,11 @@ Response Structure
 
 
 
-+---------------+-----------+-------------+
-|  Field Name   |   Type    | Description |
-+===============+===========+=============+
-| experiment_id | ``INT64`` |             |
-+---------------+-----------+-------------+
++---------------+-----------+-------------------------------------------+
+|  Field Name   |   Type    |                Description                |
++===============+===========+===========================================+
+| experiment_id | ``INT64`` | Unique identifier for created experiment. |
++---------------+-----------+-------------------------------------------+
 
 ===========================
 
@@ -164,13 +164,13 @@ Response Structure
 
 
 
-+------------+----------------------------------+--------------------------------------------------------------------+
-| Field Name |               Type               |                            Description                             |
-+============+==================================+====================================================================+
-| experiment | :ref:`mlflowexperiment`          | Returns experiment details                                         |
-+------------+----------------------------------+--------------------------------------------------------------------+
-| runs       | An array of :ref:`mlflowruninfo` | All (max limit to be imposed) runs associated with this experiment |
-+------------+----------------------------------+--------------------------------------------------------------------+
++------------+----------------------------------+---------------------------------------------------------------------+
+| Field Name |               Type               |                             Description                             |
++============+==================================+=====================================================================+
+| experiment | :ref:`mlflowexperiment`          | Returns experiment details.                                         |
++------------+----------------------------------+---------------------------------------------------------------------+
+| runs       | An array of :ref:`mlflowruninfo` | All (max limit to be imposed) runs associated with this experiment. |
++------------+----------------------------------+---------------------------------------------------------------------+
 
 ===========================
 
@@ -212,9 +212,9 @@ Request Structure
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
 | user_id          | ``STRING``                      | ID of the user executing the run.                                                              |
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
-| run_name         | ``STRING``                      | Human readable name for a run.                                                                 |
+| run_name         | ``STRING``                      | Human readable name for the run.                                                               |
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
-| source_type      | :ref:`mlflowsourcetype`         | Originating source for this run.                                                               |
+| source_type      | :ref:`mlflowsourcetype`         | Originating source for the run.                                                                |
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
 | source_name      | ``STRING``                      | String descriptor for the run's source. For example, name or description of a notebook, or the |
 |                  |                                 | URL or path to a project.                                                                      |
@@ -279,7 +279,7 @@ Request Structure
 +------------+------------+-------------------------+
 | Field Name |    Type    |       Description       |
 +============+============+=========================+
-| run_uuid   | ``STRING`` | ID of the run to fetch  |
+| run_uuid   | ``STRING`` | ID of the run to fetch. |
 |            |            | This field is required. |
 |            |            |                         |
 +------------+------------+-------------------------+
@@ -536,7 +536,7 @@ Get Metric History
 | ``2.0/preview/mlflow/metrics/get-history`` | ``GET``     |
 +--------------------------------------------+-------------+
 
-Returns a list of all values for the specified metric.
+Returns a list of all values for the specified metric for a given run.
 
 
 
