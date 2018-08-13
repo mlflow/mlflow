@@ -34,3 +34,7 @@
   text-indent: 0;
   vertical-align: top;
 }
+
+.recharts-responsive-container {
+  padding-bottom: 10px;
+}
