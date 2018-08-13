@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import HtmlTableView from './HtmlTableView';
+import CompareRunScatter from './CompareRunScatter';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import Utils from '../utils/Utils';
@@ -36,6 +37,7 @@ class CompareRunView extends Component {
         width: '500px',
       },
     };
+
     return (
       <div className="CompareRunView">
         <h1>Comparing {this.props.runInfos.length} Runs</h1>
@@ -71,7 +73,7 @@ class CompareRunView extends Component {
           values={Private.getLatestMetricRows(this.props.runInfos, this.props.metricLists)}
           styles={tableStyles}
         />
-
+        <CompareRunScatter runUuids={this.props.runUuids}/>
       </div>
     );
   }
