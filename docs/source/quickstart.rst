@@ -21,10 +21,15 @@ You install MLflow by running:
 At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
 can leverage MLflow in your daily workflow.
 
-.. note::
 
-    The quickstart below should be run from within the `examples` subdirectory of a clone of MLflow
-    (clone via ``git clone https://github.com/mlflow/mlflow``).
+Downloading the Quickstart
+--------------------------
+Download the quickstart code by cloning MLflow via ``git clone https://github.com/mlflow/mlflow``,
+and cd into the ``example`` subdirectory of the repository. We'll use this working directory for
+running the quickstart.
+
+We avoid running directly from our clone of MLflow as doing so would cause the tutorial to
+use MLflow from source, rather than your PyPi installation of MLflow.
 
 
 Using the Tracking API
@@ -84,11 +89,11 @@ either a local directory or a GitHub URI:
 
 .. code:: bash
 
-    mlflow run example/tutorial -P alpha=0.5
+    mlflow run tutorial -P alpha=0.5
 
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
 
-There's a sample project in ``example/tutorial``, including a ``MLproject`` file that
+There's a sample project in ``tutorial``, including a ``MLproject`` file that
 specifies its dependencies. All projects that run also log their Tracking API data in the local
 ``mlruns`` directory (or on your tracking server if you've configured one), so you should be able
 to see these runs using ``mlflow ui``.

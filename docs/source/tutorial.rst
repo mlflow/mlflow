@@ -18,15 +18,19 @@ is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datase
   :local:
   :depth: 1
 
+.. _what-youll-need
+
 What You'll Need
 ----------------
 To run this tutorial, you'll need to:
 
  - Install MLflow (via ``pip install mlflow``)
  - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
- - Download the MLflow repository (via ``git clone https://github.com/mlflow/mlflow``)
+ - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
  - `cd` into the ``examples`` directory within your clone of MLflow - we'll use this working
-   directory for running the tutorial.
+   directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
+   so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
+   MLflow.
 
 
 Training the Model
