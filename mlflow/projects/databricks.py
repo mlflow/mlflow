@@ -87,6 +87,10 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
 
 
 def _check_databricks_auth_available():
+    """
+    Verifies that information for making API requests to Databricks is available to MLflow, raising
+    an exception if not.
+    """
     rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
