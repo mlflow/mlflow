@@ -412,6 +412,7 @@ def _get_git_commit(path):
     except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
         return None
 
+
 def _get_git_url(uri):
     """
     Return the git repo path github_url#sub_directory from the uri input
