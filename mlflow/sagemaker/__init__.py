@@ -185,33 +185,33 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
-        - ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``:
-          Create an application with the specified name and model. This fails if an
-          application of the same name already exists.
+                 ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``
+                     Create an application with the specified name and model. This fails if an
+                     application of the same name already exists.
 
-        -  ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``:
-           If an application of the specified name exists, its model(s) is replaced with
-           the specified model. If no such application exists, it is created with the
-           specified name and model.
+                 ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                     If an application of the specified name exists, its model(s) is replaced with
+                     the specified model. If no such application exists, it is created with the
+                     specified name and model.
 
-        - ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``:
-          Add the specified model to a pre-existing application with the specified name,
-          if one exists. If the application does not exist,  a new application is created
-          with the specified name and model. NOTE: If the application **already exists**,
-          the specified model is added to the application's corresponding SageMaker
-          endpoint with an initial weight of zero (0). To route traffic to the model,
-          update the application's associated endpoint configuration using either the
-          AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
-          https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
+                 ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
+                     Add the specified model to a pre-existing application with the specified name,
+                     if one exists. If the application does not exist, a new application is created
+                     with the specified name and model. NOTE: If the application **already exists**,
+                     the specified model is added to the application's corresponding SageMaker
+                     endpoint with an initial weight of zero (0). To route traffic to the model,
+                     update the application's associated endpoint configuration using either the
+                     AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
+                     https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
         (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
         mode) are preserved. If False, these resources are deleted.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
-        of supported instance types, see
-        `Amazon SageMaker ML Instance Types
-        <https://aws.amazon.com/sagemaker/pricing/instance-types/>`_.
+                          of supported instance types, see
+                          https://aws.amazon.com/sagemaker/pricing/instance-types/.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
+
     """
     if mode not in DEPLOYMENT_MODES:
         raise ValueError("`mode` must be one of: {mds}".format(
