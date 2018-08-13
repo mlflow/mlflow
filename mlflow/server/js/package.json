@@ -25,7 +25,8 @@
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
-    "dateformat": "3.0.3"
+    "dateformat": "3.0.3",
+    "url-parse": "1.4.3"
   },
   "scripts": {
     "start": "react-scripts start",
