@@ -81,6 +81,9 @@ def spark_model_iris():
     spark_session = pyspark.sql.SparkSession.builder \
         .config(key="spark_session.python.worker.reuse", value=True) \
         .master("local-cluster[2, 1, 1024]") \
+        .config(key='spark.jars.packages',
+                value='ml.combust.mleap:mleap-spark-base_2.11:0.10.0,'
+                      'ml.combust.mleap:mleap-spark_2.11:0.10.0') \
         .getOrCreate()
     spark_df = spark_session.createDataFrame(pandas_df)
     assembler = VectorAssembler(inputCols=iris.feature_names, outputCol="features")
@@ -177,12 +180,12 @@ def test_container_scoring_outputs_expected_predictions_with_sparkml_flavor(spar
                                                              data=spark_model_iris.inference_df)
 
 
-def test_container_scoring_outputs_expected_predictions_with_mleap_flavor(spark_model_iris,
-        model_path, spark_conda_env):
+def test_container_scoring_outputs_expected_predictions_with_mleap_flavor(spark_model_iris, 
+        model_path):
     mlflow_model = Model()
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       sample_input=spark_model_iris.training_df,
-                      conda_env=spark_conda_env, mlflow_model=mlflow_model)
+                      mlflow_model=mlflow_model)
     assert mleap.FLAVOR_NAME in mlflow_model.flavors
     docker_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                              data=spark_model_iris.inference_df)
