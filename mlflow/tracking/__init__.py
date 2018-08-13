@@ -411,3 +411,38 @@ def _get_git_commit(path):
         return commit
     except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
         return None
+
+def _get_git_url(uri):
+    """
+    Return the git repo path github_url#sub_directory from the uri input
+    :param uri: the expanded uri
+    :return: the git repo path included sub directory if the uri is part of git repo,
+             otherwise return the input as output
+    """
+    if '#' in uri:
+        # already a URI in git repo format
+        return uri
+    try:
+        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
+    except ImportError as e:
+        print("Notice: failed to import Git (the git executable is probably not on your PATH),"
+              " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
+        return uri
+    try:
+        # check whether this is part of a git repo
+        repo = Repo(uri, search_parent_directories=True)
+
+        # repo url
+        repourl = repo.remotes['origin'].config_reader.get('url')
+
+        # sub directory
+        rlpath = uri.replace(repo.working_tree_dir, '')
+        if (rlpath == ''):
+            git_path = repourl
+        elif (rlpath[0] == '/'):
+            git_path = repourl + '#' + rlpath[1:]
+        else:
+            git_path = repourl + '#' + rlpath
+        return git_path
+    except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
+        return uri
