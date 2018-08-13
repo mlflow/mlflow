@@ -29,6 +29,7 @@ Running a Sample App With the Tracking API
 ------------------------------------------
 The programs in ``example`` use the MLflow Tracking API. For instance, run::
 
+
     python example/quickstart/test.py
 
 This program will use `MLflow Tracking API <https://mlflow.org/docs/latest/tracking.html>`_,
@@ -43,10 +44,9 @@ Start it with::
     mlflow ui
 
 **Note:** Running ``mlflow ui`` from within a clone of MLflow is not recommended - doing so will
-run the dev UI from source (using your clone of MLflow, which may not contain the static assets
-needed to serve the UI). We recommend running the UI from a different working directory.
-Alternatively, see instructions for running the dev UI in the
-`contributor guide <CONTRIBUTING.rst>`_.
+run the dev UI from source. We recommend running the UI from a different working directory, using the
+``--file-store`` option to specify which log directory to run against. Alternatively, see instructions
+for running the dev UI in the `contributor guide <CONTRIBUTING.rst>`_.
 
 
 Running a Project from a URI
