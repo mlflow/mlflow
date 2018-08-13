@@ -14,13 +14,12 @@ from collections import namedtuple
 from mlflow import pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow import tracking
-from mlflow.models import Model 
-from mlflow.sparkml import FLAVOR_NAME as SPARKML_FLAVOR_NAME 
-from mlflow.sparkml import DFS_TMP as SPARKML_DFS_TMP 
+from mlflow.models import Model
+from mlflow.sparkml import FLAVOR_NAME as SPARKML_FLAVOR_NAME
+from mlflow.sparkml import DFS_TMP as SPARKML_DFS_TMP
 
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
-
 from tests.pyfunc.test_spark import score_model_as_udf
 
 
@@ -68,7 +67,7 @@ def spark_conda_env(tmpdir):
     return conda_env
 
 
-SparkModelWithData = namedtuple("SparkModelWithData", 
+SparkModelWithData = namedtuple("SparkModelWithData",
                                 ["model", "training_df", "inference_df"])
 
 
@@ -89,7 +88,7 @@ def spark_model_iris():
     pipeline = Pipeline(stages=[assembler, lr])
     # Fit the model
     model = pipeline.fit(spark_df)
-    return SparkModelWithData(model=model, training_df=spark_df, inference_df=pandas_df) 
+    return SparkModelWithData(model=model, training_df=spark_df, inference_df=pandas_df)
 
 
 @pytest.fixture
@@ -97,11 +96,11 @@ def model_path(tmpdir):
     return str(tmpdir.mkdir("model"))
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_model_export(spark_model_iris, model_path, spark_conda_env):
     preds_df = spark_model_iris.model.transform(spark_model_iris.training_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
-    sparkm.save_model(spark_model_iris.model, path=model_path, 
+    sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_conda_env)
     reloaded_model = sparkm.load_model(path=model_path)
     preds_df_1 = reloaded_model.transform(spark_model_iris.training_df)
@@ -110,7 +109,7 @@ def test_model_export(spark_model_iris, model_path, spark_conda_env):
     m = pyfunc.load_pyfunc(model_path)
     preds2 = m.predict(spark_model_iris.inference_df)
     assert preds1 == preds2
-    preds3 = score_model_in_sagemaker_docker_container(model_path=model_path, 
+    preds3 = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                        data=spark_model_iris.inference_df)
     assert preds1 == preds3
     assert os.path.exists(SPARKML_DFS_TMP)
@@ -137,11 +136,11 @@ def test_model_log(tmpdir, spark_model_iris):
                 artifact_path = "model%d" % cnt
                 cnt += 1
                 if dfs_tmp_dir:
-                    sparkm.log_model(artifact_path=artifact_path, 
+                    sparkm.log_model(artifact_path=artifact_path,
                                      spark_model=spark_model_iris.model,
                                      dfs_tmpdir=dfs_tmp_dir)
                 else:
-                    sparkm.log_model(artifact_path=artifact_path, 
+                    sparkm.log_model(artifact_path=artifact_path,
                                      spark_model=spark_model_iris.model)
                 run_id = tracking.active_run().info.run_uuid
                 # test pyfunc
@@ -153,7 +152,7 @@ def test_model_log(tmpdir, spark_model_iris):
                 preds_df_1 = reloaded_model.transform(spark_model_iris.training_df)
                 preds3 = [x.prediction for x in preds_df_1.select("prediction").collect()]
                 assert preds1 == preds3
-                # test spar_udf
+                # test spark_udf
                 preds4 = score_model_as_udf(artifact_path, run_id, spark_model_iris.inference_df)
                 assert preds1 == preds4
                 # make sure we did not leave any temp files behind
@@ -167,30 +166,31 @@ def test_model_log(tmpdir, spark_model_iris):
                 shutil.rmtree(tracking_dir)
 
 
-def test_container_scoring_outputs_expected_predictions_with_sparkml_flavor(spark_model_iris, 
+def test_container_scoring_outputs_expected_predictions_with_sparkml_flavor(spark_model_iris,
         model_path, spark_conda_env):
     mlflow_model = Model()
-    sparkm.save_model(spark_model_iris.model, path=model_path, 
+    sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_conda_env, mlflow_model=mlflow_model)
     assert SPARKML_FLAVOR_NAME in mlflow_model.flavors
     assert mleap.FLAVOR_NAME not in mlflow_model.flavors
-    docker_preds = score_model_in_sagemaker_docker_container(model_path=model_path, 
+    docker_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                              data=spark_model_iris.inference_df)
 
 
-def test_container_scoring_outputs_expected_predictions_with_mleap_flavor(spark_model_iris, 
+def test_container_scoring_outputs_expected_predictions_with_mleap_flavor(spark_model_iris,
         model_path, spark_conda_env):
     mlflow_model = Model()
-    sparkm.save_model(spark_model_iris.model, path=model_path, 
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      sample_input=spark_model_iris.training_df,
                       conda_env=spark_conda_env, mlflow_model=mlflow_model)
     assert mleap.FLAVOR_NAME in mlflow_model.flavors
-    docker_preds = score_model_in_sagemaker_docker_container(model_path=model_path, 
+    docker_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                              data=spark_model_iris.inference_df)
 
 
 def test_model_save_without_sample_output_produces_sparkml_flavor(spark_model_iris, model_path):
-    sparkm.save_model(spark_model=spark_model_iris.model, 
-                      path=model_path, 
+    sparkm.save_model(spark_model=spark_model_iris.model,
+                      path=model_path,
                       sample_input=None)
     config_path = os.path.join(model_path, "MLmodel")
     assert os.path.exists(config_path)
@@ -198,10 +198,11 @@ def test_model_save_without_sample_output_produces_sparkml_flavor(spark_model_ir
     assert SPARKML_FLAVOR_NAME in config.flavors
 
 
-def test_model_save_with_sample_output_produces_sparkml_and_mleap_flavors(tmpdir):
+def test_model_save_with_sample_output_produces_sparkml_and_mleap_flavors(spark_model_iris,
+        model_path):
     sparkm.save_model(spark_model=spark_model_iris.model,
-                  path=model_path,
-                  sample_input=spark_model_iris.training_df)
+                      path=model_path,
+                      sample_input=spark_model_iris.training_df)
     config_path = os.path.join(model_path, "MLmodel")
     assert os.path.exists(config_path)
     config = Model.load(config_path)

@@ -28,25 +28,19 @@ public class MLeapTransformerSchema {
     @JsonProperty("fields") private List<SchemaField> fields;
 
     private String text;
+    private List<String> orderedFieldNames;
 
     public static MLeapTransformerSchema fromFile(String filePath) throws IOException {
         MLeapTransformerSchema newSchema =
             FileUtils.parseJsonFromFile(filePath, MLeapTransformerSchema.class);
         String schemaText = new String(Files.readAllBytes(Paths.get(filePath)));
         newSchema.setText(schemaText);
+        newSchema.setOrderedFieldNames();
         return newSchema;
     }
 
     public List<String> getOrderedFieldNames() {
-        List<String> orderedFieldNames = new ArrayList<>();
-        for (SchemaField field : fields) {
-            orderedFieldNames.add(field.name);
-        }
-        return orderedFieldNames;
-    }
-
-    private void setText(String text) {
-        this.text = text;
+        return this.orderedFieldNames;
     }
 
     /**
@@ -70,5 +64,16 @@ public class MLeapTransformerSchema {
         String leapFrameJson = String.format("{ \"%s\" : %s, \"%s\" : %s }", LEAP_FRAME_KEY_ROWS,
             serializedRows, LEAP_FRAME_KEY_SCHEMA, this.text);
         return leapFrameJson;
+    }
+
+    private void setText(String text) {
+        this.text = text;
+    }
+
+    private void setOrderedFieldNames() {
+        this.orderedFieldNames = new ArrayList<>();
+        for (SchemaField field : fields) {
+            this.orderedFieldNames.add(field.name);
+        }
     }
 }
