@@ -40,7 +40,7 @@ def add_conda_env(model_path, env_path):
     env_path : The path of the conda environment. If `env_path` is `None`, no
                environment will be added.
 
-    :return: New path to the conda environment within the MLFlow model directory,
+    :return: Relative path to the conda environment within the MLFlow model directory,
              or `None` if no conda environment was specified.
     """
     if env_path is None:
@@ -49,4 +49,4 @@ def add_conda_env(model_path, env_path):
     env_basepath = os.path.basename(os.path.abspath(env_path))
     dest_path = os.path.join(model_path, env_basepath)
     shutil.copyfile(env_path, dest_path)
-    return dest_path
+    return env_basepath 

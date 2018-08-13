@@ -35,6 +35,8 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                   cannot contain any custom transformers.
     :param sample_input: A sample input that the model can evaluate. This is required by MLeap
                          for data schema inference.
+
+    :return: The path to the serialized mleap data, relative to the root of the MLFlow model
     """
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.ml.base import Transformer
@@ -89,4 +91,6 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                             mleap_version=mleap.version.__version__, 
                             model_data=mleap_datapath_sub,
                             input_schema=mleap_schemapath_sub)
+
+    return mleap_datapath_sub
 

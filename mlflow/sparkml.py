@@ -31,6 +31,8 @@ def add_to_model(mlflow_model, path, spark_model, dfs_tmpdir):
     :param path: Path of the MLFlow model to which this flavor is being added.
     :param spark_Model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
                   cannot contain any custom transformers.
+
+    :return: The path to the serialized SparkML data, relative to the root of the MLFlow model
     """
     if not isinstance(spark_model, Transformer):
         raise SaveModelException("Unexpected type {}." 
@@ -55,6 +57,8 @@ def add_to_model(mlflow_model, path, spark_model, dfs_tmpdir):
     mlflow_model.add_flavor(FLAVOR_NAME, 
                             pyspark_version=pyspark.version.__version__, 
                             model_data=sparkml_datapath_sub)
+
+    return sparkml_datapath_sub
 
 
 def load_model(model_path, flavor_conf, dfs_tmpdir):

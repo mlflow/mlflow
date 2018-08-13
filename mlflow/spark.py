@@ -83,14 +83,15 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         mleap.add_to_model(mlflow_model, path, spark_model, sample_input)
         print("Added the MLeap flavor to the model.")
     except SaveModelException as e:
-        eprint("An error occurred while adding the MLeap flavor to the model!")
-        eprint(e)
+        # eprint("An error occurred while adding the MLeap flavor to the model!")
+        # eprint(e)
+        pass
 
     try:
-        sparkml.add_to_model(mlflow_model, path, spark_model, dfs_tmpdir)
+        sparkml_data_path = sparkml.add_to_model(mlflow_model, path, spark_model, dfs_tmpdir)
         print("Added the SparkML flavor to the model.")
         model_conda_env = add_conda_env(path, conda_env)
-        pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data="model",
+        pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=sparkml_data_path,
                             env=model_conda_env)
         print("Added the PyFunc flavor to the model.")
     except SaveModelException as e:
@@ -130,7 +131,7 @@ def load_model(path, run_id=None, dfs_tmpdir=sparkml.DFS_TMP):
                 format(flav_sparkml=sparkml.FLAVOR_NAME, flav_spark=LEGACY_FLAVOR_NAME))
     flavor = supported_flavors[0]
     conf = m.flavors[flavor]
-    return sparkml.load_model(flavor, conf, dfs_tmpdir)
+    return sparkml.load_model(path, conf, dfs_tmpdir)
 
 
 def load_pyfunc(path):
