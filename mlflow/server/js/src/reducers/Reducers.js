@@ -205,7 +205,7 @@ const artifactsByRunUuid = (state = {}, action) => {
       const runUuid = action.meta.runUuid;
       let artifactNode = state[runUuid] || new ArtifactNode(true);
       // Make deep copy.
-      artifactNode = JSON.parse(JSON.stringify(artifactNode));
+      artifactNode = artifactNode.deepCopy();
 
       const files = action.payload.files;
       // Do not coerce these out of JSON because we use JSON.parse(JSON.stringify

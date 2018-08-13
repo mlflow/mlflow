@@ -49,7 +49,7 @@ class ExperimentView extends Component {
     metricKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
 
     // The initial searchInput
-    searchInput: PropTypes.string.required,
+    searchInput: PropTypes.string.isRequired,
   };
 
   state = {
@@ -175,7 +175,6 @@ class ExperimentView extends Component {
               <input type="submit"
                      className="search-button btn btn-primary"
                      onClick={this.onSearch}
-                     preventDefault
                      value="Search"
               />
               <Button className="clear-button" onClick={this.onClear}>Clear</Button>
@@ -331,7 +330,8 @@ class ExperimentView extends Component {
 
   onCompare() {
     const runsSelectedList = Object.keys(this.state.runsSelected);
-    this.props.history.push(Routes.getCompareRunPageRoute(runsSelectedList));
+    this.props.history.push(Routes.getCompareRunPageRoute(
+      runsSelectedList, this.props.experiment.getExperimentId()));
   }
 
   onDownloadCsv() {
@@ -361,38 +361,36 @@ class ExperimentView extends Component {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const row = [
-      <td><input type="checkbox" checked={selected}
+      <td key="meta-check"><input type="checkbox" checked={selected}
         onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
-      <td>
+      <td key="meta-link">
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
         </Link>
       </td>,
-      <td>{Utils.formatUser(runInfo.user_id)}</td>,
-      <td>{Utils.renderSource(runInfo)}</td>,
-      <td>{Utils.renderVersion(runInfo)}</td>,
+      <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
+      <td key="meta-source">{Utils.renderSource(runInfo)}</td>,
+      <td key="meta-version">{Utils.renderVersion(runInfo)}</td>,
     ];
 
-    let firstParam = true;
-    paramKeyList.forEach((paramKey) => {
-      const className = firstParam ? "left-border": undefined;
-      firstParam = false;
+    paramKeyList.forEach((paramKey, i) => {
+      const className = i === 0 ? "left-border": undefined;
+      const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
-        row.push(<td className={className}>
+        row.push(<td className={className} key={keyname}>
           {paramsMap[paramKey].getValue()}
         </td>);
       } else {
-        row.push(<td className={className}/>);
+        row.push(<td className={className} key={keyname}/>);
       }
     });
     if (numParams === 0) {
-      row.push(<td className="left-border"/>);
+      row.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
 
-    let firstMetric = true;
-    metricKeyList.forEach((metricKey) => {
-      const className = firstMetric ? "left-border": undefined;
-      firstMetric = false;
+    metricKeyList.forEach((metricKey, i) => {
+      const className = i === 0 ? "left-border": undefined;
+      const keyname = "metric-" + metricKey;
       if (metricsMap[metricKey]) {
         const metric = metricsMap[metricKey].getValue();
         const range = metricRanges[metricKey];
@@ -402,7 +400,7 @@ class ExperimentView extends Component {
         }
         const percent = (fraction * 100) + "%";
         row.push(
-          <td className={className}>
+          <td className={className} key={keyname}>
             <div className="metric-filler-bg">
               <div className="metric-filler-fg" style={{width: percent}}/>
               <div className="metric-text">
@@ -412,11 +410,11 @@ class ExperimentView extends Component {
           </td>
         );
       } else {
-        row.push(<td className={className}/>);
+        row.push(<td className={className} key={keyname}/>);
       }
     });
     if (numMetrics === 0) {
-      row.push(<td className="left-border"/>);
+      row.push(<td className="left-border" key="meta-metric-empty" />);
     }
     return row;
   }
@@ -426,40 +424,39 @@ class ExperimentView extends Component {
     isAllChecked,
     onSortBy,
     sortState) {
+
     const sortedClassName = (isMetric, isParam, key) => {
       if (sortState.isMetric !== isMetric
         || sortState.isParam !== isParam
         || sortState.key !== key)
-        return "sortable"
+        return "sortable";
       return "sortable sorted " + (sortState.ascending?"asc":"desc");
-    }
+    };
     const getHeaderCell = (key, text) => {
-      return <th className={"bottom-row " + sortedClassName(false, false, key)}
+      return <th key={"meta-"+key} className={"bottom-row " + sortedClassName(false, false, key)}
         onClick={() => onSortBy(false, false, key)}>{text}</th>
-    }
+    };
 
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [
-      <th className="bottom-row">
-        <input type="checkbox" onClick={onCheckAll} checked={isAllChecked} />
+      <th key="meta-check" className="bottom-row">
+        <input type="checkbox" onChange={onCheckAll} checked={isAllChecked} />
       </th>,
       getHeaderCell("start_time", "Date"),
       getHeaderCell("user_id", "User"),
       getHeaderCell("source", "Source"),
       getHeaderCell("source_version", "Version")
     ];
-    let firstParam = true;
-    paramKeyList.forEach((paramKey) => {
+    paramKeyList.forEach((paramKey, i) => {
       const className = "bottom-row "
-        + (firstParam ? "left-border " : "")
+        + (i === 0 ? "left-border " : "")
         + sortedClassName(false, true, paramKey);
-      firstParam = false;
-      columns.push(<th className={className}
+      columns.push(<th key={'param-'+paramKey} className={className}
         onClick={() => onSortBy(false, true, paramKey)}>{paramKey}</th>);
     });
     if (numParams === 0) {
-      columns.push(<th className="bottom-row left-border">(n/a)</th>);
+      columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
     let firstMetric = true;
@@ -468,11 +465,11 @@ class ExperimentView extends Component {
         + (firstMetric ? "left-border " : "")
         + sortedClassName(true, false, metricKey);
       firstMetric = false;
-      columns.push(<th className={className}
+      columns.push(<th key={'metric-'+metricKey} className={className}
         onClick={() => onSortBy(true, false, metricKey)}>{metricKey}</th>);
     });
     if (numMetrics === 0) {
-      columns.push(<th className="bottom-row left-border">(n/a)</th>);
+      columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
     return columns;

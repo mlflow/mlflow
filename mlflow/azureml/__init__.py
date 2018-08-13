@@ -54,8 +54,8 @@ def export(output, model_path, run_id, mlflow_home):
         - This command does not need an Azure ML environment to run.
 
         - Azure ML can not handle any Conda environment. If the model contains Conda environment
-          and it has been trained outside of Azure ML, the Conda environment might need to be
-          edited.
+          and it has been trained outside of Azure ML, the Conda environment might need
+          to be edited.
 
     :param output: Output folder where the model is going to be exported to.
     :param model_path: Local or MLflow run relative path to the model to be exported.

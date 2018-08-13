@@ -45,7 +45,6 @@ pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 htmlcov/
-.tox/
 .coverage
 .coverage.*
 .cache
@@ -54,7 +53,6 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
-.tox
 
 # Sphinx documentation
 docs/_build/

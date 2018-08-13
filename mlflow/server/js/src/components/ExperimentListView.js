@@ -18,7 +18,14 @@ class ExperimentListView extends Component {
   };
 
   componentDidMount() {
-    window.addEventListener('resize', () => { this.setState({height: window.innerHeight })});
+    this.resizeListener = () => { 
+      this.setState({height: window.innerHeight });
+    };
+    window.addEventListener('resize', this.resizeListener);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.resizeListener);
   }
 
   render() {
@@ -31,23 +38,26 @@ class ExperimentListView extends Component {
         <div>
           <h1 className="experiments-header">Experiments</h1>
           <div className="collapser-container">
-            <i onClick={this.props.onClickListExperiments} className="collapser fa fa-chevron-left login-icon"/>
+            <i onClick={this.props.onClickListExperiments}
+               title="Hide experiment list"
+               className="collapser fa fa-chevron-left login-icon"/>
           </div>
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
             {this.props.experiments.map((e) => {
-
+              const active = parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId;
               let className = "experiment-list-item";
-              if (parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId) {
-                className = `${className} active-experiment-list-item`
+              if (active) {
+                className = `${className} active-experiment-list-item`;
               }
               return (
                 <Link
                   style={{ textDecoration: 'none', color: 'unset' }}
+                  key={e.getExperimentId()}
                   to={Routes.getExperimentPageRoute(e.getExperimentId())}
+                  onClick={active ? e => e.preventDefault() : e => e}
                 >
                   <div
                     className={className}
-                    key={e.getExperimentId()}
                     title={e.getName()}
                   >
                     {e.getName()}

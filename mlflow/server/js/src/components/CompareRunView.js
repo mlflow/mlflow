@@ -1,20 +1,23 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getParams, getRunInfo } from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
-import { RunInfo } from '../sdk/MlflowMessages';
+import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import HtmlTableView from './HtmlTableView';
+import CompareRunScatter from './CompareRunScatter';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
+import BreadcrumbTitle from "./BreadcrumbTitle";
 
 class CompareRunView extends Component {
   static propTypes = {
-    runInfos: PropTypes.arrayOf(RunInfo).required,
-    metricLists: PropTypes.arrayOf(Array).required,
-    paramLists: PropTypes.arrayOf(Array).required,
+    experiment: PropTypes.instanceOf(Experiment).isRequired,
+    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    metricLists: PropTypes.arrayOf(Array).isRequired,
+    paramLists: PropTypes.arrayOf(Array).isRequired,
   };
 
   render() {
@@ -30,27 +33,39 @@ class CompareRunView extends Component {
         flex: '1',
       },
       'td-first': {
-        width: '500px',
+        width: '250px',
       },
       'th-first': {
-        width: '500px',
+        width: '250px',
       },
     };
+
+    const experiment = this.props.experiment;
+    const experimentId = experiment.getExperimentId();
     return (
       <div className="CompareRunView">
-        <h1>Comparing {this.props.runInfos.length} Runs</h1>
+        <BreadcrumbTitle
+          experiment={experiment}
+          title={"Comparing " + this.props.runInfos.length + " Runs"}
+        />
         <div className="run-metadata-container">
-          <div className="run-metadata-label">Run UUID:</div>
+          <div className="run-metadata-label">Run ID:</div>
           <div className="run-metadata-row">
-            {this.props.runInfos.map((r) => <div className="run-metadata-item">{r.getRunUuid()}</div>)}
+            {this.props.runInfos.map(r =>
+              <div className="run-metadata-item" key={r.run_uuid}>
+                <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
+                  {r.getRunUuid()}
+                </Link>
+              </div>
+            )}
           </div>
         </div>
         <div className="run-metadata-container last-run-metadata-container">
           <div className="run-metadata-label">Start Time:</div>
           <div className="run-metadata-row">
-            {this.props.runInfos.map((run) => {
+            {this.props.runInfos.map((run, idx) => {
                const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-               return <div className="run-metadata-item">{startTime}</div>;
+               return <div className="run-metadata-item" key={run.run_uuid}>{startTime}</div>;
              }
             )}
           </div>
@@ -64,10 +79,10 @@ class CompareRunView extends Component {
         <h2>Metrics</h2>
         <HtmlTableView
           columns={["Name", "", ""]}
-          values={Private.getLatestMetricRows(this.props.runInfos, this.props.metricLists)}
+          values={Private.getLatestMetricRows(this.props.runInfos, this.props.metricLists, experimentId)}
           styles={tableStyles}
         />
-
+        <CompareRunScatter runUuids={this.props.runUuids}/>
       </div>
     );
   }
@@ -77,13 +92,14 @@ const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
   const metricLists = [];
   const paramLists = [];
-  const { runUuids } = ownProps;
+  const { experimentId, runUuids } = ownProps;
+  const experiment = getExperiment(experimentId, state);
   runUuids.forEach((runUuid) => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
   });
-  return { runInfos, metricLists, paramLists };
+  return { experiment, runInfos, metricLists, paramLists };
 };
 
 export default connect(mapStateToProps)(CompareRunView);
@@ -115,29 +131,36 @@ class Private {
     return rows;
   }
 
-  static getLatestMetricRows(runInfos, metricLists) {
+  static getLatestMetricRows(runInfos, metricLists, experimentId) {
     const rows = [];
     // Map of parameter key to a map of (runUuid -> value)
     const metricKeyValueList = [];
     metricLists.forEach((metricList) => {
       const curKeyValueObj = {};
       metricList.forEach((metric) => {
-        curKeyValueObj[metric.key] = Utils.formatMetric(metric.value);
+        curKeyValueObj[metric.key] = metric.value;
       });
       metricKeyValueList.push(curKeyValueObj);
     });
 
     const mergedMetrics = Utils.mergeRuns(runInfos.map((r) => r.run_uuid), metricKeyValueList);
-
-    const runUuids = runInfos.map((r) => r.run_uuid);
     Object.keys(mergedMetrics).sort().forEach((metricKey) => {
       // Figure out which runUuids actually have this metric.
       const runUuidsWithMetric = Object.keys(mergedMetrics[metricKey]);
       const curRow = [];
-      curRow.push(<Link to={Routes.getMetricPageRoute(runUuidsWithMetric, metricKey)}>{metricKey}</Link>);
+      curRow.push(
+        <Link to={Routes.getMetricPageRoute(runUuidsWithMetric, metricKey, experimentId)} title="Plot chart">
+          {metricKey}
+          <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
+        </Link>
+      );
       runInfos.forEach((r) => {
         const curUuid = r.run_uuid;
-        curRow.push(Math.round(mergedMetrics[metricKey][curUuid] * 1e4)/1e4);
+        if (mergedMetrics[metricKey].hasOwnProperty(curUuid)) {
+          curRow.push(Utils.formatMetric(mergedMetrics[metricKey][curUuid]));
+        } else {
+          curRow.push("");
+        }
       });
       rows.push(curRow)
     });

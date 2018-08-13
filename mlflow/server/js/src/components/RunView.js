@@ -8,8 +8,8 @@ import { Link } from 'react-router-dom';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
-import Routes from '../Routes';
 import Utils from '../utils/Utils';
+import BreadcrumbTitle from "./BreadcrumbTitle";
 
 const PARAMATERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
@@ -59,6 +59,7 @@ class RunView extends Component {
         this.setState({ showArtifacts: !this.state.showArtifacts });
         return;
       }
+      default: {}
     }
   }
 
@@ -76,15 +77,14 @@ class RunView extends Component {
       case ARTIFACTS_KEY: {
         return this.state.showArtifacts ? 'fa-caret-down': 'fa-caret-right';
       }
+      default: {}
     }
-
   }
 
   render() {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration = run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
-    const experimentId = experiment.getExperimentId();
     const tableStyles = {
       table: {
         width: 'auto',
@@ -114,17 +114,11 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <h1 className="run-uuid">Run {run.getRunUuid()}</h1>
+          <BreadcrumbTitle experiment={experiment} title={"Run " + run.getRunUuid()}/>
         </div>
         <div className="run-info-container">
           <div className="run-info">
-            <span className="metadata-header">Experiment Name: </span>
-            <Link to={Routes.getExperimentPageRoute(experimentId)}>
-              <span className="metadata-info">{experiment.getName()}</span>
-            </Link>
-          </div>
-          <div className="run-info">
-            <span className="metadata-header">Start Time: </span>
+            <span className="metadata-header">Date: </span>
             <span className="metadata-info">{startTime}</span>
           </div>
           <div className="run-info">
@@ -160,7 +154,7 @@ class RunView extends Component {
         {runCommand ?
           <div className="RunView-info">
             <h2>Run Command</h2>
-            <textarea className="run-command text-area" readOnly={true}>{runCommand}</textarea>
+            <textarea className="run-command text-area" readOnly={true} value={runCommand}/>
           </div>
           : null
         }
@@ -246,7 +240,13 @@ const getTagValues = (tags) => {
 const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics).sort().map((m) => {
     const key = m.key;
-    return [<Link to={getMetricPagePath(key)}>{key}</Link>, Utils.formatMetric(m.value)]
+    return [
+      <Link to={getMetricPagePath(key)} title="Plot chart">
+        {key}
+        <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
+      </Link>,
+      Utils.formatMetric(m.value)
+    ]
   });
 };
 

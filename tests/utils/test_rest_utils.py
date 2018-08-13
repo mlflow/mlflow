@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import mock
+import numpy
 import pytest
 
 from databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils import rest_utils
+from mlflow.utils.rest_utils import NumpyEncoder
 
 
 @mock.patch('databricks_cli.configure.provider.get_config')
@@ -97,3 +99,17 @@ def test_databricks_http_request_integration(get_config, request):
     response = rest_utils.databricks_api_request('clusters/list', 'PUT',
                                                  json={'a': 'b'})
     assert response == {'OK': 'woo'}
+
+
+def test_numpy_encoder():
+    test_number = numpy.int64(42)
+    ne = NumpyEncoder()
+    defaulted_val = ne.default(test_number)
+    assert defaulted_val is 42
+
+
+def test_numpy_encoder_fail():
+    test_number = numpy.float128
+    with pytest.raises(TypeError):
+        ne = NumpyEncoder()
+        ne.default(test_number)
