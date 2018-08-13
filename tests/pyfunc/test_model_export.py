@@ -176,7 +176,7 @@ class TestModelExport(unittest.TestCase):
                               loader_module=os.path.basename(__file__)[:-3],
                               code_path=[__file__],
                               )
-            input_csv_path = tmp.path("input.csv")
+            input_csv_path = tmp.path("input with spaces.csv")
             pandas.DataFrame(self._X).to_csv(input_csv_path, header=True, index=False)
             output_csv_path = tmp.path("output.csv")
             runner = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"})
@@ -205,7 +205,7 @@ class TestModelExport(unittest.TestCase):
                               code_path=[__file__],
                               conda_env=self._create_conda_env_file(tmp)
                               )
-            input_csv_path = tmp.path("input.csv")
+            input_csv_path = tmp.path("input with spaces.csv")
             pandas.DataFrame(self._X).to_csv(input_csv_path, header=True, index=False)
             output_csv_path = tmp.path("output.csv")
             process = Popen(['mlflow', 'pyfunc', 'predict',

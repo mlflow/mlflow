@@ -1,20 +1,20 @@
 from __future__ import absolute_import
 
-import sys
 import os
+from six.moves import shlex_quote
 import subprocess
-import hashlib
-import json
+import sys
+
 
 import click
 import pandas
 
 from mlflow.pyfunc import load_pyfunc, scoring_server, _load_model_env
 from mlflow.tracking import _get_model_log_dir
-from mlflow.utils import cli_args, process
+from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
-from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env, MLFLOW_CONDA_HOME
-from mlflow.utils.exception import ExecutionException
+from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env
+
 
 def _rerun_in_conda(conda_env_path):
     """ Rerun CLI command inside a to-be-created conda environment."""
@@ -22,7 +22,8 @@ def _rerun_in_conda(conda_env_path):
     activate_path = _get_conda_bin_executable("activate")
     commands = []
     commands.append("source {} {}".format(activate_path, conda_env_name))
-    commands.append(" ".join(sys.argv) + " --no-conda")
+    safe_argv = [shlex_quote(arg) for arg in sys.argv]
+    commands.append(" ".join(safe_argv) + " --no-conda")
     commandline = " && ".join(commands)
     eprint("=== Running command '{}'".format(commandline))
     child = subprocess.Popen(["bash", "-c", commandline], close_fds=True)

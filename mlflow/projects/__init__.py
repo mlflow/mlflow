@@ -272,9 +272,9 @@ def _get_or_create_conda_env(conda_env_path):
     project_env_name = _get_conda_env_name(conda_env_path)
     if project_env_name not in env_names:
         eprint('=== Creating conda environment %s ===' % project_env_name)
-        if project.conda_env_path:
+        if conda_env_path:
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
-                              project.conda_env_path], stream_output=True)
+                              conda_env_path], stream_output=True)
         else:
             process.exec_cmd(
                 [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
