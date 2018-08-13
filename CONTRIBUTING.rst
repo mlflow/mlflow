@@ -53,7 +53,9 @@ Verify that the unit tests & linter pass before submitting a pull request by run
     pytest
     ./lint.sh
 
-When running ``pytest --requires-ssh`` it is necessary that passwordless ssh access to localhost is available. This can be easily achieves by adding the shh public key to authorized keys: ``cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys``.
+When running ``pytest --requires-ssh`` it is necessary that passwordless SSH access to localhost
+is available. This can be achieved by adding the SSH public key to authorized keys:
+``cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys``.
 
 
 Running the Javascript Dev Server
