@@ -83,8 +83,6 @@ def get_artifact_handler():
         return send_file(filename)
 
 
-
-
 def _not_implemented():
     response = Response()
     response.status_code = 404
