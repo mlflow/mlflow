@@ -32,7 +32,7 @@ dependencies via:
    npm install
    cd - # return to root repository directory
 
-If modifying dependencies in ``mlflow/server/js/package.json``, run `npm update` within
+If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update`` within
 ``mlflow/server/js`` to install the updated dependencies.
 
 
@@ -52,6 +52,8 @@ Verify that the unit tests & linter pass before submitting a pull request by run
 
     pytest
     ./lint.sh
+
+When running ``pytest --requires-ssh`` it is necessary that passwordless ssh access to localhost is available. This can be easily achieves by adding the shh public key to authorized keys: ``cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys``.
 
 
 Running the Javascript Dev Server
