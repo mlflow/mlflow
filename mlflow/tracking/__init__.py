@@ -413,15 +413,16 @@ def _get_git_commit(path):
         return None
 
 
-def _get_git_url(uri):
+def _get_git_url_if_present(uri):
     """
-    Return the git repo path github_url#sub_directory from the uri input
-    :param uri: the expanded uri
-    :return: the git repo path included sub directory if the uri is part of git repo,
-             otherwise return the input as output
+    Return the path git_uri#sub_directory if the URI passed is a local path that's part of a Git repo,
+    or returns the original URI otherwise.
+    :param uri: The expanded uri
+    :return: The git_uri#sub_directory if the uri is part of a Git repo,
+             otherwise return the original uri
     """
     if '#' in uri:
-        # already a URI in git repo format
+        # Already a URI in git repo format
         return uri
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
@@ -430,20 +431,20 @@ def _get_git_url(uri):
               " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
         return uri
     try:
-        # check whether this is part of a git repo
+        # Check whether this is part of a git repo
         repo = Repo(uri, search_parent_directories=True)
 
-        # repo url
-        repourl = repo.remotes['origin'].config_reader.get('url')
+        # Repo url
+        repo_url = repo.remotes['origin'].config_reader.get('url')
 
-        # sub directory
+        # Sub directory
         rlpath = uri.replace(repo.working_tree_dir, '')
         if (rlpath == ''):
-            git_path = repourl
+            git_path = repo_url
         elif (rlpath[0] == '/'):
-            git_path = repourl + '#' + rlpath[1:]
+            git_path = repo_url + '#' + rlpath[1:]
         else:
-            git_path = repourl + '#' + rlpath
+            git_path = repo_url + '#' + rlpath
         return git_path
     except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
         return uri
