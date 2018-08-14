@@ -3,10 +3,12 @@ from __future__ import print_function
 import pytest
 
 import numpy as np
+import pandas as pd
+
+import sklearn.datasets as datasets
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 import mlflow.pytorch
@@ -14,80 +16,75 @@ from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
 
 
-class Flatten(nn.Module):
-    def forward(self, x):
-        return x.view(x.shape[0], -1)
+@pytest.fixture(scope='module')
+def data():
+    iris = datasets.load_iris()
+    data = pd.DataFrame(data=np.c_[iris['data'], iris['target']],
+                        columns=iris['feature_names'] + ['target'])
+    y = data['target']
+    x = data.drop('target', axis=1)
+    return x, y
 
 
-@pytest.fixture()
-def setup():
-    torch.manual_seed(12345)
+def get_dataset(data):
+    x, y = data
+    dataset = [(xi.astype(np.float32), yi.astype(np.float32))
+               for xi, yi in zip(x.values, y.values)]
+    return dataset
 
-    num_train_samples = 100
-    num_test_samples = 30
 
-    train_dataset = [[torch.rand(3, 32, 32),
-                      torch.randint(0, 10, size=(1,), dtype=torch.long).item()]
-                     for _ in range(num_train_samples)]
-    test_dataset = [[torch.rand(3, 32, 32),
-                     torch.randint(0, 10, size=(1,), dtype=torch.long).item()]
-                    for _ in range(num_test_samples)]
+@pytest.fixture(scope='module')
+def model(data):
+    dataset = get_dataset(data)
+    model = nn.Sequential(
+        nn.Linear(4, 3),
+        nn.ReLU(),
+        nn.Linear(3, 1),
+    )
+
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
     batch_size = 16
     num_workers = 4
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
-                                  num_workers=num_workers, shuffle=True, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size,
+                            num_workers=num_workers, shuffle=True, drop_last=False)
 
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size,
-                                 num_workers=num_workers, shuffle=False, drop_last=False)
-
-    # Setup model
-    model = nn.Sequential(
-        nn.Conv2d(3, 32, kernel_size=(3, 3)),
-        nn.ReLU(),
-        nn.MaxPool2d((2, 2)),
-        nn.Conv2d(32, 16, kernel_size=(3, 3)),
-        nn.ReLU(),
-        nn.MaxPool2d((2, 2)),
-        nn.Conv2d(16, 16, kernel_size=(3, 3)),
-        nn.ReLU(),
-        nn.MaxPool2d((2, 2)),
-        Flatten(),
-        nn.Linear(64, 10)
-    )
-
-    # Train
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
     model.train()
     for epoch in range(5):
-        for batch in train_dataloader:
+        for batch in dataloader:
             optimizer.zero_grad()
-            y_pred = model(batch[0])
+            batch_size = batch[0].shape[0]
+            y_pred = model(batch[0]).squeeze(dim=1)
             loss = criterion(y_pred, batch[1])
             loss.backward()
             optimizer.step()
 
-    # Predict
-    predictions = _predict(model, test_dataloader)
-
-    yield model, test_dataloader, predictions
+    return model
 
 
-def _predict(model, test_dataloader):
-    batch_size = test_dataloader.batch_size
-    predictions = np.zeros((len(test_dataloader.sampler),))
+def _predict(model, data):
+    dataset = get_dataset(data)
+    batch_size = 16
+    num_workers = 4
+    dataloader = DataLoader(dataset, batch_size=batch_size,
+                            num_workers=num_workers, shuffle=False, drop_last=False)
+    predictions = np.zeros((len(dataloader.sampler),))
     model.eval()
     with torch.no_grad():
-        for i, batch in enumerate(test_dataloader):
-            y_probas = F.softmax(model(batch[0]), dim=1).numpy()
-            y_preds = np.argmax(y_probas, axis=1)
+        for i, batch in enumerate(dataloader):
+            y_preds = model(batch[0]).squeeze(dim=1).numpy()
             predictions[i * batch_size:(i + 1) * batch_size] = y_preds
     return predictions
 
 
-def test_log_model(setup):
-    model, test_dataloader, predictions = setup
+@pytest.fixture(scope='module')
+def predicted(model, data):
+    return _predict(model, data)
+
+
+def test_log_model(model, data, predicted):
+
     old_uri = tracking.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
@@ -103,30 +100,24 @@ def test_log_model(setup):
                 run_id = tracking.active_run().info.run_uuid
                 model_loaded = mlflow.pytorch.load_model("pytorch", run_id=run_id)
 
-                test_predictions = _predict(model_loaded, test_dataloader)
-                assert all(test_predictions == predictions)
+                test_predictions = _predict(model_loaded, data)
+                assert np.all(test_predictions == predicted)
             finally:
                 tracking.end_run()
                 tracking.set_tracking_uri(old_uri)
 
 
-def test_save_and_load_model(setup):
-    model, test_dataloader, predictions = setup
+def test_save_and_load_model(model, data, predicted):
+
+    x, y = data
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
         mlflow.pytorch.save_model(model, path)
 
         # Loading pytorch model
         model_loaded = mlflow.pytorch.load_model(path)
-        assert all(_predict(model_loaded, test_dataloader) == predictions)
+        assert np.all(_predict(model_loaded, data) == predicted)
 
         # Loading pyfunc model
         pyfunc_loaded = mlflow.pyfunc.load_pyfunc(path)
-
-        test_dataset = test_dataloader.dataset
-        with torch.no_grad():
-            for i, dp in enumerate(test_dataset):
-                data = dp[0].numpy()
-                y_proba = pyfunc_loaded.predict(data)
-                y_pred = y_proba.argmax()
-                assert y_pred == predictions[i]
+        assert np.all(pyfunc_loaded.predict(x).values[:, 0] == predicted)

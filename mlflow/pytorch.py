@@ -11,6 +11,7 @@ from __future__ import absolute_import
 import os
 
 import numpy as np
+import pandas as pd
 import torch
 
 from mlflow import pyfunc
@@ -122,12 +123,11 @@ class _PyTorchWrapper(object):
         self.pytorch_model = pytorch_model
 
     def predict(self, data, device='cpu'):
-        assert isinstance(data, np.ndarray), "Input data should be numpy.ndarray"
+        assert isinstance(data, pd.DataFrame), "Input data should be pandas.DataFrame"
         self.pytorch_model.eval()
         with torch.no_grad():
-            input_tensor = torch.from_numpy(data).to(device)
-            # Add batch dimension
-            input_tensor = input_tensor.unsqueeze(dim=0)
+            input_tensor = torch.from_numpy(data.values.astype(np.float32)).to(device)
             preds = self.pytorch_model(input_tensor)
-            # Remove batch dim and convert to numpy array
-            return preds.squeeze(dim=0).numpy()
+            predicted = pd.DataFrame(preds.numpy())
+            predicted.index = data.index
+            return predicted
