@@ -284,9 +284,10 @@ decorators.Header = ({style, node}) => {
   );
 };
 
-decorators.Loading = (props) => {
+// eslint-disable-next-line react/prop-types
+decorators.Loading = ({style}) => {
   return (
-    <div style={props.style}>
+    <div style={style}>
       <img className="loading-spinner" src={spinner}/>
       {' '}loading...
     </div>

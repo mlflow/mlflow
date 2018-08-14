@@ -9,7 +9,7 @@ export class ArtifactNode {
   }
 
   deepCopy() {
-    let node = new ArtifactNode(this.isRoot, this.fileInfo, {});
+    const node = new ArtifactNode(this.isRoot, this.fileInfo, {});
     node.isLoaded = this.isLoaded;
     if (this.children) {
       const copiedChildren = {};
