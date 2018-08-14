@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import os
+import tempfile
 import pytest
 from keras.models import Sequential
 from keras.layers import Dense
@@ -11,9 +12,8 @@ import pandas as pd
 import numpy as np
 
 import mlflow.keras
+import mlflow
 from mlflow import pyfunc
-from mlflow import tracking
-from mlflow.utils.file_utils import TempDir
 
 
 @pytest.fixture(scope='module')
@@ -44,42 +44,43 @@ def predicted(model, data):
 
 def test_model_save_load(model, data, predicted):
     x, y = data
-    with TempDir(chdr=True, remove_on_exit=True) as tmp:
-        path = tmp.path("model")
-        mlflow.keras.save_model(model, path)
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "model")
+    mlflow.keras.save_model(model, path)
 
-        # Loading Keras model
-        model_loaded = mlflow.keras.load_model(path)
-        assert all(model_loaded.predict(x) == predicted)
+    # Loading Keras model
+    model_loaded = mlflow.keras.load_model(path)
+    assert all(model_loaded.predict(x) == predicted)
 
-        # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(path)
-        assert all(pyfunc_loaded.predict(x).values == predicted)
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(path)
+    assert all(pyfunc_loaded.predict(x).values == predicted)
 
 
 def test_model_log(model, data, predicted):
     x, y = data
-    old_uri = tracking.get_tracking_uri()
+    old_uri = mlflow.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
-        with TempDir(chdr=True, remove_on_exit=True) as tmp:
-            try:
-                tracking.set_tracking_uri("test")
-                if should_start_run:
-                    tracking.start_run()
-                mlflow.keras.log_model(model, artifact_path="keras_model")
+        tmp = tempfile.mkdtemp()
+        try:
+            print("SAVING TO %s" % tmp)
+            mlflow.set_tracking_uri(tmp)
+            if should_start_run:
+                mlflow.start_run()
+            mlflow.keras.log_model(model, artifact_path="keras_model")
 
-                # Load model
-                model_loaded = mlflow.keras.load_model(
-                    "keras_model",
-                    run_id=tracking.active_run().info.run_uuid)
-                assert all(model_loaded.predict(x) == predicted)
+            # Load model
+            model_loaded = mlflow.keras.load_model(
+                "keras_model",
+                run_id=mlflow.active_run().info.run_uuid)
+            assert all(model_loaded.predict(x) == predicted)
 
-                # Loading pyfunc model
-                pyfunc_loaded = mlflow.pyfunc.load_pyfunc(
-                    "keras_model",
-                    run_id=tracking.active_run().info.run_uuid)
-                assert all(pyfunc_loaded.predict(x).values == predicted)
-            finally:
-                tracking.end_run()
-    tracking.set_tracking_uri(old_uri)
+            # Loading pyfunc model
+            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(
+                "keras_model",
+                run_id=mlflow.active_run().info.run_uuid)
+            assert all(pyfunc_loaded.predict(x).values == predicted)
+        finally:
+            mlflow.end_run()
+    mlflow.set_tracking_uri(old_uri)

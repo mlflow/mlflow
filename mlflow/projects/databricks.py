@@ -8,8 +8,7 @@ import time
 
 from six.moves import shlex_quote, urllib
 
-from mlflow.entities.run_status import RunStatus
-from mlflow.entities.source_type import SourceType
+from mlflow.entities import RunStatus, SourceType
 
 
 from mlflow.projects import _fetch_project, _expand_uri, _project_spec
@@ -18,6 +17,7 @@ from mlflow.utils import rest_utils, file_utils
 from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
+from mlflow.tracking.fluent import _get_git_commit
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -224,7 +224,7 @@ def _before_run_validations(tracking_uri, cluster_spec):
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
                                  "on Databricks.")
-    if tracking.is_local_uri(tracking_uri):
+    if tracking.utils._is_local_uri(tracking_uri):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be set to a remote URI "
             "accessible to both the current client and code running on Databricks. Got local "
@@ -244,15 +244,15 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
     project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
-    remote_run = tracking._create_run(
+    remote_run = tracking.get_service().create_run(
         experiment_id=experiment_id, source_name=_expand_uri(uri),
-        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
+        source_version=_get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
     env_vars = {
          tracking._TRACKING_URI_ENV_VAR: tracking_uri,
          tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
     }
-    run_id = remote_run.run_info.run_uuid
+    run_id = remote_run.info.run_uuid
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:
