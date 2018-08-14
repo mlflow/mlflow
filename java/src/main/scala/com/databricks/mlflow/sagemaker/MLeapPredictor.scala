@@ -2,6 +2,7 @@ package com.databricks.mlflow.sagemaker;
 
 import com.databricks.mlflow.mleap.LeapFrameSchema 
 import com.databricks.mlflow.mleap.LeapFrameUtils 
+import com.databricks.mlflow.utils.SerializationUtils 
 
 import ml.combust.bundle.BundleFile
 import ml.combust.mleap.runtime.MleapSupport._
@@ -32,9 +33,10 @@ class MLeapPredictor(var modelPath : String, var inputSchemaPath : String) exten
                              lf2 <- lf.select("prediction")) yield {
           lf2.dataset.map(_.getRaw(0))
       }).get.toSeq
-      println("PREDS")
-      println(predictions)
-      DataFrame.fromLeapFrame(transformedFrame)
+      DataFrame.fromJson(SerializationUtils.toJson(predictions))
+      // println("PREDS")
+      // println(predictions)
+      // DataFrame.fromLeapFrame(transformedFrame)
   }
 
 }
