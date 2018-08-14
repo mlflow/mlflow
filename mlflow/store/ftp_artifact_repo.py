@@ -9,10 +9,10 @@ from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import TempDir, build_path, get_relative_path
 
 
-class FtpArtifactRepository(ArtifactRepository):
+class FTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via sftp."""
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri, client=None):
         self.uri = artifact_uri
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
@@ -26,10 +26,14 @@ class FtpArtifactRepository(ArtifactRepository):
         if self.config['host'] is None:
             self.config['host'] = 'localhost'
 
-        self.ftp = FTP(self.config['host'])
-        self.ftp.login(self.config['username'], self.config['password'])
+        if client:
+            self.ftp = client
+        else:
+            self.ftp = FTP()
+            self.ftp.connect(self.config['host'], self.config['port'])
+            self.ftp.login(self.config['username'], self.config['password'])
 
-        super(FtpArtifactRepository, self).__init__(artifact_uri)
+        super(FTPArtifactRepository, self).__init__(artifact_uri)
 
     def _is_dir(self, full_file_path):
         try:
@@ -57,7 +61,6 @@ class FtpArtifactRepository(ArtifactRepository):
         for ftp_file in filelist:
             if self._is_dir(build_path(path, ftp_file)):
                 self.download_files(build_path(path, ftp_file), build_path(destination, ftp_file))
-                self.ftp.cwd(path)
                 os.chdir(destination)
             else:
                 with open(os.path.join(destination, ftp_file), "wb") as f:
