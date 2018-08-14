@@ -25,16 +25,16 @@
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
-    "dateformat": "3.0.3"
+    "dateformat": "3.0.3",
+    "url-parse": "1.4.3"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom",
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test --env=jsdom",
     "eject": "react-scripts eject",
     "lint": "react-scripts run lint"
   },
-  "proxy": "http://localhost:5000",
   "homepage": "static-files",
   "jest": {
     "collectCoverageFrom": [
@@ -45,5 +45,9 @@
     "coverageReporters": [
       "lcov"
     ]
+  },
+  "proxy": "http://localhost:5000",
+  "devDependencies": {
+    "react-app-rewired": "^1.5.2"
   }
 }

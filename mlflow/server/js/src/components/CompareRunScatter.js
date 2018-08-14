@@ -6,8 +6,18 @@ import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label} from 'recharts';
+import {
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Label,
+} from 'recharts';
 import './CompareRunScatter.css';
+import CompareRunUtil from './CompareRunUtil'
 
 class CompareRunScatter extends Component {
   static propTypes = {
@@ -19,8 +29,10 @@ class CompareRunScatter extends Component {
   constructor(props) {
     super(props);
 
-    this.metricKeys = CompareRunScatter.getKeys(this.props.metricLists);
-    this.paramKeys = CompareRunScatter.getKeys(this.props.paramLists);
+    this.renderTooltip = this.renderTooltip.bind(this);
+
+    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, true);
+    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
 
     if (this.paramKeys.length + this.metricKeys.length < 2) {
       this.state = {disabled: true};
@@ -48,41 +60,10 @@ class CompareRunScatter extends Component {
   }
 
   /**
-   * Find in a list of metrics/params a certain key
-   */
-  static findInList(data, key) {
-    let found = undefined;
-    data.forEach((value) => {
-      if (value.key === key) {
-        found = value;
-      }
-    });
-    return found;
-  }
-
-  /**
-   * Get all keys present in the data in ParamLists or MetricLists
-   */
-  static getKeys(lists) {
-    let keys = {};
-    lists.forEach((list) => 
-      list.forEach((item) => {
-        if (!(item.key in keys)) {
-          keys[item.key] = true;
-        }
-        if (isNaN(parseFloat(item.value))) {
-          keys[item.key] = false;
-        }
-      }
-    ));
-    return Object.keys(keys).filter(k => keys[k]).sort();
-  }
-
-  /**
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
   getValue(i, {key, isMetric}) {
-    const value = CompareRunScatter.findInList(
+    const value = CompareRunUtil.findInList(
       (isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : value.value;
   }
@@ -126,15 +107,17 @@ class CompareRunScatter extends Component {
                 <YAxis type="number" dataKey='y' name='y'>
                   {this.renderAxisLabel('y')}
                 </YAxis>
-                <CartesianGrid />
-                <Tooltip 
+                <CartesianGrid/>
+                <Tooltip
                   isAnimationActive={false}
                   cursor={{strokeDasharray: '3 3'}}
-                  content={this.renderTooltip.bind(this)}/>
+                  content={this.renderTooltip}
+                />
                 <Scatter
                   data={scatterData}
-                  fill='#8884d8'
-                  isAnimationActive={false} />
+                  fill='#AE76A6'
+                  isAnimationActive={false}
+                />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
