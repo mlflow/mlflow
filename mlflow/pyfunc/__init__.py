@@ -121,6 +121,27 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
+def _load_model_conf(path, run_id=None):
+    """Load a model configuration stored in Python function format."""
+    if run_id:
+        path = tracking._get_model_log_dir(path, run_id)
+    conf_path = os.path.join(path, "MLmodel")
+    model = Model.load(conf_path)
+    if FLAVOR_NAME not in model.flavors:
+        raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
+                                                                            path=conf_path))
+    return model.flavors[FLAVOR_NAME]
+
+
+def _load_model_env(path, run_id=None):
+    """
+        Get ENV file string from a model configuration stored in Python Function format.
+        Returned value is a model-relative path to a Conda Environment file,
+        or None if none was specified at model save time
+    """
+    return _load_model_conf(path, run_id).get(ENV, None)
+
+
 def load_pyfunc(path, run_id=None, suppress_warnings=False):
     """
     Load a model stored in Python function format.
@@ -131,12 +152,7 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
     """
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)
-    conf_path = os.path.join(path, "MLmodel")
-    model = Model.load(conf_path)
-    if FLAVOR_NAME not in model.flavors:
-        raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
-                                                                            path=conf_path))
-    conf = model.flavors[FLAVOR_NAME]
+    conf = _load_model_conf(path)
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)

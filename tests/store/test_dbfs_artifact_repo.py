@@ -26,6 +26,7 @@ def test_dir(tmpdir):
     tmpdir.join('test.txt').write('content')
     return tmpdir
 
+
 LIST_ARTIFACTS_RESPONSE = {
     'files': [{
         'path': '/test/a.txt',
