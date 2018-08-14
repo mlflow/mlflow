@@ -263,6 +263,14 @@ in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/au
 Finally, you will need to ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
+SFTP server
+~~~~~~~~~~~
+Specify a URI of the form sftp://user@host/path/to/directory to store artifacts in an SFTP server. You should configure the client to be able to login to the SFTP server without a password over SSH (e.g. public key, identityfile in ssh_config...).
+
+In principle the following format ``sftp://pass:user@host/`` is supported for logging in. But for safety reasons this is not recommended.
+
+When using this store, ``pysftp`` has to be installed on both client and server. Simply ``pip install pysftp`` will install the required package.
+
 Networking
 ^^^^^^^^^^
 

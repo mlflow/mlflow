@@ -121,6 +121,27 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
+def _load_model_conf(path, run_id=None):
+    """Load a model configuration stored in Python function format."""
+    if run_id:
+        path = tracking._get_model_log_dir(path, run_id)
+    conf_path = os.path.join(path, "MLmodel")
+    model = Model.load(conf_path)
+    if FLAVOR_NAME not in model.flavors:
+        raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
+                                                                            path=conf_path))
+    return model.flavors[FLAVOR_NAME]
+
+
+def _load_model_env(path, run_id=None):
+    """
+        Get ENV file string from a model configuration stored in Python Function format.
+        Returned value is a model-relative path to a Conda Environment file,
+        or None if none was specified at model save time
+    """
+    return _load_model_conf(path, run_id).get(ENV, None)
+
+
 def load_pyfunc(path, run_id=None, suppress_warnings=False):
     """
     Load a model stored in Python function format.
@@ -131,12 +152,7 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
     """
     if run_id:
         path = tracking._get_model_log_dir(path, run_id)
-    conf_path = os.path.join(path, "MLmodel")
-    model = Model.load(conf_path)
-    if FLAVOR_NAME not in model.flavors:
-        raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
-                                                                            path=conf_path))
-    conf = model.flavors[FLAVOR_NAME]
+    conf = _load_model_conf(path)
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
@@ -185,8 +201,9 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     :param spark: A SparkSession object.
     :param path: A path containing a pyfunc model.
     :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
-        retrieve the model logged with MLflow.
+                   retrieve the model logged with MLflow.
     :param result_type: Spark UDF type returned by the model's prediction method. Default double.
+
     """
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
@@ -231,11 +248,12 @@ def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=
     :param loader_module: The module to be used to load the model.
     :param data_path: Path to a file or directory containing model data.
     :param code_path: List of paths (file or dir) contains code dependencies not present in
-        the environment. Every path in the ``code_path`` is added to the Python path before
-        the model is loaded.
+                      the environment. Every path in the ``code_path`` is added to the Python
+                      path before the model is loaded.
     :param conda_env: Path to the Conda environment definition. This environment is activated
-        prior to running model code.
+                      prior to running model code.
     :return: Model configuration containing model info.
+
     """
     if os.path.exists(dst_path):
         raise Exception("Path '{}' already exists".format(dst_path))
@@ -290,8 +308,9 @@ def get_module_loader_src(src_path, dst_path):
 
     :param src_path: Current path to the model.
     :param dst_path: Relative or absolute path where the model will be stored in the deployment
-        environment.
+                     environment.
     :return: Python source code of the model loader as string.
+
     """
     conf_path = os.path.join(src_path, "MLmodel")
     model = Model.load(conf_path)
