@@ -59,8 +59,8 @@ if __name__ == "__main__":
     with mlflow.start_run():
         mlflow.log_param("epochs", epochs)
         mlflow.log_param("learning_rate", learning_rate)
-        mlflow.log_param("drop1", drop_out_1)
-        mlflow.log_param("drop2", drop_out_2)
+        mlflow.log_param("drop_out_1", drop_out_1)
+        mlflow.log_param("drop_out_2", drop_out_2)
 
         model = Sequential()
         model.add(Dense(train_x.shape[1], activation='relu', input_shape=(train_x.shape[1],)))
