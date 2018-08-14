@@ -14,7 +14,7 @@ from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-imp
 def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
     excitement_arg = 2
     name = "friend"
-    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "--no-conda", "-P",
+    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
                                 "greeting=hi", "-P", "name=%s" % name,
                                 "-P", "excitement=%s" % excitement_arg])
 
