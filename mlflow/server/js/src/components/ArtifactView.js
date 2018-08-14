@@ -11,6 +11,7 @@ import { decorators, Treebeard } from 'react-treebeard';
 import bytes from 'bytes';
 import './ArtifactView.css';
 import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
+import spinner from '../static/mlflow-spinner.png';
 
 class ArtifactView extends Component {
   constructor(props) {
@@ -248,9 +249,6 @@ const TREEBEARD_STYLE = {
         listStyle: 'none',
         paddingLeft: '19px'
       },
-      loading: {
-        color: '#81e232'
-      }
     }
   }
 };
@@ -279,6 +277,15 @@ decorators.Header = ({style, node}) => {
 
         {node.name}
       </div>
+    </div>
+  );
+};
+
+decorators.Loading = (props) => {
+  return (
+    <div style={props.style}>
+      <img className="loading-spinner" src={spinner}/>
+      {' '}loading...
     </div>
   );
 };

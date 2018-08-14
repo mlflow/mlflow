@@ -2,17 +2,21 @@ export class ArtifactNode {
   constructor(isRoot, fileInfo, children) {
     this.isRoot = isRoot;
     this.isLoaded = false;
+    // fileInfo should not be defined for the root node.
     this.fileInfo = fileInfo;
     // map of basename to ArtifactNode
     this.children = children;
   }
 
   deepCopy() {
-    let node = new ArtifactNode(this.isRoot, this.fileInfo, {});
+    let node = new ArtifactNode(this.isRoot, this.fileInfo, undefined);
+    node.isLoaded = this.isLoaded;
     if (this.children) {
+      const copiedChildren = {};
       Object.keys(this.children).forEach((name) => {
-        node.children[name] = this.children[name].deepCopy();
+        copiedChildren[name] = this.children[name].deepCopy();
       });
+      node.children = copiedChildren;
     }
     return node;
   }
