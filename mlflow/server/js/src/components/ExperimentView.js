@@ -32,6 +32,7 @@ class ExperimentView extends Component {
     onSearch: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
+    history: PropTypes.any,
 
     // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(String).isRequired,
@@ -139,6 +140,7 @@ class ExperimentView extends Component {
       } else if (b.sortValue === undefined) {
         return -1;
       } else if (!this.state.sort.ascending) {
+        // eslint-disable-next-line no-param-reassign
         [a, b] = [b, a];
       }
       let x = a.sortValue;
@@ -219,7 +221,9 @@ class ExperimentView extends Component {
             </div>
           </form>
           <div className="ExperimentView-run-buttons">
-            <span className="run-count">{rows.length} matching {rows.length === 1 ? 'run' : 'runs'}</span>
+            <span className="run-count">
+              {rows.length} matching {rows.length === 1 ? 'run' : 'runs'}
+            </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare Selected
             </Button>
@@ -320,8 +324,8 @@ class ExperimentView extends Component {
     try {
       const andedExpressions = SearchUtils.parseSearchInput(searchInput);
       this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput);
-    } catch (e) {
-      this.setState({ searchErrorMessage: e.errorMessage });
+    } catch (ex) {
+      this.setState({ searchErrorMessage: ex.errorMessage });
     }
   }
 

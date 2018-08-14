@@ -101,7 +101,8 @@ const wrapDeferred = (deferred, data) => {
       data,
       success: response => resolve(response),
       error: xhr => {
-        reject({ xhr });
+        console.error("XHR failed", xhr);
+        reject(new Error("XHR failed"));
       }
     });
   });

@@ -77,14 +77,17 @@ class RunView extends Component {
       case ARTIFACTS_KEY: {
         return this.state.showArtifacts ? 'fa-caret-down' : 'fa-caret-right';
       }
-      default: {}
+      default: {
+        return null;
+      }
     }
   }
 
   render() {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-    const duration = run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
+    const duration =
+      run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
     const tableStyles = {
       table: {
         width: 'auto',

@@ -73,7 +73,9 @@ class ArtifactView extends Component {
               </div>
               <div>
                 <div className="no-artifacts">No Artifacts Recorded</div>
-                <div className="no-artifacts-info">Use the log artifact APIs to store file outputs from MLflow runs.</div>
+                <div className="no-artifacts-info">
+                  Use the log artifact APIs to store file outputs from MLflow runs.
+                </div>
               </div>
             </div>
           </div>
@@ -253,6 +255,7 @@ const TREEBEARD_STYLE = {
   }
 };
 
+// eslint-disable-next-line react/prop-types
 decorators.Header = ({style, node}) => {
   let iconType;
   if (node.children) {

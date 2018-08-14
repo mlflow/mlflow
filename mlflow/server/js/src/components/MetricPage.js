@@ -11,6 +11,8 @@ class MetricPage extends Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
+    experimentId: PropTypes.number,
+    dispatch: PropTypes.func.isRequired,
   };
 
   componentWillMount() {

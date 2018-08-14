@@ -193,6 +193,7 @@ class CompareRunScatter extends Component {
         </div>
       );
     }
+    return null;
   }
 }
 

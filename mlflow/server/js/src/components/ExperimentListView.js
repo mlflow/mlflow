@@ -13,6 +13,7 @@ class ExperimentListView extends Component {
     activeExperimentId: PropTypes.number.isRequired,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
   };
+
   state = {
     height: undefined,
   };
@@ -54,7 +55,7 @@ class ExperimentListView extends Component {
                   style={{ textDecoration: 'none', color: 'unset' }}
                   key={e.getExperimentId()}
                   to={Routes.getExperimentPageRoute(e.getExperimentId())}
-                  onClick={active ? e => e.preventDefault() : e => e}
+                  onClick={active ? ev => ev.preventDefault() : ev => ev}
                 >
                   <div
                     className={className}

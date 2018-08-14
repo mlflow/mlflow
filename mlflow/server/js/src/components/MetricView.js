@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { LineChart, BarChart, Bar, XAxis, Tooltip, CartesianGrid, Line, YAxis, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, BarChart, Bar, XAxis, Tooltip, CartesianGrid, Line, YAxis,
+  ResponsiveContainer, Legend } from 'recharts';
 import { connect } from 'react-redux';
 import Utils from '../utils/Utils';
 import { getMetricsByKey } from '../reducers/MetricReducer';

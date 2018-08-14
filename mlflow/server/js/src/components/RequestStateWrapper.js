@@ -9,6 +9,7 @@ class RequestStateWrapper extends Component {
   static propTypes = {
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
+    children: PropTypes.node,
   };
 
   static defaultProps = {
@@ -26,6 +27,7 @@ class RequestStateWrapper extends Component {
     });
   }
 
+  // eslint-disable-next-line no-unused-vars
   static getDerivedStateFromProps(nextProps, prevState) {
     const shouldRender = nextProps.requests.every((r) => {
       return r.active === false && r.error === undefined;

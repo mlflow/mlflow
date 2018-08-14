@@ -117,7 +117,8 @@ class Utils {
       if (run.source_type === "PROJECT") {
         const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
-          const url = "https://github.com/" + match[1] + "/" + match[2] + "/tree/" + run.source_version;
+          const url = ("https://github.com/" + match[1] + "/" + match[2] + "/tree/" +
+            run.source_version);
           return <a href={url}>{shortVersion}</a>;
         }
       } else {

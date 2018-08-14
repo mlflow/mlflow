@@ -16,6 +16,7 @@ class CompareRunView extends Component {
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runUuids: PropTypes.arrayOf(String).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
   };
@@ -47,27 +48,33 @@ class CompareRunView extends Component {
             <tbody>
               <tr>
                 <th scope="row" className="data-value">Start Time:</th>
-                {this.props.runInfos.map((run, idx) => {
-                  const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
+                {this.props.runInfos.map((run) => {
+                  const startTime =
+                    run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
                   return <td className="meta-info" key={run.run_uuid}>{startTime}</td>;
                 }
                 )}
               </tr>
               <tr>
-                <th scope="rowgroup" className="inter-title" colSpan={this.props.runInfos.length + 1}>
+                <th scope="rowgroup"
+                    className="inter-title"
+                    colSpan={this.props.runInfos.length + 1}>
                   <h2>Parameters</h2>
                 </th>
               </tr>
               {this.renderDataRows(this.props.paramLists)}
               <tr>
-                <th scope="rowgroup" className="inter-title" colSpan={this.props.runInfos.length + 1}>
+                <th scope="rowgroup"
+                    className="inter-title"
+                    colSpan={this.props.runInfos.length + 1}>
                   <h2>Metrics</h2>
                 </th>
               </tr>
               {this.renderDataRows(this.props.metricLists, (key, data) => {
                 return <Link
                   to={Routes.getMetricPageRoute(
-                      this.props.runInfos.map(info => info.run_uuid).filter((uuid, index) => data[index] !== undefined),
+                      this.props.runInfos.map(info => info.run_uuid)
+                                         .filter((uuid, idx) => data[idx] !== undefined),
                       key,
                       experimentId)}
                   title="Plot chart">
@@ -84,6 +91,7 @@ class CompareRunView extends Component {
     );
   }
 
+  // eslint-disable-next-line no-unused-vars
   renderDataRows(list, headerMap = (key, data) => key, formatter = (value) => value) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
