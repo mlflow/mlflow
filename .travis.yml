@@ -50,5 +50,6 @@ script:
   - cd mlflow/server/js
   - npm i
   - npm test -- --coverage
+  - ./lint.sh
   - cd ../../..
   - codecov -e TOXENV
