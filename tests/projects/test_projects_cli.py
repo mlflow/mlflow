@@ -1,4 +1,5 @@
 import hashlib
+import os
 
 import pytest
 
@@ -10,15 +11,21 @@ from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-imp
 
 
 @pytest.mark.large
-def test_run_local(tracking_uri_mock):  # pylint: disable=unused-argument
+def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
     excitement_arg = 2
     name = "friend"
-    # Verify that parent environment doesn't contain psutil
-    with pytest.raises(ImportError):
-        import psutil
-    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
+    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "--no-conda", "-P",
                                 "greeting=hi", "-P", "name=%s" % name,
                                 "-P", "excitement=%s" % excitement_arg])
+
+
+@pytest.mark.large
+def test_run_local_conda_env(tracking_uri_mock):  # pylint: disable=unused-argument
+    with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
+        conda_env_contents = handle.read()
+    expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P",
+                                "conda_env_name=%s" % expected_env_name])
 
 
 @pytest.mark.large
