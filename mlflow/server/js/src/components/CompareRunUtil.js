@@ -1,5 +1,4 @@
 export default class CompareRunUtil {
-
   /**
    * Find in a list of metrics/params a certain key
    */
@@ -17,8 +16,8 @@ export default class CompareRunUtil {
    * Get all keys present in the data in ParamLists or MetricLists
    */
   static getKeys(lists, numeric) {
-    let keys = {};
-    lists.forEach((list) => 
+    const keys = {};
+    lists.forEach((list) =>
       list.forEach((item) => {
         if (!(item.key in keys)) {
           keys[item.key] = true;

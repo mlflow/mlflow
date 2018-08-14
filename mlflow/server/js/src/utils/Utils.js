@@ -45,8 +45,8 @@ class Utils {
       return {
         ...metric,
         timestamp: Number.parseFloat(metric.timestamp),
-      }
-    })
+      };
+    });
   }
 
   /**
@@ -65,15 +65,15 @@ class Utils {
    */
   static formatDuration(duration) {
     if (duration < 500) {
-      return duration + "ms"
+      return duration + "ms";
     } else if (duration < 1000 * 60) {
-      return (duration / 1000).toFixed(1) + "s"
+      return (duration / 1000).toFixed(1) + "s";
     } else if (duration < 1000 * 60 * 60) {
-      return (duration / 1000 / 60).toFixed(1) + "min"
+      return (duration / 1000 / 60).toFixed(1) + "min";
     } else if (duration < 1000 * 60 * 60 * 24) {
-      return (duration / 1000 / 60 / 60).toFixed(1) + "h"
+      return (duration / 1000 / 60 / 60).toFixed(1) + "h";
     } else {
-      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + "d"
+      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + "d";
     }
   }
 
@@ -87,7 +87,7 @@ class Utils {
   }
 
   static dropExtension(path) {
-    return path.replace(/(.*[^/])\.[^/.]+$/, "$1")
+    return path.replace(/(.*[^/])\.[^/.]+$/, "$1");
   }
 
   static getGitHubRegex() {

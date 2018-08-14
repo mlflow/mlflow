@@ -5,7 +5,7 @@ import {
   LIST_ARTIFACTS_API,
   LIST_EXPERIMENTS_API, SEARCH_RUNS_API,
 } from '../Actions';
-import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages'
+import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid } from './MetricReducer';
 
@@ -25,7 +25,7 @@ const experimentsById = (state = {}, action) => {
         action.payload.experiments.forEach((eJson) => {
           const experiment = Experiment.fromJs(eJson);
           newState = Object.assign(newState, { [experiment.getExperimentId()]: experiment });
-        })
+        });
       }
       return newState;
     case fulfilled(GET_EXPERIMENT_API):
@@ -63,7 +63,7 @@ const runInfosByUuid = (state = {}, action) => {
         action.payload.runs.forEach((rJson) => {
           const runInfo = RunInfo.fromJs(rJson);
           newState = amendRunInfosByUuid(newState, runInfo);
-        })
+        });
       }
       return newState;
     }
@@ -77,7 +77,7 @@ const runInfosByUuid = (state = {}, action) => {
         action.payload.runs.forEach((rJson) => {
           const runInfo = RunInfo.fromJs(rJson.info);
           newState = amendRunInfosByUuid(newState, runInfo);
-        })
+        });
       }
       return newState;
     }
@@ -112,14 +112,13 @@ const paramsByRunUuid = (state = {}, action) => {
       const runs = action.payload.runs;
       let newState = { ...state };
       if (runs) {
-          runs.forEach((rJson) => {
-            const run = Run.fromJs(rJson);
-            newState = amendParamsByRunUuid(
+        runs.forEach((rJson) => {
+          const run = Run.fromJs(rJson);
+          newState = amendParamsByRunUuid(
               newState, rJson.data.params, run.getInfo().getRunUuid());
-          });
+        });
       }
       return newState;
-
     }
     default:
       return state;
@@ -138,7 +137,7 @@ const amendParamsByRunUuid = (state, params, runUuid) => {
           ...oldParams,
           [param.getKey()]: param,
         }
-      }
+      };
     });
   }
   return newState;
@@ -163,11 +162,11 @@ const tagsByRunUuid = (state = {}, action) => {
       const runs = action.payload.runs;
       let newState = { ...state };
       if (runs) {
-          runs.forEach((rJson) => {
-            const run = Run.fromJs(rJson);
-            newState = amendTagsByRunUuid(
+        runs.forEach((rJson) => {
+          const run = Run.fromJs(rJson);
+          newState = amendTagsByRunUuid(
               newState, rJson.info.tags, run.getInfo().getRunUuid());
-          });
+        });
       }
       return newState;
     }
@@ -188,7 +187,7 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
           ...oldTags,
           [tag.getKey()]: tag,
         }
-      }
+      };
     });
   }
   return newState;
@@ -226,7 +225,7 @@ const artifactsByRunUuid = (state = {}, action) => {
       return {
         ...state,
         [runUuid]: artifactNode,
-      }
+      };
     }
     default:
       return state;
@@ -273,14 +272,12 @@ const apis = (state = {}, action) => {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: true }
     };
-  }
-  else if (isFulfilledApi(action)) {
+  } else if (isFulfilledApi(action)) {
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, data: action.payload }
     };
-  }
-  else if (isRejectedApi(action)) {
+  } else if (isRejectedApi(action)) {
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, error: action.payload }

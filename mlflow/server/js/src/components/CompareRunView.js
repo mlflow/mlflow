@@ -9,7 +9,7 @@ import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import BreadcrumbTitle from "./BreadcrumbTitle";
-import CompareRunUtil from './CompareRunUtil'
+import CompareRunUtil from './CompareRunUtil';
 import Utils from '../utils/Utils';
 
 class CompareRunView extends Component {
@@ -48,19 +48,19 @@ class CompareRunView extends Component {
               <tr>
                 <th scope="row" className="data-value">Start Time:</th>
                 {this.props.runInfos.map((run, idx) => {
-                   const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-                   return <td className="meta-info" key={run.run_uuid}>{startTime}</td>;
-                 }
+                  const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
+                  return <td className="meta-info" key={run.run_uuid}>{startTime}</td>;
+                }
                 )}
               </tr>
               <tr>
-                <th scope="rowgroup" className="inter-title" colSpan={this.props.runInfos.length+1}>
+                <th scope="rowgroup" className="inter-title" colSpan={this.props.runInfos.length + 1}>
                   <h2>Parameters</h2>
                 </th>
               </tr>
               {this.renderDataRows(this.props.paramLists)}
               <tr>
-                <th scope="rowgroup" className="inter-title" colSpan={this.props.runInfos.length+1}>
+                <th scope="rowgroup" className="inter-title" colSpan={this.props.runInfos.length + 1}>
                   <h2>Metrics</h2>
                 </th>
               </tr>
@@ -73,7 +73,7 @@ class CompareRunView extends Component {
                   title="Plot chart">
                   {key}
                   <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
-                </Link>
+                </Link>;
               }, Utils.formatMetric)}
             </tbody>
           </table>
@@ -96,12 +96,12 @@ class CompareRunView extends Component {
     return keys.map(k => {
       return <tr key={k}>
         <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
-        {data[k].map((value, i) => 
+        {data[k].map((value, i) =>
           <td className="data-value" key={this.props.runInfos[i].run_uuid}>
             {value === undefined ? "" : formatter(value)}
           </td>
         )}
-      </tr>
+      </tr>;
     });
   }
 }

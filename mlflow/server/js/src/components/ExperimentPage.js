@@ -70,7 +70,6 @@ class ExperimentPage extends Component {
 
   getRequestIds() {
     return [this.state.getExperimentRequestId, this.state.searchRunsRequestId];
-
   }
 }
 

@@ -32,9 +32,9 @@ class MetricPage extends Component {
     if (this.props.runUuids.length >= 1) {
       view = <MetricView runUuids={this.props.runUuids}
                          metricKey={this.props.metricKey}
-                         experimentId={this.props.experimentId}/>
+                         experimentId={this.props.experimentId}/>;
     } else {
-      view = <NotFoundPage/>
+      view = <NotFoundPage/>;
     }
     return (
       <RequestStateWrapper requestIds={this.requestIds}>
@@ -57,7 +57,7 @@ const mapStateToProps = (state, ownProps) => {
     runUuids,
     metricKey,
     experimentId,
-  }
+  };
 };
 
 export default connect(mapStateToProps)(MetricPage);

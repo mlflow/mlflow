@@ -88,7 +88,7 @@ const mapStateToProps = (state, ownProps) => {
   const experiment = experimentId !== null ? getExperiment(experimentId, state) : null;
   let maxLength = 0;
   runUuids.forEach(runUuid => {
-    maxLength = Math.max(maxLength, getMetricsByKey(runUuid, metricKey, state).length)
+    maxLength = Math.max(maxLength, getMetricsByKey(runUuid, metricKey, state).length);
   });
   const metrics = new Array(maxLength);
   for (let i = 0; i < metrics.length; i++) {
@@ -105,7 +105,7 @@ const mapStateToProps = (state, ownProps) => {
     metrics,
     title: <span>{metricKey}</span>,
     runUuids: runUuids,
-  }
+  };
 };
 
 export default connect(mapStateToProps)(MetricView);
