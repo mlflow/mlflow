@@ -28,6 +28,21 @@
     "dateformat": "3.0.3",
     "url-parse": "1.4.3"
   },
+  "devDependencies": {
+    "babel-eslint": "8.2.2",
+    "eslint": "4.18.1",
+    "eslint-config-airbnb-base": "~12.0.0",
+    "eslint-config-standard": "10.2.1",
+    "eslint-import-resolver-webpack": "0.8.4",
+    "eslint-loader": "1.9.0",
+    "eslint-plugin-chai-expect": "1.1.1",
+    "eslint-plugin-chai-friendly": "0.4.0",
+    "eslint-plugin-import": "2.8.0",
+    "eslint-plugin-node": "5.2.1",
+    "eslint-plugin-promise": "3.6.0",
+    "eslint-plugin-react": "7.4.0",
+    "eslint-plugin-standard": "3.0.1"
+  },
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",

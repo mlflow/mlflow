@@ -59,7 +59,7 @@ class RunView extends Component {
         this.setState({ showArtifacts: !this.state.showArtifacts });
         return;
       }
-      default: {}
+      default:
     }
   }
 
