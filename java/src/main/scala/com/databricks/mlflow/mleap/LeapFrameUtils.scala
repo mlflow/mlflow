@@ -30,5 +30,4 @@ object LeapFrameUtils {
     throw new UnsupportedOperationException(
       "LeapFrame to CSV conversion has not been implemented yet!");
   }
-
 }

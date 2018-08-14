@@ -1,6 +1,6 @@
 package com.databricks.mlflow.sagemaker;
 
-import com.databricks.mlflow.mleap.MLeapTransformerSchema 
+import com.databricks.mlflow.mleap.LeapFrameSchema 
 import com.databricks.mlflow.mleap.LeapFrameUtils 
 
 import ml.combust.bundle.BundleFile
@@ -16,7 +16,7 @@ class MLeapPredictor(var modelPath : String, var inputSchemaPath : String) exten
   }).opt.get
   val pipeline = bundle.root
 
-  val inputSchema = MLeapTransformerSchema.fromFile(inputSchemaPath)
+  val inputSchema = LeapFrameSchema.fromFile(inputSchemaPath)
 
   def getPipeline() : Transformer = {
       this.pipeline
@@ -26,7 +26,14 @@ class MLeapPredictor(var modelPath : String, var inputSchemaPath : String) exten
       val frameJson = inputSchema.applyToPandasRecordJson(inputFrame.toJson())
       val leapFrame = LeapFrameUtils.getLeapFrameFromJson(frameJson)
       // TODO (Corey Zumar): Error handling
-      val transformedFrame = pipeline.transform(leapFrame).get
+      var transformedFrame = pipeline.transform(leapFrame).get
+      transformedFrame = transformedFrame.select("prediction").get
+      val predictions = (for(lf <- pipeline.transform(leapFrame);
+                             lf2 <- lf.select("prediction")) yield {
+          lf2.dataset.map(_.getRaw(0))
+      }).get.toSeq
+      println("PREDS")
+      println(predictions)
       DataFrame.fromLeapFrame(transformedFrame)
   }
 

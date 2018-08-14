@@ -1,6 +1,6 @@
 package com.databricks.mlflow.mleap;
 
-import com.databricks.mlflow.utils.FileUtils;
+import com.databricks.mlflow.utils.SerializationUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,7 +16,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class MLeapTransformerSchema {
+public class LeapFrameSchema {
     private static final String LEAP_FRAME_KEY_ROWS = "rows";
     private static final String LEAP_FRAME_KEY_SCHEMA = "schema";
 
@@ -30,9 +30,9 @@ public class MLeapTransformerSchema {
     private String text;
     private List<String> orderedFieldNames;
 
-    public static MLeapTransformerSchema fromFile(String filePath) throws IOException {
-        MLeapTransformerSchema newSchema =
-            FileUtils.parseJsonFromFile(filePath, MLeapTransformerSchema.class);
+    public static LeapFrameSchema fromFile(String filePath) throws IOException {
+        LeapFrameSchema newSchema =
+            SerializationUtils.parseJsonFromFile(filePath, LeapFrameSchema.class);
         String schemaText = new String(Files.readAllBytes(Paths.get(filePath)));
         newSchema.setText(schemaText);
         newSchema.setOrderedFieldNames();
@@ -49,9 +49,7 @@ public class MLeapTransformerSchema {
      */
     public String applyToPandasRecordJson(String pandasJson) throws IOException {
         List<String> orderedFieldNames = getOrderedFieldNames();
-        ObjectMapper mapper = new ObjectMapper();
-        List<Map<String, Object>> pandasRecords =
-            mapper.readValue(pandasJson, new TypeReference<List<Map<String, Object>>>() {});
+        List<Map<String, Object>> pandasRecords = SerializationUtils.fromJson(pandasJson);
         List<List<Object>> mleapRows = new ArrayList<>();
         for (Map<String, Object> record : pandasRecords) {
             List<Object> mleapRow = new ArrayList<>();
@@ -60,7 +58,7 @@ public class MLeapTransformerSchema {
             }
             mleapRows.add(mleapRow);
         }
-        String serializedRows = mapper.writeValueAsString(mleapRows);
+        String serializedRows = SerializationUtils.toJson(mleapRows);
         String leapFrameJson = String.format("{ \"%s\" : %s, \"%s\" : %s }", LEAP_FRAME_KEY_ROWS,
             serializedRows, LEAP_FRAME_KEY_SCHEMA, this.text);
         return leapFrameJson;

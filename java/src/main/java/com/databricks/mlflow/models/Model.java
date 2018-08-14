@@ -2,6 +2,7 @@ package com.databricks.mlflow.models;
 
 import com.databricks.mlflow.Flavor;
 import com.databricks.mlflow.utils.FileUtils;
+import com.databricks.mlflow.utils.SerializationUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,7 +29,7 @@ public class Model {
 
     public static Model fromConfigPath(String configPath) throws IOException {
         File configFile = new File(configPath);
-        Model model = FileUtils.parseYamlFromFile(configFile, Model.class);
+        Model model = SerializationUtils.parseYamlFromFile(configFile, Model.class);
         // Set the root path to the directory containing the configuration file.
         // This will be used to create an absolute path to the serialized model
         model.setRootPath(configFile.getParentFile().getAbsolutePath());
