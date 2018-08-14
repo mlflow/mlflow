@@ -96,7 +96,7 @@ def _serve_pyfunc(model):
            "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", "; ".join(bash_cmds)])
-    signal.signal(signal.SIGTERM, lambda _, _: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
+    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
     # If either subprocess exits, so do we.
     awaited_pids = _await_subprocess_exit_any(procs=[nginx, gunicorn])
     _sigterm_handler(awaited_pids)
@@ -109,7 +109,7 @@ def _serve_mleap(model):
                         mlflow_version=mlflow.version.VERSION),
                    "com.databricks.mlflow.sagemaker.SageMakerServer",
                    MODEL_PATH])
-    signal.signal(signal.SIGTERM, lambda _,_: _sigterm_handler(pids=[mleap.pid]))
+    signal.signal(signal.SIGTERM, lambda a,b: _sigterm_handler(pids=[mleap.pid]))
     awaited_pids = _await_subprocess_exit_any(procs=[mleap])
     _sigterm_handler(awaited_pids)
 
