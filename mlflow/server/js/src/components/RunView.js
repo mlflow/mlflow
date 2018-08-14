@@ -10,9 +10,13 @@ import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
+import { MLFLOW_INTERNAL_PREFIX } from "../utils/TagUtils";
+import { NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
+import ShowNoteView from "./NoteView";
 
+const NOTES_KEY = 'notes';
 const PARAMETERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
 const ARTIFACTS_KEY = 'artifacts';
@@ -25,7 +29,7 @@ class RunView extends Component {
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
     this.handleRenameRunClick = this.handleRenameRunClick.bind(this);
     this.hideRenameRunModal = this.hideRenameRunModal.bind(this);
-    this.state.showTags = getTagValues(props.tags).length > 0;
+    this.state.showTags = getVisibleTagValues(props.tags).length > 0;
   }
 
   static propTypes = {
@@ -41,6 +45,7 @@ class RunView extends Component {
   };
 
   state = {
+    showNotes: true,
     showParameters: true,
     showMetrics: true,
     showArtifacts: true,
@@ -50,6 +55,10 @@ class RunView extends Component {
 
   onClickExpander(key) {
     switch (key) {
+      case NOTES_KEY: {
+        this.setState({ showNotes: !this.state.showNotes });
+        return;
+      }
       case PARAMETERS_KEY: {
         this.setState({ showParameters: !this.state.showParameters });
         return;
@@ -72,6 +81,9 @@ class RunView extends Component {
 
   getExpanderClassName(key) {
     switch (key) {
+      case NOTES_KEY: {
+        return this.state.showNotes ? 'fa-caret-down' : 'fa-caret-right';
+      }
       case PARAMETERS_KEY: {
         return this.state.showParameters ? 'fa-caret-down' : 'fa-caret-right';
       }
@@ -100,6 +112,7 @@ class RunView extends Component {
 
   render() {
     const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
+    const noteInfo = NoteInfo.fromRunTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
@@ -214,6 +227,18 @@ class RunView extends Component {
           : null
         }
         <div className="RunView-info">
+          <h2 onClick={() => this.onClickExpander(NOTES_KEY)} className="table-name">
+            <span ><i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/></span>
+            {' '}Notes
+          </h2>
+          {this.state.showNotes ?
+            <ShowNoteView
+              runUuid={this.props.runUuid}
+              noteInfo={noteInfo}
+              submitCallback={this.handleSubmittedNote}
+            /> :
+            null
+          }
           <h2 onClick={() => this.onClickExpander(PARAMETERS_KEY)} className="table-name">
             <span ><i className={`fa ${this.getExpanderClassName(PARAMETERS_KEY)}`}/></span>
             {' '}Parameters
@@ -245,7 +270,7 @@ class RunView extends Component {
           {this.state.showTags ?
             <HtmlTableView
               columns={["Name", "Value"]}
-              values={getTagValues(tags)}
+              values={getVisibleTagValues(tags)}
               styles={tableStyles}
             /> :
             null
@@ -263,6 +288,14 @@ class RunView extends Component {
           </div>
       </div>
     );
+  }
+
+  handleSubmittedNote(content, err) {
+    if (err) {
+      // TODO
+    } else {
+      window.location.reload();
+    }
   }
 }
 
@@ -287,9 +320,12 @@ const getParamValues = (params) => {
   );
 };
 
-const getTagValues = (tags) => {
+const getVisibleTagValues = (tags) => {
+  // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
   return Object.values(tags).map((t) =>
     [t.getKey(), t.getValue()]
+  ).filter(t =>
+    !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
   );
 };
 
