@@ -415,8 +415,8 @@ def _get_git_commit(path):
 
 def _get_git_url_if_present(uri):
     """
-    Return the path git_uri#sub_directory if the URI passed is a local path that's part of a Git repo,
-    or returns the original URI otherwise.
+    Return the path git_uri#sub_directory if the URI passed is a local path that's part of
+    a Git repo, or returns the original URI otherwise.
     :param uri: The expanded uri
     :return: The git_uri#sub_directory if the uri is part of a Git repo,
              otherwise return the original uri
@@ -435,7 +435,7 @@ def _get_git_url_if_present(uri):
         repo = Repo(uri, search_parent_directories=True)
 
         # Repo url
-        repo_url = repo.remotes['origin'].config_reader.get('url')
+        repo_url = "file://%s" % repo.working_tree_dir
 
         # Sub directory
         rlpath = uri.replace(repo.working_tree_dir, '')
