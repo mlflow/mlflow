@@ -1,5 +1,5 @@
-mlflow.models package
-=====================
+mlflow.models
+==============
 
 .. automodule:: mlflow.models
     :members:

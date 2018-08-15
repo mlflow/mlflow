@@ -1,8 +1,7 @@
-mlflow
-======
+mlflow.keras
+==============
 
-.. automodule:: mlflow
+.. automodule:: mlflow.keras
     :members:
     :undoc-members:
     :show-inheritance:
-

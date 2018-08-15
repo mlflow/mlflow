@@ -1,20 +1,7 @@
-mlflow.azureml package
-======================
+mlflow.azureml
+==============
 
 .. automodule:: mlflow.azureml
     :members:
     :undoc-members:
     :show-inheritance:
-
-Submodules
-----------
-
-mlflow.azureml.cli module
--------------------------
-
-.. automodule:: mlflow.azureml.cli
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-

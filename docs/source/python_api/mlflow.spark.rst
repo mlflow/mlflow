@@ -1,7 +1,8 @@
-mlflow.projects
+mlflow.spark
 ===============
 
-.. automodule:: mlflow.projects
+.. automodule:: mlflow.spark
     :members:
     :undoc-members:
     :show-inheritance:
+
