@@ -22,6 +22,10 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(model_path, data):
+    """
+    :param data: The data to send to the docker container for testing. This is either a 
+                 Pandas dataframe or a JSON-formatted string.
+    """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', model_path], stdout=PIPE, stderr=STDOUT,
