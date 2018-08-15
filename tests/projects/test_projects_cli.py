@@ -4,6 +4,7 @@ import os
 import pytest
 
 from mlflow import cli
+from mlflow.utils import process, logging_utils
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI,\
     TEST_NO_SPEC_PROJECT_DIR
@@ -24,6 +25,12 @@ def test_run_local_conda_env(tracking_uri_mock):  # pylint: disable=unused-argum
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    try:
+        process.exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
+    except process.ShellCommandException:
+        logging_utils.eprint(
+            "Unable to remove conda environment %s. The environment may not have been present, "
+            "continuing with running the test." % expected_env_name)
     invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P",
                                 "conda_env_name=%s" % expected_env_name])
 

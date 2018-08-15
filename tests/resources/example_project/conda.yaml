@@ -1,3 +1,5 @@
+# Adding a comment here to distinguish the hash of this conda.yaml from the hashes of existing
+# conda.yaml files in the test environment.
 name: tutorial
 channels:
   - anaconda
