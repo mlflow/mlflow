@@ -222,7 +222,7 @@ class RestStore(AbstractStore):
         """
         search_expressions_protos = [expr.to_proto() for expr in search_expressions]
         req_body = _message_to_json(SearchRuns(experiment_ids=experiment_ids,
-                                               search_expressions=search_expressions_protos))
+                                               anded_expressions=search_expressions_protos))
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 
