@@ -1,7 +1,3 @@
-"""
-This module contains a server-side implementation of the MLflow REST API.
-"""
-
 import os
 
 from flask import Flask, send_from_directory, make_response

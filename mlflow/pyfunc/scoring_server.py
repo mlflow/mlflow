@@ -1,18 +1,14 @@
 """
 Scoring server for python model format.
-The passed-in model is expected to have function:
-
-.. code ::
-
+The passed int model is expected to have function:
    predict(pandas.Dataframe) -> pandas.DataFrame
 
-Input, expected in text/csv or application/json format,
+Input, expected intext/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
 Defines two endpoints:
-
-    - /ping used for health check
-    - /invocations used for scoring
+    /ping used for health check
+    /invocations used for scoring
 """
 from __future__ import print_function
 
