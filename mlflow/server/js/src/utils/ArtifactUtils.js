@@ -9,7 +9,7 @@ export class ArtifactNode {
   }
 
   deepCopy() {
-    let node = new ArtifactNode(this.isRoot, this.fileInfo, undefined);
+    const node = new ArtifactNode(this.isRoot, this.fileInfo, undefined);
     node.isLoaded = this.isLoaded;
     if (this.children) {
       const copiedChildren = {};
@@ -21,10 +21,10 @@ export class ArtifactNode {
     return node;
   }
 
-  static setChildren(node, fileInfos) {
+  setChildren(fileInfos) {
     if (fileInfos) {
-      node.children = {};
-      node.isLoaded = true;
+      this.children = {};
+      this.isLoaded = true;
       fileInfos.forEach((fileInfo) => {
         // basename is the last part of the path for this fileInfo.
         const pathParts = fileInfo.path.split("/");
@@ -33,10 +33,10 @@ export class ArtifactNode {
         if (fileInfo.is_dir) {
           children = [];
         }
-        node.children[basename] = new ArtifactNode(false, fileInfo, children);
+        this.children[basename] = new ArtifactNode(false, fileInfo, children);
       });
     } else {
-      node.isLoaded = true;
+      this.isLoaded = true;
     }
   }
 
