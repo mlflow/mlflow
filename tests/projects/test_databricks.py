@@ -53,7 +53,7 @@ def dbfs_root_mock(tmpdir):
 @pytest.fixture()
 def upload_to_dbfs_mock(dbfs_root_mock):
     def upload_mock_fn(src_path, dbfs_uri):
-        mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
+        mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
         os.makedirs(os.path.dirname(mock_dbfs_dst))
         shutil.copy(src_path, mock_dbfs_dst)
 
@@ -109,7 +109,7 @@ def test_upload_project_to_dbfs(
     dbfs_uri = databricks._upload_project_to_dbfs(
         project_dir=TEST_PROJECT_DIR, experiment_id=0)
     # Get expected tar
-    local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("dbfs:/")[1])
+    local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
     expected_tar_path = str(tmpdir.join("expected.tar.gz"))
     file_utils.make_tarfile(
         output_filename=expected_tar_path, source_dir=TEST_PROJECT_DIR,

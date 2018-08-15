@@ -57,3 +57,11 @@ div.artifact-view {
   padding-top: 8px;
   color: #888888;
 }
+
+.loading-spinner {
+  height: 20px;
+  opacity: 0;
+  -webkit-animation: spin 3s linear infinite;
+  -moz-animation: spin 3s linear infinite;
+  animation: spin 3s linear infinite;
+}
