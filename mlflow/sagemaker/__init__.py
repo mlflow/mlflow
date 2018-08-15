@@ -571,7 +571,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 
 
 def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
-                               instance_count, vpc_config, mode, archive, role, sage_client, 
+                               instance_count, vpc_config, mode, archive, role, sage_client,
                                s3_client):
     """
     :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
@@ -670,7 +670,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
             carn=deployed_config_arn))
 
 
-def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image_url, 
+def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image_url,
                             execution_role, sage_client):
     """
     :param model_s3_path: S3 path where the model artifacts are stored
