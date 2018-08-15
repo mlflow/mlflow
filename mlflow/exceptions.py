@@ -4,3 +4,8 @@ class MlflowException(Exception):
 
 class IllegalArtifactPathError(MlflowException):
     """The artifact_path parameter was invalid."""
+
+
+class ExecutionException(Exception):
+    """Exception thrown when executing a project fails."""
+    pass
