@@ -37,15 +37,15 @@ public class Model {
     }
 
     public Optional<String> getArtifactPath() {
-        return convertFieldToOptional(this.artifactPath);
+        return Optional.ofNullable(this.artifactPath);
     }
 
     public Optional<String> getUtcTimeCreated() {
-        return convertFieldToOptional(this.utcTimeCreated);
+        return Optional.ofNullable(this.utcTimeCreated);
     }
 
     public Optional<String> getRunId() {
-        return convertFieldToOptional(this.runId);
+        return Optional.ofNullable(this.runId);
     }
 
     public <T extends Flavor> Optional<T> getFlavor(String flavorName, Class<T> flavorClass) {
@@ -59,15 +59,7 @@ public class Model {
     }
 
     public Optional<String> getRootPath() {
-        return convertFieldToOptional(this.rootPath);
-    }
-
-    private Optional<String> convertFieldToOptional(String field) {
-        if (field != null) {
-            return Optional.of(field);
-        } else {
-            return Optional.<String>empty();
-        }
+        return Optional.ofNullable(this.rootPath);
     }
 
     private void setRootPath(String rootPath) {
