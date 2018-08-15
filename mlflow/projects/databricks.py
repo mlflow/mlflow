@@ -235,8 +235,8 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
                    git_username, git_password):
     """
     Runs the project at the specified URI on Databricks, returning a
-    :py:class:`mlflow.projects.submitted_run.SubmittedRun` that can be used to query the run's status or wait for the resulting
-    Databricks Job run to terminate.
+    :py:class:`mlflow.projects.submitted_run.SubmittedRun` that can be used to query the run's
+    status or wait for the resulting Databricks Job run to terminate.
     """
     tracking_uri = tracking.get_tracking_uri()
     _before_run_validations(tracking_uri, cluster_spec)
