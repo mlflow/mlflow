@@ -234,9 +234,8 @@ def _before_run_validations(tracking_uri, cluster_spec):
 def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                    git_username, git_password):
     """
-    Runs the project at the specified URI on Databricks, returning a
-    :py:class:`mlflow.projects.submitted_run.SubmittedRun` that can be used to query the run's
-    status or wait for the resulting Databricks Job run to terminate.
+    Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
+    used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
     tracking_uri = tracking.get_tracking_uri()
     _before_run_validations(tracking_uri, cluster_spec)
@@ -286,9 +285,9 @@ def _monitor_databricks(databricks_run_id, sleep_interval=30):
 
 class DatabricksSubmittedRun(SubmittedRun):
     """
-    Instance of :py:class:`mlflow.projects.submitted_run.SubmittedRun` corresponding to a
-    Databricks Job run launched to run an MLflow project. Note that run_id may be None, e.g. if we
-    did not launch the run against a tracking server accessible to the local client.
+    Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
+    project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
+    server accessible to the local client.
     """
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
