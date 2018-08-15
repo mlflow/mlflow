@@ -1,4 +1,4 @@
-"""Sample MLflow integration for Keras."""
+"""MLflow integration for Keras."""
 
 from __future__ import absolute_import
 

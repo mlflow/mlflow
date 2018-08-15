@@ -1,4 +1,4 @@
-"""Sample MLflow integration for h2o."""
+"""MLflow integration for h2o."""
 
 from __future__ import absolute_import
 

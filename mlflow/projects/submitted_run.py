@@ -18,7 +18,7 @@ class SubmittedRun(object):
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
 
-    Note: Subclasses of ``SubmittedRun`` are expected to expose a ```run_id`` member containing the
+    Note: Subclasses of ``SubmittedRun`` are expected to expose a ``run_id`` member containing the
     run's MLflow run ID.
     """
     @abstractmethod
@@ -49,8 +49,8 @@ class SubmittedRun(object):
 
 class LocalSubmittedRun(SubmittedRun):
     """
-    Instance of ``SubmittedRun`` corresponding to a subprocess launched to run an entry point
-    command locally.
+    Instance of :py:class:`mlflow.projects.submitted_run.SubmittedRun` corresponding to a subprocess
+    launched to run an entry point command locally.
     """
     def __init__(self, run_id, command_proc):
         super(LocalSubmittedRun, self).__init__()

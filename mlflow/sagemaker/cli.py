@@ -1,3 +1,6 @@
+"""
+This module contains the definition of the MLflow CLI for Amazon SageMaker.
+"""
 from __future__ import print_function
 
 import os

@@ -284,8 +284,8 @@ def log_model(artifact_path, **kwargs):
     """
     Export model in Python function form and log it with current MLflow tracking service.
 
-    Model is exported by calling ``@save_model`` and logging the result with
-    ``@tracking.log_output_files``.
+    Model is exported by calling :py:meth:`save_model` and logging the result with
+    :py:meth:`mlflow.tracking.log_artifacts`.
     """
     with TempDir() as tmp:
         local_path = tmp.path(artifact_path)

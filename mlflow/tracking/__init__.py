@@ -304,8 +304,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     :param entry_point_name: Optional name of the entry point for to the current run.
     :param source_type: Integer enum value describing the type of the run
                         ("local", "project", etc.). Defaults to
-                        ``mlflow.entities.source_type.SourceType.LOCAL``.
-    :return: :py:class:`mlflow.tracking.ActiveRun` object that acts as a context manager wrapping
+                        :py:data:`mlflow.entities.source_type.SourceType.LOCAL`.
+    :return: :py:class:`ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
     global _active_run
@@ -347,7 +347,9 @@ def end_run(status="FINISHED"):
 
 
 def active_run():
-    """Return the currently active ``Run``, or None if no such run exists."""
+    """
+    Return the currently active :py:class`mlflow.entities.run.Run`, or None if no such run exists.
+    """
     if _active_run:
         return _active_run.get_run()
     else:
