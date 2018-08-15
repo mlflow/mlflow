@@ -13,6 +13,9 @@ import java.io.IOException;
 import ml.combust.mleap.runtime.frame.Transformer;
 
 public class MLeapLoader extends LoaderModule<MLeapFlavor> {
+    /**
+     * Loads an MLFlow model with the MLeap flavor as an MLeap transformer
+     */
     public Transformer loadPipeline(String modelRootPath) throws LoaderModuleException {
         try {
             return ((MLeapPredictor) load(Model.fromRootPath(modelRootPath))).getPipeline();
@@ -24,6 +27,10 @@ public class MLeapLoader extends LoaderModule<MLeapFlavor> {
         }
     }
 
+    /**
+     * Loads an MLFlow model with the MLeap flavor as a generic predictor that can be used
+     * for inference
+     */
     @Override
     protected Predictor createPredictor(String modelRootPath, MLeapFlavor flavor) {
         String modelDataPath = FileUtils.join(modelRootPath, flavor.getModelDataPath());

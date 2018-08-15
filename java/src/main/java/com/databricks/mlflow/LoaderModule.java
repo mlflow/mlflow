@@ -7,6 +7,10 @@ import com.databricks.mlflow.Flavor;
 import java.util.Optional;
 
 public abstract class LoaderModule<T extends Flavor> {
+    /**
+     * Loads an MLFlow model as a generic predictor that can be used for
+     * inference
+     */
     public Predictor load(Model modelConfig) throws LoaderModuleException {
         Optional<T> flavor = modelConfig.getFlavor(getFlavorName(), getFlavorClass());
         if (!flavor.isPresent()) {
