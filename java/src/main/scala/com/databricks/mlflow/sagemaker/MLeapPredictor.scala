@@ -1,11 +1,5 @@
 package com.databricks.mlflow.sagemaker;
 
-import com.databricks.mlflow.mleap.LeapFrameSchema 
-import com.databricks.mlflow.mleap.LeapFrameUtils 
-import com.databricks.mlflow.utils.SerializationUtils 
-
-import scala.collection.JavaConverters._
-
 import ml.combust.bundle.BundleFile
 import ml.combust.mleap.runtime.MleapSupport._
 import ml.combust.mleap.runtime.frame.Transformer
@@ -20,29 +14,12 @@ class MLeapPredictor(var modelPath : String, var inputSchemaPath : String) exten
   }).opt.get
   val pipeline = bundle.root
 
-  val inputSchema = LeapFrameSchema.fromFile(inputSchemaPath)
-
   def getPipeline() : Transformer = {
       this.pipeline
   }
 
   override def predict(inputFrame : DataFrame): DataFrame = {
-      val frameJson = try {
-        inputSchema.applyToPandasRecordJson(inputFrame.toJson())
-      } catch {
-        case e : Exception => {
-          e.printStackTrace();
-          throw new PredictorEvaluationException(
-            "Could not parse input content as a Pandas dataframe. Please ensure that the input is a" 
-            + " serialized Pandas DataFrame with the `records` orientation.")
-        };
-      }
-      val leapFrame = LeapFrameUtils.getLeapFrameFromJson(frameJson)
-      val predictions = (for(lf <- pipeline.transform(leapFrame);
-                             lf2 <- lf.select("prediction")) yield {
-          lf2.dataset.map(_.getRaw(0))
-      }).get.toList
-      DataFrame.fromJson(SerializationUtils.toJson(predictions.asJava))
+    throw new UnsupportedOperationException("Not yet implemented!")
   }
 
 }

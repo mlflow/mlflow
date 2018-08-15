@@ -1,8 +1,5 @@
 package com.databricks.mlflow.sagemaker;
 
-import com.databricks.mlflow.mleap.LeapFrameUtils;
-import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
-
 public class DataFrame {
     enum ContentType { Json, Csv }
 
@@ -21,10 +18,6 @@ public class DataFrame {
     protected static DataFrame fromCsv(String csvContent) {
         throw new UnsupportedOperationException(
             "Loading dataframes from CSV is not yet supported!");
-    }
-
-    protected static DataFrame fromLeapFrame(DefaultLeapFrame leapFrame) {
-        return fromJson(LeapFrameUtils.getJsonFromLeapFrame(leapFrame));
     }
 
     protected String toJson() {
