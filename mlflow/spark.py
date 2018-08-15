@@ -34,13 +34,15 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Path to a Conda environment file. If provided, defines environment for the
-     model. At minimum, it should specify python, pyspark, and mlflow with appropriate versions.
+                      model. At minimum, it should specify python, pyspark, and mlflow with
+                      appropriate versions.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-    filesystem if running in local mode. The model will be writen in this destination and then
-    copied into the model's artifact directory. This is necessary as Spark ML models read / write
-    from / to DFS if running on a cluster. All temporary files created on the DFS will be removed if
-    this operation completes successfully.
+                       filesystem if running in local mode. The model will be writen in this
+                       destination and then copied into the model's artifact directory. This is
+                       necessary as Spark ML models read / write from / to DFS if running on a
+                       cluster. All temporary files created on the DFS will be removed if this
+                       operation completes successfully.
 
     >>> from pyspark.ml import Pipeline
     >>> from pyspark.ml.classification import LogisticRegression
@@ -127,10 +129,12 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     :param conda_env: Conda environment this model depends on.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-    filesystem if running in local mode. The model will be writen in this destination and then
-    copied to the requested local path. This is necessary as Spark ML models read / write from / to
-    DFS if running on a cluster. All temporary files created on the DFS will be removed if this
-    operation completes successfully.
+                       filesystem if running in local mode. The model will be writen in this
+                       destination and then copied to the requested local path. This is necessary
+                       as Spark ML models read / write from / to DFS if running on a cluster. All
+                       temporary files created on the DFS will be removed if this operation
+                       completes successfully.
+
 
     >>> from mlflow import spark
     >>> from pyspark.ml.pipeline.PipelineModel
