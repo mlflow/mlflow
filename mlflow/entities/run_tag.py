@@ -16,10 +16,12 @@ class RunTag(_MLflowObject):
 
     @property
     def key(self):
+        """String name of the tag."""
         return self._key
 
     @property
     def value(self):
+        """String value of the tag."""
         return self._value
 
     def to_proto(self):

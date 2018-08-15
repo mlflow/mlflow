@@ -56,6 +56,12 @@ class _KerasModelWrapper:
 
 
 def load_pyfunc(model_file):
+    """
+    Loads a Keras model as a PyFunc from the passed-in persisted Keras model file.
+
+    :param model_file: Path to Keras model file.
+    :return: PyFunc model.
+    """
     return _KerasModelWrapper(_load_model(model_file))
 
 

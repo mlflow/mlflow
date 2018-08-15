@@ -1,4 +1,4 @@
-"""MLflow integration for h2o."""
+"""MLflow integration for H2O."""
 
 from __future__ import absolute_import
 
@@ -75,10 +75,10 @@ class _H2OModelWrapper:
 
 def load_pyfunc(path):
     """
-    When loading this model as a pyfunc-model, `h2o.init(...)` will be called.
-    Therefore, the right version of h2o(-py) has to be in the environment. The
-    arguments given to `h2o.init(...)` can be customized in `model.h2o/h2o.yaml`
-    under the key `init`.
+    Loads an H2O model from the directory at ``path`` as a Python Function model.
+    Note that this method calls ``h2o.init(...)``, so the right version of h2o(-py) must be in the
+    environment. The arguments given to ``h2o.init(...)`` can be customized in ``path/h2o.yaml``
+    under the key ``init``.
     """
     return _H2OModelWrapper(_load_model(path, init=True))
 

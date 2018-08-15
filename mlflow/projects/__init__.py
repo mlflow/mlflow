@@ -81,8 +81,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the ``version``.
 
-    :raises :py:data:`mlflow.utils.exception.ExecutionException`: If a run launched in blocking
-    mode is unsuccessful.
+    :raises ``ExecutionException``: If a run launched in blocking mode is unsuccessful.
 
     :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
                 path or a git repository URI (e.g. https://github.com/mlflow/mlflow-example)

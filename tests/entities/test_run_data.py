@@ -30,9 +30,9 @@ class TestRunData(unittest.TestCase):
         params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
         rd = RunData()
         for p in params:
-            rd.add_param(p)
+            rd._add_param(p)
         for m in metrics:
-            rd.add_metric(m)
+            rd._add_metric(m)
         return rd, metrics, params
 
     def test_creation_and_hydration(self):

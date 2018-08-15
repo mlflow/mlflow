@@ -1,5 +1,5 @@
-mlflow.entities package
-=======================
+mlflow.entities
+===============
 
 .. automodule:: mlflow.entities
     :members:

@@ -4,7 +4,7 @@ from mlflow.protos.service_pb2 import Metric as ProtoMetric
 
 class Metric(_MLflowObject):
     """
-    Metric object for python client. Backend stores will hydrate this object in APIs.
+    Metric object for python client.
     """
 
     def __init__(self, key, value, timestamp):
@@ -14,14 +14,17 @@ class Metric(_MLflowObject):
 
     @property
     def key(self):
+        """String key corresponding to the metric's name."""
         return self._key
 
     @property
     def value(self):
+        """Float value of the metric."""
         return self._value
 
     @property
     def timestamp(self):
+        """Metric timestamp as an integer (typically, milliseconds since the Unix epoch)."""
         return self._timestamp
 
     def to_proto(self):

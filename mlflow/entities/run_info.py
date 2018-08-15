@@ -55,56 +55,76 @@ class RunInfo(_MLflowObject):
 
     @property
     def run_uuid(self):
+        """String containing run UUID."""
         return self._run_uuid
 
     @property
     def experiment_id(self):
+        """Integer ID of the experiment for the current run."""
         return self._experiment_id
 
     @property
     def name(self):
+        """String name of the run."""
         return self._name
 
     @property
     def source_type(self):
+        """
+        Enum (one of the values in :py:class:`mlflow.entities.source_type.SourceType`)
+        describing the source of the run.
+        """
         return self._source_type
 
     @property
     def source_name(self):
+        """
+        String name of the source of the run (GitHub URI of the project corresponding to the run,
+        etc).
+        """
         return self._source_name
 
     @property
     def entry_point_name(self):
+        """String name of the entry point for the run."""
         return self._entry_point_name
 
     @property
     def user_id(self):
+        """String ID of the user who initiated this run."""
         return self._user_id
 
     @property
     def status(self):
+        """
+        Enum (one of the values in :py:class:`mlflow.entities.run_status.RunStatus`)
+        describing the status of the run.
+        """
         return self._status
 
     @property
     def start_time(self):
-        """ Start time of the run, in number of milliseconds since the UNIX epoch. """
+        """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
 
     @property
     def end_time(self):
-        """ End time of the run, in number of milliseconds since the UNIX epoch. """
+        """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time
 
     @property
     def source_version(self):
+        """String: git commit of the code used for the run, if available."""
         return self._source_version
 
     @property
     def tags(self):
+        """List of :py:class:`mlflow.entities.run_tag.RunTag` for the run."""
         return self._tags
 
     @property
     def artifact_uri(self):
+        """String: root artifact URI of the run."""
         return self._artifact_uri
 
     def to_proto(self):
