@@ -3,6 +3,7 @@ mlflow package
 
 .. automodule:: mlflow
     :members:
+    :undoc-members:
     :show-inheritance:
 
 Subpackages
@@ -29,6 +30,7 @@ mlflow.cli module
 
 .. automodule:: mlflow.cli
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.data module
@@ -36,6 +38,7 @@ mlflow.data module
 
 .. automodule:: mlflow.data
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.exceptions module
@@ -43,6 +46,7 @@ mlflow.exceptions module
 
 .. automodule:: mlflow.exceptions
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.experiments module
@@ -50,6 +54,7 @@ mlflow.experiments module
 
 .. automodule:: mlflow.experiments
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.h2o module
@@ -57,6 +62,7 @@ mlflow.h2o module
 
 .. automodule:: mlflow.h2o
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.keras module
@@ -64,6 +70,7 @@ mlflow.keras module
 
 .. automodule:: mlflow.keras
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.sklearn module
@@ -71,6 +78,7 @@ mlflow.sklearn module
 
 .. automodule:: mlflow.sklearn
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.spark module
@@ -78,6 +86,7 @@ mlflow.spark module
 
 .. automodule:: mlflow.spark
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.tensorflow module
@@ -85,6 +94,7 @@ mlflow.tensorflow module
 
 .. automodule:: mlflow.tensorflow
     :members:
+    :undoc-members:
     :show-inheritance:
 
 mlflow.version module
@@ -92,6 +102,7 @@ mlflow.version module
 
 .. automodule:: mlflow.version
     :members:
+    :undoc-members:
     :show-inheritance:
 
 

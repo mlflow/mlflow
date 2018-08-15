@@ -147,28 +147,43 @@ class ActiveRun(object):
         self.artifact_repo = artifact_repo
 
     def set_terminated(self, status):
+        """Sets the run as terminated with the passed-in status (string)."""
         self.run_info = self.store.update_run_info(
             self.run_info.run_uuid, run_status=RunStatus.from_string(status),
             end_time=_get_unix_timestamp())
 
     def log_metric(self, metric):
+        """Logs the passed-in :py:class:`mlflow.entities.metric.Metric` under the current run."""
         _validate_metric_name(metric.key)
         self.store.log_metric(self.run_info.run_uuid, metric)
 
     def log_param(self, param):
+        """Logs the passed-in :py:class:`mlflow.entities.param.Param` under the current run."""
         _validate_param_name(param.key)
         self.store.log_param(self.run_info.run_uuid, param)
 
     def log_artifact(self, local_path, artifact_path=None):
+        """
+        Logs the file at ``local_path`` as an artifact under the ``artifact_path`` subdirectory of
+        the run's root artifact directory, or the root artifact directory for the run if
+        ``artifact_path`` is None.
+        """
         self.artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
+        """
+        Logs the files in ``local_dir`` as artifacts under the `artifact_path` subdirectory of the
+        run's root artifact directory, or the root artifact directory for the run if
+        ``artifact_path`` is None.
+        """
         self.artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def get_artifact_uri(self):
+        """Returns the root artifact directory for the current run. """
         return self.artifact_repo.artifact_uri
 
     def get_run(self):
+        """Returns a :py:class:`mlflow.entities.run.Run` corresponding to the current run."""
         return self.store.get_run(self.run_info.run_uuid)
 
     def __enter__(self):
@@ -319,6 +334,10 @@ def _get_or_start_run():
 
 
 def end_run(status="FINISHED"):
+    """
+    Ends the currently active run, or performs a no-op if no run is active.
+    :param status: Termination status of the run as a string.
+    """
     global _active_run
     if _active_run:
         _active_run.set_terminated(status)

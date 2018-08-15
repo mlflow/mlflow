@@ -42,7 +42,7 @@ def download_uri(uri, output_path):
     Downloads file at the specified URI to the local filesystem.
     :param uri: DBFS or S3 URI of a file
     :param output_path: Destination filename or directory.
-    :raises :py:class`DownloadException` if the download is unsuccessful.
+    :raises :py:class:`DownloadException` if the download is unsuccessful.
     """
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)
