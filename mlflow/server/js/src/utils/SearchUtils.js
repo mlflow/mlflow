@@ -39,7 +39,7 @@ class Private {
       };
     }
     throw new SearchError("The search input should be like 'metrics.alpha >= 0.9' or " +
-     "'params.file = \"test.txt\"'.")
+     "'params.file = \"test.txt\"'.");
   }
 }
 
