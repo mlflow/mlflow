@@ -57,10 +57,11 @@ if __name__ == "__main__":
     print(train_x.shape[0], 'train samples')
     print(test_x.shape[0], 'test samples')
     with mlflow.start_run():
-        mlflow.log_param("epochs", epochs)
-        mlflow.log_param("learning_rate", learning_rate)
-        mlflow.log_param("drop_out_1", drop_out_1)
-        mlflow.log_param("drop_out_2", drop_out_2)
+        # TODO: not clear if I should log params here, depends on how this was launched
+        # mlflow.log_param("epochs", epochs)
+        # mlflow.log_param("learning_rate", learning_rate)
+        # mlflow.log_param("drop_out_1", drop_out_1)
+        # mlflow.log_param("drop_out_2", drop_out_2)
 
         model = Sequential()
         model.add(Dense(train_x.shape[1], activation='relu', input_shape=(train_x.shape[1],)))

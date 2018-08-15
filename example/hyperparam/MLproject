@@ -37,10 +37,10 @@ entry_points:
       max_epochs: {type: int, 1000}
       lr_min: {type: float, default 0}
       lr_max: {type: float, default 1}
-      drop_out_1_min:{type: float, default 0}
-      drop_out_1_max:{type: float, default .99}
-      drop_out_2_min:{type: float, default 0}
-      drop_out_2_max:{type: float, default .99}
+      drop_out_1_min: {type: float, default 0}
+      drop_out_1_max: {type: float, default .99}
+      drop_out_2_min: {type: float, default 0}
+      drop_out_2_max: {type: float, default .99}
       metric: {type: string, default "rmse"}
 #    tags:
 #      run_type: hyper_param_search
