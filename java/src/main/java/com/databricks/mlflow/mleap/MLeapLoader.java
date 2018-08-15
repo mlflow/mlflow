@@ -1,7 +1,7 @@
 package com.databricks.mlflow.mleap;
 
 import com.databricks.mlflow.LoaderModule;
-import com.databricks.mlflow.LoaderModuleException;
+import com.databricks.mlflow.PredictorLoadingException;
 import com.databricks.mlflow.models.Model;
 import com.databricks.mlflow.sagemaker.MLeapPredictor;
 import com.databricks.mlflow.sagemaker.Predictor;
@@ -16,11 +16,11 @@ public class MLeapLoader extends LoaderModule<MLeapFlavor> {
     /**
      * Loads an MLFlow model with the MLeap flavor as an MLeap transformer
      */
-    public Transformer loadPipeline(String modelRootPath) throws LoaderModuleException {
+    public Transformer loadPipeline(String modelRootPath) throws PredictorLoadingException {
         try {
             return ((MLeapPredictor) load(Model.fromRootPath(modelRootPath))).getPipeline();
         } catch (IOException e) {
-            throw new LoaderModuleException(
+            throw new PredictorLoadingException(
                 String.format("Failed to read model files from the supplied model root path: %s."
                         + "Please ensure that this is the path to a valid MLFlow model.",
                     modelRootPath));
