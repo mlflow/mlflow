@@ -24,3 +24,7 @@ entry_points:
     parameters:
       use_start_run: bool
     command: "python tracking_test.py {use_start_run}"
+  check_conda_env:
+    parameters:
+      conda_env_name: string
+    command: "python check_conda_env.py {conda_env_name}"
