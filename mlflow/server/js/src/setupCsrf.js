@@ -8,7 +8,7 @@ export default function setupCsrf() {
   const parsedCookie = cookie.parse(document.cookie);
   const csrfToken = parsedCookie['mlflow-csrf-token'];
   $.ajaxSetup({
-    beforeSend: function(xhr) {
+    beforeSend(xhr) {
       if (csrfToken) {
         xhr.setRequestHeader('X-CSRF-Token', csrfToken);
       }
