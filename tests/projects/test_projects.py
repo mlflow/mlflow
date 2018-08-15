@@ -127,8 +127,9 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_run_local_git_repo(tmpdir, local_git_repo, tracking_uri_mock,
-                            use_start_run):  # pylint: disable=unused-argument
+def test_run_local_git_repo(tmpdir, local_git_repo,
+                            tracking_uri_mock,   # pylint: disable=unused-argument
+                            use_start_run):
     submitted_run = mlflow.projects.run(
         os.path.join("%s/" % local_git_repo, TEST_PROJECT_NAME), entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
