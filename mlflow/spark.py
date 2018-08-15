@@ -30,16 +30,31 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     Log a Spark MLlib model as an MLflow artifact for the current run.
 
     :param spark_model: PipelineModel to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this defines enrionment for
-           the model. At minimum, it should specify python, pyspark and mlflow with appropriate
-           versions.
-    :param jars: List of jars needed by the model.
+    :param artifact_path: Run relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, defines environment for the
+                      model. At minimum, it should specify python, pyspark, and mlflow with
+                      appropriate versions.
+    :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
         filesystem if running in local mode. The model will be written to this destination and then 
         copied into the model's artifact directory. This is necessary because Spark ML models
         read from / write to DFS if running on a cluster. All temporary files created on the
         DFS will be removed if this operation completes successfully.
+
+    >>> from pyspark.ml import Pipeline
+    >>> from pyspark.ml.classification import LogisticRegression
+    >>> from pyspark.ml.feature import HashingTF, Tokenizer
+    >>> training = spark.createDataFrame([
+    ...   (0, "a b c d e spark", 1.0),
+    ...   (1, "b d", 0.0),
+    ...   (2, "spark f g h", 1.0),
+    ...   (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+    >>> tokenizer = Tokenizer(inputCol="text", outputCol="words")
+    >>> hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+    >>> lr = LogisticRegression(maxIter=10, regParam=0.001)
+    >>> pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+    >>> model = pipeline.fit(training)
+    >>> mlflow.spark.log_model(model, "spark-model")
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                      jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir) 
@@ -59,10 +74,18 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         model. At minimum, it should specify python, pyspark, and mlflow with appropriate versions.
     :param jars: List of jars needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-        filesystem if running in local mode. The model will be written to this destination and then 
-        copied into the model's artifact directory. This is necessary because Spark ML models
-        read from / write to DFS if running on a cluster. All temporary files created on the
-        DFS will be removed if this operation completes successfully.
+                       filesystem if running in local mode. The model will be written to this 
+                       destination and then copied to the requested local path. This is necessary 
+                       because Spark ML models read from / write to DFS if running on a cluster. All 
+                       temporary files created on the DFS will be removed if this operation 
+                       completes successfully.
+
+    >>> from mlflow import spark
+    >>> from pyspark.ml.pipeline.PipelineModel
+    >>>
+    >>> #your pyspark.ml.pipeline.PipelineModel type
+    >>> model = ...
+    >>> mlflow.spark.save_model(model, "spark-model")
     """
     if jars:
         raise SaveModelException("jar dependencies are not implemented")
@@ -100,6 +123,18 @@ def load_model(path, run_id=None, dfs_tmpdir=sparkml.DFS_TMP):
         DFS will be removed if this operation completes successfully.
     :return: SparkML model.
     :rtype: pyspark.ml.pipeline.PipelineModel
+
+    >>> from mlflow import spark
+    >>> model = mlflow.spark.load_model("spark-model")
+    >>> # Prepare test documents, which are unlabeled (id, text) tuples.
+    >>> test = spark.createDataFrame([
+    ...   (4, "spark i j k"),
+    ...   (5, "l m n"),
+    ...   (6, "spark hadoop spark"),
+    ...   (7, "apache hadoop")], ["id", "text"])
+    >>>  # Make predictions on test documents.
+    >>> prediction = model.transform(test)
+
     """
     if run_id is not None:
         path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
@@ -120,5 +155,8 @@ def load_pyfunc(path):
 
     :param path: Local path.
     :return: The model as PyFunc.
+
+    >>> pyfunc_model = load_pyfunc("/tmp/pyfunc-spark-model")
+    >>> predictions = pyfunc_model.predict(test_pandas_df)
     """
     return sparkml.load_pyfunc(path)

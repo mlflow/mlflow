@@ -42,6 +42,11 @@ Start it with::
 
     mlflow ui
 
+**Note:** Running ``mlflow ui`` from within a clone of MLflow is not recommended - doing so will
+run the dev UI from source. We recommend running the UI from a different working directory, using the
+``--file-store`` option to specify which log directory to run against. Alternatively, see instructions
+for running the dev UI in the `contributor guide <CONTRIBUTING.rst>`_.
+
 
 Running a Project from a URI
 ----------------------------

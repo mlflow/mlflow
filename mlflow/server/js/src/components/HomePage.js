@@ -11,7 +11,7 @@ class HomePage extends Component {
   constructor(props) {
     super(props);
     this.onClickListExperiments = this.onClickListExperiments.bind(this);
-  };
+  }
 
   static propTypes = {
     match: PropTypes.object.isRequired,
@@ -56,13 +56,15 @@ class HomePage extends Component {
       return (
         <div>
           <div className="collapsed-expander-container">
-            <i onClick={this.onClickListExperiments} className="expander fa fa-chevron-right login-icon"/>
+            <i onClick={this.onClickListExperiments}
+               title="Show experiment list"
+               className="expander fa fa-chevron-right login-icon"/>
           </div>
           <div className="experiment-page-container">
             <ExperimentPage match={this.props.match}/>
           </div>
         </div>
-      )
+      );
     }
   }
 }
@@ -80,7 +82,7 @@ const mapDispatchToProps = (dispatch) => {
     dispatchListExperimentsApi: (requestId) => {
       dispatch(listExperimentsApi(requestId));
     }
-  }
+  };
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(HomePage);

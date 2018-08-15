@@ -22,7 +22,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  border-bottom: solid 1px #e2e2e2;
+  padding-top: 16px;
 }
 
 .run-info {
