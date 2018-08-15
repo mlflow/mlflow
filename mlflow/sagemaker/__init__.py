@@ -167,7 +167,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
            image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False,
            instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
-           instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT):
+           instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT, vpc_config=None):
     """
     Deploy model on SageMaker.
     Currently active AWS account needs to have correct permissions set up.
@@ -211,7 +211,9 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                           of supported instance types, see
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
-
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model associated with this application. For more information,
+                       see https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
     """
     if mode not in DEPLOYMENT_MODES:
         raise ValueError("`mode` must be one of: {mds}".format(
@@ -244,7 +246,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             mode=mode,
             archive=archive,
             instance_type=instance_type,
-            instance_count=instance_count)
+            instance_count=instance_count,
+            vpc_config=vpc_config)
 
 
 def delete(app_name, region_name="us-west-2", archive=False):
@@ -418,7 +421,7 @@ def _upload_s3(local_model_path, bucket, prefix):
 
 
 def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive,
-            instance_type, instance_count):
+            instance_type, instance_count, vpc_config):
     """
     Deploy model on sagemaker.
     :param role: SageMaker execution ARN role
@@ -432,6 +435,8 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                     will be preserved. If False, these resources will be deleted.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model associated with this application.
     """
     sage_client = boto3.client('sagemaker', region_name=region_name)
     s3_client = boto3.client('s3', region_name=region_name)
@@ -464,6 +469,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           run_id=run_id,
                                           instance_type=instance_type,
                                           instance_count=instance_count,
+                                          vpc_config=vpc_config,
                                           mode=mode,
                                           archive=archive,
                                           role=role,
@@ -476,6 +482,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           run_id=run_id,
                                           instance_type=instance_type,
                                           instance_count=instance_count,
+                                          vpc_config=vpc_config,
                                           role=role,
                                           sage_client=sage_client)
 
@@ -509,13 +516,15 @@ def _get_sagemaker_config_name(endpoint_name):
 
 
 def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
-                               instance_count, role, sage_client):
+                               vpc_config, instance_count, role, sage_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
     :param model_s3_path: S3 path where we stored the model artifacts.
     :param run_id: Run ID that generated this model.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model associated with this SageMaker endpoint.
     :param role: SageMaker execution ARN role
     :param sage_client: A boto3 client for SageMaker
     """
@@ -525,6 +534,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     model_name = _get_sagemaker_model_name(endpoint_name)
     model_response = _create_sagemaker_model(model_name=model_name,
                                              model_s3_path=model_s3_path,
+                                             vpc_config=vpc_config,
                                              run_id=run_id,
                                              image_url=image_url,
                                              execution_role=role,
@@ -561,13 +571,16 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 
 
 def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, instance_type,
-                               instance_count, mode, archive, role, sage_client, s3_client):
+                               instance_count, vpc_config, mode, archive, role, sage_client, 
+                               s3_client):
     """
     :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
     :param model_s3_path: S3 path where we stored the model artifacts
     :param run_id: Run ID that generated this model
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model associated with this SageMaker endpoint.
     :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
@@ -596,6 +609,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     new_model_name = _get_sagemaker_model_name(endpoint_name)
     new_model_response = _create_sagemaker_model(model_name=new_model_name,
                                                  model_s3_path=model_s3_path,
+                                                 vpc_config=vpc_config,
                                                  run_id=run_id,
                                                  image_url=image_url,
                                                  execution_role=role,
@@ -656,10 +670,12 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
             carn=deployed_config_arn))
 
 
-def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execution_role,
-                            sage_client):
+def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image_url, 
+                            execution_role, sage_client):
     """
     :param model_s3_path: S3 path where the model artifacts are stored
+    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
+                       new SageMaker model associated with this SageMaker endpoint.
     :param run_id: Run ID that generated this model
     :param image_url: URL of the ECR-hosted Docker image that will serve as the
                       model's container
@@ -675,6 +691,7 @@ def _create_sagemaker_model(model_name, model_s3_path, run_id, image_url, execut
             'ModelDataUrl': model_s3_path,
             'Environment': {},
         },
+        VpcConfig=vpc_config,
         ExecutionRoleArn=execution_role,
         Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
     )
