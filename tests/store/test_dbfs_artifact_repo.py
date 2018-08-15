@@ -13,9 +13,9 @@ from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
 def dbfs_artifact_repo():
     return DbfsArtifactRepository('dbfs:/test/', {})
 
-TEST_FILE_1_CONTENT = bytes("Hello 🍆🍔", "utf-8")
-TEST_FILE_2_CONTENT = bytes("World 🍆🍔🍆", "utf-8")
-TEST_FILE_3_CONTENT = bytes("¡🍆🍆🍔🍆🍆!", "utf-8")
+TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
+TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
+TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
 
 @pytest.fixture()
