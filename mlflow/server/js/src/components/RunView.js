@@ -59,32 +59,35 @@ class RunView extends Component {
         this.setState({ showArtifacts: !this.state.showArtifacts });
         return;
       }
-      default: {}
+      default:
     }
   }
 
   getExpanderClassName(key) {
     switch (key) {
       case PARAMATERS_KEY: {
-        return this.state.showParameters ? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showParameters ? 'fa-caret-down' : 'fa-caret-right';
       }
       case METRICS_KEY: {
-        return this.state.showMetrics ? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showMetrics ? 'fa-caret-down' : 'fa-caret-right';
       }
       case TAGS_KEY: {
-        return this.state.showTags? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showTags ? 'fa-caret-down' : 'fa-caret-right';
       }
       case ARTIFACTS_KEY: {
-        return this.state.showArtifacts ? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showArtifacts ? 'fa-caret-down' : 'fa-caret-right';
       }
-      default: {}
+      default: {
+        return null;
+      }
     }
   }
 
   render() {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-    const duration = run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
+    const duration =
+      run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
     const tableStyles = {
       table: {
         width: 'auto',
@@ -154,7 +157,7 @@ class RunView extends Component {
         {runCommand ?
           <div className="RunView-info">
             <h2>Run Command</h2>
-            <textarea className="run-command text-area" readOnly={true} value={runCommand}/>
+            <textarea className="run-command text-area" readOnly value={runCommand}/>
           </div>
           : null
         }
@@ -165,7 +168,7 @@ class RunView extends Component {
           </h2>
           {this.state.showParameters ?
             <HtmlTableView
-              columns={[ "Name", "Value" ]}
+              columns={["Name", "Value"]}
               values={getParamValues(params)}
               styles={tableStyles}
             /> :
@@ -177,7 +180,7 @@ class RunView extends Component {
           </h2>
           {this.state.showMetrics ?
             <HtmlTableView
-              columns={[ "Name", "Value" ]}
+              columns={["Name", "Value"]}
               values={getMetricValues(latestMetrics, getMetricPagePath)}
               styles={tableStyles}
             /> :
@@ -189,7 +192,7 @@ class RunView extends Component {
           </h2>
           {this.state.showTags ?
             <HtmlTableView
-              columns={[ "Name", "Value" ]}
+              columns={["Name", "Value"]}
               values={getTagValues(tags)}
               styles={tableStyles}
             /> :
@@ -202,7 +205,7 @@ class RunView extends Component {
               {' '}Artifacts
             </h2>
             {this.state.showArtifacts ?
-              <ArtifactPage runUuid={this.props.runUuid} isHydrated={true}/> :
+              <ArtifactPage runUuid={this.props.runUuid} isHydrated/> :
               null
             }
           </div>
@@ -246,7 +249,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
         <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
       </Link>,
       Utils.formatMetric(m.value)
-    ]
+    ];
   });
 };
 
