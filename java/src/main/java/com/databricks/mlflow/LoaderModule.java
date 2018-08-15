@@ -2,18 +2,26 @@ package com.databricks.mlflow;
 
 import com.databricks.mlflow.models.Model;
 import com.databricks.mlflow.sagemaker.Predictor;
+import com.databricks.mlflow.sagemaker.PredictorLoadingException;
 import com.databricks.mlflow.Flavor;
 
+import java.io.IOException;
 import java.util.Optional;
 
+/**
+ * A generic loader for encapsulating flavor-specific model deserialization logic.
+ * By extending {@link com.databricks.mlflow.LoaderModule}, models of a specific flavor
+ * can be loaded as generic {@link com.databricks.mlflow.sagemaker.Predictor} objects.
+ * This allows tools, such as model containers, to use the models for inference
+ */
 public abstract class LoaderModule<T extends Flavor> {
     /**
      * Loads an MLFlow model as a generic predictor that can be used for
      * inference
      *
-     * @throws PredictorLoadingException Thrown if failures are encountered while attempting to load
-     * the model from the specified configuration. This is a generic exception for all loader
-     * failure cases
+     * @throws {@link com.databricks.mlflow.sagemaker.PredictorLoadingException} if
+     * failures are encountered while attempting to load the model from the specified configuration.
+     * This is a generic exception for all loader failure cases
      */
     public Predictor load(Model modelConfig) {
         Optional<T> flavor = modelConfig.getFlavor(getFlavorName(), getFlavorClass());
@@ -34,13 +42,51 @@ public abstract class LoaderModule<T extends Flavor> {
     }
 
     /**
-     * Implementations of this method are expected to throw a `PredictorLoadingException`
+     * Loads an MLFlow model as a generic predictor that can be used for
+     * inference
+     *
+     * @param modelRootPath The path to the root directory of the MLFlow model
+     *
+     * @throws {@link com.databricks.mlflow.sagemaker.PredictorLoadingException} if
+     * failures are encountered while attempting to load the model from the specified configuration.
+     * This is a generic exception for all loader failure cases
+     */
+    public Predictor load(String modelRootPath) throws PredictorLoadingException {
+        try {
+            return load(Model.fromRootPath(modelRootPath));
+        } catch (IOException e) {
+            throw new PredictorLoadingException(
+                "Failed to load the model configuration at the specified path. Please ensure that"
+                + " this is the path to the root directory of a valid MLFlow model");
+        }
+    }
+
+    /**
+     * Creates a {@link com.databricks.mlflow.sagemaker.Predictor} from an MLFlow model using the
+     * specified flavor configuration
+     *
+     * Implementations of this method are expected to throw a
+     * {@link com.databricks.mlflow.sagemaker.PredictorLoadingException}
      * when errors are encountered while loading the model
+     *
+     * @param modelRootPath The path to the root directory of the MLFlow model
+     * @param flavor The flavor configuration to use when creating the
+     * {@link com.databricks.mlflow.sagemaker.Predictor}. This configuration provides additional
+     * metadata that may be necessary for {@link com.databricks.mlflow.sagemaker.Predictor}
+     * creation.
      */
     protected abstract Predictor createPredictor(String modelRootPath, T flavor)
         throws PredictorLoadingException;
 
+    /**
+     * @return The {@link com.databricks.mlflow.Flavor} class associated with this loader
+     * module. This is required during the {@link #load(Model)} procedure
+     */
     protected abstract Class<T> getFlavorClass();
 
+    /**
+     * @return The name of the flavor associated with this loader module.
+     * module. This is required during the {@link #load(Model)} procedure
+     */
     protected abstract String getFlavorName();
 }

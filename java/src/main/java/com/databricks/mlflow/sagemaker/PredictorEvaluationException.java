@@ -1,13 +1,16 @@
 package com.databricks.mlflow.sagemaker;
 
+/**
+ * An exception that is intended to be thrown when a
+ * {@link com.databricks.mlflow.sagemaker.Predictor} object encounters an error during inference.
+ */
 public class PredictorEvaluationException extends Exception {
-    private final String message;
-
+    /**
+     * Constructs an exception
+     *
+     * @param message The user-readable error message associated with this exception
+     */
     public PredictorEvaluationException(String message) {
-        this.message = message;
-    }
-
-    public String getMessage() {
-        return message;
+        super(message);
     }
 }

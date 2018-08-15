@@ -14,6 +14,11 @@ import java.util.Optional;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Represents an MLFlow model. This class includes utility
+ * functions for parsing a serialized MLFlow model configuration
+ * (`MLModel`) as a {@link com.databricks.mlflow.models.Model} object.
+ */
 public class Model {
     @JsonProperty("artifact_path") private String artifactPath;
     @JsonProperty("run_id") private String runId;
@@ -22,11 +27,23 @@ public class Model {
 
     private String rootPath;
 
+    /**
+     * Loads the configuration of an MLFlow model and parses it as a
+     * {@link com.databricks.mlflow.models.Model} object.
+     *
+     * @param modelRootPath The path to the root directory of the MLFlow model
+     */
     public static Model fromRootPath(String modelRootPath) throws IOException {
         String configPath = FileUtils.join(modelRootPath, "MLmodel");
         return fromConfigPath(configPath);
     }
 
+    /**
+     * Loads the configuration of an MLFlow model and parses it as a
+     * {@link com.databricks.mlflow.models.Model} object.
+     *
+     * @param modelRootPath The path to the `MLModel` configuration file
+     */
     public static Model fromConfigPath(String configPath) throws IOException {
         File configFile = new File(configPath);
         Model model = SerializationUtils.parseYamlFromFile(configFile, Model.class);
@@ -36,18 +53,38 @@ public class Model {
         return model;
     }
 
+    /**
+     * @return The MLFlow model's artifact path
+     */
     public Optional<String> getArtifactPath() {
         return Optional.ofNullable(this.artifactPath);
     }
 
+    /**
+     * @return The MLFlow model's time of creation
+     */
     public Optional<String> getUtcTimeCreated() {
         return Optional.ofNullable(this.utcTimeCreated);
     }
 
+    /**
+     * @return The MLFlow model's run id
+     */
     public Optional<String> getRunId() {
         return Optional.ofNullable(this.runId);
     }
 
+    /**
+     * @return The path to the root directory of the MLFlow model
+     */
+    public Optional<String> getRootPath() {
+        return Optional.ofNullable(this.rootPath);
+    }
+
+    /**
+     * Reads the configuration corresponding to the specified flavor name
+     * and parses it as a `Flavor` object
+     */
     public <T extends Flavor> Optional<T> getFlavor(String flavorName, Class<T> flavorClass) {
         if (this.flavors.containsKey(flavorName)) {
             final ObjectMapper mapper = new ObjectMapper();
@@ -56,10 +93,6 @@ public class Model {
         } else {
             return Optional.<T>empty();
         }
-    }
-
-    public Optional<String> getRootPath() {
-        return Optional.ofNullable(this.rootPath);
     }
 
     private void setRootPath(String rootPath) {

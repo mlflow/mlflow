@@ -1,10 +1,10 @@
 package com.databricks.mlflow.mleap;
 
 import com.databricks.mlflow.LoaderModule;
-import com.databricks.mlflow.PredictorLoadingException;
 import com.databricks.mlflow.models.Model;
 import com.databricks.mlflow.sagemaker.MLeapPredictor;
 import com.databricks.mlflow.sagemaker.Predictor;
+import com.databricks.mlflow.sagemaker.PredictorLoadingException;
 import com.databricks.mlflow.utils.FileUtils;
 
 import java.util.Optional;
