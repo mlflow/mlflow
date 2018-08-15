@@ -7,15 +7,12 @@ import click
 from six.moves import urllib
 
 from mlflow.utils import process
+from mlflow.exceptions import DownloadException
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
 DBFS_REGEX = re.compile("^%s" % re.escape(DBFS_PREFIX))
 S3_REGEX = re.compile("^%s" % re.escape(S3_PREFIX))
-
-
-class DownloadException(Exception):
-    pass
 
 
 def _fetch_dbfs(uri, local_path):

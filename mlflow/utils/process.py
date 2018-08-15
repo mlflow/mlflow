@@ -1,9 +1,7 @@
 import os
 import subprocess
 
-
-class ShellCommandException(Exception):
-    pass
+from mlflow.exceptions import ShellCommandException
 
 
 def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, cmd_stdin=None,

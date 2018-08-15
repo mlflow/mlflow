@@ -8,8 +8,9 @@ from mlflow.entities.experiment import Experiment
 from mlflow.entities.run import Run
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.param import Param
-
 from mlflow.entities.metric import Metric
+
+from mlflow.exceptions import RestException
 
 from mlflow.utils.rest_utils import http_request
 
@@ -42,16 +43,6 @@ _METHOD_TO_INFO = _api_method_to_info()
 def _message_to_json(message):
     # preserving_proto_field_name keeps the JSON-serialized form snake_case
     return MessageToJson(message, preserving_proto_field_name=True)
-
-
-class RestException(Exception):
-    """Exception thrown on 400-level errors from the REST API"""
-    def __init__(self, json):
-        message = json['error_code']
-        if 'message' in json:
-            message = "%s: %s" % (message, json['message'])
-        super(RestException, self).__init__(message)
-        self.json = json
 
 
 class RestStore(AbstractStore):
