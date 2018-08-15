@@ -4,13 +4,14 @@ import com.databricks.mlflow.mleap.LeapFrameSchema
 import com.databricks.mlflow.mleap.LeapFrameUtils 
 import com.databricks.mlflow.utils.SerializationUtils 
 
+import scala.collection.JavaConverters._
+
 import ml.combust.bundle.BundleFile
 import ml.combust.mleap.runtime.MleapSupport._
 import ml.combust.mleap.runtime.frame.Transformer
 
 import resource._
 
-import scala.collection.JavaConverters._
 
 class MLeapPredictor(var modelPath : String, var inputSchemaPath : String) extends Predictor {
   val typedModelPath = "file:%s".format(modelPath)
@@ -26,7 +27,16 @@ class MLeapPredictor(var modelPath : String, var inputSchemaPath : String) exten
   }
 
   override def predict(inputFrame : DataFrame): DataFrame = {
-      val frameJson = inputSchema.applyToPandasRecordJson(inputFrame.toJson())
+      val frameJson = try {
+        inputSchema.applyToPandasRecordJson(inputFrame.toJson())
+      } catch {
+        case e : Exception => {
+          e.printStackTrace();
+          throw new PredictorEvaluationException(
+            "Could not parse input content as a Pandas dataframe. Please ensure that the input is a" 
+            + " serialized Pandas DataFrame with the `records` orientation.")
+        };
+      }
       val leapFrame = LeapFrameUtils.getLeapFrameFromJson(frameJson)
       val predictions = (for(lf <- pipeline.transform(leapFrame);
                              lf2 <- lf.select("prediction")) yield {

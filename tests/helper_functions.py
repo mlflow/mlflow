@@ -6,6 +6,8 @@ import string
 from subprocess import Popen, PIPE, STDOUT
 import time
 
+import pandas as pd
+
 
 def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
@@ -42,8 +44,9 @@ def score_model_in_sagemaker_docker_container(model_path, data):
         print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        x = data.to_dict(orient='records')
-        y = requests.post(url='http://localhost:5000/invocations', json=x)
+        if type(data) == pd.DataFrame: 
+            data = data.to_dict(orient='records')
+        y = requests.post(url='http://localhost:5000/invocations', json=data)
         import json
         return json.loads(y.content)
     finally:

@@ -199,6 +199,18 @@ def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
         for i in range(len(mleap_preds))])
 
 
+def test_container_scoring_handles_bad_inputs_with_mleap_flavor(spark_model_iris, model_path):
+    mleap_model = Model()
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      sample_input=spark_model_iris.training_df,
+                      mlflow_model=mleap_model)
+    assert mleap.FLAVOR_NAME in mleap_model.flavors
+    mleap_response = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                               data="invalid")
+    assert "Error" in mleap_response.keys()
+    print(mleap_response["Error"])
+
+
 def test_model_save_without_sample_output_produces_sparkml_flavor(spark_model_iris, model_path):
     sparkm.save_model(spark_model=spark_model_iris.model,
                       path=model_path,
