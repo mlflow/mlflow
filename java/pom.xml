@@ -18,11 +18,6 @@
         <version>3.8.1</version>
         <scope>test</scope>
     </dependency>
-    <!-- <dependency> -->
-    <!--     <groupId>org.scala&#45;lang</groupId> -->
-    <!--     <artifactId>scala&#45;library</artifactId> -->
-    <!--     <version>3.5.2</version> -->
-    <!-- </dependency> -->
     <dependency>
         <groupId>com.fasterxml.jackson.dataformat</groupId>
         <artifactId>jackson-dataformat-yaml</artifactId>
