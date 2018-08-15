@@ -1,3 +1,7 @@
+"""
+This module contains a Python implementation of the MLflow Tracking APIs for logging information
+(params, metrics, artifacts, etc) for a run.
+"""
 from __future__ import print_function
 
 import atexit

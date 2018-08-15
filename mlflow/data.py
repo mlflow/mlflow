@@ -1,3 +1,6 @@
+"""
+Methods for
+"""
 from __future__ import print_function
 
 import os
@@ -29,11 +32,18 @@ def _fetch_s3(uri, local_path):
 
 
 def is_uri(string):
+    """Returns True if the passed-in string is a URI, False otherwise."""
     parsed_uri = urllib.parse.urlparse(string)
     return len(parsed_uri.scheme) > 0
 
 
 def download_uri(uri, output_path):
+    """
+    Downloads file at the specified URI to the local filesystem.
+    :param uri: DBFS or S3 URI of a file
+    :param output_path: Destination filename or directory.
+    :raises :py:class`DownloadException` if the download is unsuccessful.
+    """
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)
     elif S3_REGEX.match(uri):

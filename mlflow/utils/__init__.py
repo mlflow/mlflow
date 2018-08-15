@@ -1,3 +1,6 @@
+"""
+This module contains internal utility methods & classes.
+"""
 from sys import version_info
 
 import numpy as np

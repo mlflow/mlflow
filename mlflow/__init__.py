@@ -1,5 +1,3 @@
-import os
-
 # pylint: disable=wrong-import-position
 import mlflow.projects as projects  # noqa
 import mlflow.tracking as tracking  # noqa
@@ -18,5 +16,5 @@ create_experiment = tracking.create_experiment
 
 run = projects.run
 
-__all__ = ["log_param", "log_metric", "log_artifacts", "log_artifact", "active_run",
+__all__ = ["log_param", "log_metric", "log_artifacts", "log_artifact", "active_run", "run",
            "start_run", "end_run", "get_artifact_uri", "set_tracking_uri", "create_experiment"]
