@@ -4,7 +4,7 @@ import pytest
 import mock
 from mock import Mock
 
-from mlflow.exceptions import IllegalArtifactPathError, MlflowException
+from mlflow.exceptions import IllegalArtifactPathError
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
 
 
@@ -52,7 +52,7 @@ class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
         repo = DbfsArtifactRepository('dbfs:/test/', {})
         assert repo.artifact_uri == 'dbfs:/test'
-        with pytest.raises(MlflowException):
+        with pytest.raises(ValueError):
             DbfsArtifactRepository('s3://test', {})
 
     @pytest.mark.parametrize("artifact_path,expected_endpoint", [
