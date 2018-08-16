@@ -50,7 +50,6 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          cmake \
          openjdk-8-jdk \
          git-core \
-         maven \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and setup miniconda
@@ -113,9 +112,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
         if mlflow_home:
             mlflow_dir = _copy_project(
                 src_path=mlflow_home, dst_path=tmp.path())
-            install_mlflow = ("COPY {mlflow_dir} /opt/mlflow\n"
-                              "RUN cd /opt/mlflow/java && mvn package\n"
-                              "RUN pip install /opt/mlflow\n") 
+            install_mlflow = "COPY {mlflow_dir} /opt/mlflow\n RUN pip install /opt/mlflow\n"
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:

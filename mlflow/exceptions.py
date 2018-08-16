@@ -4,13 +4,3 @@ class MlflowException(Exception):
 
 class IllegalArtifactPathError(MlflowException):
     """The artifact_path parameter was invalid."""
-
-
-class SaveModelException(MlflowException):
-    """Exception thrown when an error occurs while saving a model"""
-    pass
-
-
-class ExecutionException(MlflowException):
-    """Exception thrown when executing a project fails."""
-    pass
