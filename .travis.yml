@@ -46,7 +46,7 @@ script:
   - echo $MLFLOW_HOME
   - mlflow sagemaker build-and-push-container --no-push --mlflow-home .
   - ./lint.sh
-  - pytest --cov=mlflow --verbose --large
+  - pytest --cov=mlflow --verbose --large --capture=no
   - cd mlflow/server/js
   - npm i
   - ./lint.sh
