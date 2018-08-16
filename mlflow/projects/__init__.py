@@ -53,7 +53,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
-        conda_env_name = _get_or_create_conda_env(project) if use_conda else None
+        conda_env_name = _get_or_create_conda_env(project.conda_env_path) if use_conda else None
         if run_id:
             active_run = tracking._get_existing_run(run_id)
         else:
@@ -240,8 +240,8 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         repo.heads.master.checkout()
 
 
-def _get_conda_env_name(project):
-    conda_env_contents = project.load_conda_env()
+def _get_conda_env_name(conda_env_path):
+    conda_env_contents = open(conda_env_path).read() if conda_env_path else ""
     return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
@@ -261,7 +261,7 @@ def _get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _get_or_create_conda_env(project):
+def _get_or_create_conda_env(conda_env_path):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
@@ -278,12 +278,12 @@ def _get_or_create_conda_env(project):
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
-    project_env_name = _get_conda_env_name(project)
+    project_env_name = _get_conda_env_name(conda_env_path)
     if project_env_name not in env_names:
         eprint('=== Creating conda environment %s ===' % project_env_name)
-        if project.conda_env_path:
+        if conda_env_path:
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
-                              project.conda_env_path], stream_output=True)
+                              conda_env_path], stream_output=True)
         else:
             process.exec_cmd(
                 [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)

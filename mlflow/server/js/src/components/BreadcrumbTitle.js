@@ -35,7 +35,7 @@ export default class BreadcrumbTitle extends Component {
         </Link>
       );
     }
-    let chevron = <i className="fas fa-chevron-right breadcrumb-chevron" key="chevron"/>;
+    const chevron = <i className="fas fa-chevron-right breadcrumb-chevron" key="chevron"/>;
     return (
       <h1>
         {experimentLink}

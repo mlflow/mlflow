@@ -12,7 +12,8 @@ class ShowArtifactImageView extends Component {
     const { path, runUuid } = this.props;
     return (
       <div className="image-outer-container">
-        <div className="image-container" style={{ backgroundImage: `url(${getSrc(path, runUuid)})` }}/>
+        <div className="image-container"
+             style={{ backgroundImage: `url(${getSrc(path, runUuid)})` }}/>
       </div>
     );
   }
