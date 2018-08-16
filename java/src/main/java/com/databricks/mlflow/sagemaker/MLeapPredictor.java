@@ -1,9 +1,9 @@
-package com.databricks.mlflow.sagemaker;
+package org.mlflow.sagemaker;
 
 import ml.combust.mleap.runtime.frame.Transformer;
 
 /**
- * A {@link com.databricks.mlflow.sagemaker.Predictor} implementation
+ * A {@link org.mlflow.sagemaker.Predictor} implementation
  * for the MLeap model flavor
  */
 public class MLeapPredictor extends Predictor {

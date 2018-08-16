@@ -1,8 +1,8 @@
-package com.databricks.mlflow.sagemaker;
+package org.mlflow.sagemaker;
 
 /**
  * An exception indicating a failure during the process of creating
- * a {@link com.databricks.mlflow.sagemaker.Predictor} from an MLFlow model
+ * a {@link org.mlflow.sagemaker.Predictor} from an MLFlow model
  */
 public class PredictorLoadingException extends RuntimeException {
     /**

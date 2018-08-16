@@ -1,9 +1,9 @@
-package com.databricks.mlflow;
+package org.mlflow;
 
-import com.databricks.mlflow.models.Model;
-import com.databricks.mlflow.sagemaker.Predictor;
-import com.databricks.mlflow.sagemaker.PredictorLoadingException;
-import com.databricks.mlflow.Flavor;
+import org.mlflow.models.Model;
+import org.mlflow.sagemaker.Predictor;
+import org.mlflow.sagemaker.PredictorLoadingException;
+import org.mlflow.Flavor;
 
 import java.io.IOException;
 import java.util.Optional;

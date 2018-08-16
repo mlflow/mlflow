@@ -1,4 +1,4 @@
-package com.databricks.mlflow;
+package org.mlflow;
 
 /**
  * Interface for exposing information about an MLFlow model flavor.

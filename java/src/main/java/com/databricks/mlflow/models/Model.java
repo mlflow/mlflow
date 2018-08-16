@@ -1,8 +1,8 @@
-package com.databricks.mlflow.models;
+package org.mlflow.models;
 
-import com.databricks.mlflow.Flavor;
-import com.databricks.mlflow.utils.FileUtils;
-import com.databricks.mlflow.utils.SerializationUtils;
+import org.mlflow.Flavor;
+import org.mlflow.utils.FileUtils;
+import org.mlflow.utils.SerializationUtils;
 
 import java.io.File;
 import java.io.IOException;

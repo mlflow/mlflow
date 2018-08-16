@@ -1,4 +1,4 @@
-package com.databricks.mlflow.utils;
+package org.mlflow.utils;
 
 import org.junit.Test;
 import org.junit.Assert;

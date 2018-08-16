@@ -1,11 +1,11 @@
-package com.databricks.mlflow;
+package org.mlflow;
 
 import org.junit.Test;
 import org.junit.Assert;
 
-import com.databricks.mlflow.mleap.MLeapLoader;
-import com.databricks.mlflow.sagemaker.Predictor;
-import com.databricks.mlflow.sagemaker.PredictorLoadingException;
+import org.mlflow.mleap.MLeapLoader;
+import org.mlflow.sagemaker.Predictor;
+import org.mlflow.sagemaker.PredictorLoadingException;
 
 /**
  * Unit tests for deserializing MLFlow models as generic

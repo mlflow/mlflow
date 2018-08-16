@@ -1,4 +1,4 @@
-package com.databricks.mlflow.sagemaker;
+package org.mlflow.sagemaker;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /**
  * A generic predictor object that provides a uniform interface for model
- * inference. By extending {@link com.databricks.mlflow.sagemaker.Predictor},
+ * inference. By extending {@link org.mlflow.sagemaker.Predictor},
  * models of a specific flavor can expose their inference routines for use by
  * generic tools, such as model containers
  */

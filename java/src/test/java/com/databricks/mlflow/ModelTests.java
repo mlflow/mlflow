@@ -1,9 +1,9 @@
-package com.databricks.mlflow.models;
+package org.mlflow.models;
 
 import org.junit.Test;
 import org.junit.Assert;
 
-import com.databricks.mlflow.mleap.MLeapFlavor;
+import org.mlflow.mleap.MLeapFlavor;
 
 import java.io.File;
 import java.io.IOException;

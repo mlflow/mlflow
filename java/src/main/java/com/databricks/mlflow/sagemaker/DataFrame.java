@@ -1,7 +1,7 @@
-package com.databricks.mlflow.sagemaker;
+package org.mlflow.sagemaker;
 
 /**
- * Input/output data representation for use by {@link com.databricks.mlflow.sagemaker.Predictor}
+ * Input/output data representation for use by {@link org.mlflow.sagemaker.Predictor}
  * objects
  */
 public class DataFrame {

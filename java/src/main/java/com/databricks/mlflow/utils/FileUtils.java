@@ -1,4 +1,4 @@
-package com.databricks.mlflow.utils;
+package org.mlflow.utils;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;

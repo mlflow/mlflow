@@ -1,4 +1,4 @@
-package com.databricks.mlflow.utils;
+package org.mlflow.utils;
 
 import java.io.File;
 import java.io.IOException;
