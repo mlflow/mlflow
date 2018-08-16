@@ -54,14 +54,12 @@ class FTPArtifactRepository(ArtifactRepository):
         self.ftp.cwd(path)
         if not os.path.isdir(destination):
             os.makedirs(destination)
-        os.chdir(destination)
 
         filelist = self.ftp.nlst()
 
         for ftp_file in filelist:
             if self._is_dir(build_path(path, ftp_file)):
                 self.download_files(build_path(path, ftp_file), build_path(destination, ftp_file))
-                os.chdir(destination)
             else:
                 with open(os.path.join(destination, ftp_file), "wb") as f:
                     self.ftp.retrbinary("RETR "+ftp_file, f)
