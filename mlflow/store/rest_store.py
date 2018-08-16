@@ -8,8 +8,8 @@ from mlflow.entities.experiment import Experiment
 from mlflow.entities.run import Run
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.param import Param
-
 from mlflow.entities.metric import Metric
+from mlflow.base_exception import MLflowException
 
 from mlflow.utils.rest_utils import http_request
 
@@ -44,7 +44,7 @@ def _message_to_json(message):
     return MessageToJson(message, preserving_proto_field_name=True)
 
 
-class RestException(Exception):
+class RestException(MLflowException):
     """Exception thrown on 400-level errors from the REST API"""
     def __init__(self, json):
         message = json['error_code']

@@ -1,8 +1,10 @@
 import os
 import subprocess
 
+from mlflow.base_exception import MLflowException
 
-class ShellCommandException(Exception):
+
+class ShellCommandException(MLflowException):
     pass
 
 

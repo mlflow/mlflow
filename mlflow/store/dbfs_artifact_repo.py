@@ -2,6 +2,7 @@ import json
 import os
 
 from mlflow.entities.file_info import FileInfo
+from mlflow.base_exception import MLflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
 from mlflow.utils.rest_utils import http_request, RESOURCE_DOES_NOT_EXIST
@@ -12,7 +13,7 @@ GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
 DOWNLOAD_CHUNK_SIZE = 1024
 
 
-class IllegalArtifactPathError(Exception):
+class IllegalArtifactPathError(MLflowException):
     """The artifact_path parameter was invalid."""
 
 
