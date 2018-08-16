@@ -85,34 +85,26 @@ def predicted(model, data):
 
 def test_log_model(model, data, predicted):
 
-    print("In test_log_model")
     old_uri = tracking.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         with TempDir(chdr=True, remove_on_exit=True) as tmp:
-            print("In TempDir block with should_start_run %s" % should_start_run)
             try:
                 tracking.set_tracking_uri("test")
                 if should_start_run:
                     tracking.start_run()
-                print("About to log model")
+
                 mlflow.pytorch.log_model(model, artifact_path="pytorch")
 
                 # Load model
                 run_id = tracking.active_run().info.run_uuid
-                print("Loading model associated with run ID %s" % run_id)
                 model_loaded = mlflow.pytorch.load_model("pytorch", run_id=run_id)
-                print("Predicting using model associated with run ID %s" % run_id)
+
                 test_predictions = _predict(model_loaded, data)
-                print("Finished predicting.")
                 assert np.all(test_predictions == predicted)
-                print("Assertion succeeded.")
             finally:
-                print("Ending run.")
                 tracking.end_run()
-                print("Ended run.")
                 tracking.set_tracking_uri(old_uri)
-                print("Restored old tracking URI.")
 
 
 def test_raise_exception(model):
