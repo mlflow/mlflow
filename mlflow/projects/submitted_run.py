@@ -52,10 +52,11 @@ class LocalSubmittedRun(SubmittedRun):
     Instance of ``SubmittedRun`` corresponding to a subprocess launched to run an entry point
     command locally.
     """
-    def __init__(self, run_id, command_proc):
+    def __init__(self, run_id, command_proc, tmpdir_to_be_removed=None):
         super(LocalSubmittedRun, self).__init__()
         self.run_id = run_id
         self.command_proc = command_proc
+        self.tmpdir = tmpdir_to_be_removed
 
     def wait(self):
         return self.command_proc.wait() == 0

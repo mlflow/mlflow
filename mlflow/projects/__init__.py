@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import tempfile
+from shutil import rmtree
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects import _project_spec
@@ -45,8 +46,9 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
             git_password=git_password)
     elif mode == "local" or mode is None:
-        work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
-                                  git_username=git_username, git_password=git_password)
+        work_dir, tmpdir_to_be_removed = \
+            _fetch_project(uri=uri, force_tempdir=False, version=version,
+                           git_username=git_username, git_password=git_password)
         project = _project_spec.load_project(work_dir)
         project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
@@ -62,7 +64,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         if block:
             command = _get_entry_point_command(
                 project, entry_point, parameters, conda_env_name, storage_dir)
-            return _run_entry_point(command, work_dir, exp_id, run_id=active_run.run_info.run_uuid)
+            return _run_entry_point(command, work_dir, tmpdir_to_be_removed, exp_id,
+                                    run_id=active_run.run_info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
@@ -121,6 +124,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
         storage_dir=storage_dir, block=block, run_id=run_id)
     if block:
         _wait_for(submitted_run_obj)
+        if submitted_run_obj.tmpdir is not None:
+            rmtree(submitted_run_obj.tmpdir, ignore_errors=True)
     return submitted_run_obj
 
 
@@ -177,7 +182,8 @@ def _is_local_uri(uri):
 
 def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
     """
-    Fetch a project into a local directory, returning the path to the local project directory.
+    Fetch a project into a local directory, returning a tuple of the path to the local project
+    directory and the tempdir to be cleaned up
     :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
                           will fetch Git projects into a temporary directory but simply return the
                           path of local projects (i.e. perform a no-op for local projects).
@@ -185,6 +191,7 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = force_tempdir or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
+    dir_copied = False
     if use_temp_dst_dir:
         eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
     if _is_local_uri(uri):
@@ -192,13 +199,15 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
             raise ExecutionException("Setting a version is only supported for Git project URIs")
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+            dir_copied = True
     else:
         assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
         _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
+        dir_copied = True
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
-    return res
+    return res, dst_dir if dir_copied else None
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
@@ -313,7 +322,7 @@ def _get_entry_point_command(project, entry_point, parameters, conda_env_name, s
     return " && ".join(commands)
 
 
-def _run_entry_point(command, work_dir, experiment_id, run_id):
+def _run_entry_point(command, work_dir, tmpdir_to_be_removed, experiment_id, run_id):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.
@@ -325,7 +334,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     env.update(_get_run_env_vars(run_id, experiment_id))
     eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
     process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
-    return LocalSubmittedRun(run_id, process)
+    return LocalSubmittedRun(run_id, process, tmpdir_to_be_removed)
 
 
 def _build_mlflow_run_cmd(

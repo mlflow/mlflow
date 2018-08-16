@@ -206,7 +206,7 @@ def _fetch_and_clean_project(uri, version=None, git_username=None, git_password=
     Fetches the project at the passed-in URI & prepares it for upload to DBFS. Returns the path of
     the temporary directory into which the project was fetched.
     """
-    work_dir = _fetch_project(
+    work_dir, ignored = _fetch_project(
         uri=uri, force_tempdir=True, version=version, git_username=git_username,
         git_password=git_password)
     # Remove the mlruns directory from the fetched project to avoid cache-busting

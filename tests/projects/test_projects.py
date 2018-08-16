@@ -1,4 +1,5 @@
 import os
+from shutil import rmtree
 import git
 import tempfile
 
@@ -53,17 +54,23 @@ def test_fetch_project(local_git_repo, local_git_repo_uri):
         (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR),
     ]
     for base_uri, subdirectory, expected in test_list:
-        work_dir = mlflow.projects._fetch_project(
+        work_dir, dst_dir = mlflow.projects._fetch_project(
             uri=_build_uri(base_uri, subdirectory), force_tempdir=False)
         assert_dirs_equal(expected=expected, actual=work_dir)
+        if dst_dir is not None:
+            rmtree(dst_dir, ignore_errors=True)
     # Test that we correctly determine the dest directory to use when fetching a project.
     for force_tempdir, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
-        dest_dir = mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir)
+        dest_dir, temp_dir = mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir)
         assert os.path.commonprefix([dest_dir, tempfile.gettempdir()]) == tempfile.gettempdir()
         assert os.path.exists(dest_dir)
+        if temp_dir is not None:
+            rmtree(temp_dir, ignore_errors=True)
     for force_tempdir, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
-        assert mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir) == \
-               os.path.abspath(TEST_PROJECT_DIR)
+        work_dir, dst_dir = mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir)
+        assert work_dir == os.path.abspath(TEST_PROJECT_DIR)
+        if dst_dir is not None:
+            rmtree(dst_dir, ignore_errors=True)
 
 
 def test_fetch_project_validations(local_git_repo_uri):
@@ -89,10 +96,12 @@ def test_dont_remove_mlruns(tmpdir):
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
     src_dir.join("MLproject").write("dummy MLproject contents")
-    dst_dir = mlflow.projects._fetch_project(
+    dst_dir, temp_dir = mlflow.projects._fetch_project(
         uri=src_dir.strpath, version=None, git_username=None,
         git_password=None, force_tempdir=False)
     assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
+    if temp_dir is not None:
+        rmtree(temp_dir, ignore_errors=True)
 
 
 def test_parse_subdirectory():
