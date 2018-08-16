@@ -1,3 +1,5 @@
+"""Module exposing all custom exceptions defined in MLflow."""
+
 from mlflow.projects.exceptions import ExecutionException
 from mlflow.data import DownloadException
 from mlflow.store.rest_store import RestException
