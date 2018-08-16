@@ -22,6 +22,7 @@ public class ModelTests {
                 model.getFlavor(MLeapFlavor.FLAVOR_NAME, MLeapFlavor.class).isPresent());
             Assert.assertTrue(model.getUtcTimeCreated().isPresent());
         } catch (IOException e) {
+            e.printStackTrace();
             Assert.fail(
                 "Encountered an exception while reading the model from a configuration path!");
         }
@@ -36,6 +37,7 @@ public class ModelTests {
                 model.getFlavor(MLeapFlavor.FLAVOR_NAME, MLeapFlavor.class).isPresent());
             Assert.assertTrue(model.getUtcTimeCreated().isPresent());
         } catch (IOException e) {
+            e.printStackTrace();
             Assert.fail(
                 "Encountered an exception while reading the model from a configuration path!");
         }
