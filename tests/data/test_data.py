@@ -6,8 +6,7 @@ import tempfile
 import mock
 import pytest
 
-from mlflow.data import is_uri, download_uri
-from mlflow.exceptions import DownloadException
+from mlflow.data import is_uri, download_uri, DownloadException
 from mlflow.projects import _project_spec
 
 TEST_DIR = "tests"

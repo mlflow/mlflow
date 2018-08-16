@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from mlflow.exceptions import ExecutionException
+from mlflow.utils.exception import ExecutionException
 from mlflow.projects import _project_spec
 from tests.projects.utils import load_project
 

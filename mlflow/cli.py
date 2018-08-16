@@ -14,7 +14,7 @@ import mlflow.pyfunc.cli
 import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
-from mlflow.exceptions import ShellCommandException, ExecutionException
+from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
@@ -109,7 +109,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             block=True,
             run_id=run_id,
         )
-    except ExecutionException:
+    except projects.ExecutionException:
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)

@@ -12,7 +12,7 @@ import tempfile
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects import _project_spec
-from mlflow.exceptions import ExecutionException
+from mlflow.utils.exception import ExecutionException
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.param import Param
