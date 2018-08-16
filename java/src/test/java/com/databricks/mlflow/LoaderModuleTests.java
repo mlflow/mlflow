@@ -19,7 +19,7 @@ public class LoaderModuleTests {
             Predictor predictor = (new MLeapLoader()).load(modelPath);
         } catch (PredictorLoadingException e) {
             e.printStackTrace();
-            Assert.fail("Encountered unexpected `PredictorLoadingException!`");
+            Assert.fail("Encountered unexpected `PredictorLoadingException`!");
         }
     }
 }
