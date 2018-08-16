@@ -12,7 +12,7 @@ import org.mlflow.mleap.MLeapFlavor;
 public class ModelTest {
   @Test
   public void testModelIsLoadedFromYamlUsingConfigPathCorrectly() {
-    String configPath = getClass().getResource("sample_model_root/MLModel").getFile();
+    String configPath = getClass().getResource("sample_model_root/MLmodel").getFile();
     try {
       Model model = Model.fromConfigPath(configPath);
       Assert.assertTrue(model.getFlavor(MLeapFlavor.FLAVOR_NAME, MLeapFlavor.class).isPresent());
