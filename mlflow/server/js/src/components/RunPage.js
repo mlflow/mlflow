@@ -11,6 +11,7 @@ class RunPage extends Component {
     match: PropTypes.object.isRequired,
     runUuid: PropTypes.string.isRequired,
     experimentId: PropTypes.number.isRequired,
+    dispatch: PropTypes.func.isRequired,
   };
 
   state = {
@@ -21,8 +22,10 @@ class RunPage extends Component {
 
   componentWillMount() {
     this.props.dispatch(getRunApi(this.props.runUuid, this.state.getRunRequestId));
-    this.props.dispatch(listArtifactsApi(this.props.runUuid, undefined, this.state.listArtifactRequestId));
-    this.props.dispatch(getExperimentApi(this.props.experimentId, this.state.getExperimentRequestId));
+    this.props.dispatch(
+      listArtifactsApi(this.props.runUuid, undefined, this.state.listArtifactRequestId));
+    this.props.dispatch(
+      getExperimentApi(this.props.experimentId, this.state.getExperimentRequestId));
   }
 
   render() {

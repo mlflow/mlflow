@@ -95,7 +95,7 @@ class DbfsArtifactRepository(ArtifactRepository):
                 dir_http_endpoint = build_path(root_http_endpoint, rel_path)
             for name in filenames:
                 endpoint = build_path(dir_http_endpoint, name)
-                with open(build_path(dirpath, name), 'r') as f:
+                with open(build_path(dirpath, name), 'rb') as f:
                     http_request(endpoint=endpoint, method='POST', data=f,
                                  **self.http_request_kwargs)
 
