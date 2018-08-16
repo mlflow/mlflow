@@ -9,7 +9,7 @@ import com.databricks.mlflow.sagemaker.PredictorLoadingException;
 
 /**
  * Unit tests for deserializing MLFlow models as generic
- * {@link com.databricks.mlflow.sagemaker.Predictor} objects for inference
+ * {@link Predictor} objects for inference
  */
 public class LoaderModuleTests {
     @Test

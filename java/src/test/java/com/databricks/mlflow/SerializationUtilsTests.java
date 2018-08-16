@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 /**
- * Unit tests for the {@link com.databricks.mlflow.utils.SerializationUtils} module
+ * Unit tests for the {@link SerializationUtils} module
  */
 public class SerializationUtilsTests {
     @Test

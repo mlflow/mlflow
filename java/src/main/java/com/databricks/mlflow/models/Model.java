@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Represents an MLFlow model. This class includes utility
  * functions for parsing a serialized MLFlow model configuration
- * (`MLModel`) as a {@link com.databricks.mlflow.models.Model} object.
+ * (`MLModel`) as a {@link Model} object.
  */
 public class Model {
     @JsonProperty("artifact_path") private String artifactPath;
@@ -29,7 +29,7 @@ public class Model {
 
     /**
      * Loads the configuration of an MLFlow model and parses it as a
-     * {@link com.databricks.mlflow.models.Model} object.
+     * {@link Model} object.
      *
      * @param modelRootPath The path to the root directory of the MLFlow model
      */
@@ -40,7 +40,7 @@ public class Model {
 
     /**
      * Loads the configuration of an MLFlow model and parses it as a
-     * {@link com.databricks.mlflow.models.Model} object.
+     * {@link Model} object.
      *
      * @param modelRootPath The path to the `MLModel` configuration file
      */
