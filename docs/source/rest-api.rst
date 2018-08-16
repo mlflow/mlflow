@@ -6,10 +6,10 @@ REST API
 ========
 
 
-The MLflow REST API allows you to create, list, and get experiments and runs, and log params,
-metrics, and artifacts. The API is hosted under the ``/api`` route on the MLflow tracking
-server. For example, to list experiments on a tracking server hosted at
-``http://localhost:5000``, access ``http://localhost:5000/api/2.0/preview/mlflow/experiments/list``.
+The MLflow REST API allows you to create, list, and get experiments and runs, and log params, metrics, and artifacts.
+The API is hosted under the ``/api`` route on the MLflow tracking server. For example, to list
+experiments on a tracking server hosted at ``http://localhost:5000``, access
+``http://localhost:5000/api/2.0/preview/mlflow/experiments/list``.
 
 .. contents:: Table of Contents
     :local:
@@ -396,7 +396,7 @@ Request Structure
 |            |            | This field is required.                     |
 |            |            |                                             |
 +------------+------------+---------------------------------------------+
-| value      | ``STRING`` | String value of the metric being logged.    |
+| value      | ``STRING`` | String value of the param being logged.     |
 |            |            | This field is required.                     |
 |            |            |                                             |
 +------------+------------+---------------------------------------------+
@@ -808,15 +808,15 @@ Experiment
 Experiment
 
 
-+-------------------+------------+-------------------------------------------------------------+
-|    Field Name     |    Type    |                         Description                         |
-+===================+============+=============================================================+
-| experiment_id     | ``INT64``  | Unique identifier for the experiment                        |
-+-------------------+------------+-------------------------------------------------------------+
-| name              | ``STRING`` | Human readable name that identifies this experiment         |
-+-------------------+------------+-------------------------------------------------------------+
-| artifact_location | ``STRING`` | Location where all artifacts for this experiment are stored |
-+-------------------+------------+-------------------------------------------------------------+
++-------------------+------------+----------------------------------------------------------+
+|    Field Name     |    Type    |                       Description                        |
++===================+============+==========================================================+
+| experiment_id     | ``INT64``  | Unique identifier for the experiment.                    |
++-------------------+------------+----------------------------------------------------------+
+| name              | ``STRING`` | Human readable name that identifies this experiment.     |
++-------------------+------------+----------------------------------------------------------+
+| artifact_location | ``STRING`` | Location where artifacts for this experiment are stored. |
++-------------------+------------+----------------------------------------------------------+
 
 .. _mlflowFileInfo:
 
@@ -1082,8 +1082,10 @@ RunStatus
 Status of a run.
 
 +-----------+----------------------------------+
-|  RUNNING  |        Has been initiated        |
+|   Name    |           Description            |
 +===========+==================================+
+| RUNNING   | Has been initiated               |
++-----------+----------------------------------+
 | SCHEDULED | Scheduled to run at a later time |
 +-----------+----------------------------------+
 | FINISHED  | Run has completed                |
@@ -1102,8 +1104,10 @@ SourceType
 Description of the source that generated a run.
 
 +----------+----------------------------------------------------------------------------+
-| NOTEBOOK |                  Within Databricks Notebook environment.                   |
+|   Name   |                                Description                                 |
 +==========+============================================================================+
+| NOTEBOOK | Within Databricks Notebook environment.                                    |
++----------+----------------------------------------------------------------------------+
 | JOB      | Scheduled or Run Now Job.                                                  |
 +----------+----------------------------------------------------------------------------+
 | PROJECT  | As a prepackaged project: either a docker image or github source, ... etc. |
