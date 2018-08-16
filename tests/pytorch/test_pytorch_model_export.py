@@ -90,7 +90,7 @@ def test_log_model(model, data, predicted):
     for should_start_run in [False, True]:
         with TempDir(chdr=True, remove_on_exit=True) as tmp:
             try:
-                tracking.set_tracking_uri("test")
+                tracking.set_tracking_uri(tmp.path("test"))
                 if should_start_run:
                     tracking.start_run()
 
