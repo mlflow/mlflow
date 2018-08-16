@@ -30,9 +30,10 @@ public class SerializationUtils {
      * Produces a Java object representation of a JSON-formatted string
      *
      * @param json A string in valid JSON format
+     * @param class The class of the Java object that should be produced
      */
-    public static <T> T fromJson(String json) throws IOException {
-        return jsonMapper.readValue(json, new TypeReference<T>() {});
+    public static <T> T fromJson(String json, Class<T> objectClass) throws IOException {
+        return jsonMapper.readValue(json, objectClass);
     }
 
     /**
@@ -81,7 +82,6 @@ public class SerializationUtils {
 
     private static <T> T parseFromFile(File file, Class<T> objectClass, ObjectMapper mapper)
         throws IOException {
-        T parsedObject = mapper.readValue(file, objectClass);
-        return parsedObject;
+        return mapper.readValue(file, objectClass);
     }
 }

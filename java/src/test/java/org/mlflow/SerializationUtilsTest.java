@@ -28,7 +28,7 @@ public class SerializationUtilsTest {
         }
         try {
             String listJson = SerializationUtils.toJson(inputList);
-            List<Integer> loadedList = SerializationUtils.fromJson(listJson);
+            List<Integer> loadedList = SerializationUtils.fromJson(listJson, List.class);
             Assert.assertEquals(loadedList, inputList);
         } catch (IOException e) {
             Assert.fail(
@@ -42,7 +42,7 @@ public class SerializationUtilsTest {
 
         try {
             String mapJson = SerializationUtils.toJson(inputMap);
-            Map<String, Integer> loadedMap = SerializationUtils.fromJson(mapJson);
+            Map<String, Integer> loadedMap = SerializationUtils.fromJson(mapJson, Map.class);
             Assert.assertEquals(loadedMap, inputMap);
         } catch (IOException e) {
             Assert.fail(
