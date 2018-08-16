@@ -37,6 +37,9 @@ public class SerializationUtils {
 
     /**
      * Produces a Java object representation of a JSON-formatted file
+     *
+     * @param filePath The path to the JSON-formatted file
+     * @param class The class of the Java object that should be produced
      */
     public static <T> T parseJsonFromFile(String filePath, Class<T> objectClass)
         throws IOException {
@@ -44,16 +47,34 @@ public class SerializationUtils {
         return parseJsonFromFile(jsonFile, objectClass);
     }
 
+    /**
+     * Produces a Java object representation of a JSON-formatted file
+     *
+     * @param jsonFile A reference to a JSON-formatted file
+     * @param class The class of the Java object that should be produced
+     */
     public static <T> T parseJsonFromFile(File jsonFile, Class<T> objectClass) throws IOException {
         return parseFromFile(jsonFile, objectClass, jsonMapper);
     }
 
+    /**
+     * Produces a Java object representation of a YAML-formatted file
+     *
+     * @param filePath The path to the YAML-formatted file
+     * @param class The class of the Java object that should be produced
+     */
     public static <T> T parseYamlFromFile(String filePath, Class<T> objectClass)
         throws IOException {
         File yamlFile = new File(filePath);
         return parseYamlFromFile(yamlFile, objectClass);
     }
 
+    /**
+     * Produces a Java object representation of a YAML-formatted file
+     *
+     * @param yamlFile A reference to a JSON-formatted file
+     * @param class The class of the Java object that should be produced
+     */
     public static <T> T parseYamlFromFile(File yamlFile, Class<T> objectClass) throws IOException {
         return parseFromFile(yamlFile, objectClass, yamlMapper);
     }

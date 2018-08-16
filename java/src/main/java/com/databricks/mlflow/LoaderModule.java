@@ -23,15 +23,15 @@ public abstract class LoaderModule<T extends Flavor> {
      * failures are encountered while attempting to load the model from the specified configuration.
      * This is a generic exception for all loader failure cases
      */
-    public Predictor load(Model modelConfig) {
-        Optional<T> flavor = modelConfig.getFlavor(getFlavorName(), getFlavorClass());
+    public Predictor load(Model model) {
+        Optional<T> flavor = model.getFlavor(getFlavorName(), getFlavorClass());
         if (!flavor.isPresent()) {
             throw new PredictorLoadingException(
                 String.format("Attempted to load the %s flavor of the model,"
                         + " but the model does not have this flavor.",
                     getFlavorName()));
         }
-        Optional<String> rootPath = modelConfig.getRootPath();
+        Optional<String> rootPath = model.getRootPath();
         if (!rootPath.isPresent()) {
             throw new PredictorLoadingException(
                 "An internal error occurred while loading the model:"
