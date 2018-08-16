@@ -683,18 +683,21 @@ def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image
     :param sage_client: A boto3 client for SageMaker
     :return: AWS response containing metadata associated with the new model
     """
-    model_response = sage_client.create_model(
-        ModelName=model_name,
-        PrimaryContainer={
+    create_model_args = {
+        "ModelName" : model_name,
+        "PrimaryContainer" : {
             'ContainerHostname': 'mfs-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
             'Environment': {},
         },
-        VpcConfig=vpc_config,
-        ExecutionRoleArn=execution_role,
-        Tags=[{'Key': 'run_id', 'Value': str(run_id)}, ],
-    )
+        "ExecutionRoleArn" : execution_role,
+        "Tags" : [{'Key': 'run_id', 'Value': str(run_id)},], 
+    }
+    if vpc_config is not None:
+        create_model_args["VpcConfig"] = vpc_config
+
+    model_response = sage_client.create_model(**create_model_args)
     return model_response
 
 
