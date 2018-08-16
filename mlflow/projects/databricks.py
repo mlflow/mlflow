@@ -228,6 +228,7 @@ def _before_run_validations(tracking_uri, cluster_spec):
             "accessible to both the current client and code running on Databricks. Got local "
             "tracking URI %s." % tracking_uri)
 
+from mlflow.entities.param import Param
 
 def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
                    git_username, git_password):
@@ -246,6 +247,9 @@ def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster
         experiment_id=experiment_id, source_name=_expand_uri(uri),
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
+    if parameters is not None:
+        for key, value in parameters.items():
+            remote_run.log_param(Param(key, value))
     env_vars = {
          tracking._TRACKING_URI_ENV_VAR: tracking_uri,
          tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,

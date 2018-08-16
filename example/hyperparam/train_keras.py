@@ -4,17 +4,27 @@ import os
 import warnings
 import sys
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
-import mlflow.sklearn
+log_model = False
+try:
+    import mlflow.keras
+    log_model = True
+except:
+    print("mlflow.keras is not supported in this version of mlflow")
 
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.optimizers import RMSprop
+
+
+import mlflow
+
 
 batch_size = 128
 num_classes = 10
@@ -33,16 +43,14 @@ if __name__ == "__main__":
     learning_rate = float(sys.argv[2]) if len(sys.argv) > 2 else None
     drop_out_1 = float(sys.argv[3]) if len(sys.argv) > 3 else 0.2
     drop_out_2 = float(sys.argv[4]) if len(sys.argv) > 4 else 0.2
+    seed = int(sys.argv[5]) if len(sys.argv) < 5 else 97531
     warnings.filterwarnings("ignore")
     # Read the wine-quality csv file (make sure you're running this from the root of MLflow!)
     wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
     data = pd.read_csv(wine_path)
-    import keras
-    keras.metrics
     # Split the data into training and test sets. (0.75, 0.25) split.
-    train, test = train_test_split(data)
-    train, valid = train_test_split(train)
-
+    train, test = train_test_split(data, random_state=seed)
+    train, valid = train_test_split(train, random_state=seed)
     # The predicted column is "quality" which is a scalar from [3, 9]
     train_x = train.drop(["quality"], axis=1).as_matrix().astype('float32')
     train_y = train[["quality"]].as_matrix().astype('float32')
@@ -57,12 +65,6 @@ if __name__ == "__main__":
     print(train_x.shape[0], 'train samples')
     print(test_x.shape[0], 'test samples')
     with mlflow.start_run():
-        # TODO: not clear if I should log params here, depends on how this was launched
-        # mlflow.log_param("epochs", epochs)
-        # mlflow.log_param("learning_rate", learning_rate)
-        # mlflow.log_param("drop_out_1", drop_out_1)
-        # mlflow.log_param("drop_out_2", drop_out_2)
-
         model = Sequential()
         model.add(Dense(train_x.shape[1], activation='relu', input_shape=(train_x.shape[1],)))
         model.add(Dropout(drop_out_1))
@@ -90,3 +92,8 @@ if __name__ == "__main__":
         mlflow.log_metric("rmse", rmse)
         mlflow.log_metric("mae", mae)
         mlflow.log_metric("r2", r2)
+        if log_model:
+            try:
+                mlflow.keras.log_model(model, "model")
+            except:
+                print("model log failed")

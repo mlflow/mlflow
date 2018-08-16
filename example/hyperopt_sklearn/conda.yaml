@@ -1,18 +1,13 @@
-name: hyperparam_example
+name: hyperopt_sklearn_example
 channels:
   - defaults
 dependencies:
-  - python=3.6
+  - python=2.7
   - numpy=1.14.3
   - pandas=0.22.0
   - scikit-learn=0.19.1
   - matplotlib=2.2.2
   - pip:
     - mlflow
-    - Gpy
-    - GpyOpt
-    - tensorflow
-    - keras
-    - pyDOE
-    - hyperopt
+    - hpsklearn
 

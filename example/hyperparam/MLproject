@@ -3,48 +3,49 @@ name: tutorial
 conda_env: conda.yaml
 
 entry_points:
-  main:
-    parameters:
-      alpha: float
-      l1_ratio: {type: float, default: 0.1}
-    command: "python train.py {alpha} {l1_ratio}"
 
-  hyper_param_search_main:
-    parameters:
-      max_runs: {type: int, default: 50}
-      max_p: {type: int, default: 4}
-      alpha_min: {type: float, default 1e-10}
-      alpha_max: {type: float, default 1e10}
-      l1_min: {type: float, default 0}
-      l1_max: {type: float, default 1}
-      metric: {type: string, default "rmse"}
-#    tags:
-#      run_type: hyper_param_search
-    command: "python search.py {max_runs} {max_p} {alpha_min} {alpha_max} {l1_min} {l1_max} {metric}"
-
+  # train keras dl model
   dl_train:
     parameters:
       epochs: int
       learning_rate: float
       drop_out_1: float
       drop_out_2: float
-    command: "python keras_example.py {epochs} {learning_rate} {drop_out_1} {drop_out_2}"
+      seed: int
+    command: "python train_keras.py {epochs} {learning_rate} {drop_out_1} {drop_out_2}"
 
-  hyper_param_search_dl:
+  # Use gPyOpt to optimize hyper params of the dl_train entry_point.
+  gPyOpt_dl:
     parameters:
       max_runs: {type: int, default: 50}
+      batch_size: {type: int, default 1}
       max_p: {type: int, default: 4}
       max_epochs: {type: int, 1000}
       lr_min: {type: float, default 0}
       lr_max: {type: float, default 1}
       drop_out_1_min: {type: float, default 0}
       drop_out_1_max: {type: float, default .99}
-      drop_out_2_min: {type: float, default 0}
-      drop_out_2_max: {type: float, default .99}
       metric: {type: string, default "rmse"}
-#    tags:
-#      run_type: hyper_param_search
-    command: "python search_keras.py {max_runs} {max_p} {max_epochs} {lr_min} {lr_max} {drop_out_1_min} {drop_out_1_max} {drop_out_2_min} {drop_out_2_max} {metric}"
+      gpy_model: {type: string, default: "GP_MCMC"}
+      gpy_acquisition: {type: string, default: "EI_MCMC"}
+      initial_design: {type: string, default: "random"}
+      training_experiment_id: {type: int, default: "-1"}
+      seed: {type: int, default: 97531}
+    command: "python gPyOpt/search_keras.py {max_runs} {batch_size} {max_p} {max_epochs} {lr_min} {lr_max} {drop_out_1_min} {drop_out_1_max} {metric} {gpy_model} {gpy_acquisition} {initial_design} {training_experiment_id} {seed}"
+
+  hyperopt_dl:
+    parameters:
+      max_runs: {type: int, default: 50}
+      max_epochs: {type: int, 1000}
+      lr_min: {type: float, default 0}
+      lr_max: {type: float, default 1}
+      drop_out_1_min: {type: float, default 0}
+      drop_out_1_max: {type: float, default .99}
+      metric: {type: string, default "rmse"}
+      algo: {type: string, default "tpe.suggest"}
+      seed: {type: int, default: 97531}
+      training_experiment_id: {type: int, default: "-1"}
+    command: "python -O hyperopt/search_keras.py {max_runs} {max_epochs} {lr_min} {lr_max} {drop_out_1_min} {drop_out_1_max} {metric} {algo} {seed} {training_experiment_id}"
 
 
 
