@@ -55,7 +55,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
 
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
+        raise RuntimeError("Path '{}' already exists".format(path))
     os.makedirs(path)
     model_path = os.path.join(path, "model.pth")
 
@@ -76,15 +76,17 @@ def _load_model(path, **kwargs):
 
     mlflow_model = Model.load(mlflow_model_path)
 
-    assert FLAVOR_NAME in mlflow_model.flavors, \
-        "Stored model can not be loaded with mlflow.pytorch"
+    if FLAVOR_NAME not in mlflow_model.flavors:
+        raise ValueError("Could not find flavor '{}' amongst available flavors {}, "
+                         "unable to load stored model"
+                         .format(FLAVOR_NAME, list(mlflow_model.flavors.keys())))
 
     # This maybe replaced by a warning and then try/except torch.load
     flavor = mlflow_model.flavors[FLAVOR_NAME]
-    assert torch.__version__ == flavor["pytorch_version"], \
-        "Unfortunately stored model version '{}' does not match "\
-        .format(flavor["pytorch_version"]) + \
-        "installed PyTorch version '{}'".format(torch.__version__)
+    if torch.__version__ != flavor["pytorch_version"]:
+        raise ValueError("Unfortunately stored model version '{}' does not match "
+                         "installed PyTorch version '{}'"
+                         .format(flavor["pytorch_version"], torch.__version__))
 
     path = os.path.abspath(path)
     path = os.path.join(path, mlflow_model.flavors[FLAVOR_NAME]['model_data'])
@@ -123,11 +125,15 @@ class _PyTorchWrapper(object):
         self.pytorch_model = pytorch_model
 
     def predict(self, data, device='cpu'):
-        assert isinstance(data, pd.DataFrame), "Input data should be pandas.DataFrame"
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError("Input data should be pandas.DataFrame")
         self.pytorch_model.eval()
         with torch.no_grad():
             input_tensor = torch.from_numpy(data.values.astype(np.float32)).to(device)
             preds = self.pytorch_model(input_tensor)
+            if not isinstance(preds, torch.Tensor):
+                raise TypeError("Expected PyTorch model to output a single output tensor, "
+                                "but got output of type '{}'".format(type(preds)))
             predicted = pd.DataFrame(preds.numpy())
             predicted.index = data.index
             return predicted

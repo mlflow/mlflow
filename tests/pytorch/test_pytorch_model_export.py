@@ -107,6 +107,32 @@ def test_log_model(model, data, predicted):
                 tracking.set_tracking_uri(old_uri)
 
 
+def test_raise_exception(model):
+    with TempDir(chdr=True, remove_on_exit=True) as tmp:
+        path = tmp.path("model")
+        with pytest.raises(RuntimeError):
+            mlflow.pytorch.load_model(path)
+
+        with pytest.raises(TypeError):
+            mlflow.pytorch.save_model([1, 2, 3], path)
+
+        mlflow.pytorch.save_model(model, path)
+        with pytest.raises(RuntimeError):
+            mlflow.pytorch.save_model(model, path)
+
+        from mlflow import sklearn
+        import sklearn.neighbors as knn
+        import pickle
+        path = tmp.path("knn.pkl")
+        knn = knn.KNeighborsClassifier()
+        with open(path, "wb") as f:
+            pickle.dump(knn, f)
+        path = tmp.path("knn")
+        sklearn.save_model(knn, path=path)
+        with pytest.raises(ValueError):
+            mlflow.pytorch.load_model(path)
+
+
 def test_save_and_load_model(model, data, predicted):
 
     x, y = data
