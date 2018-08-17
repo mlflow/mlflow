@@ -1,3 +1,5 @@
+"""All entities returned by the MLflow REST API."""
+
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.metric import Metric

@@ -1,3 +1,6 @@
+"""Internal module implementing the fluent API, allowing management of an active
+MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
+"""
 
 from __future__ import print_function
 

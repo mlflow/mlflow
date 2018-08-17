@@ -1,5 +1,7 @@
 """Provides the MLflow fluent API, allowing management of an active MLflow run.
-For example::
+For example:
+
+.. code:: python
 
     import mlflow
     mlflow.start_run()
@@ -7,10 +9,12 @@ For example::
     mlflow.log_metric("score", 100)
     mlflow.end_run()
 
-You can also use syntax like this::
+You can also use syntax like this:
+
+.. code:: python
 
     with mlflow.start_run() as run:
-	  ...
+        ...
 
 which will automatically terminate the run at the end of the block.
 """
