@@ -241,7 +241,7 @@ def append_to(filename, data):
         handle.write(data)
 
 
-def make_tarfile(output_filename, source_dir, archive_name, exclude=lambda x: False):
+def make_tarfile(output_filename, source_dir, archive_name, exclude=lambda _: False):
     # Helper for filtering out modification timestamps
     def _filter_timestamps(tar_info):
         tar_info.mtime = 0

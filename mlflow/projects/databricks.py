@@ -125,7 +125,7 @@ def _dbfs_path_exists(dbfs_uri):
     return True
 
 
-def _upload_project_to_dbfs(project_dir, experiment_id, exclude_mlruns=False):
+def _upload_project_to_dbfs(project_dir, experiment_id):
     """
     Tars a project directory into an archive in a temp dir and uploads it to DBFS, returning
     the HDFS-style URI of the tarball in DBFS (e.g. dbfs:/path/to/tar).
@@ -137,7 +137,8 @@ def _upload_project_to_dbfs(project_dir, experiment_id, exclude_mlruns=False):
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
 
     def exclude(x):
-        return exclude_mlruns and x == "mlruns"
+        return x == "mlruns"
+
     try:
         file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, exclude)
         with open(temp_tar_filename, "rb") as tarred_project:
