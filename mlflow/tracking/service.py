@@ -1,4 +1,5 @@
-"""Internal package providing a Python CRUD interface to MLflow Experiments and Runs.
+"""
+Internal package providing a Python CRUD interface to MLflow Experiments and Runs.
 This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and is
 exposed to users in the :py:mod:`mlflow.tracking` module.
 """

@@ -1,4 +1,5 @@
-"""Provides the MLflow fluent API, allowing management of an active MLflow run.
+"""
+Provides the MLflow fluent API, allowing management of an active MLflow run.
 For example:
 
 .. code:: python
