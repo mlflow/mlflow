@@ -237,26 +237,6 @@ export class MlflowService {
   }
 
   /**
-   * @param {GetArtifact} data: Immutable Record
-   * @param {function} success
-   * @param {function} error
-   * @return {Promise}
-   */
-  static getArtifact({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/artifacts/get', {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
-      },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
-  }
-
-  /**
    * @param {GetMetricHistory} data: Immutable Record
    * @param {function} success
    * @param {function} error
