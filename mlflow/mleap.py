@@ -16,8 +16,9 @@ import os
 import sys
 import traceback
 import json
-
 from six import reraise
+
+from mlflow.models import Model
 
 FLAVOR_NAME = "mleap"
 
