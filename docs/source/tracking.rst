@@ -133,26 +133,6 @@ just one block of code as follows:
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
-Managing Experiments and Runs
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-MLflow provides an extensive :doc:`REST API<rest_api/>` which provides the ability to create, list, and
-get experiments and runs, and log params, metrics, and artifacts. You can also access this functionality
-directly within Python using the :doc:`Tracking Python API<python_api/mlflow.tracking>`. In comparison
-to the :ref:`Basic Logging Functions<basic_logging_functions>`, this API is lower level, but
-more powerful.
-
-Example usage:
-
-.. code:: python
-
-    from  mlflow.tracking import get_service
-    service = get_service()
-    experiments = service.list_experiments() # returns a list of mlflow.entities.Experiment
-    run = service.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
-    service.log_param(run.info.run_uuid, "hello", "world")
-    service.set_terminated(run.info.run_uuid)
-
 Organizing Runs in Experiments
 ------------------------------
 
@@ -178,6 +158,21 @@ environment variable.
         mlflow.log_parameter("a", 1)
         mlflow.log_metric("b", 2)
 
+Managing Experiments and Runs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+MLflow provides a more detailed lower-level API for managing experiments and runs directly, which is available in the :doc:`mlflow.tracking<python_api/mlflow.tracking>` package. This makes it possible to query data about past runs, log additional information about them, create experiments and more.
+
+Example usage:
+
+.. code:: python
+
+    from  mlflow.tracking import get_service
+    service = get_service()
+    experiments = service.list_experiments() # returns a list of mlflow.entities.Experiment
+    run = service.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
+    service.log_param(run.info.run_uuid, "hello", "world")
+    service.set_terminated(run.info.run_uuid)
 
 .. _tracking_ui:
 
