@@ -214,4 +214,4 @@ def test_with_startrun():
     run_info = mlflow.tracking._get_store().get_run(runId).info
     assert run_info.status == RunStatus.from_string("FINISHED")
     assert t0 <= run_info.end_time and run_info.end_time <= t1
-    assert mlflow.active_run() == None
+    assert mlflow.active_run() is None
