@@ -700,15 +700,15 @@ def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image
     :return: AWS response containing metadata associated with the new model
     """
     create_model_args = {
-        "ModelName" : model_name,
-        "PrimaryContainer" : {
+        "ModelName": model_name,
+        "PrimaryContainer": {
             'ContainerHostname': 'mfs-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
             'Environment': {},
         },
-        "ExecutionRoleArn" : execution_role,
-        "Tags" : [{'Key': 'run_id', 'Value': str(run_id)},],
+        "ExecutionRoleArn": execution_role,
+        "Tags": [{'Key': 'run_id', 'Value': str(run_id)},],
     }
     if vpc_config is not None:
         create_model_args["VpcConfig"] = vpc_config
