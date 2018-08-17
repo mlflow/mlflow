@@ -158,10 +158,10 @@ environment variable.
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
 
-Managing Experiments and Runs
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Managing Experiments and Runs with the Tracking Service API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-MLflow provides a more detailed lower-level API for managing experiments and runs directly, which is available in the :doc:`mlflow.tracking<python_api/mlflow.tracking>` package. This makes it possible to query data about past runs, log additional information about them, create experiments and more.
+MLflow provides a more detailed Tracking Service API for managing experiments and runs directly, which is available in the :doc:`mlflow.tracking<python_api/mlflow.tracking>` package. This makes it possible to query data about past runs, log additional information about them, create experiments and more.
 
 Example usage:
 
