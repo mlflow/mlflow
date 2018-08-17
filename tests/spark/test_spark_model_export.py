@@ -12,7 +12,7 @@ import shutil
 from collections import namedtuple
 
 import mlflow
-from mlflow import active_run, pyfunc
+from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.models import Model 
 
