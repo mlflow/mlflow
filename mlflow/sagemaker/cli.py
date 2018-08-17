@@ -38,9 +38,9 @@ def commands():
               " https://aws.amazon.com/sagemaker/pricing/instance-types/.")
 @click.option("--instance-count", "-c", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_COUNT,
               help="The number of SageMaker ML instances on which to deploy the model")
-@click.option("--vpc-config", "-v", 
-              help="Path to a file containing a JSON-formatted VPC configuration. This" 
-                    " configuration will be used when creating the new SageMaker model associated" 
+@click.option("--vpc-config", "-v",
+              help="Path to a file containing a JSON-formatted VPC configuration. This"
+                    " configuration will be used when creating the new SageMaker model associated"
                     " with this application. For more information, see"
                     " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
