@@ -4,6 +4,8 @@ Changelog
 0.5.0 (2018-08-17)
 ------------------
 
+MLflow 0.5.0 includes some major improvements, including Keras and PyTorch first-class support as models, SFTP support as an artifactory, an improved scatterplot visualization to compare runs, and a more complete Python SDK for low-level experiment and run management.
+
 Breaking changes:
 
 - There is now a distinction between the "fluent" and "service" components of the Tracking API (#299). The fluent API deals with a notion of a global "active run", and are accessible in ``mlflow`` (e.g., ``mlflow.log_param``). The service API is effectively a Python SDK which closely resembles the REST API, and is available in ``mlflow.tracking``. It operates at lower level, and will look analogous in the upcoming R and Java Tracking SDKs. Please be aware of the following breaking changes:
