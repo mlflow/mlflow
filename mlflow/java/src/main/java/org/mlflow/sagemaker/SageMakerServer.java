@@ -12,7 +12,8 @@ import java.lang.reflect.InvocationTargetException;
 
 import spark.Request;
 import spark.Response;
-import static spark.Spark.*;
+import spark.Service;
+// import static spark.Spark.*;
 
 /**
  * A RESTful webserver for {@link Predictor Predictors}
@@ -50,19 +51,24 @@ public class SageMakerServer {
         }
     }
 
-    /**
-     * Serves the specified predictor locally on the specified port.
-     * If no port is specified, the default port is used
-     */
-    public static void serve(Predictor predictor, Optional<Integer> portNumber) {
-        serve(Optional.of(predictor), portNumber);
+    private final Optional<Predictor> predictor;
+    private final Optional<Integer> portNumber;
+    private Optional<Service> activeService = Optional.empty();
+
+    public SageMakerServer(Predictor predictor) {
+        this(Optional.of(predictor), Optional.empty());
     }
 
-    /**
-     * Loads the MLFLow model at the specified path as an {@link MLeapPredictor}
-     * and serves it on the specified port
-     */
-    public static void serve(String modelPath, Optional<Integer> portNumber) {
+    public SageMakerServer(Predictor predictor, int portNumber) {
+        this(Optional.of(predictor), Optional.of(portNumber));
+    }
+
+    public SageMakerServer(String modelPath, boolean failOnUnsuccessfulModelLoad) {
+        this(modelPath, Optional.empty(), failOnUnsuccessfulModelLoad);
+    }
+
+    public SageMakerServer(
+        String modelPath, Optional<Integer> portNumber, boolean failOnUnsuccessfulModelLoad) {
         Optional<Predictor> predictor = Optional.empty();
         try {
             Model config = Model.fromRootPath(modelPath);
@@ -70,12 +76,27 @@ public class SageMakerServer {
         } catch (PredictorLoadingException | IOException e) {
             e.printStackTrace();
         }
-        serve(predictor, portNumber);
+        this.predictor = predictor;
+        this.portNumber = portNumber;
     }
 
-    private static void serve(Optional<Predictor> predictor, Optional<Integer> portNumber) {
-        port(portNumber.orElse(DEFAULT_PORT));
-        get("/ping", (request, response) -> {
+    private SageMakerServer(Optional<Predictor> predictor, Optional<Integer> portNumber) {
+        this.predictor = predictor;
+        this.portNumber = portNumber;
+    }
+
+    /**
+     * Starts the local scoring server
+     */
+    public void start() {
+        if (activeService.isPresent()) {
+            throw new IllegalStateException(String.format(
+                "This server is already running on port %d", portNumber.orElse(DEFAULT_PORT)));
+        }
+
+        Service newService = Service.ignite().port(portNumber.orElse(DEFAULT_PORT));
+
+        newService.get("/ping", (request, response) -> {
             if (!predictor.isPresent()) {
                 return yieldMissingPredictorError(response);
             }
@@ -83,7 +104,7 @@ public class SageMakerServer {
             return "";
         });
 
-        post("/invocations", (request, response) -> {
+        newService.post("/invocations", (request, response) -> {
             if (!predictor.isPresent()) {
                 return yieldMissingPredictorError(response);
             }
@@ -103,14 +124,16 @@ public class SageMakerServer {
                 return getErrorResponseJson(errorMessage);
             }
         });
+
+        this.activeService = Optional.of(newService);
     }
 
-    private static String yieldMissingPredictorError(Response response) {
+    private String yieldMissingPredictorError(Response response) {
         response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
         return getErrorResponseJson("Error loading predictor! See container logs for details!");
     }
 
-    private static String evaluateRequest(Predictor predictor, Request request)
+    private String evaluateRequest(Predictor predictor, Request request)
         throws PredictorEvaluationException {
         RequestContentType inputType = RequestContentType.fromValue(request.contentType());
         switch (inputType) {
@@ -142,13 +165,13 @@ public class SageMakerServer {
         }
     }
 
-    private static String getErrorResponseJson(String errorMessage) {
+    private String getErrorResponseJson(String errorMessage) {
         String response =
             String.format("{ \"%s\" : \"%s\" }", RESPONSE_KEY_ERROR_MESSAGE, errorMessage);
         return response;
     }
 
-    static class UnsupportedContentTypeException extends PredictorEvaluationException {
+    class UnsupportedContentTypeException extends PredictorEvaluationException {
         protected UnsupportedContentTypeException(String contentType) {
             super(String.format("Unsupported request input type: %s", contentType));
         }
@@ -168,6 +191,7 @@ public class SageMakerServer {
         if (args.length > 1) {
             portNum = Optional.of(Integer.parseInt(args[2]));
         }
-        serve(modelPath, portNum);
+        SageMakerServer server = new SageMakerServer(modelPath, portNum, false);
+        server.start();
     }
 }
