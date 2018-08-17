@@ -18,12 +18,38 @@ import traceback
 import json
 from six import reraise
 
+import mlflow
 from mlflow.models import Model
 
 FLAVOR_NAME = "mleap"
 
 
+def log_model(spark_model, sample_input, artifact_path):
+    """
+    Log a Spark MLLib model in MLeap format as an MLflow artifact
+    for the current run. The logged model will have the MLeap flavor.
+
+    :param spark_Model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
+                  cannot contain any custom transformers.
+    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is 
+                         required by MLeap for data schema inference.
+    """
+    return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap, 
+                     spark_model=spark_model, sample_input=sample_input)
+
+
 def save_model(spark_model, sample_input, path, mlflow_model=Model()):
+    """
+    Save a Spark MLlib PipelineModel in MLeap format at the given local path.
+    The saved model will have the MLeap flavor.
+
+    :param path: Path of the MLFlow model to which this flavor is being added.
+    :param spark_Model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
+                  cannot contain any custom transformers.
+    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is 
+                         required by MLeap for data schema inference.
+    :param mlflow_model: MLFlow model config to which this flavor is being added.
+    """
     _add_to_model(mlflow_model, path, spark_model, sample_input)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 

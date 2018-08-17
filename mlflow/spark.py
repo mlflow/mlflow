@@ -1,7 +1,7 @@
 """
 MLflow integration for Spark MLlib models.
 This module enables the exporting of Spark MLlib models with the following flavors (formats):
-    1. Spark MLLib (native) format - Allows models to be loaded as Spark Transformers for scoring
+    1. Spark MLlib (native) format - Allows models to be loaded as Spark Transformers for scoring
                                      in a Spark session.
     2. PyFunc - Supports deployment outside of Spark by instantiating a SparkContext and reading 
                 input data as a Spark DataFrame prior to scoring.
@@ -32,7 +32,8 @@ DFS_TMP = "/tmp/mlflow"
 
 def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=DFS_TMP):
     """
-    Log a Spark MLlib model as an MLflow artifact for the current run.
+    Log a Spark MLlib model as an MLflow artifact for the current run. This will use the
+    MLlib persistence format, and the logged model will have the Spark flavor. 
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
@@ -122,15 +123,12 @@ class _HadoopFileSystem:
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
                dfs_tmpdir=DFS_TMP, sample_input=None):
     """
-    Save Spark MLlib PipelineModel at given local path.
+    Save a Spark MLlib PipelineModel at the given local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
-    Additionally, if a sample input (`sample_input`) is specified, the model will also
-    be serialized in MLeap format and the MLeap flavor will be added.
+    Additionally, if a sample input is specified via the `sample_input` parameter, the model 
+    will also be serialized in MLeap format and the MLeap flavor will be added.
     
-    MLeap flavor
-    will also be added to the model.
-
     :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
