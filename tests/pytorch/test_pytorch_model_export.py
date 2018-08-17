@@ -92,18 +92,18 @@ def test_log_model(model, data, predicted):
             try:
                 tracking.set_tracking_uri(tmp.path("test"))
                 if should_start_run:
-                    tracking.start_run()
+                    mlflow.start_run()
 
                 mlflow.pytorch.log_model(model, artifact_path="pytorch")
 
                 # Load model
-                run_id = tracking.active_run().info.run_uuid
+                run_id = mlflow.active_run().info.run_uuid
                 model_loaded = mlflow.pytorch.load_model("pytorch", run_id=run_id)
 
                 test_predictions = _predict(model_loaded, data)
                 assert np.all(test_predictions == predicted)
             finally:
-                tracking.end_run()
+                mlflow.end_run()
                 tracking.set_tracking_uri(old_uri)
 
 
