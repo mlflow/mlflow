@@ -22,6 +22,13 @@ which will automatically terminate the run at the end of the block.
 
 import os
 
+# Filter annoying Cython warnings that serve no good purpose, and so before
+# importing other modules.
+# See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
+import warnings
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E402
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
+
 # pylint: disable=wrong-import-position
 import mlflow.projects as projects  # noqa
 import mlflow.tracking as tracking  # noqa
