@@ -112,8 +112,8 @@ def load_pyfunc(path, **kwargs):
     """
     Load the model as PyFunc. The loaded PyFunc exposes a `predict(pd.DataFrame) -> pd.DataFrame`
     method that, given an input DataFrame of n rows and k float-valued columns, feeds a
-    corresponding (n x k) torch.FloatTensor (or torch.cuda.FloatTensor) as input to the PyTorch model. 
-    ``predict`` returns the model's predictions (output tensor) in a single-column DataFrame.
+    corresponding (n x k) torch.FloatTensor (or torch.cuda.FloatTensor) as input to the PyTorch
+    model. ``predict`` returns the model's predictions (output tensor) in a single-column DataFrame.
 
     :param path: Local filesystem path to the model saved by `mlflow.pytorch.log_model`.
     :param kwargs: kwargs to pass to `torch.load` method.
