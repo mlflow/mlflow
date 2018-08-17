@@ -79,10 +79,10 @@ def spark_model_iris():
     pandas_df['label'] = pd.Series(y)
     spark_session = pyspark.sql.SparkSession.builder \
         .config(key="spark_session.python.worker.reuse", value=True) \
-        .master("local-cluster[2, 1, 1024]") \
         .config(key='spark.jars.packages',
                 value='ml.combust.mleap:mleap-spark-base_2.11:0.10.0,'
                       'ml.combust.mleap:mleap-spark_2.11:0.10.0') \
+        .master("local-cluster[2, 1, 1024]") \
         .getOrCreate()
     spark_df = spark_session.createDataFrame(pandas_df)
     assembler = VectorAssembler(inputCols=iris.feature_names, outputCol="features")
@@ -224,7 +224,6 @@ def test_model_save_without_sample_output_produces_sparkml_flavor(spark_model_ir
     config_path = os.path.join(model_path, "MLmodel")
     assert os.path.exists(config_path)
     config = Model.load(config_path)
-    print(config.flavors)
     assert sparkm.FLAVOR_NAME in config.flavors
 
 
