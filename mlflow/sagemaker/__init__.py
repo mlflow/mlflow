@@ -202,7 +202,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      endpoint with an initial weight of zero (0). To route traffic to the model,
                      update the application's associated endpoint configuration using either the
                      AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
-                     https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
+                     https://docs.aws.amazon.com/sagemaker/latest/dg/
+                     API_UpdateEndpointWeightsAndCapacities.html.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
         (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
@@ -212,8 +213,24 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this application. For more information,
+                       new SageMaker model associated with this application. The acceptable values
+                       for this parameter are identical to those of the `VpcConfig` parameter in the
+                       SageMaker boto3 client (https://boto3.readthedocs.io/en/latest/reference/
+                       services/sagemaker.html#SageMaker.Client.create_model). For more information,
                        see https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+
+                       Example:
+
+                       >>> import mlflow.sagemaker as mfs
+                       >>> vpc_config = {
+                       ...                  'SecurityGroupIds': [
+                       ...                      'sg-123456abc',
+                       ...                  ],
+                       ...                  'Subnets': [
+                       ...                      'subnet-123456abc',
+                       ...                  ]
+                       ...              }
+                       >>> mfs.deploy(..., vpc_config=vpc_config)
     """
     if mode not in DEPLOYMENT_MODES:
         raise ValueError("`mode` must be one of: {mds}".format(
