@@ -1,9 +1,7 @@
 import time
 import unittest
 
-from mlflow.entities.metric import Metric
-from mlflow.entities.param import Param
-from mlflow.entities.run_data import RunData
+from mlflow.entities import Metric, Param, RunData
 from tests.helper_functions import random_str, random_int
 
 

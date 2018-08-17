@@ -79,6 +79,7 @@ import shutil
 import sys
 import pandas
 
+from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
@@ -124,7 +125,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
 def _load_model_conf(path, run_id=None):
     """Load a model configuration stored in Python function format."""
     if run_id:
-        path = tracking._get_model_log_dir(path, run_id)
+        path = tracking.utils._get_model_log_dir(path, run_id)
     conf_path = os.path.join(path, "MLmodel")
     model = Model.load(conf_path)
     if FLAVOR_NAME not in model.flavors:
@@ -151,7 +152,7 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
                               will be emitted.
     """
     if run_id:
-        path = tracking._get_model_log_dir(path, run_id)
+        path = tracking.utils._get_model_log_dir(path, run_id)
     conf = _load_model_conf(path)
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
@@ -212,7 +213,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     from pyspark.sql.functions import pandas_udf
 
     if run_id:
-        path = tracking._get_model_log_dir(path, run_id)
+        path = tracking.utils._get_model_log_dir(path, run_id)
 
     archive_path = SparkModelCache.add_local_model(spark, path)
 
@@ -289,13 +290,13 @@ def log_model(artifact_path, **kwargs):
     """
     with TempDir() as tmp:
         local_path = tmp.path(artifact_path)
-        run_id = tracking.active_run().info.run_uuid
+        run_id = active_run().info.run_uuid
         if 'model' in kwargs:
             raise Exception("Unused argument 'model'. log_model creates a new model object")
 
         save_model(dst_path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
                    **kwargs)
-        tracking.log_artifacts(local_path, artifact_path)
+        log_artifacts(local_path, artifact_path)
 
 
 def get_module_loader_src(src_path, dst_path):

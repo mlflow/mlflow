@@ -882,47 +882,6 @@ ListArtifacts.fromJs = function fromJs(pojo) {
   return new extended_ListArtifacts(pojoWithNestedImmutables);
 };
 
-export const GetArtifact = Immutable.Record({
-  // optional STRING
-  run_uuid: undefined,
-
-  // optional STRING
-  path: undefined,
-}, 'GetArtifact');
-
-/**
- * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
- * This reviver allow us to keep the Immutable.Record type when serializing JSON message
- * into nested Immutable Record class.
- */
-GetArtifact.fromJsReviver = function fromJsReviver(key, value) {
-  switch (key) {
-    default:
-      return Immutable.fromJS(value);
-  }
-};
-
-const extended_GetArtifact = ModelBuilder.extend(GetArtifact, {
-
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
-  },
-  getPath() {
-    return this.path !== undefined ? this.path : '';
-  },
-});
-
-/**
- * This is a customized fromJs function used to translate plain old Javascript
- * objects into this Immutable Record.  Example usage:
- *
- *   // The pojo is your javascript object
- *   const record = GetArtifact.fromJs(pojo);
- */
-GetArtifact.fromJs = function fromJs(pojo) {
-  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, GetArtifact.fromJsReviver);
-  return new extended_GetArtifact(pojoWithNestedImmutables);
-};
 
 export const GetMetricHistory = Immutable.Record({
   // required STRING

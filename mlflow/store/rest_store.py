@@ -4,12 +4,7 @@ from google.protobuf.json_format import MessageToJson, ParseDict
 
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities.experiment import Experiment
-from mlflow.entities.run import Run
-from mlflow.entities.run_info import RunInfo
-from mlflow.entities.param import Param
-
-from mlflow.entities.metric import Metric
+from mlflow.entities import Experiment, Run, RunInfo, Param, Metric
 
 from mlflow.utils.rest_utils import http_request
 
@@ -222,7 +217,7 @@ class RestStore(AbstractStore):
         """
         search_expressions_protos = [expr.to_proto() for expr in search_expressions]
         req_body = _message_to_json(SearchRuns(experiment_ids=experiment_ids,
-                                               search_expressions=search_expressions_protos))
+                                               anded_expressions=search_expressions_protos))
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 

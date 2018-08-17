@@ -20,8 +20,8 @@ import sklearn.neighbors
 
 import mlflow
 from mlflow import pyfunc
-import mlflow.pyfunc.cli
 from mlflow import tracking
+import mlflow.pyfunc.cli
 from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 
@@ -75,16 +75,16 @@ class TestModelExport(unittest.TestCase):
             with open(model_path, "wb") as f:
                 pickle.dump(self._linear_lr, f)
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
-            tracking.set_tracking_uri("file://%s" % tracking_dir)
-            tracking.start_run()
+            mlflow.set_tracking_uri("file://%s" % tracking_dir)
+            mlflow.start_run()
             try:
                 pyfunc.log_model(artifact_path="linear",
                                  data_path=model_path,
                                  loader_module=os.path.basename(__file__)[:-3],
                                  code_path=[__file__])
 
-                run_id = tracking.active_run().info.run_uuid
-                path = tracking._get_model_log_dir("linear", run_id)
+                run_id = mlflow.active_run().info.run_uuid
+                path = tracking.utils._get_model_log_dir("linear", run_id)
                 m = Model.load(os.path.join(path, "MLmodel"))
                 print(m.__dict__)
                 assert pyfunc.FLAVOR_NAME in m.flavors
@@ -93,8 +93,8 @@ class TestModelExport(unittest.TestCase):
                 xpred = x.predict(self._X)
                 np.testing.assert_array_equal(self._linear_lr_predict, xpred)
             finally:
-                tracking.end_run()
-                tracking.set_tracking_uri(None)
+                mlflow.end_run()
+                mlflow.set_tracking_uri(None)
                 # Remove the log directory in order to avoid adding new tests to pytest...
                 shutil.rmtree(tracking_dir)
 

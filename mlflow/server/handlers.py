@@ -8,12 +8,10 @@ from flask import Response, request, send_file
 from google.protobuf.json_format import MessageToJson, ParseDict
 from querystring_parser import parser
 
-from mlflow.entities.metric import Metric
-from mlflow.entities.param import Param
-from mlflow.entities.run_tag import RunTag
+from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
-    GetRun, SearchRuns, ListArtifacts, GetArtifact, GetMetricHistory, CreateRun, \
+    GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, ListExperiments, GetMetric, GetParam
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
@@ -66,6 +64,21 @@ def get_handler(request_class):
     :return:
     """
     return HANDLERS.get(request_class, _not_implemented)
+
+
+_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'md', 'rst', 'MLmodel', 'MLproject']
+
+
+def get_artifact_handler():
+    query_string = request.query_string.decode('utf-8')
+    request_dict = parser.parse(query_string, normalized=True)
+    run = _get_store().get_run(request_dict['run_uuid'])
+    filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_dict['path']))
+    extension = os.path.splitext(filename)[-1].replace(".", "")
+    if extension in _TEXT_EXTENSIONS:
+        return send_file(filename, mimetype='text/plain')
+    else:
+        return send_file(filename)
 
 
 def _not_implemented():
@@ -190,20 +203,6 @@ def _list_artifacts():
     return response
 
 
-_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'md', 'rst', 'MLmodel', 'MLproject']
-
-
-def _get_artifact():
-    request_message = _get_request_message(GetArtifact())
-    run = _get_store().get_run(request_message.run_uuid)
-    filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_message.path))
-    extension = os.path.splitext(filename)[-1].replace(".", "")
-    if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype='text/plain')
-    else:
-        return send_file(filename)
-
-
 def _get_metric_history():
     request_message = _get_request_message(GetMetricHistory())
     response_message = GetMetricHistory.Response()
@@ -290,7 +289,6 @@ HANDLERS = {
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
-    GetArtifact: _get_artifact,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
     GetParam: _get_param,

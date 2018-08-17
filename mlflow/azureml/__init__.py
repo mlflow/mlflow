@@ -10,7 +10,7 @@ import shutil
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking import _get_model_log_dir
+from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir
 from mlflow.version import VERSION as mlflow_version
