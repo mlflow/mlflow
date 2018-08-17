@@ -1,3 +1,6 @@
+import os
+import shutil
+
 from mlflow.utils import PYTHON_VERSION
 
 _conda_header = """name: mlflow-env
@@ -29,3 +32,21 @@ def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None
             f.write(prefix + prefix.join(pip_deps))
         f.write("\n")
     return path
+
+
+def add_conda_env(model_path, env_path):
+    """
+    model_path : The path to the root of the MLFlow model to which to add the conda environment.
+    env_path : The path of the conda environment. If `env_path` is `None`, no
+               environment will be added.
+
+    :return: Relative path to the conda environment within the MLFlow model directory,
+             or `None` if no conda environment was specified.
+    """
+    if env_path is None:
+        return None
+
+    env_basepath = os.path.basename(os.path.abspath(env_path))
+    dest_path = os.path.join(model_path, env_basepath)
+    shutil.copyfile(env_path, dest_path)
+    return env_basepath 
