@@ -137,7 +137,7 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
 
     def exclude(x):
-        return x == "mlruns"
+        return os.path.basename(x) == "mlruns"
 
     try:
         file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, exclude)
@@ -242,7 +242,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     tracking_uri = tracking.get_tracking_uri()
     _before_run_validations(tracking_uri, cluster_spec)
 
-    dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id, exclude_mlruns=True)
+    dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
     env_vars = {
          tracking._TRACKING_URI_ENV_VAR: tracking_uri,
          tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
