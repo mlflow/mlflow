@@ -69,7 +69,7 @@ There are a different kinds of remote tracking URIs:
 Logging Data to Runs
 --------------------
 
-You can log data to runs using either the MLflow Python or REST API. This section 
+You can log data to runs using either the MLflow Python or REST API. This section
 shows the Python API.
 
 Basic Logging Functions
@@ -124,7 +124,7 @@ just one block of code as follows:
 .. code:: python
 
    with mlflow.start_run():
-       mlflow.log_parameter("x", 1)
+       mlflow.log_param("x", 1)
        mlflow.log_metric("y", 2)
        ...
 
@@ -153,7 +153,7 @@ environment variable.
     # variable, or from the --experiment-id parameter passed to the MLflow CLI (the latter
     # taking precedence)
     with mlflow.start_run():
-        mlflow.log_parameter("a", 1)
+        mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
 
 
@@ -228,8 +228,8 @@ provider credentials as normal. For example, for S3, you can set the ``AWS_ACCES
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
-.. important:: 
-  
+.. important::
+
   If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root will be a path inside the File Store. Typically this is not an appropriate location, as the client and server will probably be referring to different physical locations (that is, the same path on different disks).
 
 Supported Artifact Stores
