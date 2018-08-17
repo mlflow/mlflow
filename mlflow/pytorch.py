@@ -1,9 +1,8 @@
-"""MLflow integration for PyTorch.
+"""
+MLflow integration for PyTorch.
 
-Manages logging and loading PyTorch models as Python Functions. You are expected to save your own
-``saved_models`` and pass their paths to ``log_saved_model()``
-so that MLflow can track the models.
-
+Manages logging and loading PyTorch models; logged models can be loaded back as PyTorch
+models or as Python Function models.
 """
 
 from __future__ import absolute_import
@@ -26,12 +25,13 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
-    :param pytorch_model: PyTorch model to be saved.
+    :param pytorch_model: PyTorch model to be saved. Must accept a single torch.FloatTensor as input
+                          and produce a single output tensor.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this defines enrionment for
-           the model. At minimum, it should specify python, pytorch and mlflow with appropriate
+    :param conda_env: Path to a Conda environment file. If provided, this defines the environment
+           for the model. At minimum, it should specify Python, PyTorch and MLflow with appropriate
            versions.
-    :param kwargs: kwargs to pass to `torch.save` method
+    :param kwargs: kwargs to pass to ``torch.save`` method
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch,
               pytorch_model=pytorch_model, conda_env=conda_env, **kwargs)
@@ -41,13 +41,14 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     """
     Save a PyTorch model to a path on the local file system.
 
-    :param pytorch_model: PyTorch model to be saved.
+    :param pytorch_model: PyTorch model to be saved. Must accept a single torch.FloatTensor as input
+                          and produce a single output tensor.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-           this model should be run it. At minimum, it should specify python, pytorch and mlflow
-           with appropriate versions.
+                      this model should be run in. At minimum, it should specify Python, PyTorch
+                      and MLflow with appropriate versions.
     :param mlflow_model: MLflow model config this flavor is being added to.
-    :param kwargs: kwargs to pass to `torch.save` method
+    :param kwargs: kwargs to pass to ``torch.save`` method
     """
 
     if not isinstance(pytorch_model, torch.nn.Module):
@@ -96,8 +97,8 @@ def _load_model(path, **kwargs):
 def load_model(path, run_id=None, **kwargs):
     """
     Load a PyTorch model from a local file (if run_id is None) or a run.
-    :param path: Local filesystem path or Run-relative artifact path to the model saved by
-        `mlflow.pytorch.log_model`.
+    :param path: Local filesystem path or Run-relative artifact path to the model saved 
+                 by `mlflow.pytorch.log_model`.
     :param run_id: Run ID. If provided it is combined with path to identify the model.
     :param kwargs: kwargs to pass to `torch.load` method
     """
@@ -109,7 +110,11 @@ def load_model(path, run_id=None, **kwargs):
 
 def load_pyfunc(path, **kwargs):
     """
-    Load the model as PyFunc.
+    Load the model as PyFunc. The loaded PyFunc exposes a `predict(pd.DataFrame) -> pd.DataFrame`
+    method that, given an input DataFrame of n rows and k float-valued columns, feeds a
+    corresponding (n x k) torch.FloatTensor as input to the PyTorch model. ``predict`` returns
+    the model's predictions (output tensor) in a single-column DataFrame.
+
     :param path: Local filesystem path to the model saved by `mlflow.pytorch.log_model`.
     :param kwargs: kwargs to pass to `torch.load` method
     """
@@ -119,7 +124,7 @@ def load_pyfunc(path, **kwargs):
 class _PyTorchWrapper(object):
     """
     Wrapper class that creates a predict function such that
-    predict(data: ndarray) -> model's output as numpy.ndarray
+    predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
     def __init__(self, pytorch_model):
         self.pytorch_model = pytorch_model
