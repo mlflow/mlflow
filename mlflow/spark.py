@@ -18,7 +18,7 @@ from pyspark.ml.pipeline import PipelineModel
 from pyspark.ml.base import Transformer
 
 import mlflow
-from mlflow import pyfunc
+from mlflow import pyfunc, mleap
 from mlflow.models import Model
 
 FLAVOR_NAME = "spark"
@@ -117,11 +117,16 @@ class _HadoopFileSystem:
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
-               dfs_tmpdir=DFS_TMP):
+               dfs_tmpdir=DFS_TMP, sample_input=None):
     """
     Save Spark MLlib PipelineModel at given local path.
 
-    Uses Spark MLlib persistence mechanism.
+    By default, this function saves models using the Spark MLlib persistence mechanism.
+    Additionally, if a sample input (`sample_input`) is specified, the model will also
+    be serialized in MLeap format and the MLeap flavor will be added.
+    
+    MLeap flavor
+    will also be added to the model.
 
     :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
     :param path: Local path where the model is to be saved.
@@ -134,6 +139,9 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
                        as Spark ML models read / write from / to DFS if running on a cluster. All
                        temporary files created on the DFS will be removed if this operation
                        completes successfully.
+    :param sample_input: A sample input that will be used to add the MLeap flavor to the model.
+                         This must be a PySpark dataframe that the model can evaluate. If
+                         `sample_input` is `None`, the MLeap flavor will not be added.
 
 
     >>> from mlflow import spark
@@ -145,11 +153,17 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     """
     if jars:
         raise Exception("jar dependencies are not implemented")
+
+    if sample_input is not None:
+        mleap.add_to_model(mlflow_model, path, spark_model, sample_input)
+
     if not isinstance(spark_model, Transformer):
-        raise Exception("Unexpected type {}. SparkML model works only with Transformers".format(
-            str(type(spark_model))))
+        raise Exception("Unexpected type {}." 
+                                 " SparkML can only serialize Spark Transformers".format(
+                                     str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
-        raise Exception("Not a PipelineModel. SparkML can save only PipelineModels.")
+        raise Exception("Not a PipelineModel. SparkML can only save PipelineModels.")
+
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     tmp_path = _tmp_path(dfs_tmpdir)
@@ -161,8 +175,6 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     if conda_env:
         model_conda_env = os.path.basename(os.path.abspath(conda_env))
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
-    if jars:
-        raise Exception("JAR dependencies are not yet implemented")
     mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version, model_data="model")
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data="model",
                         env=model_conda_env)
