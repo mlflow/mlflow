@@ -225,7 +225,7 @@ def test_model_save_without_sample_output_produces_sparkml_flavor(spark_model_ir
     assert os.path.exists(config_path)
     config = Model.load(config_path)
     print(config.flavors)
-    # assert sparkm.FLAVOR_NAME in config.flavors
+    assert sparkm.FLAVOR_NAME in config.flavors
 
 
 def test_model_save_with_sample_output_produces_sparkml_and_mleap_flavors(spark_model_iris,
