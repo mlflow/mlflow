@@ -5,10 +5,12 @@ Changelog
 ------------------
 
 Breaking changes:
+
 - There is now a distinction between the "fluent" and "service" components of the Tracking API. The fluent API deals with a notion of a global "active run", and are accessible in ``mlflow`` (e.g., ``mlflow.log_param``). The service API is effectively a Python SDK which closely resembles the REST API, and is available in ``mlflow.tracking``. It operates at lower level, and will look analogous in the upcoming R and Java Tracking SDKs. Please be aware of the following breaking changes:
-    - ``mlflow.tracking`` no longer exposes the fluent API, only ``mlflow``. So, code that was written like ``from mlflow.tracking import log_param`` will have to be ``from mlflow import log_param`` (note that almost all examples were already doing this).
-    - Access to the service API goes through the ``mlflow.tracking.get_service()`` function, which relies on the same tracking server set by either the environment variable ``MLFLOW_TRACKING_URI`` or by code with ``mlflow.tracking.set_tracking_uri()``. So code that used to look like ``mlflow.tracking.get_run()`` will now have to do ``mlflow.tracking.get_service().get_run()``. This does not apply to the fluent API.
-    - ``mlflow.ActiveRun`` has been converted into a lightweight wrapper around ``mlflow.entities.Run`` to enable the Python ``with`` syntax. This means that there are no longer any special methods returned when calling ``mlflow.start_run()``. These can be converted to the service API. For example, ``mlflow.start_run().set_terminated()`` would now be called as:
+
+  - ``mlflow.tracking`` no longer exposes the fluent API, only ``mlflow``. So, code that was written like ``from mlflow.tracking import log_param`` will have to be ``from mlflow import log_param`` (note that almost all examples were already doing this).
+  - Access to the service API goes through the ``mlflow.tracking.get_service()`` function, which relies on the same tracking server set by either the environment variable ``MLFLOW_TRACKING_URI`` or by code with ``mlflow.tracking.set_tracking_uri()``. So code that used to look like ``mlflow.tracking.get_run()`` will now have to do ``mlflow.tracking.get_service().get_run()``. This does not apply to the fluent API.
+  - ``mlflow.ActiveRun`` has been converted into a lightweight wrapper around ``mlflow.entities.Run`` to enable the Python ``with`` syntax. This means that there are no longer any special methods returned when calling ``mlflow.start_run()``. These can be converted to the service API. For example, ``mlflow.start_run().set_terminated()`` would now be called as:
 
     .. code:: python
 
@@ -18,7 +20,7 @@ Breaking changes:
 
     (Note that in a future version, we will likely rename or alias ``run_uuid``.)
 
-    - The Python entities returned by the servive API are now accessible in ``mlflow.entities`` directly. Where previously you may have used ``mlflow.entities.experiment.Experiment``, you would now just use ``mlflow.entities.Experiemnt``. The previous version still exists, but is deprecated and may be hidden in a future version.
+  - The Python entities returned by the servive API are now accessible in ``mlflow.entities`` directly. Where previously you may have used ``mlflow.entities.experiment.Experiment``, you would now just use ``mlflow.entities.Experiemnt``. The previous version still exists, but is deprecated and may be hidden in a future version.
 - url-parse dependency updated to 1.4.3 due to CVE in previous versions (#292, @mateiz)
 
 Features:
