@@ -202,8 +202,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      endpoint with an initial weight of zero (0). To route traffic to the model,
                      update the application's associated endpoint configuration using either the
                      AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
-                     https://docs.aws.amazon.com/sagemaker/latest/dg/
-                     API_UpdateEndpointWeightsAndCapacities.html.
+                     https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
         (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
