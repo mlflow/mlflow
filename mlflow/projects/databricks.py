@@ -8,16 +8,15 @@ import time
 
 from six.moves import shlex_quote, urllib
 
-from mlflow.entities import RunStatus, SourceType
+from mlflow.entities import RunStatus
 
 
-from mlflow.projects import _fetch_project, _expand_uri, _project_spec
+from mlflow.projects import _fetch_project
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
 from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
-from mlflow.tracking.fluent import _get_git_commit
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -136,8 +135,12 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
     """
     temp_tarfile_dir = tempfile.mkdtemp()
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+
+    def exclude(x):
+        return os.path.basename(x) == "mlruns"
+
     try:
-        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME)
+        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, exclude)
         with open(temp_tar_filename, "rb") as tarred_project:
             tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
         # TODO: Get subdirectory for experiment from the tracking server
@@ -231,23 +234,15 @@ def _before_run_validations(tracking_uri, cluster_spec):
             "tracking URI %s." % tracking_uri)
 
 
-def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                   git_username, git_password):
+def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
     """
     Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
     tracking_uri = tracking.get_tracking_uri()
     _before_run_validations(tracking_uri, cluster_spec)
-    work_dir = _fetch_and_clean_project(
-        uri=uri, version=version, git_username=git_username, git_password=git_password)
-    project = _project_spec.load_project(work_dir)
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
+
     dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
-    remote_run = tracking.get_service().create_run(
-        experiment_id=experiment_id, source_name=_expand_uri(uri),
-        source_version=_get_git_commit(work_dir), entry_point_name=entry_point,
-        source_type=SourceType.PROJECT)
     env_vars = {
          tracking._TRACKING_URI_ENV_VAR: tracking_uri,
          tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
