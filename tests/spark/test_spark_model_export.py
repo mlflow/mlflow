@@ -14,6 +14,7 @@ from collections import namedtuple
 import mlflow
 from mlflow import active_run, pyfunc
 from mlflow import spark as sparkm
+from mlflow.models import Model 
 
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
