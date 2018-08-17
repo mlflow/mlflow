@@ -112,11 +112,11 @@ def load_pyfunc(path, **kwargs):
     """
     Load the model as PyFunc. The loaded PyFunc exposes a `predict(pd.DataFrame) -> pd.DataFrame`
     method that, given an input DataFrame of n rows and k float-valued columns, feeds a
-    corresponding (n x k) torch.FloatTensor as input to the PyTorch model. ``predict`` returns
-    the model's predictions (output tensor) in a single-column DataFrame.
+    corresponding (n x k) torch.FloatTensor (or torch.cuda.FloatTensor) as input to the PyTorch model. 
+    ``predict`` returns the model's predictions (output tensor) in a single-column DataFrame.
 
     :param path: Local filesystem path to the model saved by `mlflow.pytorch.log_model`.
-    :param kwargs: kwargs to pass to `torch.load` method
+    :param kwargs: kwargs to pass to `torch.load` method.
     """
     return _PyTorchWrapper(_load_model(os.path.dirname(path), **kwargs))
 
@@ -132,6 +132,7 @@ class _PyTorchWrapper(object):
     def predict(self, data, device='cpu'):
         if not isinstance(data, pd.DataFrame):
             raise TypeError("Input data should be pandas.DataFrame")
+        self.pytorch_model.to(device)
         self.pytorch_model.eval()
         with torch.no_grad():
             input_tensor = torch.from_numpy(data.values.astype(np.float32)).to(device)
