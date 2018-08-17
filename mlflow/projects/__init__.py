@@ -49,6 +49,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
+            remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
     elif mode == "local" or mode is None:
