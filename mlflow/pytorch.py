@@ -97,7 +97,7 @@ def _load_model(path, **kwargs):
 def load_model(path, run_id=None, **kwargs):
     """
     Load a PyTorch model from a local file (if run_id is None) or a run.
-    :param path: Local filesystem path or Run-relative artifact path to the model saved 
+    :param path: Local filesystem path or Run-relative artifact path to the model saved
                  by `mlflow.pytorch.log_model`.
     :param run_id: Run ID. If provided it is combined with path to identify the model.
     :param kwargs: kwargs to pass to `torch.load` method
