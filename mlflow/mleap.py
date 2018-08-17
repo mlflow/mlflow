@@ -22,14 +22,21 @@ from six import reraise
 FLAVOR_NAME = "mleap"
 
 
-def add_to_model(mlflow_model, path, spark_model, sample_input):
+def save_model(spark_model, sample_input, path, mlflow_model=Model()):
+    _add_to_model(mlflow_model, path, spark_model, sample_input)
+    mlflow_model.save(os.path.join(path, "MLmodel"))
+
+
+def _add_to_model(mlflow_model, path, spark_model, sample_input):
     """
-    :param mlflow_model: MLFlow model config to which this flavor is being added
-    :param path: Path of the MLFlow model to which this flavor is being added
+    Internal method for adding the MLeap flavor to a pre-existing MLFlow model.
+
+    :param mlflow_model: MLFlow model config to which this flavor is being added.
+    :param path: Path of the MLFlow model to which this flavor is being added.
     :param spark_Model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
                   cannot contain any custom transformers.
-    :param sample_input: A sample input that the model can evaluate. This is required by MLeap
-                         for data schema inference.
+    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is 
+                         required by MLeap for data schema inference.
     """
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.ml.base import Transformer
@@ -40,17 +47,16 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
 
     if not isinstance(spark_model, Transformer):
         raise Exception("Unexpected type {}." 
-                                 " MLeap serialization only works with Spark Transformers".format(
-                                     str(type(spark_model))))
+                        " MLeap serialization only works with Spark Transformers".format(
+                            str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel." 
-                                 " MLeap can currently only save PipelineModels.")
+                        " MLeap can currently only save PipelineModels.")
     if sample_input is None:
-        raise Exception("A sample input must be specified" 
-                                 " in order to add the MLeap flavor!")
+        raise Exception("A sample input must be specified in order to add the MLeap flavor.")
     if not isinstance(sample_input, DataFrame):
-        raise Exception("The sample input must be a PySpark dataframe of type" 
-                                 " `{df_type}`".format(df_type=DataFrame.__module__))
+        raise Exception("The sample input must be a PySpark dataframe of type `{df_type}`".format(
+            df_type=DataFrame.__module__))
 
     mleap_path_full = os.path.join(path, "mleap")
     mleap_datapath_sub = os.path.join("mleap", "model")

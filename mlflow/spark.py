@@ -158,7 +158,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         raise Exception("jar dependencies are not implemented")
 
     if sample_input is not None:
-        mleap.add_to_model(mlflow_model, path, spark_model, sample_input)
+        mleap._add_to_model(mlflow_model, path, spark_model, sample_input)
 
     if not isinstance(spark_model, Transformer):
         raise Exception("Unexpected type {}." 

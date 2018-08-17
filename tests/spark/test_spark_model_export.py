@@ -217,23 +217,56 @@ def test_model_log(tmpdir, spark_model_iris):
                 shutil.rmtree(tracking_dir)
 
 
-def test_model_save_without_sample_output_produces_sparkml_flavor(spark_model_iris, model_path):
+def test_spark_module_model_save_without_sample_output_produces_sparkml_flavor(
+        spark_model_iris, model_path):
+    mlflow_model = Model()
     sparkm.save_model(spark_model=spark_model_iris.model,
                       path=model_path,
-                      sample_input=None)
+                      sample_input=None,
+                      mlflow_model=mlflow_model)
+    assert sparkm.FLAVOR_NAME in mlflow_model.flavors
+
     config_path = os.path.join(model_path, "MLmodel")
     assert os.path.exists(config_path)
     config = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in config.flavors
 
 
-def test_model_save_with_sample_output_produces_sparkml_and_mleap_flavors(spark_model_iris,
-        model_path):
+def test_spark_module_model_save_with_sample_output_produces_sparkml_and_mleap_flavors(
+        spark_model_iris, model_path):
+    mlflow_model = Model()
     sparkm.save_model(spark_model=spark_model_iris.model,
                       path=model_path,
-                      sample_input=spark_model_iris.training_df)
+                      sample_input=spark_model_iris.training_df,
+                      mlflow_model=mlflow_model)
+    assert sparkm.FLAVOR_NAME in mlflow_model.flavors
+    assert mleap.FLAVOR_NAME in config.flavors
+
     config_path = os.path.join(model_path, "MLmodel")
     assert os.path.exists(config_path)
     config = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in config.flavors
     assert mleap.FLAVOR_NAME in config.flavors
+
+
+def test_mleap_module_model_save_with_invalid_sample_input_raises_exception(
+        spark_model_iris, model_path):
+    with pytest.raises(Exception): 
+        sparkm.save_model(spark_model=spark_model_iris.model,
+                          path=model_path,
+                          sample_input=None)
+
+def test_mleap_module_model_save_with_valid_sample_input_produces_mleap_flavor(
+        spark_model_iris, model_path):
+    mlflow_model = Model()
+    mleap.save_model(spark_model=spark_model_iris.model,
+                     path=model_path,
+                     sample_input=spark_model_iris.training_df,
+                     mlflow_model=mlflow_model)
+    assert mleap.FLAVOR_NAME in config.flavors 
+
+    config_path = os.path.join(model_path, "MLmodel")
+    assert os.path.exists(config_path)
+    config = Model.load(config_path)
+    assert mleap.FLAVOR_NAME in config.flavors
+
