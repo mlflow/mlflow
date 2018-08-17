@@ -75,7 +75,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     # Extract project into a temporary directory. We don't extract directly into the desired
     # directory as tar extraction isn't guaranteed to be atomic
     cd $(mktemp -d) &&
-    tar -xzvf {container_tar_path} &&
+    tar --no-same-owner -xzvf {container_tar_path} &&
     # Atomically move the extracted project into the desired directory
     mv -T {tarfile_archive_name} {work_dir} &&
     {mlflow_run}
