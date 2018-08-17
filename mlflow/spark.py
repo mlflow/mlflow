@@ -191,7 +191,7 @@ def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
 
     """
     if run_id is not None:
-        path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
+        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     m = Model.load(os.path.join(path, 'MLmodel'))
     if FLAVOR_NAME not in m.flavors:
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))

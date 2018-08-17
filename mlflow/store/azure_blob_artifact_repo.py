@@ -3,7 +3,7 @@ import re
 
 from six.moves import urllib
 
-from mlflow.entities.file_info import FileInfo
+from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
 

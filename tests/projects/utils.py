@@ -1,15 +1,16 @@
 import filecmp
-import mock
 import os
 
 import pytest
 
-from mlflow.entities.run_status import RunStatus
+import mlflow
+from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
 
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
+TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
@@ -34,6 +35,8 @@ def assert_dirs_equal(expected, actual):
 
 @pytest.fixture()
 def tracking_uri_mock(tmpdir):
-    with mock.patch("mlflow.tracking.get_tracking_uri") as get_tracking_uri_mock:
-        get_tracking_uri_mock.return_value = str(tmpdir)
-        yield get_tracking_uri_mock
+    try:
+        mlflow.set_tracking_uri(tmpdir.strpath)
+        yield tmpdir
+    finally:
+        mlflow.set_tracking_uri(None)
