@@ -1,10 +1,13 @@
 """
 MLflow integration for Spark MLlib models.
-
-Spark MLlib models are saved and loaded using native Spark MLlib persistence.
-The models can be exported as pyfunc for out-of Spark deployment or it can be loaded back as Spark
-Transformer in order to score it in Spark. The pyfunc flavor instantiates SparkContext internally
-and reads the input data as Spark DataFrame prior to scoring.
+This module enables the exporting of Spark MLlib models with the following flavors (formats):
+    1. Spark MLLib (native) format - Allows models to be loaded as Spark Transformers for scoring
+                                     in a Spark session.
+    2. PyFunc - Supports deployment outside of Spark by instantiating a SparkContext and reading 
+                input data as a Spark DataFrame prior to scoring.
+    3. MLeap - Enables high-performance deployment outside of Spark by leveraging MLeap's
+               custom dataframe and pipeline representations. For more informatin about MLeap,
+               see https://github.com/combust/mleap.
 """
 
 from __future__ import absolute_import
