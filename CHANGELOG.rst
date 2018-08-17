@@ -1,6 +1,44 @@
 Changelog
 =========
 
+0.5.0 (2018-08-17)
+------------------
+
+Breaking changes:
+- There is now a distinction between the "fluent" and "service" components of the Tracking API. The fluent API deals with a notion of a global "active run", and are accessible in ``mlflow`` (e.g., ``mlflow.log_param``). The service API is effectively a Python SDK which closely resembles the REST API, and is available in ``mlflow.tracking``. It operates at lower level, and will look analogous in the upcoming R and Java Tracking SDKs. Please be aware of the following breaking changes:
+    - ``mlflow.tracking`` no longer exposes the fluent API, only ``mlflow``. So, code that was written like ``from mlflow.tracking import log_param`` will have to be ``from mlflow import log_param`` (note that almost all examples were already doing this).
+    - Access to the service API goes through the ``mlflow.tracking.get_service()`` function, which relies on the same tracking server set by either the environment variable ``MLFLOW_TRACKING_URI`` or by code with ``mlflow.tracking.set_tracking_uri()``. So code that used to look like ``mlflow.tracking.get_run()`` will now have to do ``mlflow.tracking.get_service().get_run()``. This does not apply to the fluent API.
+    - ``mlflow.ActiveRun`` has been converted into a lightweight wrapper around ``mlflow.entities.Run`` to enable the Python ``with`` syntax. This means that there are no longer any special methods returned when calling ``mlflow.start_run()``. These can be converted to the service API. For example, ``mlflow.start_run().set_terminated()`` would now be called as:
+
+    .. code:: python
+
+        import mlflow
+        run = mlflow.start_run()
+        mlflow.tracking.get_service().set_terminated(run.info.run_uuid)
+
+    (Note that in a future version, we will likely rename or alias ``run_uuid``.)
+
+    - The Python entities returned by the servive API are now accessible in ``mlflow.entities`` directly. Where previously you may have used ``mlflow.entities.experiment.Experiment``, you would now just use ``mlflow.entities.Experiemnt``. The previous version still exists, but is deprecated and may be hidden in a future version.
+- url-parse dependency updated to 1.4.3 due to CVE in previous versions (#292, @mateiz)
+
+Features:
+
+- [Models] Keras integration: we now support logging Keras models directly in the log_model API, model format, and serving APIs (#280, @ToonKBC)
+- [UI] Scatterplot added to "Compare Runs" view to help compare runs using any two metrics as the axes (#268, @ToonKBC)
+- [Artifacts] SFTP artifactory store added (#260, @ToonKBC)
+- Pyfunc serialization now includes the Python version, and warns if the major version differs (can be suppressed by using ``load_pyfunc(suppress_warnings=True)``) (#230, @dbczumar)
+- Pyfunc serve/predict will activate conda environment stored in MLModel. This can be disabled by adding ``--no-conda`` to ``mlflow pyfunc serve`` or ``mlflow pyfunc predict`` (#225, @0wu)
+- Python SDK formalized in ``mlflow.tracking``. This includes adding SDK methods for ``get_run``, ``list_experiments``, ``get_experiment``, and ``set_terminated``. (#299, @aarondav)
+- ``mlflow run`` can now be run against projects with no ``conda.yaml`` specified. By default, an empty conda environment will be created -- previously, it would just fail. You can still pass ``--no-conda`` to avoid entering a conda environment altogether (#218, @smurching)
+
+Bug fixes:
+
+- Fix numpy array array serialization for int64 and other related types, allowing pyfunc to return such results (#240, @arinto)
+- Fix DBFS artifactory calling ``log_artifacts`` with binary data (#295, @aarondav)
+- Fix Run Command shown in UI to reproduce a run when the original run is targeted at a subdirectory of a Git repo (#294, @adrian555)
+- Minor bug fixes and documentation updates (#266, #282, #289, @smurching; #267, #265, @aarondav; #256, #290, @ToonKBC; #273, #263, @mateiz; #272, #319, @adrian555; #277, @aadamson; #261, @stbof; #283, #296, @andrewmchen; #279, @dmatrix; #313, @rbang1)
+
+
 0.4.2 (2018-08-07)
 ------------------
 
