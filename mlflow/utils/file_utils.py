@@ -294,3 +294,15 @@ def _copy_project(src_path, dst_path=""):
     shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
                     ignore=_docker_ignore(src_path))
     return mlflow_dir
+
+
+def _copy_file_or_tree(src, dst, dst_dir):
+    name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
+    if dst_dir:
+        os.mkdir(os.path.join(dst, dst_dir))
+    if os.path.isfile(src):
+        shutil.copy(src=src, dst=os.path.join(dst, name))
+    else:
+        shutil.copytree(src=src, dst=os.path.join(dst, name))
+    return name
+

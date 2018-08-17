@@ -168,15 +168,16 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     # Save it to a DFS temp dir first and copy it to local path
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
-    model_path = os.path.abspath(os.path.join(path, "model"))
-    _HadoopFileSystem.copy_to_local_file(tmp_path, model_path, removeSrc=True)
+    sparkml_data_path_sub = "sparkml"
+    sparkml_data_path = os.path.abspath(os.path.join(path, sparkml_data_path_sub))
+    _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, removeSrc=True)
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
     if conda_env:
         model_conda_env = os.path.basename(os.path.abspath(conda_env))
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
-    mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version, model_data="model")
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data="model",
+    mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version, model_data=sparkml_data_path_sub)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=sparkml_data_path_sub,
                         env=model_conda_env)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
