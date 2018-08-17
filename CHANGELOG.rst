@@ -29,6 +29,7 @@ Breaking changes:
 Features:
 
 - [Models] Keras integration: we now support logging Keras models directly in the log_model API, model format, and serving APIs (#280, @ToonKBC)
+- [Models] PyTorch integration: we now support logging PyTorch models directly in the log_model API, model format, and serving APIs (#264, @vfdev-5)
 - [UI] Scatterplot added to "Compare Runs" view to help compare runs using any two metrics as the axes (#268, @ToonKBC)
 - [Artifacts] SFTP artifactory store added (#260, @ToonKBC)
 - Pyfunc serialization now includes the Python version, and warns if the major version differs (can be suppressed by using ``load_pyfunc(suppress_warnings=True)``) (#230, @dbczumar)
@@ -41,6 +42,7 @@ Bug fixes:
 - Fix numpy array array serialization for int64 and other related types, allowing pyfunc to return such results (#240, @arinto)
 - Fix DBFS artifactory calling ``log_artifacts`` with binary data (#295, @aarondav)
 - Fix Run Command shown in UI to reproduce a run when the original run is targeted at a subdirectory of a Git repo (#294, @adrian555)
+- Filter out ubiquitious dtype/ufunc warning messages (#317, @aarondav)
 - Minor bug fixes and documentation updates (#261, @stbof; #279, @dmatrix; #313, @rbang1, #320, @yassineAlouini; #266, #282, #289, @smurching; #267, #265, @aarondav; #256, #290, @ToonKBC; #273, #263, @mateiz; #272, #319, @adrian555; #277, @aadamson; #283, #296, @andrewmchen)
 
 

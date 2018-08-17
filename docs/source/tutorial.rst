@@ -18,7 +18,7 @@ is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datase
   :local:
   :depth: 1
 
-.. _what-youll-need
+.. _what_youll_need
 
 What You'll Need
 ----------------
