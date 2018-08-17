@@ -44,15 +44,15 @@ class ShowArtifactTextView extends Component {
         <div>
           Oops we couldn't load your file because of an error.
         </div>
-      )
+      );
     } else {
       return (
         <div className="ShowArtifactPage">
           <div className="text-area-border-box">
-            <textarea className={"text-area"} readOnly={true} value={this.state.text}/>
+            <textarea className={"text-area"} readOnly value={this.state.text}/>
           </div>
         </div>
-      )
+      );
     }
   }
 

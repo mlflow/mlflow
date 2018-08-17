@@ -7,7 +7,7 @@ import cookie from 'cookie';
 export const setupCsrf = () => {
   const csrfToken = getCsrfToken();
   $.ajaxSetup({
-    beforeSend: function(xhr) {
+    beforeSend(xhr) {
       if (csrfToken) {
         xhr.setRequestHeader(CSRF_HEADER_NAME, csrfToken);
       }

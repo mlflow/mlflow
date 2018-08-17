@@ -13,6 +13,7 @@ def sftp_mock():
     return MagicMock(autospec=pysftp.Connection)
 
 
+@pytest.mark.large
 def test_artifact_uri_factory():
     from paramiko.ssh_exception import SSHException
     with pytest.raises(SSHException):

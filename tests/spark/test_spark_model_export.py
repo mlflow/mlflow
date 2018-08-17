@@ -10,9 +10,9 @@ import pytest
 from sklearn import datasets
 import shutil
 
-from mlflow import pyfunc
+import mlflow
+from mlflow import active_run, pyfunc
 from mlflow import spark as sparkm
-from mlflow import tracking
 
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -116,7 +116,7 @@ def test_model_log(tmpdir):
     # Print the coefficients and intercept for multinomial logistic regression
     preds_df = model.transform(spark_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
-    old_tracking_uri = tracking.get_tracking_uri()
+    old_tracking_uri = mlflow.get_tracking_uri()
     cnt = 0
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
@@ -124,9 +124,9 @@ def test_model_log(tmpdir):
             print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
             try:
                 tracking_dir = os.path.abspath(str(tmpdir.mkdir("mlruns")))
-                tracking.set_tracking_uri("file://%s" % tracking_dir)
+                mlflow.set_tracking_uri("file://%s" % tracking_dir)
                 if should_start_run:
-                    tracking.start_run()
+                    mlflow.start_run()
                 artifact_path = "model%d" % cnt
                 cnt += 1
                 if dfs_tmp_dir:
@@ -134,7 +134,7 @@ def test_model_log(tmpdir):
                                      dfs_tmpdir=dfs_tmp_dir)
                 else:
                     sparkm.log_model(artifact_path=artifact_path, spark_model=model)
-                run_id = tracking.active_run().info.run_uuid
+                run_id = active_run().info.run_uuid
                 # test pyfunc
                 x = pyfunc.load_pyfunc(artifact_path, run_id=run_id)
                 preds2 = x.predict(pandas_df)
@@ -153,6 +153,6 @@ def test_model_log(tmpdir):
                 assert not os.listdir(x)
                 shutil.rmtree(x)
             finally:
-                tracking.end_run()
-                tracking.set_tracking_uri(old_tracking_uri)
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_tracking_uri)
                 shutil.rmtree(tracking_dir)

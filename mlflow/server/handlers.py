@@ -8,9 +8,7 @@ from flask import Response, request, send_file
 from google.protobuf.json_format import MessageToJson, ParseDict
 from querystring_parser import parser
 
-from mlflow.entities.metric import Metric
-from mlflow.entities.param import Param
-from mlflow.entities.run_tag import RunTag
+from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \

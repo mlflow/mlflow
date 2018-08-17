@@ -11,7 +11,7 @@ class HomePage extends Component {
   constructor(props) {
     super(props);
     this.onClickListExperiments = this.onClickListExperiments.bind(this);
-  };
+  }
 
   static propTypes = {
     match: PropTypes.object.isRequired,
@@ -64,7 +64,7 @@ class HomePage extends Component {
             <ExperimentPage match={this.props.match}/>
           </div>
         </div>
-      )
+      );
     }
   }
 }
@@ -82,7 +82,7 @@ const mapDispatchToProps = (dispatch) => {
     dispatchListExperimentsApi: (requestId) => {
       dispatch(listExperimentsApi(requestId));
     }
-  }
+  };
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(HomePage);

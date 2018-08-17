@@ -6,7 +6,7 @@ import tempfile
 
 import yaml
 
-from mlflow.entities.file_info import FileInfo
+from mlflow.entities import FileInfo
 
 
 def is_directory(name):
