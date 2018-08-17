@@ -46,7 +46,12 @@ script:
   - echo $MLFLOW_HOME
   - mlflow sagemaker build-and-push-container --no-push --mlflow-home .
   - ./lint.sh
-  - pytest --cov=mlflow --verbose --large
+  - pytest --cov=mlflow --verbose --large --ignore=tests/tensorflow --ignore=tests/keras --ignore=tests/spark --ignore=tests/pytorch --ignore=tests/sagemaker --ignore=tests/h2o
+  - pytest tests/keras --large
+  - pytest tests/spark --large
+  - pytest tests/pytorch --large
+  - pytest tests/sagemaker --large
+  - pytest tests/h2o --large
   - cd mlflow/server/js
   - npm i
   - ./lint.sh
