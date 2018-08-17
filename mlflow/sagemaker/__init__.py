@@ -708,7 +708,7 @@ def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image
             'Environment': {},
         },
         "ExecutionRoleArn": execution_role,
-        "Tags": [{'Key': 'run_id', 'Value': str(run_id)},],
+        "Tags": [{'Key': 'run_id', 'Value': str(run_id)}],
     }
     if vpc_config is not None:
         create_model_args["VpcConfig"] = vpc_config
