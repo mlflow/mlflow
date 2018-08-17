@@ -14,6 +14,7 @@ import sklearn
 from mlflow.utils.file_utils import TempDir
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 import mlflow.tracking
 
 
@@ -48,10 +49,10 @@ def log_model(sk_model, artifact_path):
     with TempDir() as tmp:
         local_path = tmp.path("model")
         # TODO: I get active_run_id here but mlflow.tracking.log_output_files has its own way
-        run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
+        run_id = _get_or_start_run().info.run_uuid
         mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
         save_model(sk_model, local_path, mlflow_model=mlflow_model)
-        mlflow.tracking.log_artifacts(local_path, artifact_path)
+        log_artifacts(local_path, artifact_path)
 
 
 def _load_model_from_local_file(path):
@@ -74,7 +75,7 @@ def load_pyfunc(path):
 def load_model(path, run_id=None):
     """Load a scikit-learn model from a local file (if ``run_id`` is None) or a run."""
     if run_id is not None:
-        path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
+        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model_from_local_file(path)
 
 

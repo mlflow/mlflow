@@ -7,7 +7,7 @@ import shutil
 import pytest
 
 import mlflow
-from mlflow.entities.run_status import RunStatus
+from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
 from mlflow.utils import file_utils
 

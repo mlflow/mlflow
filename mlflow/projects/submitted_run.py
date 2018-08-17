@@ -3,7 +3,7 @@ from abc import abstractmethod
 import os
 import signal
 
-from mlflow.entities.run_status import RunStatus
+from mlflow.entities import RunStatus
 from mlflow.utils.logging_utils import eprint
 
 
