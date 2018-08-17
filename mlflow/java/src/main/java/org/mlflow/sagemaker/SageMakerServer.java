@@ -22,7 +22,7 @@ public class SageMakerServer {
 
     private static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
     private static final int HTTP_RESPONSE_CODE_SUCCESS = 200;
-    private static final int DEFAULT_PORT = 8080;
+    private static final int DEFAULT_PORT = 5001;
 
     private enum RequestContentType {
         Csv("text/csv"),
