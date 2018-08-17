@@ -8,16 +8,15 @@ import time
 
 from six.moves import shlex_quote, urllib
 
-from mlflow.entities import RunStatus, SourceType
+from mlflow.entities import RunStatus
 
 
-from mlflow.projects import _fetch_project, _expand_uri, _project_spec
+from mlflow.projects import _fetch_project
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
 from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
-from mlflow.tracking.fluent import _get_git_commit
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -126,7 +125,7 @@ def _dbfs_path_exists(dbfs_uri):
     return True
 
 
-def _upload_project_to_dbfs(project_dir, experiment_id):
+def _upload_project_to_dbfs(project_dir, experiment_id, exclude_mlruns=False):
     """
     Tars a project directory into an archive in a temp dir and uploads it to DBFS, returning
     the HDFS-style URI of the tarball in DBFS (e.g. dbfs:/path/to/tar).
@@ -136,8 +135,11 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
     """
     temp_tarfile_dir = tempfile.mkdtemp()
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+
+    def exclude(x):
+        return exclude_mlruns and x == "mlruns"
     try:
-        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME)
+        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, exclude)
         with open(temp_tar_filename, "rb") as tarred_project:
             tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
         # TODO: Get subdirectory for experiment from the tracking server
@@ -239,7 +241,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     tracking_uri = tracking.get_tracking_uri()
     _before_run_validations(tracking_uri, cluster_spec)
 
-    dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
+    dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id, exclude_mlruns=True)
     env_vars = {
          tracking._TRACKING_URI_ENV_VAR: tracking_uri,
          tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
