@@ -231,18 +231,14 @@ def _before_run_validations(tracking_uri, cluster_spec):
             "tracking URI %s." % tracking_uri)
 
 
-def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                   git_username, git_password):
+def run_databricks(uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
     """
     Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
     tracking_uri = tracking.get_tracking_uri()
     _before_run_validations(tracking_uri, cluster_spec)
-    work_dir = _fetch_and_clean_project(
-        uri=uri, version=version, git_username=git_username, git_password=git_password)
-    project = _project_spec.load_project(work_dir)
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
+
     dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
     remote_run = tracking.get_service().create_run(
         experiment_id=experiment_id, source_name=_expand_uri(uri),
