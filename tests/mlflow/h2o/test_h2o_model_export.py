@@ -14,8 +14,8 @@ from h2o.estimators.gbm import H2OGradientBoostingEstimator
 
 import tempfile
 import mlflow.h2o
+import mlflow
 from mlflow import pyfunc
-from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
 
 
@@ -48,20 +48,20 @@ class TestModelExport(unittest.TestCase):
             assert all(pyfunc_loaded.predict(self.test.as_data_frame()) == self.predicted)
 
     def test_model_log(self):
-        old_uri = tracking.get_tracking_uri()
+        old_uri = mlflow.get_tracking_uri()
         # should_start_run tests whether or not calling log_model() automatically starts a run.
         for should_start_run in [False, True]:
             with TempDir(chdr=True, remove_on_exit=True) as tmp:
                 try:
-                    tracking.set_tracking_uri("test")
+                    mlflow.set_tracking_uri("test")
                     if should_start_run:
-                        tracking.start_run()
+                        mlflow.start_run()
                     mlflow.h2o.log_model(self.gbm, artifact_path="gbm")
 
                     # Load model
                     gbm_loaded = mlflow.h2o.load_model("gbm",
-                                                       run_id=tracking.active_run().info.run_uuid)
+                                                       run_id=mlflow.active_run().info.run_uuid)
                     assert all(gbm_loaded.predict(self.test).as_data_frame() == self.predicted)
                 finally:
-                    tracking.end_run()
-                    tracking.set_tracking_uri(old_uri)
+                    mlflow.end_run()
+                    mlflow.set_tracking_uri(old_uri)

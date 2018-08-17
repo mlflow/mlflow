@@ -2,14 +2,7 @@ import os
 
 import uuid
 
-from mlflow.entities.experiment import Experiment
-from mlflow.entities.metric import Metric
-from mlflow.entities.param import Param
-from mlflow.entities.run import Run
-from mlflow.entities.run_data import RunData
-from mlflow.entities.run_info import RunInfo
-
-from mlflow.entities.run_status import RunStatus
+from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
 
