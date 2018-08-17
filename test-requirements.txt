@@ -14,5 +14,7 @@ pytest-cov
 rstcheck==3.2
 scipy
 tensorflow
+http://download.pytorch.org/whl/cpu/torch-0.4.1-cp27-cp27mu-linux_x86_64.whl ; python_version == '2.7'
+http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl ; python_version == '3.6'
 pysftp
 keras
