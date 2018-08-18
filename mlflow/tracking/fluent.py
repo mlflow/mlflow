@@ -106,7 +106,7 @@ def log_param(key, value):
     Log the passed-in parameter under the current run, creating a run if necessary.
 
     :param key: Parameter name (string)
-    :param value: Parameter value (string)
+    :param value: Parameter value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_uuid
     get_service().log_param(run_id, key, value)
