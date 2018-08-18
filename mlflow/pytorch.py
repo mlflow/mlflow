@@ -98,7 +98,8 @@ def load_model(path, run_id=None, **kwargs):
     """
     Load a PyTorch model from a local file (if run_id is None) or a run.
     :param path: Local filesystem path or Run-relative artifact path to the model saved
-                 by `mlflow.pytorch.log_model`.
+    by :py:func:`mlflow.pytorch.log_model`.
+
     :param run_id: Run ID. If provided it is combined with path to identify the model.
     :param kwargs: kwargs to pass to `torch.load` method
     """
@@ -115,7 +116,7 @@ def load_pyfunc(path, **kwargs):
     corresponding (n x k) torch.FloatTensor (or torch.cuda.FloatTensor) as input to the PyTorch
     model. ``predict`` returns the model's predictions (output tensor) in a single-column DataFrame.
 
-    :param path: Local filesystem path to the model saved by `mlflow.pytorch.log_model`.
+    :param path: Local filesystem path to the model saved by :py:func:`mlflow.pytorch.log_model`.
     :param kwargs: kwargs to pass to `torch.load` method.
     """
     return _PyTorchWrapper(_load_model(os.path.dirname(path), **kwargs))
