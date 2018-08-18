@@ -18,8 +18,6 @@ is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datase
   :local:
   :depth: 1
 
-.. _what-youll-need
-
 What You'll Need
 ----------------
 To run this tutorial, you'll need to:
