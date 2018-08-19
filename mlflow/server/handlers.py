@@ -117,8 +117,9 @@ def _get_experiment():
 
 
 def _get_experiment_by_name():
-    request_message = _get_request_message(GetExperimentByName(), from_get=True)
-    response_message = GetExperiment.Response()
+    request_message = _get_request_message(GetExperimentByName())
+
+    response_message = GetExperimentByName.Response()
     response_message.experiment.MergeFrom(_get_store().get_experiment_by_name(request_message.name)
                                           .to_proto())
     run_info_entities = _get_store().list_run_infos(response_message.experiment.experiment_id)
