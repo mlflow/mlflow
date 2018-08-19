@@ -59,6 +59,16 @@
       <artifactId>slf4j-nop</artifactId>
       <version>1.6.6</version>
     </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-jdk14</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
+      <groupId>com.mashape.unirest</groupId>
+      <artifactId>unirest-java</artifactId>
+      <version>1.4.9</version>
+      </dependency>
   </dependencies>
   <build>
     <plugins>

@@ -21,9 +21,9 @@ import spark.Service;
 public class SageMakerServer {
     public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
 
-    private static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
-    private static final int HTTP_RESPONSE_CODE_SUCCESS = 200;
-    private static final int DEFAULT_PORT = 5001;
+    public static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
+    public static final int HTTP_RESPONSE_CODE_SUCCESS = 200;
+    public static final int DEFAULT_PORT = 5001;
 
     private enum RequestContentType {
         Csv("text/csv"),
@@ -67,7 +67,11 @@ public class SageMakerServer {
         this(modelPath, Optional.empty(), failOnUnsuccessfulModelLoad);
     }
 
-    public SageMakerServer(
+    public SageMakerServer(String modelPath, int portNumber, boolean failOnUnsuccessfulModelLoad) {
+        this(modelPath, Optional.of(portNumber), failOnUnsuccessfulModelLoad);
+    }
+
+    private SageMakerServer(
         String modelPath, Optional<Integer> portNumber, boolean failOnUnsuccessfulModelLoad) {
         Optional<Predictor> predictor = Optional.empty();
         try {
@@ -126,6 +130,19 @@ public class SageMakerServer {
         });
 
         this.activeService = Optional.of(newService);
+    }
+
+    public void stop() {
+        if (activeService.isPresent()) {
+            activeService.get().stop();
+            activeService = Optional.empty();
+        } else {
+            throw new IllegalStateException("Attempted to stop the server that is not active!");
+        }
+    }
+
+    public boolean isActive() {
+        return activeService.isPresent();
     }
 
     private String yieldMissingPredictorError(Response response) {
