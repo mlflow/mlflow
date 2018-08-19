@@ -18,7 +18,7 @@ import spark.Service;
 /**
  * A RESTful webserver for {@link Predictor Predictors}
  */
-public class SageMakerServer {
+public class ScoringServer {
     public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
 
     public static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
@@ -55,23 +55,23 @@ public class SageMakerServer {
     private final Optional<Integer> portNumber;
     private Optional<Service> activeService = Optional.empty();
 
-    public SageMakerServer(Predictor predictor) {
+    public ScoringServer(Predictor predictor) {
         this(Optional.of(predictor), Optional.empty());
     }
 
-    public SageMakerServer(Predictor predictor, int portNumber) {
+    public ScoringServer(Predictor predictor, int portNumber) {
         this(Optional.of(predictor), Optional.of(portNumber));
     }
 
-    public SageMakerServer(String modelPath, boolean failOnUnsuccessfulModelLoad) {
+    public ScoringServer(String modelPath, boolean failOnUnsuccessfulModelLoad) {
         this(modelPath, Optional.empty(), failOnUnsuccessfulModelLoad);
     }
 
-    public SageMakerServer(String modelPath, int portNumber, boolean failOnUnsuccessfulModelLoad) {
+    public ScoringServer(String modelPath, int portNumber, boolean failOnUnsuccessfulModelLoad) {
         this(modelPath, Optional.of(portNumber), failOnUnsuccessfulModelLoad);
     }
 
-    private SageMakerServer(
+    private ScoringServer(
         String modelPath, Optional<Integer> portNumber, boolean failOnUnsuccessfulModelLoad) {
         Optional<Predictor> predictor = Optional.empty();
         try {
@@ -84,7 +84,7 @@ public class SageMakerServer {
         this.portNumber = portNumber;
     }
 
-    private SageMakerServer(Optional<Predictor> predictor, Optional<Integer> portNumber) {
+    private ScoringServer(Optional<Predictor> predictor, Optional<Integer> portNumber) {
         this.predictor = predictor;
         this.portNumber = portNumber;
     }
@@ -196,7 +196,7 @@ public class SageMakerServer {
 
     /**
      * Entrypoint for locally serving MLFlow models with the MLeap flavor using the
-     * {@link SageMakerServer}
+     * {@link ScoringServer}
      *
      * This entrypoint expects the following arguments:
      * 1. The path to the MLFlow model to serve. This model must have the MLeap flavor.
@@ -208,7 +208,7 @@ public class SageMakerServer {
         if (args.length > 1) {
             portNum = Optional.of(Integer.parseInt(args[2]));
         }
-        SageMakerServer server = new SageMakerServer(modelPath, portNum, false);
+        ScoringServer server = new ScoringServer(modelPath, portNum, false);
         server.start();
     }
 }

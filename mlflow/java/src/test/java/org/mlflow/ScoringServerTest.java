@@ -21,7 +21,7 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-public class SageMakerServerTest {
+public class ScoringServerTest {
   private class TestPredictor extends Predictor {
     private final boolean succeed;
     private final Optional<String> responseContent;
@@ -52,11 +52,11 @@ public class SageMakerServerTest {
   }
 
   @Test
-  public void testSageMakerServerWithValidPredictorRespondsToPingsCorrectly()
+  public void testScoringServerWithValidPredictorRespondsToPingsCorrectly()
       throws InterruptedException {
     TestPredictor validPredictor = new TestPredictor(true);
     int portNumber = 5001;
-    SageMakerServer server = new SageMakerServer(validPredictor, portNumber);
+    ScoringServer server = new ScoringServer(validPredictor, portNumber);
     server.start();
 
     Thread.sleep(5000);
@@ -64,7 +64,7 @@ public class SageMakerServerTest {
     String requestUrl = String.format("http://localhost:%d/ping", portNumber);
     try {
       HttpResponse response = Unirest.get(requestUrl).asJson();
-      Assert.assertEquals(response.getStatus(), SageMakerServer.HTTP_RESPONSE_CODE_SUCCESS);
+      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
     } catch (UnirestException e) {
       e.printStackTrace();
       Assert.fail("Encountered an exception while attempting to ping the server!");
@@ -73,11 +73,11 @@ public class SageMakerServerTest {
   }
 
   @Test
-  public void testSageMakerServerWithMissingPredictorRespondsToPingsWithServerErrorCode()
+  public void testScoringServerWithMissingPredictorRespondsToPingsWithServerErrorCode()
       throws InterruptedException {
     String badModelPath = "/not/a/valid/path";
     int portNumber = 5001;
-    SageMakerServer server = new SageMakerServer(badModelPath, portNumber, false);
+    ScoringServer server = new ScoringServer(badModelPath, portNumber, false);
     server.start();
 
     Thread.sleep(5000);
@@ -85,7 +85,7 @@ public class SageMakerServerTest {
     String requestUrl = String.format("http://localhost:%d/ping", portNumber);
     try {
       HttpResponse response = Unirest.get(requestUrl).asJson();
-      Assert.assertEquals(response.getStatus(), SageMakerServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
+      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
     } catch (UnirestException e) {
       e.printStackTrace();
       Assert.fail("Encountered an exception while attempting to ping the server!");
@@ -94,11 +94,11 @@ public class SageMakerServerTest {
   }
 
   @Test
-  public void testSageMakerServerWithMissingPredictorRespondsToInvocationsWithServerErrorCode()
+  public void testScoringServerWithMissingPredictorRespondsToInvocationsWithServerErrorCode()
       throws InterruptedException {
     String badModelPath = "/not/a/valid/path";
     int portNumber = 5001;
-    SageMakerServer server = new SageMakerServer(badModelPath, portNumber, false);
+    ScoringServer server = new ScoringServer(badModelPath, portNumber, false);
     server.start();
 
     Thread.sleep(5000);
@@ -107,7 +107,7 @@ public class SageMakerServerTest {
     try {
       HttpResponse<JsonNode> response =
           Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
-      Assert.assertEquals(response.getStatus(), SageMakerServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
+      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
     } catch (UnirestException e) {
       e.printStackTrace();
       Assert.fail("Encountered an exception while attempting to ping the server!");
@@ -116,22 +116,24 @@ public class SageMakerServerTest {
   }
 
   @Test
-  public void testMultipleServersRunOnDifferentPortsSuccessfully() {
+  public void testMultipleServersRunOnDifferentPortsSuccessfully() throws InterruptedException {
     List<Integer> portNumbers = Arrays.asList(5001, 5002, 5003);
     TestPredictor predictor = new TestPredictor(true);
 
-    List<SageMakerServer> servers = new ArrayList<>();
+    List<ScoringServer> servers = new ArrayList<>();
     for (int portNumber : portNumbers) {
-      SageMakerServer newServer = new SageMakerServer(predictor, portNumber);
+      ScoringServer newServer = new ScoringServer(predictor, portNumber);
       newServer.start();
       servers.add(newServer);
     }
+
+    Thread.sleep(5000);
 
     for (int portNumber : portNumbers) {
       try {
         String requestUrl = String.format("http://localhost:%d/ping", portNumber);
         HttpResponse response = Unirest.get(requestUrl).asJson();
-        Assert.assertEquals(response.getStatus(), SageMakerServer.HTTP_RESPONSE_CODE_SUCCESS);
+        Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
       } catch (UnirestException e) {
         e.printStackTrace();
         Assert.fail(String.format(
@@ -140,13 +142,13 @@ public class SageMakerServerTest {
       }
     }
 
-    for (SageMakerServer server : servers) {
+    for (ScoringServer server : servers) {
       server.stop();
     }
   }
 
   @Test
-  public void testSageMakerServerWithValidPredictorRespondsToInvocationWithPredictorOutputContent()
+  public void testScoringServerWithValidPredictorRespondsToInvocationWithPredictorOutputContent()
       throws InterruptedException, UnirestException, IOException, JsonProcessingException {
     Map<String, String> predictorDict = new HashMap<>();
     predictorDict.put("Text", "Response");
@@ -154,7 +156,7 @@ public class SageMakerServerTest {
     TestPredictor predictor = new TestPredictor(predictorJson);
     int portNumber = 5001;
 
-    SageMakerServer server = new SageMakerServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor, portNumber);
     server.start();
 
     Thread.sleep(5000);
@@ -162,7 +164,7 @@ public class SageMakerServerTest {
     String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
     HttpResponse<JsonNode> response =
         Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
-    Assert.assertEquals(response.getStatus(), SageMakerServer.HTTP_RESPONSE_CODE_SUCCESS);
+    Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
     String responseJson = response.getBody().toString();
     Map<String, String> responseDict = SerializationUtils.fromJson(responseJson, Map.class);
     Assert.assertEquals(responseDict, predictorDict);
@@ -171,12 +173,12 @@ public class SageMakerServerTest {
   }
 
   @Test
-  public void testSageMakerServerRespondsWithServerErrorCodeWhenPredictorThrowsException()
+  public void testScoringServerRespondsWithServerErrorCodeWhenPredictorThrowsException()
       throws InterruptedException, UnirestException, IOException {
     TestPredictor predictor = new TestPredictor(false);
     int portNumber = 5001;
 
-    SageMakerServer server = new SageMakerServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor, portNumber);
     server.start();
 
     Thread.sleep(5000);
@@ -184,15 +186,15 @@ public class SageMakerServerTest {
     String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
     HttpResponse<JsonNode> response =
         Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
-    Assert.assertEquals(response.getStatus(), SageMakerServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
+    Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
 
     server.stop();
   }
 
   @Test
-  public void testInactiveSageMakerServerThrowsIllegalStateExceptionWhenStopped() {
+  public void testInactiveScoringServerThrowsIllegalStateExceptionWhenStopped() {
     TestPredictor predictor = new TestPredictor(true);
-    SageMakerServer server = new SageMakerServer(predictor, 5001);
+    ScoringServer server = new ScoringServer(predictor, 5001);
     try {
       server.stop();
       Assert.fail(
@@ -203,10 +205,10 @@ public class SageMakerServerTest {
   }
 
   @Test
-  public void testActiveSageMakerServerThrowsIllegalStateExceptionWhenStarted()
+  public void testActiveScoringServerThrowsIllegalStateExceptionWhenStarted()
       throws InterruptedException {
     TestPredictor predictor = new TestPredictor(true);
-    SageMakerServer server = new SageMakerServer(predictor, 5001);
+    ScoringServer server = new ScoringServer(predictor, 5001);
     server.start();
 
     Thread.sleep(5000);
@@ -222,15 +224,29 @@ public class SageMakerServerTest {
   }
 
   @Test
-  public void testSageMakerServerStartsAndStopsSuccessfully() throws InterruptedException {
+  public void testScoringServerStartsAndStopsSuccessfully() throws InterruptedException {
     TestPredictor predictor = new TestPredictor(true);
     int portNumber = 5001;
-    SageMakerServer server = new SageMakerServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor, portNumber);
     String requestUrl = String.format("http://localhost:%d/ping", portNumber);
 
     for (int i = 0; i < 3; ++i) {
       server.start();
       Thread.sleep(5000);
+      try {
+        HttpResponse response = Unirest.get(requestUrl).asJson();
+      } catch (UnirestException e) {
+        Assert.fail(
+            "Encountered an unexpected exception while attempting to ping the active scoring server.");
+      }
+      server.stop();
+      Thread.sleep(5000);
+      try {
+        HttpResponse response = Unirest.get(requestUrl).asJson();
+        Assert.fail("Expected the attempt to query an inactive server to throw an exception.");
+      } catch (UnirestException e) {
+        // Succeed
+      }
     }
   }
 }
