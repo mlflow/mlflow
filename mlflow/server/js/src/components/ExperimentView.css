@@ -129,3 +129,35 @@ span.error-message {
 .metric-text {
   position: relative;
 }
+
+.ExperimentView th.sortable {
+  white-space: nowrap;
+  cursor: pointer;
+
+  /* Prevent double click text select */
+  -webkit-user-select: none; /* Safari */
+   -khtml-user-select: none; /* Konqueror HTML */
+     -moz-user-select: none; /* Firefox */
+      -ms-user-select: none; /* Internet Explorer/Edge */
+          user-select: none;
+}
+
+.ExperimentView th.sortable::after {
+  content: " ";
+  font-size: 0;
+  display: inline-block;
+  margin: 0 0 0 4px;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 0 5px 8.7px 5px;
+}
+
+.ExperimentView th.sorted.asc::after {
+  border-color: transparent transparent #888 transparent;
+  border-width: 0 5px 8.7px 5px;
+}
+
+.ExperimentView th.sorted.desc::after {
+  border-color: #888 transparent transparent transparent;
+  border-width: 8.7px 5px 0 5px;
+}

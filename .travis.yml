@@ -7,9 +7,7 @@ services:
 matrix:
   include:
     - python: 2.7
-      env: TOXENV=py27
     - python: 3.6
-      env: TOXENV=py36
 install:
   - sudo mkdir -p /travis-install
   - sudo chown travis /travis-install
@@ -28,11 +26,13 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   # Useful for debugging any issues with conda
   - conda info -a
-  # Install virtualenv inside conda env
-  - conda install virtualenv
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
+  - source activate test-environment
+  - python --version
   - pip install --upgrade pip
+  - pip install -r dev-requirements.txt -q
+  - pip install -r test-requirements.txt -q
   - pip install .
-  - pip install -r dev-requirements.txt
   - export MLFLOW_HOME=$(pwd)
   # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
   - sudo rm -f /etc/boto.cfg
@@ -44,9 +44,14 @@ script:
   - pip list
   - which mlflow
   - echo $MLFLOW_HOME
-  - tox
+  - mlflow sagemaker build-and-push-container --no-push --mlflow-home .
+  - ./lint.sh
+  - pytest --cov=mlflow --verbose --large
   - cd mlflow/server/js
   - npm i
+  - ./lint.sh
   - npm test -- --coverage
-  - cd ../../..
+  - cd ../../java
+  - mvn clean test
+  - cd ../..
   - codecov -e TOXENV

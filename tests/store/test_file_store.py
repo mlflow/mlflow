@@ -4,7 +4,7 @@ import time
 import unittest
 import uuid
 
-from mlflow.entities.experiment import Experiment
+from mlflow.entities import Experiment, Metric, Param
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from tests.helper_functions import random_int, random_str
@@ -255,3 +255,22 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         # Expect 2 runs for each experiment
         assert len(fs.search_runs([self.experiments[0]], [])) == 2
+
+    def test_weird_param_names(self):
+        WEIRD_PARAM_NAME = "this is/a weird/but valid param"
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.log_param(run_uuid, Param(WEIRD_PARAM_NAME, "Value"))
+        param = fs.get_param(run_uuid, WEIRD_PARAM_NAME)
+        assert param.key == WEIRD_PARAM_NAME
+        assert param.value == "Value"
+
+    def test_weird_metric_names(self):
+        WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234))
+        metric = fs.get_metric(run_uuid, WEIRD_METRIC_NAME)
+        assert metric.key == WEIRD_METRIC_NAME
+        assert metric.value == 10
+        assert metric.timestamp == 1234

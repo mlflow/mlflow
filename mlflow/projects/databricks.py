@@ -1,30 +1,159 @@
+import hashlib
 import json
+import os
+import shutil
+import tempfile
+import textwrap
 import time
 
-from six.moves import shlex_quote
+from six.moves import shlex_quote, urllib
 
-from mlflow.entities.source_type import SourceType
+from mlflow.entities import RunStatus
 
-from mlflow.projects.pollable_run import DatabricksPollableRun
-from mlflow.utils import rest_utils
+
+from mlflow.projects import _fetch_project
+from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.utils import rest_utils, file_utils
+from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
 
+# Base directory within driver container for storing files related to MLflow
+DB_CONTAINER_BASE = "/databricks/mlflow"
+# Base directory within driver container for storing project archives
+DB_TARFILE_BASE = os.path.join(DB_CONTAINER_BASE, "project-tars")
+# Base directory directory within driver container for storing extracted project directories
+DB_PROJECTS_BASE = os.path.join(DB_CONTAINER_BASE, "projects")
+# Name to use for project directory when archiving it for upload to DBFS; the TAR will contain
+# a single directory with this name
+DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
+# Base directory within DBFS for storing code for project runs for experiments
+DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
+
 
 def _jobs_runs_get(databricks_run_id):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/get", method="GET", params={"run_id": databricks_run_id})
+        endpoint="jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
 
 
 def _jobs_runs_cancel(databricks_run_id):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/cancel", method="POST", req_body_json={"run_id": databricks_run_id})
+        endpoint="jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
 
 
 def _jobs_runs_submit(req_body_json):
     return rest_utils.databricks_api_request(
-        endpoint="jobs/runs/submit", method="POST", req_body_json=req_body_json)
+        endpoint="jobs/runs/submit", method="POST", json=req_body_json)
+
+
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
+    """
+    Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
+    """
+    # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
+    tar_hash = os.path.splitext(os.path.splitext(os.path.basename(dbfs_fuse_tar_uri))[0])[0]
+    container_tar_path = os.path.abspath(os.path.join(DB_TARFILE_BASE,
+                                                      os.path.basename(dbfs_fuse_tar_uri)))
+    project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
+    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
+                                            "--entry-point", entry_point]))
+    if run_id:
+        mlflow_run_arr.extend(["--run-id", run_id])
+    if parameters:
+        for key, value in parameters.items():
+            mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
+    mlflow_run_cmd = " ".join(mlflow_run_arr)
+    shell_command = textwrap.dedent("""
+    export PATH=$DB_HOME/conda/bin:$DB_HOME/python/bin:$PATH &&
+    mlflow --version &&
+    # Make local directories in the container into which to copy/extract the tarred project
+    mkdir -p {tarfile_base} {projects_base} &&
+    # Rsync from DBFS FUSE to avoid copying archive into local filesystem if it already exists
+    rsync -a -v --ignore-existing {dbfs_fuse_tar_path} {tarfile_base} &&
+    # Extract project into a temporary directory. We don't extract directly into the desired
+    # directory as tar extraction isn't guaranteed to be atomic
+    cd $(mktemp -d) &&
+    tar --no-same-owner -xzvf {container_tar_path} &&
+    # Atomically move the extracted project into the desired directory
+    mv -T {tarfile_archive_name} {work_dir} &&
+    {mlflow_run}
+    """.format(tarfile_base=DB_TARFILE_BASE, projects_base=DB_PROJECTS_BASE,
+               dbfs_fuse_tar_path=dbfs_fuse_tar_uri, container_tar_path=container_tar_path,
+               tarfile_archive_name=DB_TARFILE_ARCHIVE_NAME, work_dir=project_dir,
+               mlflow_run=mlflow_run_cmd))
+    return ["bash", "-c", shell_command]
+
+
+def _check_databricks_auth_available():
+    """
+    Verifies that information for making API requests to Databricks is available to MLflow, raising
+    an exception if not.
+    """
+    rest_utils.get_databricks_http_request_kwargs_or_fail()
+
+
+def _upload_to_dbfs(src_path, dbfs_fuse_uri):
+    """
+    Uploads the file at `src_path` to the specified DBFS URI within the Databricks workspace
+    corresponding to the default Databricks CLI profile.
+    """
+    eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
+    http_endpoint = dbfs_fuse_uri
+    http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail()
+    with open(src_path, 'rb') as f:
+        rest_utils.http_request(
+            endpoint=http_endpoint, method='POST', data=f,
+            **http_request_kwargs)
+
+
+def _dbfs_path_exists(dbfs_uri):
+    """
+    Returns True if the passed-in path exists in DBFS for the workspace corresponding to the
+    default Databricks CLI profile.
+    """
+    dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
+    json_response_obj = rest_utils.databricks_api_request(
+        endpoint="dbfs/get-status", method="GET", json={"path": dbfs_path})
+    # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
+    error_code_field = "error_code"
+    if error_code_field in json_response_obj:
+        if json_response_obj[error_code_field] == "RESOURCE_DOES_NOT_EXIST":
+            return False
+        raise ExecutionException("Got unexpected error response when checking whether file %s "
+                                 "exists in DBFS: %s" % json_response_obj)
+    return True
+
+
+def _upload_project_to_dbfs(project_dir, experiment_id):
+    """
+    Tars a project directory into an archive in a temp dir and uploads it to DBFS, returning
+    the HDFS-style URI of the tarball in DBFS (e.g. dbfs:/path/to/tar).
+
+    :param project_dir: Path to a directory containing an MLflow project to upload to DBFS (e.g.
+                        a directory containing an MLproject file).
+    """
+    temp_tarfile_dir = tempfile.mkdtemp()
+    temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+
+    def exclude(x):
+        return os.path.basename(x) == "mlruns"
+
+    try:
+        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, exclude)
+        with open(temp_tar_filename, "rb") as tarred_project:
+            tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
+        # TODO: Get subdirectory for experiment from the tracking server
+        dbfs_fuse_uri = os.path.join("/dbfs", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
+                                     "projects-code", "%s.tar.gz" % tarfile_hash)
+        if not _dbfs_path_exists(dbfs_fuse_uri):
+            _upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
+            eprint("=== Finished uploading project to %s ===" % dbfs_fuse_uri)
+        else:
+            eprint("=== Project already exists in DBFS ===")
+    finally:
+        shutil.rmtree(temp_tarfile_dir)
+    return dbfs_fuse_uri
 
 
 def _get_run_result_state(databricks_run_id):
@@ -35,21 +164,6 @@ def _get_run_result_state(databricks_run_id):
     """
     res = _jobs_runs_get(databricks_run_id)
     return res["state"].get("result_state", None)
-
-
-def _get_databricks_run_cmd(uri, entry_point, version, parameters):
-    """
-    Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
-    """
-    mlflow_run_cmd = ["mlflow", "run", uri, "--entry-point", entry_point]
-    if version is not None:
-        mlflow_run_cmd.extend(["--version", version])
-    if parameters is not None:
-        for key, value in parameters.items():
-            mlflow_run_cmd.extend(["-P", "%s=%s" % (key, value)])
-    mlflow_run_str = " ".join(map(shlex_quote, mlflow_run_cmd))
-    return ["bash", "-c", "export PATH=$PATH:$DB_HOME/python/bin:/$DB_HOME/conda/bin && %s"
-            % mlflow_run_str]
 
 
 def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
@@ -84,65 +198,75 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
     return databricks_run_id
 
 
-def _create_databricks_run(tracking_uri, experiment_id, source_name, source_version,
-                           entry_point_name):
+def _parse_dbfs_uri_path(dbfs_uri):
     """
-    Makes an API request to the specified tracking server to create a new run with the specified
-    attributes. Returns an `ActiveRun` that can be used to query the tracking server for the run's
-    status or log metrics/params for the run.
+    Parses and returns the absolute path within DBFS of the file with the specified URI. For
+    example, given an input of "dbfs:/my/dbfs/path", this method will return "/my/dbfs/path"
     """
-    if tracking.is_local_uri(tracking_uri):
-        # TODO: we'll actually use the Databricks deployment's tracking URI here in the future
-        eprint("WARNING: MLflow tracking URI is set to a local URI (%s), so results from "
-               "Databricks will not be logged permanently." % tracking_uri)
-        return None
-    else:
-        # Assume non-local tracking URIs are accessible from Databricks (won't work for e.g.
-        # localhost)
-        return tracking._create_run(experiment_id=experiment_id,
-                                    source_name=source_name,
-                                    source_version=source_version,
-                                    entry_point_name=entry_point_name,
-                                    source_type=SourceType.PROJECT)
+    return urllib.parse.urlparse(dbfs_uri).path
 
 
-def run_databricks(uri, entry_point, version, parameters, experiment_id, cluster_spec,
-                   git_username, git_password):
+def _fetch_and_clean_project(uri, version=None, git_username=None, git_password=None):
     """
-    Runs a project on Databricks, returning a `SubmittedRun` that can be used to query the run's
-    status or wait for the resulting Databricks Job run to terminate.
+    Fetches the project at the passed-in URI & prepares it for upload to DBFS. Returns the path of
+    the temporary directory into which the project was fetched.
     """
-    # Create run object with remote tracking server
+    work_dir = _fetch_project(
+        uri=uri, force_tempdir=True, version=version, git_username=git_username,
+        git_password=git_password)
+    # Remove the mlruns directory from the fetched project to avoid cache-busting
+    mlruns_dir = os.path.join(work_dir, "mlruns")
+    if os.path.exists(mlruns_dir):
+        shutil.rmtree(mlruns_dir)
+    return work_dir
+
+
+def _before_run_validations(tracking_uri, cluster_spec):
+    """Validations to perform before running a project on Databricks."""
+    _check_databricks_auth_available()
+    if cluster_spec is None:
+        raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
+                                 "on Databricks.")
+    if tracking.utils._is_local_uri(tracking_uri):
+        raise ExecutionException(
+            "When running on Databricks, the MLflow tracking URI must be set to a remote URI "
+            "accessible to both the current client and code running on Databricks. Got local "
+            "tracking URI %s." % tracking_uri)
+
+
+def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
+    """
+    Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
+    used to query the run's status or wait for the resulting Databricks Job run to terminate.
+    """
     tracking_uri = tracking.get_tracking_uri()
-    remote_run = _create_databricks_run(
-        tracking_uri=tracking_uri, experiment_id=experiment_id, source_name=uri,
-        source_version=version, entry_point_name=entry_point)
-    # Set up environment variables for remote execution
-    env_vars = {"MLFLOW_GIT_URI": uri}
-    if git_username is not None:
-        env_vars["MLFLOW_GIT_USERNAME"] = git_username
-    if git_password is not None:
-        env_vars["MLFLOW_GIT_PASSWORD"] = git_password
-    if experiment_id is not None:
-        env_vars[tracking._EXPERIMENT_ID_ENV_VAR] = experiment_id
-    if remote_run is not None:
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = tracking.get_tracking_uri()
-        env_vars[tracking._RUN_ID_ENV_VAR] = remote_run.run_info.run_uuid
+    _before_run_validations(tracking_uri, cluster_spec)
+
+    dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
+    env_vars = {
+         tracking._TRACKING_URI_ENV_VAR: tracking_uri,
+         tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+    }
+    run_id = remote_run.info.run_uuid
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
     # Launch run on Databricks
     with open(cluster_spec, 'r') as handle:
-        cluster_spec = json.load(handle)
-    command = _get_databricks_run_cmd(uri, entry_point, version, parameters)
+        try:
+            cluster_spec = json.load(handle)
+        except ValueError:
+            eprint("Error when attempting to load and parse JSON cluster spec from file "
+                   "%s. " % cluster_spec)
+            raise
+    command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
-    from mlflow.projects.submitted_run import SubmittedRun
-    return SubmittedRun(remote_run, DatabricksPollableRun(db_run_id))
+    return DatabricksSubmittedRun(db_run_id, run_id)
 
 
-def cancel_databricks(databricks_run_id):
+def _cancel_databricks(databricks_run_id):
     _jobs_runs_cancel(databricks_run_id)
 
 
-def monitor_databricks(databricks_run_id, sleep_interval=30):
+def _monitor_databricks(databricks_run_id, sleep_interval=30):
     """
     Polls a Databricks Job run (with run ID `databricks_run_id`) for termination, checking the
     run's status every `sleep_interval` seconds.
@@ -152,3 +276,33 @@ def monitor_databricks(databricks_run_id, sleep_interval=30):
         time.sleep(sleep_interval)
         result_state = _get_run_result_state(databricks_run_id)
     return result_state == "SUCCESS"
+
+
+class DatabricksSubmittedRun(SubmittedRun):
+    """
+    Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
+    project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
+    server accessible to the local client.
+    """
+    def __init__(self, databricks_run_id, run_id):
+        super(DatabricksSubmittedRun, self).__init__()
+        self.databricks_run_id = databricks_run_id
+        self.run_id = run_id
+
+    def wait(self):
+        return _monitor_databricks(self.databricks_run_id)
+
+    def cancel(self):
+        _cancel_databricks(self.databricks_run_id)
+        self.wait()
+
+    def _get_status(self):
+        run_state = _get_run_result_state(self.databricks_run_id)
+        if run_state is None:
+            return RunStatus.RUNNING
+        if run_state == "SUCCESS":
+            return RunStatus.FINISHED
+        return RunStatus.FAILED
+
+    def get_status(self):
+        return RunStatus.to_string(self._get_status())

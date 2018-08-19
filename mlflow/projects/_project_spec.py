@@ -1,37 +1,64 @@
 """Internal utilities for parsing MLproject YAML files."""
 
 import os
+import yaml
 
+import six
 from six.moves import shlex_quote
 
 from mlflow import data
+from mlflow.utils.exception import ExecutionException
+
+
+MLPROJECT_FILE_NAME = "MLproject"
+DEFAULT_CONDA_FILE_NAME = "conda.yaml"
+
+
+def load_project(directory):
+    mlproject_path = os.path.join(directory, MLPROJECT_FILE_NAME)
+    # TODO: Validate structure of YAML loaded from the file
+    if os.path.exists(mlproject_path):
+        with open(mlproject_path) as mlproject_file:
+            yaml_obj = yaml.safe_load(mlproject_file.read())
+    else:
+        yaml_obj = {}
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+    conda_path = yaml_obj.get("conda_env")
+    if conda_path:
+        conda_env_path = os.path.join(directory, conda_path)
+        if not os.path.exists(conda_env_path):
+            raise ExecutionException("Project specified conda environment file %s, but no such "
+                                     "file was found." % conda_env_path)
+        return Project(conda_env_path=conda_env_path, entry_points=entry_points)
+    default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
+    if os.path.exists(default_conda_path):
+        return Project(conda_env_path=default_conda_path, entry_points=entry_points)
+    return Project(conda_env_path=None, entry_points=entry_points)
 
 
 class Project(object):
-    """A project specification loaded from an MLproject file."""
-    def __init__(self, uri, yaml_obj):
-        self.uri = uri
-        self.name = os.path.splitext(os.path.basename(os.path.abspath(uri)))[0]
-        self.conda_env = yaml_obj.get("conda_env")
-        self.entry_points = {}
-        for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-            parameters = entry_point_yaml.get("parameters", {})
-            command = entry_point_yaml.get("command")
-            self.entry_points[name] = EntryPoint(name, parameters, command)
-        # TODO: validate the spec, e.g. make sure paths in it are fine
+    """A project specification loaded from an MLproject file in the passed-in directory."""
+    def __init__(self, conda_env_path, entry_points):
+        self.conda_env_path = conda_env_path
+        self._entry_points = entry_points
 
     def get_entry_point(self, entry_point):
-        from mlflow.projects import ExecutionException
-        if entry_point in self.entry_points:
-            return self.entry_points[entry_point]
+        if entry_point in self._entry_points:
+            return self._entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
             command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
+            if type(command) not in six.string_types:
+                command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
                                  "runnable script. Supported script file extensions: "
-                                 "{2}".format(entry_point, list(self.entry_points.keys()),
+                                 "{2}".format(entry_point, list(self._entry_points.keys()),
                                               list(ext_to_cmd.keys())))
 
 
@@ -44,10 +71,9 @@ class EntryPoint(object):
         assert isinstance(self.command, str)
 
     def _validate_parameters(self, user_parameters):
-        from mlflow.projects import ExecutionException
         missing_params = []
         for name in self.parameters:
-            if name not in user_parameters and self.parameters[name].default is None:
+            if (name not in user_parameters and self.parameters[name].default is None):
                 missing_params.append(name)
         if len(missing_params) == 1:
             raise ExecutionException(
@@ -110,14 +136,12 @@ class Parameter(object):
             self.default = yaml_obj.get("default")
 
     def _compute_uri_value(self, user_param_value):
-        from mlflow.projects import ExecutionException
         if not data.is_uri(user_param_value):
             raise ExecutionException("Expected URI for parameter %s but got "
                                      "%s" % (self.name, user_param_value))
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir):
-        from mlflow.projects import ExecutionException
         if not data.is_uri(user_param_value):
             if not os.path.exists(user_param_value):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "

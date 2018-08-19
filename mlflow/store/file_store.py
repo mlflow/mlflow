@@ -2,20 +2,14 @@ import os
 
 import uuid
 
-from mlflow.entities.experiment import Experiment
-from mlflow.entities.metric import Metric
-from mlflow.entities.param import Param
-from mlflow.entities.run import Run
-from mlflow.entities.run_data import RunData
-from mlflow.entities.run_info import RunInfo
-
-from mlflow.entities.run_status import RunStatus
+from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus
 from mlflow.store.abstract_store import AbstractStore
+from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
 
 from mlflow.utils.env import get_env
-from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists,
-                                     write_yaml, read_yaml, find, read_file,
-                                     list_files, build_path, write_to, append_to)
+from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
+                                     read_yaml, find, read_file, build_path, write_to, append_to,
+                                     make_containing_dirs)
 
 from mlflow.utils.search_utils import does_run_match_clause
 
@@ -45,7 +39,8 @@ class FileStore(AbstractStore):
         # Create default experiment if needed
         if not self._has_experiment(experiment_id=Experiment.DEFAULT_EXPERIMENT_ID):
             self._create_experiment_with_id(name="Default",
-                                            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID)
+                                            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
+                                            artifact_uri=None)
 
     def _check_root_dir(self):
         """
@@ -60,17 +55,23 @@ class FileStore(AbstractStore):
         return build_path(self.root_directory, str(experiment_id))
 
     def _get_run_dir(self, experiment_id, run_uuid):
+        _validate_run_id(run_uuid)
         return build_path(self._get_experiment_dir(experiment_id), run_uuid)
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
+        _validate_run_id(run_uuid)
+        _validate_metric_name(metric_key)
         return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME,
                           metric_key)
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
+        _validate_run_id(run_uuid)
+        _validate_param_name(param_name)
         return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME,
                           param_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
+        _validate_run_id(run_uuid)
         artifacts_dir = build_path(self.get_experiment(experiment_id).artifact_location,
                                    run_uuid,
                                    FileStore.ARTIFACTS_FOLDER_NAME)
@@ -80,15 +81,15 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         return [self.get_experiment(exp_id) for exp_id in list_subdirs(self.root_directory)]
 
-    def _create_experiment_with_id(self, name, experiment_id):
+    def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_uri = build_path(self.artifact_root_uri, str(experiment_id))
+        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
-    def create_experiment(self, name):
+    def create_experiment(self, name, artifact_location=None):
         self._check_root_dir()
         if name is None or name == "":
             raise Exception("Invalid experiment name '%s'" % name)
@@ -99,7 +100,7 @@ class FileStore(AbstractStore):
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [e.experiment_id for e in self.list_experiments()]
         experiment_id = max(experiments_ids) + 1
-        return self._create_experiment_with_id(name, experiment_id)
+        return self._create_experiment_with_id(name, experiment_id, artifact_location)
 
     def _has_experiment(self, experiment_id):
         return len(find(self.root_directory, str(experiment_id), full_path=True)) > 0
@@ -126,6 +127,7 @@ class FileStore(AbstractStore):
         return None
 
     def _find_run_root(self, run_uuid):
+        _validate_run_id(run_uuid)
         self._check_root_dir()
         all_experiments = list_subdirs(self.root_directory, full_path=True)
         for experiment_dir in all_experiments:
@@ -136,6 +138,7 @@ class FileStore(AbstractStore):
         return None
 
     def update_run_info(self, run_uuid, run_status, end_time):
+        _validate_run_id(run_uuid)
         run_info = self.get_run(run_uuid).info
         new_info = run_info.copy_with_overrides(run_status, end_time)
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
@@ -169,6 +172,7 @@ class FileStore(AbstractStore):
         return Run(run_info=run_info, run_data=None)
 
     def get_run(self, run_uuid):
+        _validate_run_id(run_uuid)
         run_dir = self._find_run_root(run_uuid)
         if run_dir is None:
             raise Exception("Run '%s' not found" % run_uuid)
@@ -183,6 +187,7 @@ class FileStore(AbstractStore):
         return RunInfo.from_dictionary(meta)
 
     def _get_run_files(self, run_uuid, resource_type):
+        _validate_run_id(run_uuid)
         if resource_type == "metric":
             subfolder_name = FileStore.METRICS_FOLDER_NAME
         elif resource_type == "param":
@@ -195,10 +200,16 @@ class FileStore(AbstractStore):
         source_dirs = find(run_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
             raise Exception("Malformed run '%s'." % run_uuid)
-        return source_dirs[0], list_files(source_dirs[0], full_path=False)
+        file_names = []
+        for root, _, files in os.walk(source_dirs[0]):
+            for name in files:
+                abspath = os.path.join(root, name)
+                file_names.append(os.path.relpath(abspath, source_dirs[0]))
+        return source_dirs[0], file_names
 
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
+        _validate_metric_name(metric_name)
         metric_data = read_file(parent_path, metric_name)
         if len(metric_data) == 0:
             raise Exception("Metric '%s' is malformed. No data found." % metric_name)
@@ -207,12 +218,15 @@ class FileStore(AbstractStore):
         return Metric(metric_name, float(val), int(timestamp))
 
     def get_metric(self, run_uuid, metric_key):
+        _validate_run_id(run_uuid)
+        _validate_metric_name(metric_key)
         parent_path, metric_files = self._get_run_files(run_uuid, "metric")
         if metric_key not in metric_files:
             raise Exception("Metric '%s' not found under run '%s'" % (metric_key, run_uuid))
         return self._get_metric_from_file(parent_path, metric_key)
 
     def get_all_metrics(self, run_uuid):
+        _validate_run_id(run_uuid)
         parent_path, metric_files = self._get_run_files(run_uuid, "metric")
         metrics = []
         for metric_file in metric_files:
@@ -220,6 +234,8 @@ class FileStore(AbstractStore):
         return metrics
 
     def get_metric_history(self, run_uuid, metric_key):
+        _validate_run_id(run_uuid)
+        _validate_metric_name(metric_key)
         parent_path, metric_files = self._get_run_files(run_uuid, "metric")
         if metric_key not in metric_files:
             raise Exception("Metric '%s' not found under run '%s'" % (metric_key, run_uuid))
@@ -232,6 +248,7 @@ class FileStore(AbstractStore):
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
+        _validate_param_name(param_name)
         param_data = read_file(parent_path, param_name)
         if len(param_data) == 0:
             raise Exception("Param '%s' is malformed. No data found." % param_name)
@@ -241,6 +258,8 @@ class FileStore(AbstractStore):
         return Param(param_name, str(param_data[0].strip()))
 
     def get_param(self, run_uuid, param_name):
+        _validate_run_id(run_uuid)
+        _validate_param_name(param_name)
         parent_path, param_files = self._get_run_files(run_uuid, "param")
         if param_name not in param_files:
             raise Exception("Param '%s' not found under run '%s'" % (param_name, run_uuid))
@@ -278,11 +297,17 @@ class FileStore(AbstractStore):
         return run_infos
 
     def log_metric(self, run_uuid, metric):
+        _validate_run_id(run_uuid)
+        _validate_metric_name(metric.key)
         run = self.get_run(run_uuid)
         metric_path = self._get_metric_path(run.info.experiment_id, run_uuid, metric.key)
+        make_containing_dirs(metric_path)
         append_to(metric_path, "%s %s\n" % (metric.timestamp, metric.value))
 
     def log_param(self, run_uuid, param):
+        _validate_run_id(run_uuid)
+        _validate_param_name(param.key)
         run = self.get_run(run_uuid)
         param_path = self._get_param_path(run.info.experiment_id, run_uuid, param.key)
+        make_containing_dirs(param_path)
         write_to(param_path, "%s\n" % param.value)

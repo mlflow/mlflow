@@ -6,14 +6,14 @@ to MLflow locally.
 Prerequisites
 -------------
 
-We recommend installing MLflow in its own virtualenv for development, as follows:
+We recommend installing MLflow in its own conda environment for development, as follows:
 
 .. code:: bash
 
-    virtualenv env
-    source env/bin/activate
+    conda create --name mlflow-dev-env
+    source activate mlflow-dev-env
     pip install -r dev-requirements.txt
-    pip install -r tox-requirements.txt
+    pip install -r test-requirements.txt
     pip install -e .  # installs mlflow from current checkout
 
 
@@ -32,7 +32,7 @@ dependencies via:
    npm install
    cd - # return to root repository directory
 
-If modifying dependencies in ``mlflow/server/js/package.json``, run `npm update` within
+If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update`` within
 ``mlflow/server/js`` to install the updated dependencies.
 
 
@@ -52,6 +52,10 @@ Verify that the unit tests & linter pass before submitting a pull request by run
 
     pytest
     ./lint.sh
+
+When running ``pytest --requires-ssh`` it is necessary that passwordless SSH access to localhost
+is available. This can be achieved by adding the SSH public key to authorized keys:
+``cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys``.
 
 
 Running the Javascript Dev Server

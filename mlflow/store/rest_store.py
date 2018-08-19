@@ -1,14 +1,10 @@
+import json
 from google.protobuf.json_format import MessageToJson, ParseDict
 
 
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities.experiment import Experiment
-from mlflow.entities.run import Run
-from mlflow.entities.run_info import RunInfo
-from mlflow.entities.param import Param
-
-from mlflow.entities.metric import Metric
+from mlflow.entities import Experiment, Run, RunInfo, Param, Metric
 
 from mlflow.utils.rest_utils import http_request
 
@@ -38,27 +34,47 @@ def _api_method_to_info():
 _METHOD_TO_INFO = _api_method_to_info()
 
 
+def _message_to_json(message):
+    # preserving_proto_field_name keeps the JSON-serialized form snake_case
+    return MessageToJson(message, preserving_proto_field_name=True)
+
+
+class RestException(Exception):
+    """Exception thrown on 400-level errors from the REST API"""
+    def __init__(self, json):
+        message = json['error_code']
+        if 'message' in json:
+            message = "%s: %s" % (message, json['message'])
+        super(RestException, self).__init__(message)
+        self.json = json
+
+
 class RestStore(AbstractStore):
-    """ Client for a remote tracking server accessed via REST API calls """
+    """
+    Client for a remote tracking server accessed via REST API calls
+    :param http_request_kwargs arguments to add to rest_utils.http_request for all requests.
+                               'hostname' is required.
+    """
 
-    def __init__(self, hostname):
+    def __init__(self, http_request_kwargs):
         super(RestStore, self).__init__()
-        self.hostname = hostname
-
-    def _get_headers(self):  # noqa
-        """ Returns header for REST API requests. Can be overridden in subclasses """
-        return None
-
-    def _get_auth(self):  # noqa
-        """ Returns auth for REST API requests. Can be overridden in subclasses """
-        return None
+        self.http_request_kwargs = http_request_kwargs
+        if not http_request_kwargs['hostname']:
+            raise Exception('hostname must be provided to RestStore')
 
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        js_dict = http_request(hostname=self.hostname, endpoint=endpoint, method=method,
-                               auth=self._get_auth(), headers=self._get_headers(),
-                               req_body_json=json_body, params=None)
+        # Convert json string to json dictionary, to pass to requests
+        if json_body:
+            json_body = json.loads(json_body)
+        response = http_request(endpoint=endpoint, method=method,
+                                json=json_body, **self.http_request_kwargs)
+        js_dict = json.loads(response.text)
+
+        if 'error_code' in js_dict:
+            raise RestException(js_dict)
+
         ParseDict(js_dict=js_dict, message=response_proto)
         return response_proto
 
@@ -70,7 +86,7 @@ class RestStore(AbstractStore):
         return [Experiment.from_proto(experiment_proto)
                 for experiment_proto in response_proto.experiments]
 
-    def create_experiment(self, name):
+    def create_experiment(self, name, artifact_location=None):
         """
         Creates a new experiment.
         If an experiment with the given name already exists, throws exception.
@@ -78,7 +94,8 @@ class RestStore(AbstractStore):
         :param name: Desired name for an experiment
         :return: experiment_id (integer) for the newly created experiment if successful, else None
         """
-        req_body = MessageToJson(CreateExperiment(name=name))
+        req_body = _message_to_json(CreateExperiment(
+            name=name, artifact_location=artifact_location))
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id
 
@@ -89,7 +106,7 @@ class RestStore(AbstractStore):
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
-        req_body = MessageToJson(GetExperiment(experiment_id=experiment_id))
+        req_body = _message_to_json(GetExperiment(experiment_id=experiment_id))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
@@ -110,14 +127,14 @@ class RestStore(AbstractStore):
         :param run_uuid: Unique identifier for the run
         :return: A single Run object if it exists, otherwise raises an Exception
         """
-        req_body = MessageToJson(GetRun(run_uuid=run_uuid))
+        req_body = _message_to_json(GetRun(run_uuid=run_uuid))
         response_proto = self._call_endpoint(GetRun, req_body)
         return Run.from_proto(response_proto.run)
 
     def update_run_info(self, run_uuid, run_status, end_time):
         """ Updates the metadata of the specified run. """
-        req_body = MessageToJson(UpdateRun(run_uuid=run_uuid, status=run_status,
-                                           end_time=end_time))
+        req_body = _message_to_json(UpdateRun(run_uuid=run_uuid, status=run_status,
+                                              end_time=end_time))
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
@@ -133,7 +150,7 @@ class RestStore(AbstractStore):
         :return: The created Run object
         """
         tag_protos = [tag.to_proto() for tag in tags]
-        req_body = MessageToJson(CreateRun(
+        req_body = _message_to_json(CreateRun(
             experiment_id=experiment_id, user_id=user_id, run_name=run_name,
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
             start_time=start_time, source_version=source_version, tags=tag_protos))
@@ -146,7 +163,8 @@ class RestStore(AbstractStore):
         :param run_uuid: String id for the run
         :param metric: Metric instance to log
         """
-        req_body = MessageToJson(LogMetric(run_uuid=run_uuid, key=metric.key, value=metric.value))
+        req_body = _message_to_json(LogMetric(
+            run_uuid=run_uuid, key=metric.key, value=metric.value, timestamp=metric.timestamp))
         self._call_endpoint(LogMetric, req_body)
 
     def log_param(self, run_uuid, param):
@@ -155,7 +173,7 @@ class RestStore(AbstractStore):
         :param run_uuid: String id for the run
         :param param: Param instance to log
         """
-        req_body = MessageToJson(LogParam(run_uuid=run_uuid, key=param.key, value=param.value))
+        req_body = _message_to_json(LogParam(run_uuid=run_uuid, key=param.key, value=param.value))
         self._call_endpoint(LogParam, req_body)
 
     def get_metric(self, run_uuid, metric_key):
@@ -167,7 +185,7 @@ class RestStore(AbstractStore):
 
         :return: A single float value for the give metric if logged, else None
         """
-        req_body = MessageToJson(GetMetric(run_uuid=run_uuid, metric_key=metric_key))
+        req_body = _message_to_json(GetMetric(run_uuid=run_uuid, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetric, req_body)
         return Metric.from_proto(response_proto.metric)
 
@@ -180,7 +198,7 @@ class RestStore(AbstractStore):
 
         :return: Value of the given parameter if logged, else None
         """
-        req_body = MessageToJson(GetParam(run_uuid=run_uuid, param_name=param_name))
+        req_body = _message_to_json(GetParam(run_uuid=run_uuid, param_name=param_name))
         response_proto = self._call_endpoint(GetParam, req_body)
         return Param.from_proto(response_proto.parameter)
 
@@ -193,7 +211,7 @@ class RestStore(AbstractStore):
 
         :return: A list of float values logged for the give metric if logged, else empty list
         """
-        req_body = MessageToJson(GetMetricHistory(run_uuid=run_uuid, metric_key=metric_key))
+        req_body = _message_to_json(GetMetricHistory(run_uuid=run_uuid, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric).value for metric in response_proto.metrics]
 
@@ -208,8 +226,8 @@ class RestStore(AbstractStore):
         :return: A list of Run objects that satisfy the search expressions
         """
         search_expressions_protos = [expr.to_proto() for expr in search_expressions]
-        req_body = MessageToJson(SearchRuns(experiment_ids=experiment_ids,
-                                            search_expressions=search_expressions_protos))
+        req_body = _message_to_json(SearchRuns(experiment_ids=experiment_ids,
+                                               anded_expressions=search_expressions_protos))
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 
@@ -223,3 +241,19 @@ class RestStore(AbstractStore):
         """
         runs = self.search_runs(experiment_ids=[experiment_id], search_expressions=[])
         return [run.info for run in runs]
+
+
+class DatabricksStore(RestStore):
+    """
+    A specific type of RestStore which includes authentication information to Databricks.
+    :param http_request_kwargs arguments to add to rest_utils.http_request for all requests.
+                               'hostname', 'headers', and 'secure_verify' are required.
+    """
+    def __init__(self, http_request_kwargs):
+        if http_request_kwargs['hostname'] is None:
+            raise Exception('hostname must be provided to DatabricksStore')
+        if http_request_kwargs['headers'] is None:
+            raise Exception('headers must be provided to DatabricksStore')
+        if http_request_kwargs['verify'] is None:
+            raise Exception('verify must be provided to DatabricksStore')
+        super(DatabricksStore, self).__init__(http_request_kwargs)

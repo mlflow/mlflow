@@ -18,6 +18,13 @@ Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
 
+Community
+---------
+To discuss MLflow or get help, please subscribe to our mailing list (mlflow-users@googlegroups.com) or
+join us on Slack at https://tinyurl.com/mlflow-slack.
+
+To report bugs, please use GitHub issues.
+
 Running a Sample App With the Tracking API
 ------------------------------------------
 The programs in ``example`` use the MLflow Tracking API. For instance, run::
@@ -35,6 +42,11 @@ Start it with::
 
     mlflow ui
 
+**Note:** Running ``mlflow ui`` from within a clone of MLflow is not recommended - doing so will
+run the dev UI from source. We recommend running the UI from a different working directory, using the
+``--file-store`` option to specify which log directory to run against. Alternatively, see instructions
+for running the dev UI in the `contributor guide <CONTRIBUTING.rst>`_.
+
 
 Running a Project from a URI
 ----------------------------
@@ -43,7 +55,7 @@ or a Git URI::
 
     mlflow run example/tutorial -P alpha=0.4
 
-    mlflow run git@github.com:databricks/mlflow-example.git -P alpha=0.4
+    mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.4
 
 See ``example/tutorial`` for a sample project with an MLproject file.
 

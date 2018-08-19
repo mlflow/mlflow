@@ -26,7 +26,7 @@ def get_jsonable_obj(data):
     Look for some commonly used types that are not jsonable and convert them into json-able ones.
     Unknown data types are returned as is.
 
-    :param data: data to be converted, works with padnas and numpy, rest will be returned as is.
+    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
     """
     if isinstance(data, np.ndarray):
         return ndarray2list(data)
@@ -36,3 +36,7 @@ def get_jsonable_obj(data):
         return pd.DataFrame(data).to_dict(orient='records')
     else:  # by default just return whatever this is and hope for the best
         return data
+
+
+def get_major_minor_py_version(py_version):
+    return ".".join(py_version.split(".")[:2])

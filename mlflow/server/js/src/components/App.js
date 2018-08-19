@@ -1,9 +1,8 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../static/home-logo.png';
-import ExperimentPage from './ExperimentPage';
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,
   Route,
   Link,
 } from 'react-router-dom';
@@ -30,7 +29,7 @@ class App extends Component {
               </Link>
             </div>
             <div className="header-links">
-              <a href={'https://github.com/databricks/mlflow'}>
+              <a href={'https://github.com/mlflow/mlflow'}>
                 <div className="github">
                   <span>GitHub</span>
                 </div>
@@ -43,7 +42,7 @@ class App extends Component {
             </div>
           </header>
           <AppErrorBoundary>
-            { /* Since the experiment list side bar goes outside of the 80% width put outside of div */ }
+            { /* Since the experiment sidebar goes outside of the 80% width, put outside of div */ }
             <Route exact path={Routes.rootRoute} component={HomePage}/>
             <Route exact path={Routes.experimentPageRoute} component={HomePage}/>
             { /* App-content ensures 80% width */ }

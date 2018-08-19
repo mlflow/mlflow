@@ -21,12 +21,23 @@ You install MLflow by running:
 At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
 can leverage MLflow in your daily workflow.
 
+
+Downloading the Quickstart
+--------------------------
+Download the quickstart code by cloning MLflow via ``git clone https://github.com/mlflow/mlflow``,
+and cd into the ``example`` subdirectory of the repository. We'll use this working directory for
+running the quickstart.
+
+We avoid running directly from our clone of MLflow as doing so would cause the tutorial to
+use MLflow from source, rather than your PyPi installation of MLflow.
+
+
 Using the Tracking API
 ----------------------
 
 The :doc:`MLflow Tracking API<tracking/>` lets you log metrics and artifacts (files) from your data
 science code and see a history of your runs. You can try it out by writing a simple Python script
-as follows (this example is also included in ``example/quickstart/test.py``):
+as follows (this example is also included in ``quickstart/test.py``):
 
 .. code:: python
 
@@ -78,11 +89,11 @@ either a local directory or a GitHub URI:
 
 .. code:: bash
 
-    mlflow run example/tutorial -P alpha=0.5
+    mlflow run tutorial -P alpha=0.5
 
-    mlflow run git@github.com:databricks/mlflow-example.git -P alpha=5
+    mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
 
-There's a sample project in ``example/tutorial``, including a ``MLproject`` file that
+There's a sample project in ``tutorial``, including a ``MLproject`` file that
 specifies its dependencies. All projects that run also log their Tracking API data in the local
 ``mlruns`` directory (or on your tracking server if you've configured one), so you should be able
 to see these runs using ``mlflow ui``.
@@ -106,11 +117,11 @@ containers or commercial serving platforms.
 
 To illustrate this functionality, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
-``example/quickstart/test_sklearn.py`` that you can run as follows:
+``quickstart/test_sklearn.py`` that you can run as follows:
 
 .. code:: bash
 
-    python example/quickstart/test_sklearn.py
+    python quickstart/test_sklearn.py
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at
 ``mlflow ui``, you will also see that the run saved a ``model`` folder containing an ``MLmodel``
@@ -140,7 +151,7 @@ which returns::
 
 .. note::
 
-    The ``example/quickstart/test_sklearn.py`` script must be run with the same Python version as
+    The ``quickstart/test_sklearn.py`` script must be run with the same Python version as
     the version of Python that runs ``mlflow sklearn serve``. If they are not the same version,
     the stacktrace below may appear::
 

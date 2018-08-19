@@ -3,7 +3,7 @@
  *
  * @NOTE(dli) 12-21-2016
  *   This file is generated. For now, it is a snapshot of the proto services as of
- *   May 31, 2018 6:19:48 PM. We will update the generation pipeline to actually
+ *   Aug 1, 2018 3:42:41 PM. We will update the generation pipeline to actually
  *   place these generated objects in the correct location shortly.
  */
 
@@ -72,6 +72,74 @@ export class MlflowService {
   }
 
   /**
+   * @param {CreateRun} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static createRun({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/create', {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {UpdateRun} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static updateRun({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/update', {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {LogMetric} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static logMetric({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/log-metric', {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {LogParam} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static logParam({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/log-parameter', {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
    * @param {GetRun} data: Immutable Record
    * @param {function} success
    * @param {function} error
@@ -112,6 +180,26 @@ export class MlflowService {
   }
 
   /**
+   * @param {GetParam} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static getParam({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/params/get', {
+      type: 'GET',
+      dataType: 'json',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
    * @param {SearchRuns} data: Immutable Record
    * @param {function} success
    * @param {function} error
@@ -119,12 +207,9 @@ export class MlflowService {
    */
   static searchRuns({ data, success, error }) {
     return $.ajax('/ajax-api/2.0/preview/mlflow/runs/search', {
-      type: 'GET',
+      type: 'POST',
       dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
-      },
-      data: data,
+      data: JSON.stringify(data),
       jsonp: false,
       success: success,
       error: error,
@@ -139,26 +224,6 @@ export class MlflowService {
    */
   static listArtifacts({ data, success, error }) {
     return $.ajax('/ajax-api/2.0/preview/mlflow/artifacts/list', {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
-      },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
-  }
-
-  /**
-   * @param {GetArtifact} data: Immutable Record
-   * @param {function} success
-   * @param {function} error
-   * @return {Promise}
-   */
-  static getArtifact({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/artifacts/get', {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -191,4 +256,3 @@ export class MlflowService {
     });
   }
 }
-

@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys
 
 import click
+from click import UsageError
 
 import mlflow.azureml.cli
 import mlflow.projects as projects
@@ -11,10 +12,11 @@ import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
 import mlflow.sagemaker.cli
-import mlflow.server
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils import cli_args
+from mlflow.server import _run_server
 from mlflow import tracking
 
 
@@ -57,22 +59,17 @@ def cli():
               help="Username for HTTP(S) Git authentication.")
 @click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
               help="Password for HTTP(S) Git authentication.")
-@click.option("--no-conda", is_flag=True,
-              help="If specified, will assume that MLflow is running within a Conda environment "
-                   "with the necessary dependencies for the current project instead of attempting "
-                   "to create a new conda environment. Only valid if running locally.")
-@click.option("--new-dir", is_flag=True,
-              help="Only valid when `mode` is 'local' and `uri` points to a local directory."
-                   "If specified, copies the project into a temporary working directory and "
-                   "runs it from there. Otherwise, uses `uri` as the working directory when "
-                   "running the project. Note that Git projects are always run from a temporary "
-                   "working directory.")
+@cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when `mode` is local."
-                   "MLflow will download artifacts from distributed URIs passed to parameters of "
+                   "MLflow downloads artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
+@click.option("--run-id", metavar="RUN_ID",
+              help="If specified, the given run ID will be used instead of creating a new run. "
+                   "Note: this argument is used internally by the MLflow project APIs "
+                   "and should not be specified.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, new_dir, storage_dir):
+        git_password, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -81,8 +78,8 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.
 
-    By default, Git projects will run in a new working directory with the given parameters, while
-    local projects will run from the project's root directory.
+    By default, Git projects run in a new working directory with the given parameters, while
+    local projects run from the project's root directory.
     """
     param_dict = {}
     for s in param_list:
@@ -108,12 +105,13 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             git_username=git_username,
             git_password=git_password,
             use_conda=(not no_conda),
-            use_temp_cwd=new_dir,
             storage_dir=storage_dir,
             block=True,
+            run_id=run_id,
         )
-    except projects.ExecutionException as e:
-        print(e.message, file=sys.stderr)
+    except projects.ExecutionException:
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 
@@ -135,11 +133,25 @@ def ui(file_store, host, port):
     """
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        mlflow.server._run_server(file_store, file_store, host, port, 1)
+        _run_server(file_store, file_store, host, port, 1, None)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
         sys.exit(1)
+
+
+def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argument
+    """
+    Validate that the static_prefix option starts with a "/" and does not end in a "/".
+    Conforms to the callback interface of click documented at
+    http://click.pocoo.org/5/options/#callbacks-for-validation.
+    """
+    if value is not None:
+        if not value.startswith("/"):
+            raise UsageError("--static-prefix must begin with a '/'.")
+        if value.endswith("/"):
+            raise UsageError("--static-prefix should not end with a '/'.")
+    return value
 
 
 @cli.command()
@@ -158,7 +170,9 @@ def ui(file_store, host, port):
               help="The port to listen on (default: 5000).")
 @click.option("--workers", "-w", default=4,
               help="Number of gunicorn worker processes to handle requests (default: 4).")
-def server(file_store, default_artifact_root, host, port, workers):
+@click.option("--static-prefix", default=None, callback=_validate_static_prefix,
+              help="A prefix which will be prepended to the path of all static paths.")
+def server(file_store, default_artifact_root, host, port, workers, static_prefix):
     """
     Run the MLflow tracking server.
 
@@ -167,7 +181,7 @@ def server(file_store, default_artifact_root, host, port, workers):
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
     try:
-        mlflow.server._run_server(file_store, default_artifact_root, host, port, workers)
+        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)

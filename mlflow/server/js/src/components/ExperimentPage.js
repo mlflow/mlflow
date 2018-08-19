@@ -5,6 +5,7 @@ import { getExperimentApi, getUUID, searchRunsApi } from '../Actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
+import KeyFilter from '../utils/KeyFilter';
 
 
 class ExperimentPage extends Component {
@@ -13,13 +14,15 @@ class ExperimentPage extends Component {
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
   }
+
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
+    dispatchSearchRuns: PropTypes.func.isRequired,
   };
 
   state = {
-    paramKeyFilterSet: new Set(),
-    metricKeyFilterSet: new Set(),
+    paramKeyFilter: new KeyFilter(),
+    metricKeyFilter: new KeyFilter(),
     getExperimentRequestId: getUUID(),
     searchRunsRequestId: getUUID(),
     searchInput: '',
@@ -28,10 +31,9 @@ class ExperimentPage extends Component {
 
   static getDerivedStateFromProps(props, state) {
     if (props.experimentId !== state.lastExperimentId) {
-      console.log(`different ${props.experimentId} ${state.lastExperimentId}`);
       const newState = {
-        paramKeyFilterSet: new Set(),
-        metricKeyFilterSet: new Set(),
+        paramKeyFilter: new KeyFilter(),
+        metricKeyFilter: new KeyFilter(),
         getExperimentRequestId: getUUID(),
         searchRunsRequestId: getUUID(),
         searchInput: '',
@@ -41,12 +43,13 @@ class ExperimentPage extends Component {
       props.dispatch(searchRunsApi([props.experimentId], [], newState.searchRunsRequestId));
       return newState;
     }
+    return null;
   }
 
-  onSearch(paramKeyFilterSet, metricKeyFilterSet, andedExpressions, searchInput) {
-    this.setState({paramKeyFilterSet, metricKeyFilterSet, searchInput});
-    const searchRunsRequestId = this.props.dispatchSearchRuns(this.props.experimentId,
-      andedExpressions);
+  onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput) {
+    this.setState({paramKeyFilter, metricKeyFilter, searchInput});
+    const searchRunsRequestId = this.props.dispatchSearchRuns(
+      this.props.experimentId, andedExpressions);
     this.setState({ searchRunsRequestId });
   }
 
@@ -55,8 +58,8 @@ class ExperimentPage extends Component {
       <div className="ExperimentPage">
         <RequestStateWrapper requestIds={this.getRequestIds()}>
           <ExperimentView
-            paramKeyFilterSet={this.state.paramKeyFilterSet}
-            metricKeyFilterSet={this.state.metricKeyFilterSet}
+            paramKeyFilter={this.state.paramKeyFilter}
+            metricKeyFilter={this.state.metricKeyFilter}
             experimentId={this.props.experimentId}
             searchRunsRequestId={this.state.searchRunsRequestId}
             onSearch={this.onSearch}
@@ -69,7 +72,6 @@ class ExperimentPage extends Component {
 
   getRequestIds() {
     return [this.state.getExperimentRequestId, this.state.searchRunsRequestId];
-
   }
 }
 
@@ -78,9 +80,10 @@ const mapStateToProps = (state, ownProps) => {
   if (match.url === "/") {
     return { experimentId: 0 };
   }
-  return { experimentId: match.params.experimentId };
+  return { experimentId: parseInt(match.params.experimentId, 10) };
 };
 
+// eslint-disable-next-line no-unused-vars
 const mapDispatchToProps = (dispatch, ownProps) => {
   return {
     dispatch,

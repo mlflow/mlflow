@@ -5,7 +5,7 @@
 .experiment-list-container {
   overflow-y: scroll;
   overflow-x: hidden;
-  width: 236px;
+  width: 220px;
 }
 
 .active-experiment-list-item {
@@ -19,7 +19,6 @@
   white-space: nowrap;
   font-size: 16px;
   height: 40px;
-  width: 220px;
   line-height: 40px;
   padding-left: 12px;
 }
@@ -46,4 +45,5 @@
   height: 24px;
   text-align: center;
   margin-left: 68px;
+  cursor: pointer;
 }

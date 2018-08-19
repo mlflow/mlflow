@@ -8,8 +8,8 @@ import { Link } from 'react-router-dom';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
-import Routes from '../Routes';
 import Utils from '../utils/Utils';
+import BreadcrumbTitle from "./BreadcrumbTitle";
 
 const PARAMATERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
@@ -59,32 +59,35 @@ class RunView extends Component {
         this.setState({ showArtifacts: !this.state.showArtifacts });
         return;
       }
+      default:
     }
   }
 
   getExpanderClassName(key) {
     switch (key) {
       case PARAMATERS_KEY: {
-        return this.state.showParameters ? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showParameters ? 'fa-caret-down' : 'fa-caret-right';
       }
       case METRICS_KEY: {
-        return this.state.showMetrics ? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showMetrics ? 'fa-caret-down' : 'fa-caret-right';
       }
       case TAGS_KEY: {
-        return this.state.showTags? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showTags ? 'fa-caret-down' : 'fa-caret-right';
       }
       case ARTIFACTS_KEY: {
-        return this.state.showArtifacts ? 'fa-caret-down': 'fa-caret-right';
+        return this.state.showArtifacts ? 'fa-caret-down' : 'fa-caret-right';
+      }
+      default: {
+        return null;
       }
     }
-
   }
 
   render() {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-    const duration = run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : '(unknown)';
-    const experimentId = experiment.getExperimentId();
+    const duration =
+      run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
     const tableStyles = {
       table: {
         width: 'auto',
@@ -114,17 +117,11 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <h1 className="run-uuid">Run {run.getRunUuid()}</h1>
+          <BreadcrumbTitle experiment={experiment} title={"Run " + run.getRunUuid()}/>
         </div>
         <div className="run-info-container">
           <div className="run-info">
-            <span className="metadata-header">Experiment Name: </span>
-            <Link to={Routes.getExperimentPageRoute(experimentId)}>
-              <span className="metadata-info">{experiment.getName()}</span>
-            </Link>
-          </div>
-          <div className="run-info">
-            <span className="metadata-header">Start Time: </span>
+            <span className="metadata-header">Date: </span>
             <span className="metadata-info">{startTime}</span>
           </div>
           <div className="run-info">
@@ -134,7 +131,7 @@ class RunView extends Component {
           {run.source_version ?
             <div className="run-info">
               <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{run.source_version.substring(0, 20)}</span>
+              <span className="metadata-info">{Utils.renderVersion(run)}</span>
             </div>
             : null
           }
@@ -149,15 +146,18 @@ class RunView extends Component {
             <span className="metadata-header">User: </span>
             <span className="metadata-info">{run.getUserId()}</span>
           </div>
-          <div className="run-info">
-            <span className="metadata-header">Duration: </span>
-            <span className="metadata-info">{Utils.formatDuration(duration)}</span>
-          </div>
+          {duration !== null ?
+            <div className="run-info">
+              <span className="metadata-header">Duration: </span>
+              <span className="metadata-info">{Utils.formatDuration(duration)}</span>
+            </div>
+            : null
+          }
         </div>
         {runCommand ?
           <div className="RunView-info">
             <h2>Run Command</h2>
-            <textarea className="run-command text-area" readOnly={true}>{runCommand}</textarea>
+            <textarea className="run-command text-area" readOnly value={runCommand}/>
           </div>
           : null
         }
@@ -168,7 +168,7 @@ class RunView extends Component {
           </h2>
           {this.state.showParameters ?
             <HtmlTableView
-              columns={[ "Name", "Value" ]}
+              columns={["Name", "Value"]}
               values={getParamValues(params)}
               styles={tableStyles}
             /> :
@@ -180,7 +180,7 @@ class RunView extends Component {
           </h2>
           {this.state.showMetrics ?
             <HtmlTableView
-              columns={[ "Name", "Value" ]}
+              columns={["Name", "Value"]}
               values={getMetricValues(latestMetrics, getMetricPagePath)}
               styles={tableStyles}
             /> :
@@ -192,7 +192,7 @@ class RunView extends Component {
           </h2>
           {this.state.showTags ?
             <HtmlTableView
-              columns={[ "Name", "Value" ]}
+              columns={["Name", "Value"]}
               values={getTagValues(tags)}
               styles={tableStyles}
             /> :
@@ -205,7 +205,7 @@ class RunView extends Component {
               {' '}Artifacts
             </h2>
             {this.state.showArtifacts ?
-              <ArtifactPage runUuid={this.props.runUuid} isHydrated={true}/> :
+              <ArtifactPage runUuid={this.props.runUuid} isHydrated/> :
               null
             }
           </div>
@@ -243,7 +243,13 @@ const getTagValues = (tags) => {
 const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics).sort().map((m) => {
     const key = m.key;
-    return [<Link to={getMetricPagePath(key)}>{key}</Link>, Utils.formatMetric(m.value)]
+    return [
+      <Link to={getMetricPagePath(key)} title="Plot chart">
+        {key}
+        <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
+      </Link>,
+      Utils.formatMetric(m.value)
+    ];
   });
 };
 

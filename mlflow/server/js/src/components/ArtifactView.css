@@ -23,6 +23,10 @@ div.artifact-view {
   width: 400px;
 }
 
+.artifact-left li {
+  white-space: nowrap;
+}
+
 .artifact-right {
   width: 100%;
 }
@@ -52,4 +56,12 @@ div.artifact-view {
   font-size: 16px;
   padding-top: 8px;
   color: #888888;
+}
+
+.loading-spinner {
+  height: 20px;
+  opacity: 0;
+  -webkit-animation: spin 3s linear infinite;
+  -moz-animation: spin 3s linear infinite;
+  animation: spin 3s linear infinite;
 }

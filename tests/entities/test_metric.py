@@ -1,8 +1,8 @@
 import time
 import unittest
 
-from mlflow.entities.metric import Metric
-from tests.helper_functions import random_str, random_int
+from mlflow.entities import Metric
+from tests.helper_functions import random_str
 
 
 class TestMetric(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestMetric(unittest.TestCase):
 
     def test_creation_and_hydration(self):
         key = random_str()
-        value = random_int()
+        value = 10000
         ts = int(time.time())
 
         metric = Metric(key, value, ts)

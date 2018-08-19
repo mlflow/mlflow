@@ -7,7 +7,7 @@ import shutil
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking import _get_model_log_dir
+from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir
 from mlflow.version import VERSION as mlflow_version
@@ -17,18 +17,18 @@ def deploy(app_name, model_path, run_id, mlflow_home):
     """
     Deploy MLflow model to Azure ML.
 
-    NOTE: This command is to be called from correctly initialized Azure ML environment.
-         At the moment this means it has to be run from console launched from Azure ML Workbench.
-         Caller is reponsible for setting up Azure ML environment and accounts.
+    NOTE:
 
-    NOTE: Azure ML can not handle any Conda environment. In particular python version seems to be
-          fixed. If the model contains Conda environment and it has been trained outside of Azure
-          ML, the Conda environment might need to be edited to work with Azure ML.
+        - This command must be called from a console launched from Azure ML Workbench. Caller is
+          reponsible for setting up Azure ML environment and accounts.
 
-    :param mlflow_home:
-    :param app_name: Name of the deployed application
-    :param model_path: Local or MLflow-run-relative path to the model to be exported
-    :param run_id: If provided, run_id is used to retrieve the model logged with MLflow.
+        - Azure ML can not handle any Conda environment. In particular the Python version is fixed.
+          If the model contains Conda environment and it has been trained outside of Azure ML, the
+          Conda environment might need to be edited to work with Azure ML.
+
+    :param app_name: Name of the deployed application.
+    :param model_path: Local or MLflow-run-relative path to the model to be exported.
+    :param run_id: If provided, ``run_id`` is used to retrieve the model logged with MLflow.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
@@ -46,17 +46,20 @@ def export(output, model_path, run_id, mlflow_home):
     """
     Export MLflow model as Azure ML compatible model ready to be deployed.
 
-    Export MLflow model out with everything needed to deploy on Azure ML.
+    Export MLflow model with everything needed to deploy on Azure ML.
     Output includes sh script with command to deploy the generated model to Azure ML.
 
-    NOTE: This command does not need Azure ML environment to run.
+    NOTE:
 
-    NOTE: Azure ML can not handle any Conda environment. If the model contains Conda environment
-    and it has been trained outside of Azure ML, the Conda environment might need to be edited.
+        - This command does not need an Azure ML environment to run.
+
+        - Azure ML can not handle any Conda environment. If the model contains Conda environment
+          and it has been trained outside of Azure ML, the Conda environment might need
+          to be edited.
 
     :param output: Output folder where the model is going to be exported to.
-    :param model_path: Local or MLflow-run-relative path to the model to be exported
-    :param run_id: If provided, run_id is used to retrieve model logged with MLflow.
+    :param model_path: Local or MLflow run relative path to the model to be exported.
+    :param run_id: If provided, ``run_id`` is used to retrieve model logged with MLflow.
     """
     output = os.path.abspath(output)
     if os.path.exists(output):
@@ -108,7 +111,7 @@ def _load_conf(path):
     path = os.path.abspath(path)
     model = Model.load(os.path.join(path, "MLmodel"))
     if pyfunc.FLAVOR_NAME not in model.flavors:
-        raise Exception("Currently only supports pyfunc format.")
+        raise Exception("Supports only pyfunc format.")
     return model.flavors[pyfunc.FLAVOR_NAME]
 
 
