@@ -59,7 +59,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/preview/mlflow/experiments/get-name"
+        path: "/preview/mlflow/experiments/get-by-name"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
