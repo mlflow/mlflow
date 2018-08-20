@@ -1,4 +1,4 @@
-from mlflow.entities.run import Run
+from mlflow.entities import Run
 from tests.entities.test_run_data import TestRunData
 from tests.entities.test_run_info import TestRunInfo
 

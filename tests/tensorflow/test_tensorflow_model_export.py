@@ -12,8 +12,8 @@ import pandas as pd
 import sklearn.datasets as datasets
 import tensorflow as tf
 
+import mlflow
 from mlflow import tensorflow, pyfunc
-from mlflow import tracking
 from mlflow.utils.file_utils import TempDir
 
 
@@ -72,7 +72,7 @@ class TestModelExport(unittest.TestCase):
         estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
         estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
 
-        old_tracking_uri = tracking.get_tracking_uri()
+        old_tracking_uri = mlflow.get_tracking_uri()
         # should_start_run tests whether or not calling log_model() automatically starts a run.
         for should_start_run in [False, True]:
             with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -81,9 +81,9 @@ class TestModelExport(unittest.TestCase):
                     feature_spec = {}
                     for name in feature_names:
                         feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
-                    tracking.set_tracking_uri("test")
+                    mlflow.set_tracking_uri("test")
                     if should_start_run:
-                        tracking.start_run()
+                        mlflow.start_run()
                     pyfunc_preds_df = self.helper(feature_spec, tmp, estimator,
                                                   pandas.DataFrame(data=X, columns=feature_names))
 
@@ -91,8 +91,8 @@ class TestModelExport(unittest.TestCase):
                     assert estimator_preds_df.equals(pyfunc_preds_df)
                 finally:
                     # Restoring the old logging location.
-                    tracking.end_run()
-                    tracking.set_tracking_uri(old_tracking_uri)
+                    mlflow.end_run()
+                    mlflow.set_tracking_uri(old_tracking_uri)
 
     def test_categorical_columns(self):
         """
@@ -157,10 +157,10 @@ class TestModelExport(unittest.TestCase):
             estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
             estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
             # Setting the logging such that it is in the temp folder and deleted after the test.
-            old_tracking_dir = tracking.get_tracking_uri()
+            old_tracking_dir = mlflow.get_tracking_uri()
             tracking_dir = os.path.abspath(tmp.path("mlruns"))
-            tracking.set_tracking_uri("file://%s" % tracking_dir)
-            tracking.start_run()
+            mlflow.set_tracking_uri("file://%s" % tracking_dir)
+            mlflow.start_run()
             try:
                 # Creating dict of features names (str) to placeholders (tensors)
                 feature_spec = {}
@@ -181,5 +181,5 @@ class TestModelExport(unittest.TestCase):
                     pyfunc_preds_df, estimator_preds_df, check_less_precise=6)
             finally:
                 # Restoring the old logging location.
-                tracking.end_run()
-                tracking.set_tracking_uri(old_tracking_dir)
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_tracking_dir)

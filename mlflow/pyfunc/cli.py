@@ -10,7 +10,7 @@ import click
 import pandas
 
 from mlflow.pyfunc import load_pyfunc, scoring_server, _load_model_env
-from mlflow.tracking import _get_model_log_dir
+from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env

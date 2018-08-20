@@ -10,7 +10,7 @@ import sklearn.linear_model as glm
 import sklearn.neighbors as knn
 
 from mlflow import sklearn, pyfunc
-from mlflow import tracking
+import mlflow
 from mlflow.utils.file_utils import TempDir
 
 
@@ -49,21 +49,21 @@ class TestModelExport(unittest.TestCase):
             np.testing.assert_array_equal(self._knn_predict, ypred)
 
     def test_model_log(self):
-        old_uri = tracking.get_tracking_uri()
+        old_uri = mlflow.get_tracking_uri()
         # should_start_run tests whether or not calling log_model() automatically starts a run.
         for should_start_run in [False, True]:
             with TempDir(chdr=True, remove_on_exit=True) as tmp:
                 try:
-                    tracking.set_tracking_uri("test")
+                    mlflow.set_tracking_uri("test")
                     if should_start_run:
-                        tracking.start_run()
+                        mlflow.start_run()
                     sklearn.log_model(sk_model=self._linear_lr, artifact_path="linear")
-                    x = sklearn.load_model("linear", run_id=tracking.active_run().info.run_uuid)
+                    x = sklearn.load_model("linear", run_id=mlflow.active_run().info.run_uuid)
                     xpred = x.predict(self._X)
                     np.testing.assert_array_equal(self._linear_lr_predict, xpred)
                 finally:
-                    tracking.end_run()
-                    tracking.set_tracking_uri(old_uri)
+                    mlflow.end_run()
+                    mlflow.set_tracking_uri(old_uri)
 
 
 if __name__ == '__main__':
