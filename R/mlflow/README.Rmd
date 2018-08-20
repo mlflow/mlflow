@@ -204,3 +204,5 @@ In order to contribute, follow the [MLflow contribution guidelines](../../CONTRI
 ```{r eval=FALSE}
 reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
 ```
+
+Please also follow the recommendations from the [Advanced R - Style Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling.

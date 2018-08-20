@@ -156,7 +156,7 @@ The directory containing the model looks as follows:
 
 and the model definition `model/MLmodel` like:
 
-    ## time_created: 1.5339961e+09
+    ## time_created: 1.5347943e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
@@ -239,3 +239,6 @@ you can make them available in R by running:
 ``` r
 reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
 ```
+
+Please also follow the recommendations from the [Advanced R - Style
+Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling.
