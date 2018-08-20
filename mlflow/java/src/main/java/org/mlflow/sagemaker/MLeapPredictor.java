@@ -1,7 +1,6 @@
 package org.mlflow.sagemaker;
 
-import org.mlflow.mleap.LeapFrameUtils;
-import org.mlflow.mleap.LeapFrameSchema;
+import org.mlflow.mleap.MissingSchemaFieldException;
 import org.mlflow.utils.SerializationUtils;
 
 import ml.combust.mleap.runtime.MleapContext;
@@ -17,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.NoSuchElementException;
 
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
@@ -67,6 +67,11 @@ public class MLeapPredictor extends Predictor {
           "Failed to transform input into a JSON representation of an MLeap dataframe."
           + "Please ensure that the input is a JSON-serialized Pandas Dataframe"
           + "with the `record` orientation");
+    } catch (MissingSchemaFieldException e) {
+      e.printStackTrace();
+      throw new PredictorEvaluationException(
+          String.format("The input dataframe is missing the following required field: %s",
+              e.getMissingFieldName()));
     }
     DefaultLeapFrame leapFrame = LeapFrameUtils.getLeapFrameFromJson(leapFrameJson.get());
 

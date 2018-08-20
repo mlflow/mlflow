@@ -1,4 +1,4 @@
-package org.mlflow.mleap;
+package org.mlflow.mleap.sagemaker;
 
 import org.mlflow.utils.SerializationUtils;
 
@@ -16,7 +16,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class LeapFrameSchema {
+class LeapFrameSchema {
     private static final String LEAP_FRAME_KEY_ROWS = "rows";
     private static final String LEAP_FRAME_KEY_SCHEMA = "schema";
 
@@ -30,7 +30,7 @@ public class LeapFrameSchema {
     private String text;
     private List<String> orderedFieldNames;
 
-    public static LeapFrameSchema fromPath(String filePath) throws IOException {
+    protected static LeapFrameSchema fromPath(String filePath) throws IOException {
         LeapFrameSchema newSchema =
             SerializationUtils.parseJsonFromFile(filePath, LeapFrameSchema.class);
         String schemaText = new String(Files.readAllBytes(Paths.get(filePath)));
@@ -39,15 +39,18 @@ public class LeapFrameSchema {
         return newSchema;
     }
 
-    public List<String> getOrderedFieldNames() {
+    protected List<String> getOrderedFieldNames() {
         return this.orderedFieldNames;
     }
 
     /**
      * Converts Pandas dataframe JSON in `record` format to MLeap frame JSON in
      * `row` format using the schema defined by this schema object
+     *
+     * @throws MissingSchemaFieldException If the supplied pandas dataframe is missing
+     * a required field
      */
-    public String applyToPandasRecordJson(String pandasJson) throws IOException {
+    protected String applyToPandasRecordJson(String pandasJson) throws IOException {
         List<String> orderedFieldNames = getOrderedFieldNames();
         List<Map<String, Object>> pandasRecords =
             SerializationUtils.fromJson(pandasJson, List.class);
@@ -55,6 +58,9 @@ public class LeapFrameSchema {
         for (Map<String, Object> record : pandasRecords) {
             List<Object> mleapRow = new ArrayList<>();
             for (String fieldName : orderedFieldNames) {
+                if (!record.containsKey(fieldName)) {
+                    throw new MissingSchemaFieldException(fieldName);
+                }
                 mleapRow.add(record.get(fieldName));
             }
             mleapRows.add(mleapRow);
