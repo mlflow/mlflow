@@ -40,7 +40,7 @@ class ShowArtifactPage extends Component {
 }
 
 export const getSrc = (path, runUuid) => {
-  const basePath = "/api/2.0/preview/mlflow/artifacts/get";
+  const basePath = "get-artifact";
   return `${basePath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
 };
 

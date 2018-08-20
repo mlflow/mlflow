@@ -26,23 +26,24 @@ class MLflowService(object):
         self.store = store
 
     def get_run(self, run_id):
-        """:return: mlflow.entities.Run associated with this run id"""
+        """:return: :py:class:`mlflow.entities.Run` associated with this run id"""
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
     def create_run(self, experiment_id, user_id=None, run_name=None, source_type=None,
                    source_name=None, entry_point_name=None, start_time=None,
                    source_version=None, tags=None):
-        """Creates a new mlflow.entities.Run object, which can be associated with
+        """Creates a new :py:class:`mlflow.entities.Run` object, which can be associated with
         metrics, parameters, artifacts, etc.
-        Unlike mlflow.run(), this does not actually run any code, just creates objects.
-        Unlike mlflow.start_run(), this does not change the "active run" used by
-        mlflow.log_param and friends.
-        :param: user_id If not provided, we will use the current user as a default.
-        :param: start_time If not provided, we will use the current timestamp.
-        :param: tags A dictionary of key-value pairs which will be converted into
-        RunTag objects.
-        :return: mlflow.entities.Run which was created
+        Unlike :py:func:`mlflow.projects.run`, does not actually run code, just creates objects.
+        Unlike :py:func:`mlflow.start_run`, this does not change the "active run" used by
+        :py:func:`mlflow.log_param` and friends.
+
+        :param user_id: If not provided, we will use the current user as a default.
+        :param start_time: If not provided, we will use the current timestamp.
+        :param tags: A dictionary of key-value pairs which will be converted into
+          RunTag objects.
+        :return: :py:class:`mlflow.entities.Run` which was created
         """
         tags = tags if tags else {}
         return self.store.create_run(
@@ -58,22 +59,23 @@ class MLflowService(object):
         )
 
     def list_runs(self, experiment_id):
-        """:return: list of mlflow.entities.Run (with only RunInfo filled) within the experiment"""
+        """:return: list of :py:class:`mlflow.entities.Run` (with only RunInfo filled)"""
         run_infos = self.store.list_run_infos(experiment_id)
         return [Run(run_info.run_uuid, run_info) for run_info in run_infos]
 
     def list_experiments(self):
-        """:return: list of mlflow.entities.Experiment"""
+        """:return: list of :py:class:`mlflow.entities.Experiment`"""
         return self.store.list_experiments()
 
     def get_experiment(self, experiment_id):
-        """:return: mlflow.entities.Experiment associated with the given experiemnt id"""
+        """:return: :py:class:`mlflow.entities.Experiment`"""
         return self.store.get_experiment(experiment_id)
 
     def create_experiment(self, name, artifact_location=None):
         """Creates an experiment.
-        :param: name must be unique
-        :artifact_location: If not provided, the backing server will pick an appropriate default.
+
+        :param name: must be unique
+        :param artifact_location: If not provided, the server will pick an appropriate default.
         :return: integer id of the created experiment
         """
         return self.store.create_experiment(
@@ -98,22 +100,26 @@ class MLflowService(object):
 
     def log_artifact(self, artifact_uri, local_path, artifact_path=None):
         """Writes a local file to the remote artifact_uri.
-        :param: local_path of the file to write
-        :param: artifact_path If provided, will be directory in artifact_uri to write to"""
+
+        :param local_path: of the file to write
+        :param artifact_path: If provided, will be directory in artifact_uri to write to"""
         artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
         artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, artifact_uri, local_dir, artifact_path=None):
         """Writes a directory of files to the remote artifact_uri.
-        :param: local_dir of the file to write
-        :param: artifact_path If provided, will be directory in artifact_uri to write to"""
+
+        :param local_dir: of the file to write
+        :param artifact_path: If provided, will be directory in artifact_uri to write to"""
         artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Sets a Run's status to terminated
-        :param: status A string value of mlflow.entities.RunStatus. Defaults to FINISHED.
-        :param: end_time If not provided, defaults to the current time."""
+
+        :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
+          Defaults to FINISHED.
+        :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else int(time.time() * 1000)
         status = status if status else "FINISHED"
         self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
@@ -122,7 +128,7 @@ class MLflowService(object):
 
 def get_service(tracking_uri=None):
     """
-    :param: tracking_uri Address of local or remote tracking server. If not provided,
+    :param tracking_uri: Address of local or remote tracking server. If not provided,
       this will default to the store set by mlflow.tracking.set_tracking_uri. See
       https://mlflow.org/docs/latest/tracking.html#where-runs-get-recorded for more info.
     :return: mlflow.tracking.MLflowService"""
