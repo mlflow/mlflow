@@ -47,8 +47,8 @@ script:
   - mlflow sagemaker build-and-push-container --no-push --mlflow-home .
   - ./lint.sh
   # Run tests that don't leverage specific ML frameworks
-  - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras \
-    --ignore=tests/pytorch --ignore=tests/pyfunc--ignore=tests/sagemaker --ignore=tests/sklearn \
+  - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
+    --ignore=tests/pytorch --ignore=tests/pyfunc--ignore=tests/sagemaker --ignore=tests/sklearn
     --ignore=tests/spark
   # Run ML framework tests in their own Python processes. TODO: find a better method of isolating
   # tests.
