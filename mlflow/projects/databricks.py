@@ -135,12 +135,12 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
     temp_tarfile_dir = tempfile.mkdtemp()
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
 
-    def filter(x):
+    def custom_filter(x):
         return None if os.path.basename(x.name) == "mlruns" else x
 
     try:
         file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME,
-                                custom_filter=filter)
+                                custom_filter=custom_filter)
         with open(temp_tar_filename, "rb") as tarred_project:
             tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
         # TODO: Get subdirectory for experiment from the tracking server
