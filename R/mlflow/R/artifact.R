@@ -91,7 +91,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL) {
       mlflow_log_artifact_impl(artifact_uri, fs::path(path, file))
   }
   else {
-    mlflow_log_artifact_impl(artifact_uri, path, artifact_path)
+    mlflow_log_artifact_impl(artifact_uri, path)
   }
 }
 
