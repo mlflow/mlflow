@@ -2,12 +2,19 @@
 MLflow integration for Spark MLlib models.
 This module enables the exporting of Spark MLlib models with the following flavors (formats):
     1. Spark MLlib (native) format - Allows models to be loaded as Spark Transformers for scoring
-                                     in a Spark session.
+                                     in a Spark session. Models with this flavor can be loaded
+                                     back as PySpark PipelineModel objects in Python. This
+                                     is the main flavor and is always produced.
     2. PyFunc - Supports deployment outside of Spark by instantiating a SparkContext and reading 
-                input data as a Spark DataFrame prior to scoring.
+                input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark
+                as a Spark UDF. Models with this flavor can be loaded back as Python functions 
+                for performing inference. This flavor is always produced. 
     3. MLeap - Enables high-performance deployment outside of Spark by leveraging MLeap's
                custom dataframe and pipeline representations. For more informatin about MLeap,
-               see https://github.com/combust/mleap.
+               see https://github.com/combust/mleap. Models with this flavor *cannot* be loaded
+               back as Python objects. Rather, they must be deserialized in Java using the 
+               `mlflow/java` package. This flavor is only produced if MLeap-compatible arguments
+               are specified.
 """
 
 from __future__ import absolute_import
@@ -30,7 +37,8 @@ FLAVOR_NAME = "spark"
 DFS_TMP = "/tmp/mlflow"
 
 
-def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=DFS_TMP):
+def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=DFS_TMP, 
+              sample_input=None):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This will use the
     MLlib persistence format, and the logged model will have the Spark flavor. 
@@ -47,6 +55,9 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
                        necessary as Spark ML models read / write from / to DFS if running on a
                        cluster. All temporary files created on the DFS will be removed if this
                        operation completes successfully.
+    :param sample_input: A sample input that will be used to add the MLeap flavor to the model.
+                         This must be a PySpark dataframe that the model can evaluate. If
+                         `sample_input` is `None`, the MLeap flavor will not be added.
 
     >>> from pyspark.ml import Pipeline
     >>> from pyspark.ml.classification import LogisticRegression
@@ -144,7 +155,6 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
                          This must be a PySpark dataframe that the model can evaluate. If
                          `sample_input` is `None`, the MLeap flavor will not be added.
 
-
     >>> from mlflow import spark
     >>> from pyspark.ml.pipeline.PipelineModel
     >>>
@@ -158,10 +168,6 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     if sample_input is not None:
         mleap._add_to_model(mlflow_model, path, spark_model, sample_input)
 
-    if not isinstance(spark_model, Transformer):
-        raise Exception("Unexpected type {}." 
-                                 " SparkML can only serialize Spark Transformers".format(
-                                     str(type(spark_model))))
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel. SparkML can only save PipelineModels.")
 

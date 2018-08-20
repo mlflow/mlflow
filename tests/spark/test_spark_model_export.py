@@ -5,6 +5,7 @@ import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
+from pyspark.ml.wrapper import JavaModel
 from pyspark.version import __version__ as pyspark_version
 import pytest
 from sklearn import datasets
@@ -12,9 +13,11 @@ import shutil
 from collections import namedtuple
 
 import mlflow
+import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.models import Model 
+from mlflow.tracking.fluent import active_run 
 
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -120,7 +123,7 @@ def test_model_export(spark_model_iris, model_path, spark_conda_env):
 
 
 @pytest.mark.large
-def test_model_log(tmpdir, spark_model_iris):
+def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
     # Print the coefficients and intercept for multinomial logistic regression
     preds_df = spark_model_iris.model.transform(spark_model_iris.training_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
@@ -168,71 +171,7 @@ def test_model_log(tmpdir, spark_model_iris):
                 shutil.rmtree(tracking_dir)
 
 
-@pytest.mark.large
-def test_model_log(tmpdir, spark_model_iris):
-    # Print the coefficients and intercept for multinomial logistic regression
-    preds_df = spark_model_iris.model.transform(spark_model_iris.training_df)
-    preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
-    old_tracking_uri = tracking.get_tracking_uri()
-    cnt = 0
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
-            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
-            try:
-                tracking_dir = os.path.abspath(str(tmpdir.mkdir("mlruns")))
-                tracking.set_tracking_uri("file://%s" % tracking_dir)
-                if should_start_run:
-                    tracking.start_run()
-                artifact_path = "model%d" % cnt
-                cnt += 1
-                if dfs_tmp_dir:
-                    sparkm.log_model(artifact_path=artifact_path,
-                                     spark_model=spark_model_iris.model,
-                                     dfs_tmpdir=dfs_tmp_dir)
-                else:
-                    sparkm.log_model(artifact_path=artifact_path,
-                                     spark_model=spark_model_iris.model)
-                run_id = tracking.active_run().info.run_uuid
-                # test pyfunc
-                x = pyfunc.load_pyfunc(artifact_path, run_id=run_id)
-                preds2 = x.predict(spark_model_iris.inference_df)
-                assert preds1 == preds2
-                # test load model
-                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id)
-                preds_df_1 = reloaded_model.transform(spark_model_iris.training_df)
-                preds3 = [x.prediction for x in preds_df_1.select("prediction").collect()]
-                assert preds1 == preds3
-                # test spark_udf
-                preds4 = score_model_as_udf(artifact_path, run_id, spark_model_iris.inference_df)
-                assert preds1 == preds4
-                # make sure we did not leave any temp files behind
-                x = dfs_tmp_dir or sparkm.DFS_TMP 
-                assert os.path.exists(x)
-                assert not os.listdir(x)
-                shutil.rmtree(x)
-            finally:
-                tracking.end_run()
-                tracking.set_tracking_uri(old_tracking_uri)
-                shutil.rmtree(tracking_dir)
-
-
-def test_spark_module_model_save_without_sample_output_produces_sparkml_flavor(
-        spark_model_iris, model_path):
-    mlflow_model = Model()
-    sparkm.save_model(spark_model=spark_model_iris.model,
-                      path=model_path,
-                      sample_input=None,
-                      mlflow_model=mlflow_model)
-    assert sparkm.FLAVOR_NAME in mlflow_model.flavors
-
-    config_path = os.path.join(model_path, "MLmodel")
-    assert os.path.exists(config_path)
-    config = Model.load(config_path)
-    assert sparkm.FLAVOR_NAME in config.flavors
-
-
-def test_spark_module_model_save_with_sample_output_produces_sparkml_and_mleap_flavors(
+def test_spark_module_model_save_with_sample_input_produces_sparkml_and_mleap_flavors(
         spark_model_iris, model_path):
     mlflow_model = Model()
     sparkm.save_model(spark_model=spark_model_iris.model,
@@ -240,12 +179,67 @@ def test_spark_module_model_save_with_sample_output_produces_sparkml_and_mleap_f
                       sample_input=spark_model_iris.training_df,
                       mlflow_model=mlflow_model)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
-    assert mleap.FLAVOR_NAME in config.flavors
+    assert mleap.FLAVOR_NAME in mlflow_model.flavors
 
     config_path = os.path.join(model_path, "MLmodel")
     assert os.path.exists(config_path)
     config = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in config.flavors
+    assert mleap.FLAVOR_NAME in config.flavors
+
+
+def test_spark_module_model_log_with_sample_input_produces_sparkml_and_mleap_flavors(
+        spark_model_iris):
+    artifact_path = "model"
+    mlflow_model = sparkm.log_model(spark_model=spark_model_iris.model, 
+                                    sample_input=spark_model_iris.training_df,
+                                    artifact_path=artifact_path)
+    rid = active_run().info.run_uuid
+    model_path = mlflow.tracking.utils._get_model_log_dir(model_name=artifact_path, run_id=rid)
+    config_path = os.path.join(model_path, "MLmodel")
+    mlflow_model = Model.load(config_path)
+    assert sparkm.FLAVOR_NAME in mlflow_model.flavors
+    assert mleap.FLAVOR_NAME in mlflow_model.flavors 
+
+
+def test_mleap_module_model_log_produces_mleap_flavor(spark_model_iris):
+    artifact_path = "model"
+    mlflow_model = mleap.log_model(spark_model=spark_model_iris.model, 
+                                   sample_input=spark_model_iris.training_df,
+                                   artifact_path=artifact_path)
+    rid = active_run().info.run_uuid
+    model_path = mlflow.tracking.utils._get_model_log_dir(model_name=artifact_path, run_id=rid)
+    config_path = os.path.join(model_path, "MLmodel")
+    mlflow_model = Model.load(config_path)
+    assert mleap.FLAVOR_NAME in mlflow_model.flavors 
+
+
+def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
+        spark_model_iris, model_path):
+    class CustomTransformer(JavaModel):
+        def _transform(self, dataset):
+            return dataset
+
+    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
+    unsupported_model = unsupported_pipeline.fit(spark_model_iris.training_df)
+
+    with pytest.raises(Exception):
+        sparkm.save_model(spark_model=unsupported_model, 
+                          path=model_path, 
+                          sample_input=spark_model_iris.training_df)
+
+def test_mleap_module_model_save_with_valid_sample_input_produces_mleap_flavor(
+        spark_model_iris, model_path):
+    mlflow_model = Model()
+    mleap.save_model(spark_model=spark_model_iris.model,
+                     path=model_path,
+                     sample_input=spark_model_iris.training_df,
+                     mlflow_model=mlflow_model)
+    assert mleap.FLAVOR_NAME in mlflow_model.flavors 
+
+    config_path = os.path.join(model_path, "MLmodel")
+    assert os.path.exists(config_path)
+    config = Model.load(config_path)
     assert mleap.FLAVOR_NAME in config.flavors
 
 
@@ -256,17 +250,18 @@ def test_mleap_module_model_save_with_invalid_sample_input_raises_exception(
                           path=model_path,
                           sample_input=None)
 
-def test_mleap_module_model_save_with_valid_sample_input_produces_mleap_flavor(
-        spark_model_iris, model_path):
-    mlflow_model = Model()
-    mleap.save_model(spark_model=spark_model_iris.model,
-                     path=model_path,
-                     sample_input=spark_model_iris.training_df,
-                     mlflow_model=mlflow_model)
-    assert mleap.FLAVOR_NAME in config.flavors 
 
-    config_path = os.path.join(model_path, "MLmodel")
-    assert os.path.exists(config_path)
-    config = Model.load(config_path)
-    assert mleap.FLAVOR_NAME in config.flavors
+def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
+        spark_model_iris, model_path):
+    class CustomTransformer(JavaModel):
+        def _transform(self, dataset):
+            return dataset
+
+    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
+    unsupported_model = unsupported_pipeline.fit(spark_model_iris.training_df)
+
+    with pytest.raises(Exception):
+        mleap.save_model(spark_model=unsupported_model, 
+                         path=model_path, 
+                         sample_input=spark_model_iris.training_df)
 
