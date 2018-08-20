@@ -1,13 +1,34 @@
 sudo: true
-language: python
 
 services:
   - docker
 
 matrix:
   include:
-    - python: 2.7
-    - python: 3.6
+    - language: python
+      python: 2.7
+      script:
+        - sudo ./test-travis-script.sh
+    - language: python
+      python: 3.6
+      script:
+        - sudo ./test-travis-script.sh
+    - language: r
+      dist: trusty
+      cache: packages
+      env:
+        global:
+          - NOT_CRAN=true
+            MLFLOW_TEST_REQUIREMENTS=false
+      script:
+        - cd R/mlflow
+        - R CMD build .
+        - R CMD check --no-build-vignettes --no-manual mlflow*tar.gz
+      after_failure:
+        - cd tests
+        - Rscript ../.travis.R
+        - sleep 2
+
 install:
   - sudo mkdir -p /travis-install
   - sudo chown travis /travis-install
@@ -31,14 +52,10 @@ install:
   - python --version
   - pip install --upgrade pip
   - pip install -r dev-requirements.txt -q
-  - pip install -r test-requirements.txt -q
+  - if [[ "$MLFLOW_TEST_REQUIREMENTS" != "false" ]]; then
+      pip install -r test-requirements.txt -q;
+    fi
   - pip install .
-  - export MLFLOW_HOME=$(pwd)
-  # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
-  - sudo rm -f /etc/boto.cfg
-  # Install protoc
-  - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
-  - sudo unzip /travis-install/protoc.zip -d /usr
 script:
   - sudo ./test-generate-protos.sh
   - pip list
@@ -55,3 +72,5 @@ script:
   - mvn clean test
   - cd ../..
   - codecov -e TOXENV
+=======
+>>>>>>> attempt to run r and python mlflow tests in travis

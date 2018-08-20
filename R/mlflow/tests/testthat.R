@@ -1,4 +1,6 @@
 library(testthat)
 library(mlflow)
 
-test_check("mlflow")
+if (identical(Sys.getenv("NOT_CRAN"), "true")) {
+  test_check("mlflow")
+}
