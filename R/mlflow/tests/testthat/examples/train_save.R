@@ -1,9 +1,13 @@
 library(mlflow)
 
-# train model
-model <- lm(Sepal.Width ~ Sepal.Length, iris)
+# read parameters
+column <- mlflow_log_param("column", 1)
 
-# save model
-mlflow_save_model(function(data) {
-  predict(model, data)
-})
+# log total rows
+mlflow_log_metric("rows", nrow(iris))
+
+# train model
+model <- lm(Sepal.Width ~ iris[[column]], iris)
+
+# log models intercept
+mlflow_log_metric("intercept", model$coefficients[["(Intercept)"]])

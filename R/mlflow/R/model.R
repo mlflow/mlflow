@@ -14,7 +14,12 @@ mlflow_save_model <- function(f, path = "model") {
   dir.create(path)
 
   context_names <- names(formals(f))[2:length(formals(f))]
-  context <- lapply(context_names, function(n) get(n))
+
+  context <- lapply(
+    context_names,
+    function(n) get0(n) %||% dynGet(n)
+  )
+
   names(context) <- context_names
 
   model_raw <- serialize(
@@ -107,7 +112,9 @@ mlflow_predict <- function(
   prediction <- mlflow_predict_model(model, data)
 
   if (is.null(output_file)) {
-    if (interactive()) prediction else message(prediction)
+    if (!interactive()) message(prediction)
+
+    prediction
   }
   else {
     switch(

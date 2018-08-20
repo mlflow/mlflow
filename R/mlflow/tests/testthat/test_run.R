@@ -1,5 +1,11 @@
 context("Run")
 
 test_that("mlflow can run and save model", {
-  mlflow_run("examples/train_save.R")
+  mlflow_clear_test_dir("mlruns")
+
+  mlflow_source("examples/train_save.R")
+
+  expect_true(dir.exists("mlruns"))
+  expect_true(dir.exists("mlruns/0"))
+  expect_true(file.exists("mlruns/0/meta.yaml"))
 })
