@@ -1,0 +1,15 @@
+{
+  "op": "string_indexer",
+  "attributes": {
+    "labels": {
+      "string": ["rec.sport.hockey", "soc.religion.christian", "rec.motorcycles", "rec.sport.baseball", "sci.crypt", "sci.med", "rec.autos", "sci.space", "comp.windows.x", "comp.os.ms-windows.misc", "sci.electronics", "comp.sys.ibm.pc.hardware", "misc.forsale", "comp.graphics", "comp.sys.mac.hardware", "talk.politics.mideast", "talk.politics.guns", "alt.atheism", "talk.politics.misc", "talk.religion.misc"],
+      "type": "list"
+    },
+    "handle_invalid": {
+      "string": "keep"
+    },
+    "string_order_type": {
+      "string": "frequencyDesc"
+    }
+  }
+}

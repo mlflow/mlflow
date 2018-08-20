@@ -30,7 +30,7 @@ public class LeapFrameSchema {
     private String text;
     private List<String> orderedFieldNames;
 
-    public static LeapFrameSchema fromFile(String filePath) throws IOException {
+    public static LeapFrameSchema fromPath(String filePath) throws IOException {
         LeapFrameSchema newSchema =
             SerializationUtils.parseJsonFromFile(filePath, LeapFrameSchema.class);
         String schemaText = new String(Files.readAllBytes(Paths.get(filePath)));
@@ -49,7 +49,8 @@ public class LeapFrameSchema {
      */
     public String applyToPandasRecordJson(String pandasJson) throws IOException {
         List<String> orderedFieldNames = getOrderedFieldNames();
-        List<Map<String, Object>> pandasRecords = SerializationUtils.fromJson(pandasJson);
+        List<Map<String, Object>> pandasRecords =
+            SerializationUtils.fromJson(pandasJson, List.class);
         List<List<Object>> mleapRows = new ArrayList<>();
         for (Map<String, Object> record : pandasRecords) {
             List<Object> mleapRow = new ArrayList<>();

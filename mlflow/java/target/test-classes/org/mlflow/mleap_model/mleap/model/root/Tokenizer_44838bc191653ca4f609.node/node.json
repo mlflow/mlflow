@@ -1,0 +1,13 @@
+{
+  "name": "Tokenizer_44838bc191653ca4f609",
+  "shape": {
+    "inputs": [{
+      "port": "input",
+      "name": "text"
+    }],
+    "outputs": [{
+      "port": "output",
+      "name": "words"
+    }]
+  }
+}

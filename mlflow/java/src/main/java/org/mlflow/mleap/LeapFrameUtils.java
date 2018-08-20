@@ -9,8 +9,8 @@ public class LeapFrameUtils {
     private static final DefaultFrameReader frameReader = new DefaultFrameReader();
     private static final Charset jsonCharset = Charset.forName("UTF-8");
 
-    public static DefaultLeapFrame getLeapFrameFromJson(String inputJson) {
-        byte[] inputBytes = inputJson.getBytes(jsonCharset);
-        return frameReader.fromBytes(inputBytes, jsonCharset).get();
+    public static DefaultLeapFrame getLeapFrameFromJson(String frameJson) {
+        byte[] frameBytes = frameJson.getBytes(jsonCharset);
+        return frameReader.fromBytes(frameBytes, jsonCharset).get();
     }
 }
