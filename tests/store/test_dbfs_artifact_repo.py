@@ -80,7 +80,7 @@ class TestDbfsArtifactRepository(object):
     def test_log_artifact_error(self, dbfs_artifact_repo, test_file):
         with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
             http_request_mock.return_value = Mock(status_code=409)
-            with pytest.raises(MlflowException) as e:
+            with pytest.raises(MlflowException):
                 dbfs_artifact_repo.log_artifact(test_file.strpath)
 
     @pytest.mark.parametrize("artifact_path", [
@@ -112,8 +112,8 @@ class TestDbfsArtifactRepository(object):
     def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
         with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
             http_request_mock.return_value = Mock(status_code=409)
-            with pytest.raises(MlflowException) as e:
-                dbfs_artifact_repo.log_artifacts(test_dir)
+            with pytest.raises(MlflowException):
+                dbfs_artifact_repo.log_artifacts(test_dir.strpath)
 
     @pytest.mark.parametrize("artifact_path,expected_endpoints", [
         ('a', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt'}),
