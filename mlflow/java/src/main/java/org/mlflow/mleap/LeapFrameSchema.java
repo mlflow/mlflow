@@ -1,6 +1,6 @@
-package com.databricks.mlflow.mleap;
+package org.mlflow.mleap;
 
-import com.databricks.mlflow.utils.SerializationUtils;
+import org.mlflow.utils.SerializationUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
