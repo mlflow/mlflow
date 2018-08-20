@@ -1,25 +1,21 @@
 package org.mlflow.sagemaker;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.After;
-
-import org.mlflow.utils.SerializationUtils;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.JsonNode;
+import com.mashape.unirest.http.Unirest;
+import com.mashape.unirest.http.exceptions.UnirestException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import com.mashape.unirest.http.Unirest;
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.JsonNode;
-import com.mashape.unirest.http.exceptions.UnirestException;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Test;
+import org.mlflow.utils.SerializationUtils;
 
 public class ScoringServerTest {
   private class TestPredictor extends Predictor {
@@ -74,20 +70,22 @@ public class ScoringServerTest {
 
   @Test
   public void
-  testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
+      testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (IOException | PredictorLoadingException e) {
       // Success
     }
 
     try {
       ScoringServer server = new ScoringServer(badModelPath, 5001, true);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (IOException | PredictorLoadingException e) {
       // Success
     }
@@ -157,9 +155,10 @@ public class ScoringServerTest {
         Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
       } catch (UnirestException e) {
         e.printStackTrace();
-        Assert.fail(String.format(
-            "Encountered an exception while attempting to ping the server on port %d!",
-            portNumber));
+        Assert.fail(
+            String.format(
+                "Encountered an exception while attempting to ping the server on port %d!",
+                portNumber));
       }
     }
 
@@ -218,8 +217,9 @@ public class ScoringServerTest {
     ScoringServer server = new ScoringServer(predictor, 5001);
     try {
       server.stop();
-      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
-          + "but none was thrown.");
+      Assert.fail(
+          "Expected the server stop operation to throw an IllegalStateException,"
+              + "but none was thrown.");
     } catch (IllegalStateException e) {
       // Succeed
     }
@@ -236,8 +236,9 @@ public class ScoringServerTest {
 
     try {
       server.start();
-      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
-          + "but none was thrown.");
+      Assert.fail(
+          "Expected the server stop operation to throw an IllegalStateException,"
+              + "but none was thrown.");
     } catch (IllegalStateException e) {
       // Succeed
     }
@@ -257,8 +258,9 @@ public class ScoringServerTest {
       try {
         HttpResponse response = Unirest.get(requestUrl).asJson();
       } catch (UnirestException e) {
-        Assert.fail("Encountered an unexpected exception while attempting to ping"
-            + "the active scoring server.");
+        Assert.fail(
+            "Encountered an unexpected exception while attempting to ping"
+                + "the active scoring server.");
       }
       server.stop();
       Thread.sleep(5000);
