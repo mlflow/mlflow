@@ -17,7 +17,7 @@ import {
   Label,
 } from 'recharts';
 import './CompareRunScatter.css';
-import CompareRunUtil from './CompareRunUtil'
+import CompareRunUtil from './CompareRunUtil';
 
 class CompareRunScatter extends Component {
   static propTypes = {
@@ -40,22 +40,22 @@ class CompareRunScatter extends Component {
       this.state = {
         disabled: false,
         x: this.paramKeys.length > 0 ?
-          {
-            key: this.paramKeys[0],
-            isMetric: false
-          } : {
-            key: this.metricKeys[1],
-            isMetric: true
-          },
+        {
+          key: this.paramKeys[0],
+          isMetric: false
+        } : {
+          key: this.metricKeys[1],
+          isMetric: true
+        },
         y: this.metricKeys.length > 0 ?
-          {
-            key: this.metricKeys[0],
-            isMetric: true
-          } : {
-            key: this.paramKeys[1],
-            isMetric: false
-          }
-      }
+        {
+          key: this.metricKeys[0],
+          isMetric: true
+        } : {
+          key: this.paramKeys[1],
+          isMetric: false
+        }
+      };
     }
   }
 
@@ -69,8 +69,8 @@ class CompareRunScatter extends Component {
   }
 
   render() {
-    if (this.state.disabled){
-      return <div></div>
+    if (this.state.disabled) {
+      return <div></div>;
     }
 
     const scatterData = [];
@@ -130,7 +130,7 @@ class CompareRunScatter extends Component {
     const key = this.state[axis];
     return (<Label
       angle={axis === "x" ? 0 : -90}
-      offset={axis === "x"? -5 : 5}
+      offset={axis === "x" ? -5 : 5}
       value={(key.isMetric ? "Metric" : "Parameter") + ": " + key.key}
       position={axis === "x" ? "insideBottom" : "insideLeft"}
     />);
@@ -151,12 +151,12 @@ class CompareRunScatter extends Component {
       >
         <optgroup label="Parameter">
           {this.paramKeys.map((p) =>
-            <option key={p} value={"param-"+p}>{p}</option>
+            <option key={p} value={"param-" + p}>{p}</option>
           )}
         </optgroup>
         <optgroup label="Metric">
           {this.metricKeys.map((m) =>
-            <option key={m} value={"metric-"+m}>{m}</option>
+            <option key={m} value={"metric-" + m}>{m}</option>
           )}
         </optgroup>
       </select>);
@@ -193,6 +193,7 @@ class CompareRunScatter extends Component {
         </div>
       );
     }
+    return null;
   }
 }
 

@@ -1,5 +1,5 @@
 import { fulfilled, GET_METRIC_HISTORY_API, GET_RUN_API, SEARCH_RUNS_API } from '../Actions';
-import { Run, RunInfo, Metric } from '../sdk/MlflowMessages'
+import { Run, RunInfo, Metric } from '../sdk/MlflowMessages';
 
 export const getMetricsByKey = (runUuid, key, state) => {
   return state.entities.metricsByRunUuid[runUuid][key];
@@ -13,7 +13,7 @@ export const getMetricsByKey = (runUuid, key, state) => {
  * }, one per metricName
  */
 export const getLatestMetrics = (runUuid, state) => {
-  let metricsByKey = state.entities.metricsByRunUuid[runUuid];
+  const metricsByKey = state.entities.metricsByRunUuid[runUuid];
   if (!metricsByKey) {
     return {};
   }
@@ -55,7 +55,7 @@ export const metricsByRunUuid = (state = {}, action) => {
       };
     }
     case fulfilled(SEARCH_RUNS_API): {
-      let newState = { ...state };
+      const newState = { ...state };
       if (action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
           const run = Run.fromJs(rJson);
@@ -72,7 +72,7 @@ export const metricsByRunUuid = (state = {}, action) => {
 };
 
 const metricsByKey = (state = {}, action, metrics) => {
-  let newState = { ...state };
+  const newState = { ...state };
   switch (action.type) {
     // Assumes the GET_RUN_API only returns 1 metric per key.
     case fulfilled(GET_RUN_API): {

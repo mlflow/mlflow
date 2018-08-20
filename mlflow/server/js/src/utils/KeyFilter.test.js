@@ -1,4 +1,4 @@
-import KeyFilter from './KeyFilter'
+import KeyFilter from './KeyFilter';
 
 test("basic filter", () => {
   const filter = new KeyFilter("b, a");

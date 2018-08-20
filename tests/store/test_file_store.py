@@ -4,9 +4,7 @@ import time
 import unittest
 import uuid
 
-from mlflow.entities.experiment import Experiment
-from mlflow.entities.metric import Metric
-from mlflow.entities.param import Param
+from mlflow.entities import Experiment, Metric, Param
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from tests.helper_functions import random_int, random_str

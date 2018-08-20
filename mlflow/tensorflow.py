@@ -20,7 +20,7 @@ import tensorflow as tf
 
 from mlflow import pyfunc
 from mlflow.models import Model
-import mlflow.tracking
+from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 
 
 class _TFWrapper(object):
@@ -73,14 +73,14 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
                           artifacts of the model will be saved.
 
     """
-    run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
+    run_id = _get_or_start_run().info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow")
     mlflow_model.add_flavor("tensorflow",
                             saved_model_dir=saved_model_dir,
                             signature_def_key=signature_def_key)
     mlflow_model.save(os.path.join(saved_model_dir, "MLmodel"))
-    mlflow.tracking.log_artifacts(saved_model_dir, artifact_path)
+    log_artifacts(saved_model_dir, artifact_path)
 
 
 def load_pyfunc(saved_model_dir):

@@ -1,6 +1,6 @@
 import unittest
 
-from mlflow.entities.experiment import Experiment
+from mlflow.entities import Experiment
 from tests.helper_functions import random_int, random_file
 
 
