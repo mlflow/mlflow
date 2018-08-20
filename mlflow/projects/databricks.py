@@ -284,7 +284,6 @@ class DatabricksSubmittedRun(SubmittedRun):
     project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
     server accessible to the local client.
     """
-
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
