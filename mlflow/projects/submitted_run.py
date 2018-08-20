@@ -49,8 +49,8 @@ class SubmittedRun(object):
 
 class LocalSubmittedRun(SubmittedRun):
     """
-    Instance of :py:class:`mlflow.projects.submitted_run.SubmittedRun` corresponding to a subprocess
-    launched to run an entry point command locally.
+    Instance of ``SubmittedRun`` corresponding to a subprocess launched to run an entry point
+    command locally.
     """
     def __init__(self, run_id, command_proc):
         super(LocalSubmittedRun, self).__init__()
