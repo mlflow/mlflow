@@ -288,7 +288,7 @@ decorators.Header = ({style, node}) => {
 decorators.Loading = ({style}) => {
   return (
     <div style={style}>
-      <img className="loading-spinner" src={spinner}/>
+      <img alt="" className="loading-spinner" src={spinner}/>
       {' '}loading...
     </div>
   );
