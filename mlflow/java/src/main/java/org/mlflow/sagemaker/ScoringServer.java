@@ -10,8 +10,6 @@ import spark.Request;
 import spark.Response;
 import spark.Service;
 
-// import static spark.Spark.*;
-
 /** A RESTful webserver for {@link Predictor Predictors} that runs on the local host */
 public class ScoringServer {
   public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
@@ -103,9 +101,8 @@ public class ScoringServer {
     this(modelPath, Optional.of(portNumber), failOnUnsuccessfulModelLoad);
   }
 
-  private ScoringServer(
-      String modelPath, Optional<Integer> portNumber, boolean failOnUnsuccessfulModelLoad)
-      throws IOException, PredictorLoadingException {
+  private ScoringServer(String modelPath, Optional<Integer> portNumber,
+      boolean failOnUnsuccessfulModelLoad) throws IOException, PredictorLoadingException {
     this(loadPredictorFromPath(modelPath, failOnUnsuccessfulModelLoad), portNumber);
   }
 
@@ -114,9 +111,8 @@ public class ScoringServer {
     this.portNumber = portNumber;
   }
 
-  private static Optional<Predictor> loadPredictorFromPath(
-      String modelPath, boolean failOnUnsuccessfulModelLoad)
-      throws IOException, PredictorLoadingException {
+  private static Optional<Predictor> loadPredictorFromPath(String modelPath,
+      boolean failOnUnsuccessfulModelLoad) throws IOException, PredictorLoadingException {
     Optional<Predictor> predictor = Optional.empty();
     try {
       Model config = Model.fromRootPath(modelPath);
@@ -139,45 +135,40 @@ public class ScoringServer {
    */
   public void start() {
     if (activeService.isPresent()) {
-      throw new IllegalStateException(
-          String.format(
-              "This server is already running on port %d", portNumber.orElse(DEFAULT_PORT)));
+      throw new IllegalStateException(String.format(
+          "This server is already running on port %d", portNumber.orElse(DEFAULT_PORT)));
     }
 
     Service newService = Service.ignite().port(portNumber.orElse(DEFAULT_PORT));
 
-    newService.get(
-        "/ping",
-        (request, response) -> {
-          if (!predictor.isPresent()) {
-            return yieldMissingPredictorError(response);
-          }
-          response.status(200);
-          return "";
-        });
+    newService.get("/ping", (request, response) -> {
+      if (!predictor.isPresent()) {
+        return yieldMissingPredictorError(response);
+      }
+      response.status(200);
+      return "";
+    });
 
-    newService.post(
-        "/invocations",
-        (request, response) -> {
-          if (!predictor.isPresent()) {
-            return yieldMissingPredictorError(response);
-          }
+    newService.post("/invocations", (request, response) -> {
+      if (!predictor.isPresent()) {
+        return yieldMissingPredictorError(response);
+      }
 
-          try {
-            String result = evaluateRequest(predictor.get(), request);
-            response.status(HTTP_RESPONSE_CODE_SUCCESS);
-            return result;
-          } catch (PredictorEvaluationException e) {
-            response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
-            String errorMessage = e.getMessage();
-            return getErrorResponseJson(errorMessage);
-          } catch (Exception e) {
-            e.printStackTrace();
-            response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
-            String errorMessage = "An unknown error occurred while evaluating the model!";
-            return getErrorResponseJson(errorMessage);
-          }
-        });
+      try {
+        String result = evaluateRequest(predictor.get(), request);
+        response.status(HTTP_RESPONSE_CODE_SUCCESS);
+        return result;
+      } catch (PredictorEvaluationException e) {
+        response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
+        String errorMessage = e.getMessage();
+        return getErrorResponseJson(errorMessage);
+      } catch (Exception e) {
+        e.printStackTrace();
+        response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
+        String errorMessage = "An unknown error occurred while evaluating the model!";
+        return getErrorResponseJson(errorMessage);
+      }
+    });
 
     this.activeService = Optional.of(newService);
   }
@@ -210,30 +201,28 @@ public class ScoringServer {
       throws PredictorEvaluationException {
     RequestContentType inputType = RequestContentType.fromValue(request.contentType());
     switch (inputType) {
-      case Json:
-        {
-          Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
-          try {
-            parsedInput = Optional.of(DataFrame.fromJson(request.body()));
-          } catch (UnsupportedOperationException e) {
-            throw new PredictorEvaluationException(
-                "This model does not yet support evaluating JSON inputs.");
-          }
-          DataFrame result = predictor.predict(parsedInput.get());
-          return result.toJson();
+      case Json: {
+        Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
+        try {
+          parsedInput = Optional.of(DataFrame.fromJson(request.body()));
+        } catch (UnsupportedOperationException e) {
+          throw new PredictorEvaluationException(
+              "This model does not yet support evaluating JSON inputs.");
         }
-      case Csv:
-        {
-          Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
-          try {
-            parsedInput = Optional.of(DataFrame.fromCsv(request.body()));
-          } catch (UnsupportedOperationException e) {
-            throw new PredictorEvaluationException(
-                "This model does not yet support evaluating CSV inputs.");
-          }
-          DataFrame result = predictor.predict(parsedInput.get());
-          return result.toCsv();
+        DataFrame result = predictor.predict(parsedInput.get());
+        return result.toJson();
+      }
+      case Csv: {
+        Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
+        try {
+          parsedInput = Optional.of(DataFrame.fromCsv(request.body()));
+        } catch (UnsupportedOperationException e) {
+          throw new PredictorEvaluationException(
+              "This model does not yet support evaluating CSV inputs.");
         }
+        DataFrame result = predictor.predict(parsedInput.get());
+        return result.toCsv();
+      }
       case Invalid:
       default:
         throw new UnsupportedContentTypeException(request.contentType());
