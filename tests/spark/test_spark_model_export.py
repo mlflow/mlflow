@@ -16,7 +16,7 @@ import mlflow
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
-from mlflow.models import Model 
+from mlflow.models import Model
 
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -160,7 +160,7 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
                 preds4 = score_model_as_udf(artifact_path, run_id, spark_model_iris.inference_df)
                 assert preds1 == preds4
                 # make sure we did not leave any temp files behind
-                x = dfs_tmp_dir or sparkm.DFS_TMP 
+                x = dfs_tmp_dir or sparkm.DFS_TMP
                 assert os.path.exists(x)
                 assert not os.listdir(x)
                 shutil.rmtree(x)
@@ -190,7 +190,7 @@ def test_spark_module_model_save_with_sample_input_produces_sparkml_and_mleap_fl
 def test_spark_module_model_log_with_sample_input_produces_sparkml_and_mleap_flavors(
         spark_model_iris):
     artifact_path = "model"
-    mlflow_model = sparkm.log_model(spark_model=spark_model_iris.model, 
+    mlflow_model = sparkm.log_model(spark_model=spark_model_iris.model,
                                     sample_input=spark_model_iris.training_df,
                                     artifact_path=artifact_path)
     rid = active_run().info.run_uuid
@@ -198,19 +198,19 @@ def test_spark_module_model_log_with_sample_input_produces_sparkml_and_mleap_fla
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
-    assert mleap.FLAVOR_NAME in mlflow_model.flavors 
+    assert mleap.FLAVOR_NAME in mlflow_model.flavors
 
 
 def test_mleap_module_model_log_produces_mleap_flavor(spark_model_iris):
     artifact_path = "model"
-    mlflow_model = mleap.log_model(spark_model=spark_model_iris.model, 
+    mlflow_model = mleap.log_model(spark_model=spark_model_iris.model,
                                    sample_input=spark_model_iris.training_df,
                                    artifact_path=artifact_path)
     rid = active_run().info.run_uuid
     model_path = mlflow.tracking.utils._get_model_log_dir(model_name=artifact_path, run_id=rid)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
-    assert mleap.FLAVOR_NAME in mlflow_model.flavors 
+    assert mleap.FLAVOR_NAME in mlflow_model.flavors
 
 
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
@@ -223,8 +223,8 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
     unsupported_model = unsupported_pipeline.fit(spark_model_iris.training_df)
 
     with pytest.raises(Exception):
-        sparkm.save_model(spark_model=unsupported_model, 
-                          path=model_path, 
+        sparkm.save_model(spark_model=unsupported_model,
+                          path=model_path,
                           sample_input=spark_model_iris.training_df)
 
 
@@ -235,7 +235,7 @@ def test_mleap_module_model_save_with_valid_sample_input_produces_mleap_flavor(
                      path=model_path,
                      sample_input=spark_model_iris.training_df,
                      mlflow_model=mlflow_model)
-    assert mleap.FLAVOR_NAME in mlflow_model.flavors 
+    assert mleap.FLAVOR_NAME in mlflow_model.flavors
 
     config_path = os.path.join(model_path, "MLmodel")
     assert os.path.exists(config_path)
@@ -245,7 +245,7 @@ def test_mleap_module_model_save_with_valid_sample_input_produces_mleap_flavor(
 
 def test_mleap_module_model_save_with_invalid_sample_input_raises_exception(
         spark_model_iris, model_path):
-    with pytest.raises(Exception): 
+    with pytest.raises(Exception):
         sparkm.save_model(spark_model=spark_model_iris.model,
                           path=model_path,
                           sample_input=None)
@@ -261,7 +261,7 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
     unsupported_model = unsupported_pipeline.fit(spark_model_iris.training_df)
 
     with pytest.raises(Exception):
-        mleap.save_model(spark_model=unsupported_model, 
-                         path=model_path, 
+        mleap.save_model(spark_model=unsupported_model,
+                         path=model_path,
                          sample_input=spark_model_iris.training_df)
 

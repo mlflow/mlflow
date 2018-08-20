@@ -1,7 +1,7 @@
 """
 MLflow integration of the MLeap serialization tool for PySpark MLlib pipelines
 
-This module provides utilities for saving models using the MLeap 
+This module provides utilities for saving models using the MLeap
 using the MLeap library's persistence mechanism.
 
 A companion module for loading MLFlow models with the MLeap flavor format is available in the
@@ -34,10 +34,10 @@ def log_model(spark_model, sample_input, artifact_path):
 
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
                   cannot contain any custom transformers.
-    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is 
+    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap, 
+    return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
                      spark_model=spark_model, sample_input=sample_input)
 
 
@@ -52,7 +52,7 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model()):
     :param path: Path of the MLFlow model to which this flavor is being added.
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
                   cannot contain any custom transformers.
-    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is 
+    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     :param mlflow_model: MLFlow model config to which this flavor is being added.
     """
@@ -68,18 +68,18 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     :param path: Path of the MLFlow model to which this flavor is being added.
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
                   cannot contain any custom transformers.
-    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is 
+    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     """
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.ml.base import Transformer
-    from pyspark.sql import DataFrame 
+    from pyspark.sql import DataFrame
     import mleap.version
     from mleap.pyspark.spark_support import SimpleSparkSerializer
     from py4j.protocol import Py4JError
 
     if not isinstance(spark_model, PipelineModel):
-        raise Exception("Not a PipelineModel." 
+        raise Exception("Not a PipelineModel."
                         " MLeap can currently only save PipelineModels.")
     if sample_input is None:
         raise Exception("A sample input must be specified in order to add the MLeap flavor.")
@@ -103,7 +103,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     except Py4JError as e:
         tb = sys.exc_info()[2]
         error_str = ("MLeap encountered an error while serializing the model. Please ensure that"
-                     " the model is compatible with MLeap" 
+                     " the model is compatible with MLeap"
                      " (i.e does not contain any custom transformers). Error text: {err}".format(
                          err=str(e)))
         traceback.print_exc()
@@ -115,8 +115,8 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     with open(mleap_schemapath_full, "w") as out:
         json.dump(input_schema, out, indent=4)
 
-    mlflow_model.add_flavor(FLAVOR_NAME, 
-                            mleap_version=mleap.version.__version__, 
+    mlflow_model.add_flavor(FLAVOR_NAME,
+                            mleap_version=mleap.version.__version__,
                             model_data=mleap_datapath_sub,
                             input_schema=mleap_schemapath_sub)
 

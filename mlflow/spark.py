@@ -5,14 +5,14 @@ This module enables the exporting of Spark MLlib models with the following flavo
                                      in a Spark session. Models with this flavor can be loaded
                                      back as PySpark PipelineModel objects in Python. This
                                      is the main flavor and is always produced.
-    2. PyFunc - Supports deployment outside of Spark by instantiating a SparkContext and reading 
+    2. PyFunc - Supports deployment outside of Spark by instantiating a SparkContext and reading
                 input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark
-                as a Spark UDF. Models with this flavor can be loaded back as Python functions 
-                for performing inference. This flavor is always produced. 
+                as a Spark UDF. Models with this flavor can be loaded back as Python functions
+                for performing inference. This flavor is always produced.
     3. MLeap - Enables high-performance deployment outside of Spark by leveraging MLeap's
                custom dataframe and pipeline representations. For more informatin about MLeap,
                see https://github.com/combust/mleap. Models with this flavor *cannot* be loaded
-               back as Python objects. Rather, they must be deserialized in Java using the 
+               back as Python objects. Rather, they must be deserialized in Java using the
                `mlflow/java` package. This flavor is only produced if MLeap-compatible arguments
                are specified.
 """
@@ -37,11 +37,11 @@ FLAVOR_NAME = "spark"
 DFS_TMP = "/tmp/mlflow"
 
 
-def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=DFS_TMP, 
+def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=DFS_TMP,
               sample_input=None):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This will use the
-    MLlib persistence format, and the logged model will have the Spark flavor. 
+    MLlib persistence format, and the logged model will have the Spark flavor.
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
@@ -137,9 +137,9 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     Save a Spark MLlib PipelineModel at the given local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
-    Additionally, if a sample input is specified via the `sample_input` parameter, the model 
+    Additionally, if a sample input is specified via the `sample_input` parameter, the model
     will also be serialized in MLeap format and the MLeap flavor will be added.
-    
+
     :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
