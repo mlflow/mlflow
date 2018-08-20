@@ -10,7 +10,6 @@ from six.moves import shlex_quote, urllib
 
 from mlflow.entities import RunStatus
 
-
 from mlflow.projects import _fetch_project
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
@@ -136,11 +135,12 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
     temp_tarfile_dir = tempfile.mkdtemp()
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
 
-    def exclude(x):
-        return os.path.basename(x) == "mlruns"
+    def filter(x):
+        return None if os.path.basename(x.name) == "mlruns" else x
 
     try:
-        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, exclude)
+        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME,
+                                custom_filter=filter)
         with open(temp_tar_filename, "rb") as tarred_project:
             tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
         # TODO: Get subdirectory for experiment from the tracking server
@@ -244,8 +244,8 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
 
     dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
     env_vars = {
-         tracking._TRACKING_URI_ENV_VAR: tracking_uri,
-         tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+        tracking._TRACKING_URI_ENV_VAR: tracking_uri,
+        tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
     }
     run_id = remote_run.info.run_uuid
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
@@ -284,6 +284,7 @@ class DatabricksSubmittedRun(SubmittedRun):
     project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
     server accessible to the local client.
     """
+
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
