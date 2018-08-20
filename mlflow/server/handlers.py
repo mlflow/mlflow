@@ -11,8 +11,8 @@ from querystring_parser import parser
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos import databricks_pb2
 
-from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, GetExperimentByName,\
-    GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
+from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
+    GetExperimentByName, GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, ListExperiments, GetMetric, GetParam
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore

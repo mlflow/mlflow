@@ -8,9 +8,9 @@ from mlflow.entities import Experiment, Run, RunInfo, Param, Metric
 
 from mlflow.utils.rest_utils import http_request
 
-from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, GetExperimentByName, \
-    GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, UpdateRun,\
-    CreateRun, GetMetric, GetParam
+from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
+    GetExperimentByName, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, \
+    GetRun, UpdateRun, CreateRun, GetMetric, GetParam
 
 from mlflow.protos import databricks_pb2
 
