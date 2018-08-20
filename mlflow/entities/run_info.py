@@ -5,10 +5,9 @@ from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 
 
 class RunInfo(_MLflowObject):
-
+    """ Class containing metadata for a run. """
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                  user_id, status, start_time, end_time, source_version, tags, artifact_uri=None):
-        """ Class containing metadata for a run. """
         if run_uuid is None:
             raise Exception("run_uuid cannot be None")
         if experiment_id is None:

@@ -28,13 +28,11 @@ class ActiveRun(Run):  # pylint: disable=W0223
         Run.__init__(self, run.info, run.data)
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         status = "FINISHED" if exc_type is None else "FAILED"
-        get_service().set_terminated(self.info.run_uuid, status)
-        global _active_run
-        _active_run = None
+        end_run(status)
         return exc_type is None
 
 
@@ -106,7 +104,7 @@ def log_param(key, value):
     Log the passed-in parameter under the current run, creating a run if necessary.
 
     :param key: Parameter name (string)
-    :param value: Parameter value (string)
+    :param value: Parameter value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_uuid
     get_service().log_param(run_id, key, value)
