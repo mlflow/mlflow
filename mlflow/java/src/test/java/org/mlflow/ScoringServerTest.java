@@ -70,22 +70,20 @@ public class ScoringServerTest {
 
   @Test
   public void
-      testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
+  testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail(
-          "Expected constructing a model server with an invalid model path"
-              + " to throw an exception, but none was thrown.");
+      Assert.fail("Expected constructing a model server with an invalid model path"
+          + " to throw an exception, but none was thrown.");
     } catch (IOException | PredictorLoadingException e) {
       // Success
     }
 
     try {
       ScoringServer server = new ScoringServer(badModelPath, 5001, true);
-      Assert.fail(
-          "Expected constructing a model server with an invalid model path"
-              + " to throw an exception, but none was thrown.");
+      Assert.fail("Expected constructing a model server with an invalid model path"
+          + " to throw an exception, but none was thrown.");
     } catch (IOException | PredictorLoadingException e) {
       // Success
     }
@@ -135,6 +133,28 @@ public class ScoringServerTest {
   }
 
   @Test
+  public void testScoringServerRepondsToInvocationOfBadContentTypeWithServerErrorCode()
+      throws InterruptedException {
+    TestPredictor predictor = new TestPredictor(true);
+    int portNumber = 5001;
+    ScoringServer server = new ScoringServer(predictor, portNumber);
+    server.start();
+
+    Thread.sleep(5000);
+    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
+    try {
+      String badContentType = "not-a-content-type";
+      HttpResponse<JsonNode> response =
+          Unirest.post(requestUrl).header("Content-type", badContentType).body("body").asJson();
+      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
+    } catch (UnirestException e) {
+      e.printStackTrace();
+      Assert.fail("Encountered an exception while attempting to ping the server!");
+    }
+    server.stop();
+  }
+
+  @Test
   public void testMultipleServersRunOnDifferentPortsSuccessfully() throws InterruptedException {
     List<Integer> portNumbers = Arrays.asList(5001, 5002, 5003);
     TestPredictor predictor = new TestPredictor(true);
@@ -155,10 +175,9 @@ public class ScoringServerTest {
         Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
       } catch (UnirestException e) {
         e.printStackTrace();
-        Assert.fail(
-            String.format(
-                "Encountered an exception while attempting to ping the server on port %d!",
-                portNumber));
+        Assert.fail(String.format(
+            "Encountered an exception while attempting to ping the server on port %d!",
+            portNumber));
       }
     }
 
@@ -217,9 +236,8 @@ public class ScoringServerTest {
     ScoringServer server = new ScoringServer(predictor, 5001);
     try {
       server.stop();
-      Assert.fail(
-          "Expected the server stop operation to throw an IllegalStateException,"
-              + "but none was thrown.");
+      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
+          + "but none was thrown.");
     } catch (IllegalStateException e) {
       // Succeed
     }
@@ -236,9 +254,8 @@ public class ScoringServerTest {
 
     try {
       server.start();
-      Assert.fail(
-          "Expected the server stop operation to throw an IllegalStateException,"
-              + "but none was thrown.");
+      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
+          + "but none was thrown.");
     } catch (IllegalStateException e) {
       // Succeed
     }
@@ -258,9 +275,8 @@ public class ScoringServerTest {
       try {
         HttpResponse response = Unirest.get(requestUrl).asJson();
       } catch (UnirestException e) {
-        Assert.fail(
-            "Encountered an unexpected exception while attempting to ping"
-                + "the active scoring server.");
+        Assert.fail("Encountered an unexpected exception while attempting to ping"
+            + "the active scoring server.");
       }
       server.stop();
       Thread.sleep(5000);
