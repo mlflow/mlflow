@@ -228,6 +228,7 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
                           path=model_path, 
                           sample_input=spark_model_iris.training_df)
 
+
 def test_mleap_module_model_save_with_valid_sample_input_produces_mleap_flavor(
         spark_model_iris, model_path):
     mlflow_model = Model()
