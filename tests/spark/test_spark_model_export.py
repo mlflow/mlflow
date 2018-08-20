@@ -17,7 +17,6 @@ import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.models import Model 
-from mlflow.tracking.fluent import active_run 
 
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -127,7 +126,7 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
     # Print the coefficients and intercept for multinomial logistic regression
     preds_df = spark_model_iris.model.transform(spark_model_iris.training_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
-    old_tracking_uri = tracking.get_tracking_uri()
+    old_tracking_uri = mlflow.get_tracking_uri()
     cnt = 0
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
@@ -135,9 +134,9 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
             print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
             try:
                 tracking_dir = os.path.abspath(str(tmpdir.mkdir("mlruns")))
-                tracking.set_tracking_uri("file://%s" % tracking_dir)
+                mlflow.set_tracking_uri("file://%s" % tracking_dir)
                 if should_start_run:
-                    tracking.start_run()
+                    mlflow.start_run()
                 artifact_path = "model%d" % cnt
                 cnt += 1
                 if dfs_tmp_dir:
@@ -147,7 +146,7 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
                 else:
                     sparkm.log_model(artifact_path=artifact_path,
                                      spark_model=spark_model_iris.model)
-                run_id = tracking.active_run().info.run_uuid
+                run_id = active_run().info.run_uuid
                 # test pyfunc
                 x = pyfunc.load_pyfunc(artifact_path, run_id=run_id)
                 preds2 = x.predict(spark_model_iris.inference_df)
@@ -166,8 +165,8 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
                 assert not os.listdir(x)
                 shutil.rmtree(x)
             finally:
-                tracking.end_run()
-                tracking.set_tracking_uri(old_tracking_uri)
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_tracking_uri)
                 shutil.rmtree(tracking_dir)
 
 
