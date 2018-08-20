@@ -23,12 +23,36 @@ mlflow_set_active_connection <- function(mc) {
   invisible(NULL)
 }
 
+#' @importFrom httpuv startDaemonizedServer
+#' @importFrom httpuv stopServer
+mlflow_port_available <- function(port) {
+  tryCatch({
+    handle <- httpuv::startDaemonizedServer("127.0.0.1", port, list())
+    httpuv::stopServer(handle)
+    TRUE
+  }, error = function(e) {
+    FALSE
+  })
+}
+
 #' @importFrom openssl rand_num
 mlflow_connect_port <- function() {
-  getOption(
+  port <- getOption(
     "mlflow.port",
-    floor(5000 + rand_num(1) * 1000)
+    NULL
   )
+
+  retries <- getOption("mlflow.port.retries", 10)
+  while(is.null(port) && retries > 0) {
+    port <- floor(5000 + rand_num(1) * 1000)
+    if (!mlflow_port_available(port)) {
+      port <- NULL
+    }
+
+    retries <- retries - 1
+  }
+
+  port
 }
 
 mlflow_cli_param <- function(args, param, value)
