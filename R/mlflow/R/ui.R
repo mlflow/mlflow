@@ -52,7 +52,7 @@ mlflow_ui.mlflow_connection <- function(x, ...) {
 mlflow_ui.NULL <- function(x, ...) {
   tracking_uri <- mlflow_tracking_uri()
   if (startsWith(tracking_uri, "http"))
-    mlflow_view_url(m)
+    mlflow_view_url(tracking_uri)
   else
     mlflow_ui(tracking_uri)
 }
