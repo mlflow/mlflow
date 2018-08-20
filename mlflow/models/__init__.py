@@ -45,12 +45,13 @@ class Model(object):
 
         :param artifact_path: Run relative path identifying this model.
         :param flavor: Flavor module / object to save the model with. The module / object must have
-            the ``save_model`` function that will persist the model as a valid MLflow model.
+                       the ``save_model`` function that will persist the model as a valid
+                       MLflow model.
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
-            run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
+            run_id = mlflow.tracking.fluent._get_or_start_run().info.run_uuid
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.log_artifacts(local_path, artifact_path)
+            mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)

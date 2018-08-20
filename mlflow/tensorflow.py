@@ -20,7 +20,7 @@ import tensorflow as tf
 
 from mlflow import pyfunc
 from mlflow.models import Model
-import mlflow.tracking
+from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 
 
 class _TFWrapper(object):
@@ -62,23 +62,25 @@ class _TFWrapper(object):
 
 
 def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
-    """Log a TensorFlow model as an MLflow artifact for the current run.
+    """
+    Log a TensorFlow model as an MLflow artifact for the current run.
 
     :param saved_model_dir: Directory where the exported TensorFlow model is saved.
     :param signature_def_key: The signature definition to use when loading the model again.
-        See `SignatureDefs in SavedModel for TensorFlow Serving
-        <https://www.tensorflow.org/serving/signature_defs>`_ for details.
+                              See `SignatureDefs in SavedModel for TensorFlow Serving
+                              <https://www.tensorflow.org/serving/signature_defs>`_ for details.
     :param artifact_path: Path (within the artifact directory for the current run) to which
-        artifacts of the model will be saved.
+                          artifacts of the model will be saved.
+
     """
-    run_id = mlflow.tracking._get_or_start_run().run_info.run_uuid
+    run_id = _get_or_start_run().info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow")
     mlflow_model.add_flavor("tensorflow",
                             saved_model_dir=saved_model_dir,
                             signature_def_key=signature_def_key)
     mlflow_model.save(os.path.join(saved_model_dir, "MLmodel"))
-    mlflow.tracking.log_artifacts(saved_model_dir, artifact_path)
+    log_artifacts(saved_model_dir, artifact_path)
 
 
 def load_pyfunc(saved_model_dir):

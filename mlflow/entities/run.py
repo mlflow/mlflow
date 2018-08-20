@@ -17,10 +17,12 @@ class Run(_MLflowObject):
 
     @property
     def info(self):
+        """:return: :py:class:`mlflow.entities.RunInfo`"""
         return self._info
 
     @property
     def data(self):
+        """:return: :py:class:`mlflow.entities.RunData`"""
         return self._data
 
     def to_proto(self):

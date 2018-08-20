@@ -6,8 +6,18 @@ import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label} from 'recharts';
+import {
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Label,
+} from 'recharts';
 import './CompareRunScatter.css';
+import CompareRunUtil from './CompareRunUtil';
 
 class CompareRunScatter extends Component {
   static propTypes = {
@@ -19,8 +29,10 @@ class CompareRunScatter extends Component {
   constructor(props) {
     super(props);
 
-    this.metricKeys = CompareRunScatter.getKeys(this.props.metricLists);
-    this.paramKeys = CompareRunScatter.getKeys(this.props.paramLists);
+    this.renderTooltip = this.renderTooltip.bind(this);
+
+    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, true);
+    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
 
     if (this.paramKeys.length + this.metricKeys.length < 2) {
       this.state = {disabled: true};
@@ -28,68 +40,37 @@ class CompareRunScatter extends Component {
       this.state = {
         disabled: false,
         x: this.paramKeys.length > 0 ?
-          {
-            key: this.paramKeys[0],
-            isMetric: false
-          } : {
-            key: this.metricKeys[1],
-            isMetric: true
-          },
+        {
+          key: this.paramKeys[0],
+          isMetric: false
+        } : {
+          key: this.metricKeys[1],
+          isMetric: true
+        },
         y: this.metricKeys.length > 0 ?
-          {
-            key: this.metricKeys[0],
-            isMetric: true
-          } : {
-            key: this.paramKeys[1],
-            isMetric: false
-          }
-      }
+        {
+          key: this.metricKeys[0],
+          isMetric: true
+        } : {
+          key: this.paramKeys[1],
+          isMetric: false
+        }
+      };
     }
-  }
-
-  /**
-   * Find in a list of metrics/params a certain key
-   */
-  static findInList(data, key) {
-    let found = undefined;
-    data.forEach((value) => {
-      if (value.key === key) {
-        found = value;
-      }
-    });
-    return found;
-  }
-
-  /**
-   * Get all keys present in the data in ParamLists or MetricLists
-   */
-  static getKeys(lists) {
-    let keys = {};
-    lists.forEach((list) => 
-      list.forEach((item) => {
-        if (!(item.key in keys)) {
-          keys[item.key] = true;
-        }
-        if (isNaN(parseFloat(item.value))) {
-          keys[item.key] = false;
-        }
-      }
-    ));
-    return Object.keys(keys).filter(k => keys[k]).sort();
   }
 
   /**
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
   getValue(i, {key, isMetric}) {
-    const value = CompareRunScatter.findInList(
+    const value = CompareRunUtil.findInList(
       (isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
     return value === undefined ? value : value.value;
   }
 
   render() {
-    if (this.state.disabled){
-      return <div></div>
+    if (this.state.disabled) {
+      return <div></div>;
     }
 
     const scatterData = [];
@@ -126,15 +107,17 @@ class CompareRunScatter extends Component {
                 <YAxis type="number" dataKey='y' name='y'>
                   {this.renderAxisLabel('y')}
                 </YAxis>
-                <CartesianGrid />
-                <Tooltip 
+                <CartesianGrid/>
+                <Tooltip
                   isAnimationActive={false}
                   cursor={{strokeDasharray: '3 3'}}
-                  content={this.renderTooltip.bind(this)}/>
+                  content={this.renderTooltip}
+                />
                 <Scatter
                   data={scatterData}
-                  fill='#8884d8'
-                  isAnimationActive={false} />
+                  fill='#AE76A6'
+                  isAnimationActive={false}
+                />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
@@ -147,7 +130,7 @@ class CompareRunScatter extends Component {
     const key = this.state[axis];
     return (<Label
       angle={axis === "x" ? 0 : -90}
-      offset={axis === "x"? -5 : 5}
+      offset={axis === "x" ? -5 : 5}
       value={(key.isMetric ? "Metric" : "Parameter") + ": " + key.key}
       position={axis === "x" ? "insideBottom" : "insideLeft"}
     />);
@@ -168,12 +151,12 @@ class CompareRunScatter extends Component {
       >
         <optgroup label="Parameter">
           {this.paramKeys.map((p) =>
-            <option key={p} value={"param-"+p}>{p}</option>
+            <option key={p} value={"param-" + p}>{p}</option>
           )}
         </optgroup>
         <optgroup label="Metric">
           {this.metricKeys.map((m) =>
-            <option key={m} value={"metric-"+m}>{m}</option>
+            <option key={m} value={"metric-" + m}>{m}</option>
           )}
         </optgroup>
       </select>);
@@ -210,6 +193,7 @@ class CompareRunScatter extends Component {
         </div>
       );
     }
+    return null;
   }
 }
 

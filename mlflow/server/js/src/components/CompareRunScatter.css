@@ -1,11 +1,16 @@
 .scatter-tooltip {
   width: 300px;
-  font-size: 90%;
+}
+
+.scatter-tooltip h3 {
+  font-size: 105%;
+  color: #888;
 }
 
 .scatter-tooltip h4 {
-  font-size: 110%;
-  margin: 4px 0 0 0;
+  font-size: 105%;
+  color: #888;
+  margin: 0;
 }
 
 .scatter-tooltip ul {
@@ -16,8 +21,8 @@
 .scatter-tooltip ul li {
   display: block;
   margin: 0;
-  padding: 0 0 0 16px;
-  text-indent: -13px;
+  padding: 0 0 0 0;
+  text-indent: 0;
 }
 
 .scatter-tooltip ul li .value {
@@ -28,4 +33,8 @@
   overflow: hidden;
   text-indent: 0;
   vertical-align: top;
+}
+
+.recharts-responsive-container {
+  padding-bottom: 10px;
 }

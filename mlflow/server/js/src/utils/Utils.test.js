@@ -1,4 +1,4 @@
-import Utils from './Utils'
+import Utils from './Utils';
 
 test("formatMetric", () => {
   expect(Utils.formatMetric(0)).toEqual("0");
@@ -89,13 +89,13 @@ test("getGitHubRegex", () => {
     ["https://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
     ["http://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
     ["https://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["git@github.com:mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git", null],
-    ["ssh@some-server:mlflow/mlflow-apps.git", null],
-  ]
-  urlAndExpected.forEach(lst => {
+    ["git@github.com:mlflow/mlflow-apps.git", ["@github.com:mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git", [null]],
+    ["ssh@some-server:mlflow/mlflow-apps.git", [null]],
+  ];
+  urlAndExpected.forEach((lst) => {
     const url = lst[0];
     const match = url.match(gitHubRegex);
-    expect(match == lst[1]);
-  })
-})
+    expect([].concat(match)).toEqual(lst[1]);
+  });
+});
