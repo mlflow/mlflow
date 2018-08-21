@@ -9,7 +9,6 @@ import time
 from six.moves import shlex_quote, urllib
 
 from mlflow.entities import RunStatus
-
 from mlflow.projects import _fetch_project
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
@@ -287,7 +286,11 @@ class DatabricksSubmittedRun(SubmittedRun):
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
-        self.run_id = run_id
+        self._run_id = run_id
+
+    @property
+    def run_id(self):
+        self._run_id
 
     def wait(self):
         return _monitor_databricks(self.databricks_run_id)
