@@ -92,7 +92,8 @@ def test_model_export(tmpdir):
     assert preds1 == preds3
     assert os.path.exists(sparkm.DFS_TMP)
     print(os.listdir(sparkm.DFS_TMP))
-    assert not os.listdir(sparkm.DFS_TMP)
+    # We expect not to delete the DFS tempdir.
+    assert os.listdir(sparkm.DFS_TMP)
 
 
 @pytest.mark.large

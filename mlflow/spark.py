@@ -20,6 +20,7 @@ from pyspark.ml.base import Transformer
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "spark"
 
@@ -203,6 +204,7 @@ def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
     # Spark may read from it at any point.
     _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
     pipeline_model = PipelineModel.load(tmp_path)
+    eprint("Copied SparkML model to %s" % tmp_path)
     return pipeline_model
 
 
