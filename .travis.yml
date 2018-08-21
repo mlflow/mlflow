@@ -20,6 +20,25 @@ matrix:
         global:
           - NOT_CRAN=true
             MLFLOW_TEST_REQUIREMENTS=false
+      r_packages:
+        - aws.s3
+        - config
+        - fs
+        - git2r
+        - httpuv
+        - httr
+        - jsonlite
+        - openssl
+        - processx
+        - reticulate
+        - rlang
+        - packrat
+        - purrr
+        - swagger
+        - withr
+        - xml2
+        - yaml
+        - testthat
       script:
         - cd R/mlflow
         - R CMD build .
