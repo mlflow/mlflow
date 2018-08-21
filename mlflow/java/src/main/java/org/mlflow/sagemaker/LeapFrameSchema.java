@@ -15,6 +15,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Representation of the dataframe schema that an {@link MLeapPredictor}
+ * expects inputs to have
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 class LeapFrameSchema {
     private static final String LEAP_FRAME_KEY_ROWS = "rows";
@@ -30,6 +34,11 @@ class LeapFrameSchema {
     private String text;
     private List<String> orderedFieldNames;
 
+    /**
+     * Loads a leap frame schema from a JSON-formatted file
+     *
+     * @param filePath The path to the JSON-formatted schema file
+     */
     protected static LeapFrameSchema fromPath(String filePath) throws IOException {
         LeapFrameSchema newSchema =
             SerializationUtils.parseJsonFromFile(filePath, LeapFrameSchema.class);
@@ -39,6 +48,10 @@ class LeapFrameSchema {
         return newSchema;
     }
 
+    /**
+     * @return The list of dataframe fields expected by the transformer with
+     * this schema, in the order that these fields are expected to appear
+     */
     protected List<String> getOrderedFieldNames() {
         return this.orderedFieldNames;
     }
