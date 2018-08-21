@@ -169,6 +169,7 @@ def test_run_databricks(
         runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
         submitted_run = run_databricks_project(cluster_spec_mock)
         assert submitted_run.wait() == run_succeeded
+        assert submitted_run.run_id is not None
         assert runs_submit_mock.call_count == 1
         runs_submit_mock.reset_mock()
         validate_exit_status(submitted_run.get_status(), expected_status)
