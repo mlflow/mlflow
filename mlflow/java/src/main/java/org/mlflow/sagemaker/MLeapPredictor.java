@@ -1,26 +1,21 @@
 package org.mlflow.sagemaker;
 
-import org.mlflow.utils.SerializationUtils;
-
-import ml.combust.mleap.runtime.MleapContext;
-import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
-import ml.combust.mleap.runtime.frame.Transformer;
-import ml.combust.mleap.runtime.frame.Row;
-import ml.combust.mleap.runtime.javadsl.BundleBuilder;
-import ml.combust.mleap.runtime.javadsl.ContextBuilder;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.NoSuchElementException;
-
+import ml.combust.mleap.runtime.MleapContext;
+import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
+import ml.combust.mleap.runtime.frame.Row;
+import ml.combust.mleap.runtime.frame.Transformer;
+import ml.combust.mleap.runtime.javadsl.BundleBuilder;
+import ml.combust.mleap.runtime.javadsl.ContextBuilder;
+import org.mlflow.utils.SerializationUtils;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 
 /** A {@link org.mlflow.sagemaker.Predictor} implementation for the MLeap model flavor */
 public class MLeapPredictor extends Predictor {
@@ -40,7 +35,7 @@ public class MLeapPredictor extends Predictor {
    *
    * @param modelDataPath The path to the serialized MLeap model
    * @param inputSchema The path to JSON-formatted file containing the input schema that the model
-   * accepts
+   *     accepts
    */
   public MLeapPredictor(String modelDataPath, String inputSchemaPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
@@ -50,8 +45,9 @@ public class MLeapPredictor extends Predictor {
       this.inputSchema = LeapFrameSchema.fromPath(inputSchemaPath);
     } catch (IOException e) {
       e.printStackTrace();
-      throw new PredictorLoadingException(String.format(
-          "Failed to load model input schema from specified path: %s", inputSchemaPath));
+      throw new PredictorLoadingException(
+          String.format(
+              "Failed to load model input schema from specified path: %s", inputSchemaPath));
     }
   }
 
@@ -64,12 +60,13 @@ public class MLeapPredictor extends Predictor {
       e.printStackTrace();
       throw new PredictorEvaluationException(
           "Failed to transform input into a JSON representation of an MLeap dataframe."
-          + "Please ensure that the input is a JSON-serialized Pandas Dataframe"
-          + "with the `record` orientation");
+              + "Please ensure that the input is a JSON-serialized Pandas Dataframe"
+              + "with the `record` orientation");
     } catch (MissingSchemaFieldException e) {
       e.printStackTrace();
       throw new PredictorEvaluationException(
-          String.format("The input dataframe is missing the following required field: %s",
+          String.format(
+              "The input dataframe is missing the following required field: %s",
               e.getMissingFieldName()));
     }
     DefaultLeapFrame leapFrame = LeapFrameUtils.getLeapFrameFromJson(leapFrameJson.get());
