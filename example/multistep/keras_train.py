@@ -24,10 +24,10 @@ import pandas as pd
 def cli():
     pass
 
-
-@cli.command()
-@click.option("--ratings-data")
-@click.option("--als-model-uri")
+@cli.command(help="Trains a Keras model for user/movie ratings. The input is a Parquet "
+                  "ratings dataset (see etl_data.py) and an ALS model (see als.py).")
+@click.option("--ratings-data", help="Path readable by Spark to the ratings Parquet file")
+@click.option("--als-model-uri", help="Path readable by load_model to ALS MLmodel")
 def keras_train(ratings_data, als_model_uri):
     np.random.seed(0)
     tf.set_random_seed(42)  # For reproducibility

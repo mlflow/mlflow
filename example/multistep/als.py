@@ -14,7 +14,9 @@ def cli():
     pass
 
 
-@cli.command()
+@cli.command(help="Trains an ALS model for user/movie ratings. The input is a Parquet "
+                  "ratings dataset (see etl_data.py), and we output an mlflow artifact "
+                  "called 'als-model'")
 @click.option("--ratings-data")
 @click.option("--split-prop", default=0.8, type=float)
 @click.option("--max-iter", default=10, type=int)

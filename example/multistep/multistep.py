@@ -1,3 +1,10 @@
+"""
+Downloads the movielens dataset, ETLs it into Parquet, trains an
+ALS model, and uses the ALS model to train a Keras neural network.
+
+See README.rst for more details.
+"""
+
 import click
 import os
 import tempfile
@@ -16,11 +23,15 @@ def cli():
 
 
 def _get_params(run):
+    """Converts [mlflow.entities.Param] to a dictionary of {k: v}."""
     return {param.key: param.value for param in run.data.params}
 
 
-# NB: Requires global uniqueness of entry_point_name
 def _already_ran(entry_point_name, parameters, experiment_id=None):
+    """Best-effort detection of if a run with the given entrypoint name,
+    parameters, and experiment id already ran. The run must have completed
+    successfully and have at least the parameters provided.
+    """
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
     service = mlflow.tracking.get_service()
     all_runs = reversed(service.list_runs(experiment_id))
@@ -62,16 +73,19 @@ def _get_or_run(entrypoint, parameters, use_cache=True):
 
 @cli.command()
 def workflow():
+    # Note: The entrypoint names are defined in MLproject. The artifact directories
+    # are documented by each step's .py file.
     load_raw_data_run = _get_or_run("load_raw_data", {})
     ratings_csv_uri = os.path.join(load_raw_data_run.info.artifact_uri, "ratings-csv-dir")
     etl_data_run = _get_or_run("etl_data", {"ratings_csv": ratings_csv_uri})
     ratings_parquet_uri = os.path.join(etl_data_run.info.artifact_uri, "ratings-parquet-dir")
 
-    als_run = _get_or_run("als", {"ratings_data": ratings_parquet_uri, "max_iter": "20"})
+    als_run = _get_or_run("als", {"ratings_data": ratings_parquet_uri, "max_iter": "10"})
     als_model_uri = os.path.join(als_run.info.artifact_uri, "als-model")
 
-    mlflow.run(".", "keras_train", use_conda=False,
-               parameters={"ratings_data": ratings_parquet_uri, "als_model_uri": als_model_uri})
+    _get_or_run("keras_train",
+                parameters={"ratings_data": ratings_parquet_uri, "als_model_uri": als_model_uri},
+                use_cache=False)
 
 
 if __name__ == '__main__':

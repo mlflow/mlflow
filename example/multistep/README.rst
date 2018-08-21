@@ -16,8 +16,9 @@ There are four steps to this workflow:
   it into the artifact store.
 
 - **etl_data** (etl_data.py): Converts the movielens CSV from the 
-  previous step into Parquet. This drops the size from 500 MB to 115 MB,
-  and allows columnar access of the data.
+  previous step into Parquet, dropping unnecessary columns along the way.
+  This reduces the input size from 500 MB to 49 MB, and allows columnar 
+  access of the data.
 
 - **als** (als.py): Runs ALS on the Parquet version of movielens to 
   estimate the movieFactors and userFactors. This produces a relatively
@@ -41,10 +42,11 @@ execute ``mlflow run`` from this directory. So, in order to find out if
 the Keras model does in fact improve upon the ALS model, you can simply
 run:
 
-```
-cd examples/multistep
-mlflow run . -e multistep
-```
+.. code::
+
+    cd examples/multistep
+    mlflow run . -e multistep
+
 
 This will download and transform the movielens dataset, train an ALS 
 model, and then train a Keras model -- you can compare the results by 

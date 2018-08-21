@@ -39,12 +39,12 @@ def load_raw_data(url):
         mlflow.log_artifact(ratings_file, "ratings-csv-dir")
 
 
-@cli.command()
+@cli.command(help="Given a CSV file (see load_raw_data), transforms it into Parquet "
+                  "in an mlflow artifact called 'ratings-parquet-dir'")
 @click.option("--ratings-csv")
 def etl_data(ratings_csv):
     with mlflow.start_run() as mlrun:
         tmpdir = tempfile.mkdtemp()
-        # ratings_csv = os.path.join(tmpdir, 'ratings-csv')
         ratings_parquet_dir = os.path.join(tmpdir, 'ratings-parquet')
 
         spark = pyspark.sql.SparkSession.builder.getOrCreate()
@@ -52,7 +52,8 @@ def etl_data(ratings_csv):
         ratings_df = spark.read \
             .option("header", "true") \
             .option("inferSchema", "true") \
-            .csv(ratings_csv)
+            .csv(ratings_csv) \
+            .drop("timestamp")  # Drop unused column
         ratings_df.show()
         ratings_df.write.parquet(ratings_parquet_dir)
 
