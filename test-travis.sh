@@ -3,6 +3,8 @@
 set -e
 set -x
 
+source activate test-environment
+
 sudo ./test-generate-protos.sh
 pip list
 which mlflow
