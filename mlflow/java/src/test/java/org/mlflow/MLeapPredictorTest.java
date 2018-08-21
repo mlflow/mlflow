@@ -1,25 +1,19 @@
 package org.mlflow.sagemaker;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import ml.combust.mleap.runtime.frame.Transformer;
 import org.junit.Assert;
 import org.junit.Test;
-
 import org.mlflow.MLflowRootResourceProvider;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.utils.SerializationUtils;
 
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.Map;
-
-import ml.combust.mleap.runtime.frame.Transformer;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-
-/**
- * Unit tests for the {@link MLeapPredictor}
- */
+/** Unit tests for the {@link MLeapPredictor} */
 public class MLeapPredictorTest {
   @Test
   public void testMLeapPredictorGetPipelineYieldsValidMLeapTransformer()
@@ -44,8 +38,8 @@ public class MLeapPredictorTest {
 
   @Test
   public void
-  testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingInputWithMissingField()
-      throws IOException, JsonProcessingException {
+      testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingInputWithMissingField()
+          throws IOException, JsonProcessingException {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
 
@@ -68,9 +62,8 @@ public class MLeapPredictorTest {
 
   @Test
   /**
-   * NOTE: When DataFrame objects start performing JSON format validation,
-   * this test will need to be updated to ensure that bad JSON is still being passed
-   * to the {@link MLeapPredictor}
+   * NOTE: When DataFrame objects start performing JSON format validation, this test will need to be
+   * updated to ensure that bad JSON is still being passed to the {@link MLeapPredictor}
    */
   public void testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingBadJson() {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
@@ -81,8 +74,9 @@ public class MLeapPredictorTest {
 
     try {
       predictor.predict(badInputFrame);
-      Assert.fail("Expected predictor evaluation on a bad JSON input"
-          + "to throw a PredictorEvaluationException.");
+      Assert.fail(
+          "Expected predictor evaluation on a bad JSON input"
+              + "to throw a PredictorEvaluationException.");
     } catch (PredictorEvaluationException e) {
       // Success
     }

@@ -1,21 +1,17 @@
 package org.mlflow.sagemaker;
 
-import org.junit.Assert;
-import org.junit.Test;
-
-import org.mlflow.MLflowRootResourceProvider;
-import org.mlflow.utils.SerializationUtils;
-
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.junit.Assert;
+import org.junit.Test;
+import org.mlflow.MLflowRootResourceProvider;
+import org.mlflow.utils.SerializationUtils;
 
-/**
- * Unit tests for the {@link LeapFrameSchema} module
- */
+/** Unit tests for the {@link LeapFrameSchema} module */
 public class LeapFrameSchemaTest {
   @Test
   public void testLeapFrameSchemaIsLoadedFromValidPathWithCorrectFieldOrder() throws IOException {
@@ -45,8 +41,8 @@ public class LeapFrameSchemaTest {
 
   @Test
   public void
-  testLeapFrameSchemaThrowsMissingFieldExceptionWhenAppliedToPandasJsonWithMissingField()
-      throws IOException {
+      testLeapFrameSchemaThrowsMissingFieldExceptionWhenAppliedToPandasJsonWithMissingField()
+          throws IOException {
     String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
     LeapFrameSchema schema = LeapFrameSchema.fromPath(schemaPath);
 

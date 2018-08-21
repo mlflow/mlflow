@@ -1,17 +1,12 @@
 package org.mlflow.sagemaker;
 
-import org.junit.Assert;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.nio.file.Files;
-
-import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
-
-/**
- * Unit tests for the {@link LeapFrameUtils} module
- */
+/** Unit tests for the {@link LeapFrameUtils} module */
 public class LeapFrameUtilsTest {
   @Test
   public void testValidSerializedLeapFrameIsDeserializedAsLeapFrameObjectSuccessfully()

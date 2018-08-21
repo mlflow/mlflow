@@ -70,20 +70,22 @@ public class ScoringServerTest {
 
   @Test
   public void
-  testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
+      testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (IOException | PredictorLoadingException e) {
       // Success
     }
 
     try {
       ScoringServer server = new ScoringServer(badModelPath, 5001, true);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (IOException | PredictorLoadingException e) {
       // Success
     }
@@ -175,9 +177,10 @@ public class ScoringServerTest {
         Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
       } catch (UnirestException e) {
         e.printStackTrace();
-        Assert.fail(String.format(
-            "Encountered an exception while attempting to ping the server on port %d!",
-            portNumber));
+        Assert.fail(
+            String.format(
+                "Encountered an exception while attempting to ping the server on port %d!",
+                portNumber));
       }
     }
 
@@ -236,8 +239,9 @@ public class ScoringServerTest {
     ScoringServer server = new ScoringServer(predictor, 5001);
     try {
       server.stop();
-      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
-          + "but none was thrown.");
+      Assert.fail(
+          "Expected the server stop operation to throw an IllegalStateException,"
+              + "but none was thrown.");
     } catch (IllegalStateException e) {
       // Succeed
     }
@@ -254,8 +258,9 @@ public class ScoringServerTest {
 
     try {
       server.start();
-      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
-          + "but none was thrown.");
+      Assert.fail(
+          "Expected the server stop operation to throw an IllegalStateException,"
+              + "but none was thrown.");
     } catch (IllegalStateException e) {
       // Succeed
     }
@@ -275,8 +280,9 @@ public class ScoringServerTest {
       try {
         HttpResponse response = Unirest.get(requestUrl).asJson();
       } catch (UnirestException e) {
-        Assert.fail("Encountered an unexpected exception while attempting to ping"
-            + "the active scoring server.");
+        Assert.fail(
+            "Encountered an unexpected exception while attempting to ping"
+                + "the active scoring server.");
       }
       server.stop();
       Thread.sleep(5000);
