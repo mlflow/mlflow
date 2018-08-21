@@ -26,39 +26,6 @@ mlflow_relative_paths <- function(paths) {
   gsub(paste0("^", file.path(getwd(), "")), "", paths)
 }
 
-#' Active Experiment
-#'
-#' Creates an MLflow experiment and makes it active.
-#'
-#' @param name The name of the experiment to create.
-#'
-#' @examples
-#' \dontrun{
-#' library(mlflow)
-#' mlflow_install()
-#'
-#' # activates experiment
-#' mlflow_experiment("My Experiment")
-#'
-#' # activates experiment in remote MLflow server
-#' mlflow_set_tracking_uri("http://tracking-server:5000")
-#' mlflow_experiment("My Experiment")
-#' }
-#'
-#' @export
-mlflow_experiment <- function(name) {
-  if (!name %in% mlflow_list_experiments()$name) {
-    mlflow_create_experiment(name)
-  }
-
-  exps <- mlflow_list_experiments()
-  experiment_id <- exps[exps$name == name,]$experiment_id
-
-  .globals$active_experiment <- experiment_id
-
-  invisible(experiment_id)
-}
-
 #' Start Run
 #'
 #' Starts a new run within an experiment, should be used within a \code{with} block.
