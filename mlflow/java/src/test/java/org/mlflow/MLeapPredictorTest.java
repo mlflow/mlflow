@@ -3,7 +3,7 @@ package org.mlflow.sagemaker;
 import org.junit.Assert;
 import org.junit.Test;
 
-import org.mlflow.LoaderModuleTest;
+import org.mlflow.MLflowRootResourceProvider;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.utils.SerializationUtils;
 
@@ -17,11 +17,14 @@ import ml.combust.mleap.runtime.frame.Transformer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
+/**
+ * Unit tests for the {@link MLeapPredictor}
+ */
 public class MLeapPredictorTest {
   @Test
   public void testMLeapPredictorGetPipelineYieldsValidMLeapTransformer()
       throws PredictorLoadingException {
-    String modelPath = LoaderModuleTest.class.getResource("mleap_model").getFile();
+    String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
     Transformer pipelineTransformer = predictor.getPipeline();
   }
@@ -29,11 +32,11 @@ public class MLeapPredictorTest {
   @Test
   public void testMLeapPredictorEvaluatesCompatibleInputCorrectly()
       throws IOException, PredictorEvaluationException {
-    String modelPath = LoaderModuleTest.class.getResource("mleap_model").getFile();
+    String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
 
     String sampleInputPath =
-        LoaderModuleTest.class.getResource("mleap_model/sample_input.json").getFile();
+        MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
     DataFrame inputDataFrame = DataFrame.fromJson(sampleInputJson);
     DataFrame outputDataFrame = predictor.predict(inputDataFrame);
@@ -43,11 +46,11 @@ public class MLeapPredictorTest {
   public void
   testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingInputWithMissingField()
       throws IOException, JsonProcessingException {
-    String modelPath = LoaderModuleTest.class.getResource("mleap_model").getFile();
+    String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
 
     String sampleInputPath =
-        LoaderModuleTest.class.getResource("mleap_model/sample_input.json").getFile();
+        MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
     List<Map<String, Object>> sampleInput =
         SerializationUtils.fromJson(sampleInputJson, List.class);
@@ -70,7 +73,7 @@ public class MLeapPredictorTest {
    * to the {@link MLeapPredictor}
    */
   public void testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingBadJson() {
-    String modelPath = LoaderModuleTest.class.getResource("mleap_model").getFile();
+    String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
 
     String badJsonInput = "This is not a valid json string";

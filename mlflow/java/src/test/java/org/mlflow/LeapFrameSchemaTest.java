@@ -3,7 +3,7 @@ package org.mlflow.sagemaker;
 import org.junit.Assert;
 import org.junit.Test;
 
-import org.mlflow.LoaderModuleTest;
+import org.mlflow.MLflowRootResourceProvider;
 import org.mlflow.utils.SerializationUtils;
 
 import java.io.IOException;
@@ -19,8 +19,7 @@ import java.util.Map;
 public class LeapFrameSchemaTest {
   @Test
   public void testLeapFrameSchemaIsLoadedFromValidPathWithCorrectFieldOrder() throws IOException {
-    String schemaPath =
-        LoaderModuleTest.class.getResource("mleap_model/mleap/schema.json").getFile();
+    String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
     LeapFrameSchema schema = LeapFrameSchema.fromPath(schemaPath);
     List<String> orderedFieldNames = schema.getOrderedFieldNames();
     List<String> expectedOrderedFieldNames = Arrays.asList("text", "topic");
@@ -29,12 +28,11 @@ public class LeapFrameSchemaTest {
 
   @Test
   public void testLeapFrameSchemaAddsSchemaAndRowKeysToValidPandasInputJson() throws IOException {
-    String schemaPath =
-        LoaderModuleTest.class.getResource("mleap_model/mleap/schema.json").getFile();
+    String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
     LeapFrameSchema schema = LeapFrameSchema.fromPath(schemaPath);
 
     String sampleInputPath =
-        LoaderModuleTest.class.getResource("mleap_model/sample_input.json").getFile();
+        MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
     DataFrame inputDataFrame = DataFrame.fromJson(sampleInputJson);
 
@@ -49,12 +47,11 @@ public class LeapFrameSchemaTest {
   public void
   testLeapFrameSchemaThrowsMissingFieldExceptionWhenAppliedToPandasJsonWithMissingField()
       throws IOException {
-    String schemaPath =
-        LoaderModuleTest.class.getResource("mleap_model/mleap/schema.json").getFile();
+    String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
     LeapFrameSchema schema = LeapFrameSchema.fromPath(schemaPath);
 
     String sampleInputPath =
-        LoaderModuleTest.class.getResource("mleap_model/sample_input.json").getFile();
+        MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
     List<Map<String, Object>> sampleInput =
         SerializationUtils.fromJson(sampleInputJson, List.class);

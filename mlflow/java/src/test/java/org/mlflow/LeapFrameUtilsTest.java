@@ -9,6 +9,9 @@ import java.nio.file.Files;
 
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 
+/**
+ * Unit tests for the {@link LeapFrameUtils} module
+ */
 public class LeapFrameUtilsTest {
   @Test
   public void testValidSerializedLeapFrameIsDeserializedAsLeapFrameObjectSuccessfully()
