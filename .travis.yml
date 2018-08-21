@@ -26,7 +26,6 @@ matrix:
             MLFLOW_TEST_REQUIREMENTS=false
       before_install:
         - sudo bash ./intall-travis.sh
-      before_script:
         - cd R/mlflow
       after_failure:
         - cd tests
