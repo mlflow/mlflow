@@ -167,6 +167,7 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
         TEST_PROJECT_DIR, entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
         use_conda=False, experiment_id=0)
+    assert submitted_run.run_id is not None
     # Blocking runs should be finished when they return
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Test that we can call wait() on a synchronous run & that the run has the correct
