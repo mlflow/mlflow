@@ -1,4 +1,4 @@
-package org.mlflow.mleap.sagemaker;
+package org.mlflow.sagemaker;
 
 import org.mlflow.utils.SerializationUtils;
 

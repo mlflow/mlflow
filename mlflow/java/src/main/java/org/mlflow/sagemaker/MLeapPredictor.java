@@ -1,6 +1,5 @@
 package org.mlflow.sagemaker;
 
-import org.mlflow.mleap.MissingSchemaFieldException;
 import org.mlflow.utils.SerializationUtils;
 
 import ml.combust.mleap.runtime.MleapContext;
