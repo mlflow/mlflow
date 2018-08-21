@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import './ShowArtifactTextView.css';
+import { CSRF_HEADER_NAME, getCsrfToken } from '../../setupCsrf';
 
 class ShowArtifactTextView extends Component {
   constructor(props) {
@@ -56,7 +57,12 @@ class ShowArtifactTextView extends Component {
   }
 
   fetchArtifacts() {
-    fetch(getSrc(this.props.path, this.props.runUuid)).then((response) => {
+    const getArtifactRequest = new Request(getSrc(this.props.path, this.props.runUuid), {
+      method: 'GET',
+      redirect: 'follow',
+      headers: new Headers({ [CSRF_HEADER_NAME]: getCsrfToken() })
+    });
+    fetch(getArtifactRequest).then((response) => {
       return response.blob();
     }).then((blob) => {
       const fileReader = new FileReader();

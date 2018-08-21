@@ -51,5 +51,7 @@ script:
   - npm i
   - ./lint.sh
   - npm test -- --coverage
-  - cd ../../..
+  - cd ../../java
+  - mvn clean test
+  - cd ../..
   - codecov -e TOXENV

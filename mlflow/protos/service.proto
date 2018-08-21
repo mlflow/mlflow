@@ -175,18 +175,6 @@ service MlflowService {
     };
   }
 
-  // List artifacts.
-  //
-  rpc getArtifact (GetArtifact) returns (GetArtifact.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/preview/mlflow/artifacts/get"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-    };
-  }
   // Get metric history.
   //
   rpc getMetricHistory (GetMetricHistory) returns (GetMetricHistory.Response) {
@@ -551,19 +539,6 @@ message FileInfo {
 
   // File size in bytes. Unset for directories.
   optional int64 file_size = 3;
-}
-
-message GetArtifact {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  optional string run_uuid = 1;
-
-  optional string path = 2;
-
-  message Response {
-    // Empty because the data of the file will be streamed back in the HTTP response.
-    // The response will have an HTTP status code of 404 if the artifact path is not found.
-  }
 }
 
 message GetMetricHistory {

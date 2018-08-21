@@ -6,7 +6,7 @@ from mlflow.protos.service_pb2 import Run as ProtoRun
 
 class Run(_MLflowObject):
     """
-    Run object for python client. Backend stores will hydrate this object in APIs.
+    Run object for python client.
     """
 
     def __init__(self, run_info, run_data):
@@ -17,10 +17,12 @@ class Run(_MLflowObject):
 
     @property
     def info(self):
+        """:return: :py:class:`mlflow.entities.RunInfo`"""
         return self._info
 
     @property
     def data(self):
+        """:return: :py:class:`mlflow.entities.RunData`"""
         return self._data
 
     def to_proto(self):

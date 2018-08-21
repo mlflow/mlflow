@@ -121,6 +121,7 @@ class Utils {
             run.source_version);
           return <a href={url}>{shortVersion}</a>;
         }
+        return shortVersion;
       } else {
         return shortVersion;
       }

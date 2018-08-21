@@ -4,12 +4,7 @@ from google.protobuf.json_format import MessageToJson, ParseDict
 
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities.experiment import Experiment
-from mlflow.entities.run import Run
-from mlflow.entities.run_info import RunInfo
-from mlflow.entities.param import Param
-
-from mlflow.entities.metric import Metric
+from mlflow.entities import Experiment, Run, RunInfo, Param, Metric
 
 from mlflow.utils.rest_utils import http_request
 

@@ -6,7 +6,7 @@ import tempfile
 
 import yaml
 
-from mlflow.entities.file_info import FileInfo
+from mlflow.entities import FileInfo
 
 
 def is_directory(name):
@@ -241,11 +241,12 @@ def append_to(filename, data):
         handle.write(data)
 
 
-def make_tarfile(output_filename, source_dir, archive_name):
+def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
     # Helper for filtering out modification timestamps
     def _filter_timestamps(tar_info):
         tar_info.mtime = 0
-        return tar_info
+        return tar_info if custom_filter is None else custom_filter(tar_info)
+
     unzipped_filename = tempfile.mktemp()
     try:
         with tarfile.open(unzipped_filename, "w") as tar:

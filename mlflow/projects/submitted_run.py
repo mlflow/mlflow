@@ -3,7 +3,7 @@ from abc import abstractmethod
 import os
 import signal
 
-from mlflow.entities.run_status import RunStatus
+from mlflow.entities import RunStatus
 from mlflow.utils.logging_utils import eprint
 
 
@@ -18,7 +18,7 @@ class SubmittedRun(object):
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
 
-    Note: Subclasses of ``SubmittedRun`` are expected to expose a ```run_id`` member containing the
+    Note: Subclasses of ``SubmittedRun`` are expected to expose a ``run_id`` member containing the
     run's MLflow run ID.
     """
     @abstractmethod
@@ -46,6 +46,11 @@ class SubmittedRun(object):
         """
         pass
 
+    @property
+    @abstractmethod
+    def run_id(self):
+        pass
+
 
 class LocalSubmittedRun(SubmittedRun):
     """
@@ -54,9 +59,13 @@ class LocalSubmittedRun(SubmittedRun):
     """
     def __init__(self, run_id, command_proc, tmpdir_to_be_removed=None):
         super(LocalSubmittedRun, self).__init__()
-        self.run_id = run_id
+        self._run_id = run_id
         self.command_proc = command_proc
         self.tmpdir = tmpdir_to_be_removed
+
+    @property
+    def run_id(self):
+        return self._run_id
 
     def wait(self):
         return self.command_proc.wait() == 0
@@ -76,7 +85,7 @@ class LocalSubmittedRun(SubmittedRun):
                 # ignore OSErrors raised during child process termination
                 eprint("Failed to terminate child process (PID %s) corresponding to MLflow "
                        "run with ID %s. The process may have already "
-                       "exited." % (self.command_proc.pid, self.run_id))
+                       "exited." % (self.command_proc.pid, self._run_id))
             self.command_proc.wait()
 
     def _get_status(self):

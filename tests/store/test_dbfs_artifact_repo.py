@@ -67,6 +67,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(**kwargs):
                 endpoints.append(kwargs['endpoint'])
                 data.append(kwargs['data'].read())
+                return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             assert endpoints == [expected_endpoint]
@@ -75,6 +76,12 @@ class TestDbfsArtifactRepository(object):
     def test_log_artifact_empty(self, dbfs_artifact_repo, test_file):
         with pytest.raises(IllegalArtifactPathError):
             dbfs_artifact_repo.log_artifact(test_file.strpath, '')
+
+    def test_log_artifact_error(self, dbfs_artifact_repo, test_file):
+        with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
+            http_request_mock.return_value = Mock(status_code=409)
+            with pytest.raises(MlflowException):
+                dbfs_artifact_repo.log_artifact(test_file.strpath)
 
     @pytest.mark.parametrize("artifact_path", [
         None,
@@ -89,6 +96,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(**kwargs):
                 endpoints.append(kwargs['endpoint'])
                 data.append(kwargs['data'].read())
+                return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             basename = test_dir.basename
@@ -100,6 +108,12 @@ class TestDbfsArtifactRepository(object):
                 TEST_FILE_2_CONTENT,
                 TEST_FILE_3_CONTENT,
             }
+
+    def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
+        with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
+            http_request_mock.return_value = Mock(status_code=409)
+            with pytest.raises(MlflowException):
+                dbfs_artifact_repo.log_artifacts(test_dir.strpath)
 
     @pytest.mark.parametrize("artifact_path,expected_endpoints", [
         ('a', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt'}),
@@ -113,6 +127,7 @@ class TestDbfsArtifactRepository(object):
 
             def my_http_request(**kwargs):
                 endpoints.append(kwargs['endpoint'])
+                return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             assert set(endpoints) == expected_endpoints
