@@ -290,7 +290,7 @@ class DatabricksSubmittedRun(SubmittedRun):
 
     @property
     def run_id(self):
-        self._run_id
+        return self._run_id
 
     def wait(self):
         return _monitor_databricks(self.databricks_run_id)
