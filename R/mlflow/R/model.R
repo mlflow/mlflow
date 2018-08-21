@@ -49,7 +49,6 @@ mlflow_save_model <- function(f, path = "model") {
   )
 }
 
-#' @export
 mlflow_load_model <- function(model_dir) {
   spec <- yaml::read_yaml(fs::path(model_dir, "MLmodel"))
 
@@ -59,7 +58,6 @@ mlflow_load_model <- function(model_dir) {
   unserialize(readRDS(fs::path(model_dir, spec$flavors$r_function$model)))
 }
 
-#' @export
 mlflow_predict_model <- function(model, df) {
   do.call(model$r_function, args = model$context)
 }
