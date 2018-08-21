@@ -12,20 +12,20 @@ a history of their ratings for various movies.
 There are four steps to this workflow:
 
 - **load_raw_data** (etl_data.py): Downloads the movielens dataset
-(a set of triples of user id, movie id, and rating) as a CSV and puts
-it into the artifact store.
+  (a set of triples of user id, movie id, and rating) as a CSV and puts
+  it into the artifact store.
 
 - **etl_data** (etl_data.py): Converts the movielens CSV from the 
-previous step into Parquet. This drops the size from 500 MB to 115 MB,
-and allows columnar access of the data.
+  previous step into Parquet. This drops the size from 500 MB to 115 MB,
+  and allows columnar access of the data.
 
 - **als** (als.py): Runs ALS on the Parquet version of movielens to 
-estimate the movieFactors and userFactors. This produces a relatively
-accurate estimator.
+  estimate the movieFactors and userFactors. This produces a relatively
+  accurate estimator.
 
 - **keras_train** (keras_train.py): Trains a neural network on the 
-original data, supplemented by the ALS movie/userFactors -- we hope
-this can improve upon the ALS estimations.
+  original data, supplemented by the ALS movie/userFactors -- we hope
+  this can improve upon the ALS estimations.
 
 While we can run each of these steps manually, here we have a driver
 run, defined as **multistep** (multistep.py). This run will run
