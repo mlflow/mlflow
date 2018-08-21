@@ -9,12 +9,15 @@ import six
 
 from mlflow.tracking.fluent import _get_experiment_id
 
+
 @click.group()
 def cli():
     pass
 
+
 def _get_params(run):
-    return { param.key: param.value for param in run.data.params }
+    return {param.key: param.value for param in run.data.params}
+
 
 # NB: Requires global uniqueness of entry_point_name
 def _already_ran(entry_point_name, parameters, experiment_id=None):
@@ -37,10 +40,12 @@ def _already_ran(entry_point_name, parameters, experiment_id=None):
         if match_failed:
             continue
         if run.info.status != RunStatus.FINISHED:
-            eprint("Run matched, but is not FINISHED, so skipping (run_id=%s, status=%s)" % (run.info.run_uuid, run.info.status))
+            eprint(("Run matched, but is not FINISHED, so skipping "
+                    "(run_id=%s, status=%s)") % (run.info.run_uuid, run.info.status))
             continue
         return service.get_run(run.info.run_uuid)
     return None
+
 
 # TODO(aaron): This is not great because it doesn't account for:
 # - changes in code

@@ -19,6 +19,7 @@ from keras.regularizers import l2
 import numpy as np
 import pandas as pd
 
+
 @click.group()
 def cli():
     pass
@@ -29,7 +30,7 @@ def cli():
 @click.option("--als-model-uri")
 def keras_train(ratings_data, als_model_uri):
     np.random.seed(0)
-    tf.set_random_seed(42) # For reproducibility
+    tf.set_random_seed(42)  # For reproducibility
 
     alsModel = mlflow.spark.load_model(als_model_uri).stages[0]
 
@@ -52,14 +53,14 @@ def keras_train(ratings_data, als_model_uri):
 
     def concat_arrays(*args):
         return list(chain(*args))
-        
+
     concat_arrays_udf = udf(concat_arrays, ArrayType(FloatType()))
 
     concatTrainDF = (joinedTrainDF
                      .select('userId', 'movieId', concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
                              col('rating').cast("float")))
     concatTestDF = (joinedTestDF
-                    .select('userId', 'movieId', concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"), 
+                    .select('userId', 'movieId', concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
                             col('rating').cast("float")))
 
     pandasDF = concatTrainDF.toPandas()
@@ -94,8 +95,6 @@ def keras_train(ratings_data, als_model_uri):
     mlflow.log_metric("train_mse", trainMse)
 
     print('The model had a MSE on the test set of {0}'.format(testMse))
-
-
 
 
 if __name__ == '__main__':

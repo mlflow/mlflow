@@ -13,6 +13,7 @@ import click
 def cli():
     pass
 
+
 @cli.command(help="Downloads the movielens dataset and saves it as an mlflow artifact "
                   " called 'ratings-csv-dir'.")
 @click.option("--url", default="http://files.grouplens.org/datasets/movielens/ml-20m.zip")
@@ -23,8 +24,8 @@ def load_raw_data(url):
         print("Downloading %s to %s" % (url, local_filename))
         r = requests.get(url, stream=True)
         with open(local_filename, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=1024): 
-                if chunk: # filter out keep-alive new chunks
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:  # filter out keep-alive new chunks
                     f.write(chunk)
 
         extracted_dir = os.path.join(local_dir, 'ml-20m')
