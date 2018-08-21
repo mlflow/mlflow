@@ -51,14 +51,16 @@ class AbstractStore:
         pass
 
     @abstractmethod
-<<<<<<< HEAD
     def get_experiment_by_name(self, name):
         """
         Fetches the experiment from the backend store.
 
         :param name: String name for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
-=======
+        """
+        pass
+
+    @abstractmethod
     def delete_experiment(self, experiment_id):
         """
         Deletes the experiment from the backend store.
@@ -73,7 +75,7 @@ class AbstractStore:
         Restore deleted experiment.
 
         :param experiment_id: Integer id for the experiment
->>>>>>> upstream/master
+
         """
         pass
 
