@@ -238,3 +238,17 @@ def test_uri_types():
     assert not utils._is_http_uri("file://whatever")
     assert not utils._is_http_uri("databricks://whatever")
     assert not utils._is_http_uri("mlruns")
+
+
+def test_with_startrun():
+    runId = None
+    import time
+    t0 = int(time.time() * 1000)
+    with mlflow.start_run() as active_run:
+        assert mlflow.active_run() == active_run
+        runId = active_run.info.run_uuid
+    t1 = int(time.time() * 1000)
+    run_info = mlflow.tracking._get_store().get_run(runId).info
+    assert run_info.status == RunStatus.from_string("FINISHED")
+    assert t0 <= run_info.end_time and run_info.end_time <= t1
+    assert mlflow.active_run() is None

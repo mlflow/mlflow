@@ -5,28 +5,33 @@ from mlflow.protos.service_pb2 import RunData as ProtoRunData
 
 
 class RunData(_MLflowObject):
+    """
+    Class exposing run data (metrics and parameters).
+    """
     def __init__(self, metrics=None, params=None):
         self._metrics = []
         self._params = []
         if metrics is not None:
             for m in metrics:
-                self.add_metric(m)
+                self._add_metric(m)
         if params is not None:
             for p in params:
-                self.add_param(p)
+                self._add_param(p)
 
     @property
     def metrics(self):
+        """List of :py:class:`mlflow.entities.metric.Metric` for the current run."""
         return self._metrics
 
     @property
     def params(self):
+        """List of :py:class:`mlflow.entities.param.Param` for the current run."""
         return self._params
 
-    def add_metric(self, metric):
+    def _add_metric(self, metric):
         self._metrics.append(metric)
 
-    def add_param(self, param):
+    def _add_param(self, param):
         self._params.append(param)
 
     def to_proto(self):
@@ -40,9 +45,9 @@ class RunData(_MLflowObject):
         run_data = cls()
         # iterate proto and add metrics and params
         for proto_metric in proto.metrics:
-            run_data.add_metric(Metric.from_proto(proto_metric))
+            run_data._add_metric(Metric.from_proto(proto_metric))
         for proto_param in proto.params:
-            run_data.add_param(Param.from_proto(proto_param))
+            run_data._add_param(Param.from_proto(proto_param))
 
         return run_data
 
@@ -50,9 +55,9 @@ class RunData(_MLflowObject):
     def from_dictionary(cls, the_dict):
         run_data = cls()
         for p in the_dict.get("metrics", []):
-            run_data.add_metric(p)
+            run_data._add_metric(p)
         for p in the_dict.get("params", []):
-            run_data.add_param(p)
+            run_data._add_param(p)
         return run_data
 
     @classmethod

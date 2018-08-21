@@ -9,7 +9,7 @@ import time
 from six import iteritems
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
-from mlflow.entities import Param, Metric, Run, RunStatus, RunTag
+from mlflow.entities import Param, Metric, RunStatus, RunTag
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
@@ -58,10 +58,9 @@ class MLflowService(object):
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_runs(self, experiment_id):
-        """:return: list of :py:class:`mlflow.entities.Run` (with only RunInfo filled)"""
-        run_infos = self.store.list_run_infos(experiment_id)
-        return [Run(run_info.run_uuid, run_info) for run_info in run_infos]
+    def list_runs_infos(self, experiment_id):
+        """:return: list of :py:class:`mlflow.entities.RunInfo`"""
+        return self.store.list_run_infos(experiment_id)
 
     def list_experiments(self):
         """:return: list of :py:class:`mlflow.entities.Experiment`"""
