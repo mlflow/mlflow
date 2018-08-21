@@ -36,7 +36,6 @@ def _already_ran(entry_point_name, parameters, experiment_id=None):
     service = mlflow.tracking.get_service()
     all_runs = reversed(service.list_runs(experiment_id))
     for run in all_runs:
-        run = Run(run.data, run_data=None) if run.data else run
         if run.info.entry_point_name != entry_point_name:
             continue
 
@@ -50,6 +49,7 @@ def _already_ran(entry_point_name, parameters, experiment_id=None):
                 break
         if match_failed:
             continue
+
         if run.info.status != RunStatus.FINISHED:
             eprint(("Run matched, but is not FINISHED, so skipping "
                     "(run_id=%s, status=%s)") % (run.info.run_uuid, run.info.status))
