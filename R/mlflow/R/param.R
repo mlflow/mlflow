@@ -4,16 +4,41 @@
 #'
 #' @param name The name for this parameter.
 #' @param default The default value for this parameter.
-#' @param type Type of this parameter. Required if `default` is not set.
+#' @param type Type of this parameter. Required if `default` is not set. If specified,
+#'  must be one of "numeric", "integer", or "string".
 #' @param description Optional description for this parameter.
 #'
 #' @export
 mlflow_param <- function(name, default = NULL, type = NULL, description = NULL) {
-  if (is.null(default) && is.null(type))
+  target_type <- forge::cast_choice(
+    type,
+    c("numeric", "integer", "string"),
+    allow_null = TRUE
+  ) %||% typeof(default)
+
+  if (identical(target_type, "NULL"))
     stop("At least one of `default` or `type` must be specified", call. = FALSE)
-  if (!is.null(default) && !is.null(type) && !identical(typeof(default), type))
-    stop("`default` value is not of type ", type, ".", call. = FALSE)
-  .globals$run_params[[name]] %||% default
+
+  caster <- switch(
+    target_type,
+    numeric = forge::cast_scalar_double,
+    integer = forge::cast_scalar_integer,
+    purrr::compose(forge::cast_string, as.character)
+  )
+
+  tryCatch(
+    if (!is.null(default)) caster(default),
+    error = function(e) stop("`default` value for `", name, "` cannot be casted to type ",
+                             type, ": ", conditionMessage(e), call. = FALSE)
+  )
+
+  tryCatch(
+    caster(.globals$run_params[[name]], allow_null = TRUE) %||% default,
+    error = function(e) stop("Provided value for `", name,
+                             "` cannot be casted to type ",
+                             type, ": ", conditionMessage(e),
+                             call. = FALSE)
+  )
 }
 
 # from rstudio/tfruns R/flags.R
