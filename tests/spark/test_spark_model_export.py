@@ -260,6 +260,7 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
                           path=model_path,
                           sample_input=invalid_input)
 
+
 def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
         spark_model_iris, model_path):
     class CustomTransformer(JavaModel):
