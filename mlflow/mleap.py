@@ -56,7 +56,7 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model()):
                          required by MLeap for data schema inference.
     :param mlflow_model: MLFlow model config to which this flavor is being added.
     """
-    _add_to_model(mlflow_model, path, spark_model, sample_input)
+    add_to_model(mlflow_model, path, spark_model, sample_input)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
