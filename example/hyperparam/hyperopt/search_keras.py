@@ -1,63 +1,80 @@
+import click
 import math
 
 import os
 import shutil
-import sys
 import tempfile
 
 from hyperopt import fmin, hp, tpe, rand
 
-
 import mlflow.projects
 
 
+@click.group()
+@click.version_option()
+def cli():
+    pass
 
-if __name__ == "__main__":
-    max_runs = int(sys.argv[1]) if len(sys.argv) > 1 else 250
-    max_epochs = int(sys.argv[2]) if len(sys.argv) > 2 else 500
-    lr_min = float(sys.argv[3]) if len(sys.argv) > 3 else 1e-5
-    lr_max = float(sys.argv[4]) if len(sys.argv) > 4 else 1e-1
-    drop_out_1_min = float(sys.argv[5]) if len(sys.argv) > 5 else .001
-    drop_out_1_max = float(sys.argv[6]) if len(sys.argv) > 6 else .2
-    metric_name = sys.argv[7] if len(sys.argv) > 7 else "rmse"
-    algo = sys.arv[8] if 8 > len(sys.argv) else "tpe.suggest"
-    seed = int(sys.argv[9]) if len(sys.argv) > 9 else 97531
-    training_experiment_id = int(sys.argv[10]) if len(sys.argv) > 10 else None
 
+@cli.command()
+@click.option("--max-runs", type=click.INT, default=10,
+              help="Maximum number of runs to evaluate.")
+@click.option("--epochs", type=click.INT, default=500,
+              help="Number of epochs")
+@click.option("--lr-min", type=click.FLOAT, default=1e-8,
+              help="Learning rate lower bound")
+@click.option("--lr-max", type=click.FLOAT, default=1e-1,
+              help="Learning rate upper bound")
+@click.option("--dropout-min", type=click.FLOAT, default=0.0,
+              help="Dropout lower bound")
+@click.option("--dropout-max", type=click.FLOAT, default=.99,
+              help="Dropout upper bound")
+@click.option("--metric", type=click.STRING, default="rmse",
+              help="Metric to optimize on.")
+@click.option("--algo", type=click.STRING, default="tpe.suggest",
+              help="Optimizer algorhitm.")
+@click.option("--seed", type=click.INT, default=97531,
+              help="Seed for the random generator")
+@click.option("--training-experiment-id", type=click.INT, default=-1,
+              help="Maximum number of runs to evaluate. Inherit parent;s experiment if == -1.")
+@click.argument("training_data")
+def train(training_data, max_runs, epochs, lr_min, lr_max, dropout_min, dropout_max, metric,
+        algo, seed, training_experiment_id):
+    """
+    Run hyper param optimization.
+    """
     # create random file to store run ids of the training tasks
     tmp = tempfile.mkdtemp()
     results_path = os.path.join(tmp, "results")
 
     def eval(parms):
-        import mlflow
-        import mlflow.sklearn
         import mlflow.tracking
         active_run = mlflow.active_run()
-        experiment_id = training_experiment_id or active_run.info.experiment_id
-        lr, drop1 = parms
-        drop2 = 0
+        experiment_id = active_run.info.experiment_id if training_experiment_id == -1 \
+            else training_experiment_id
+        lr, drop = parms
         p = mlflow.projects.run(
             uri=".",
             entry_point="dl_train",
-            parameters={"epochs": str(max_epochs),
-                        "learning_rate": str(lr),
-                        'drop_out_1': str(drop1),
-                        'drop_out_2': str(drop2),
-                        'seed': seed},
+            parameters={
+                "training_data": training_data,
+                "epochs": str(epochs),
+                "learning_rate": str(lr),
+                "dropout": str(drop),
+                "seed": seed},
             experiment_id=experiment_id
         )
         store = mlflow.tracking._get_store()
-        metric_val = store.get_metric(p.run_id, metric_name)
+        metric_val = store.get_metric(p.run_id, metric)
         mlflow.log_metric(metric_val.key, metric_val.value)
         with open(results_path, "a") as f:
             f.write("{runId} {val}\n".format(runId=active_run.info.run_uuid, val=metric_val.value))
         return metric_val.value
 
-
     with mlflow.start_run():
         space = [
             hp.uniform('lr', lr_min, lr_max),
-            hp.uniform('drop_out_1', drop_out_1_min, drop_out_1_max),
+            hp.uniform('drop_out_1', dropout_min, dropout_max),
         ]
         best = fmin(fn=eval,
                     space=space,
@@ -76,9 +93,14 @@ if __name__ == "__main__":
                     best_val = val
                     best_run = run_id
         # record which run produced the best results, store it as a param for now
-        mlflow.log_param("best-run", run_id)
-        mlflow.log_metric(metric_name, best_val)
+        best_run_path = os.path.join(os.path.join(tmp, "best_run.txt"))
+        with open(best_run_path, "w") as f:
+            f.write("{run_id} {val}\n".format(run_id=best_run, val=best_val))
+        mlflow.log_artifact(best_run_path, "best-run")
+        mlflow.log_metric(metric, best_val)
         shutil.rmtree(tmp)
 
 
+if __name__ == '__main__':
+    train()
 

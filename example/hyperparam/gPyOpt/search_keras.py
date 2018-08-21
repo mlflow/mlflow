@@ -5,6 +5,7 @@ import shutil
 import sys
 import tempfile
 
+import click
 import GPyOpt
 
 import mlflow
@@ -15,29 +16,45 @@ import mlflow.projects
 """
 Example of hyper param search in MLflow using GPyOpt.
 """
-if __name__ == "__main__":
-    max_runs = int(sys.argv[1]) if len(sys.argv) > 1 else 250
-    batch_size = int(sys.argv[2]) if len(sys.argv) > 2 else 1
-    max_p = int(sys.argv[3]) if len(sys.argv) > 3 else batch_size
-    max_epochs = int(sys.argv[4]) if len(sys.argv) > 4 else 500
-    lr_min = float(sys.argv[5]) if len(sys.argv) > 5 else 1e-5
-    lr_max = float(sys.argv[6]) if len(sys.argv) > 6 else 1e-1
-    drop_out_1_min = float(sys.argv[7]) if len(sys.argv) > 7 else .001
-    drop_out_1_max = float(sys.argv[8]) if len(sys.argv) > 8 else .2
-    metric_name = sys.argv[9] if len(sys.argv) > 9 else "rmse"
-    gpy_model = sys.argv[10] if len(sys.argv) > 10 else "GP_MCMC"
-    gpy_acquisition = sys.argv[11] if len(sys.argv) > 11 else "EI_MCMC"
-    initial_design = sys.argv[12] if len(sys.argv) > 12 else "random"
-    training_experiment_id = int(sys.argv[13]) if len(sys.argv) > 13 else None
-    seed = int(sys.argv[14]) if len(sys.argv) > 14 else 97531
 
+
+@click.group()
+@click.version_option()
+def cli():
+    pass
+
+
+@cli.command()
+@click.option("--max-runs", type=click.INT, default=100,
+              help="Maximum number of runs to evaluate.")
+@click.option("--batch-size", type=click.INT, default=4,
+              help="Number of runs to evaluate in a batch")
+@click.option("--max-p", type=click.INT, default=4,
+              help="Maximum number of parallel runs.")
+@click.option("--epochs", type=click.INT, default=500,
+              help="Number of epochs")
+@click.option("--metric", type=click.STRING, default="rmse",
+              help="Metric to optimize on.")
+@click.option("--gpy-model", type=click.STRING, default="GP_MCMC",
+              help="Optimizer algorhitm.")
+@click.option("--gpy-acquisition", type=click.STRING, default="EI_MCMC",
+              help="Optimizer algorhitm.")
+@click.option("--initial-design", type=click.STRING, default="random",
+              help="Optimizer algorhitm.")
+@click.option("--seed", type=click.INT, default=97531,
+              help="Seed for the random generator")
+@click.option("--training-experiment-id", type=click.INT, default=-1,
+              help="Maximum number of runs to evaluate. Inherit parent;s experiment if == -1.")
+@click.argument("training_data")
+def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, gpy_acquisition,
+          initial_design, seed, training_experiment_id):
     bounds = [
-        {'name': 'lr', 'type': 'continuous', 'domain': (lr_min, lr_max)},
-        {'name': 'drop_out_1', 'type': 'continuous', 'domain': (drop_out_1_min, drop_out_1_max)},
+        {'name': 'lr', 'type': 'continuous', 'domain': (1e-5, 1e-1)},
+        {'name': 'drop_out_1', 'type': 'continuous', 'domain': (0, .9)},
     ]
     # create random file to store run ids of the training tasks
     tmp = tempfile.mkdtemp()
-    results_path = os.path.join(tmp, "results")
+    results_path = os.path.join(tmp, "results.txt")
 
     def eval(parms):
         """
@@ -51,27 +68,27 @@ if __name__ == "__main__":
         :return: The rmse value logged as the result of the run.
         """
         active_run = mlflow.active_run()
-        experiment_id = training_experiment_id or active_run.info.experiment_id
-        lr, drop1 = parms[0]
-        drop2 = 0
+        experiment_id = active_run.info.experiment_id if training_experiment_id == -1 \
+            else training_experiment_id
+        lr, drop = parms[0]
         p = mlflow.projects.run(
             uri=".",
             entry_point="dl_train",
-            parameters={"epochs": str(max_epochs),
-                        "learning_rate": str(lr),
-                        'drop_out_1': str(drop1),
-                        'drop_out_2': str(drop2),
-                        'seed': str(seed)},
+            parameters={
+                "training_data": training_data,
+                "epochs": str(epochs),
+                "learning_rate": str(lr),
+                "dropout": str(drop),
+                "seed": str(seed)},
             experiment_id=experiment_id
         )
         p.wait()
         store = mlflow.tracking._get_store()
-        metric_val = store.get_metric(p.run_id, metric_name)
+        metric_val = store.get_metric(p.run_id, metric)
         mlflow.log_metric(metric_val.key, metric_val.value)
         with open(results_path, "a") as f:
             f.write("{runId} {val}\n".format(runId=active_run.info.run_uuid, val=metric_val.value))
         return metric_val.value
-
 
     with mlflow.start_run():
         myProblem = GPyOpt.methods.BayesianOptimization(eval,
@@ -90,9 +107,10 @@ if __name__ == "__main__":
         convergence_plot = os.path.join(tmp, "convergence_plot.png")
         myProblem.plot_acquisition(filename=acquisition_plot)
         myProblem.plot_convergence(filename=convergence_plot)
-        mlflow.log_artifact(convergence_plot, "converegence_plot")
-        mlflow.log_artifact(acquisition_plot, "acquisition_plot")
-
+        if os.path.exists(convergence_plot):
+            mlflow.log_artifact(convergence_plot, "converegence_plot")
+        if os.path.exists(acquisition_plot):
+            mlflow.log_artifact(acquisition_plot, "acquisition_plot")
         best_val = math.inf
         best_run = None
         # we do not have tags yet, for now store list of executed runs as an artifact
@@ -105,9 +123,13 @@ if __name__ == "__main__":
                     best_val = val
                     best_run = run_id
         # record which run produced the best results, store it as a param for now
-        mlflow.log_param("best-run", run_id)
-        mlflow.log_metric(metric_name, best_val)
+        best_run_path = os.path.join(os.path.join(tmp, "best_run.txt"))
+        with open(best_run_path, "w") as f:
+            f.write("{run_id} {val}\n".format(run_id=best_run, val=best_val))
+        mlflow.log_artifact(best_run_path, "best-run")
+        mlflow.log_metric(metric, best_val)
         shutil.rmtree(tmp)
 
 
-
+if __name__ == '__main__':
+    run()

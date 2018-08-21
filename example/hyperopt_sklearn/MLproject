@@ -5,6 +5,7 @@ conda_env: conda.yaml
 entry_points:
   hyperopt_sklearn:
     parameters:
+      training_data: {type: string, default: "../tutorial/wine.csv"}
       max_trials: {type: int, default: 100}
       trial_timeout: {type: float, default: 500}
       seed: {type: int, default: 97531}

@@ -3,49 +3,69 @@ name: tutorial
 conda_env: conda.yaml
 
 entry_points:
-
   # train keras dl model
   dl_train:
     parameters:
+      training_data: {type: string, default: "../tutorial/wine.csv"}
       epochs: int
       learning_rate: float
-      drop_out_1: float
-      drop_out_2: float
+      dropout: float
       seed: int
-    command: "python train_keras.py {epochs} {learning_rate} {drop_out_1} {drop_out_2}"
+    command: "python train_keras.py {training_data}
+                                    --epochs {epochs}
+                                    --learning-rate {learning_rate}
+                                    --dropout {dropout}"
 
   # Use gPyOpt to optimize hyper params of the dl_train entry_point.
-  gPyOpt_dl:
+  GPyOpt:
     parameters:
-      max_runs: {type: int, default: 50}
-      batch_size: {type: int, default 1}
+      training_data: {type: string, default: "../tutorial/wine-quality.csv"}
+      max_runs: {type: int, default: 10}
+      batch_size: {type: int, default: 1}
       max_p: {type: int, default: 4}
-      max_epochs: {type: int, 1000}
-      lr_min: {type: float, default 0}
-      lr_max: {type: float, default 1}
-      drop_out_1_min: {type: float, default 0}
-      drop_out_1_max: {type: float, default .99}
-      metric: {type: string, default "rmse"}
+      max_epochs: {type: int, default: 10}
+      metric: {type: string, default: "rmse"}
       gpy_model: {type: string, default: "GP_MCMC"}
       gpy_acquisition: {type: string, default: "EI_MCMC"}
       initial_design: {type: string, default: "random"}
       training_experiment_id: {type: int, default: "-1"}
       seed: {type: int, default: 97531}
-    command: "python gPyOpt/search_keras.py {max_runs} {batch_size} {max_p} {max_epochs} {lr_min} {lr_max} {drop_out_1_min} {drop_out_1_max} {metric} {gpy_model} {gpy_acquisition} {initial_design} {training_experiment_id} {seed}"
+    command: "python gPyOpt/search_keras.py  {training_data}  \
+                                             --max-runs {max_runs} \
+                                             --batch-size {batch_size} \
+                                             --max-p {max_p} \
+                                             --epochs {max_epochs} \
+                                             --metric {metric}
+                                             --gpy-model {gpy_model} \
+                                             --gpy-acquisition {gpy_acquisition} \
+                                             --initial-design {initial_design} \
+                                             --seed {seed} \
+                                             --training-experiment-id {training_experiment_id}"
 
-  hyperopt_dl:
+  hyperopt:
     parameters:
-      max_runs: {type: int, default: 50}
-      max_epochs: {type: int, 1000}
-      lr_min: {type: float, default 0}
-      lr_max: {type: float, default 1}
-      drop_out_1_min: {type: float, default 0}
-      drop_out_1_max: {type: float, default .99}
-      metric: {type: string, default "rmse"}
-      algo: {type: string, default "tpe.suggest"}
+      training_data: {type: string, default: "../tutorial/wine-quality.csv"}
+      max_runs: {type: int, default: 10}
+      max_epochs: {type: int, default: 100}
+      lr_min: {type: float, default: 0}
+      lr_max: {type: float, default: 1}
+      drop_out_1_min: {type: float, default: 0}
+      drop_out_1_max: {type: float, default: .99}
+      metric: {type: string, default: "rmse"}
+      algo: {type: string, default: "tpe.suggest"}
       seed: {type: int, default: 97531}
       training_experiment_id: {type: int, default: "-1"}
-    command: "python -O hyperopt/search_keras.py {max_runs} {max_epochs} {lr_min} {lr_max} {drop_out_1_min} {drop_out_1_max} {metric} {algo} {seed} {training_experiment_id}"
+    command: "python -O hyperopt/search_keras.py {training_data} \
+                                                 --max-runs {max_runs} \
+                                                 --epochs {max_epochs} \
+                                                 --lr-min {lr_min} \
+                                                 --lr-max {lr_max} \
+                                                 --dropout-min {drop_out_1_min} \
+                                                 --dropout-max {drop_out_1_max} \
+                                                 --metric {metric} \
+                                                 --algo {algo} \
+                                                 --seed {seed} \
+                                                 --training-experiment-id {training_experiment_id}"
 
 
 
