@@ -69,8 +69,10 @@ There are a different kinds of remote tracking URIs:
 Logging Data to Runs
 --------------------
 
-You can log data to runs using either the MLflow Python or REST API. This section 
+You can log data to runs using either the MLflow Python or REST API. This section
 shows the Python API.
+
+.. _basic_logging_functions:
 
 Basic Logging Functions
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -124,7 +126,7 @@ just one block of code as follows:
 .. code:: python
 
    with mlflow.start_run():
-       mlflow.log_parameter("x", 1)
+       mlflow.log_param("x", 1)
        mlflow.log_metric("y", 2)
        ...
 
@@ -153,9 +155,24 @@ environment variable.
     # variable, or from the --experiment-id parameter passed to the MLflow CLI (the latter
     # taking precedence)
     with mlflow.start_run():
-        mlflow.log_parameter("a", 1)
+        mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
 
+Managing Experiments and Runs with the Tracking Service API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+MLflow provides a more detailed Tracking Service API for managing experiments and runs directly, which is available in the :doc:`mlflow.tracking<python_api/mlflow.tracking>` package. This makes it possible to query data about past runs, log additional information about them, create experiments and more.
+
+Example usage:
+
+.. code:: python
+
+    from  mlflow.tracking import get_service
+    service = get_service()
+    experiments = service.list_experiments() # returns a list of mlflow.entities.Experiment
+    run = service.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
+    service.log_param(run.info.run_uuid, "hello", "world")
+    service.set_terminated(run.info.run_uuid)
 
 .. _tracking_ui:
 
@@ -228,8 +245,8 @@ provider credentials as normal. For example, for S3, you can set the ``AWS_ACCES
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``. See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
-.. important:: 
-  
+.. important::
+
   If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root will be a path inside the File Store. Typically this is not an appropriate location, as the client and server will probably be referring to different physical locations (that is, the same path on different disks).
 
 Supported Artifact Stores
@@ -262,6 +279,14 @@ You should configure credentials for accessing the GCS container on the client a
 in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 Finally, you will need to ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
+
+SFTP server
+~~~~~~~~~~~
+Specify a URI of the form sftp://user@host/path/to/directory to store artifacts in an SFTP server. You should configure the client to be able to login to the SFTP server without a password over SSH (e.g. public key, identityfile in ssh_config...).
+
+In principle the following format ``sftp://pass:user@host/`` is supported for logging in. But for safety reasons this is not recommended.
+
+When using this store, ``pysftp`` has to be installed on both client and server. Simply ``pip install pysftp`` will install the required package.
 
 Networking
 ^^^^^^^^^^

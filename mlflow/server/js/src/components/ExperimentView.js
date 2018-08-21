@@ -32,6 +32,7 @@ class ExperimentView extends Component {
     onSearch: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
+    history: PropTypes.any,
 
     // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(String).isRequired,
@@ -49,7 +50,7 @@ class ExperimentView extends Component {
     metricKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
 
     // The initial searchInput
-    searchInput: PropTypes.string.required,
+    searchInput: PropTypes.string.isRequired,
   };
 
   state = {
@@ -111,12 +112,13 @@ class ExperimentView extends Component {
       if (sort.isMetric || sort.isParam) {
         sortValue = (sort.isMetric ? metricsMap : paramsMap)[sort.key];
         sortValue = sortValue === undefined ? undefined : sortValue.value;
-      } else if (sort.key === 'user_id')
+      } else if (sort.key === 'user_id') {
         sortValue = Utils.formatUser(runInfo.user_id);
-      else if (sort.key === 'source')
+      } else if (sort.key === 'source') {
         sortValue = Utils.baseName(runInfo.source_name);
-      else
+      } else {
         sortValue = runInfo[sort.key];
+      }
 
       return {
         key: runInfo.run_uuid,
@@ -130,23 +132,27 @@ class ExperimentView extends Component {
           metricsMap,
           metricRanges,
           !!this.state.runsSelected[runInfo.run_uuid])
-      }
+      };
     });
     rows.sort((a, b) => {
-      if (a.sortValue === undefined)
+      if (a.sortValue === undefined) {
         return 1;
-      if (b.sortValue === undefined)
+      } else if (b.sortValue === undefined) {
         return -1;
-      if (!this.state.sort.ascending)
+      } else if (!this.state.sort.ascending) {
+        // eslint-disable-next-line no-param-reassign
         [a, b] = [b, a];
+      }
       let x = a.sortValue;
       let y = b.sortValue;
       // Casting to number if possible
-      if (!isNaN(+x))
+      if (!isNaN(+x)) {
         x = +x;
-      if (!isNaN(+y))
+      }
+      if (!isNaN(+y)) {
         y = +y;
-      return x < y ? -1 : x > y ? 1 : 0;
+      }
+      return x < y ? -1 : (x > y ? 1 : 0);
     });
 
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
@@ -167,15 +173,14 @@ class ExperimentView extends Component {
           {this.state.searchErrorMessage !== undefined ?
             <div className="error-message">
               <span className="error-message">{this.state.searchErrorMessage}</span>
-            </div>:
+            </div> :
             null
           }
-          <form className="ExperimentView-search-controls"  onSubmit={this.onSearch}>
+          <form className="ExperimentView-search-controls" onSubmit={this.onSearch}>
             <div className="ExperimentView-search-buttons">
               <input type="submit"
                      className="search-button btn btn-primary"
                      onClick={this.onSearch}
-                     preventDefault
                      value="Search"
               />
               <Button className="clear-button" onClick={this.onClear}>Clear</Button>
@@ -216,7 +221,9 @@ class ExperimentView extends Component {
             </div>
           </form>
           <div className="ExperimentView-run-buttons">
-            <span className="run-count">{rows.length} matching {rows.length === 1 ? 'run' : 'runs'}</span>
+            <span className="run-count">
+              {rows.length} matching {rows.length === 1 ? 'run' : 'runs'}
+            </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare Selected
             </Button>
@@ -241,7 +248,7 @@ class ExperimentView extends Component {
             <tr>
               {columns}
             </tr>
-            { rows.map(row => <tr key={row.key}>{row.contents}</tr> )}
+            { rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
             </tbody>
           </Table>
         </div>
@@ -277,7 +284,7 @@ class ExperimentView extends Component {
           ...this.state.runsSelected,
           [runUuid]: true,
         }
-      })
+      });
     }
   }
 
@@ -286,11 +293,11 @@ class ExperimentView extends Component {
   }
 
   onCheckAll() {
-    if (this.isAllChecked())
+    if (this.isAllChecked()) {
       this.setState({runsSelected: {}});
-    else {
+    } else {
       const runsSelected = {};
-      this.props.runInfos.forEach(({run_uuid})=>{
+      this.props.runInfos.forEach(({run_uuid}) => {
         runsSelected[run_uuid] = true;
       });
       this.setState({runsSelected: runsSelected});
@@ -317,8 +324,8 @@ class ExperimentView extends Component {
     try {
       const andedExpressions = SearchUtils.parseSearchInput(searchInput);
       this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput);
-    } catch(e) {
-      this.setState({ searchErrorMessage: e.errorMessage });
+    } catch (ex) {
+      this.setState({ searchErrorMessage: ex.errorMessage });
     }
   }
 
@@ -331,7 +338,8 @@ class ExperimentView extends Component {
 
   onCompare() {
     const runsSelectedList = Object.keys(this.state.runsSelected);
-    this.props.history.push(Routes.getCompareRunPageRoute(runsSelectedList));
+    this.props.history.push(Routes.getCompareRunPageRoute(
+      runsSelectedList, this.props.experiment.getExperimentId()));
   }
 
   onDownloadCsv() {
@@ -357,42 +365,39 @@ class ExperimentView extends Component {
     metricsMap,
     metricRanges,
     selected) {
-
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const row = [
-      <td><input type="checkbox" checked={selected}
+      <td key="meta-check"><input type="checkbox" checked={selected}
         onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
-      <td>
+      <td key="meta-link">
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
         </Link>
       </td>,
-      <td>{Utils.formatUser(runInfo.user_id)}</td>,
-      <td>{Utils.renderSource(runInfo)}</td>,
-      <td>{Utils.renderVersion(runInfo)}</td>,
+      <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
+      <td key="meta-source">{Utils.renderSource(runInfo)}</td>,
+      <td key="meta-version">{Utils.renderVersion(runInfo)}</td>,
     ];
 
-    let firstParam = true;
-    paramKeyList.forEach((paramKey) => {
-      const className = firstParam ? "left-border": undefined;
-      firstParam = false;
+    paramKeyList.forEach((paramKey, i) => {
+      const className = i === 0 ? "left-border" : undefined;
+      const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
-        row.push(<td className={className}>
+        row.push(<td className={className} key={keyname}>
           {paramsMap[paramKey].getValue()}
         </td>);
       } else {
-        row.push(<td className={className}/>);
+        row.push(<td className={className} key={keyname}/>);
       }
     });
     if (numParams === 0) {
-      row.push(<td className="left-border"/>);
+      row.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
 
-    let firstMetric = true;
-    metricKeyList.forEach((metricKey) => {
-      const className = firstMetric ? "left-border": undefined;
-      firstMetric = false;
+    metricKeyList.forEach((metricKey, i) => {
+      const className = i === 0 ? "left-border" : undefined;
+      const keyname = "metric-" + metricKey;
       if (metricsMap[metricKey]) {
         const metric = metricsMap[metricKey].getValue();
         const range = metricRanges[metricKey];
@@ -402,7 +407,7 @@ class ExperimentView extends Component {
         }
         const percent = (fraction * 100) + "%";
         row.push(
-          <td className={className}>
+          <td className={className} key={keyname}>
             <div className="metric-filler-bg">
               <div className="metric-filler-fg" style={{width: percent}}/>
               <div className="metric-text">
@@ -412,11 +417,11 @@ class ExperimentView extends Component {
           </td>
         );
       } else {
-        row.push(<td className={className}/>);
+        row.push(<td className={className} key={keyname}/>);
       }
     });
     if (numMetrics === 0) {
-      row.push(<td className="left-border"/>);
+      row.push(<td className="left-border" key="meta-metric-empty" />);
     }
     return row;
   }
@@ -429,37 +434,36 @@ class ExperimentView extends Component {
     const sortedClassName = (isMetric, isParam, key) => {
       if (sortState.isMetric !== isMetric
         || sortState.isParam !== isParam
-        || sortState.key !== key)
-        return "sortable"
-      return "sortable sorted " + (sortState.ascending?"asc":"desc");
-    }
+        || sortState.key !== key) {
+        return "sortable";
+      }
+      return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
+    };
     const getHeaderCell = (key, text) => {
-      return <th className={"bottom-row " + sortedClassName(false, false, key)}
-        onClick={() => onSortBy(false, false, key)}>{text}</th>
-    }
+      return <th key={"meta-" + key} className={"bottom-row " + sortedClassName(false, false, key)}
+        onClick={() => onSortBy(false, false, key)}>{text}</th>;
+    };
 
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [
-      <th className="bottom-row">
-        <input type="checkbox" onClick={onCheckAll} checked={isAllChecked} />
+      <th key="meta-check" className="bottom-row">
+        <input type="checkbox" onChange={onCheckAll} checked={isAllChecked} />
       </th>,
       getHeaderCell("start_time", "Date"),
       getHeaderCell("user_id", "User"),
       getHeaderCell("source", "Source"),
       getHeaderCell("source_version", "Version")
     ];
-    let firstParam = true;
-    paramKeyList.forEach((paramKey) => {
+    paramKeyList.forEach((paramKey, i) => {
       const className = "bottom-row "
-        + (firstParam ? "left-border " : "")
+        + (i === 0 ? "left-border " : "")
         + sortedClassName(false, true, paramKey);
-      firstParam = false;
-      columns.push(<th className={className}
+      columns.push(<th key={'param-' + paramKey} className={className}
         onClick={() => onSortBy(false, true, paramKey)}>{paramKey}</th>);
     });
     if (numParams === 0) {
-      columns.push(<th className="bottom-row left-border">(n/a)</th>);
+      columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
     let firstMetric = true;
@@ -468,22 +472,22 @@ class ExperimentView extends Component {
         + (firstMetric ? "left-border " : "")
         + sortedClassName(true, false, metricKey);
       firstMetric = false;
-      columns.push(<th className={className}
+      columns.push(<th key={'metric-' + metricKey} className={className}
         onClick={() => onSortBy(true, false, metricKey)}>{metricKey}</th>);
     });
     if (numMetrics === 0) {
-      columns.push(<th className="bottom-row left-border">(n/a)</th>);
+      columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
     return columns;
   }
 
   static computeMetricRanges(metricsByRun) {
-    let ret = {};
+    const ret = {};
     metricsByRun.forEach(metrics => {
       metrics.forEach(metric => {
         if (!ret.hasOwnProperty(metric.key)) {
-          ret[metric.key] = {min: Math.min(metric.value, metric.value * 0.7), max: metric.value}
+          ret[metric.key] = {min: Math.min(metric.value, metric.value * 0.7), max: metric.value};
         } else {
           if (metric.value < ret[metric.key].min) {
             ret[metric.key].min = Math.min(metric.value, metric.value * 0.7);
@@ -501,7 +505,7 @@ class ExperimentView extends Component {
    * Turn a list of metrics to a map of metric key to metric.
    */
   static toMetricsMap(metrics) {
-    let ret = {};
+    const ret = {};
     metrics.forEach((metric) => {
       ret[metric.key] = metric;
     });
@@ -512,7 +516,7 @@ class ExperimentView extends Component {
    * Turn a list of metrics to a map of metric key to metric.
    */
   static toParamsMap(params) {
-    let ret = {};
+    const ret = {};
     params.forEach((param) => {
       ret[param.key] = param;
     });
@@ -561,7 +565,7 @@ class ExperimentView extends Component {
     }
 
     return csv;
-  };
+  }
 
   /**
    * Convert an array of run infos to a CSV string, extracting the params and metrics in the
@@ -573,7 +577,6 @@ class ExperimentView extends Component {
     metricKeyList,
     paramsList,
     metricsList) {
-
     const columns = [
       "Run ID",
       "Name",
@@ -617,7 +620,7 @@ class ExperimentView extends Component {
       return row;
     });
 
-    return ExperimentView.tableToCsv(columns, data)
+    return ExperimentView.tableToCsv(columns, data);
   }
 }
 
@@ -642,7 +645,7 @@ const mapStateToProps = (state, ownProps) => {
     metrics.forEach((metric) => {
       metricKeysSet.add(metric.key);
     });
-    return metrics
+    return metrics;
   });
   const paramsList = runInfos.map((runInfo) => {
     const params = Object.values(getParams(runInfo.getRunUuid(), state));

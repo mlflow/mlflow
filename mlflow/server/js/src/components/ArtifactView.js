@@ -11,6 +11,7 @@ import { decorators, Treebeard } from 'react-treebeard';
 import bytes from 'bytes';
 import './ArtifactView.css';
 import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
+import spinner from '../static/mlflow-spinner.png';
 
 class ArtifactView extends Component {
   constructor(props) {
@@ -72,7 +73,9 @@ class ArtifactView extends Component {
               </div>
               <div>
                 <div className="no-artifacts">No Artifacts Recorded</div>
-                <div className="no-artifacts-info">Use the log artifact APIs to store file outputs from MLflow runs.</div>
+                <div className="no-artifacts-info">
+                  Use the log artifact APIs to store file outputs from MLflow runs.
+                </div>
               </div>
             </div>
           </div>
@@ -82,7 +85,7 @@ class ArtifactView extends Component {
   }
   onToggleTreebeard(dataNode, toggled) {
     const { id, loading } = dataNode;
-    let newRequestedNodeIds = new Set(this.state.requestedNodeIds);
+    const newRequestedNodeIds = new Set(this.state.requestedNodeIds);
     // - loading indicates that this node is a directory and has not been loaded yet.
     // - requestedNodeIds keeps track of in flight requests.
     if (loading && !this.state.requestedNodeIds.has(id)) {
@@ -109,7 +112,7 @@ class ArtifactView extends Component {
         return Object.values(artifactNode.children).map((c) => this.getTreebeardData(c));
       }
       // This case should never happen since we should never call this function on an empty root.
-      throw Error("unreachable code.")
+      throw Error("unreachable code.");
     }
 
     let id;
@@ -147,7 +150,7 @@ class ArtifactView extends Component {
       active,
       loading,
     };
-  };
+  }
 
   getRealPath() {
     if (this.state.activeNodeId) {
@@ -180,10 +183,9 @@ const TREEBEARD_STYLE = {
   tree: {
     base: {
       listStyle: 'none',
-      backgroundColor: '#efeeff',
       margin: 0,
       padding: 0,
-      'background-color': '#FAFAFA',
+      backgroundColor: '#FAFAFA',
       fontSize: '14px',
       maxWidth: '500px',
       height: '556px',
@@ -249,13 +251,11 @@ const TREEBEARD_STYLE = {
         listStyle: 'none',
         paddingLeft: '19px'
       },
-      loading: {
-        color: '#81e232'
-      }
     }
   }
 };
 
+// eslint-disable-next-line react/prop-types
 decorators.Header = ({style, node}) => {
   let iconType;
   if (node.children) {
@@ -280,6 +280,16 @@ decorators.Header = ({style, node}) => {
 
         {node.name}
       </div>
+    </div>
+  );
+};
+
+// eslint-disable-next-line react/prop-types
+decorators.Loading = ({style}) => {
+  return (
+    <div style={style}>
+      <img alt="" className="loading-spinner" src={spinner}/>
+      {' '}loading...
     </div>
   );
 };

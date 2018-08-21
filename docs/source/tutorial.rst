@@ -20,16 +20,20 @@ is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datase
 
 What You'll Need
 ----------------
-This tutorial uses MLflow, `conda <https://conda.io/docs/user-guide/install/index.html#>`_, and the tutorial code located at
-``example/tutorial`` in the MLflow repository. To download the tutorial code, run:
+To run this tutorial, you'll need to:
 
-.. code::
+ - Install MLflow (via ``pip install mlflow``)
+ - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+ - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
+ - `cd` into the ``examples`` directory within your clone of MLflow - we'll use this working
+   directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
+   so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
+   MLflow.
 
-    git clone https://github.com/mlflow/mlflow
 
 Training the Model
 ------------------
-First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``example/tutorial/train.py`` and is reproduced below.
+First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``tutorial/train.py`` and is reproduced below.
 
 .. code:: python
 
@@ -92,18 +96,18 @@ You can run the example with default hyperparameters as follows:
 
 .. code:: bash
 
-    python example/tutorial/train.py
+    python tutorial/train.py
 
 Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
 .. code:: bash
 
-    python example/tutorial/train.py <alpha> <l1_ratio>
+    python tutorial/train.py <alpha> <l1_ratio>
 
 Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
 .. note::
-    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``example/tutorial/train.py/train.ipynb``.
+    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``tutorial/train.py/train.ipynb``.
 
 Comparing the Models
 --------------------
@@ -124,13 +128,13 @@ you can download this table as a CSV and use your favorite data munging software
 Packaging the Training Code
 ---------------------------
 Now that you have your training code, you can package it so that other data scientists can easily reuse the model, or so that you can run the training remotely, for example on Databricks. You do this by using :doc:`projects` conventions to specify the
-dependencies and entry points to your code. The ``example/tutorial/MLproject`` file specifies that the project has the dependencies located in a
+dependencies and entry points to your code. The ``tutorial/MLproject`` file specifies that the project has the dependencies located in a
 `Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
 called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
 .. code:: yaml
 
-    # example/tutorial/MLproject
+    # tutorial/MLproject
 
     name: tutorial
 
@@ -148,7 +152,7 @@ The Conda file lists the dependencies:
 
 .. code:: yaml
 
-    # example/tutorial/conda.yaml
+    # tutorial/conda.yaml
 
     name: tutorial
     channels:
@@ -160,7 +164,7 @@ The Conda file lists the dependencies:
       - pip:
         - mlflow
 
-To run this project, invoke ``mlflow run example/tutorial -P alpha=0.42``. After running
+To run this project, invoke ``mlflow run tutorial -P alpha=0.42``. After running
 this command, MLflow will run your training code in a new Conda environment with the dependencies
 specified in ``conda.yaml``.
 

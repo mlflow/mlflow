@@ -1,6 +1,6 @@
 import unittest
 
-from mlflow.entities.param import Param
+from mlflow.entities import Param
 from tests.helper_functions import random_str, random_int
 
 

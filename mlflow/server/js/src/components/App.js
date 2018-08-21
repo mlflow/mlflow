@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../static/home-logo.png';
-import ExperimentPage from './ExperimentPage';
 import {
   HashRouter as Router,
   Route,
@@ -43,7 +42,7 @@ class App extends Component {
             </div>
           </header>
           <AppErrorBoundary>
-            { /* Since the experiment list side bar goes outside of the 80% width put outside of div */ }
+            { /* Since the experiment sidebar goes outside of the 80% width, put outside of div */ }
             <Route exact path={Routes.rootRoute} component={HomePage}/>
             <Route exact path={Routes.experimentPageRoute} component={HomePage}/>
             { /* App-content ensures 80% width */ }

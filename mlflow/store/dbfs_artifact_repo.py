@@ -1,7 +1,7 @@
 import json
 import os
 
-from mlflow.entities.file_info import FileInfo
+from mlflow.entities import FileInfo
 from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
@@ -81,7 +81,14 @@ class DbfsArtifactRepository(ArtifactRepository):
         else:
             http_endpoint = self._get_dbfs_endpoint(os.path.basename(local_file))
         with open(local_file, 'rb') as f:
-            http_request(endpoint=http_endpoint, method='POST', data=f, **self.http_request_kwargs)
+            response = http_request(endpoint=http_endpoint, method='POST', data=f,
+                                    allow_redirects=False, **self.http_request_kwargs)
+            if response.status_code == 409:
+                raise MlflowException('File already exists at {} and can\'t be overwritten.'
+                                      .format(http_endpoint))
+            elif response.status_code != 200:
+                raise MlflowException('log_artifact to "{}" returned a non-200 status code.'
+                                      .format(http_endpoint))
 
     def log_artifacts(self, local_dir, artifact_path=None):
         if artifact_path:
@@ -95,9 +102,15 @@ class DbfsArtifactRepository(ArtifactRepository):
                 dir_http_endpoint = build_path(root_http_endpoint, rel_path)
             for name in filenames:
                 endpoint = build_path(dir_http_endpoint, name)
-                with open(build_path(dirpath, name), 'r') as f:
-                    http_request(endpoint=endpoint, method='POST', data=f,
-                                 **self.http_request_kwargs)
+                with open(build_path(dirpath, name), 'rb') as f:
+                    response = http_request(endpoint=endpoint, method='POST', data=f,
+                                            allow_redirects=False, **self.http_request_kwargs)
+                if response.status_code == 409:
+                    raise MlflowException('File already exists at {} and can\'t be overwritten.'
+                                          .format(endpoint))
+                elif response.status_code != 200:
+                    raise MlflowException('log_artifacts to "{}" returned a non-200 status code.'
+                                          .format(endpoint))
 
     def list_artifacts(self, path=None):
         if path:

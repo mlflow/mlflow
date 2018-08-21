@@ -3,7 +3,7 @@ from abc import abstractmethod
 import os
 import signal
 
-from mlflow.entities.run_status import RunStatus
+from mlflow.entities import RunStatus
 from mlflow.utils.logging_utils import eprint
 
 
@@ -18,7 +18,7 @@ class SubmittedRun(object):
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
 
-    Note: Subclasses of ``SubmittedRun`` are expected to expose a ```run_id`` member containing the
+    Note: Subclasses of ``SubmittedRun`` are expected to expose a ``run_id`` member containing the
     run's MLflow run ID.
     """
     @abstractmethod

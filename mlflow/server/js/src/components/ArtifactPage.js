@@ -14,7 +14,7 @@ class ArtifactPage extends Component {
 
   render() {
     // If not hydrated then try to get the data before rendering this view.
-    return <ArtifactView runUuid={this.props.runUuid} fetchArtifacts={this.props.fetchArtifacts}/>
+    return <ArtifactView runUuid={this.props.runUuid} fetchArtifacts={this.props.fetchArtifacts}/>;
   }
 }
 

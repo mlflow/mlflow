@@ -16,6 +16,7 @@ import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
 
@@ -59,10 +60,7 @@ def cli():
               help="Username for HTTP(S) Git authentication.")
 @click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
               help="Password for HTTP(S) Git authentication.")
-@click.option("--no-conda", is_flag=True,
-              help="If specified, assume that MLflow is running within a Conda environment "
-                   "with the necessary dependencies for the current project instead of attempting "
-                   "to create a new conda environment. Only valid if running locally.")
+@cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when `mode` is local."
                    "MLflow downloads artifacts from distributed URIs passed to parameters of "

@@ -64,19 +64,6 @@ class Project(object):
                                  "{2}".format(entry_point, list(self._entry_points.keys()),
                                               list(ext_to_cmd.keys())))
 
-    def load_conda_env(self):
-        """
-        Loads and returns the contents of the conda environment file for the current project if
-        one exists, otherwise returns the empty string.
-        """
-        if self.conda_env_path:
-            if not os.path.exists(self.conda_env_path):
-                raise ExecutionException(
-                    "Could not find conda environment file at %s" % self.conda_env_path)
-            with open(self.conda_env_path) as handle:
-                return handle.read()
-        return ""
-
 
 class EntryPoint(object):
     """An entry point in an MLproject specification."""

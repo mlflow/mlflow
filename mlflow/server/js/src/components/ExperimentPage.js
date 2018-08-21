@@ -14,8 +14,10 @@ class ExperimentPage extends Component {
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
   }
+
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
+    dispatchSearchRuns: PropTypes.func.isRequired,
   };
 
   state = {
@@ -41,12 +43,13 @@ class ExperimentPage extends Component {
       props.dispatch(searchRunsApi([props.experimentId], [], newState.searchRunsRequestId));
       return newState;
     }
+    return null;
   }
 
   onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput) {
     this.setState({paramKeyFilter, metricKeyFilter, searchInput});
-    const searchRunsRequestId = this.props.dispatchSearchRuns(this.props.experimentId,
-      andedExpressions);
+    const searchRunsRequestId = this.props.dispatchSearchRuns(
+      this.props.experimentId, andedExpressions);
     this.setState({ searchRunsRequestId });
   }
 
@@ -69,7 +72,6 @@ class ExperimentPage extends Component {
 
   getRequestIds() {
     return [this.state.getExperimentRequestId, this.state.searchRunsRequestId];
-
   }
 }
 
@@ -78,9 +80,10 @@ const mapStateToProps = (state, ownProps) => {
   if (match.url === "/") {
     return { experimentId: 0 };
   }
-  return { experimentId: match.params.experimentId };
+  return { experimentId: parseInt(match.params.experimentId, 10) };
 };
 
+// eslint-disable-next-line no-unused-vars
 const mapDispatchToProps = (dispatch, ownProps) => {
   return {
     dispatch,

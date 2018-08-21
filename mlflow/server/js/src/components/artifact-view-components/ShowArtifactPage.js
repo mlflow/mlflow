@@ -25,11 +25,13 @@ class ShowArtifactPage extends Component {
       <div className="select-preview-outer-container">
         <div className="select-preview-container">
           <div className="select-preview-image-container">
-            <img className="select-preview-image" src={previewIcon}/>
+            <img className="select-preview-image" alt="Preview icon." src={previewIcon}/>
           </div>
           <div className="select-preview-text">
             <span className="select-preview-header">Select a file to preview</span>
-            <span className="select-preview-supported-formats">Supported formats: image and text files</span>
+            <span className="select-preview-supported-formats">
+              Supported formats: image and text files
+            </span>
           </div>
         </div>
       </div>
@@ -38,8 +40,8 @@ class ShowArtifactPage extends Component {
 }
 
 export const getSrc = (path, runUuid) => {
-  const basePath = "/api/2.0/preview/mlflow/artifacts/get";
-  return `${basePath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`
+  const basePath = "get-artifact";
+  return `${basePath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
 };
 
 

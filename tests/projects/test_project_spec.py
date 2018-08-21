@@ -61,4 +61,5 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents):
     expected_env_path = \
         os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
     assert project.conda_env_path == expected_env_path
-    assert project.load_conda_env() == conda_env_contents
+    if conda_env_path:
+        assert open(project.conda_env_path).read() == conda_env_contents
