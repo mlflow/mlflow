@@ -3,7 +3,7 @@
 #' This function should not be used interactively. It is designed to be called via `Rscript` from
 #'   the terminal or through the MLflow CLI.
 #'
-#' @param uri Path to an R script.
+#' @param uri Path to an R script, can be a quoted or unquoted string.
 #' @keywords internal
 #' @export
 mlflow_source <- function(uri) {
@@ -11,6 +11,9 @@ mlflow_source <- function(uri) {
     "`mlflow_source()` cannot be used interactively; use `mlflow_run()` instead.",
     call. = FALSE
   )
+
+  uri <- as.character(substitute(uri))
+
   .globals$run_params <- list()
   command_args <- parse_command_line(commandArgs(trailingOnly = TRUE))
 

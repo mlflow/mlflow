@@ -7,7 +7,7 @@
 mlflow_source(uri)
 }
 \arguments{
-\item{uri}{Path to an R script.}
+\item{uri}{Path to an R script, can be a quoted or unquoted string.}
 }
 \description{
 This function should not be used interactively. It is designed to be called via `Rscript` from
