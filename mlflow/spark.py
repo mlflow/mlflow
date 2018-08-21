@@ -199,7 +199,8 @@ def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
     model_path = os.path.join(path, conf['model_data'])
     tmp_path = _tmp_path(dfs_tmpdir)
     # Spark ML expects the model to be stored on DFS
-    # Copy the model to a temp DFS location first.
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
     _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
     pipeline_model = PipelineModel.load(tmp_path)
     return pipeline_model
