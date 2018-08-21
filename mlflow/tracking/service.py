@@ -9,7 +9,7 @@ import time
 from six import iteritems
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
-from mlflow.entities import Param, Metric, Run, RunStatus, RunTag
+from mlflow.entities import Param, Metric, RunStatus, RunTag
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
