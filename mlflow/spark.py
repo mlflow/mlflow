@@ -183,7 +183,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     if conda_env:
         model_conda_env = os.path.basename(os.path.abspath(conda_env))
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
-    mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version, model_data=sparkml_data_path_sub)
+    mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version,
+                            model_data=sparkml_data_path_sub)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=sparkml_data_path_sub,
                         env=model_conda_env)
     mlflow_model.save(os.path.join(path, "MLmodel"))

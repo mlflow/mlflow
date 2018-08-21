@@ -119,4 +119,3 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                             mleap_version=mleap.version.__version__,
                             model_data=mleap_datapath_sub,
                             input_schema=mleap_schemapath_sub)
-
