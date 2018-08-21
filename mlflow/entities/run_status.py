@@ -1,4 +1,5 @@
 class RunStatus(object):
+    """Enum describing the status of a :py:class:`mlflow.entities.run.Run`."""
     RUNNING, SCHEDULED, FINISHED, FAILED = range(1, 5)
     _STRING_TO_STATUS = {
         "RUNNING": RUNNING,
