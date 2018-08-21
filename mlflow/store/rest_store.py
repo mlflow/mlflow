@@ -112,10 +112,10 @@ class RestStore(AbstractStore):
         return Experiment.from_proto(response_proto.experiment)
 
     def delete_experiment(self, experiment_id):
-        raise NotImplementedError()
+        pass
 
     def restore_experiment(self, experiment_id):
-        raise NotImplementedError()
+        pass
 
     def get_run(self, run_uuid):
         """
