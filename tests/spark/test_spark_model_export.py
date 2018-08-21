@@ -130,18 +130,16 @@ def test_model_log(tmpdir):
                     mlflow.start_run()
                 artifact_path = "model%d" % cnt
                 cnt += 1
-                if dfs_tmp_dir:
-                    sparkm.log_model(artifact_path=artifact_path, spark_model=model,
-                                     dfs_tmpdir=dfs_tmp_dir)
-                else:
-                    sparkm.log_model(artifact_path=artifact_path, spark_model=model)
+                sparkm.log_model(artifact_path=artifact_path, spark_model=model,
+                                 dfs_tmpdir=dfs_tmp_dir)
                 run_id = active_run().info.run_uuid
                 # test pyfunc
                 x = pyfunc.load_pyfunc(artifact_path, run_id=run_id)
                 preds2 = x.predict(pandas_df)
                 assert preds1 == preds2
                 # test load model
-                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id)
+                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
+                                                   dfs_tmpdir=dfs_tmp_dir)
                 preds_df_1 = reloaded_model.transform(spark_df)
                 preds3 = [x.prediction for x in preds_df_1.select("prediction").collect()]
                 assert preds1 == preds3
