@@ -209,9 +209,10 @@ def test_mleap_module_model_save_with_valid_sample_input_produces_mleap_flavor(
 def test_mleap_module_model_save_with_invalid_sample_input_raises_exception(
         spark_model_iris, model_path):
     with pytest.raises(Exception):
+        invalid_input = pd.DataFrame()
         sparkm.save_model(spark_model=spark_model_iris.model,
                           path=model_path,
-                          sample_input=None)
+                          sample_input=invalid_input)
 
 
 def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
