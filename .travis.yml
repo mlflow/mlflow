@@ -25,7 +25,7 @@ matrix:
           - NOT_CRAN=true
             MLFLOW_TEST_REQUIREMENTS=false
       before_install:
-        - sudo bash intall-travis.sh
+        - sudo bash install-travis.sh
         - cd R/mlflow
       after_failure:
         - cd tests
