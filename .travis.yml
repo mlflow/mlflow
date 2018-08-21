@@ -8,15 +8,15 @@ matrix:
     - language: python
       python: 2.7
       script:
-        - sudo source test-travis.sh
+        - sudo ./test-travis.sh
       install:
-        - sudo source install-travis.sh
+        - sudo ./install-travis.sh
     - language: python
       python: 3.6
       script:
-        - sudo source test-travis.sh
+        - sudo ./test-travis.sh
       install:
-        - sudo source install-travis.sh
+        - sudo ./install-travis.sh
     - language: r
       dist: trusty
       cache: packages
@@ -25,7 +25,7 @@ matrix:
           - NOT_CRAN=true
             MLFLOW_TEST_REQUIREMENTS=false
       before_install:
-        - sudo source install-travis.sh
+        - sudo ./install-travis.sh
         - cd R/mlflow
       after_failure:
         - cd tests
