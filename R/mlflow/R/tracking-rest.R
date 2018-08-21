@@ -29,6 +29,7 @@ mlflow_list_experiments <- function() {
 #' Creates an MLflow experiment.
 #'
 #' @param name The name of the experiment to create.
+#' @param activate Whether to set the created experiment as the active experiment. Defaults to `TRUE`.
 #'
 #' @examples
 #' \dontrun{
@@ -40,13 +41,22 @@ mlflow_list_experiments <- function() {
 #'
 #' # create experiment in remote MLflow server
 #' mlflow_set_tracking_uri("http://tracking-server:5000")
-#' mlflow_experiments_create("My Experiment")
+#' mlflow_create_experiment("My Experiment")
 #' }
 #'
 #' @export
-mlflow_create_experiment <- function(name) {
-  response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
-  response$experimentId
+mlflow_create_experiment <- function(name, activate = TRUE) {
+  experiments <- mlflow_list_experiments()
+  experiment_id <- if (name %in% experiments$name) {
+    message("Experiment with name ", name, " already exists.")
+    experiments[experiments$name == name,]$experiment_id
+  } else {
+    response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
+    response$experiment_id
+  }
+
+  if (activate) mlflow_set_active_experiment(experiment_id)
+  invisible(experiment_id)
 }
 
 #' Get Experiment

@@ -1,11 +1,18 @@
 #' Active Experiment
 #'
-#' Retrieves the active experiment. An experiment is made active by calling
-#' \code{mlflow_experiment()}.
+#' Retrieve or set the active experiment.
 #'
+#' @name active_experiment
 #' @export
 mlflow_active_experiment <- function() {
   .globals$active_experiment
+}
+
+#' @rdname active_experiment
+#' @export
+mlflow_set_active_experiment <- function(experiment_id) {
+  .globals$active_experiment <- experiment_id
+  invisible(experiment_id)
 }
 
 #' Active Run
