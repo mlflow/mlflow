@@ -23,6 +23,10 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 from tests.pyfunc.test_spark import score_model_as_udf
 
+# Set Py4J logging level to `ERROR` to prune test log outputs
+import logging
+logging.getLogger("py4j").setLevel(logging.ERROR)
+
 
 def test_hadoop_filesystem(tmpdir):
     # copy local dir to and back from HadoopFS and make sure the results match
