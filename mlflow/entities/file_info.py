@@ -3,6 +3,7 @@ from mlflow.protos.service_pb2 import FileInfo as ProtoFileInfo
 
 
 class FileInfo(_MLflowObject):
+    """Class exposing metadata about a file or directory."""
     def __init__(self, path, is_dir, file_size):
         self._path = path
         self._is_dir = is_dir
@@ -10,14 +11,17 @@ class FileInfo(_MLflowObject):
 
     @property
     def path(self):
+        """String path of the file or directory."""
         return self._path
 
     @property
     def is_dir(self):
+        """Boolean: whether the current FileInfo corresponds to a directory."""
         return self._is_dir
 
     @property
     def file_size(self):
+        """Size of the file or directory. May be None if the current FileInfo is a directory."""
         return self._bytes
 
     def to_proto(self):
