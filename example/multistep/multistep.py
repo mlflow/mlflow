@@ -34,12 +34,12 @@ def _already_ran(entry_point_name, parameters, experiment_id=None):
     """
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
     service = mlflow.tracking.get_service()
-    all_runs = reversed(service.list_runs(experiment_id))
-    for run in all_runs:
-        if run.info.entry_point_name != entry_point_name:
+    all_run_infos = reversed(service.list_run_infos(experiment_id))
+    for run_info in all_run_infos:
+        if run_info.entry_point_name != entry_point_name:
             continue
 
-        full_run = service.get_run(run.info.run_uuid)
+        full_run = service.get_run(run_info.run_uuid)
         run_params = _get_params(full_run)
         match_failed = False
         for param_key, param_value in six.iteritems(parameters):
@@ -50,11 +50,11 @@ def _already_ran(entry_point_name, parameters, experiment_id=None):
         if match_failed:
             continue
 
-        if run.info.status != RunStatus.FINISHED:
+        if run_info.status != RunStatus.FINISHED:
             eprint(("Run matched, but is not FINISHED, so skipping "
-                    "(run_id=%s, status=%s)") % (run.info.run_uuid, run.info.status))
+                    "(run_id=%s, status=%s)") % (run_info.run_uuid, run_info.status))
             continue
-        return service.get_run(run.info.run_uuid)
+        return service.get_run(run_info.run_uuid)
     return None
 
 
