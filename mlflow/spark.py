@@ -20,6 +20,7 @@ from pyspark.ml.base import Transformer
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "spark"
 
@@ -27,7 +28,7 @@ FLAVOR_NAME = "spark"
 DFS_TMP = "/tmp/mlflow"
 
 
-def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=DFS_TMP):
+def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=None):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run.
 
@@ -42,7 +43,7 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
                        destination and then copied into the model's artifact directory. This is
                        necessary as Spark ML models read / write from / to DFS if running on a
                        cluster. All temporary files created on the DFS will be removed if this
-                       operation completes successfully.
+                       operation completes successfully. Defaults to /tmp/mlflow.
 
     >>> from pyspark.ml import Pipeline
     >>> from pyspark.ml.classification import LogisticRegression
@@ -117,7 +118,7 @@ class _HadoopFileSystem:
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
-               dfs_tmpdir=DFS_TMP):
+               dfs_tmpdir=None):
     """
     Save Spark MLlib PipelineModel at given local path.
 
@@ -133,7 +134,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
                        destination and then copied to the requested local path. This is necessary
                        as Spark ML models read / write from / to DFS if running on a cluster. All
                        temporary files created on the DFS will be removed if this operation
-                       completes successfully.
+                       completes successfully. Defaults to /tmp/mlflow.
 
 
     >>> from mlflow import spark
@@ -143,6 +144,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     >>> model = ...
     >>> mlflow.spark.save_model(model, "spark-model")
     """
+    dfs_tmpdir = dfs_tmpdir if dfs_tmpdir is not None else DFS_TMP
     if jars:
         raise Exception("jar dependencies are not implemented")
     if not isinstance(spark_model, Transformer):
@@ -169,7 +171,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
+def load_model(path, run_id=None, dfs_tmpdir=None):
     """
     Load the Spark MLlib model from the path.
 
@@ -190,6 +192,7 @@ def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
     >>> prediction = model.transform(test)
 
     """
+    dfs_tmpdir = dfs_tmpdir if dfs_tmpdir is not None else DFS_TMP
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     m = Model.load(os.path.join(path, 'MLmodel'))
@@ -198,14 +201,13 @@ def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
     conf = m.flavors[FLAVOR_NAME]
     model_path = os.path.join(path, conf['model_data'])
     tmp_path = _tmp_path(dfs_tmpdir)
-    try:
-        # Spark ML expects the model to be stored on DFS
-        # Copy the model to a temp DFS location first.
-        _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
-        pipeline_model = PipelineModel.load(tmp_path)
-        return pipeline_model
-    finally:
-        _HadoopFileSystem.delete(tmp_path)
+    # Spark ML expects the model to be stored on DFS
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
+    _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
+    pipeline_model = PipelineModel.load(tmp_path)
+    eprint("Copied SparkML model to %s" % tmp_path)
+    return pipeline_model
 
 
 def load_pyfunc(path):
