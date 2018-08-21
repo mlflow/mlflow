@@ -72,7 +72,6 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                          required by MLeap for data schema inference.
     """
     from pyspark.ml.pipeline import PipelineModel
-    from pyspark.ml.base import Transformer
     from pyspark.sql import DataFrame
     import mleap.version
     from mleap.pyspark.spark_support import SimpleSparkSerializer
