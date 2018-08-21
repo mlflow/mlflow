@@ -1,4 +1,5 @@
 import json
+
 from google.protobuf.json_format import MessageToJson, ParseDict
 
 
@@ -78,7 +79,7 @@ class RestStore(AbstractStore):
         ParseDict(js_dict=js_dict, message=response_proto)
         return response_proto
 
-    def list_experiments(self):
+    def list_experiments(self, include_deleted=False, only_deleted=False):
         """
         :return: a list of all known Experiment objects
         """
@@ -99,7 +100,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id
 
-    def get_experiment(self, experiment_id):
+    def get_experiment(self, experiment_id, include_deleted=False, only_deleted=False):
         """
         Fetches the experiment from the backend store.
 
@@ -109,6 +110,12 @@ class RestStore(AbstractStore):
         req_body = _message_to_json(GetExperiment(experiment_id=experiment_id))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
+
+    def delete_experiment(self, experiment_id):
+        raise NotImplementedError()
+
+    def restore_experiment(self, experiment_id):
+        raise NotImplementedError()
 
     def get_run(self, run_uuid):
         """
