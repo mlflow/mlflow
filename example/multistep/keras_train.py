@@ -34,7 +34,9 @@ def keras_train(ratings_data, als_model_uri):
 
     alsModel = mlflow.spark.load_model(als_model_uri).stages[0]
 
-    spark = pyspark.sql.SparkSession.builder.getOrCreate()
+    spark = (pyspark.sql.SparkSession.builder \
+             .config("spark.driver.memory", "2g") \
+             .getOrCreate())
     ratingsDF = spark.read.parquet(ratings_data)
 
     (trainingDF, testDF) = ratingsDF.randomSplit([0.8, 0.2], seed=42)
