@@ -17,16 +17,19 @@ mlflow_set_active_experiment <- function(experiment_id) {
 
 #' Active Run
 #'
-#' Retrieves the active run. A run is made active by calling
-#' \code{mlflow_create_run()}.
+#' Retrieves or sets the active run.
 #'
+#' @name active_run
 #' @export
 mlflow_active_run <- function() {
   .globals$active_run
 }
 
+#' @rdname active_run
+#' @export
 mlflow_set_active_run <- function(run) {
   .globals$active_run <- run
+  invisible(run)
 }
 
 mlflow_relative_paths <- function(paths) {
