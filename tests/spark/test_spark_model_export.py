@@ -148,10 +148,10 @@ def test_model_log(tmpdir):
                 # test spar_udf
                 preds4 = score_model_as_udf(artifact_path, run_id, pandas_df)
                 assert preds1 == preds4
-                # make sure we did not leave any temp files behind
+                # We expect not to delete the DFS tempdir.
                 x = dfs_tmp_dir or sparkm.DFS_TMP
                 assert os.path.exists(x)
-                assert not os.listdir(x)
+                assert os.listdir(x)
                 shutil.rmtree(x)
             finally:
                 mlflow.end_run()
