@@ -23,6 +23,7 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 from tests.pyfunc.test_spark import score_model_as_udf
 
+
 @pytest.fixture
 def spark_conda_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
@@ -43,7 +44,7 @@ def spark_context():
     conf = pyspark.SparkConf()
     conf.set(key="spark.jars.packages",
              value='ml.combust.mleap:mleap-spark-base_2.11:0.10.0,'
-                  'ml.combust.mleap:mleap-spark_2.11:0.10.0')
+             'ml.combust.mleap:mleap-spark_2.11:0.10.0')
     conf.set(key="spark_session.python.worker.reuse", value=True)
     sc = pyspark.SparkContext(master="local-cluster[2, 1, 1024]", conf=conf).getOrCreate()
     return sc
@@ -55,7 +56,7 @@ def spark_model_iris(spark_context):
     X = iris.data  # we only take the first two features.
     y = iris.target
     feature_names = ["0", "1", "2", "3"]
-    pandas_df = pd.DataFrame(X, columns=feature_names) # to make spark_udf work
+    pandas_df = pd.DataFrame(X, columns=feature_names)  # to make spark_udf work
     pandas_df['label'] = pd.Series(y)
     spark_session = pyspark.sql.SparkSession(spark_context)
     spark_df = spark_session.createDataFrame(pandas_df)

@@ -75,7 +75,7 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
 
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
-                     jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, 
+                     jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
                      sample_input=sample_input)
 
 
