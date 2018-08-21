@@ -38,8 +38,9 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     """
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
-    work_dir, tmpdir_to_be_removed = _fetch_project(uri=uri, force_tempdir=False, version=version,
-                              git_username=git_username, git_password=git_password)
+    work_dir, tmpdir_to_be_removed = \
+        _fetch_project(uri=uri, force_tempdir=False, version=version,
+                       git_username=git_username, git_password=git_password)
     project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     if run_id:
@@ -63,8 +64,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         if block:
             command = _get_entry_point_command(
                 project, entry_point, parameters, conda_env_name, storage_dir)
-            return _run_entry_point(command, work_dir, tmpdir_to_be_removed, exp_id,
-                                    run_id=active_run.run_info.run_uuid)
+            return _run_entry_point(command, work_dir, exp_id, run_id=active_run.info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
