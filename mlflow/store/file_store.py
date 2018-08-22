@@ -144,6 +144,8 @@ class FileStore(AbstractStore):
         return Experiment.from_dictionary(meta)
 
     def get_experiment_by_name(self, name):
+        if name is None or name == "":
+            raise Exception("Invalid experiment name '%s'" % name)
         self._check_root_dir()
         for experiment in self.list_experiments(include_deleted=True):
             if experiment.name == name:
