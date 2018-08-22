@@ -13,10 +13,9 @@ import tempfile
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.utils.exception import ExecutionException
-from mlflow.entities.run_status import RunStatus
-from mlflow.entities.source_type import SourceType
-from mlflow.entities.param import Param
+from mlflow.entities import RunStatus, SourceType, Param
 import mlflow.tracking as tracking
+from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
 
 from mlflow.utils import process
@@ -36,37 +35,38 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     Helper that delegates to the project-running method corresponding to the passed-in mode.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
-    exp_id = experiment_id or tracking._get_experiment_id()
+    exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
+    work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
+                              git_username=git_username, git_password=git_password)
+    project = _project_spec.load_project(work_dir)
+    project.get_entry_point(entry_point)._validate_parameters(parameters)
+    if run_id:
+        active_run = tracking.get_service().get_run(run_id)
+    else:
+        active_run = _create_run(uri, exp_id, work_dir, entry_point, parameters)
+
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
-            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
-            git_password=git_password)
+            remote_run=active_run,
+            uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
+            experiment_id=exp_id, cluster_spec=cluster_spec)
     elif mode == "local" or mode is None:
-        work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
-                                  git_username=git_username, git_password=git_password)
-        project = _project_spec.load_project(work_dir)
-        project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
         conda_env_name = _get_or_create_conda_env(project.conda_env_path) if use_conda else None
-        if run_id:
-            active_run = tracking._get_existing_run(run_id)
-        else:
-            active_run = _create_run(uri, exp_id, work_dir, entry_point, parameters)
         # In blocking mode, run the entry point command in blocking fashion, sending status updates
         # to the tracking server when finished. Note that the run state may not be persisted to the
         # tracking server if interrupted
         if block:
             command = _get_entry_point_command(
                 project, entry_point, parameters, conda_env_name, storage_dir)
-            return _run_entry_point(command, work_dir, exp_id, run_id=active_run.run_info.run_uuid)
+            return _run_entry_point(command, work_dir, exp_id, run_id=active_run.info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
-            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.run_info.run_uuid)
+            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_uuid)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
@@ -81,7 +81,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the ``version``.
 
-    :raises mlflow.projects.ExecutionException: if a run launched in blocking mode is unsuccessful.
+    :raises ``ExecutionException``: If a run launched in blocking mode is unsuccessful.
 
     :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
                 path or a git repository URI (e.g. https://github.com/mlflow/mlflow-example)
@@ -111,8 +111,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the given run ID will be used instead of
                    creating a new run.
-    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run.
-              The returned ``SubmittedRun`` is not thread-safe.
+    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run. The
+             returned ``SubmittedRun`` is not thread-safe.
     """
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
@@ -131,7 +131,7 @@ def _wait_for(submitted_run_obj):
     # Note: there's a small chance we fail to report the run's status to the tracking server if
     # we're interrupted before we reach the try block below
     try:
-        active_run = tracking._get_existing_run(run_id) if run_id is not None else None
+        active_run = tracking.get_service().get_run(run_id) if run_id is not None else None
         if submitted_run_obj.wait():
             eprint("=== Run (ID '%s') succeeded ===" % run_id)
             _maybe_set_run_terminated(active_run, "FINISHED")
@@ -286,8 +286,13 @@ def _maybe_set_run_terminated(active_run, status):
     If the passed-in active run is defined and still running (i.e. hasn't already been terminated
     within user code), mark it as terminated with the passed-in status.
     """
-    if active_run and not RunStatus.is_terminated(active_run.get_run().info.status):
-        active_run.set_terminated(status)
+    if active_run is None:
+        return
+    run_id = active_run.info.run_uuid
+    cur_status = tracking.get_service().get_run(run_id).info.status
+    if RunStatus.is_terminated(cur_status):
+        return
+    tracking.get_service().set_terminated(run_id, status)
 
 
 def _get_entry_point_command(project, entry_point, parameters, conda_env_name, storage_dir):
@@ -363,13 +368,19 @@ def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
     entry point, and parameters of the project) about the run. Return an ``ActiveRun`` that can be
     used to report additional data about the run (metrics/params) to the tracking server.
     """
-    active_run = tracking._create_run(
-        experiment_id=experiment_id, source_name=_expand_uri(uri),
-        source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
+    if _is_local_uri(uri):
+        source_name = tracking.utils._get_git_url_if_present(_expand_uri(uri))
+    else:
+        source_name = _expand_uri(uri)
+    active_run = tracking.get_service().create_run(
+        experiment_id=experiment_id,
+        source_name=source_name,
+        source_version=_get_git_commit(work_dir),
+        entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
     if parameters is not None:
         for key, value in parameters.items():
-            active_run.log_param(Param(key, value))
+            tracking.get_service().log_param(active_run.info.run_uuid, key, value)
     return active_run
 
 

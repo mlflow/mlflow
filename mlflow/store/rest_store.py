@@ -1,21 +1,17 @@
 import json
+
 from google.protobuf.json_format import MessageToJson, ParseDict
 
 
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities.experiment import Experiment
-from mlflow.entities.run import Run
-from mlflow.entities.run_info import RunInfo
-from mlflow.entities.param import Param
-
-from mlflow.entities.metric import Metric
+from mlflow.entities import Experiment, Run, RunInfo, Param, Metric
 
 from mlflow.utils.rest_utils import http_request
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
-    GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, UpdateRun,\
-    CreateRun, GetMetric, GetParam
+    GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
+    UpdateRun, CreateRun, GetMetric, GetParam
 
 from mlflow.protos import databricks_pb2
 
@@ -83,7 +79,7 @@ class RestStore(AbstractStore):
         ParseDict(js_dict=js_dict, message=response_proto)
         return response_proto
 
-    def list_experiments(self):
+    def list_experiments(self, include_deleted=False, only_deleted=False):
         """
         :return: a list of all known Experiment objects
         """
@@ -104,7 +100,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id
 
-    def get_experiment(self, experiment_id):
+    def get_experiment(self, experiment_id, include_deleted=False, only_deleted=False):
         """
         Fetches the experiment from the backend store.
 
@@ -114,6 +110,12 @@ class RestStore(AbstractStore):
         req_body = _message_to_json(GetExperiment(experiment_id=experiment_id))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
+
+    def delete_experiment(self, experiment_id):
+        pass
+
+    def restore_experiment(self, experiment_id):
+        pass
 
     def get_run(self, run_uuid):
         """
@@ -170,6 +172,15 @@ class RestStore(AbstractStore):
         """
         req_body = _message_to_json(LogParam(run_uuid=run_uuid, key=param.key, value=param.value))
         self._call_endpoint(LogParam, req_body)
+
+    def set_tag(self, run_uuid, tag):
+        """
+        Sets a tag for the specified run
+        :param run_uuid: String id for the run
+        :param tag: RunTag instance to log
+        """
+        req_body = _message_to_json(SetTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
+        self._call_endpoint(SetTag, req_body)
 
     def get_metric(self, run_uuid, metric_key):
         """

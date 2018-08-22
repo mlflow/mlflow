@@ -1,6 +1,7 @@
 import pytest
 
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
+from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
+                                    _validate_tag_name, _validate_run_id
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
@@ -24,6 +25,14 @@ def test_validate_param_name():
     for bad_name in BAD_METRIC_OR_PARAM_NAMES:
         with pytest.raises(Exception, match="Invalid parameter name"):
             _validate_param_name(bad_name)
+
+
+def test_validate_tag_name():
+    for good_name in GOOD_METRIC_OR_PARAM_NAMES:
+        _validate_tag_name(good_name)
+    for bad_name in BAD_METRIC_OR_PARAM_NAMES:
+        with pytest.raises(Exception, match="Invalid tag name"):
+            _validate_tag_name(bad_name)
 
 
 def test_validate_run_id():

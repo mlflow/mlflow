@@ -1,4 +1,4 @@
-"""Sample MLflow integration for Keras."""
+"""MLflow integration for Keras."""
 
 from __future__ import absolute_import
 
@@ -56,6 +56,12 @@ class _KerasModelWrapper:
 
 
 def load_pyfunc(model_file):
+    """
+    Loads a Keras model as a PyFunc from the passed-in persisted Keras model file.
+
+    :param model_file: Path to Keras model file.
+    :return: PyFunc model.
+    """
     return _KerasModelWrapper(_load_model(model_file))
 
 
@@ -64,5 +70,5 @@ def load_model(path, run_id=None):
     Load a Keras model from a local file (if run_id is None) or a run.
     """
     if run_id is not None:
-        path = mlflow.tracking._get_model_log_dir(model_name=path, run_id=run_id)
+        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model(os.path.join(path, "model.h5"))
