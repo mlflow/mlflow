@@ -8,7 +8,7 @@ of the intermediate results.
 
 At a high level, our goal is to predict a users' rating of a movie given
 a history of their ratings for various movies. This example is based
-on `this webinar<https://databricks.com/blog/2018/07/13/scalable-end-to-end-deep-learning-using-tensorflow-and-databricks-on-demand-webinar-and-faq-now-available.html>`_
+on `this webinar <https://databricks.com/blog/2018/07/13/scalable-end-to-end-deep-learning-using-tensorflow-and-databricks-on-demand-webinar-and-faq-now-available.html>`_
 by @brookewenig and @smurching
 
 There are four steps to this workflow:
