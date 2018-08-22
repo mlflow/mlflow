@@ -3,6 +3,7 @@ import json
 import os
 import re
 import six
+import time
 
 from flask import Response, request, send_file
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -126,7 +127,7 @@ def _create_run():
         source_type=request_message.source_type,
         source_name=request_message.source_name,
         entry_point_name=request_message.entry_point_name,
-        start_time=request_message.start_time,
+        start_time=request_message.start_time or int(time.time()),
         source_version=request_message.source_version,
         tags=tags)
 
