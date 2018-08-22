@@ -5,7 +5,7 @@ import uuid
 
 import time
 
-from mlflow.entities import Experiment, Metric, Param
+from mlflow.entities import Experiment, Metric, Param, RunTag
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from tests.helper_functions import random_int, random_str
@@ -297,3 +297,30 @@ class TestFileStore(unittest.TestCase):
         assert metric.key == WEIRD_METRIC_NAME
         assert metric.value == 10
         assert metric.timestamp == 1234
+
+    def test_weird_tag_names(self):
+        WEIRD_TAG_NAME = "this is/a weird/but valid tag"
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
+        tag = fs.get_run(run_uuid).tags[0]
+        assert tag.key == WEIRD_TAG_NAME
+        assert tag.value == "Muhahaha!"
+
+    def test_set_tags(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.set_tag(run_uuid, RunTag("tag0", "value0"))
+        fs.set_tag(run_uuid, RunTag("tag1", "value1"))
+        tags = fs.get_run(run_uuid).tags
+        assert set(tags) == set(
+            RunTag("tag0", "value0"),
+            RunTag("tag1", "value1"),
+        )
+
+        # Can overwrite tags.
+        fs.set_tag(run_uuid, RunTag("tag0", "value2"))
+        assert set(tags) == set(
+            RunTag("tag0", "value2"),
+            RunTag("tag1", "value1"),
+        )

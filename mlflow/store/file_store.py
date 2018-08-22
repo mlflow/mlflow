@@ -4,7 +4,8 @@ import uuid
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus
 from mlflow.store.abstract_store import AbstractStore
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
+from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
+                                    _validate_tag_name
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
@@ -25,6 +26,7 @@ class FileStore(AbstractStore):
     ARTIFACTS_FOLDER_NAME = "artifacts"
     METRICS_FOLDER_NAME = "metrics"
     PARAMS_FOLDER_NAME = "params"
+    TAGS_FOLDER_NAME = "tags"
     META_DATA_FILE_NAME = "meta.yaml"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
@@ -85,6 +87,12 @@ class FileStore(AbstractStore):
         _validate_param_name(param_name)
         return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME,
                           param_name)
+
+    def _get_tag_path(self, experiment_id, run_uuid, tag_name):
+        _validate_run_id(run_uuid)
+        _validate_tag_name(tag_name)
+        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.TAG_FOLDER_NAME,
+                          tag_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
@@ -353,3 +361,11 @@ class FileStore(AbstractStore):
         param_path = self._get_param_path(run.info.experiment_id, run_uuid, param.key)
         make_containing_dirs(param_path)
         write_to(param_path, "%s\n" % param.value)
+
+    def set_tag(self, run_uuid, tag):
+        _validate_run_id(run_uuid)
+        _validate_tag_name(tag.key)
+        run = self.get_run(run_uuid)
+        tag_path = self._get_tag_path(run.info.experiment_id, run_uuid, tag.key)
+        make_containing_dirs(tag_path)
+        write_to(tag_path, "%s\n" % tag.value)

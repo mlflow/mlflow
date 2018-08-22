@@ -110,6 +110,17 @@ def log_param(key, value):
     get_service().log_param(run_id, key, value)
 
 
+def set_tag(key, value):
+    """
+    Sets the passed-in tag under the current run, creating a run if necessary.
+
+    :param key: Tag name (string)
+    :param value: Tag value (string, but will be string-ified if not)
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    get_service().set_tag(run_id, key, value)
+
+
 def log_metric(key, value):
     """
     Log the passed-in metric under the current run, creating a run if necessary.

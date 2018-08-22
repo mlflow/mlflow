@@ -10,8 +10,8 @@ from mlflow.entities import Experiment, Run, RunInfo, Param, Metric
 from mlflow.utils.rest_utils import http_request
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
-    GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, UpdateRun,\
-    CreateRun, GetMetric, GetParam
+    GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
+    UpdateRun, CreateRun, GetMetric, GetParam
 
 from mlflow.protos import databricks_pb2
 
@@ -172,6 +172,15 @@ class RestStore(AbstractStore):
         """
         req_body = _message_to_json(LogParam(run_uuid=run_uuid, key=param.key, value=param.value))
         self._call_endpoint(LogParam, req_body)
+
+    def set_tag(self, run_uuid, tag):
+        """
+        Sets a tag for the specified run
+        :param run_uuid: String id for the run
+        :param tag: RunTag instance to log
+        """
+        req_body = _message_to_json(SetTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
+        self._call_endpoint(SetTag, req_body)
 
     def get_metric(self, run_uuid, metric_key):
         """
