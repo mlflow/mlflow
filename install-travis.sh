@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+
+set -e
+set -x
+
 sudo mkdir -p /travis-install
 sudo chown travis /travis-install
 
