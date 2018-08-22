@@ -92,32 +92,27 @@ def _message_to_json(message):
     # preserving_proto_field_name keeps the JSON-serialized form snake_case
     return MessageToJson(message, preserving_proto_field_name=True)
 
+
 @swag_from(swagger_object_dict)
 def _create_experiment():
     """
     Create an experiment with a name.
-    Returns the ID of the newly created experiment.
-    Validates that another experiment with the same name does not already exist and
-    fails if another experiment with the same name already exists.
+    Returns the ID of the newly created experiment. Validates that another experiment with
+    the same name does not already exist and fails if another experiment with the same name
+    already exists.
+    Throws RESOURCE_ALREADY_EXISTS if a experiment with the given name exists.
     ---
     parameters:
-      - name: name
-        description: Experiment name.
-        in: path
-        type: string
-        required: true
-      - name: artifact_location
-        description: Location where all artifacts for this experiment are stored. If not provided,
-            the remote server will select an appropriate default.
-        in: path
-        type: string
-        required: false
+      - name: experiment
+        in: body
+        required:
+          - name
+        schema:
+          $ref: '#/definitions/ExperimentBody'
     responses:
       200:
         description: Unique identifier for created experiment.
-        name: experiment_id
-        type: integer
-        format: int64
+        $ref: '#/definitions/ExperimentId'
     """
     request_message = _get_request_message(CreateExperiment())
     experiment_id = _get_store().create_experiment(request_message.name,
@@ -129,27 +124,21 @@ def _create_experiment():
     return response
 
 
-
 def _get_experiment():
     """
-    Get experiment details.
     Get metadata for an experiment and a list of runs for the experiment.
-
     ---
     parameters:
       - name: experiment_id
         description: Identifier to get an experiment. This field is required.
-        in: body
+        in: query
         required: true
-        schema:
-          $ref: '#/definitions/ExperimentIdQuerySchema'
+        type: integer
+        format: int64
     responses:
       200:
         description: Experiment details.
-        name: experiment_details
-        type: object
-        schema:
-          $ref: '#/definitions/Experiment_details'
+        $ref: '#/definitions/ExperimentDetails'
     """
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
@@ -167,7 +156,6 @@ def _create_run():
     Create a new run within an experiment.
     A run is usually a single execution of a machine learning or data ETL pipeline.
     MLflow uses runs to track Param, Metric, and RunTag, associated with a single execution.
-
     ---
     parameters:
       - name: runinfo
@@ -175,14 +163,11 @@ def _create_run():
         in: body
         required: true
         schema:
-          $ref: '#/definitions/RunInfoDataSchema'
+          $ref: '#/definitions/RunInfoBody'
     responses:
       200:
         description: Metadata of the newly created run.
-        name: run_info
-        type: object
-        schema:
-          $ref: '#/definitions/RunInfo'
+        $ref: '#/definitions/Run'
     """
     request_message = _get_request_message(CreateRun())
 
@@ -205,20 +190,20 @@ def _create_run():
     return response
 
 
-# TODO: what is the response for this request?
 def _update_run():
     """
     Update run.
-
     ---
     parameters:
-      - $ref: '#/definitions/ParamQuerySchema'
+      - name: run_to_update
+        description: Run uuid and the status to be updated.
+        in: body
+        schema:
+          $ref: '#/definitions/UpdateRunBody'
     responses:
       200:
-        description: Artifacts array
-        name: artifacts
-        schema:
-          $ref: '#/definitions/RunInfo'
+        description: Updated metadata of the run.
+        $ref: '#/definitions/RunInfo2'
     """
     request_message = _get_request_message(UpdateRun())
     updated_info = _get_store().update_run_info(request_message.run_uuid, request_message.status,
@@ -229,13 +214,11 @@ def _update_run():
     return response
 
 
-# TODO: what is the response for this request?
 def _log_metric():
     """
-    Log a metric for a run. Metrics key-value pair that record a single float measure.
-    During a single execution of a run, a particular metric can be logged several times.
-    Backend keeps track of historical values along with timestamps.
-
+    Log a metric for a run (e.g. ML model accuracy).
+    A metric is a key-value pair (string key, float value) with an associated timestamp.
+    Within a run, a metric may be logged multiple times.
     ---
     parameters:
       - name: metric
@@ -243,14 +226,10 @@ def _log_metric():
         in: body
         required: true
         schema:
-          $ref: '#/definitions/MetricDataSchema'
+          $ref: '#/definitions/MetricBody'
     responses:
       200:
-        description: Metric details.
-        name: experiment_details
-        type: object
-        schema:
-          $ref: '#/definitions/Experiment_details'
+        description: OK
     """
     request_message = _get_request_message(LogMetric())
     metric = Metric(request_message.key, request_message.value, request_message.timestamp)
@@ -261,13 +240,12 @@ def _log_metric():
     return response
 
 
-# TODO: what is the response for this request?
 def _log_param():
     """
-    Log a parameter used for this run.
-    Examples are params and hyperparameters used for ML training, or constant dates and values
-    used in an ETL pipeline. A params is a STRING key-value pair. For a run, a single parameter
-    is allowed to be logged only once.
+    Log a param used for this run.
+    Examples are hyperparameters used for ML model training, or constant dates and values used
+    in an ETL pipeline. A param is a key-value pair (string key, string value). A param may
+    only be logged once for a given run.
     ---
     parameters:
       - name: parameter
@@ -275,14 +253,10 @@ def _log_param():
         in: body
         required: true
         schema:
-          $ref: '#/definitions/ParamDataSchema'
+          $ref: '#/definitions/ParamBody'
     responses:
       200:
-        description: Metric details.
-        name: experiment_details
-        type: object
-        schema:
-          $ref: '#/definitions/Experiment_details'
+        description: OK.
     """
     request_message = _get_request_message(LogParam())
     param = Param(request_message.key, request_message.value)
@@ -297,22 +271,17 @@ def _get_run():
     """
     Get metadata, params, tags, and metrics for run.
     Only last logged value for each metric is returned.
-
     ---
     parameters:
       - name: run_uuid
-        description: Run UUID. This field is required.
-        in: body
+        description: ID of the run to fetch. This field is required.
+        in: query
         required: true
-        schema:
-          $ref: '#/definitions/RunUUIDGet'
+        type: string
     responses:
       200:
         description: Run details.
-        name: run
-        type: object
-        schema:
-          $ref: '#/definitions/RunInfo'
+        $ref: '#/definitions/RunInfoAndData'
     """
     request_message = _get_request_message(GetRun())
     response_message = GetRun.Response()
@@ -328,30 +297,30 @@ def _search_runs():
     Search expressions can use Metric and Param keys.
     ---
     parameters:
-      - name: exeriment_ids
-        description: Identifier to get an experiment.
+      - name: search_body
+        description: Request body with search expressions.
         in: body
-        required: true
-        type: array
-        items:
-          type: integer
-          format: int64
-      - name: anded_expressions
-        description: Expressions describing runs.
-        in: body
-        required: true
-        type: array
-        items:
-          anyOf:
-            - $ref: '#/definitions/ParameterSearchExpression'
-            - $ref: '#/definitions/MetricSearchExpression'
+        type: object
+        required:
+          - experiment_ids
+        properties:
+          exeriment_ids:
+            description: List of experiment IDs to search over.
+            type: array
+            items:
+              type: integer
+              format: int64
+          anded_expressions:
+            description: Expressions describing runs (AND-ed together when filtering runs).
+            type: array
+            items:
+              oneOf:
+                - $ref: '#/definitions/ParameterSearchExpression'
+                - $ref: '#/definitions/MetricSearchExpression'
     responses:
       200:
         description: Runs that match the search criteria.
-        name: runs
-        type: array
-        schema:
-          $ref: '#/definitions/Run'
+        $ref: '#/definitions/Runs'
     """
     request_message = _get_request_message(SearchRuns())
     response_message = SearchRuns.Response()
@@ -365,22 +334,26 @@ def _search_runs():
 
 def _list_artifacts():
     """
-    List artifacts.
-
+    List artifacts for a given run.
+    Takes an optional artifact_path prefix - if specified, the response will contain only
+    artifacts with the specified prefix..
     ---
     parameters:
-      - $ref: '#/definitions/RunUUIDQuerySchema'
+      - name: run_uuid
+        description: ID of the run whose artifacts to list.
+        in: query
+        required: true
+        type: string
       - name: path
-        description: The relative_path to the output base directory.
-        in: body
+        description: Filter artifacts matching this path (a relative path from the root
+                     artifact directory).
+        in: query
         required: true
         type: string
     responses:
       200:
         description: Artifacts array
-        name: artifacts
-        schema:
-          $ref: '#/definitions/Artifacts'
+        $ref: '#/definitions/Artifacts'
     """
     request_message = _get_request_message(ListArtifacts())
     response_message = ListArtifacts.Response()
@@ -399,22 +372,23 @@ def _list_artifacts():
 
 def _get_metric_history():
     """
-    Retrieve all logged values for a metric.
+    Returns a list of all values for the specified metric for a given run.
     ---
     parameters:
-      - name: metric
-        description: Metric identifier.
-        in: body
+      - name: run_uuid
+        description: ID of the run from which to fetch metric values. This field is required.
+        in: query
         required: true
-        schema:
-          $ref: '#/definitions/MetricQuerySchema'
+        type: string
+      - name: metric_key
+        description: Name of the metric. This field is required.
+        in: query
+        required: true
+        type: string
     responses:
       200:
-        description: Metric historical values.
-        name: metrics
-        type: array
-        schema:
-          $ref: '#/definitions/Metric'
+        description: All logged values for this metric.
+        $ref: '#/definitions/MetricHistory'
     """
     request_message = _get_request_message(GetMetricHistory())
     response_message = GetMetricHistory.Response()
@@ -426,7 +400,6 @@ def _get_metric_history():
     return response
 
 
-# TODO: verify why this request's body has metric_key instead of key
 def _get_metric():
     """
     Retrieve the logged value for a metric during a run.
@@ -434,19 +407,20 @@ def _get_metric():
     the latest value logged.
     ---
     parameters:
-      - name: metric
-        description: Metric identifier.
-        in: body
+      - name: run_uuid
+        description: ID of the run from which to retrieve the metric value. This field is required.
+        in: query
         required: true
-        schema:
-          $ref: '#/definitions/MetricQuerySchema'
+        type: string
+      - name: metric_key
+        description: Name of the metric. This field is required.
+        in: query
+        required: true
+        type: string
     responses:
       200:
-        description: Metric value.
-        name: metric
-        type: object
-        schema:
-          $ref: '#/definitions/Metric'
+        description: Latest reported value of the specified metric.
+        $ref: '#/definitions/Metric'
     """
     request_message = _get_request_message(GetMetric())
     response_message = GetMetric.Response()
@@ -459,22 +433,23 @@ def _get_metric():
 
 def _get_param():
     """
-    Get a parameter value.
+    Get a param value.
     ---
     parameters:
-      - name: parameter
-        description: Parameter identifier.
-        in: body
+      - name: run_uuid
+        description: ID of the run from which to retrieve the param value. This field is required.
+        in: query
         required: true
-        schema:
-          $ref: '#/definitions/ParamQuerySchema'
+        type: string
+      - name: param_name
+        description: Name of the param. This field is required.
+        in: query
+        required: true
+        type: string
     responses:
       200:
-        description: Parameter value.
-        name: parameter
-        type: object
-        schema:
-          $ref: '#/definitions/Param'
+        description: Param key-value pair.
+        $ref: '#/definitions/Parameter'
     """
     request_message = _get_request_message(GetParam())
     response_message = GetParam.Response()
@@ -487,16 +462,12 @@ def _get_param():
 
 def _list_experiments():
     """
-    Return a list of all experiments.
-
+    Get a list of all experiments.
     ---
     responses:
       200:
         description: All experiments
-        name: experiments
-        type: array
-        schema:
-          $ref: '#/definitions/Experiment'
+        $ref: '#/definitions/Experiments'
     """
     response_message = ListExperiments.Response()
     experiment_entities = _get_store().list_experiments()
@@ -507,24 +478,6 @@ def _list_experiments():
 
 
 def _get_artifact_repo(run):
-    """
-    Get artifact.
-
-    ---
-    parameters:
-      - $ref: '#/definitions/RunUUIDQuerySchema'
-      - name: path
-        description: The relative_path to the output base directory.
-        in: body
-        required: true
-        type: string
-    responses:
-      200:
-        description: Artifacts array
-        name: artifacts
-        schema:
-          $ref: '#/definitions/Artifacts
-    """
     store = _get_store()
     if run.info.artifact_uri:
         return ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)

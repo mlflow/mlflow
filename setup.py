@@ -34,6 +34,7 @@ setup(
         'uuid',
         'gunicorn',
         'Flask',
+        'flasgger',
         'numpy',
         'pandas',
         'scipy',
