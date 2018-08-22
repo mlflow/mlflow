@@ -97,30 +97,53 @@ public class ScoringServer {
   }
 
   /**
-   * Starts the scoring server on the local host
+   * Starts the scoring server locally on a randomly-selected, available port
+   *
+   * @throws IllegalStateException If the server is already active on another port
+   * @throws ServerStateChangeException If the server failed to start and was inactive prior to the
+   * invocation of this method
    */
-  public void start() throws Exception {
+  public void start() {
     // Setting port zero instructs Jetty to select a random port
     start(0);
   }
 
-  public void start(int portNumber) throws Exception {
-    if (!isActive()) {
-      this.httpConnector.setPort(portNumber);
-      this.server.start();
-    } else {
+  /**
+   * Starts the scoring server locally on the specified port
+   *
+   * @throws IllegalStateException If the server is already active on another port
+   * @throws ServerStateChangeException If the server failed to start and was inactive prior to the
+   * invocation of this method
+   */
+  public void start(int portNumber) {
+    if (isActive()) {
       int activePort = this.httpConnector.getLocalPort();
       throw new IllegalStateException(String.format(
           "Attempted to start a server that is already active on port %d", activePort));
+    }
+
+    this.httpConnector.setPort(portNumber);
+    try {
+      this.server.start();
+    } catch (Exception e) {
+      throw new ServerStateChangeException(e);
     }
   }
 
   /**
    * Stops the scoring server
+   *
+   * @throws IllegalStateException If the server is already active on another port
+   * @throws ServerStateChangeException If the server failed to start and was inactive prior to the
+   * invocation of this method
    */
-  public void stop() throws Exception {
-    this.server.stop();
-    this.server.join();
+  public void stop() {
+    try {
+      this.server.stop();
+      this.server.join();
+    } catch (Exception e) {
+      throw new ServerStateChangeException(e);
+    }
   }
 
   /** @return `true` if the server is active (running), `false` otherwise */
@@ -140,6 +163,12 @@ public class ScoringServer {
     } else {
       // The server connector port request returned an error code
       return Optional.empty();
+    }
+  }
+
+  public static class ServerStateChangeException extends RuntimeException {
+    ServerStateChangeException(Exception e) {
+      super(e.getMessage());
     }
   }
 

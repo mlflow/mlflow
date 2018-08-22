@@ -44,7 +44,7 @@ public class ScoringServerTest {
 
     protected DataFrame predict(DataFrame input) throws PredictorEvaluationException {
       if (succeed) {
-        String responseText = this.responseContent.orElse("{ \"Text\" : \"Success!\" }");
+        String responseText = this.responseContent.orElse("{ \"Text\" : \"Succeed!\" }");
         return DataFrame.fromJson(responseText);
       } else {
         throw new PredictorEvaluationException("Failure!");
@@ -63,7 +63,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testScoringServerWithValidPredictorRespondsToPingsCorrectly() throws Exception {
+  public void testScoringServerWithValidPredictorRespondsToPingsCorrectly() throws IOException {
     TestPredictor validPredictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(validPredictor);
     server.start();
@@ -83,7 +83,7 @@ public class ScoringServerTest {
       Assert.fail("Expected constructing a model server with an invalid model path"
           + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
-      // Success
+      // Succeed
     }
 
     try {
@@ -91,13 +91,13 @@ public class ScoringServerTest {
       Assert.fail("Expected constructing a model server with an invalid model path"
           + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
-      // Success
+      // Succeed
     }
   }
 
   @Test
   public void testScoringServerRepondsToInvocationOfBadContentTypeWithBadRequestCode()
-      throws Exception {
+      throws IOException {
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(predictor);
     server.start();
@@ -117,7 +117,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testMultipleServersRunOnDifferentPortsSuccessfully() throws Exception {
+  public void testMultipleServersRunOnDifferentPortsSucceedfully() throws IOException {
     TestPredictor predictor = new TestPredictor(true);
 
     List<ScoringServer> servers = new ArrayList<>();
@@ -142,7 +142,7 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerWithValidPredictorRespondsToInvocationWithPredictorOutputContent()
-      throws Exception, IOException, JsonProcessingException {
+      throws IOException, JsonProcessingException {
     Map<String, String> predictorDict = new HashMap<>();
     predictorDict.put("Text", "Response");
     String predictorJson = SerializationUtils.toJson(predictorDict);
@@ -168,7 +168,7 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerRespondsWithInternalServerErrorCodeWhenPredictorThrowsException()
-      throws Exception, IOException {
+      throws IOException {
     TestPredictor predictor = new TestPredictor(false);
 
     ScoringServer server = new ScoringServer(predictor);
@@ -188,7 +188,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testScoringServerStartsAndStopsSuccessfully() throws Exception {
+  public void testScoringServerStartsAndStopsSucceedfully() throws IOException {
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(predictor);
 
@@ -211,7 +211,17 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testScoringServerIsActiveReturnsTrueWhenServerIsRunningElseFalse() throws Exception {
+  public void testStartingScoringServerOnRandomPortAssignsNonZeroPort() {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    server.start();
+    Optional<Integer> portNumber = server.getPort();
+    Assert.assertEquals(portNumber.get() > 0, true);
+    server.stop();
+  }
+
+  @Test
+  public void testScoringServerIsActiveReturnsTrueWhenServerIsRunningElseFalse() {
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(predictor);
     Assert.assertEquals(server.isActive(), false);
@@ -223,7 +233,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testGetPortReturnsEmptyForInactiveServer() throws Exception {
+  public void testGetPortReturnsEmptyForInactiveServer() {
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(predictor);
     Optional<Integer> portNumber = server.getPort();
@@ -231,7 +241,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testGetPortReturnsPresentOptionalForActiveServer() throws Exception {
+  public void testGetPortReturnsPresentOptionalForActiveServer() {
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(predictor);
     server.start();
@@ -242,7 +252,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testServerStartsOnSpecifiedPortOrThrows() throws Exception {
+  public void testServerStartsOnSpecifiedPortOrThrowsStateChangeException() throws IOException {
     int portNumber = 6783;
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server1 = new ScoringServer(predictor);
@@ -259,10 +269,26 @@ public class ScoringServerTest {
       server2.start(portNumber);
       Assert.fail(
           "Expected starting a new server on a port that is already bound to throw an exception.");
-    } catch (Exception e) {
-      // Success
+    } catch (ScoringServer.ServerStateChangeException e) {
+      // Succeed
     }
     server1.stop();
     server2.stop();
+  }
+
+  @Test
+  public void testAttemptingToStartActiveServerThrowsIllegalStateException() {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    server.start();
+    try {
+      server.start();
+      Assert.fail(
+          "Expected attempt to start a server that is already active to throw an exception.");
+    } catch (IllegalStateException e) {
+      // Succeed
+    } finally {
+      server.stop();
+    }
   }
 }
