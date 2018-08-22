@@ -186,7 +186,7 @@ When running a project, `mlflow_snapshot()` is automatically called to generate 
 However, restoring dependencies is not automatic since it's usually an expensive operation. To restore dependencies run:
 
 ```{r eval=FALSE}
-mlflow_restore()
+mlflow_restore_snapshot()
 ```
 
 Notice that the `MLFLOW_SNAPSHOT_CACHE` environment variable can be set to a cache directory to improve the time required to restore dependencies.

@@ -31,7 +31,7 @@ mlflow_lock_delete <- function() {
 #' current directory
 #'
 #' @export
-mlflow_restore <- function() {
+mlflow_restore_snapshot <- function() {
 
   if (!file.exists("r-dependencies.txt")) {
     stop("r-dependencies.txt expected but does not exist, run 'mlflow_run()' or 'mlflow_snapshot()'.")
