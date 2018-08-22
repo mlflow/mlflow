@@ -238,7 +238,7 @@ which is equivalent to
 running,
 
 ``` bash
-Rscript -e "mlflow_serve('model')"
+Rscript -e "mlflow_rfunc_serve('model')"
 ```
 
 <img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=520 />
