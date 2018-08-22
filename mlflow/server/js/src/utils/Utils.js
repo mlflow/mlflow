@@ -94,16 +94,34 @@ class Utils {
     return /[@/]github.com[:/]([^/.]+)\/([^/.]+)/;
   }
 
+  /**
+   * Renders the source name and entry point into an HTML element. Used for display.
+   * @param run MlflowMessages.RunInfo
+   */
   static renderSource(run) {
+    let res = Utils.formatSource(run);
+    if (run.source_type === "PROJECT") {
+      const match = run.source_name.match(Utils.getGitHubRegex());
+      console.log(run.source_name);
+      if (match) {
+        const url = "https://github.com/" + match[1] + "/" + match[2];
+        res = <a href={url}>{res}</a>;
+      }
+      return res;
+    } else {
+      return res;
+    }
+  }
+
+  /**
+   * Renders the source name and entry point into a string. Used for sorting.
+   * @param run MlflowMessages.RunInfo
+   */
+  static formatSource(run) {
     if (run.source_type === "PROJECT") {
       let res = Utils.dropExtension(Utils.baseName(run.source_name));
       if (run.entry_point_name && run.entry_point_name !== "main") {
         res += ":" + run.entry_point_name;
-      }
-      const match = run.source_name.match(Utils.getGitHubRegex());
-      if (match) {
-        const url = "https://github.com/" + match[1] + "/" + match[2];
-        res = <a href={url}>{res}</a>;
       }
       return res;
     } else {
