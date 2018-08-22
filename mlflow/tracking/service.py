@@ -114,6 +114,40 @@ class MLflowService(object):
         artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
+    def list_artifacts(self, run_id, path=None):
+        """
+        Lists the artifacts for a run.
+
+        :param run_id: The run to list artifacts from.
+        :type run_id: string
+        :param path: This run's relative artifact path to list from. By default it is set to None
+            or the root artifact path.
+        :type path: string or None
+        :return: List of artifacts listed directly under path.
+        :rtype: List of :py:class:`mlflow.entities.FileInfo`
+        """
+        run = self.get_run(run_id)
+        artifact_root = run.info.artifact_uri
+        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_root, self.store)
+        return artifact_repo.list_artifacts(path)
+
+    def download_artifacts(self, run_id, path):
+        """
+        Download an artifact file or directory from a run to a local directory if applicable,
+        and return a local path for it.
+
+        :param run_id: The run to download artifacts from.
+        :type run_id: string
+        :param path: Relative source path to the desired artifact
+        :type path: string
+        :return: local path of desired artifact.
+        :rtype: string
+        """
+        run = self.get_run(run_id)
+        artifact_root = run.info.artifact_uri
+        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_root, self.store)
+        return artifact_repo.download_artifacts(path)
+
     def set_terminated(self, run_id, status=None, end_time=None):
         """Sets a Run's status to terminated
 
