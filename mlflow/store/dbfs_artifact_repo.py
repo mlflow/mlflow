@@ -94,7 +94,7 @@ class DbfsArtifactRepository(ArtifactRepository):
         if artifact_path:
             root_http_endpoint = self._get_dbfs_endpoint(artifact_path)
         else:
-            root_http_endpoint = self._get_dbfs_endpoint(os.path.basename(local_dir))
+            root_http_endpoint = self._get_dbfs_endpoint('')
         for (dirpath, _, filenames) in os.walk(local_dir):
             dir_http_endpoint = root_http_endpoint
             if dirpath != local_dir:
