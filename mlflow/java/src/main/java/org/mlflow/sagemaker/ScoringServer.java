@@ -152,6 +152,10 @@ public class ScoringServer {
     }
   }
 
+  /**
+   * Configuration providing the minimum and maximum number of threads to allocate to the scoring
+   * server
+   */
   static class ServerThreadConfiguration {
     static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
     static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
@@ -178,10 +182,12 @@ public class ScoringServer {
       return new ServerThreadConfiguration(minThreads, maxThreads);
     }
 
+    /** @return The minimum number of server threads specified by the configuration */
     int getMinThreads() {
       return this.minThreads;
     }
 
+    /** @return The maximum number of server threads specified by the configuration */
     int getMaxThreads() {
       return this.maxThreads;
     }
