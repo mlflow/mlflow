@@ -114,6 +114,14 @@ class AbstractStore:
         """
         pass
 
+    def set_tag(self, run_uuid, tag):
+        """
+        Sets a tag for the specified run
+        :param run_uuid: String id for the run
+        :param tag: RunTag instance to set
+        """
+        pass
+
     @abstractmethod
     def get_metric(self, run_uuid, metric_key):
         """
