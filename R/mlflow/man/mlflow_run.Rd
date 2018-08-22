@@ -14,6 +14,8 @@ mlflow_run(uri, entry_point = NULL, version = NULL,
 
 \item{entry_point}{Entry point within project, defaults to `main` if not specified.}
 
+\item{version}{Version of the project to run, as a Git commit reference for Git projects.}
+
 \item{param_list}{A list of parameters.}
 
 \item{experiment_id}{ID of the experiment under which to launch the run.}

@@ -7,9 +7,9 @@
 mlflow_get_metric_history(metric_key, run_uuid = NULL)
 }
 \arguments{
-\item{run_uuid}{Unique ID for the run for which metric is recorded.}
+\item{metric_key}{Name of the metric.}
 
-\item{key}{Name of the metric.}
+\item{run_uuid}{Unique ID for the run for which metric is recorded.}
 }
 \description{
 For cases that a metric is logged more than once during a run, this API can be used

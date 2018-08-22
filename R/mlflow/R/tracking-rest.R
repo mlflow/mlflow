@@ -201,7 +201,7 @@ mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
 #'   to retrieve all logged values for this metric.
 #'
 #' @param run_uuid Unique ID for the run for which metric is recorded.
-#' @param key Name of the metric.
+#' @param metric_key Name of the metric.
 #' @export
 mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
   run_uuid <- mlflow_ensure_run(run_uuid)
