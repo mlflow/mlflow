@@ -13,80 +13,71 @@ import org.mlflow.utils.SerializationUtils;
 /** Representation of the dataframe schema that an {@link MLeapPredictor} expects inputs to have */
 @JsonIgnoreProperties(ignoreUnknown = true)
 class LeapFrameSchema {
-  private static final String LEAP_FRAME_KEY_ROWS = "rows";
-  private static final String LEAP_FRAME_KEY_SCHEMA = "schema";
+  private final Map<String, Object> rawSchema;
+  private final List<String> fields;
 
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  static class SchemaField {
-    @JsonProperty("name")
-    private String name;
-  }
-
-  @JsonProperty("fields")
-  private List<SchemaField> fields;
-
-  private String text;
-  private List<String> orderedFieldNames;
-
-  /**
-   * Loads a leap frame schema from a JSON-formatted file
-   *
-   * @param filePath The path to the JSON-formatted schema file
-   */
-  protected static LeapFrameSchema fromPath(String filePath) throws IOException {
-    LeapFrameSchema newSchema =
-        SerializationUtils.parseJsonFromFile(filePath, LeapFrameSchema.class);
-    String schemaText = new String(Files.readAllBytes(Paths.get(filePath)));
-    newSchema.setText(schemaText);
-    newSchema.setOrderedFieldNames();
-    return newSchema;
-  }
-
-  /**
-   * @return The list of dataframe fields expected by the transformer with this schema, in the order
-   *     that these fields are expected to appear
-   */
-  protected List<String> getOrderedFieldNames() {
-    return this.orderedFieldNames;
-  }
-
-  /**
-   * Converts Pandas dataframe JSON in `record` format to MLeap frame JSON in `row` format using the
-   * schema defined by this schema object
-   *
-   * @throws MissingSchemaFieldException If the supplied pandas dataframe is missing a required
-   *     field
-   */
-  protected String applyToPandasRecordJson(String pandasJson) throws IOException {
-    List<String> orderedFieldNames = getOrderedFieldNames();
-    List<Map<String, Object>> pandasRecords = SerializationUtils.fromJson(pandasJson, List.class);
-    List<List<Object>> mleapRows = new ArrayList<>();
-    for (Map<String, Object> record : pandasRecords) {
-      List<Object> mleapRow = new ArrayList<>();
-      for (String fieldName : orderedFieldNames) {
-        if (!record.containsKey(fieldName)) {
-          throw new MissingSchemaFieldException(fieldName);
-        }
-        mleapRow.add(record.get(fieldName));
-      }
-      mleapRows.add(mleapRow);
+  private LeapFrameSchema(Map<String, Object> rawSchema) {
+    this.rawSchema = rawSchema;
+    if (!rawSchema.containsKey("fields")) {
+      throw new InvalidSchemaException("Leap frame schema must contain a top-level `fields` key!");
     }
-    String serializedRows = SerializationUtils.toJson(mleapRows);
-    String leapFrameJson =
-        String.format(
-            "{ \"%s\" : %s, \"%s\" : %s }",
-            LEAP_FRAME_KEY_ROWS, serializedRows, LEAP_FRAME_KEY_SCHEMA, this.text);
-    return leapFrameJson;
+    this.fields = new ArrayList<String>();
+    for(
   }
 
-  private void setText(String text) {
-    this.text = text;
-  }
-
-  private void setOrderedFieldNames() {
-    this.orderedFieldNames = new ArrayList<>();
-    for (SchemaField field : fields) {
-      this.orderedFieldNames.add(field.name);
+  public static class InvalidSchemaException extends RuntimeException {
+    InvalidSchemaException(String message) {
+      super(message);
     }
   }
+
+  static LeapFrameSchema fromPath(String filePath) {}
+
+  // @JsonIgnoreProperties(ignoreUnknown = true)
+  // static class SchemaField {
+  //   @JsonProperty("name") private String name;
+  // }
+  //
+  // @JsonProperty("fields") private List<SchemaField> fields;
+  //
+  // private String schemaText;
+  // private List<String> fieldNames;
+  //
+  // /**
+  //  * Loads a leap frame schema from a JSON-formatted file
+  //  *
+  //  * @param filePath The path to the JSON-formatted schema file
+  //  */
+  // protected static LeapFrameSchema fromPath(String filePath) throws IOException {
+  //   LeapFrameSchema newSchema =
+  //       SerializationUtils.parseJsonFromFile(filePath, LeapFrameSchema.class);
+  //   String schemaText = new String(Files.readAllBytes(Paths.get(filePath)));
+  //   newSchema.setSchemaText(schemaText);
+  //   newSchema.setFieldNames();
+  //   return newSchema;
+  // }
+  //
+  // /**
+  //  * @return The list of dataframe fields expected by the transformer with this schema, in the
+  //  order
+  //  *     that these fields are expected to appear
+  //  */
+  // List<String> getFieldNames() {
+  //   return this.fieldNames;
+  // }
+  //
+  // String getSchemaText() {
+  //   return this.schemaText;
+  // }
+  //
+  // private void setSchemaText(String schemaText) {
+  //   this.schemaText = schemaText;
+  // }
+  //
+  // private void setFieldNames() {
+  //   this.fieldNames = new ArrayList<>();
+  //   for (SchemaField field : fields) {
+  //     this.fieldNames.add(field.name);
+  //   }
+  // }
 }

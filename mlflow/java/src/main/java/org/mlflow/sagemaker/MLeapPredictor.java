@@ -45,31 +45,36 @@ public class MLeapPredictor extends Predictor {
       this.inputSchema = LeapFrameSchema.fromPath(inputSchemaPath);
     } catch (IOException e) {
       e.printStackTrace();
-      throw new PredictorLoadingException(
-          String.format(
-              "Failed to load model input schema from specified path: %s", inputSchemaPath));
+      throw new PredictorLoadingException(String.format(
+          "Failed to load model input schema from specified path: %s", inputSchemaPath));
     }
   }
 
   @Override
   protected DataFrame predict(DataFrame input) throws PredictorEvaluationException {
-    Optional<String> leapFrameJson = Optional.empty();
+    PandasRecordOrientedDataFrame pandasFrame = null;
     try {
-      leapFrameJson = Optional.of(inputSchema.applyToPandasRecordJson(input.toJson()));
+      pandasFrame = PandasRecordOrientedDataFrame.fromJson(input.toJson());
     } catch (IOException e) {
       e.printStackTrace();
       throw new PredictorEvaluationException(
           "Failed to transform input into a JSON representation of an MLeap dataframe."
-              + "Please ensure that the input is a JSON-serialized Pandas Dataframe"
-              + "with the `record` orientation");
+          + "Please ensure that the input is a JSON-serialized Pandas Dataframe"
+          + "with the `record` orientation");
+    }
+
+    DefaultLeapFrame leapFrame = null;
+    try {
+      leapFrame = pandasFrame.toLeapFrame(this.inputSchema);
     } catch (MissingSchemaFieldException e) {
+      throw new PredictorEvaluationException(
+          String.format("The input dataframe is missing the following required field: %s",
+              e.getMissingFieldName()));
+    } catch (Exception e) {
       e.printStackTrace();
       throw new PredictorEvaluationException(
-          String.format(
-              "The input dataframe is missing the following required field: %s",
-              e.getMissingFieldName()));
+          "An unknown error occurred while converting the input dataframe to a LeapFrame.");
     }
-    DefaultLeapFrame leapFrame = LeapFrameUtils.getLeapFrameFromJson(leapFrameJson.get());
 
     DefaultLeapFrame predictionsFrame =
         this.pipelineTransformer.transform(leapFrame).get().select(predictionColumnNames).get();
