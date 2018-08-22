@@ -39,7 +39,7 @@ def _get_request_message(request_message, flask_request=request):
         # result.
         query_string = re.sub('%5B%5D', '%5B0%5D', flask_request.query_string.decode("utf-8"))
         request_dict = parser.parse(query_string, normalized=True)
-        ParseDict(request_dict, request_message)
+        ParseDict(request_dict, request_message, ignore_unknown_fields=True)
         return request_message
 
     request_json = flask_request.get_json(force=True, silent=True)
@@ -54,7 +54,7 @@ def _get_request_message(request_message, flask_request=request):
     # If request doesn't have json body then assume it's empty.
     if request_json is None:
         request_json = {}
-    ParseDict(request_json, request_message)
+    ParseDict(request_json, request_message, ignore_unknown_fields=True)
     return request_message
 
 

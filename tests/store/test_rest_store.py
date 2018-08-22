@@ -1,8 +1,10 @@
+import json
 import mock
 import six
 import unittest
 
 from mlflow.store.rest_store import RestStore, RestException
+from mlflow.entities import Experiment
 
 
 class TestRestStore(unittest.TestCase):
@@ -38,6 +40,28 @@ class TestRestStore(unittest.TestCase):
         with self.assertRaises(RestException) as cm:
             store.list_experiments()
         self.assertIn("RESOURCE_DOES_NOT_EXIST: No experiment", str(cm.exception))
+
+    @mock.patch('requests.request')
+    def test_response_with_unknown_fields(self, request):
+        experiment_json = {
+            "experiment_id": 1,
+            "name": "My experiment",
+            "artifact_location": "foo",
+            "OMG_WHAT_IS_THIS_FIELD": "Hooly cow",
+        }
+
+        def mock_request(**_):
+            response = mock.MagicMock
+            response.status_code = 200
+            experiments = {"experiments": [experiment_json]}
+            response.text = json.dumps(experiments)
+            return response
+        request.side_effect = mock_request
+
+        store = RestStore({'hostname': 'https://hello'})
+        experiments = store.list_experiments()
+        assert len(experiments) == 1
+        assert experiments[0].name == 'My experiment'
 
 
 if __name__ == '__main__':
