@@ -198,7 +198,7 @@ public class ScoringServerTest {
   @Test
   public void testScoringServerIsActiveReturnsTrueWhenServerIsRunningElseFalse() throws Exception {
     TestPredictor predictor = new TestPredictor(true);
-    ScoringServer server = new ScoringServer(predictor, 5001);
+    ScoringServer server = new ScoringServer(predictor);
     Assert.assertEquals(server.isActive(), false);
     server.start();
 
@@ -206,4 +206,30 @@ public class ScoringServerTest {
     server.stop();
     Assert.assertEquals(server.isActive(), false);
   }
+
+  @Test
+  public void testGetPortReturnsEmptyForInactiveServer() throws Exception {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    Optional<Integer> portNumber = server.getPort();
+    Assert.assertEquals(portNumber.isPresent(), false);
+  }
+
+  @Test
+  public void testGetPortReturnsPresentOptionalForActiveServer() throws Exception {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    server.start();
+    Assert.asserEqual(server.isActive(), true);
+    Optional<Integer> portNumber = server.getPort();
+    Assert.assertEquals(portNumber.isPresent(), true);
+  }
+
+  // @Test
+  // public void testServerStartsOnSpecifiedPortOrThrows() throws Exception {
+  //   int portNumber = 6783;
+  //   TestPredictor predictor = new TestPredictor(true);
+  //   ScoringServer server = new ScoringServer(predictor, portNumber);
+  //   server.start();
+  // }
 }
