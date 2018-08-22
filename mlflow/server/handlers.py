@@ -105,14 +105,14 @@ def _create_experiment():
     parameters:
       - name: experiment
         in: body
-        required:
-          - name
+        required: true
         schema:
           $ref: '#/definitions/ExperimentBody'
     responses:
       200:
         description: Unique identifier for created experiment.
-        $ref: '#/definitions/ExperimentId'
+        schema:
+          $ref: '#/definitions/ExperimentId'
     """
     request_message = _get_request_message(CreateExperiment())
     experiment_id = _get_store().create_experiment(request_message.name,
@@ -138,7 +138,8 @@ def _get_experiment():
     responses:
       200:
         description: Experiment details.
-        $ref: '#/definitions/ExperimentDetails'
+        schema:
+          $ref: '#/definitions/ExperimentDetails'
     """
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
@@ -167,7 +168,8 @@ def _create_run():
     responses:
       200:
         description: Metadata of the newly created run.
-        $ref: '#/definitions/Run'
+        schema:
+          $ref: '#/definitions/Run'
     """
     request_message = _get_request_message(CreateRun())
 
@@ -203,7 +205,8 @@ def _update_run():
     responses:
       200:
         description: Updated metadata of the run.
-        $ref: '#/definitions/RunInfo2'
+        schema:
+          $ref: '#/definitions/RunInfo2'
     """
     request_message = _get_request_message(UpdateRun())
     updated_info = _get_store().update_run_info(request_message.run_uuid, request_message.status,
@@ -291,7 +294,8 @@ def _get_run():
     responses:
       200:
         description: Run details.
-        $ref: '#/definitions/RunInfoAndData'
+        schema:
+          $ref: '#/definitions/RunInfoAndData'
     """
     request_message = _get_request_message(GetRun())
     response_message = GetRun.Response()
@@ -310,27 +314,29 @@ def _search_runs():
       - name: search_body
         description: Request body with search expressions.
         in: body
-        type: object
-        required:
-          - experiment_ids
-        properties:
-          exeriment_ids:
-            description: List of experiment IDs to search over.
-            type: array
-            items:
-              type: integer
-              format: int64
-          anded_expressions:
-            description: Expressions describing runs (AND-ed together when filtering runs).
-            type: array
-            items:
-              oneOf:
-                - $ref: '#/definitions/ParameterSearchExpression'
-                - $ref: '#/definitions/MetricSearchExpression'
+        schema:
+          type: object
+          required:
+            - experiment_ids
+          properties:
+            exeriment_ids:
+              description: List of experiment IDs to search over.
+              type: array
+              items:
+                type: integer
+                format: int64
+            anded_expressions:
+              description: Expressions describing runs (AND-ed together when filtering runs).
+              type: array
+              items:
+                anyOf:
+                  - $ref: '#/definitions/ParameterSearchExpression'
+                  - $ref: '#/definitions/MetricSearchExpression'
     responses:
       200:
         description: Runs that match the search criteria.
-        $ref: '#/definitions/Runs'
+        schema:
+          $ref: '#/definitions/Runs'
     """
     request_message = _get_request_message(SearchRuns())
     response_message = SearchRuns.Response()
@@ -363,7 +369,8 @@ def _list_artifacts():
     responses:
       200:
         description: Artifacts array
-        $ref: '#/definitions/Artifacts'
+        schema:
+          $ref: '#/definitions/Artifacts'
     """
     request_message = _get_request_message(ListArtifacts())
     response_message = ListArtifacts.Response()
@@ -398,7 +405,8 @@ def _get_metric_history():
     responses:
       200:
         description: All logged values for this metric.
-        $ref: '#/definitions/MetricHistory'
+        schema:
+          $ref: '#/definitions/MetricHistory'
     """
     request_message = _get_request_message(GetMetricHistory())
     response_message = GetMetricHistory.Response()
@@ -430,7 +438,8 @@ def _get_metric():
     responses:
       200:
         description: Latest reported value of the specified metric.
-        $ref: '#/definitions/Metric'
+        schema:
+          $ref: '#/definitions/Metric'
     """
     request_message = _get_request_message(GetMetric())
     response_message = GetMetric.Response()
@@ -459,7 +468,8 @@ def _get_param():
     responses:
       200:
         description: Param key-value pair.
-        $ref: '#/definitions/Parameter'
+        schema:
+          $ref: '#/definitions/Parameter'
     """
     request_message = _get_request_message(GetParam())
     response_message = GetParam.Response()
@@ -477,7 +487,8 @@ def _list_experiments():
     responses:
       200:
         description: All experiments
-        $ref: '#/definitions/Experiments'
+        schema:
+          $ref: '#/definitions/Experiments'
     """
     response_message = ListExperiments.Response()
     experiment_entities = _get_store().list_experiments()

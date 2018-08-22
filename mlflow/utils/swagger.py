@@ -63,7 +63,7 @@ swagger_object_dict = {
                                    "this experiment.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/RunInfo"
+                        "$ref": "#/definitions/RunInfoBase"
                     }
                 }
             }
