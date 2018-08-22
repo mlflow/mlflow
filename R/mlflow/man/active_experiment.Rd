@@ -10,6 +10,9 @@ mlflow_active_experiment()
 
 mlflow_set_active_experiment(experiment_id)
 }
+\arguments{
+\item{experiment_id}{Identifer to get an experiment.}
+}
 \description{
 Retrieve or set the active experiment.
 }

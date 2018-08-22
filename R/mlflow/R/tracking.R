@@ -9,6 +9,7 @@ mlflow_active_experiment <- function() {
 }
 
 #' @rdname active_experiment
+#' @param experiment_id Identifer to get an experiment.
 #' @export
 mlflow_set_active_experiment <- function(experiment_id) {
   .globals$active_experiment <- experiment_id
@@ -26,6 +27,7 @@ mlflow_active_run <- function() {
 }
 
 #' @rdname active_run
+#' @param run The run object to make active.
 #' @export
 mlflow_set_active_run <- function(run) {
   .globals$active_run <- run

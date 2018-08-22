@@ -100,11 +100,11 @@ mlflow_log_artifact_impl <- function(artifact_uri, path) {
 }
 
 mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path) {
-  if (!dir.exists(destination_path)) {
-    dir.create(destination_path, recursive = TRUE)
+  if (!dir.exists(artifact_uri)) {
+    dir.create(artifact_uri, recursive = TRUE)
   }
 
-  file.copy(path, destination_path)
+  file.copy(path, artifact_uri)
   invisible(NULL)
 }
 
