@@ -6,8 +6,8 @@ a transformation or training step, allowing a clear definition of the
 interface between the steps, as well as allowing for caching and reuse 
 of the intermediate results.
 
-At a high level, our goal is to predict a users' rating of a movie given
-a history of their ratings for various movies. This example is based
+At a high level, our goal is to predict users' ratings of movie given
+a history of their ratings for other movies. This example is based
 on `this webinar <https://databricks.com/blog/2018/07/13/scalable-end-to-end-deep-learning-using-tensorflow-and-databricks-on-demand-webinar-and-faq-now-available.html>`_
 by @brookewenig and @smurching.
 
