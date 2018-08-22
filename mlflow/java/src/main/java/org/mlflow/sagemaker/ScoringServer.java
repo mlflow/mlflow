@@ -7,16 +7,16 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.models.Model;
-import spark.Request;
-import spark.Response;
-import spark.Service;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
 /** A RESTful webserver for {@link Predictor Predictors} that runs on the local host */
 public class ScoringServer {
@@ -24,7 +24,10 @@ public class ScoringServer {
 
   public static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
   public static final int HTTP_RESPONSE_CODE_SUCCESS = 200;
-  public static final int DEFAULT_PORT = 5001;
+
+  private static final int MINIMUM_SERVER_THREADS = 1;
+  // Assuming an 8 core machine with hyperthreading
+  private static final int MAXIMUM_SERVER_THREADS = 16;
 
   private enum RequestContentType {
     Csv("text/csv"),
@@ -54,13 +57,14 @@ public class ScoringServer {
   }
 
   private final Server server;
+  private final ServerConnector httpConnector;
 
   /**
    * Constructs a {@link ScoringServer} to serve the specified {@link Predictor} on the local host
-   * at the default port: {@link ScoringServer#DEFAULT_PORT}
+   * on a randomly-selected available port
    */
   public ScoringServer(Predictor predictor) {
-    this(predictor, DEFAULT_PORT);
+    this(predictor, Optional.empty());
   }
 
   /**
@@ -68,7 +72,19 @@ public class ScoringServer {
    * at the specified port
    */
   public ScoringServer(Predictor predictor, int portNumber) {
-    this.server = new Server(portNumber);
+    this(predictor, Optional.of(portNumber));
+  }
+
+  private ScoringServer(Predictor predictor, Optional<Integer> portNumber) {
+    this.server = new Server(new QueuedThreadPool(MAXIMUM_SERVER_THREADS, MINIMUM_SERVER_THREADS));
+    this.server.setStopAtShutdown(true);
+
+    this.httpConnector = new ServerConnector(this.server, new HttpConnectionFactory());
+    if (portNumber.isPresent()) {
+      httpConnector.setPort(portNumber.get());
+    }
+    this.server.addConnector(this.httpConnector);
+
     ServletContextHandler rootContextHandler = new ServletContextHandler(null, "/");
     rootContextHandler.addServlet(new ServletHolder(new ScoringServer.PingServlet()), "/ping");
     rootContextHandler.addServlet(
@@ -78,12 +94,12 @@ public class ScoringServer {
 
   /**
    * Loads the MLFlow model at the specified path as a {@link Predictor} and serves it on the local
-   * host at the default port: {@link ScoringServer#DEFAULT_PORT}
+   * on a randomly-selected available port
    *
    * @param modelPath The path to the MLFlow model to serve
    */
   public ScoringServer(String modelPath) throws PredictorLoadingException {
-    this(modelPath, DEFAULT_PORT);
+    this(loadPredictorFromPath(modelPath), Optional.empty());
   }
 
   /**
@@ -93,7 +109,7 @@ public class ScoringServer {
    * @param modelPath The path to the MLFlow model to serve
    */
   public ScoringServer(String modelPath, int portNumber) throws PredictorLoadingException {
-    this(loadPredictorFromPath(modelPath), portNumber);
+    this(loadPredictorFromPath(modelPath), Optional.of(portNumber));
   }
 
   private static Predictor loadPredictorFromPath(String modelPath)
@@ -120,11 +136,27 @@ public class ScoringServer {
    */
   public void stop() throws Exception {
     this.server.stop();
+    this.server.join();
   }
 
   /** @return `true` if the server is active (running), `false` otherwise */
   public boolean isActive() {
     return this.server.isStarted();
+  }
+
+  /**
+   * @return Optional that either:
+   * - Contains the port on which the server is running, if the server is active
+   * - Is empty, if the server is not active
+   */
+  public Optional<Integer> getPort() {
+    int boundPort = this.httpConnector.getLocalPort();
+    if (boundPort >= 0) {
+      return Optional.of(boundPort);
+    } else {
+      // The server connector port request returned an error code
+      return Optional.empty();
+    }
   }
 
   static class PingServlet extends HttpServlet {
@@ -218,7 +250,7 @@ public class ScoringServer {
     if (args.length > 1) {
       portNum = Optional.of(Integer.parseInt(args[2]));
     }
-    ScoringServer server = new ScoringServer(modelPath, portNum.orElse(DEFAULT_PORT));
+    ScoringServer server = new ScoringServer(modelPath, portNum.orElse(8080));
     try {
       server.start();
     } catch (Exception e) {

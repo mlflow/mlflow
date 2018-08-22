@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.Assert;
+import org.junit.After;
 import org.junit.Test;
 import org.mlflow.utils.SerializationUtils;
 
@@ -44,11 +45,10 @@ public class ScoringServerTest {
   @Test
   public void testScoringServerWithValidPredictorRespondsToPingsCorrectly() throws Exception {
     TestPredictor validPredictor = new TestPredictor(true);
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(validPredictor, portNumber);
+    ScoringServer server = new ScoringServer(validPredictor);
     server.start();
 
-    String requestUrl = String.format("http://localhost:%d/ping", portNumber);
+    String requestUrl = String.format("http://localhost:%d/ping", server.getPort().get());
     try {
       HttpResponse response = Unirest.get(requestUrl).asJson();
       Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
@@ -80,53 +80,13 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testScoringServerWithMissingPredictorRespondsToPingsWithServerErrorCode()
-      throws Exception, IOException, PredictorLoadingException {
-    String badModelPath = "/not/a/valid/path";
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(badModelPath, portNumber);
-    server.start();
-
-    String requestUrl = String.format("http://localhost:%d/ping", portNumber);
-    try {
-      HttpResponse response = Unirest.get(requestUrl).asJson();
-      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
-    } catch (UnirestException e) {
-      e.printStackTrace();
-      Assert.fail("Encountered an exception while attempting to ping the server!");
-    }
-    server.stop();
-  }
-
-  @Test
-  public void testScoringServerWithMissingPredictorRespondsToInvocationsWithServerErrorCode()
-      throws Exception, IOException, PredictorLoadingException {
-    String badModelPath = "/not/a/valid/path";
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(badModelPath, portNumber);
-    server.start();
-
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
-    try {
-      HttpResponse<JsonNode> response =
-          Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
-      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
-    } catch (UnirestException e) {
-      e.printStackTrace();
-      Assert.fail("Encountered an exception while attempting to ping the server!");
-    }
-    server.stop();
-  }
-
-  @Test
   public void testScoringServerRepondsToInvocationOfBadContentTypeWithServerErrorCode()
       throws Exception {
     TestPredictor predictor = new TestPredictor(true);
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor);
     server.start();
 
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
+    String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
     try {
       String badContentType = "not-a-content-type";
       HttpResponse<JsonNode> response =
@@ -134,24 +94,25 @@ public class ScoringServerTest {
       Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
     } catch (UnirestException e) {
       e.printStackTrace();
-      Assert.fail("Encountered an exception while attempting to ping the server!");
+      Assert.fail("Encountered an exception while attempting to invoke the server!");
+    } finally {
+      server.stop();
     }
-    server.stop();
   }
 
   @Test
   public void testMultipleServersRunOnDifferentPortsSuccessfully() throws Exception {
-    List<Integer> portNumbers = Arrays.asList(5001, 5002, 5003);
     TestPredictor predictor = new TestPredictor(true);
 
     List<ScoringServer> servers = new ArrayList<>();
-    for (int portNumber : portNumbers) {
-      ScoringServer newServer = new ScoringServer(predictor, portNumber);
+    for (int i = 0; i < 3; ++i) {
+      ScoringServer newServer = new ScoringServer(predictor);
       newServer.start();
       servers.add(newServer);
     }
 
-    for (int portNumber : portNumbers) {
+    for (ScoringServer server : servers) {
+      int portNumber = server.getPort().get();
       try {
         String requestUrl = String.format("http://localhost:%d/ping", portNumber);
         HttpResponse response = Unirest.get(requestUrl).asJson();
@@ -176,12 +137,11 @@ public class ScoringServerTest {
     predictorDict.put("Text", "Response");
     String predictorJson = SerializationUtils.toJson(predictorDict);
     TestPredictor predictor = new TestPredictor(predictorJson);
-    int portNumber = 5001;
 
-    ScoringServer server = new ScoringServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor);
     server.start();
 
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
+    String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
     HttpResponse<JsonNode> response =
         Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
     Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
@@ -196,12 +156,11 @@ public class ScoringServerTest {
   public void testScoringServerRespondsWithServerErrorCodeWhenPredictorThrowsException()
       throws Exception, UnirestException, IOException {
     TestPredictor predictor = new TestPredictor(false);
-    int portNumber = 5001;
 
-    ScoringServer server = new ScoringServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor);
     server.start();
 
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
+    String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
     HttpResponse<JsonNode> response =
         Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
     Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
@@ -212,21 +171,20 @@ public class ScoringServerTest {
   @Test
   public void testScoringServerStartsAndStopsSuccessfully() throws Exception {
     TestPredictor predictor = new TestPredictor(true);
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(predictor, portNumber);
-    String requestUrl = String.format("http://localhost:%d/ping", portNumber);
+    ScoringServer server = new ScoringServer(predictor);
 
     for (int i = 0; i < 3; ++i) {
       server.start();
+      String requestUrl = String.format("http://localhost:%d/ping", server.getPort().get());
 
       try {
         HttpResponse response = Unirest.get(requestUrl).asJson();
       } catch (UnirestException e) {
         Assert.fail("Encountered an unexpected exception while attempting to ping"
             + "the active scoring server.");
+      } finally {
+        server.stop();
       }
-
-      server.stop();
 
       try {
         HttpResponse response = Unirest.get(requestUrl).asJson();
