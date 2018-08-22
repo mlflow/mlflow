@@ -115,7 +115,7 @@ class ExperimentView extends Component {
       } else if (sort.key === 'user_id') {
         sortValue = Utils.formatUser(runInfo.user_id);
       } else if (sort.key === 'source') {
-        sortValue = Utils.renderSource(runInfo);
+        sortValue = Utils.baseName(runInfo.source_name);
       } else {
         sortValue = runInfo[sort.key];
       }
