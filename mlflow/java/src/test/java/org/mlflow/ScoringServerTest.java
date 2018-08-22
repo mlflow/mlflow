@@ -53,9 +53,10 @@ public class ScoringServerTest {
 
   private static String getHttpResponseBody(HttpResponse response) throws IOException {
     InputStream responseContentStream = response.getEntity().getContent();
-    String body = new BufferedReader(new InputStreamReader(responseContentStream))
-                      .lines()
-                      .collect(Collectors.joining(System.lineSeparator()));
+    String body =
+        new BufferedReader(new InputStreamReader(responseContentStream))
+            .lines()
+            .collect(Collectors.joining(System.lineSeparator()));
     return body;
   }
 
@@ -77,16 +78,18 @@ public class ScoringServerTest {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
       // Succeed
     }
 
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
       // Succeed
     }
