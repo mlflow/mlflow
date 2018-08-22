@@ -142,8 +142,8 @@ new_mlflow_active_run <- function(run_info) {
 }
 
 #' @export
-with.mlflow_active_run <- function(x, code) {
-  runid <- as.character(x$run_info$run_uuid)
+with.mlflow_active_run <- function(data, expr, ...) {
+  runid <- as.character(data$run_info$run_uuid)
 
   tryCatch(
     error = function(cnd) {
@@ -154,7 +154,7 @@ with.mlflow_active_run <- function(x, code) {
       run_uuid = runid, status = "KILLED", end_time = current_time()
     ),
     {
-      force(code)
+      force(expr)
       mlflow_end_run()
     }
   )
