@@ -203,6 +203,7 @@ class TestFileStore(unittest.TestCase):
                 run_info = self.run_data[run_uuid]
                 run_info.pop("metrics")
                 run_info.pop("params")
+                run_info.pop("tags")
                 self.assertEqual(run_info, dict(run.info))
 
     def test_list_run_infos(self):
@@ -214,6 +215,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info = self.run_data[run_uuid]
                 dict_run_info.pop("metrics")
                 dict_run_info.pop("params")
+                dict_run_info.pop("tags")
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_get_metric(self):
@@ -303,7 +305,7 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
-        tag = fs.get_run(run_uuid).tags[0]
+        tag = fs.get_run(run_uuid).data.tags[0]
         assert tag.key == WEIRD_TAG_NAME
         assert tag.value == "Muhahaha!"
 
@@ -312,15 +314,16 @@ class TestFileStore(unittest.TestCase):
         run_uuid = self.exp_data[0]["runs"][0]
         fs.set_tag(run_uuid, RunTag("tag0", "value0"))
         fs.set_tag(run_uuid, RunTag("tag1", "value1"))
-        tags = fs.get_run(run_uuid).tags
-        assert set(tags) == set(
-            RunTag("tag0", "value0"),
-            RunTag("tag1", "value1"),
-        )
+        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
+        assert set(tags) == {
+            ("tag0", "value0"),
+            ("tag1", "value1"),
+        }
 
         # Can overwrite tags.
         fs.set_tag(run_uuid, RunTag("tag0", "value2"))
-        assert set(tags) == set(
-            RunTag("tag0", "value2"),
-            RunTag("tag1", "value1"),
-        )
+        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
+        assert set(tags) == {
+            ("tag0", "value2"),
+            ("tag1", "value1"),
+        }

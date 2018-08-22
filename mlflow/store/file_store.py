@@ -2,7 +2,7 @@ import os
 
 import uuid
 
-from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus
+from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name
@@ -91,7 +91,7 @@ class FileStore(AbstractStore):
     def _get_tag_path(self, experiment_id, run_uuid, tag_name):
         _validate_run_id(run_uuid)
         _validate_tag_name(tag_name)
-        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.TAG_FOLDER_NAME,
+        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME,
                           tag_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
@@ -211,7 +211,7 @@ class FileStore(AbstractStore):
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
                            status=RunStatus.RUNNING, start_time=start_time, end_time=None,
-                           source_version=source_version, tags=tags)
+                           source_version=source_version)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
@@ -219,6 +219,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
+        for tag in tags:
+            self.set_tag(run_uuid, tag)
         return Run(run_info=run_info, run_data=None)
 
     def get_run(self, run_uuid):
@@ -229,7 +231,8 @@ class FileStore(AbstractStore):
         run_info = self.get_run_info(run_dir)
         metrics = self.get_all_metrics(run_uuid)
         params = self.get_all_params(run_uuid)
-        return Run(run_info, RunData(metrics, params))
+        tags = self.get_all_tags(run_uuid)
+        return Run(run_info, RunData(metrics, params, tags))
 
     @staticmethod
     def get_run_info(run_dir):
@@ -242,6 +245,8 @@ class FileStore(AbstractStore):
             subfolder_name = FileStore.METRICS_FOLDER_NAME
         elif resource_type == "param":
             subfolder_name = FileStore.PARAMS_FOLDER_NAME
+        elif resource_type == "tag":
+            subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
             raise Exception("Looking for unknown resource under run.")
         run_dir = self._find_run_root(run_uuid)
@@ -249,7 +254,7 @@ class FileStore(AbstractStore):
             raise Exception("Run '%s' not found" % run_uuid)
         source_dirs = find(run_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
-            raise Exception("Malformed run '%s'." % run_uuid)
+            return run_dir, []
         file_names = []
         for root, _, files in os.walk(source_dirs[0]):
             for name in files:
@@ -307,6 +312,17 @@ class FileStore(AbstractStore):
                             % param_name)
         return Param(param_name, str(param_data[0].strip()))
 
+    @staticmethod
+    def _get_tag_from_file(parent_path, tag_name):
+        _validate_tag_name(tag_name)
+        tag_data = read_file(parent_path, tag_name)
+        if len(tag_data) == 0:
+            raise Exception("Tag '%s' is malformed. No data found." % tag_name)
+        if len(tag_data) > 1:
+            raise Exception("Unexpected data for tag '%s'. Tag recorded more than once"
+                            % tag_name)
+        return RunTag(tag_name, str(tag_data[0].strip()))
+
     def get_param(self, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
@@ -321,6 +337,13 @@ class FileStore(AbstractStore):
         for param_file in param_files:
             params.append(self._get_param_from_file(parent_path, param_file))
         return params
+
+    def get_all_tags(self, run_uuid):
+        parent_path, tag_files = self._get_run_files(run_uuid, "tag")
+        tags = []
+        for tag_file in tag_files:
+            tags.append(self._get_tag_from_file(parent_path, tag_file))
+        return tags
 
     def _list_run_uuids(self, experiment_id):
         self._check_root_dir()
