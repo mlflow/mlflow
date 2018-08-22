@@ -3,6 +3,9 @@
 set -e
 set -x
 
+# Reactivate environment created in the travis installation step
+export PATH="$HOME/miniconda/bin:$PATH"
+hash -r
 source activate test-environment
 
 sudo ./test-generate-protos.sh
