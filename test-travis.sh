@@ -8,10 +8,13 @@ pip list
 which mlflow
 echo $MLFLOW_HOME
 mlflow sagemaker build-and-push-container --no-push --mlflow-home .
-pytest --cov=mlflow --verbose --large
 ./lint.sh
+pytest --cov=mlflow --verbose --large
 cd mlflow/server/js
 npm i
+./lint.sh
 npm test -- --coverage
-cd ../../..
+cd ../../java
+mvn clean test
+cd ../..
 codecov -e TOXENV

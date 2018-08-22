@@ -26,11 +26,11 @@ conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
 source activate test-environment
 python --version
 pip install --upgrade pip
-pip install .
 pip install -r dev-requirements.txt -q
 if [[ "$MLFLOW_TEST_REQUIREMENTS" != "false" ]]; then
   echo "pip install -r test-requirements.txt -q";
 fi
+pip install .
 export MLFLOW_HOME=$(pwd)
 
 # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
