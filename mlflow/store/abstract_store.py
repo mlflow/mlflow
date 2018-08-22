@@ -17,8 +17,11 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_experiments(self):
+    def list_experiments(self, include_deleted, only_deleted):
         """
+
+        :param include_deleted: Response list to also includes experiments marked for deletion.
+        :param only_deleted: Response list to only include experiments that are marked for deletion.
         :return: a list of all known Experiment objects
         """
         pass
@@ -36,12 +39,32 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def get_experiment(self, experiment_id):
+    def get_experiment(self, experiment_id, include_deleted, only_deleted):
         """
         Fetches the experiment from the backend store.
 
         :param experiment_id: Integer id for the experiment
+        :param include_deleted: Response list to also includes experiments marked for deletion.
+        :param only_deleted: Response list to only include experiments that are marked for deletion.
         :return: A single Experiment object if it exists, otherwise raises an Exception.
+        """
+        pass
+
+    @abstractmethod
+    def delete_experiment(self, experiment_id):
+        """
+        Deletes the experiment from the backend store.
+
+        :param experiment_id: Integer id for the experiment
+        """
+        pass
+
+    @abstractmethod
+    def restore_experiment(self, experiment_id):
+        """
+        Restore deleted experiment.
+
+        :param experiment_id: Integer id for the experiment
         """
         pass
 
@@ -88,6 +111,14 @@ class AbstractStore:
         Logs a param for the specified run
         :param run_uuid: String id for the run
         :param param: Param instance to log
+        """
+        pass
+
+    def set_tag(self, run_uuid, tag):
+        """
+        Sets a tag for the specified run
+        :param run_uuid: String id for the run
+        :param tag: RunTag instance to set
         """
         pass
 

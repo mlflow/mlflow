@@ -231,6 +231,10 @@ def get_relative_path(root_path, target_path):
     return os.path.relpath(target_path, common_prefix)
 
 
+def mv(target, new_parent):
+    shutil.move(target, new_parent)
+
+
 def write_to(filename, data):
     with open(filename, "w") as handle:
         handle.write(data)
