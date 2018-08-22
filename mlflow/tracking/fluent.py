@@ -152,6 +152,14 @@ def create_experiment(name, artifact_location=None):
     return get_service().create_experiment(name, artifact_location)
 
 
+def delete_experiment(experiment_id):
+    return get_service().delete_experiment(experiment_id)
+
+
+def restore_experiment(experiment_id):
+    return get_service().restore_experiment(experiment_id)
+
+
 def get_artifact_uri():
     """
     Return the artifact URI of the currently active run. Calls to ``log_artifact`` and

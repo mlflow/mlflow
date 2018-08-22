@@ -12,7 +12,8 @@ from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
-    UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam
+    UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
+    DeleteExperiment, RestoreExperiment
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 
@@ -110,6 +111,24 @@ def _get_experiment():
                                           .to_proto())
     run_info_entities = _get_store().list_run_infos(request_message.experiment_id)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
+    response = Response(mimetype='application/json')
+    response.set_data(_message_to_json(response_message))
+    return response
+
+
+def _delete_experiment():
+    request_message = _get_request_message(DeleteExperiment())
+    _get_store().delete_experiment(request_message.experiment_id)
+    response_message = DeleteExperiment.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(_message_to_json(response_message))
+    return response
+
+
+def _restore_experiment():
+    request_message = _get_request_message(RestoreExperiment())
+    _get_store().restore_experiment(request_message.experiment_id)
+    response_message = RestoreExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(_message_to_json(response_message))
     return response
@@ -245,8 +264,9 @@ def _get_param():
 
 
 def _list_experiments():
+    request_message = _get_request_message(ListExperiments())
+    experiment_entities = _get_store().list_experiments(request_message.view_type)
     response_message = ListExperiments.Response()
-    experiment_entities = _get_store().list_experiments()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
     response = Response(mimetype='application/json')
     response.set_data(_message_to_json(response_message))
@@ -292,6 +312,8 @@ def get_endpoints():
 HANDLERS = {
     CreateExperiment: _create_experiment,
     GetExperiment: _get_experiment,
+    DeleteExperiment: _delete_experiment,
+    RestoreExperiment: _restore_experiment,
     CreateRun: _create_run,
     UpdateRun: _update_run,
     LogParam: _log_param,

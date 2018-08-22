@@ -2,7 +2,8 @@ import os
 
 import uuid
 
-from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag
+from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
+                            ViewType
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name
@@ -58,13 +59,11 @@ class FileStore(AbstractStore):
         if not is_directory(self.root_directory):
             raise Exception("'%s' is not a directory." % self.root_directory)
 
-    def _get_experiment_path(self, experiment_id, include_deleted=True, only_deleted=False):
-        if include_deleted and only_deleted:
-            raise Exception("Only one of 'include_deleted' or 'only_deleted' can be 'true'.")
+    def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL):
         parents = []
-        if not only_deleted:
+        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
             parents.append(self.root_directory)
-        if include_deleted or only_deleted:
+        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
             parents.append(self.trash_folder)
         for parent in parents:
             exp_list = find(parent, str(experiment_id), full_path=True)
@@ -108,16 +107,14 @@ class FileStore(AbstractStore):
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
 
-    def list_experiments(self, include_deleted=False, only_deleted=False):
-        if include_deleted and only_deleted:
-            raise Exception("Only one of 'include_deleted' or 'only_deleted' can be 'true'.")
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         self._check_root_dir()
         rsl = []
-        if include_deleted or only_deleted:
-            rsl += self._get_deleted_experiments(False)
-        if not only_deleted:
-            rsl += self._get_active_experiments(False)
-        return [self.get_experiment(exp_id) for exp_id in rsl]
+        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+            rsl += self._get_active_experiments(full_path=False)
+        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+            rsl += self._get_deleted_experiments(full_path=False)
+        return [self._get_experiment(exp_id, view_type) for exp_id in rsl]
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
@@ -136,41 +133,42 @@ class FileStore(AbstractStore):
             raise Exception("Experiment '%s' already exists." % experiment.name)
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [e.experiment_id for e in self.list_experiments(include_deleted=True)]
+        experiments_ids = [e.experiment_id for e in self.list_experiments(ViewType.ALL)]
         experiment_id = max(experiments_ids) + 1
         return self._create_experiment_with_id(name, experiment_id, artifact_location)
 
     def _has_experiment(self, experiment_id):
         return len(self._get_experiment_path(experiment_id)) > 0
 
-    def get_experiment(self, experiment_id, include_deleted=False, only_deleted=False):
+    def _get_experiment(self, experiment_id, view_type=ViewType.ALL):
         self._check_root_dir()
-        experiment_dirs = self._get_experiment_path(experiment_id, include_deleted, only_deleted)
+        experiment_dirs = self._get_experiment_path(experiment_id, view_type)
         if len(experiment_dirs) == 0:
             raise Exception("Could not find experiment with ID %s" % experiment_id)
         meta = read_yaml(experiment_dirs[0], FileStore.META_DATA_FILE_NAME)
         return Experiment.from_dictionary(meta)
 
+    def get_experiment(self, experiment_id):
+        return self._get_experiment(experiment_id)
+
     def get_experiment_by_name(self, name):
         self._check_root_dir()
-        for experiment in self.list_experiments(include_deleted=True):
+        for experiment in self.list_experiments(ViewType.ALL):
             if experiment.name == name:
                 return experiment
         return None
 
     def delete_experiment(self, experiment_id):
-        experiment_dirs = self._get_experiment_path(experiment_id, include_deleted=False)
+        experiment_dirs = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if len(experiment_dirs) == 0:
             raise Exception("Could not find experiment with ID %s" % experiment_id)
         mv(experiment_dirs[0], self.trash_folder)
 
     def restore_experiment(self, experiment_id):
-        experiment_dirs = self._get_experiment_path(experiment_id,
-                                                    include_deleted=False,
-                                                    only_deleted=True)
+        experiment_dirs = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
         if len(experiment_dirs) == 0:
             raise Exception("Could not find deleted experiment with ID %d" % experiment_id)
-        conflict_experiment = self._get_experiment_path(experiment_id, include_deleted=False)
+        conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if len(conflict_experiment) > 0:
             raise Exception("Cannot restore eperiment with ID %d. "
                             "An experiment with same ID already exists." % experiment_id)
