@@ -103,9 +103,9 @@ service MlflowService {
     };
   }
 
- // Log a param used for this run. Examples are hyperparameters used for ML model training, or
- // constant dates and values used in an ETL pipeline. A param is a key-value pair (string key,
- // string value). A param may only be logged once for a given run.
+  // Log a param used for this run. Examples are hyperparameters used for ML model training, or
+  // constant dates and values used in an ETL pipeline. A param is a key-value pair (string key,
+  // string value). A param may only be logged once for a given run.
   rpc logParam(LogParam) returns (LogParam.Response) {
     option (rpc) = {
       endpoints: [{
@@ -119,6 +119,20 @@ service MlflowService {
     };
   }
 
+  // Sets a tag on this run. Tags are metadata of a run which can be updated during and after
+  // a run completes.
+  rpc setTag(SetTag) returns (SetTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/set-tag"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Set Tag",
+    };
+  }
 
   // Get metadata, params, tags, and metrics for run. Only the last logged value for each metric is
   // returned.
@@ -284,6 +298,9 @@ message RunData {
   repeated Metric metrics = 1;
 
   repeated Param params = 2;
+
+  // Additional metadata key-value pairs.
+  repeated RunTag tags = 3;
 }
 
 // Tag for a run.
@@ -326,9 +343,6 @@ message RunInfo {
 
   // Name of the entry point for the run.
   optional string entry_point_name = 11;
-
-  // Additional metadata key-value pairs.
-  repeated RunTag tags = 12;
 
   // URI of the directory where artifacts should be uploaded.
   // This can be a local path (starting with "/"), or a distributed file system (DFS)
@@ -471,10 +485,26 @@ message LogParam {
   // ID of the run under which to log the param.
   optional string run_uuid = 1 [(validate_required) = true];
 
-  // Name of the param.
+  // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the param being logged.
+  // String value of the param being logged. Maximum size if 500 bytes.
+  optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message SetTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which to log the param.
+  optional string run_uuid = 1 [(validate_required) = true];
+
+  // Name of the tag. Maximum size is 255 bytes.
+  optional string key = 2 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size if 500 bytes.
   optional string value = 3 [(validate_required) = true];
 
   message Response {

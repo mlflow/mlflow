@@ -2,9 +2,10 @@ import os
 
 import uuid
 
-from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus
+from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag
 from mlflow.store.abstract_store import AbstractStore
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
+from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
+                                    _validate_tag_name
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
@@ -25,6 +26,7 @@ class FileStore(AbstractStore):
     ARTIFACTS_FOLDER_NAME = "artifacts"
     METRICS_FOLDER_NAME = "metrics"
     PARAMS_FOLDER_NAME = "params"
+    TAGS_FOLDER_NAME = "tags"
     META_DATA_FILE_NAME = "meta.yaml"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
@@ -85,6 +87,12 @@ class FileStore(AbstractStore):
         _validate_param_name(param_name)
         return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME,
                           param_name)
+
+    def _get_tag_path(self, experiment_id, run_uuid, tag_name):
+        _validate_run_id(run_uuid)
+        _validate_tag_name(tag_name)
+        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME,
+                          tag_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
@@ -184,7 +192,8 @@ class FileStore(AbstractStore):
         run_info = self.get_run(run_uuid).info
         new_info = run_info.copy_with_overrides(run_status, end_time)
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
-        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, dict(new_info), overwrite=True)
+        new_info_dict = self._make_run_info_dict(new_info)
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, new_info_dict, overwrite=True)
         return new_info
 
     def create_run(self, experiment_id, user_id, run_name, source_type,
@@ -203,15 +212,24 @@ class FileStore(AbstractStore):
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
                            status=RunStatus.RUNNING, start_time=start_time, end_time=None,
-                           source_version=source_version, tags=tags)
+                           source_version=source_version)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
-        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, dict(run_info))
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, self._make_run_info_dict(run_info))
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
+        for tag in tags:
+            self.set_tag(run_uuid, tag)
         return Run(run_info=run_info, run_data=None)
+
+    def _make_run_info_dict(self, run_info):
+        # 'tags' was moved from RunInfo to RunData, so we must keep storing it in the meta.yaml for
+        # old mlflow versions to read
+        run_info_dict = dict(run_info)
+        run_info_dict['tags'] = []
+        return run_info_dict
 
     def get_run(self, run_uuid):
         _validate_run_id(run_uuid)
@@ -221,7 +239,8 @@ class FileStore(AbstractStore):
         run_info = self.get_run_info(run_dir)
         metrics = self.get_all_metrics(run_uuid)
         params = self.get_all_params(run_uuid)
-        return Run(run_info, RunData(metrics, params))
+        tags = self.get_all_tags(run_uuid)
+        return Run(run_info, RunData(metrics, params, tags))
 
     @staticmethod
     def get_run_info(run_dir):
@@ -234,6 +253,8 @@ class FileStore(AbstractStore):
             subfolder_name = FileStore.METRICS_FOLDER_NAME
         elif resource_type == "param":
             subfolder_name = FileStore.PARAMS_FOLDER_NAME
+        elif resource_type == "tag":
+            subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
             raise Exception("Looking for unknown resource under run.")
         run_dir = self._find_run_root(run_uuid)
@@ -241,7 +262,7 @@ class FileStore(AbstractStore):
             raise Exception("Run '%s' not found" % run_uuid)
         source_dirs = find(run_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
-            raise Exception("Malformed run '%s'." % run_uuid)
+            return run_dir, []
         file_names = []
         for root, _, files in os.walk(source_dirs[0]):
             for name in files:
@@ -299,6 +320,17 @@ class FileStore(AbstractStore):
                             % param_name)
         return Param(param_name, str(param_data[0].strip()))
 
+    @staticmethod
+    def _get_tag_from_file(parent_path, tag_name):
+        _validate_tag_name(tag_name)
+        tag_data = read_file(parent_path, tag_name)
+        if len(tag_data) == 0:
+            raise Exception("Tag '%s' is malformed. No data found." % tag_name)
+        if len(tag_data) > 1:
+            raise Exception("Unexpected data for tag '%s'. Tag recorded more than once"
+                            % tag_name)
+        return RunTag(tag_name, str(tag_data[0].strip()))
+
     def get_param(self, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
@@ -313,6 +345,13 @@ class FileStore(AbstractStore):
         for param_file in param_files:
             params.append(self._get_param_from_file(parent_path, param_file))
         return params
+
+    def get_all_tags(self, run_uuid):
+        parent_path, tag_files = self._get_run_files(run_uuid, "tag")
+        tags = []
+        for tag_file in tag_files:
+            tags.append(self._get_tag_from_file(parent_path, tag_file))
+        return tags
 
     def _list_run_uuids(self, experiment_id):
         self._check_root_dir()
@@ -353,3 +392,11 @@ class FileStore(AbstractStore):
         param_path = self._get_param_path(run.info.experiment_id, run_uuid, param.key)
         make_containing_dirs(param_path)
         write_to(param_path, "%s\n" % param.value)
+
+    def set_tag(self, run_uuid, tag):
+        _validate_run_id(run_uuid)
+        _validate_tag_name(tag.key)
+        run = self.get_run(run_uuid)
+        tag_path = self._get_tag_path(run.info.experiment_id, run_uuid, tag.key)
+        make_containing_dirs(tag_path)
+        write_to(tag_path, "%s\n" % tag.value)
