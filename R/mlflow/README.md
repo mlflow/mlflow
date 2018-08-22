@@ -47,7 +47,7 @@ and activate a new experiment locally using `mlflow` as follows:
 
 ``` r
 library(mlflow)
-mlflow_experiment("Test")
+mlflow_set_active_experiment("Test")
 ```
 
 Then you can list your experiments directly from R,
@@ -58,7 +58,6 @@ mlflow_list_experiments()
 
     ##   experiment_id    name artifact_location
     ## 1             0 Default          mlruns/0
-    ## 2             1    Test          mlruns/1
 
 or using MLflows user interface by
 running:
@@ -156,7 +155,7 @@ The directory containing the model looks as follows:
 
 and the model definition `model/MLmodel` like:
 
-    ## time_created: 1.5347943e+09
+    ## time_created: 1.5349695e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
@@ -212,7 +211,7 @@ However, restoring dependencies is not automatic since it’s usually an
 expensive operation. To restore dependencies run:
 
 ``` r
-mlflow_restore()
+mlflow_restore_snapshot()
 ```
 
 Notice that the `MLFLOW_SNAPSHOT_CACHE` environment variable can be set

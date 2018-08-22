@@ -49,7 +49,7 @@ MLflow allows you to group runs under experiments, which can be useful for compa
 
 ```{r, message=FALSE}
 library(mlflow)
-mlflow_experiment("Test")
+mlflow_set_active_experiment("Test")
 ```
 
 Then you can list your experiments directly from R,
