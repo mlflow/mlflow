@@ -87,6 +87,14 @@ directory. The URI defaults to ``mlruns``.
 :py:func:`mlflow.create_experiment` creates a new experiment and returns its ID. Runs can be
 launched under the experiment by passing the experiment ID to ``mlflow.start_run``.
 
+:py:func:`mlflow.delete_experiment` deletes an active experiment. If the experiment is not found or
+was already deleted, the call will throw an Exception. Deleted experiments can be restored
+by calling ``mlflow.restore_experiment``.
+
+:py:func:`mlflow.restore_experiment` un-deletes an experiment and makes it ``ACTIVE`` again. If the
+experiment is active or cannot be found the call will throw an Exception. Implementation of
+deletion of experiment and time limit for restoring deleted experiments is left to backend stores.
+
 :py:func:`mlflow.start_run` returns the currently active run (if one exists), or starts a new run
 and returns a :py:class:`mlflow.tracking.ActiveRun` object usable as a context manager for the
 current run. You do not need to call ``start_run`` explicitly: calling one of the logging functions
