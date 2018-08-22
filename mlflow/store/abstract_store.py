@@ -42,7 +42,8 @@ class AbstractStore:
     @abstractmethod
     def get_experiment(self, experiment_id):
         """
-        Fetches the experiment from the backend store.
+        Fetches the experiment by ID from the backend store.
+        Throws an exception if experiment is not found or permanently deleted.
 
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
@@ -52,7 +53,8 @@ class AbstractStore:
     @abstractmethod
     def delete_experiment(self, experiment_id):
         """
-        Deletes the experiment from the backend store.
+        Deletes the experiment from the backend store. Deleted experiments can be restored until
+        permanently deleted.
 
         :param experiment_id: Integer id for the experiment
         """
@@ -61,7 +63,7 @@ class AbstractStore:
     @abstractmethod
     def restore_experiment(self, experiment_id):
         """
-        Restore deleted experiment.
+        Restore deleted experiment unless it is permanently deleted.
 
         :param experiment_id: Integer id for the experiment
         """

@@ -149,6 +149,12 @@ class FileStore(AbstractStore):
         return Experiment.from_dictionary(meta)
 
     def get_experiment(self, experiment_id):
+        """
+        Fetches the experiment. This will search for active as well as deleted experiments.
+
+        :param experiment_id: Integer id for the experiment
+        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        """
         return self._get_experiment(experiment_id)
 
     def get_experiment_by_name(self, name):

@@ -84,13 +84,11 @@ class MLflowService(object):
         )
 
     def delete_experiment(self, experiment_id):
-        """Deletes experiment with ID from backend store.
-        """
+        """Deletes experiment with ID from backend store."""
         return self.store.delete_experiment(experiment_id)
 
     def restore_experiment(self, experiment_id):
-        """Restore deleted experiment with ID.
-        """
+        """Restore deleted experiment with ID, unless permanently deleted."""
         return self.store.restore_experiment(experiment_id)
 
     def log_metric(self, run_id, key, value, timestamp=None):

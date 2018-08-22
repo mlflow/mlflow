@@ -153,10 +153,12 @@ def create_experiment(name, artifact_location=None):
 
 
 def delete_experiment(experiment_id):
+    """Deletes experiment with ID. Deleted experiments can be restored until permanently deleted."""
     return get_service().delete_experiment(experiment_id)
 
 
 def restore_experiment(experiment_id):
+    """Restore experiments to ACTIVE state, unless they are permanently deleted in backend store."""
     return get_service().restore_experiment(experiment_id)
 
 
