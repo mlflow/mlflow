@@ -9,7 +9,7 @@ of the intermediate results.
 At a high level, our goal is to predict a users' rating of a movie given
 a history of their ratings for various movies. This example is based
 on `this webinar <https://databricks.com/blog/2018/07/13/scalable-end-to-end-deep-learning-using-tensorflow-and-databricks-on-demand-webinar-and-faq-now-available.html>`_
-by @brookewenig and @smurching
+by @brookewenig and @smurching.
 
 There are four steps to this workflow:
 
@@ -26,12 +26,12 @@ There are four steps to this workflow:
   filtering on the Parquet version of MovieLens to estimate the
   movieFactors and userFactors. This produces a relatively accurate estimator.
 
-- **keras_train** (keras_train.py): Trains a neural network on the 
+- **keras** (train_keras.py): Trains a neural network on the 
   original data, supplemented by the ALS movie/userFactors -- we hope
   this can improve upon the ALS estimations.
 
 While we can run each of these steps manually, here we have a driver
-run, defined as **multistep** (multistep.py). This run will run
+run, defined as **main** (main.py). This run will run
 the steps in order, passing the results of one to the next. 
 Additionally, this run will attempt to determine if a sub-run has
 already been executed successfully with the same parameters and, if so,
@@ -47,9 +47,16 @@ run:
 .. code::
 
     cd examples/multistep
-    mlflow run . -e multistep
+    mlflow run .
 
 
 This will download and transform the MovieLens dataset, train an ALS 
 model, and then train a Keras model -- you can compare the results by 
 using ``mlflow ui``!
+
+You can also try changing the number of ALS iterations or Keras hidden
+units:
+
+.. code::
+
+    mlflow run . -P als_max_iter=20 -P keras_hidden_units=50

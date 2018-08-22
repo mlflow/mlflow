@@ -17,13 +17,17 @@ entry_points:
       max_iter: {type: int, default: 10}
       reg_param: {type: float, default: 0.1}
       rank: {type: int, default: 12}
-    command: "python als.py train_als --ratings-data {ratings_data} --max-iter {max_iter} --reg-param {reg_param} --rank {rank}"
+    command: "python als.py --ratings-data {ratings_data} --max-iter {max_iter} --reg-param {reg_param} --rank {rank}"
 
-  keras_train:
+  keras:
     parameters:
       ratings_data: path
       als_model_uri: string
-    command: "python keras_train.py keras_train --ratings-data {ratings_data} --als-model-uri {als_model_uri}"
+      hidden_units: {type: int, default: 20}
+    command: "python train_keras.py --ratings-data {ratings_data} --als-model-uri {als_model_uri} --hidden-units {hidden_units}"
 
-  multistep:
-    command: "python multistep.py workflow"
+  main:
+    parameters:
+      als_max_iter: {type: int, default: 10}
+      keras_hidden_units: {type: int, default: 20}
+    command: "python main.py --als-max-iter {als_max_iter} --keras-hidden-units {keras_hidden_units}"

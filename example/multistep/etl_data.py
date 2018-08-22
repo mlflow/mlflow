@@ -1,3 +1,11 @@
+"""
+Provides two steps:
+
+- load_raw_data downloads the MovieLens dataset and saves it as an artifact
+- etl_data converts the raw CSV form to a Parquet form with just the columns we want
+"""
+
+
 from __future__ import print_function
 
 import requests

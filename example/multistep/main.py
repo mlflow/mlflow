@@ -17,17 +17,12 @@ import six
 from mlflow.tracking.fluent import _get_experiment_id
 
 
-@click.group()
-def cli():
-    pass
-
-
 def _get_params(run):
     """Converts [mlflow.entities.Param] to a dictionary of {k: v}."""
     return {param.key: param.value for param in run.data.params}
 
 
-def _already_ran(entry_point_name, parameters, experiment_id=None):
+def _already_ran(entry_point_name, parameters, source_version, experiment_id=None):
     """Best-effort detection of if a run with the given entrypoint name,
     parameters, and experiment id already ran. The run must have completed
     successfully and have at least the parameters provided.
@@ -53,6 +48,9 @@ def _already_ran(entry_point_name, parameters, experiment_id=None):
         if run_info.status != RunStatus.FINISHED:
             eprint(("Run matched, but is not FINISHED, so skipping "
                     "(run_id=%s, status=%s)") % (run_info.run_uuid, run_info.status))
+        if run_info.source_version != source_version:
+            eprint(("Run matched, but has a different source version, so skipping "
+                    "(found=%s, expected=%s)") % (run_info.source_version, source_version))
             continue
         return service.get_run(run_info.run_uuid)
     return None
@@ -61,32 +59,41 @@ def _already_ran(entry_point_name, parameters, experiment_id=None):
 # TODO(aaron): This is not great because it doesn't account for:
 # - changes in code
 # - changes in dependant steps
-def _get_or_run(entrypoint, parameters, use_cache=True):
-    existing_run = _already_ran(entrypoint, parameters)
+def _get_or_run(entrypoint, parameters, source_version, use_cache=True):
+    existing_run = _already_ran(entrypoint, parameters, source_version)
     if use_cache and existing_run:
         print("Found existing run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
         return existing_run
-    print("Launchng new run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
+    print("Launching new run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
     submitted_run = mlflow.run(".", entrypoint, parameters=parameters)
     return mlflow.tracking.get_service().get_run(submitted_run.run_id)
 
 
-@cli.command()
-def workflow():
+@click.command()
+@click.option("--als-max-iter", default=10, type=int)
+@click.option("--keras-hidden-units", default=20, type=int)
+def workflow(als_max_iter, keras_hidden_units):
     # Note: The entrypoint names are defined in MLproject. The artifact directories
     # are documented by each step's .py file.
-    load_raw_data_run = _get_or_run("load_raw_data", {})
-    ratings_csv_uri = os.path.join(load_raw_data_run.info.artifact_uri, "ratings-csv-dir")
-    etl_data_run = _get_or_run("etl_data", {"ratings_csv": ratings_csv_uri})
-    ratings_parquet_uri = os.path.join(etl_data_run.info.artifact_uri, "ratings-parquet-dir")
+    with mlflow.start_run() as active_run:
+        source_version = active_run.info.source_version
+        load_raw_data_run = _get_or_run("load_raw_data", {}, source_version)
+        ratings_csv_uri = os.path.join(load_raw_data_run.info.artifact_uri, "ratings-csv-dir")
+        etl_data_run = _get_or_run("etl_data", {"ratings_csv": ratings_csv_uri}, source_version)
+        ratings_parquet_uri = os.path.join(etl_data_run.info.artifact_uri, "ratings-parquet-dir")
 
-    als_run = _get_or_run("als", {"ratings_data": ratings_parquet_uri, "max_iter": "10"})
-    als_model_uri = os.path.join(als_run.info.artifact_uri, "als-model")
+        als_run = _get_or_run("als", 
+                              {"ratings_data": ratings_parquet_uri, "max_iter": str(als_max_iter)},
+                              source_version)
+        als_model_uri = os.path.join(als_run.info.artifact_uri, "als-model")
 
-    _get_or_run("keras_train",
-                parameters={"ratings_data": ratings_parquet_uri, "als_model_uri": als_model_uri},
-                use_cache=False)
+        keras_params = {
+            "ratings_data": ratings_parquet_uri,
+            "als_model_uri": als_model_uri,
+            "hidden_units": keras_hidden_units,
+        }
+        _get_or_run("keras", keras_params, source_version, use_cache=False)
 
 
 if __name__ == '__main__':
-    cli()
+    workflow()

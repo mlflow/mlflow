@@ -1,3 +1,8 @@
+"""
+Trains an Alternating Least Squares (ALS) model for user/movie ratings.
+The input is a Parquet ratings dataset (see etl_data.py), and we output
+an mlflow artifact called 'als-model'.
+"""
 import click
 
 import mlflow
@@ -9,14 +14,7 @@ from pyspark.ml.recommendation import ALS
 from pyspark.ml.evaluation import RegressionEvaluator
 
 
-@click.group()
-def cli():
-    pass
-
-
-@cli.command(help="Trains an ALS model for user/movie ratings. The input is a Parquet "
-                  "ratings dataset (see etl_data.py), and we output an mlflow artifact "
-                  "called 'als-model'")
+@click.command()
 @click.option("--ratings-data")
 @click.option("--split-prop", default=0.8, type=float)
 @click.option("--max-iter", default=10, type=int)
@@ -27,7 +25,7 @@ def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_st
     seed = 42
 
     spark = (pyspark.sql.SparkSession.builder \
-             .config("spark.driver.memory", "2g") \
+             .config("spark.driver.memory", "4g") \
              .getOrCreate())
 
     ratingsDF = spark.read.parquet(ratings_data)
@@ -68,4 +66,4 @@ def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_st
 
 
 if __name__ == '__main__':
-    cli()
+    train_als()
