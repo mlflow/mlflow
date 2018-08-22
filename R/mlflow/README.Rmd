@@ -133,20 +133,20 @@ Each MLflow Model is simply a directory containing arbitrary files, together wit
 
 The directory containing the model looks as follows:
 
-```{r echo=FALSE}
+```{r}
 dir("model")
 ```
 
 and the model definition `model/MLmodel` like:
 
-```{r echo=FALSE}
+```{r}
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
-Later on, the model can be deployed which will perform predictions using `mlflow_predict()`:
+Later on, the R model can be deployed which will perform predictions using `mlflow_rfunc_predict()`:
 
-```{r, eval = FALSE}
-mlflow_predict("model", iris)
+```{r}
+mlflow_rfunc_predict("model", iris)
 ```
 
 ## Deployment
@@ -176,7 +176,7 @@ mlflow rfunc predict model data.json
 which is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow_predict('model', 'data.json')"
+Rscript -e "mlflow_rfunc_predict('model', 'data.json')"
 ```
 
 ## Dependencies

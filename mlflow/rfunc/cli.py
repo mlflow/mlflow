@@ -60,5 +60,5 @@ def predict(model_path, run_id, input_path, output_path):
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
 
-    command = "mlflow::mlflow_predict('{0}', '{1}', '{2}')".format(model_path, input_path, str_optional(output_path))
+    command = "mlflow::mlflow_rfunc_predict('{0}', '{1}', '{2}')".format(model_path, input_path, str_optional(output_path))
     execute(command)

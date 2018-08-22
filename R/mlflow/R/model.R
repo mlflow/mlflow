@@ -62,9 +62,9 @@ mlflow_predict_model <- function(model, df) {
   do.call(model$r_function, args = model$context)
 }
 
-#' Predict using MLflow Model
+#' Predict using RFunc MLflow Model
 #'
-#' Predict using a MLflow Model from a 'JSON' file.
+#' Predict using an RFunc MLflow Model from a file or data frame.
 #'
 #' @param model_dir The path to the MLflow model, as a string.
 #' @param data Data frame, 'JSON' or 'CSV' file to be used for prediction.
@@ -81,14 +81,14 @@ mlflow_predict_model <- function(model, df) {
 #' # save data as json
 #' jsonlite::write_json(iris, "iris.json")
 #'
-#' # serve an existing model over a web interface
-#' mlflow_predict("mlflow_roundtrip", "iris.json")
+#' # predict existing model from json data
+#' mlflow_rfunc_predict("mlflow_roundtrip", "iris.json")
 #' }
 #'
 #' @importFrom utils read.csv
 #' @importFrom utils write.csv
 #' @export
-mlflow_predict <- function(
+mlflow_rfunc_predict <- function(
   model_dir,
   data,
   output_file = NULL,
