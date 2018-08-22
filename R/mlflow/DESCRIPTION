@@ -14,6 +14,7 @@ Depends:
 Imports:
   aws.s3,
   config,
+  forge,
   fs,
   git2r,
   httpuv,
