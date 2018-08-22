@@ -10,6 +10,9 @@ mlflow_active_run()
 
 mlflow_set_active_run(run)
 }
+\arguments{
+\item{run}{The run object to make active.}
+}
 \description{
 Retrieves or sets the active run.
 }

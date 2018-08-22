@@ -49,7 +49,7 @@ MLflow allows you to group runs under experiments, which can be useful for compa
 
 ```{r, message=FALSE}
 library(mlflow)
-mlflow_experiment("Test")
+mlflow_set_active_experiment("Test")
 ```
 
 Then you can list your experiments directly from R,
@@ -133,20 +133,20 @@ Each MLflow Model is simply a directory containing arbitrary files, together wit
 
 The directory containing the model looks as follows:
 
-```{r echo=FALSE}
+```{r}
 dir("model")
 ```
 
 and the model definition `model/MLmodel` like:
 
-```{r echo=FALSE}
+```{r}
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
-Later on, the model can be deployed which will perform predictions using `mlflow_predict()`:
+Later on, the R model can be deployed which will perform predictions using `mlflow_rfunc_predict()`:
 
-```{r, eval = FALSE}
-mlflow_predict("model", iris)
+```{r}
+mlflow_rfunc_predict("model", iris)
 ```
 
 ## Deployment
@@ -162,7 +162,7 @@ mlflow rfunc serve model
 which is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow_serve('model')"
+Rscript -e "mlflow_rfunc_serve('model')"
 ```
 
 <img src="tools/readme/mlflow-serve-rfunc.png" class="screenshot" width=520 />
@@ -176,7 +176,7 @@ mlflow rfunc predict model data.json
 which is equivalent to running,
 
 ```{bash eval=FALSE}
-Rscript -e "mlflow_predict('model', 'data.json')"
+Rscript -e "mlflow_rfunc_predict('model', 'data.json')"
 ```
 
 ## Dependencies
@@ -186,7 +186,7 @@ When running a project, `mlflow_snapshot()` is automatically called to generate 
 However, restoring dependencies is not automatic since it's usually an expensive operation. To restore dependencies run:
 
 ```{r eval=FALSE}
-mlflow_restore()
+mlflow_restore_snapshot()
 ```
 
 Notice that the `MLFLOW_SNAPSHOT_CACHE` environment variable can be set to a cache directory to improve the time required to restore dependencies.

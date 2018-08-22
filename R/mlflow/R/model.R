@@ -49,7 +49,6 @@ mlflow_save_model <- function(f, path = "model") {
   )
 }
 
-#' @export
 mlflow_load_model <- function(model_dir) {
   spec <- yaml::read_yaml(fs::path(model_dir, "MLmodel"))
 
@@ -59,19 +58,18 @@ mlflow_load_model <- function(model_dir) {
   unserialize(readRDS(fs::path(model_dir, spec$flavors$r_function$model)))
 }
 
-#' @export
 mlflow_predict_model <- function(model, df) {
   do.call(model$r_function, args = model$context)
 }
 
-#' Predict using MLflow Model
+#' Predict using RFunc MLflow Model
 #'
-#' Predict using a MLflow Model from a 'JSON' file.
+#' Predict using an RFunc MLflow Model from a file or data frame.
 #'
 #' @param model_dir The path to the MLflow model, as a string.
 #' @param data Data frame, 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_file 'JSON' or 'CSV' file where the prediction will be written to.
-#' @param restore Should \code{mlflow_restore()} be called before serving?
+#' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
 #'
 #' @examples
 #' \dontrun{
@@ -83,18 +81,20 @@ mlflow_predict_model <- function(model, df) {
 #' # save data as json
 #' jsonlite::write_json(iris, "iris.json")
 #'
-#' # serve an existing model over a web interface
-#' mlflow_predict("mlflow_roundtrip", "iris.json")
+#' # predict existing model from json data
+#' mlflow_rfunc_predict("mlflow_roundtrip", "iris.json")
 #' }
 #'
+#' @importFrom utils read.csv
+#' @importFrom utils write.csv
 #' @export
-mlflow_predict <- function(
+mlflow_rfunc_predict <- function(
   model_dir,
   data,
   output_file = NULL,
   restore = FALSE
 ) {
-  if (restore) mlflow_restore()
+  mlflow_restore_or_warning(restore)
 
   if (is.character(data))
   {
@@ -120,7 +120,7 @@ mlflow_predict <- function(
     switch(
       fs::path_ext(output_file),
       json = jsonlite::write_json(prediction, output_file),
-      csv = write.csv(prediction, data_file, row.names = FALSE),
+      csv = write.csv(prediction, output_file, row.names = FALSE),
       stop("Unsupported output file format.")
     )
   }

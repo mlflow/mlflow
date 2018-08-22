@@ -12,25 +12,26 @@ LazyData: true
 Depends:
   R (>= 3.1.2)
 Imports:
-    aws.s3,
-    config,
-    fs,
-    git2r,
-    httpuv,
-    httr,
-    jsonlite,
-    processx,
-    reticulate,
-    rlang,
-    packrat,
-    purrr,
-    swagger,
-    withr,
-    xml2,
-    yaml,
-    forge
-RoxygenNote: 6.0.1
+  aws.s3,
+  config,
+  forge,
+  fs,
+  git2r,
+  httpuv,
+  httr,
+  jsonlite,
+  openssl,
+  processx,
+  reticulate,
+  rlang,
+  packrat,
+  purrr,
+  swagger,
+  withr,
+  xml2,
+  yaml
+RoxygenNote: 6.1.0
 Suggests: 
   testthat
-Remotes:  
-    kevinykuo/forge
+Remotes: 
+  kevinykuo/forge

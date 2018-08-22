@@ -4,6 +4,7 @@
 #'
 #' @param uri A directory or an R script.
 #' @param entry_point Entry point within project, defaults to `main` if not specified.
+#' @param version Version of the project to run, as a Git commit reference for Git projects.
 #' @param param_list A list of parameters.
 #' @param experiment_id ID of the experiment under which to launch the run.
 #' @param mode Execution mode to use for run.

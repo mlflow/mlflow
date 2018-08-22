@@ -100,11 +100,11 @@ mlflow_log_artifact_impl <- function(artifact_uri, path) {
 }
 
 mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path) {
-  if (!dir.exists(destination_path)) {
-    dir.create(destination_path, recursive = TRUE)
+  if (!dir.exists(artifact_uri)) {
+    dir.create(artifact_uri, recursive = TRUE)
   }
 
-  file.copy(path, destination_path)
+  file.copy(path, artifact_uri)
   invisible(NULL)
 }
 
@@ -123,6 +123,7 @@ mlflow_log_artifact_impl.s3_artifact <- function(artifact_uri, path) {
   invisible(NULL)
 }
 
+#' @importFrom utils installed.packages
 mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path) {
   if (!"googleCloudStorageR" %in% installed.packages()) {
     stop("The package 'googleCloudStorageR' is currently required but not installed, ",
@@ -135,7 +136,7 @@ mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path) {
 
   bucket <- mlflow_parse_bucket(artifact_uri)
 
-  gcs_upload(file = filename,
+  gcs_upload(file = path,
              bucket = bucket$name,
              name = fs::path(bucket$path, file_name))
 
@@ -143,7 +144,6 @@ mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path) {
 }
 
 mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path) {
-  file_name <- basename(path)
   bucket <- mlflow_parse_bucket(artifact_uri)
 
   processx::run("az",
@@ -152,8 +152,8 @@ mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path) {
                 "upload",
                 "--container-name",
                 bucket$name,
-                " --file",
-                filename,
+                "--file",
+                path,
                 "--name",
                 bucket$path,
                 echo = TRUE)

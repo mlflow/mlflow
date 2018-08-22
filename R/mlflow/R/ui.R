@@ -1,6 +1,8 @@
 #' @importFrom utils browseURL
 mlflow_view_url <- function(url) {
   getOption("page_viewer", browseURL)(url)
+
+  invisible(url)
 }
 
 #' MLflow User Interface

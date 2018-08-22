@@ -9,6 +9,7 @@ mlflow_active_experiment <- function() {
 }
 
 #' @rdname active_experiment
+#' @param experiment_id Identifer to get an experiment.
 #' @export
 mlflow_set_active_experiment <- function(experiment_id) {
   .globals$active_experiment <- experiment_id
@@ -26,6 +27,7 @@ mlflow_active_run <- function() {
 }
 
 #' @rdname active_run
+#' @param run The run object to make active.
 #' @export
 mlflow_set_active_run <- function(run) {
   .globals$active_run <- run
@@ -140,8 +142,8 @@ new_mlflow_active_run <- function(run_info) {
 }
 
 #' @export
-with.mlflow_active_run <- function(x, code) {
-  runid <- as.character(x$run_info$run_uuid)
+with.mlflow_active_run <- function(data, expr, ...) {
+  runid <- as.character(data$run_info$run_uuid)
 
   tryCatch(
     error = function(cnd) {
@@ -152,7 +154,7 @@ with.mlflow_active_run <- function(x, code) {
       run_uuid = runid, status = "KILLED", end_time = current_time()
     ),
     {
-      force(code)
+      force(expr)
       mlflow_end_run()
     }
   )

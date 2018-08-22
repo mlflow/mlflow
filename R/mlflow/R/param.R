@@ -8,6 +8,7 @@
 #'  must be one of "numeric", "integer", or "string".
 #' @param description Optional description for this parameter.
 #'
+#' @import forge
 #' @export
 mlflow_param <- function(name, default = NULL, type = NULL, description = NULL) {
   target_type <- forge::cast_choice(

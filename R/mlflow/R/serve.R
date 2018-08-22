@@ -1,6 +1,6 @@
-#' Serve a MLflow Model
+#' Serve an RFunc MLflow Model
 #'
-#' Serve a MLflow Model as a local web api under \url{http://localhost:8090}.
+#' Serve an RFunc MLflow Model as a local web api under \url{http://localhost:8090}.
 #'
 #' @param model_dir The path to the MLflow model, as a string.
 #' @param host Address to use to serve model, as a string.
@@ -9,7 +9,7 @@
 #'   are not blocked to handle requests. To terminate a daemonized server, call
 #'   'httpuv::stopDaemonizedServer()' with the handle returned from this call.
 #' @param browse Launch browser with serving landing page?
-#' @param restore Should \code{mlflow_restore()} be called before serving?
+#' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
 #'
 #' @examples
 #' \dontrun{
@@ -19,7 +19,7 @@
 #' mlflow_save_model(function(df) 1, "mlflow_constant")
 #'
 #' # serve an existing model over a web interface
-#' mlflow_serve("mlflow_constant")
+#' mlflow_rfunc_serve("mlflow_constant")
 #'
 #' # request prediction from server
 #' httr::POST("http://127.0.0.1:8090/predict/")
@@ -29,7 +29,7 @@
 #' @importFrom jsonlite fromJSON
 #' @import swagger
 #' @export
-mlflow_serve <- function(
+mlflow_rfunc_serve <- function(
   model_dir,
   host = "127.0.0.1",
   port = 8090,
@@ -37,7 +37,7 @@ mlflow_serve <- function(
   browse = !daemonized,
   restore = FALSE
 ) {
-  if (restore) mlflow_restore()
+  mlflow_restore_or_warning(restore)
 
   httpuv_start <- if (daemonized) startDaemonizedServer else runServer
   serve_run(model_dir, host, port, httpuv_start, browse && interactive())

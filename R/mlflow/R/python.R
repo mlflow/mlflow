@@ -9,7 +9,7 @@ python_bin_conda <- function() {
   mlflow_env$python
 }
 
-python_bin <- function(conda = python_use_conda()) {
+python_bin <- function() {
   if (is.null(.globals$python_bin)) {
     python <- python_bin_conda()
     .globals$python_bin <- path.expand(python)

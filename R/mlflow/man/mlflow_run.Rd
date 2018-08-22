@@ -4,15 +4,17 @@
 \alias{mlflow_run}
 \title{Run in MLflow}
 \usage{
-mlflow_run(uri, entry_point = NULL, version = NULL, param_list = NULL,
-  experiment_id = NULL, mode = NULL, cluster_spec = NULL,
-  git_username = NULL, git_password = NULL, no_conda = FALSE,
-  storage_dir = NULL)
+mlflow_run(uri, entry_point = NULL, version = NULL,
+  param_list = NULL, experiment_id = NULL, mode = NULL,
+  cluster_spec = NULL, git_username = NULL, git_password = NULL,
+  no_conda = FALSE, storage_dir = NULL)
 }
 \arguments{
 \item{uri}{A directory or an R script.}
 
 \item{entry_point}{Entry point within project, defaults to `main` if not specified.}
+
+\item{version}{Version of the project to run, as a Git commit reference for Git projects.}
 
 \item{param_list}{A list of parameters.}
 

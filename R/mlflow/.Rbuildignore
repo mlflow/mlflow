@@ -1,4 +1,10 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
-^mlruns$
+mlruns
 ^mlflow-model$
+packrat
+^\.travis\.R$
+^README.Rmd$
+^docs$
+^model$
+^r-dependencies.txt$
