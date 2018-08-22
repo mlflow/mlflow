@@ -71,7 +71,7 @@ public class ScoringServerTest {
     }
 
     try {
-      ScoringServer server = new ScoringServer(badModelPath, 5001);
+      ScoringServer server = new ScoringServer(badModelPath);
       Assert.fail("Expected constructing a model server with an invalid model path"
           + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
@@ -220,16 +220,29 @@ public class ScoringServerTest {
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(predictor);
     server.start();
-    Assert.asserEqual(server.isActive(), true);
+    Assert.assertEquals(server.isActive(), true);
     Optional<Integer> portNumber = server.getPort();
     Assert.assertEquals(portNumber.isPresent(), true);
+    server.stop();
   }
 
-  // @Test
-  // public void testServerStartsOnSpecifiedPortOrThrows() throws Exception {
-  //   int portNumber = 6783;
-  //   TestPredictor predictor = new TestPredictor(true);
-  //   ScoringServer server = new ScoringServer(predictor, portNumber);
-  //   server.start();
-  // }
+  @Test
+  public void testServerStartsOnSpecifiedPortOrThrows() throws Exception {
+    int portNumber = 6783;
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server1 = new ScoringServer(predictor);
+    server1.start(portNumber);
+    Assert.assertEquals(server1.isActive(), true);
+
+    ScoringServer server2 = new ScoringServer(predictor);
+    try {
+      server2.start(portNumber);
+      Assert.fail(
+          "Expected starting a new server on a port that is already bound to throw an exception.");
+    } catch (Exception e) {
+      // Success
+    }
+    server1.stop();
+    server2.stop();
+  }
 }

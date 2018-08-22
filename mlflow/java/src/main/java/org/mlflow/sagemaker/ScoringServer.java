@@ -64,25 +64,10 @@ public class ScoringServer {
    * on a randomly-selected available port
    */
   public ScoringServer(Predictor predictor) {
-    this(predictor, Optional.empty());
-  }
-
-  /**
-   * Constructs a {@link ScoringServer} to serve the specified {@link Predictor} on the local host
-   * at the specified port
-   */
-  public ScoringServer(Predictor predictor, int portNumber) {
-    this(predictor, Optional.of(portNumber));
-  }
-
-  private ScoringServer(Predictor predictor, Optional<Integer> portNumber) {
     this.server = new Server(new QueuedThreadPool(MAXIMUM_SERVER_THREADS, MINIMUM_SERVER_THREADS));
     this.server.setStopAtShutdown(true);
 
     this.httpConnector = new ServerConnector(this.server, new HttpConnectionFactory());
-    if (portNumber.isPresent()) {
-      httpConnector.setPort(portNumber.get());
-    }
     this.server.addConnector(this.httpConnector);
 
     ServletContextHandler rootContextHandler = new ServletContextHandler(null, "/");
@@ -94,22 +79,12 @@ public class ScoringServer {
 
   /**
    * Loads the MLFlow model at the specified path as a {@link Predictor} and serves it on the local
-   * on a randomly-selected available port
-   *
-   * @param modelPath The path to the MLFlow model to serve
-   */
-  public ScoringServer(String modelPath) throws PredictorLoadingException {
-    this(loadPredictorFromPath(modelPath), Optional.empty());
-  }
-
-  /**
-   * Loads the MLFlow model at the specified path as a {@link Predictor} and serves it on the local
    * host at the specified port
    *
    * @param modelPath The path to the MLFlow model to serve
    */
-  public ScoringServer(String modelPath, int portNumber) throws PredictorLoadingException {
-    this(loadPredictorFromPath(modelPath), Optional.of(portNumber));
+  public ScoringServer(String modelPath) throws PredictorLoadingException {
+    this(loadPredictorFromPath(modelPath));
   }
 
   private static Predictor loadPredictorFromPath(String modelPath)
@@ -128,7 +103,19 @@ public class ScoringServer {
    * Starts the scoring server on the local host
    */
   public void start() throws Exception {
-    this.server.start();
+    // Setting port zero instructs Jetty to select a random port
+    start(0);
+  }
+
+  public void start(int portNumber) throws Exception {
+    if (!isActive()) {
+      this.httpConnector.setPort(portNumber);
+      this.server.start();
+    } else {
+      int activePort = this.httpConnector.getLocalPort();
+      throw new IllegalStateException(String.format(
+          "Attempted to start a server that is already active on port %d", activePort));
+    }
   }
 
   /**
@@ -250,9 +237,9 @@ public class ScoringServer {
     if (args.length > 1) {
       portNum = Optional.of(Integer.parseInt(args[2]));
     }
-    ScoringServer server = new ScoringServer(modelPath, portNum.orElse(8080));
+    ScoringServer server = new ScoringServer(modelPath);
     try {
-      server.start();
+      server.start(8080);
     } catch (Exception e) {
       e.printStackTrace();
     }
