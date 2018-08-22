@@ -1,31 +1,28 @@
 package org.mlflow.sagemaker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
-import javax.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.junit.Assert;
-import org.junit.After;
-import org.junit.Test;
-import org.mlflow.utils.SerializationUtils;
-import org.apache.http.impl.client.HttpClientBuilder;
+import java.util.stream.Collectors;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.HttpResponse;
-import org.apache.http.StatusLine;
 import org.apache.http.conn.HttpHostConnectException;
-import org.apache.http.HttpEntity;
-import java.util.stream.Collectors;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.junit.Assert;
+import org.junit.Test;
+import org.mlflow.utils.SerializationUtils;
 
 public class ScoringServerTest {
   private class TestPredictor extends Predictor {
@@ -56,9 +53,10 @@ public class ScoringServerTest {
 
   private static String getHttpResponseBody(HttpResponse response) throws IOException {
     InputStream responseContentStream = response.getEntity().getContent();
-    String body = new BufferedReader(new InputStreamReader(responseContentStream))
-                      .lines()
-                      .collect(Collectors.joining(System.lineSeparator()));
+    String body =
+        new BufferedReader(new InputStreamReader(responseContentStream))
+            .lines()
+            .collect(Collectors.joining(System.lineSeparator()));
     return body;
   }
 
@@ -80,16 +78,18 @@ public class ScoringServerTest {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
       // Succeed
     }
 
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail("Expected constructing a model server with an invalid model path"
-          + " to throw an exception, but none was thrown.");
+      Assert.fail(
+          "Expected constructing a model server with an invalid model path"
+              + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
       // Succeed
     }

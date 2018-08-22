@@ -5,18 +5,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.mlflow.mleap.MLeapLoader;
-import org.mlflow.models.Model;
-
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.server.HttpConnectionFactory;
-import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
+import org.mlflow.mleap.MLeapLoader;
+import org.mlflow.models.Model;
 
 /** A RESTful webserver for {@link Predictor Predictors} that runs on the local host */
 public class ScoringServer {
@@ -101,7 +100,7 @@ public class ScoringServer {
    *
    * @throws IllegalStateException If the server is already active on another port
    * @throws ServerStateChangeException If the server failed to start and was inactive prior to the
-   * invocation of this method
+   *     invocation of this method
    */
   public void start() {
     // Setting port zero instructs Jetty to select a random port
@@ -113,13 +112,14 @@ public class ScoringServer {
    *
    * @throws IllegalStateException If the server is already active on another port
    * @throws ServerStateChangeException If the server failed to start and was inactive prior to the
-   * invocation of this method
+   *     invocation of this method
    */
   public void start(int portNumber) {
     if (isActive()) {
       int activePort = this.httpConnector.getLocalPort();
-      throw new IllegalStateException(String.format(
-          "Attempted to start a server that is already active on port %d", activePort));
+      throw new IllegalStateException(
+          String.format(
+              "Attempted to start a server that is already active on port %d", activePort));
     }
 
     this.httpConnector.setPort(portNumber);
@@ -135,7 +135,7 @@ public class ScoringServer {
    *
    * @throws IllegalStateException If the server is already active on another port
    * @throws ServerStateChangeException If the server failed to start and was inactive prior to the
-   * invocation of this method
+   *     invocation of this method
    */
   public void stop() {
     try {
@@ -152,9 +152,8 @@ public class ScoringServer {
   }
 
   /**
-   * @return Optional that either:
-   * - Contains the port on which the server is running, if the server is active
-   * - Is empty, if the server is not active
+   * @return Optional that either: - Contains the port on which the server is running, if the server
+   *     is active - Is empty, if the server is not active
    */
   public Optional<Integer> getPort() {
     int boundPort = this.httpConnector.getLocalPort();
@@ -216,28 +215,30 @@ public class ScoringServer {
     private String evaluateRequest(String requestContent, RequestContentType contentType)
         throws PredictorEvaluationException, InvalidRequestTypeException {
       switch (contentType) {
-        case Json: {
-          DataFrame parsedInput = null;
-          try {
-            parsedInput = DataFrame.fromJson(requestContent);
-          } catch (UnsupportedOperationException e) {
-            throw new PredictorEvaluationException(
-                "This model does not yet support evaluating JSON inputs.");
+        case Json:
+          {
+            DataFrame parsedInput = null;
+            try {
+              parsedInput = DataFrame.fromJson(requestContent);
+            } catch (UnsupportedOperationException e) {
+              throw new PredictorEvaluationException(
+                  "This model does not yet support evaluating JSON inputs.");
+            }
+            DataFrame result = predictor.predict(parsedInput);
+            return result.toJson();
           }
-          DataFrame result = predictor.predict(parsedInput);
-          return result.toJson();
-        }
-        case Csv: {
-          DataFrame parsedInput = null;
-          try {
-            parsedInput = DataFrame.fromCsv(requestContent);
-          } catch (UnsupportedOperationException e) {
-            throw new PredictorEvaluationException(
-                "This model does not yet support evaluating CSV inputs.");
+        case Csv:
+          {
+            DataFrame parsedInput = null;
+            try {
+              parsedInput = DataFrame.fromCsv(requestContent);
+            } catch (UnsupportedOperationException e) {
+              throw new PredictorEvaluationException(
+                  "This model does not yet support evaluating CSV inputs.");
+            }
+            DataFrame result = predictor.predict(parsedInput);
+            return result.toCsv();
           }
-          DataFrame result = predictor.predict(parsedInput);
-          return result.toCsv();
-        }
         default:
           throw new InvalidRequestTypeException(
               "Invocations content must be of content type `application/json` or `text/csv`");
