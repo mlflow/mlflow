@@ -119,7 +119,7 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
 #' @export
 mlflow_connect <- function(x = NULL, activate = TRUE, ...) {
   mc <- if (!is.null(x) && startsWith(x, "http")) {
-    new_mlflow_connection(x = x, handle = handle)
+    new_mlflow_connection(x = x)
   } else {
     dots <- list(...)
     dots[["port"]] <- dots[["port"]] %||% mlflow_connect_port()
