@@ -135,7 +135,7 @@ mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path) {
 
   bucket <- mlflow_parse_bucket(artifact_uri)
 
-  gcs_upload(file = filename,
+  gcs_upload(file = path,
              bucket = bucket$name,
              name = fs::path(bucket$path, file_name))
 
@@ -143,7 +143,6 @@ mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path) {
 }
 
 mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path) {
-  file_name <- basename(path)
   bucket <- mlflow_parse_bucket(artifact_uri)
 
   processx::run("az",
@@ -152,8 +151,8 @@ mlflow_log_artifact_impl.azure_artifact <- function(artifact_uri, path) {
                 "upload",
                 "--container-name",
                 bucket$name,
-                " --file",
-                filename,
+                "--file",
+                path,
                 "--name",
                 bucket$path,
                 echo = TRUE)
