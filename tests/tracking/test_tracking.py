@@ -47,6 +47,7 @@ def test_get_experiment_by_id():
 
     try:
         tracking.set_tracking_uri(tempfile.mkdtemp())
+        service = get_service()
         exp_id = mlflow.create_experiment(
             "Some random experiment name %d" % random.randint(1, 1e6))
         assert exp_id is not None
