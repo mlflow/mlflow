@@ -13,7 +13,7 @@ from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
-    UpdateRun, LogMetric, LogParam, ListExperiments, GetMetric, GetParam
+    UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 
@@ -127,7 +127,7 @@ def _create_run():
         source_type=request_message.source_type,
         source_name=request_message.source_name,
         entry_point_name=request_message.entry_point_name,
-        start_time=request_message.start_time or int(time.time()),
+        start_time=request_message.start_time or int(time.time() * 1000),
         source_version=request_message.source_version,
         tags=tags)
 
@@ -163,6 +163,16 @@ def _log_param():
     param = Param(request_message.key, request_message.value)
     _get_store().log_param(request_message.run_uuid, param)
     response_message = LogParam.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(_message_to_json(response_message))
+    return response
+
+
+def _set_tag():
+    request_message = _get_request_message(SetTag())
+    tag = RunTag(request_message.key, request_message.value)
+    _get_store().set_tag(request_message.run_uuid, tag)
+    response_message = SetTag.Response()
     response = Response(mimetype='application/json')
     response.set_data(_message_to_json(response_message))
     return response
@@ -287,6 +297,7 @@ HANDLERS = {
     UpdateRun: _update_run,
     LogParam: _log_param,
     LogMetric: _log_metric,
+    SetTag: _set_tag,
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,

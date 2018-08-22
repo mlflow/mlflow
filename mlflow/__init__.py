@@ -37,6 +37,7 @@ import mlflow.tracking.fluent
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
 log_metric = mlflow.tracking.fluent.log_metric
+set_tag = mlflow.tracking.fluent.set_tag
 log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
 active_run = mlflow.tracking.fluent.active_run
@@ -51,5 +52,6 @@ create_experiment = mlflow.tracking.fluent.create_experiment
 run = projects.run
 
 
-__all__ = ["ActiveRun", "log_param", "log_metric", "log_artifacts", "log_artifact", "active_run",
-           "start_run", "end_run", "get_artifact_uri", "set_tracking_uri", "create_experiment"]
+__all__ = ["ActiveRun", "log_param", "log_metric", "set_tag", "log_artifacts", "log_artifact",
+           "active_run", "start_run", "end_run", "get_artifact_uri", "set_tracking_uri",
+           "create_experiment", "run"]
