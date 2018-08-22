@@ -14,7 +14,7 @@ def cli():
     pass
 
 
-@cli.command(help="Downloads the movielens dataset and saves it as an mlflow artifact "
+@cli.command(help="Downloads the MovieLens dataset and saves it as an mlflow artifact "
                   " called 'ratings-csv-dir'.")
 @click.option("--url", default="http://files.grouplens.org/datasets/movielens/ml-20m.zip")
 def load_raw_data(url):

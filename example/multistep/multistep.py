@@ -1,5 +1,5 @@
 """
-Downloads the movielens dataset, ETLs it into Parquet, trains an
+Downloads the MovieLens dataset, ETLs it into Parquet, trains an
 ALS model, and uses the ALS model to train a Keras neural network.
 
 See README.rst for more details.

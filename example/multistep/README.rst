@@ -7,22 +7,24 @@ interface between the steps, as well as allowing for caching and reuse
 of the intermediate results.
 
 At a high level, our goal is to predict a users' rating of a movie given
-a history of their ratings for various movies.
+a history of their ratings for various movies. This example is based
+on `this webinar<https://databricks.com/blog/2018/07/13/scalable-end-to-end-deep-learning-using-tensorflow-and-databricks-on-demand-webinar-and-faq-now-available.html>`
+by @brookewenig and @smurching
 
 There are four steps to this workflow:
 
-- **load_raw_data** (etl_data.py): Downloads the movielens dataset
+- **load_raw_data** (etl_data.py): Downloads the MovieLens dataset
   (a set of triples of user id, movie id, and rating) as a CSV and puts
   it into the artifact store.
 
-- **etl_data** (etl_data.py): Converts the movielens CSV from the 
+- **etl_data** (etl_data.py): Converts the MovieLens CSV from the 
   previous step into Parquet, dropping unnecessary columns along the way.
   This reduces the input size from 500 MB to 49 MB, and allows columnar 
   access of the data.
 
-- **als** (als.py): Runs ALS on the Parquet version of movielens to 
-  estimate the movieFactors and userFactors. This produces a relatively
-  accurate estimator.
+- **als** (als.py): Runs Alternating Least Squares for collaborative
+  filtering on the Parquet version of MovieLens to estimate the
+  movieFactors and userFactors. This produces a relatively accurate estimator.
 
 - **keras_train** (keras_train.py): Trains a neural network on the 
   original data, supplemented by the ALS movie/userFactors -- we hope
@@ -48,6 +50,6 @@ run:
     mlflow run . -e multistep
 
 
-This will download and transform the movielens dataset, train an ALS 
+This will download and transform the MovieLens dataset, train an ALS 
 model, and then train a Keras model -- you can compare the results by 
 using ``mlflow ui``!
