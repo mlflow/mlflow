@@ -85,6 +85,8 @@ mlflow_predict_model <- function(model, df) {
 #' mlflow_predict("mlflow_roundtrip", "iris.json")
 #' }
 #'
+#' @importFrom utils read.csv
+#' @importFrom utils write.csv
 #' @export
 mlflow_predict <- function(
   model_dir,
@@ -118,7 +120,7 @@ mlflow_predict <- function(
     switch(
       fs::path_ext(output_file),
       json = jsonlite::write_json(prediction, output_file),
-      csv = write.csv(prediction, data_file, row.names = FALSE),
+      csv = write.csv(prediction, output_file, row.names = FALSE),
       stop("Unsupported output file format.")
     )
   }
