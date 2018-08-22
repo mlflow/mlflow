@@ -1,5 +1,4 @@
 from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.entities.run_tag import RunTag
 
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 

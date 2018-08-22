@@ -1,7 +1,7 @@
 import unittest
 import uuid
 
-from mlflow.entities import RunInfo, RunTag
+from mlflow.entities import RunInfo
 from tests.helper_functions import random_str, random_int
 
 
