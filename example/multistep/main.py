@@ -48,6 +48,7 @@ def _already_ran(entry_point_name, parameters, source_version, experiment_id=Non
         if run_info.status != RunStatus.FINISHED:
             eprint(("Run matched, but is not FINISHED, so skipping "
                     "(run_id=%s, status=%s)") % (run_info.run_uuid, run_info.status))
+            continue
         if run_info.source_version != source_version:
             eprint(("Run matched, but has a different source version, so skipping "
                     "(found=%s, expected=%s)") % (run_info.source_version, source_version))
