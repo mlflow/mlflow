@@ -28,7 +28,7 @@ python --version
 pip install --upgrade pip
 pip install -r dev-requirements.txt -q
 if [[ "$MLFLOW_TEST_REQUIREMENTS" != "false" ]]; then
-  echo "pip install -r test-requirements.txt -q";
+  pip install -r test-requirements.txt -q;
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)
