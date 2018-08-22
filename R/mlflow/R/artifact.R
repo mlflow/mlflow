@@ -123,6 +123,7 @@ mlflow_log_artifact_impl.s3_artifact <- function(artifact_uri, path) {
   invisible(NULL)
 }
 
+#' @importFrom utils installed.packages
 mlflow_log_artifact_impl.google_artifact <- function(artifact_uri, path) {
   if (!"googleCloudStorageR" %in% installed.packages()) {
     stop("The package 'googleCloudStorageR' is currently required but not installed, ",
