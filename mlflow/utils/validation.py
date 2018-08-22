@@ -43,6 +43,15 @@ def _validate_param_name(name):
         raise Exception("Invalid parameter name: '%s'. %s" % (name, _bad_path_message(name)))
 
 
+def _validate_tag_name(name):
+    """Check that `name` is a valid tag name and raise an exception if it isn't."""
+    # Reuse param & metric check.
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+        raise Exception("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+    if _path_not_unique(name):
+        raise Exception("Invalid tag name: '%s'. %s" % (name, _bad_path_message(name)))
+
+
 def _validate_run_id(run_id):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
