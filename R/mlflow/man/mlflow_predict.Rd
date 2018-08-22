@@ -13,7 +13,7 @@ mlflow_predict(model_dir, data, output_file = NULL, restore = FALSE)
 
 \item{output_file}{'JSON' or 'CSV' file where the prediction will be written to.}
 
-\item{restore}{Should \code{mlflow_restore()} be called before serving?}
+\item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
 }
 \description{
 Predict using a MLflow Model from a 'JSON' file.

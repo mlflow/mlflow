@@ -61,3 +61,19 @@ mlflow_restore_snapshot <- function() {
 
   packrat::on()
 }
+
+mlflow_snapshot_warning <- function() {
+  warning(
+    "Running without restoring the packages snapshot may not reload the model correctly. ",
+    "Consider running 'mlflow_restore_snapshot()' or setting the 'restore' parameter to 'TRUE'."
+  )
+}
+
+mlflow_restore_or_warning <- function(restore) {
+  if (restore) {
+    mlflow_restore_snapshot()
+  }
+  else {
+    mlflow_snapshot_warning()
+  }
+}

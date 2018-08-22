@@ -69,7 +69,7 @@ mlflow_predict_model <- function(model, df) {
 #' @param model_dir The path to the MLflow model, as a string.
 #' @param data Data frame, 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_file 'JSON' or 'CSV' file where the prediction will be written to.
-#' @param restore Should \code{mlflow_restore()} be called before serving?
+#' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
 #'
 #' @examples
 #' \dontrun{
@@ -94,7 +94,7 @@ mlflow_predict <- function(
   output_file = NULL,
   restore = FALSE
 ) {
-  if (restore) mlflow_restore()
+  mlflow_restore_or_warning(restore)
 
   if (is.character(data))
   {
