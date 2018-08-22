@@ -19,6 +19,30 @@ extend google.protobuf.FieldOptions {
   // returned values are not validated in any way.
   optional bool validate_required = 50001;
 
+  // Causes the fields within the tagged Message to be inlined into this Message, for the purposes
+  // of our JSON API.
+  // For example, rather than serializing
+  //   {
+  //     "attrs" : {
+  //       "cluster_name" : "Foo"
+  //     }
+  //   }
+  // If "attrs" were marked json_inline, we would upgrade cluster_name to a top-level field:
+  //   {
+  //     "cluster_name" : "Foo"
+  //   }
+  // Note that this is only applicable to singular Message fields.
+  optional bool json_inline = 50002;
+
+  // Causes a field which conceptually represents a Map to be serialized as a JSON Map.
+  // The given field must be a Message with exactly 2 fields called "key" and "value", where key
+  // must be a string.
+  // For example, rather than serializing
+  //   [ { "key" : "spark.speculation", "value" : "false" } ]
+  // If this field were marked json_map, we would serialize it as
+  //   { "spark.speculation" : "false" }
+  optional bool json_map = 50003;
+
   // The documentation meta data for this field. This gets added automatically when the proto is
   // parsed.
   // There are as many doc blocks as visibility levels.
@@ -41,6 +65,10 @@ message DatabricksRpcOptions {
 
   // If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
   optional RateLimit rate_limit = 4;
+
+  // If defined, overrides the default title used for in the API docs. See ProtobufDocGenerator
+  // for more info.
+  optional string rpc_doc_title = 5;
 }
 
 // Note: 50000 is the beginning of the range of proto extension values for use by applications.
