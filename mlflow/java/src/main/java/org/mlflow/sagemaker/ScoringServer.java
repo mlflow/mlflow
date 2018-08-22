@@ -4,11 +4,19 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.models.Model;
 import spark.Request;
 import spark.Response;
 import spark.Service;
+
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.servlet.ServletContextHandler;
 
 /** A RESTful webserver for {@link Predictor Predictors} that runs on the local host */
 public class ScoringServer {
@@ -45,16 +53,14 @@ public class ScoringServer {
     }
   }
 
-  private final Optional<Predictor> predictor;
-  private final Optional<Integer> portNumber;
-  private Optional<Service> activeService = Optional.empty();
+  private final Server server;
 
   /**
    * Constructs a {@link ScoringServer} to serve the specified {@link Predictor} on the local host
    * at the default port: {@link ScoringServer#DEFAULT_PORT}
    */
   public ScoringServer(Predictor predictor) {
-    this(Optional.of(predictor), Optional.empty());
+    this(predictor, DEFAULT_PORT);
   }
 
   /**
@@ -62,7 +68,12 @@ public class ScoringServer {
    * at the specified port
    */
   public ScoringServer(Predictor predictor, int portNumber) {
-    this(Optional.of(predictor), Optional.of(portNumber));
+    this.server = new Server(portNumber);
+    ServletContextHandler rootContextHandler = new ServletContextHandler(null, "/");
+    rootContextHandler.addServlet(new ServletHolder(new ScoringServer.PingServlet()), "/ping");
+    rootContextHandler.addServlet(
+        new ServletHolder(new ScoringServer.InvocationsServlet(predictor)), "/invocations");
+    this.server.setHandler(rootContextHandler);
   }
 
   /**
@@ -71,8 +82,8 @@ public class ScoringServer {
    *
    * @param modelPath The path to the MLFlow model to serve
    */
-  public ScoringServer(String modelPath) throws IOException, PredictorLoadingException {
-    this(modelPath, Optional.empty(), true);
+  public ScoringServer(String modelPath) throws PredictorLoadingException {
+    this(modelPath, DEFAULT_PORT);
   }
 
   /**
@@ -81,172 +92,115 @@ public class ScoringServer {
    *
    * @param modelPath The path to the MLFlow model to serve
    */
-  public ScoringServer(String modelPath, int portNumber)
-      throws IOException, PredictorLoadingException {
-    this(modelPath, Optional.of(portNumber), true);
+  public ScoringServer(String modelPath, int portNumber) throws PredictorLoadingException {
+    this(loadPredictorFromPath(modelPath), portNumber);
   }
 
-  /**
-   * Loads the MLFlow model at the specified path as a {@link Predictor} and serves it on the local
-   * host at the specified port
-   *
-   * @param modelPath The path to the MLFlow model to serve
-   * @param failOnUnsuccessfulModelLoad If `true`, an exception will be thrown if the specified
-   *     model cannot be loaded. If `false`, the server will still be constructed, and it will
-   *     respond to pings and invocations with an error message indicating that the model could not
-   *     be loaded
-   */
-  protected ScoringServer(String modelPath, int portNumber, boolean failOnUnsuccessfulModelLoad)
-      throws IOException, PredictorLoadingException {
-    this(modelPath, Optional.of(portNumber), failOnUnsuccessfulModelLoad);
-  }
-
-  private ScoringServer(
-      String modelPath, Optional<Integer> portNumber, boolean failOnUnsuccessfulModelLoad)
-      throws IOException, PredictorLoadingException {
-    this(loadPredictorFromPath(modelPath, failOnUnsuccessfulModelLoad), portNumber);
-  }
-
-  private ScoringServer(Optional<Predictor> predictor, Optional<Integer> portNumber) {
-    this.predictor = predictor;
-    this.portNumber = portNumber;
-  }
-
-  private static Optional<Predictor> loadPredictorFromPath(
-      String modelPath, boolean failOnUnsuccessfulModelLoad)
-      throws IOException, PredictorLoadingException {
-    Optional<Predictor> predictor = Optional.empty();
+  private static Predictor loadPredictorFromPath(String modelPath)
+      throws PredictorLoadingException {
+    Model config = null;
     try {
-      Model config = Model.fromRootPath(modelPath);
-      predictor = Optional.of((new MLeapLoader()).load(config));
-      return predictor;
-    } catch (PredictorLoadingException | IOException e) {
-      e.printStackTrace();
-      if (failOnUnsuccessfulModelLoad) {
-        throw e;
-      } else {
-        return Optional.empty();
-      }
+      config = Model.fromRootPath(modelPath);
+    } catch (IOException e) {
+      throw new PredictorLoadingException(
+          "Failed to load the configuration for the MLFlow model at the specified path.");
     }
+    return (new MLeapLoader()).load(config);
   }
 
   /**
    * Starts the scoring server on the local host
-   *
-   * @throws IllegalStateException If the server is already active
    */
-  public void start() {
-    if (activeService.isPresent()) {
-      throw new IllegalStateException(
-          String.format(
-              "This server is already running on port %d", portNumber.orElse(DEFAULT_PORT)));
-    }
-
-    Service newService = Service.ignite().port(portNumber.orElse(DEFAULT_PORT));
-
-    newService.get(
-        "/ping",
-        (request, response) -> {
-          if (!predictor.isPresent()) {
-            return yieldMissingPredictorError(response);
-          }
-          response.status(200);
-          return "";
-        });
-
-    newService.post(
-        "/invocations",
-        (request, response) -> {
-          if (!predictor.isPresent()) {
-            return yieldMissingPredictorError(response);
-          }
-
-          try {
-            String result = evaluateRequest(predictor.get(), request);
-            response.status(HTTP_RESPONSE_CODE_SUCCESS);
-            return result;
-          } catch (PredictorEvaluationException e) {
-            response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
-            String errorMessage = e.getMessage();
-            return getErrorResponseJson(errorMessage);
-          } catch (Exception e) {
-            e.printStackTrace();
-            response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
-            String errorMessage = "An unknown error occurred while evaluating the model!";
-            return getErrorResponseJson(errorMessage);
-          }
-        });
-
-    this.activeService = Optional.of(newService);
+  public void start() throws Exception {
+    this.server.start();
   }
 
   /**
    * Stops the scoring server
-   *
-   * @throws IllegalStateException If the server is not active
    */
-  public void stop() {
-    if (activeService.isPresent()) {
-      activeService.get().stop();
-      activeService = Optional.empty();
-    } else {
-      throw new IllegalStateException("Attempted to stop the server that is not active!");
-    }
+  public void stop() throws Exception {
+    this.server.stop();
   }
 
   /** @return `true` if the server is active (running), `false` otherwise */
   public boolean isActive() {
-    return activeService.isPresent();
+    return this.server.isStarted();
   }
 
-  private String yieldMissingPredictorError(Response response) {
-    response.status(HTTP_RESPONSE_CODE_SERVER_ERROR);
-    return getErrorResponseJson("Error loading predictor! See container logs for details!");
+  static class PingServlet extends HttpServlet {
+    @Override
+    public void doGet(HttpServletRequest request, HttpServletResponse response) {
+      response.setStatus(HttpServletResponse.SC_OK);
+    }
   }
 
-  private String evaluateRequest(Predictor predictor, Request request)
-      throws PredictorEvaluationException {
-    RequestContentType inputType = RequestContentType.fromValue(request.contentType());
-    switch (inputType) {
-      case Json:
-        {
-          Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
+  static class InvocationsServlet extends HttpServlet {
+    private final Predictor predictor;
+
+    InvocationsServlet(Predictor predictor) {
+      this.predictor = predictor;
+    }
+
+    @Override
+    public void doPost(HttpServletRequest request, HttpServletResponse response)
+        throws IOException {
+      RequestContentType contentType =
+          RequestContentType.fromValue(request.getHeader("Content-type"));
+      String requestBody =
+          request.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
+
+      String responseContent = null;
+      try {
+        responseContent = evaluateRequest(requestBody, contentType);
+      } catch (PredictorEvaluationException e) {
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        responseContent = getErrorResponseJson(e.getMessage());
+      } catch (Exception e) {
+        e.printStackTrace();
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        responseContent =
+            getErrorResponseJson("An unknown error occurred while evaluating the model!");
+      } finally {
+        response.getWriter().print(responseContent);
+        response.getWriter().close();
+      }
+    }
+
+    private String evaluateRequest(String requestContent, RequestContentType contentType)
+        throws PredictorEvaluationException {
+      switch (contentType) {
+        case Json: {
+          DataFrame parsedInput = null;
           try {
-            parsedInput = Optional.of(DataFrame.fromJson(request.body()));
+            parsedInput = DataFrame.fromJson(requestContent);
           } catch (UnsupportedOperationException e) {
             throw new PredictorEvaluationException(
                 "This model does not yet support evaluating JSON inputs.");
           }
-          DataFrame result = predictor.predict(parsedInput.get());
+          DataFrame result = predictor.predict(parsedInput);
           return result.toJson();
         }
-      case Csv:
-        {
-          Optional<DataFrame> parsedInput = Optional.<DataFrame>empty();
+        case Csv: {
+          DataFrame parsedInput = null;
           try {
-            parsedInput = Optional.of(DataFrame.fromCsv(request.body()));
+            parsedInput = DataFrame.fromCsv(requestContent);
           } catch (UnsupportedOperationException e) {
             throw new PredictorEvaluationException(
                 "This model does not yet support evaluating CSV inputs.");
           }
-          DataFrame result = predictor.predict(parsedInput.get());
+          DataFrame result = predictor.predict(parsedInput);
           return result.toCsv();
         }
-      case Invalid:
-      default:
-        throw new UnsupportedContentTypeException(request.contentType());
+        default:
+          throw new PredictorEvaluationException(
+              "Invocations content must be of content type `application/json` or `text/csv`");
+      }
     }
-  }
 
-  private String getErrorResponseJson(String errorMessage) {
-    String response =
-        String.format("{ \"%s\" : \"%s\" }", RESPONSE_KEY_ERROR_MESSAGE, errorMessage);
-    return response;
-  }
-
-  class UnsupportedContentTypeException extends PredictorEvaluationException {
-    protected UnsupportedContentTypeException(String contentType) {
-      super(String.format("Unsupported request input type: %s", contentType));
+    private String getErrorResponseJson(String errorMessage) {
+      String response =
+          String.format("{ \"%s\" : \"%s\" }", RESPONSE_KEY_ERROR_MESSAGE, errorMessage);
+      return response;
     }
   }
 
@@ -264,7 +218,11 @@ public class ScoringServer {
     if (args.length > 1) {
       portNum = Optional.of(Integer.parseInt(args[2]));
     }
-    ScoringServer server = new ScoringServer(modelPath, portNum, false);
-    server.start();
+    ScoringServer server = new ScoringServer(modelPath, portNum.orElse(DEFAULT_PORT));
+    try {
+      server.start();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 }

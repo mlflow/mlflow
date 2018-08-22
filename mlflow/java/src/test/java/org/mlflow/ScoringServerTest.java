@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mlflow.utils.SerializationUtils;
@@ -42,20 +41,12 @@ public class ScoringServerTest {
     }
   }
 
-  @After
-  public void awaitServerShutdown() throws InterruptedException {
-    Thread.sleep(5000);
-  }
-
   @Test
-  public void testScoringServerWithValidPredictorRespondsToPingsCorrectly()
-      throws InterruptedException {
+  public void testScoringServerWithValidPredictorRespondsToPingsCorrectly() throws Exception {
     TestPredictor validPredictor = new TestPredictor(true);
     int portNumber = 5001;
     ScoringServer server = new ScoringServer(validPredictor, portNumber);
     server.start();
-
-    Thread.sleep(5000);
 
     String requestUrl = String.format("http://localhost:%d/ping", portNumber);
     try {
@@ -69,35 +60,32 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void
-  testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
+  public void testConstructingScoringServerFromInvalidModelPathThrowsException() {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
       Assert.fail("Expected constructing a model server with an invalid model path"
           + " to throw an exception, but none was thrown.");
-    } catch (IOException | PredictorLoadingException e) {
+    } catch (PredictorLoadingException e) {
       // Success
     }
 
     try {
-      ScoringServer server = new ScoringServer(badModelPath, 5001, true);
+      ScoringServer server = new ScoringServer(badModelPath, 5001);
       Assert.fail("Expected constructing a model server with an invalid model path"
           + " to throw an exception, but none was thrown.");
-    } catch (IOException | PredictorLoadingException e) {
+    } catch (PredictorLoadingException e) {
       // Success
     }
   }
 
   @Test
   public void testScoringServerWithMissingPredictorRespondsToPingsWithServerErrorCode()
-      throws InterruptedException, IOException, PredictorLoadingException {
+      throws Exception, IOException, PredictorLoadingException {
     String badModelPath = "/not/a/valid/path";
     int portNumber = 5001;
-    ScoringServer server = new ScoringServer(badModelPath, portNumber, false);
+    ScoringServer server = new ScoringServer(badModelPath, portNumber);
     server.start();
-
-    Thread.sleep(5000);
 
     String requestUrl = String.format("http://localhost:%d/ping", portNumber);
     try {
@@ -112,13 +100,11 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerWithMissingPredictorRespondsToInvocationsWithServerErrorCode()
-      throws InterruptedException, IOException, PredictorLoadingException {
+      throws Exception, IOException, PredictorLoadingException {
     String badModelPath = "/not/a/valid/path";
     int portNumber = 5001;
-    ScoringServer server = new ScoringServer(badModelPath, portNumber, false);
+    ScoringServer server = new ScoringServer(badModelPath, portNumber);
     server.start();
-
-    Thread.sleep(5000);
 
     String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
     try {
@@ -134,13 +120,12 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerRepondsToInvocationOfBadContentTypeWithServerErrorCode()
-      throws InterruptedException {
+      throws Exception {
     TestPredictor predictor = new TestPredictor(true);
     int portNumber = 5001;
     ScoringServer server = new ScoringServer(predictor, portNumber);
     server.start();
 
-    Thread.sleep(5000);
     String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
     try {
       String badContentType = "not-a-content-type";
@@ -155,7 +140,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testMultipleServersRunOnDifferentPortsSuccessfully() throws InterruptedException {
+  public void testMultipleServersRunOnDifferentPortsSuccessfully() throws Exception {
     List<Integer> portNumbers = Arrays.asList(5001, 5002, 5003);
     TestPredictor predictor = new TestPredictor(true);
 
@@ -165,8 +150,6 @@ public class ScoringServerTest {
       newServer.start();
       servers.add(newServer);
     }
-
-    Thread.sleep(5000);
 
     for (int portNumber : portNumbers) {
       try {
@@ -188,7 +171,7 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerWithValidPredictorRespondsToInvocationWithPredictorOutputContent()
-      throws InterruptedException, UnirestException, IOException, JsonProcessingException {
+      throws Exception, UnirestException, IOException, JsonProcessingException {
     Map<String, String> predictorDict = new HashMap<>();
     predictorDict.put("Text", "Response");
     String predictorJson = SerializationUtils.toJson(predictorDict);
@@ -197,8 +180,6 @@ public class ScoringServerTest {
 
     ScoringServer server = new ScoringServer(predictor, portNumber);
     server.start();
-
-    Thread.sleep(5000);
 
     String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
     HttpResponse<JsonNode> response =
@@ -213,14 +194,12 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerRespondsWithServerErrorCodeWhenPredictorThrowsException()
-      throws InterruptedException, UnirestException, IOException {
+      throws Exception, UnirestException, IOException {
     TestPredictor predictor = new TestPredictor(false);
     int portNumber = 5001;
 
     ScoringServer server = new ScoringServer(predictor, portNumber);
     server.start();
-
-    Thread.sleep(5000);
 
     String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
     HttpResponse<JsonNode> response =
@@ -231,39 +210,7 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testInactiveScoringServerThrowsIllegalStateExceptionWhenStopped() {
-    TestPredictor predictor = new TestPredictor(true);
-    ScoringServer server = new ScoringServer(predictor, 5001);
-    try {
-      server.stop();
-      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
-          + "but none was thrown.");
-    } catch (IllegalStateException e) {
-      // Succeed
-    }
-  }
-
-  @Test
-  public void testActiveScoringServerThrowsIllegalStateExceptionWhenStarted()
-      throws InterruptedException {
-    TestPredictor predictor = new TestPredictor(true);
-    ScoringServer server = new ScoringServer(predictor, 5001);
-    server.start();
-
-    Thread.sleep(5000);
-
-    try {
-      server.start();
-      Assert.fail("Expected the server stop operation to throw an IllegalStateException,"
-          + "but none was thrown.");
-    } catch (IllegalStateException e) {
-      // Succeed
-    }
-    server.stop();
-  }
-
-  @Test
-  public void testScoringServerStartsAndStopsSuccessfully() throws InterruptedException {
+  public void testScoringServerStartsAndStopsSuccessfully() throws Exception {
     TestPredictor predictor = new TestPredictor(true);
     int portNumber = 5001;
     ScoringServer server = new ScoringServer(predictor, portNumber);
@@ -271,15 +218,16 @@ public class ScoringServerTest {
 
     for (int i = 0; i < 3; ++i) {
       server.start();
-      Thread.sleep(5000);
+
       try {
         HttpResponse response = Unirest.get(requestUrl).asJson();
       } catch (UnirestException e) {
         Assert.fail("Encountered an unexpected exception while attempting to ping"
             + "the active scoring server.");
       }
+
       server.stop();
-      Thread.sleep(5000);
+
       try {
         HttpResponse response = Unirest.get(requestUrl).asJson();
         Assert.fail("Expected the attempt to query an inactive server to throw an exception.");
@@ -290,16 +238,14 @@ public class ScoringServerTest {
   }
 
   @Test
-  public void testScoringServerIsActiveReturnsTrueWhenServerIsRunningElseFalse()
-      throws InterruptedException {
+  public void testScoringServerIsActiveReturnsTrueWhenServerIsRunningElseFalse() throws Exception {
     TestPredictor predictor = new TestPredictor(true);
     ScoringServer server = new ScoringServer(predictor, 5001);
     Assert.assertEquals(server.isActive(), false);
     server.start();
-    Thread.sleep(5000);
+
     Assert.assertEquals(server.isActive(), true);
     server.stop();
-    Thread.sleep(5000);
     Assert.assertEquals(server.isActive(), false);
   }
 }
