@@ -1,4 +1,4 @@
-"""Sample MLflow integration for Keras."""
+"""MLflow integration for Keras."""
 
 from __future__ import absolute_import
 
@@ -94,7 +94,6 @@ def load_pyfunc(model_file):
     >>> keras_model = mlflow.keras.load_pyfunc(mode_file)
     >>> predictions = keras_mode.predict(x_test)
     """
-
     return _KerasModelWrapper(_load_model(model_file))
 
 

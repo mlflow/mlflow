@@ -4,7 +4,7 @@ from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 
 class Experiment(_MLflowObject):
     """
-    Experiment object for python client. Backend stores will hydrate this object in APIs.
+    Experiment object for Python client.
     """
     DEFAULT_EXPERIMENT_ID = 0
 
@@ -16,14 +16,17 @@ class Experiment(_MLflowObject):
 
     @property
     def experiment_id(self):
+        """Integer ID of the experiment."""
         return self._experiment_id
 
     @property
     def name(self):
+        """String name of the experiment."""
         return self._name
 
     @property
     def artifact_location(self):
+        """String corresponding to the root artifact URI for the experiment."""
         return self._artifact_location
 
     @classmethod
