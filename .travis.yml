@@ -25,6 +25,8 @@ matrix:
         - export MLFLOW_TEST_REQUIREMENTS=false
         - sudo ./install-travis.sh
         - cd R/mlflow
+      before_script:
+        - export MLFLOW_HOME=$(pwd)
       after_failure:
         - cd tests
         - Rscript ../.travis.R
