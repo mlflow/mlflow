@@ -1,10 +1,7 @@
 package org.mlflow.sagemaker;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -16,42 +13,19 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.models.Model;
+import org.mlflow.utils.Environment;
+import org.mlflow.utils.FileUtils;
+import org.mlflow.utils.SystemEnvironment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A RESTful webserver for {@link Predictor Predictors} that runs on the local host */
 public class ScoringServer {
   public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
+  private static final String REQUEST_CONTENT_TYPE_JSON = "application/json";
+  private static final String REQUEST_CONTENT_TYPE_CSV = "text/csv";
 
-  private static final int MINIMUM_SERVER_THREADS = 1;
-  // Assuming an 8 core machine with hyperthreading
-  private static final int MAXIMUM_SERVER_THREADS = 16;
-
-  private enum RequestContentType {
-    Csv("text/csv"),
-    Json("application/json"),
-    Invalid("invalid");
-
-    private final String value;
-    private static final Map<String, RequestContentType> BY_VALUE_MAP = new HashMap<>();
-
-    static {
-      for (RequestContentType inputType : RequestContentType.values()) {
-        BY_VALUE_MAP.put(inputType.value, inputType);
-      }
-    }
-
-    RequestContentType(String value) {
-      this.value = value;
-    }
-
-    public static RequestContentType fromValue(String value) {
-      if (BY_VALUE_MAP.containsKey(value)) {
-        return BY_VALUE_MAP.get(value);
-      } else {
-        return RequestContentType.Invalid;
-      }
-    }
-  }
-
+  private static final Logger logger = LoggerFactory.getLogger(ScoringServer.class);
   private final Server server;
   private final ServerConnector httpConnector;
 
@@ -60,7 +34,12 @@ public class ScoringServer {
    * on a randomly-selected available port
    */
   public ScoringServer(Predictor predictor) {
-    this.server = new Server(new QueuedThreadPool(MAXIMUM_SERVER_THREADS, MINIMUM_SERVER_THREADS));
+    ServerThreadConfiguration threadConfiguration =
+        ServerThreadConfiguration.create(SystemEnvironment.get());
+    this.server =
+        new Server(
+            new QueuedThreadPool(
+                threadConfiguration.getMaxThreads(), threadConfiguration.getMinThreads()));
     this.server.setStopAtShutdown(true);
 
     this.httpConnector = new ServerConnector(this.server, new HttpConnectionFactory());
@@ -128,6 +107,7 @@ public class ScoringServer {
     } catch (Exception e) {
       throw new ServerStateChangeException(e);
     }
+    logger.info(String.format("Started scoring server on port: %d", portNumber));
   }
 
   /**
@@ -144,6 +124,7 @@ public class ScoringServer {
     } catch (Exception e) {
       throw new ServerStateChangeException(e);
     }
+    logger.info("Stopped the scoring server successfully.");
   }
 
   /** @return `true` if the server is active (running), `false` otherwise */
@@ -171,6 +152,41 @@ public class ScoringServer {
     }
   }
 
+  static class ServerThreadConfiguration {
+    static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
+    static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
+
+    static final int DEFAULT_MINIMUM_SERVER_THREADS = 1;
+    // Assuming an 8 core machine with hyperthreading
+    static final int DEFAULT_MAXIMUM_SERVER_THREADS = 16;
+
+    private final int minThreads;
+    private final int maxThreads;
+
+    private ServerThreadConfiguration(int minThreads, int maxThreads) {
+      this.minThreads = minThreads;
+      this.maxThreads = maxThreads;
+    }
+
+    static ServerThreadConfiguration create(Environment environment) {
+      int minThreads =
+          environment.getIntegerValue(
+              ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
+      int maxThreads =
+          environment.getIntegerValue(
+              ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
+      return new ServerThreadConfiguration(minThreads, maxThreads);
+    }
+
+    int getMinThreads() {
+      return this.minThreads;
+    }
+
+    int getMaxThreads() {
+      return this.maxThreads;
+    }
+  }
+
   static class PingServlet extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) {
@@ -188,21 +204,19 @@ public class ScoringServer {
     @Override
     public void doPost(HttpServletRequest request, HttpServletResponse response)
         throws IOException {
-      RequestContentType contentType =
-          RequestContentType.fromValue(request.getHeader("Content-type"));
-      String requestBody =
-          request.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
-
+      String requestContentType = request.getHeader("Content-type");
+      String requestBody = FileUtils.readInputStreamAsUtf8(request.getInputStream());
       String responseContent = null;
       try {
-        responseContent = evaluateRequest(requestBody, contentType);
+        responseContent = evaluateRequest(requestBody, requestContentType);
       } catch (PredictorEvaluationException e) {
+        logger.error("Encountered a failure when evaluating the predictor.", e);
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent = getErrorResponseJson(e.getMessage());
       } catch (InvalidRequestTypeException e) {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       } catch (Exception e) {
-        e.printStackTrace();
+        logger.error("An unknown error occurred while evaluating the prediction request.", e);
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent =
             getErrorResponseJson("An unknown error occurred while evaluating the model!");
@@ -212,36 +226,25 @@ public class ScoringServer {
       }
     }
 
-    private String evaluateRequest(String requestContent, RequestContentType contentType)
+    private String evaluateRequest(String requestContent, String requestContentType)
         throws PredictorEvaluationException, InvalidRequestTypeException {
-      switch (contentType) {
-        case Json:
-          {
-            DataFrame parsedInput = null;
-            try {
-              parsedInput = DataFrame.fromJson(requestContent);
-            } catch (UnsupportedOperationException e) {
-              throw new PredictorEvaluationException(
-                  "This model does not yet support evaluating JSON inputs.");
-            }
-            DataFrame result = predictor.predict(parsedInput);
-            return result.toJson();
-          }
-        case Csv:
-          {
-            DataFrame parsedInput = null;
-            try {
-              parsedInput = DataFrame.fromCsv(requestContent);
-            } catch (UnsupportedOperationException e) {
-              throw new PredictorEvaluationException(
-                  "This model does not yet support evaluating CSV inputs.");
-            }
-            DataFrame result = predictor.predict(parsedInput);
-            return result.toCsv();
-          }
-        default:
-          throw new InvalidRequestTypeException(
-              "Invocations content must be of content type `application/json` or `text/csv`");
+      PredictorDataWrapper predictorInput = null;
+      if (requestContentType == REQUEST_CONTENT_TYPE_JSON) {
+        predictorInput =
+            new PredictorDataWrapper(requestContent, PredictorDataWrapper.ContentType.Json);
+        PredictorDataWrapper result = predictor.predict(predictorInput);
+        return result.toJson();
+      } else if (requestContentType == REQUEST_CONTENT_TYPE_CSV) {
+        predictorInput =
+            new PredictorDataWrapper(requestContent, PredictorDataWrapper.ContentType.Csv);
+        PredictorDataWrapper result = predictor.predict(predictorInput);
+        return result.toCsv();
+      } else {
+        logger.error(
+            String.format(
+                "Received a request with an unsupported content type: %s", requestContentType));
+        throw new InvalidRequestTypeException(
+            "Invocations content must be of content type `application/json` or `text/csv`");
       }
     }
 
@@ -275,8 +278,8 @@ public class ScoringServer {
     ScoringServer server = new ScoringServer(modelPath);
     try {
       server.start(8080);
-    } catch (Exception e) {
-      e.printStackTrace();
+    } catch (ServerStateChangeException e) {
+      logger.error("Encountered an error while starting the prediction server.", e);
     }
   }
 }

@@ -7,7 +7,7 @@ public class MLeapPredictor extends Predictor {
   public MLeapPredictor(String modelDataPath, String inputSchemaPath) {}
 
   @Override
-  protected DataFrame predict(DataFrame input) {
+  protected PredictorDataWrapper predict(PredictorDataWrapper input) {
     throw new UnsupportedOperationException("Not yet implemented!");
   }
 
