@@ -1,4 +1,6 @@
 import Utils from './Utils';
+import { RunInfo } from '../sdk/MlflowMessages';
+
 
 test("formatMetric", () => {
   expect(Utils.formatMetric(0)).toEqual("0");
@@ -68,6 +70,35 @@ test("baseName", () => {
   expect(Utils.baseName("foo/bar/baz")).toEqual("baz");
   expect(Utils.baseName("/foo/bar/baz")).toEqual("baz");
   expect(Utils.baseName("file:///foo/bar/baz")).toEqual("baz");
+});
+
+test("renderSource", () => {
+  const source_with_name = RunInfo.fromJs({
+    "source_name": "source",
+    "entry_point_name": "entry",
+    "source_type": "PROJECT",
+  });
+  expect(Utils.renderSource(source_with_name)).toEqual("source:entry");
+
+  const source_with_main = RunInfo.fromJs({
+    "source_name": "source1",
+    "entry_point_name": "main",
+    "source_type": "PROJECT",
+  });
+  expect(Utils.renderSource(source_with_main)).toEqual("source1");
+
+  const source_no_name = RunInfo.fromJs({
+    "source_name": "source2",
+    "source_type": "PROJECT"
+  });
+  expect(Utils.renderSource(source_no_name)).toEqual("source2");
+
+  const non_project_source = RunInfo.fromJs({
+    "source_name": "source3",
+    "entry_point_name": "entry",
+    "source_type": "NOTEBOOK",
+  });
+  expect(Utils.renderSource(non_project_source)).toEqual("source3");
 });
 
 test("dropExtension", () => {

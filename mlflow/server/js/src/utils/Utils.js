@@ -97,8 +97,8 @@ class Utils {
   static renderSource(run) {
     if (run.source_type === "PROJECT") {
       let res = Utils.dropExtension(Utils.baseName(run.source_name));
-      if (run.entry_point && run.entry_point !== "main") {
-        res += ":" + run.entry_point;
+      if (run.entry_point_name && run.entry_point_name !== "main") {
+        res += ":" + run.entry_point_name;
       }
       const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
