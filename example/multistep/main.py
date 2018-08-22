@@ -76,12 +76,15 @@ def workflow(als_max_iter, keras_hidden_units):
     # Note: The entrypoint names are defined in MLproject. The artifact directories
     # are documented by each step's .py file.
     with mlflow.start_run() as active_run:
+        os.environ['SPARK_CONF_DIR'] = os.path.abspath('.')
         source_version = active_run.info.source_version
         load_raw_data_run = _get_or_run("load_raw_data", {}, source_version)
         ratings_csv_uri = os.path.join(load_raw_data_run.info.artifact_uri, "ratings-csv-dir")
         etl_data_run = _get_or_run("etl_data", {"ratings_csv": ratings_csv_uri}, source_version)
         ratings_parquet_uri = os.path.join(etl_data_run.info.artifact_uri, "ratings-parquet-dir")
 
+        # We specify a spark-defaults.conf to override the default driver memory. ALS requires
+        # significant memory. The driver memory property cannot be set by the application itself.
         als_run = _get_or_run("als", 
                               {"ratings_data": ratings_parquet_uri, "max_iter": str(als_max_iter)},
                               source_version)

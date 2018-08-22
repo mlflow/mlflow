@@ -24,19 +24,17 @@ from pyspark.ml.evaluation import RegressionEvaluator
 def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_strategy):
     seed = 42
 
-    spark = (pyspark.sql.SparkSession.builder \
-             .config("spark.driver.memory", "4g") \
-             .getOrCreate())
+    spark = pyspark.sql.SparkSession.builder.getOrCreate())
 
-    ratingsDF = spark.read.parquet(ratings_data)
-    (trainingDF, testDF) = ratingsDF.randomSplit([split_prop, 1 - split_prop], seed=seed)
-    trainingDF.cache()
-    testDF.cache()
+    ratings_df = spark.read.parquet(ratings_data)
+    (training_df, test_df) = ratings_df.randomSplit([split_prop, 1 - split_prop], seed=seed)
+    training_df.cache()
+    test_df.cache()
 
-    mlflow.log_metric("training_nrows", trainingDF.count())
-    mlflow.log_metric("test_nrows", testDF.count())
+    mlflow.log_metric("training_nrows", training_df.count())
+    mlflow.log_metric("test_nrows", test_df.count())
 
-    print('Training: {0}, test: {1}'.format(trainingDF.count(), testDF.count()))
+    print('Training: {0}, test: {1}'.format(training_df.count(), test_df.count()))
 
     als = (ALS()
            .setUserCol("userId")
@@ -49,20 +47,20 @@ def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_st
            .setColdStartStrategy(cold_start_strategy)
            .setRank(rank))
 
-    alsModel = Pipeline(stages=[als]).fit(trainingDF)
+    als_model = Pipeline(stages=[als]).fit(training_df)
 
-    regEval = RegressionEvaluator(predictionCol="predictions", labelCol="rating", metricName="mse")
+    reg_eval = RegressionEvaluator(predictionCol="predictions", labelCol="rating", metricName="mse")
 
-    predictedTestDF = alsModel.transform(testDF)
+    predicted_test_dF = als_model.transform(test_df)
 
-    testMse = regEval.evaluate(predictedTestDF)
-    trainMse = regEval.evaluate(alsModel.transform(trainingDF))
+    test_mse = reg_eval.evaluate(predicted_test_dF)
+    train_mse = reg_eval.evaluate(als_model.transform(training_df))
 
-    print('The model had a MSE on the test set of {0}'.format(testMse))
-    print('The model had a MSE on the (train) set of {0}'.format(trainMse))
-    mlflow.log_metric("test_mse", testMse)
-    mlflow.log_metric("train_mse", trainMse)
-    mlflow.spark.log_model(alsModel, "als-model")
+    print('The model had a MSE on the test set of {0}'.format(test_mse))
+    print('The model had a MSE on the (train) set of {0}'.format(train_mse))
+    mlflow.log_metric("test_mse", test_mse)
+    mlflow.log_metric("train_mse", train_mse)
+    mlflow.spark.log_model(als_model, "als-model")
 
 
 if __name__ == '__main__':
