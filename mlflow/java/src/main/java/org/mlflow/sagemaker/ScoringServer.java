@@ -22,9 +22,6 @@ import org.eclipse.jetty.util.thread.QueuedThreadPool;
 public class ScoringServer {
   public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
 
-  public static final int HTTP_RESPONSE_CODE_SERVER_ERROR = 500;
-  public static final int HTTP_RESPONSE_CODE_SUCCESS = 200;
-
   private static final int MINIMUM_SERVER_THREADS = 1;
   // Assuming an 8 core machine with hyperthreading
   private static final int MAXIMUM_SERVER_THREADS = 16;
@@ -174,6 +171,8 @@ public class ScoringServer {
       } catch (PredictorEvaluationException e) {
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent = getErrorResponseJson(e.getMessage());
+      } catch (InvalidRequestTypeException e) {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       } catch (Exception e) {
         e.printStackTrace();
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -186,7 +185,7 @@ public class ScoringServer {
     }
 
     private String evaluateRequest(String requestContent, RequestContentType contentType)
-        throws PredictorEvaluationException {
+        throws PredictorEvaluationException, InvalidRequestTypeException {
       switch (contentType) {
         case Json: {
           DataFrame parsedInput = null;
@@ -211,7 +210,7 @@ public class ScoringServer {
           return result.toCsv();
         }
         default:
-          throw new PredictorEvaluationException(
+          throw new InvalidRequestTypeException(
               "Invocations content must be of content type `application/json` or `text/csv`");
       }
     }
@@ -220,6 +219,12 @@ public class ScoringServer {
       String response =
           String.format("{ \"%s\" : \"%s\" }", RESPONSE_KEY_ERROR_MESSAGE, errorMessage);
       return response;
+    }
+
+    static class InvalidRequestTypeException extends Exception {
+      InvalidRequestTypeException(String message) {
+        super(message);
+      }
     }
   }
 
