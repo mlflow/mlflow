@@ -89,9 +89,8 @@ public class ScoringServerTest {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail(
-          "Expected constructing a model server with an invalid model path"
-              + " to throw an exception, but none was thrown.");
+      Assert.fail("Expected constructing a model server with an invalid model path"
+          + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
       // Succeed
     }
@@ -177,14 +176,24 @@ public class ScoringServerTest {
     server.start();
 
     String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
-    HttpPost postRequest = new HttpPost(requestUrl);
-    postRequest.addHeader("Content-type", "application/json");
-    HttpEntity entity = new StringEntity("body");
-    postRequest.setEntity(entity);
 
-    HttpResponse response = httpClient.execute(postRequest);
+    HttpPost postRequestJson = new HttpPost(requestUrl);
+    postRequestJson.addHeader("Content-type", "application/json");
+    HttpEntity entityJson = new StringEntity("body");
+    postRequestJson.setEntity(entityJson);
+
+    HttpResponse responseJson = httpClient.execute(postRequestJson);
     Assert.assertEquals(
-        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, response.getStatusLine().getStatusCode());
+        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, responseJson.getStatusLine().getStatusCode());
+
+    HttpPost postRequestCsv = new HttpPost(requestUrl);
+    postRequestCsv.addHeader("Content-type", "text/csv");
+    HttpEntity entityCsv = new StringEntity("body");
+    postRequestJson.setEntity(entityCsv);
+
+    HttpResponse responseCsv = httpClient.execute(postRequestCsv);
+    Assert.assertEquals(
+        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, responseJson.getStatusLine().getStatusCode());
 
     server.stop();
   }
@@ -310,11 +319,9 @@ public class ScoringServerTest {
     MockEnvironment mockEnv2 = new MockEnvironment();
     ScoringServer.ServerThreadConfiguration threadConfig2 =
         ScoringServer.ServerThreadConfiguration.create(mockEnv2);
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
         threadConfig2.getMinThreads());
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
         threadConfig2.getMaxThreads());
 
     int maxThreads3 = 256;
@@ -323,8 +330,7 @@ public class ScoringServerTest {
         ScoringServer.ServerThreadConfiguration.ENV_VAR_MAXIMUM_SERVER_THREADS, maxThreads3);
     ScoringServer.ServerThreadConfiguration threadConfig3 =
         ScoringServer.ServerThreadConfiguration.create(mockEnv3);
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
         threadConfig3.getMinThreads());
     Assert.assertEquals(maxThreads3, threadConfig3.getMaxThreads());
 
@@ -335,8 +341,7 @@ public class ScoringServerTest {
     ScoringServer.ServerThreadConfiguration threadConfig4 =
         ScoringServer.ServerThreadConfiguration.create(mockEnv4);
     Assert.assertEquals(minThreads4, threadConfig4.getMinThreads());
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
         threadConfig4.getMaxThreads());
   }
 }
