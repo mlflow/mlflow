@@ -1,10 +1,12 @@
 package org.mlflow.sagemaker;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -14,7 +16,6 @@ import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.models.Model;
 import org.mlflow.utils.EnvironmentUtils;
-import org.mlflow.utils.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,7 +153,7 @@ public class ScoringServer {
 
   public static class ServerStateChangeException extends RuntimeException {
     ServerStateChangeException(Exception e) {
-      super(e.getMessage());
+      super(e);
     }
   }
 
@@ -174,7 +175,7 @@ public class ScoringServer {
     public void doPost(HttpServletRequest request, HttpServletResponse response)
         throws IOException {
       String requestContentType = request.getHeader("Content-type");
-      String requestBody = FileUtils.readInputStreamAsUtf8(request.getInputStream());
+      String requestBody = IOUtils.toString(request.getInputStream(), StandardCharsets.UTF_8);
       String responseContent = null;
       try {
         responseContent = evaluateRequest(requestBody, requestContentType);
@@ -183,15 +184,21 @@ public class ScoringServer {
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent = getErrorResponseJson(e.getMessage());
       } catch (InvalidRequestTypeException e) {
+        logger.info(String.format(
+            "Received a request with an unsupported content type: %s", requestContentType));
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        responseContent = getErrorResponseJson(
+            "Invocations requests must have a content header of type `application/json` or `text/csv`");
       } catch (Exception e) {
         logger.error("An unknown error occurred while evaluating the prediction request.", e);
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent =
             getErrorResponseJson("An unknown error occurred while evaluating the model!");
       } finally {
-        response.getWriter().print(responseContent);
-        response.getWriter().close();
+        if (responseContent != null) {
+          response.getWriter().print(responseContent);
+          response.getWriter().close();
+        }
       }
     }
 
@@ -245,7 +252,7 @@ public class ScoringServer {
     }
     ScoringServer server = new ScoringServer(modelPath);
     try {
-      server.start(8080);
+      server.start(portNum.orElse(8080));
     } catch (ServerStateChangeException e) {
       logger.error("Encountered an error while starting the prediction server.", e);
     }

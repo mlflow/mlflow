@@ -2,12 +2,14 @@ package org.mlflow.sagemaker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -18,7 +20,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
 
 public class ScoringServerTest {
@@ -50,7 +51,7 @@ public class ScoringServerTest {
   private static final HttpClient httpClient = HttpClientBuilder.create().build();
 
   private static String getHttpResponseBody(HttpResponse response) throws IOException {
-    return FileUtils.readInputStreamAsUtf8(response.getEntity().getContent());
+    return IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
   }
 
   @Test
