@@ -4,7 +4,6 @@ import six
 import unittest
 
 from mlflow.store.rest_store import RestStore, RestException
-from mlflow.entities import Experiment
 
 
 class TestRestStore(unittest.TestCase):
