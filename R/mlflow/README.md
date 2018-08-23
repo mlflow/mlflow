@@ -214,7 +214,7 @@ and the model definition `model/MLmodel` like:
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
-    ## time_created: 1.5350633e+09
+    ## time_created: 1.5350676e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
@@ -345,4 +345,5 @@ reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
 ```
 
 Please also follow the recommendations from the [Advanced R - Style
-Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling.
+Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling,
+run `lintr::lint_package()` to find styling issues.

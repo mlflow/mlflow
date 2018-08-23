@@ -31,6 +31,7 @@ Imports:
   yaml
 RoxygenNote: 6.1.0
 Suggests: 
-  testthat
+  testthat,
+  lintr
 Remotes: 
   kevinykuo/forge
