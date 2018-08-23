@@ -1,8 +1,8 @@
 package org.mlflow.utils;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import org.junit.Assert;
 import org.junit.Test;

@@ -235,12 +235,12 @@ public class ScoringServer {
     private String evaluateRequest(String requestContent, String requestContentType)
         throws PredictorEvaluationException, InvalidRequestTypeException {
       PredictorDataWrapper predictorInput = null;
-      if (requestContentType == REQUEST_CONTENT_TYPE_JSON) {
+      if (requestContentType.equals(REQUEST_CONTENT_TYPE_JSON)) {
         predictorInput =
             new PredictorDataWrapper(requestContent, PredictorDataWrapper.ContentType.Json);
         PredictorDataWrapper result = predictor.predict(predictorInput);
         return result.toJson();
-      } else if (requestContentType == REQUEST_CONTENT_TYPE_CSV) {
+      } else if (requestContentType.equals(REQUEST_CONTENT_TYPE_CSV)) {
         predictorInput =
             new PredictorDataWrapper(requestContent, PredictorDataWrapper.ContentType.Csv);
         PredictorDataWrapper result = predictor.predict(predictorInput);
