@@ -14,6 +14,8 @@ Install MLflow from PyPi via ``pip install mlflow``
 
 MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
 
+Nightly snapshots of MLflow master are also available `here <https://mlflow-snapshots.s3-us-west-2.amazonaws.com/>`_.
+
 Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
