@@ -83,6 +83,14 @@ class MLflowService(object):
             artifact_location=artifact_location,
         )
 
+    def delete_experiment(self, experiment_id):
+        """Deletes experiment with ID from backend store."""
+        return self.store.delete_experiment(experiment_id)
+
+    def restore_experiment(self, experiment_id):
+        """Restore deleted experiment with ID, unless permanently deleted."""
+        return self.store.restore_experiment(experiment_id)
+
     def log_metric(self, run_id, key, value, timestamp=None):
         """Logs a metric against the given run id. If timestamp is not provided, we will
         use the current timestamp.
