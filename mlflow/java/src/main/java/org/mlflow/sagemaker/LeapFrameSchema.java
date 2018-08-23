@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -38,11 +39,24 @@ class LeapFrameSchema {
     }
   }
 
+  /**
+   * @throws InvalidSchemaException If the schema cannot be parsed from JSON or does not contain
+   * required keys
+   * @throws IOException If the schema file cannot be loaded from the specified path
+   */
   static LeapFrameSchema fromPath(String filePath) throws IOException {
-    return new LeapFrameSchema(
-        (Map<String, Object>) SerializationUtils.parseJsonFromFile(filePath, Map.class));
+    File schemaFile = new File(filePath);
+    try {
+      return new LeapFrameSchema(
+          (Map<String, Object>) SerializationUtils.parseJsonFromFile(filePath, Map.class));
+    } catch (IOException e) {
+      throw new InvalidSchemaException("The specified schema could not be parsed as JSON.");
+    }
   }
 
+  /**
+   * Exception denoting a problem with a serialized MLeap schema
+   */
   public static class InvalidSchemaException extends RuntimeException {
     InvalidSchemaException(String message) {
       super(message);
@@ -50,14 +64,17 @@ class LeapFrameSchema {
   }
 
   /**
-   * @return The list of dataframe fields expected by the transformer with this schema, in the
-   order
+   * @return The list of dataframe fields expected by the transformer with this schema, in the order
    *     that these fields are expected to appear
    */
   List<String> getFieldNames() {
     return this.fieldNames;
   }
 
+  /**
+   * @return A representation of the schema as a map containg standard Java objects. This is useful
+   * for serializing the schema as JSON
+   */
   Map<String, Object> getRawSchema() {
     return this.rawSchema;
   }

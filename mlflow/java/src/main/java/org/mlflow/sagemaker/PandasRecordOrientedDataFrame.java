@@ -31,7 +31,7 @@ class PandasRecordOrientedDataFrame {
   /**
    * @return The number of records contained in the dataframe
    */
-  public int size() {
+  int size() {
     return this.records.size();
   }
 
