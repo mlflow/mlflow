@@ -3,8 +3,6 @@ mlflow: R interface for MLflow
 
 [![Build
 Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow)
-[![AppVeyor Build
-Status](https://ci.appveyor.com/api/projects/status/github/rstudio/mlflow?branch=master&svg=true)](https://ci.appveyor.com/project/JavierLuraschi/mlflow)
 [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
 [![codecov](https://codecov.io/gh/rstudio/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/rstudio/mlflow)
 
@@ -216,7 +214,7 @@ and the model definition `model/MLmodel` like:
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
-    ## time_created: 1.535048e+09
+    ## time_created: 1.5350633e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
