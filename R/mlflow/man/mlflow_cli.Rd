@@ -15,6 +15,9 @@ Defaults to \code{FALSE}.}
 \item{echo}{Print the standard output and error to the screen? Defaults to
 \code{TRUE}, does not apply to background tasks.}
 }
+\value{
+A \code{processx} task.
+}
 \description{
 Executes a generic MLflow command through the commmand line interface.
 }
