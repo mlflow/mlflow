@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.5.1 (2018-08-23)
+------------------
+
+MLflow 0.5.1 is a patch release on top of 0.5.0 containing only bug fixes and no breaking changes or features.
+
+Bug fixes:
+
+- Fix ``with mlflow.start_run() as run`` to actually set ``run`` to the created Run (previously, it was None) (#322, @tomasatdatabricks)
+- Fixes to DBFS artifactory to throw an exception if logging an artifact fails (#309) and to mimic FileStore's behavior of logging subdirectories (#347, @andrewmchen)
+- Fix for Python 3.7 support with tarfiles (#329, @tomasatdatabricks)
+- Fix spark.load_model not to delete the DFS tempdir (#335, @aarondav)
+- MLflow UI now appropriately shows entrypoint if it's not main (#345, @aarondav)
+- Make Python API forward-compatible with newer server versions of protos (#348, @aarondav)
+- Improved API docs (#305, #284, @smurching)
+
+
 0.5.0 (2018-08-17)
 ------------------
 
