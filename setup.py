@@ -31,7 +31,6 @@ setup(
         'databricks-cli>=0.8.0',
         'requests>=2.17.3',
         'six>=1.10.0',
-        'uuid',
         'gunicorn',
         'Flask',
         'numpy',

@@ -37,24 +37,25 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     """
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
+    work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
+                              git_username=git_username, git_password=git_password)
+    project = _project_spec.load_project(work_dir)
+    project.get_entry_point(entry_point)._validate_parameters(parameters)
+    if run_id:
+        active_run = tracking.get_service().get_run(run_id)
+    else:
+        active_run = _create_run(uri, exp_id, work_dir, entry_point, parameters)
+
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
-            uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-            experiment_id=exp_id, cluster_spec=cluster_spec, git_username=git_username,
-            git_password=git_password)
+            remote_run=active_run,
+            uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
+            experiment_id=exp_id, cluster_spec=cluster_spec)
     elif mode == "local" or mode is None:
-        work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
-                                  git_username=git_username, git_password=git_password)
-        project = _project_spec.load_project(work_dir)
-        project.get_entry_point(entry_point)._validate_parameters(parameters)
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
         conda_env_name = _get_or_create_conda_env(project.conda_env_path) if use_conda else None
-        if run_id:
-            active_run = tracking.get_service().get_run(run_id)
-        else:
-            active_run = _create_run(uri, exp_id, work_dir, entry_point, parameters)
         # In blocking mode, run the entry point command in blocking fashion, sending status updates
         # to the tracking server when finished. Note that the run state may not be persisted to the
         # tracking server if interrupted
@@ -80,7 +81,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     Supports downloading projects from Git URIs with a specified version, or copying them from
     the file system. For Git-based projects, a commit can be specified as the ``version``.
 
-    :raises mlflow.projects.ExecutionException: if a run launched in blocking mode is unsuccessful.
+    :raises ``ExecutionException``: If a run launched in blocking mode is unsuccessful.
 
     :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
                 path or a git repository URI (e.g. https://github.com/mlflow/mlflow-example)
@@ -110,8 +111,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the given run ID will be used instead of
                    creating a new run.
-    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run.
-              The returned ``SubmittedRun`` is not thread-safe.
+    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run. The
+             returned ``SubmittedRun`` is not thread-safe.
     """
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,

@@ -1,10 +1,12 @@
 package org.mlflow.sagemaker;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -13,9 +15,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.models.Model;
-import org.mlflow.utils.Environment;
-import org.mlflow.utils.FileUtils;
-import org.mlflow.utils.SystemEnvironment;
+import org.mlflow.utils.EnvironmentUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +24,13 @@ public class ScoringServer {
   public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
   private static final String REQUEST_CONTENT_TYPE_JSON = "application/json";
   private static final String REQUEST_CONTENT_TYPE_CSV = "text/csv";
+
+  static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
+  static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
+
+  static final int DEFAULT_MINIMUM_SERVER_THREADS = 1;
+  // Assuming an 8 core machine with hyperthreading
+  static final int DEFAULT_MAXIMUM_SERVER_THREADS = 16;
 
   private static final Logger logger = LoggerFactory.getLogger(ScoringServer.class);
   private final Server server;
@@ -34,12 +41,11 @@ public class ScoringServer {
    * on a randomly-selected available port
    */
   public ScoringServer(Predictor predictor) {
-    ServerThreadConfiguration threadConfiguration =
-        ServerThreadConfiguration.create(SystemEnvironment.get());
-    this.server =
-        new Server(
-            new QueuedThreadPool(
-                threadConfiguration.getMaxThreads(), threadConfiguration.getMinThreads()));
+    int minThreads = EnvironmentUtils.getIntegerValue(
+        ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
+    int maxThreads = EnvironmentUtils.getIntegerValue(
+        ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
+    this.server = new Server(new QueuedThreadPool(maxThreads, minThreads));
     this.server.setStopAtShutdown(true);
 
     this.httpConnector = new ServerConnector(this.server, new HttpConnectionFactory());
@@ -96,9 +102,8 @@ public class ScoringServer {
   public void start(int portNumber) {
     if (isActive()) {
       int activePort = this.httpConnector.getLocalPort();
-      throw new IllegalStateException(
-          String.format(
-              "Attempted to start a server that is already active on port %d", activePort));
+      throw new IllegalStateException(String.format(
+          "Attempted to start a server that is already active on port %d", activePort));
     }
 
     this.httpConnector.setPort(portNumber);
@@ -148,48 +153,7 @@ public class ScoringServer {
 
   public static class ServerStateChangeException extends RuntimeException {
     ServerStateChangeException(Exception e) {
-      super(e.getMessage());
-    }
-  }
-
-  /**
-   * Configuration providing the minimum and maximum number of threads to allocate to the scoring
-   * server
-   */
-  static class ServerThreadConfiguration {
-    static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
-    static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
-
-    static final int DEFAULT_MINIMUM_SERVER_THREADS = 1;
-    // Assuming an 8 core machine with hyperthreading
-    static final int DEFAULT_MAXIMUM_SERVER_THREADS = 16;
-
-    private final int minThreads;
-    private final int maxThreads;
-
-    private ServerThreadConfiguration(int minThreads, int maxThreads) {
-      this.minThreads = minThreads;
-      this.maxThreads = maxThreads;
-    }
-
-    static ServerThreadConfiguration create(Environment environment) {
-      int minThreads =
-          environment.getIntegerValue(
-              ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
-      int maxThreads =
-          environment.getIntegerValue(
-              ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
-      return new ServerThreadConfiguration(minThreads, maxThreads);
-    }
-
-    /** @return The minimum number of server threads specified by the configuration */
-    int getMinThreads() {
-      return this.minThreads;
-    }
-
-    /** @return The maximum number of server threads specified by the configuration */
-    int getMaxThreads() {
-      return this.maxThreads;
+      super(e);
     }
   }
 
@@ -211,7 +175,7 @@ public class ScoringServer {
     public void doPost(HttpServletRequest request, HttpServletResponse response)
         throws IOException {
       String requestContentType = request.getHeader("Content-type");
-      String requestBody = FileUtils.readInputStreamAsUtf8(request.getInputStream());
+      String requestBody = IOUtils.toString(request.getInputStream(), StandardCharsets.UTF_8);
       String responseContent = null;
       try {
         responseContent = evaluateRequest(requestBody, requestContentType);
@@ -220,35 +184,40 @@ public class ScoringServer {
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent = getErrorResponseJson(e.getMessage());
       } catch (InvalidRequestTypeException e) {
+        logger.info(String.format(
+            "Received a request with an unsupported content type: %s", requestContentType));
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        responseContent = getErrorResponseJson(
+            "Invocations requests must have a content header of type `application/json` or `text/csv`");
       } catch (Exception e) {
         logger.error("An unknown error occurred while evaluating the prediction request.", e);
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent =
             getErrorResponseJson("An unknown error occurred while evaluating the model!");
       } finally {
-        response.getWriter().print(responseContent);
-        response.getWriter().close();
+        if (responseContent != null) {
+          response.getWriter().print(responseContent);
+          response.getWriter().close();
+        }
       }
     }
 
     private String evaluateRequest(String requestContent, String requestContentType)
         throws PredictorEvaluationException, InvalidRequestTypeException {
       PredictorDataWrapper predictorInput = null;
-      if (requestContentType == REQUEST_CONTENT_TYPE_JSON) {
+      if (requestContentType.equals(REQUEST_CONTENT_TYPE_JSON)) {
         predictorInput =
             new PredictorDataWrapper(requestContent, PredictorDataWrapper.ContentType.Json);
         PredictorDataWrapper result = predictor.predict(predictorInput);
         return result.toJson();
-      } else if (requestContentType == REQUEST_CONTENT_TYPE_CSV) {
+      } else if (requestContentType.equals(REQUEST_CONTENT_TYPE_CSV)) {
         predictorInput =
             new PredictorDataWrapper(requestContent, PredictorDataWrapper.ContentType.Csv);
         PredictorDataWrapper result = predictor.predict(predictorInput);
         return result.toCsv();
       } else {
-        logger.error(
-            String.format(
-                "Received a request with an unsupported content type: %s", requestContentType));
+        logger.error(String.format(
+            "Received a request with an unsupported content type: %s", requestContentType));
         throw new InvalidRequestTypeException(
             "Invocations content must be of content type `application/json` or `text/csv`");
       }
@@ -283,7 +252,7 @@ public class ScoringServer {
     }
     ScoringServer server = new ScoringServer(modelPath);
     try {
-      server.start(8080);
+      server.start(portNum.orElse(8080));
     } catch (ServerStateChangeException e) {
       logger.error("Encountered an error while starting the prediction server.", e);
     }

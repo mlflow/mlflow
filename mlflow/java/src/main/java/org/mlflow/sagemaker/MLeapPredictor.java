@@ -13,6 +13,8 @@ import ml.combust.mleap.runtime.frame.Transformer;
 import ml.combust.mleap.runtime.javadsl.BundleBuilder;
 import ml.combust.mleap.runtime.javadsl.ContextBuilder;
 import org.mlflow.utils.SerializationUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 
@@ -22,6 +24,7 @@ public class MLeapPredictor extends Predictor {
   private final LeapFrameSchema inputSchema;
 
   private static final Seq<String> predictionColumnNames;
+  private static final Logger logger = LoggerFactory.getLogger(MLeapPredictor.class);
 
   static {
     List<String> predictionColumnList = Arrays.asList("prediction");
@@ -43,7 +46,7 @@ public class MLeapPredictor extends Predictor {
     try {
       this.inputSchema = LeapFrameSchema.fromPath(inputSchemaPath);
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.error(e);
       throw new PredictorLoadingException(String.format(
           "Failed to load model input schema from specified path: %s", inputSchemaPath));
     }
@@ -56,7 +59,9 @@ public class MLeapPredictor extends Predictor {
     try {
       pandasFrame = PandasRecordOrientedDataFrame.fromJson(input.toJson());
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.error(
+          "Encountered a JSON conversion error during conversion of Pandas dataframe to LeapFrame.",
+          e);
       throw new PredictorEvaluationException(
           "Failed to transform input into a JSON representation of an MLeap dataframe."
           + "Please ensure that the input is a JSON-serialized Pandas Dataframe"
@@ -71,7 +76,8 @@ public class MLeapPredictor extends Predictor {
           String.format("The input dataframe is missing the following required field: %s",
               e.getMissingFieldName()));
     } catch (Exception e) {
-      e.printStackTrace();
+      logger.error(
+          "Encountered an unknown error during conversion of Pandas dataframe to LeapFrame.", e);
       throw new PredictorEvaluationException(
           "An unknown error occurred while converting the input dataframe to a LeapFrame.");
     }
@@ -90,7 +96,7 @@ public class MLeapPredictor extends Predictor {
     try {
       predictionsJson = SerializationUtils.toJson(predictions);
     } catch (JsonProcessingException e) {
-      e.printStackTrace();
+      logger.error("Encountered an error while serializing the output dataframe.", e);
       throw new PredictorEvaluationException(
           "Failed to serialize prediction results as a JSON list!");
     }

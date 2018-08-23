@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from mlflow.entities import Metric, Param, RunData
+from mlflow.entities import Metric, Param, RunData, RunTag
 from tests.helper_functions import random_str, random_int
 
 
@@ -16,9 +16,14 @@ class TestRunData(unittest.TestCase):
         self.assertEqual(set([p.key for p in params_1]), set([p.key for p in params_2]))
         self.assertEqual(set([p.value for p in params_1]), set([p.value for p in params_2]))
 
-    def _check(self, rd, metrics, params):
+    def _check_tags(self, tags_1, tags_2):
+        self.assertEqual(set([t.key for t in tags_1]), set([t.key for t in tags_2]))
+        self.assertEqual(set([t.value for t in tags_2]), set([t.value for t in tags_2]))
+
+    def _check(self, rd, metrics, params, tags):
         self._check_metrics(rd.metrics, metrics)
         self._check_params(rd.params, params)
+        self._check_tags(rd.tags, tags)
 
     @staticmethod
     def _create():
@@ -26,23 +31,26 @@ class TestRunData(unittest.TestCase):
                           int(time.time() + random_int(-1e4, 1e4)))
                    for _ in range(100)]
         params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
+        tags = [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
         rd = RunData()
         for p in params:
-            rd.add_param(p)
+            rd._add_param(p)
         for m in metrics:
-            rd.add_metric(m)
-        return rd, metrics, params
+            rd._add_metric(m)
+        for t in tags:
+            rd._add_tag(t)
+        return rd, metrics, params, tags
 
     def test_creation_and_hydration(self):
-        rd1, metrics, params = self._create()
-        self._check(rd1, metrics, params)
+        rd1, metrics, params, tags = self._create()
+        self._check(rd1, metrics, params, tags)
 
-        as_dict = {"metrics": metrics, "params": params}
+        as_dict = {"metrics": metrics, "params": params, "tags": tags}
         self.assertEqual(dict(rd1), as_dict)
 
         proto = rd1.to_proto()
         rd2 = RunData.from_proto(proto)
-        self._check(rd2, metrics, params)
+        self._check(rd2, metrics, params, tags)
 
         rd3 = RunData.from_dictionary(as_dict)
-        self._check(rd3, metrics, params)
+        self._check(rd3, metrics, params, tags)

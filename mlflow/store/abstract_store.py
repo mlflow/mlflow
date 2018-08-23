@@ -1,5 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
+from mlflow.entities import ViewType
+
 
 class AbstractStore:
     """
@@ -17,9 +19,11 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_experiments(self):
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         """
-        :return: a list of all known Experiment objects
+
+        :param view_type: Qualify requested type of experiments.
+        :return: a list of Experiment objects stored in store for requested view.
         """
         pass
 
@@ -38,10 +42,30 @@ class AbstractStore:
     @abstractmethod
     def get_experiment(self, experiment_id):
         """
-        Fetches the experiment from the backend store.
+        Fetches the experiment by ID from the backend store.
+        Throws an exception if experiment is not found or permanently deleted.
 
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
+        """
+        pass
+
+    @abstractmethod
+    def delete_experiment(self, experiment_id):
+        """
+        Deletes the experiment from the backend store. Deleted experiments can be restored until
+        permanently deleted.
+
+        :param experiment_id: Integer id for the experiment
+        """
+        pass
+
+    @abstractmethod
+    def restore_experiment(self, experiment_id):
+        """
+        Restore deleted experiment unless it is permanently deleted.
+
+        :param experiment_id: Integer id for the experiment
         """
         pass
 
@@ -88,6 +112,14 @@ class AbstractStore:
         Logs a param for the specified run
         :param run_uuid: String id for the run
         :param param: Param instance to log
+        """
+        pass
+
+    def set_tag(self, run_uuid, tag):
+        """
+        Sets a tag for the specified run
+        :param run_uuid: String id for the run
+        :param tag: RunTag instance to set
         """
         pass
 

@@ -2,12 +2,14 @@ package org.mlflow.sagemaker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -18,8 +20,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mlflow.utils.Environment;
-import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
 
 public class ScoringServerTest {
@@ -48,27 +48,10 @@ public class ScoringServerTest {
     }
   }
 
-  private class MockEnvironment implements Environment {
-    private Map<String, Integer> values = new HashMap<String, Integer>();
-
-    void setValue(String varName, int value) {
-      this.values.put(varName, value);
-    }
-
-    @Override
-    public int getIntegerValue(String varName, int defaultValue) {
-      if (this.values.containsKey(varName)) {
-        return this.values.get(varName);
-      } else {
-        return defaultValue;
-      }
-    }
-  }
-
   private static final HttpClient httpClient = HttpClientBuilder.create().build();
 
   private static String getHttpResponseBody(HttpResponse response) throws IOException {
-    return FileUtils.readInputStreamAsUtf8(response.getEntity().getContent());
+    return IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
   }
 
   @Test
@@ -176,14 +159,24 @@ public class ScoringServerTest {
     server.start();
 
     String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
-    HttpPost postRequest = new HttpPost(requestUrl);
-    postRequest.addHeader("Content-type", "application/json");
-    HttpEntity entity = new StringEntity("body");
-    postRequest.setEntity(entity);
 
-    HttpResponse response = httpClient.execute(postRequest);
+    HttpPost postRequestJson = new HttpPost(requestUrl);
+    postRequestJson.addHeader("Content-type", "application/json");
+    HttpEntity entityJson = new StringEntity("body");
+    postRequestJson.setEntity(entityJson);
+
+    HttpResponse responseJson = httpClient.execute(postRequestJson);
     Assert.assertEquals(
-        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, response.getStatusLine().getStatusCode());
+        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, responseJson.getStatusLine().getStatusCode());
+
+    HttpPost postRequestCsv = new HttpPost(requestUrl);
+    postRequestCsv.addHeader("Content-type", "text/csv");
+    HttpEntity entityCsv = new StringEntity("body");
+    postRequestCsv.setEntity(entityCsv);
+
+    HttpResponse responseCsv = httpClient.execute(postRequestCsv);
+    Assert.assertEquals(
+        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, responseCsv.getStatusLine().getStatusCode());
 
     server.stop();
   }
@@ -268,7 +261,7 @@ public class ScoringServerTest {
     try {
       server2.start(portNumber);
       Assert.fail(
-          "Expected starting a new server on a port that is already bound to throw a state change exception.");
+          "Expected starting a new server on a port that is already bound to throw an exception.");
     } catch (ScoringServer.ServerStateChangeException e) {
       // Succeed
     }
@@ -284,54 +277,11 @@ public class ScoringServerTest {
     try {
       server.start();
       Assert.fail(
-          "Expected attempt to start a server that is already active to throw an illegal state exception.");
+          "Expected attempt to start a server that is already active to throw an exception.");
     } catch (IllegalStateException e) {
       // Succeed
     } finally {
       server.stop();
     }
-  }
-
-  @Test
-  public void testServerThreadConfigReadsMinMaxFromEnvironmentVariablesIfSpecified() {
-    int minThreads1 = 128;
-    int maxThreads1 = 1024;
-    MockEnvironment mockEnv1 = new MockEnvironment();
-    mockEnv1.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MINIMUM_SERVER_THREADS, minThreads1);
-    mockEnv1.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MAXIMUM_SERVER_THREADS, maxThreads1);
-    ScoringServer.ServerThreadConfiguration threadConfig1 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv1);
-    Assert.assertEquals(minThreads1, threadConfig1.getMinThreads());
-    Assert.assertEquals(maxThreads1, threadConfig1.getMaxThreads());
-
-    MockEnvironment mockEnv2 = new MockEnvironment();
-    ScoringServer.ServerThreadConfiguration threadConfig2 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv2);
-    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
-        threadConfig2.getMinThreads());
-    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
-        threadConfig2.getMaxThreads());
-
-    int maxThreads3 = 256;
-    MockEnvironment mockEnv3 = new MockEnvironment();
-    mockEnv3.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MAXIMUM_SERVER_THREADS, maxThreads3);
-    ScoringServer.ServerThreadConfiguration threadConfig3 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv3);
-    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
-        threadConfig3.getMinThreads());
-    Assert.assertEquals(maxThreads3, threadConfig3.getMaxThreads());
-
-    int minThreads4 = 4;
-    MockEnvironment mockEnv4 = new MockEnvironment();
-    mockEnv4.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MINIMUM_SERVER_THREADS, minThreads4);
-    ScoringServer.ServerThreadConfiguration threadConfig4 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv4);
-    Assert.assertEquals(minThreads4, threadConfig4.getMinThreads());
-    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
-        threadConfig4.getMaxThreads());
   }
 }

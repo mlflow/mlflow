@@ -3,6 +3,7 @@ import os
 from flask import Flask, send_from_directory, make_response
 
 from mlflow.server import handlers
+from mlflow.server.handlers import get_artifact_handler
 from mlflow.utils.process import exec_cmd
 
 FILE_STORE_ENV_VAR = "MLFLOW_SERVER_FILE_STORE"
@@ -22,6 +23,12 @@ def _add_static_prefix(route):
     if prefix:
         return prefix + route
     return route
+
+
+# Serve the "get-artifact" route.
+@app.route(_add_static_prefix('/get-artifact'))
+def serve_artifacts():
+    return get_artifact_handler()
 
 
 # Serve the font awesome fonts for the React app

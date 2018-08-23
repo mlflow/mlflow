@@ -1,9 +1,6 @@
 package org.mlflow.utils;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -25,13 +22,5 @@ public class FileUtilsTest {
 
     Assert.assertEquals(outputPathAbsolute, joinedPath3);
     Assert.assertEquals(outputPathAbsolute, joinedPath4);
-  }
-
-  @Test
-  public void utf8ContentIsReadFromInputStreamCorrectly() throws IOException {
-    String sampleString = "This is a sample string.";
-    InputStream stream = new ByteArrayInputStream(sampleString.getBytes(StandardCharsets.UTF_8));
-    String parsedString = FileUtils.readInputStreamAsUtf8(stream);
-    Assert.assertEquals(sampleString, parsedString);
   }
 }
