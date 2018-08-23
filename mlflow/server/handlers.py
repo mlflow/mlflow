@@ -154,6 +154,22 @@ def _get_experiment():
 
 
 def _delete_experiment():
+    """
+    Delete experiment.
+    This operation will mark experiment and associated runs, params, metrics, ... etc for deletion.
+    If experiment uses FileStore, artifacts associated with experiment will also be deleted.
+    ---
+    parameters:
+      - name: experiment_id
+        description: ID of an experiment. This field is required.
+        in: body
+        required: true
+        schema:
+          $ref: '#/definitions/ExperimentId'
+    responses:
+      200:
+        description: OK
+    """
     request_message = _get_request_message(DeleteExperiment())
     _get_store().delete_experiment(request_message.experiment_id)
     response_message = DeleteExperiment.Response()
@@ -163,6 +179,24 @@ def _delete_experiment():
 
 
 def _restore_experiment():
+    """
+    Restore a deleted experiment.
+    This operation will restore an experiment marked for deletion. This will also restore
+    associated metadata, runs, metrics, and params. If experiment uses FileStore, underlying
+    artifacts associated with experiment will also be restored.
+    Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
+    ---
+    parameters:
+      - name: experiment_id
+        description: ID of an experiment. This field is required.
+        in: body
+        required: true
+        schema:
+          $ref: '#/definitions/ExperimentId'
+    responses:
+      200:
+        description: OK
+    """
     request_message = _get_request_message(RestoreExperiment())
     _get_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
