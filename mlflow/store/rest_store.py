@@ -75,7 +75,7 @@ class RestStore(AbstractStore):
         if 'error_code' in js_dict:
             raise RestException(js_dict)
 
-        ParseDict(js_dict=js_dict, message=response_proto)
+        ParseDict(js_dict=js_dict, message=response_proto, ignore_unknown_fields=True)
         return response_proto
 
     def list_experiments(self):

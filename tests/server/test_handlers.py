@@ -19,6 +19,23 @@ def test_can_parse_json():
     assert msg.name == "hello"
 
 
+def test_can_parse_post_json_with_unknown_fields():
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {"name": "hello", "WHAT IS THIS FIELD EVEN": "DOING"}
+    msg = _get_request_message(CreateExperiment(), flask_request=request)
+    assert msg.name == "hello"
+
+
+def test_can_parse_get_json_with_unknown_fields():
+    request = mock.MagicMock()
+    request.method = "GET"
+    request.query_string = b"name=hello&superDuperUnknown=field"
+    msg = _get_request_message(CreateExperiment(), flask_request=request)
+    assert msg.name == "hello"
+
+
 # Previous versions of the client sent a doubly string encoded JSON blob,
 # so this test ensures continued compliance with such clients.
 def test_can_parse_json_string():
