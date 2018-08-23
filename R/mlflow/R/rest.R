@@ -61,5 +61,5 @@ mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = 
   }
 
   text <- content(response, "text", encoding = "UTF-8")
-  fromJSON(text)
+  jsonlite::fromJSON(text)
 }

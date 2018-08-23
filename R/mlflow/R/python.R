@@ -1,7 +1,7 @@
 #' @importFrom reticulate conda_list
 python_bin_conda <- function() {
   envs <- conda_list()
-  mlflow_env <- envs[envs$name == "r-mlflow",]
+  mlflow_env <- envs[envs$name == "r-mlflow", ]
   if (nrow(mlflow_env) == 0) {
     stop("MLflow not configured, please run mlflow_install().")
   }

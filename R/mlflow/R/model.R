@@ -96,8 +96,7 @@ mlflow_rfunc_predict <- function(
 ) {
   mlflow_restore_or_warning(restore)
 
-  if (is.character(data))
-  {
+  if (is.character(data)) {
     data <- switch(
       fs::path_ext(data),
       json = jsonlite::read_json(data),

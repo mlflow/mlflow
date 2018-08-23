@@ -41,7 +41,7 @@ mlflow_rfunc_serve <- function(
 ) {
   mlflow_restore_or_warning(restore)
 
-  httpuv_start <- if (daemonized) startDaemonizedServer else runServer
+  httpuv_start <- if (daemonized) httpuv::startDaemonizedServer else httpuv::runServer
   serve_run(model_dir, host, port, httpuv_start, browse && interactive())
 }
 
@@ -135,7 +135,7 @@ serve_handlers <- function(host, port) {
 
       df <- data.frame()
       if (length(json_raw) > 0) {
-        df <- fromJSON(
+        df <- httpuv::fromJSON(
           rawToChar(json_raw),
           simplifyDataFrame = FALSE,
           simplifyMatrix = FALSE
@@ -153,7 +153,7 @@ serve_handlers <- function(host, port) {
           "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
         ),
         body = charToRaw(enc2utf8(
-          toJSON(result, auto_unbox = TRUE)
+          httpuv::toJSON(result, auto_unbox = TRUE)
         ))
       )
     },

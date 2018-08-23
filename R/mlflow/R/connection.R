@@ -43,7 +43,7 @@ mlflow_connect_port <- function() {
   )
 
   retries <- getOption("mlflow.port.retries", 10)
-  while(is.null(port) && retries > 0) {
+  while (is.null(port) && retries > 0) {
     port <- floor(5000 + rand_num(1) * 1000)
     if (!mlflow_port_available(port)) {
       port <- NULL
@@ -55,8 +55,7 @@ mlflow_connect_port <- function() {
   port
 }
 
-mlflow_cli_param <- function(args, param, value)
-{
+mlflow_cli_param <- function(args, param, value) {
   if (!is.null(value)) {
     args <- c(
       args,

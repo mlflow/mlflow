@@ -49,7 +49,7 @@ mlflow_create_experiment <- function(name, activate = TRUE) {
   experiments <- mlflow_list_experiments()
   experiment_id <- if (name %in% experiments$name) {
     message("Experiment with name ", name, " already exists.")
-    experiments[experiments$name == name,]$experiment_id
+    experiments[experiments$name == name, ]$experiment_id
   } else {
     response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
     response$experiment_id

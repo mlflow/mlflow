@@ -148,7 +148,7 @@ with.mlflow_active_run <- function(data, expr, ...) {
   tryCatch(
     error = function(cnd) {
       message(cnd)
-      mlflow_update_run(run_uuid = runid,status = "FAILED", end_time = current_time())
+      mlflow_update_run(run_uuid = runid, status = "FAILED", end_time = current_time())
     },
     interrupt = function(cnd) mlflow_update_run(
       run_uuid = runid, status = "KILLED", end_time = current_time()
