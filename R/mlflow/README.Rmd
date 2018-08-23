@@ -108,6 +108,59 @@ model <- lm(Sepal.Width ~ iris[[column]], iris)
 mlflow_log_metric("intercept", model$coefficients[["(Intercept)"]])
 ```
 
+### Parameters
+
+You will often want to parameterize your scripts to support running and tracking multiple experiments. Ypu can define parameters with type under a `params_example.R` example as follows:
+
+```{r eval=FALSE}
+library(mlflow)
+
+# define parameters
+my_int <- mlflow_param("my_int", 1, "integer")
+my_num <- mlflow_param("my_num", 1.0, "numeric")
+my_str <- mlflow_param("my_str", "a", "string")
+
+# log parameters
+mlflow_log_param("param_int", my_int)
+mlflow_log_param("param_num", my_num)
+mlflow_log_param("param_str", my_str)
+```
+
+Then run `mlflow run` with custom parameters as follows
+
+```
+mlflow run tests/testthat/examples/ --entry-point params_example.R -P my_int=10 -P my_num=20.0 -P my_str=XYZ
+```
+```
+=== Created directory /var/folders/ks/wm_bx4cn70s6h0r5vgqpsldm0000gn/T/tmpi6d2_wzf for downloading remote URIs passed to arguments of type 'path' ===
+=== Running command 'source /miniconda2/bin/activate mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709 && Rscript -e "mlflow::mlflow_source('params_example.R')" --args --my_int 10 --my_num 20.0 --my_str XYZ' in run with ID '191b489b2355450a8c3cc9bf96cb1aa3' === 
+=== Run (ID '191b489b2355450a8c3cc9bf96cb1aa3') succeeded ===
+```
+
+Run results that we can view with `mlflow_ui()` or `mlflow_get_run()` as follows:
+
+```{r eval=FALSE}
+mlflow_get_run("191b489b2355450a8c3cc9bf96cb1aa3")
+```
+```
+$info
+                          run_uuid experiment_id  name source_type source_name
+1 191b489b2355450a8c3cc9bf96cb1aa3             0 Run 3     PROJECT examples
+    user_id   status    start_time      end_time                           source_version
+1 user_name FINISHED 1535045372367 1535045380361 12871326fd3123f793b6afaa81b2d3c81493c84a
+  entry_point_name                                        artifact_uri
+1 params_example.R mlruns/0/191b489b2355450a8c3cc9bf96cb1aa3/artifacts
+
+$data
+  params.key params.value
+1  param_str          XYZ
+2     my_num         20.0
+3  param_int           10
+4  param_num           20
+5     my_str          XYZ
+6     my_int           10
+```
+
 ## Models
 
 An MLflow Model is a standard format for packaging machine learning models that can be used in a variety of downstream tools—for example, real-time serving through a REST API or batch inference on Apache Spark. They provide a convention to save a model in different “flavors” that can be understood by different downstream tools.

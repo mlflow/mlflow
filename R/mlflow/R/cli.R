@@ -8,6 +8,8 @@
 #' @param echo Print the standard output and error to the screen? Defaults to
 #'   \code{TRUE}, does not apply to background tasks.
 #'
+#' @return A \code{processx} task.
+#'
 #' @examples
 #' \dontrun{
 #' library(mlflow)
