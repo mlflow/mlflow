@@ -9,10 +9,12 @@ from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 
+
 @click.group("rfunc")
 def commands():
     """Serve R models locally."""
     pass
+
 
 def execute(command):
     eprint("=== Rscript -e %s) ===" % command)
@@ -20,10 +22,12 @@ def execute(command):
     process = subprocess.Popen(["Rscript", "-e", command], close_fds=True, env=env)
     process.wait()
 
+
 def str_optional(s):
     if s is None:
         return ''
     return str(s)
+
 
 @commands.command("serve")
 @cli_args.MODEL_PATH
@@ -38,9 +42,10 @@ def serve(model_path, run_id, port):
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
-    
+
     command = "mlflow::mlflow_rfunc_serve('{0}', port = {1})".format(model_path, port)
     execute(command)
+
 
 @commands.command("predict")
 @cli_args.MODEL_PATH
@@ -60,5 +65,7 @@ def predict(model_path, run_id, input_path, output_path):
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
 
-    command = "mlflow::mlflow_rfunc_predict('{0}', '{1}', '{2}')".format(model_path, input_path, str_optional(output_path))
+    str_cmd = "mlflow::mlflow_rfunc_predict('{0}', '{1}', '{2}')"
+    command = str_cmd.format(model_path, input_path, str_optional(output_path))
+
     execute(command)
