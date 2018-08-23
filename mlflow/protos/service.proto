@@ -59,6 +59,41 @@ service MlflowService {
     };
   }
 
+  // Delete experiment.
+  //
+  // This operation will mark experiment and associated runs, params, metrics, ... etc for deletion.
+  // If experiment uses FileStore, artifacts associated with experiment will also be deleted.
+  //
+  rpc deleteExperiment (DeleteExperiment) returns (DeleteExperiment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/experiments/delete"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+    };
+  }
+
+  // Restore a deleted experiment.
+  //
+  // This operation will restore an experiment marked for deletion. This will also restore
+  // associated metadata, runs, metrics, and params. If experiment uses FileStore, underlying
+  // artifacts associated with experiment will also be restored.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
+  //
+  rpc restoreExperiment (RestoreExperiment) returns (RestoreExperiment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/experiments/restore"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+    };
+  }
+
   // Create a new run within an experiment. A run is usually a single execution of a
   // machine learning or data ETL pipeline. MLflow uses runs to track :ref:`mlflowParam`,
   // :ref:`mlflowMetric`, and :ref:`mlflowRunTag` associated with a single execution.
@@ -228,6 +263,18 @@ service MlflowService {
   }
 }
 
+// Qualifier view type for ListExperiment query.
+enum ViewType {
+  // Default. Only return active experiments.
+  ACTIVE_ONLY = 1;
+
+  // Only return deleted experiments.
+  DELETED_ONLY = 2;
+
+  // Get all active and deleted experiments.
+  ALL = 3;
+}
+
 // Description of the source that generated a run.
 enum SourceType {
   // Within Databricks Notebook environment.
@@ -362,7 +409,15 @@ message Experiment {
   // Location where artifacts for this experiment are stored.
   optional string artifact_location = 3;
 
-  // TODO: Do we need to qualify location type?
+  // Current life cycle stage of the experiment : OneOf("active", "deleted")
+  // Deleted experiments are not returned by APIs
+  optional string lifecycle_stage = 4;
+
+  // Last update time
+  optional int64 last_update_time = 5;
+
+  // Creation time
+  optional int64 creation_time = 6;
 }
 
 message CreateExperiment {
@@ -384,6 +439,10 @@ message CreateExperiment {
 message ListExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // Qualifier for type of experiments to be returned.
+  // If unspecified returns only active experiments.
+  optional ViewType view_type = 1;
+
   message Response {
     // All experiments
     repeated Experiment experiments = 1;
@@ -402,6 +461,26 @@ message GetExperiment {
 
     // All (max limit to be imposed) runs associated with this experiment.
     repeated RunInfo runs = 2;
+  }
+}
+
+message DeleteExperiment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Identifier to get an experiment
+  optional int64 experiment_id = 1 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message RestoreExperiment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Identifier to get an experiment
+  optional int64 experiment_id = 1 [(validate_required) = true];
+
+  message Response {
   }
 }
 

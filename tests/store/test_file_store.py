@@ -5,7 +5,7 @@ import uuid
 
 import time
 
-from mlflow.entities import Experiment, Metric, Param, RunTag
+from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from tests.helper_functions import random_int, random_str
@@ -172,6 +172,9 @@ class TestFileStore(unittest.TestCase):
             with self.assertRaises(Exception):
                 fs.create_experiment(name)
 
+    def _extract_ids(self, experiments):
+        return [e.experiment_id for e in experiments]
+
     def test_delete_restore_experiment(self):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
@@ -179,11 +182,9 @@ class TestFileStore(unittest.TestCase):
 
         # delete it
         fs.delete_experiment(exp_id)
-        with self.assertRaises(Exception):
-            fs.get_experiment(exp_id)
-        with self.assertRaises(Exception):
-            fs.get_experiment(exp_name)
-        self.assertEqual(fs.get_experiment(exp_id, include_deleted=True).experiment_id, exp_id)
+        self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
 
         # restore it
         fs.restore_experiment(exp_id)
@@ -193,6 +194,9 @@ class TestFileStore(unittest.TestCase):
         restored_2 = fs.get_experiment_by_name(exp_name)
         self.assertEqual(restored_2.experiment_id, exp_id)
         self.assertEqual(restored_2.name, exp_name)
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
+        self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
