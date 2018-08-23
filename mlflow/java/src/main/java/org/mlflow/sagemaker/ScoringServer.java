@@ -13,9 +13,8 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.mlflow.mleap.MLeapLoader;
 import org.mlflow.models.Model;
-import org.mlflow.utils.Environment;
+import org.mlflow.utils.EnvironmentUtils;
 import org.mlflow.utils.FileUtils;
-import org.mlflow.utils.SystemEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +23,13 @@ public class ScoringServer {
   public static final String RESPONSE_KEY_ERROR_MESSAGE = "Error";
   private static final String REQUEST_CONTENT_TYPE_JSON = "application/json";
   private static final String REQUEST_CONTENT_TYPE_CSV = "text/csv";
+
+  static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
+  static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
+
+  static final int DEFAULT_MINIMUM_SERVER_THREADS = 1;
+  // Assuming an 8 core machine with hyperthreading
+  static final int DEFAULT_MAXIMUM_SERVER_THREADS = 16;
 
   private static final Logger logger = LoggerFactory.getLogger(ScoringServer.class);
   private final Server server;
@@ -34,12 +40,11 @@ public class ScoringServer {
    * on a randomly-selected available port
    */
   public ScoringServer(Predictor predictor) {
-    ServerThreadConfiguration threadConfiguration =
-        ServerThreadConfiguration.create(SystemEnvironment.get());
-    this.server =
-        new Server(
-            new QueuedThreadPool(
-                threadConfiguration.getMaxThreads(), threadConfiguration.getMinThreads()));
+    int minThreads = EnvironmentUtils.getIntegerValue(
+        ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
+    int maxThreads = EnvironmentUtils.getIntegerValue(
+        ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
+    this.server = new Server(new QueuedThreadPool(minThreads, maxThreads));
     this.server.setStopAtShutdown(true);
 
     this.httpConnector = new ServerConnector(this.server, new HttpConnectionFactory());
@@ -96,9 +101,8 @@ public class ScoringServer {
   public void start(int portNumber) {
     if (isActive()) {
       int activePort = this.httpConnector.getLocalPort();
-      throw new IllegalStateException(
-          String.format(
-              "Attempted to start a server that is already active on port %d", activePort));
+      throw new IllegalStateException(String.format(
+          "Attempted to start a server that is already active on port %d", activePort));
     }
 
     this.httpConnector.setPort(portNumber);
@@ -149,47 +153,6 @@ public class ScoringServer {
   public static class ServerStateChangeException extends RuntimeException {
     ServerStateChangeException(Exception e) {
       super(e.getMessage());
-    }
-  }
-
-  /**
-   * Configuration providing the minimum and maximum number of threads to allocate to the scoring
-   * server
-   */
-  static class ServerThreadConfiguration {
-    static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
-    static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
-
-    static final int DEFAULT_MINIMUM_SERVER_THREADS = 1;
-    // Assuming an 8 core machine with hyperthreading
-    static final int DEFAULT_MAXIMUM_SERVER_THREADS = 16;
-
-    private final int minThreads;
-    private final int maxThreads;
-
-    private ServerThreadConfiguration(int minThreads, int maxThreads) {
-      this.minThreads = minThreads;
-      this.maxThreads = maxThreads;
-    }
-
-    static ServerThreadConfiguration create(Environment environment) {
-      int minThreads =
-          environment.getIntegerValue(
-              ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
-      int maxThreads =
-          environment.getIntegerValue(
-              ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
-      return new ServerThreadConfiguration(minThreads, maxThreads);
-    }
-
-    /** @return The minimum number of server threads specified by the configuration */
-    int getMinThreads() {
-      return this.minThreads;
-    }
-
-    /** @return The maximum number of server threads specified by the configuration */
-    int getMaxThreads() {
-      return this.maxThreads;
     }
   }
 
@@ -246,9 +209,8 @@ public class ScoringServer {
         PredictorDataWrapper result = predictor.predict(predictorInput);
         return result.toCsv();
       } else {
-        logger.error(
-            String.format(
-                "Received a request with an unsupported content type: %s", requestContentType));
+        logger.error(String.format(
+            "Received a request with an unsupported content type: %s", requestContentType));
         throw new InvalidRequestTypeException(
             "Invocations content must be of content type `application/json` or `text/csv`");
       }

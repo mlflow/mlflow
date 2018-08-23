@@ -48,23 +48,6 @@ public class ScoringServerTest {
     }
   }
 
-  private class MockEnvironment implements Environment {
-    private Map<String, Integer> values = new HashMap<String, Integer>();
-
-    void setValue(String varName, int value) {
-      this.values.put(varName, value);
-    }
-
-    @Override
-    public int getIntegerValue(String varName, int defaultValue) {
-      if (this.values.containsKey(varName)) {
-        return this.values.get(varName);
-      } else {
-        return defaultValue;
-      }
-    }
-  }
-
   private static final HttpClient httpClient = HttpClientBuilder.create().build();
 
   private static String getHttpResponseBody(HttpResponse response) throws IOException {
@@ -89,9 +72,8 @@ public class ScoringServerTest {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail(
-          "Expected constructing a model server with an invalid model path"
-              + " to throw an exception, but none was thrown.");
+      Assert.fail("Expected constructing a model server with an invalid model path"
+          + " to throw an exception, but none was thrown.");
     } catch (PredictorLoadingException e) {
       // Succeed
     }
@@ -301,52 +283,5 @@ public class ScoringServerTest {
     } finally {
       server.stop();
     }
-  }
-
-  @Test
-  public void testServerThreadConfigReadsMinMaxFromEnvironmentVariablesIfSpecified() {
-    int minThreads1 = 128;
-    int maxThreads1 = 1024;
-    MockEnvironment mockEnv1 = new MockEnvironment();
-    mockEnv1.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MINIMUM_SERVER_THREADS, minThreads1);
-    mockEnv1.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MAXIMUM_SERVER_THREADS, maxThreads1);
-    ScoringServer.ServerThreadConfiguration threadConfig1 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv1);
-    Assert.assertEquals(minThreads1, threadConfig1.getMinThreads());
-    Assert.assertEquals(maxThreads1, threadConfig1.getMaxThreads());
-
-    MockEnvironment mockEnv2 = new MockEnvironment();
-    ScoringServer.ServerThreadConfiguration threadConfig2 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv2);
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
-        threadConfig2.getMinThreads());
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
-        threadConfig2.getMaxThreads());
-
-    int maxThreads3 = 256;
-    MockEnvironment mockEnv3 = new MockEnvironment();
-    mockEnv3.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MAXIMUM_SERVER_THREADS, maxThreads3);
-    ScoringServer.ServerThreadConfiguration threadConfig3 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv3);
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
-        threadConfig3.getMinThreads());
-    Assert.assertEquals(maxThreads3, threadConfig3.getMaxThreads());
-
-    int minThreads4 = 4;
-    MockEnvironment mockEnv4 = new MockEnvironment();
-    mockEnv4.setValue(
-        ScoringServer.ServerThreadConfiguration.ENV_VAR_MINIMUM_SERVER_THREADS, minThreads4);
-    ScoringServer.ServerThreadConfiguration threadConfig4 =
-        ScoringServer.ServerThreadConfiguration.create(mockEnv4);
-    Assert.assertEquals(minThreads4, threadConfig4.getMinThreads());
-    Assert.assertEquals(
-        ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
-        threadConfig4.getMaxThreads());
   }
 }
