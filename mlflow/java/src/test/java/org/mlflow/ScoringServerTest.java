@@ -193,7 +193,7 @@ public class ScoringServerTest {
 
     HttpResponse responseCsv = httpClient.execute(postRequestCsv);
     Assert.assertEquals(
-        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, responseJson.getStatusLine().getStatusCode());
+        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, responseCsv.getStatusLine().getStatusCode());
 
     server.stop();
   }
