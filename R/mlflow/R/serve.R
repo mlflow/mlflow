@@ -1,3 +1,5 @@
+# nocov start
+
 #' Serve an RFunc MLflow Model
 #'
 #' Serve an RFunc MLflow Model as a local web api under \url{http://localhost:8090}.
@@ -202,3 +204,5 @@ serve_run <- function(model_dir, host, port, start, browse) {
     }
   ))
 }
+
+# nocov end

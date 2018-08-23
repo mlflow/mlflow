@@ -1,4 +1,5 @@
 #' @import jsonlite
+# nocov start
 
 mlflow_swagger <- function() {
   def <- c(
@@ -73,3 +74,5 @@ swagger_defs <- function() {
     )
   )
 }
+
+# nocov end
