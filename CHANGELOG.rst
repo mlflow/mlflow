@@ -2,12 +2,9 @@ Changelog
 =========
 
 0.5.1 (2018-08-23)
+------------------
 
-MLflow 0.5.1 is a patch release on top of 0.5.0 containing only bug fixes and no breaking changes.
-
-Breaking changes: None
-
-Features: None
+MLflow 0.5.1 is a patch release on top of 0.5.0 containing only bug fixes and no breaking changes or features.
 
 Bug fixes:
 
@@ -18,6 +15,7 @@ Bug fixes:
 - MLflow UI now appropriately shows entrypoint if it's not main (#345, @aarondav)
 - Make Python API forward-compatible with newer server versions of protos (#348, @aarondav)
 - Improved API docs (#305, #284, @smurching)
+
 
 0.5.0 (2018-08-17)
 ------------------
