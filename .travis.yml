@@ -5,7 +5,6 @@ services:
 
 matrix:
   include:
-<<<<<<< HEAD
     - language: python
       python: 2.7
       install:
