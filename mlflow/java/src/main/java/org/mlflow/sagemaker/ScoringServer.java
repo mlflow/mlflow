@@ -44,7 +44,7 @@ public class ScoringServer {
         ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
     int maxThreads = EnvironmentUtils.getIntegerValue(
         ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
-    this.server = new Server(new QueuedThreadPool(minThreads, maxThreads));
+    this.server = new Server(new QueuedThreadPool(maxThreads, minThreads));
     this.server.setStopAtShutdown(true);
 
     this.httpConnector = new ServerConnector(this.server, new HttpConnectionFactory());

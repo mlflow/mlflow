@@ -18,7 +18,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mlflow.utils.Environment;
 import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
 
