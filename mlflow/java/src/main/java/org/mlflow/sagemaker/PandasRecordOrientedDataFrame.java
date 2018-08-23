@@ -56,9 +56,8 @@ class PandasRecordOrientedDataFrame {
     }
     Map<String, Object> rawFrame = new HashMap<>();
     rawFrame.put(LEAP_FRAME_KEY_ROWS, mleapRows);
-    rawFrame.put(LEAP_FRAME_KEY_SCHEMA, leapFrameSchema.getSchemaText());
+    rawFrame.put(LEAP_FRAME_KEY_SCHEMA, leapFrameSchema.getRawSchema());
     String leapFrameJson = SerializationUtils.toJson(rawFrame);
-    System.out.println(leapFrameJson);
     DefaultLeapFrame leapFrame = LeapFrameUtils.getLeapFrameFromJson(leapFrameJson);
     return leapFrame;
   }
