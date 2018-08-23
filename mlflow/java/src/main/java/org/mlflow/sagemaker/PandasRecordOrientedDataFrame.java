@@ -14,16 +14,26 @@ import java.util.HashMap;
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
+/**
+ * A representation of a serialized Pandas dataframe in record-oriented format.
+ * For more information, see `pandas.DataFrame.toJson(orient="records")`
+ * (https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html)
+ */
 class PandasRecordOrientedDataFrame {
   private final List<Map<String, Object>> records;
 
   private static final String LEAP_FRAME_KEY_ROWS = "rows";
   private static final String LEAP_FRAME_KEY_SCHEMA = "schema";
 
-  PandasRecordOrientedDataFrame(List<Map<String, Object>> records) {
+  private PandasRecordOrientedDataFrame(List<Map<String, Object>> records) {
     this.records = records;
   }
 
+  /**
+   * Constructs a {@link PandasRecordOrientedDataFrame}
+   *
+   * @param frameJson A representation of the dataframe
+   */
   static PandasRecordOrientedDataFrame fromJson(String frameJson) throws IOException {
     return new PandasRecordOrientedDataFrame(SerializationUtils.fromJson(frameJson, List.class));
   }
