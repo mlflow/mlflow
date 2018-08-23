@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import ml.combust.mleap.runtime.MleapContext;
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import ml.combust.mleap.runtime.frame.Row;
@@ -51,7 +50,8 @@ public class MLeapPredictor extends Predictor {
   }
 
   @Override
-  protected DataFrame predict(DataFrame input) throws PredictorEvaluationException {
+  protected PredictorDataWrapper predict(PredictorDataWrapper input)
+      throws PredictorEvaluationException {
     PandasRecordOrientedDataFrame pandasFrame = null;
     try {
       pandasFrame = PandasRecordOrientedDataFrame.fromJson(input.toJson());
@@ -86,15 +86,15 @@ public class MLeapPredictor extends Predictor {
       predictions.add(row.getRaw(0));
     }
 
-    Optional<String> predictionsJson = Optional.empty();
+    String predictionsJson = null;
     try {
-      predictionsJson = Optional.of(SerializationUtils.toJson(predictions));
+      predictionsJson = SerializationUtils.toJson(predictions);
     } catch (JsonProcessingException e) {
       e.printStackTrace();
       throw new PredictorEvaluationException(
           "Failed to serialize prediction results as a JSON list!");
     }
-    return DataFrame.fromJson(predictionsJson.get());
+    return new PredictorDataWrapper(predictionsJson, PredictorDataWrapper.ContentType.Json);
   }
 
   /** @return The underlying MLeap pipeline transformer that this predictor uses for inference */

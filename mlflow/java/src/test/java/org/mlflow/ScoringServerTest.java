@@ -1,20 +1,25 @@
 package org.mlflow.sagemaker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.JsonNode;
-import com.mashape.unirest.http.Unirest;
-import com.mashape.unirest.http.exceptions.UnirestException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.junit.After;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.HttpHostConnectException;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mlflow.utils.Environment;
+import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
 
 public class ScoringServerTest {
@@ -32,156 +37,103 @@ public class ScoringServerTest {
       this.succeed = true;
     }
 
-    protected DataFrame predict(DataFrame input) throws PredictorEvaluationException {
+    protected PredictorDataWrapper predict(PredictorDataWrapper input)
+        throws PredictorEvaluationException {
       if (succeed) {
-        String responseText = this.responseContent.orElse("{ \"Text\" : \"Success!\" }");
-        return DataFrame.fromJson(responseText);
+        String responseText = this.responseContent.orElse("{ \"Text\" : \"Succeed!\" }");
+        return new PredictorDataWrapper(responseText, PredictorDataWrapper.ContentType.Json);
       } else {
         throw new PredictorEvaluationException("Failure!");
       }
     }
   }
 
-  @After
-  public void awaitServerShutdown() throws InterruptedException {
-    Thread.sleep(5000);
+  private class MockEnvironment implements Environment {
+    private Map<String, Integer> values = new HashMap<String, Integer>();
+
+    void setValue(String varName, int value) {
+      this.values.put(varName, value);
+    }
+
+    @Override
+    public int getIntegerValue(String varName, int defaultValue) {
+      if (this.values.containsKey(varName)) {
+        return this.values.get(varName);
+      } else {
+        return defaultValue;
+      }
+    }
+  }
+
+  private static final HttpClient httpClient = HttpClientBuilder.create().build();
+
+  private static String getHttpResponseBody(HttpResponse response) throws IOException {
+    return FileUtils.readInputStreamAsUtf8(response.getEntity().getContent());
   }
 
   @Test
-  public void testScoringServerWithValidPredictorRespondsToPingsCorrectly()
-      throws InterruptedException {
+  public void testScoringServerWithValidPredictorRespondsToPingsCorrectly() throws IOException {
     TestPredictor validPredictor = new TestPredictor(true);
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(validPredictor, portNumber);
+    ScoringServer server = new ScoringServer(validPredictor);
     server.start();
 
-    Thread.sleep(5000);
-
-    String requestUrl = String.format("http://localhost:%d/ping", portNumber);
-    try {
-      HttpResponse response = Unirest.get(requestUrl).asJson();
-      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
-    } catch (UnirestException e) {
-      e.printStackTrace();
-      Assert.fail("Encountered an exception while attempting to ping the server!");
-    }
+    String requestUrl = String.format("http://localhost:%d/ping", server.getPort().get());
+    HttpGet getRequest = new HttpGet(requestUrl);
+    HttpResponse response = httpClient.execute(getRequest);
+    Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
     server.stop();
   }
 
   @Test
-  public void
-      testConstructingScoringServerFromInvalidModelPathWithFailOnUnsuccessfulLoadThrowsException() {
+  public void testConstructingScoringServerFromInvalidModelPathThrowsException() {
     String badModelPath = "/not/a/valid/path";
     try {
       ScoringServer server = new ScoringServer(badModelPath);
-      Assert.fail(
-          "Expected constructing a model server with an invalid model path"
-              + " to throw an exception, but none was thrown.");
-    } catch (IOException | PredictorLoadingException e) {
-      // Success
-    }
-
-    try {
-      ScoringServer server = new ScoringServer(badModelPath, 5001, true);
-      Assert.fail(
-          "Expected constructing a model server with an invalid model path"
-              + " to throw an exception, but none was thrown.");
-    } catch (IOException | PredictorLoadingException e) {
-      // Success
+      Assert.fail("Expected constructing a model server with an invalid model path"
+          + " to throw an exception, but none was thrown.");
+    } catch (PredictorLoadingException e) {
+      // Succeed
     }
   }
 
   @Test
-  public void testScoringServerWithMissingPredictorRespondsToPingsWithServerErrorCode()
-      throws InterruptedException, IOException, PredictorLoadingException {
-    String badModelPath = "/not/a/valid/path";
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(badModelPath, portNumber, false);
-    server.start();
-
-    Thread.sleep(5000);
-
-    String requestUrl = String.format("http://localhost:%d/ping", portNumber);
-    try {
-      HttpResponse response = Unirest.get(requestUrl).asJson();
-      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
-    } catch (UnirestException e) {
-      e.printStackTrace();
-      Assert.fail("Encountered an exception while attempting to ping the server!");
-    }
-    server.stop();
-  }
-
-  @Test
-  public void testScoringServerWithMissingPredictorRespondsToInvocationsWithServerErrorCode()
-      throws InterruptedException, IOException, PredictorLoadingException {
-    String badModelPath = "/not/a/valid/path";
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(badModelPath, portNumber, false);
-    server.start();
-
-    Thread.sleep(5000);
-
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
-    try {
-      HttpResponse<JsonNode> response =
-          Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
-      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
-    } catch (UnirestException e) {
-      e.printStackTrace();
-      Assert.fail("Encountered an exception while attempting to ping the server!");
-    }
-    server.stop();
-  }
-
-  @Test
-  public void testScoringServerRepondsToInvocationOfBadContentTypeWithServerErrorCode()
-      throws InterruptedException {
+  public void testScoringServerRepondsToInvocationOfBadContentTypeWithBadRequestCode()
+      throws IOException {
     TestPredictor predictor = new TestPredictor(true);
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor);
     server.start();
 
-    Thread.sleep(5000);
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
-    try {
-      String badContentType = "not-a-content-type";
-      HttpResponse<JsonNode> response =
-          Unirest.post(requestUrl).header("Content-type", badContentType).body("body").asJson();
-      Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
-    } catch (UnirestException e) {
-      e.printStackTrace();
-      Assert.fail("Encountered an exception while attempting to ping the server!");
-    }
+    String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
+    String badContentType = "not-a-content-type";
+    HttpPost postRequest = new HttpPost(requestUrl);
+    postRequest.addHeader("Content-type", badContentType);
+    HttpEntity entity = new StringEntity("body");
+    postRequest.setEntity(entity);
+
+    HttpResponse response = httpClient.execute(postRequest);
+    Assert.assertEquals(
+        HttpServletResponse.SC_BAD_REQUEST, response.getStatusLine().getStatusCode());
+
     server.stop();
   }
 
   @Test
-  public void testMultipleServersRunOnDifferentPortsSuccessfully() throws InterruptedException {
-    List<Integer> portNumbers = Arrays.asList(5001, 5002, 5003);
+  public void testMultipleServersRunOnDifferentPortsSucceedfully() throws IOException {
     TestPredictor predictor = new TestPredictor(true);
 
     List<ScoringServer> servers = new ArrayList<>();
-    for (int portNumber : portNumbers) {
-      ScoringServer newServer = new ScoringServer(predictor, portNumber);
+    for (int i = 0; i < 3; ++i) {
+      ScoringServer newServer = new ScoringServer(predictor);
       newServer.start();
       servers.add(newServer);
     }
 
-    Thread.sleep(5000);
-
-    for (int portNumber : portNumbers) {
-      try {
-        String requestUrl = String.format("http://localhost:%d/ping", portNumber);
-        HttpResponse response = Unirest.get(requestUrl).asJson();
-        Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
-      } catch (UnirestException e) {
-        e.printStackTrace();
-        Assert.fail(
-            String.format(
-                "Encountered an exception while attempting to ping the server on port %d!",
-                portNumber));
-      }
+    for (ScoringServer server : servers) {
+      int portNumber = server.getPort().get();
+      String requestUrl = String.format("http://localhost:%d/ping", portNumber);
+      HttpGet getRequest = new HttpGet(requestUrl);
+      HttpResponse response = httpClient.execute(getRequest);
+      Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
     }
 
     for (ScoringServer server : servers) {
@@ -191,121 +143,195 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerWithValidPredictorRespondsToInvocationWithPredictorOutputContent()
-      throws InterruptedException, UnirestException, IOException, JsonProcessingException {
+      throws IOException, JsonProcessingException {
     Map<String, String> predictorDict = new HashMap<>();
     predictorDict.put("Text", "Response");
     String predictorJson = SerializationUtils.toJson(predictorDict);
     TestPredictor predictor = new TestPredictor(predictorJson);
-    int portNumber = 5001;
 
-    ScoringServer server = new ScoringServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor);
     server.start();
 
-    Thread.sleep(5000);
+    String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
+    HttpPost postRequest = new HttpPost(requestUrl);
+    postRequest.addHeader("Content-type", "application/json");
+    HttpEntity entity = new StringEntity("body");
+    postRequest.setEntity(entity);
 
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
-    HttpResponse<JsonNode> response =
-        Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
-    Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SUCCESS);
-    String responseJson = response.getBody().toString();
-    Map<String, String> responseDict = SerializationUtils.fromJson(responseJson, Map.class);
-    Assert.assertEquals(responseDict, predictorDict);
+    HttpResponse response = httpClient.execute(postRequest);
+    Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
+    String responseBody = getHttpResponseBody(response);
+    Map<String, String> responseDict = SerializationUtils.fromJson(responseBody, Map.class);
+    Assert.assertEquals(predictorDict, responseDict);
 
     server.stop();
   }
 
   @Test
-  public void testScoringServerRespondsWithServerErrorCodeWhenPredictorThrowsException()
-      throws InterruptedException, UnirestException, IOException {
+  public void testScoringServerRespondsWithInternalServerErrorCodeWhenPredictorThrowsException()
+      throws IOException {
     TestPredictor predictor = new TestPredictor(false);
-    int portNumber = 5001;
 
-    ScoringServer server = new ScoringServer(predictor, portNumber);
+    ScoringServer server = new ScoringServer(predictor);
     server.start();
 
-    Thread.sleep(5000);
+    String requestUrl = String.format("http://localhost:%d/invocations", server.getPort().get());
+    HttpPost postRequest = new HttpPost(requestUrl);
+    postRequest.addHeader("Content-type", "application/json");
+    HttpEntity entity = new StringEntity("body");
+    postRequest.setEntity(entity);
 
-    String requestUrl = String.format("http://localhost:%d/invocations", portNumber);
-    HttpResponse<JsonNode> response =
-        Unirest.post(requestUrl).header("Content-type", "application/json").body("body").asJson();
-    Assert.assertEquals(response.getStatus(), ScoringServer.HTTP_RESPONSE_CODE_SERVER_ERROR);
+    HttpResponse response = httpClient.execute(postRequest);
+    Assert.assertEquals(
+        HttpServletResponse.SC_INTERNAL_SERVER_ERROR, response.getStatusLine().getStatusCode());
 
     server.stop();
   }
 
   @Test
-  public void testInactiveScoringServerThrowsIllegalStateExceptionWhenStopped() {
+  public void testScoringServerStartsAndStopsSucceedfully() throws IOException {
     TestPredictor predictor = new TestPredictor(true);
-    ScoringServer server = new ScoringServer(predictor, 5001);
-    try {
-      server.stop();
-      Assert.fail(
-          "Expected the server stop operation to throw an IllegalStateException,"
-              + "but none was thrown.");
-    } catch (IllegalStateException e) {
-      // Succeed
-    }
-  }
-
-  @Test
-  public void testActiveScoringServerThrowsIllegalStateExceptionWhenStarted()
-      throws InterruptedException {
-    TestPredictor predictor = new TestPredictor(true);
-    ScoringServer server = new ScoringServer(predictor, 5001);
-    server.start();
-
-    Thread.sleep(5000);
-
-    try {
-      server.start();
-      Assert.fail(
-          "Expected the server stop operation to throw an IllegalStateException,"
-              + "but none was thrown.");
-    } catch (IllegalStateException e) {
-      // Succeed
-    }
-    server.stop();
-  }
-
-  @Test
-  public void testScoringServerStartsAndStopsSuccessfully() throws InterruptedException {
-    TestPredictor predictor = new TestPredictor(true);
-    int portNumber = 5001;
-    ScoringServer server = new ScoringServer(predictor, portNumber);
-    String requestUrl = String.format("http://localhost:%d/ping", portNumber);
+    ScoringServer server = new ScoringServer(predictor);
 
     for (int i = 0; i < 3; ++i) {
       server.start();
-      Thread.sleep(5000);
-      try {
-        HttpResponse response = Unirest.get(requestUrl).asJson();
-      } catch (UnirestException e) {
-        Assert.fail(
-            "Encountered an unexpected exception while attempting to ping"
-                + "the active scoring server.");
-      }
+      String requestUrl = String.format("http://localhost:%d/ping", server.getPort().get());
+      HttpGet getRequest = new HttpGet(requestUrl);
+      HttpResponse response1 = httpClient.execute(getRequest);
+      Assert.assertEquals(HttpServletResponse.SC_OK, response1.getStatusLine().getStatusCode());
+
       server.stop();
-      Thread.sleep(5000);
+
       try {
-        HttpResponse response = Unirest.get(requestUrl).asJson();
-        Assert.fail("Expected the attempt to query an inactive server to throw an exception.");
-      } catch (UnirestException e) {
+        HttpResponse response2 = httpClient.execute(getRequest);
+        Assert.fail("Expected attempt to ping an inactive server to throw an exception.");
+      } catch (HttpHostConnectException e) {
         // Succeed
       }
     }
   }
 
   @Test
-  public void testScoringServerIsActiveReturnsTrueWhenServerIsRunningElseFalse()
-      throws InterruptedException {
+  public void testStartingScoringServerOnRandomPortAssignsNonZeroPort() {
     TestPredictor predictor = new TestPredictor(true);
-    ScoringServer server = new ScoringServer(predictor, 5001);
-    Assert.assertEquals(server.isActive(), false);
+    ScoringServer server = new ScoringServer(predictor);
     server.start();
-    Thread.sleep(5000);
-    Assert.assertEquals(server.isActive(), true);
+    Optional<Integer> portNumber = server.getPort();
+    Assert.assertEquals(true, portNumber.get() > 0);
     server.stop();
-    Thread.sleep(5000);
-    Assert.assertEquals(server.isActive(), false);
+  }
+
+  @Test
+  public void testScoringServerIsActiveReturnsTrueWhenServerIsRunningElseFalse() {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    Assert.assertEquals(false, server.isActive());
+    server.start();
+    Assert.assertEquals(true, server.isActive());
+    server.stop();
+    Assert.assertEquals(false, server.isActive());
+  }
+
+  @Test
+  public void testGetPortReturnsEmptyForInactiveServer() {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    Optional<Integer> portNumber = server.getPort();
+    Assert.assertEquals(false, portNumber.isPresent());
+  }
+
+  @Test
+  public void testGetPortReturnsPresentOptionalForActiveServer() {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    server.start();
+    Assert.assertEquals(true, server.isActive());
+    Optional<Integer> portNumber = server.getPort();
+    Assert.assertEquals(true, portNumber.isPresent());
+    server.stop();
+  }
+
+  @Test
+  public void testServerStartsOnSpecifiedPortOrThrowsStateChangeException() throws IOException {
+    int portNumber = 6783;
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server1 = new ScoringServer(predictor);
+    server1.start(portNumber);
+    Assert.assertEquals(true, server1.isActive());
+
+    String requestUrl = String.format("http://localhost:%d/ping", server1.getPort().get());
+    HttpGet getRequest = new HttpGet(requestUrl);
+    HttpResponse response = httpClient.execute(getRequest);
+    Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
+
+    ScoringServer server2 = new ScoringServer(predictor);
+    try {
+      server2.start(portNumber);
+      Assert.fail(
+          "Expected starting a new server on a port that is already bound to throw a state change exception.");
+    } catch (ScoringServer.ServerStateChangeException e) {
+      // Succeed
+    }
+    server1.stop();
+    server2.stop();
+  }
+
+  @Test
+  public void testAttemptingToStartActiveServerThrowsIllegalStateException() {
+    TestPredictor predictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(predictor);
+    server.start();
+    try {
+      server.start();
+      Assert.fail(
+          "Expected attempt to start a server that is already active to throw an illegal state exception.");
+    } catch (IllegalStateException e) {
+      // Succeed
+    } finally {
+      server.stop();
+    }
+  }
+
+  @Test
+  public void testServerThreadConfigReadsMinMaxFromEnvironmentVariablesIfSpecified() {
+    int minThreads1 = 128;
+    int maxThreads1 = 1024;
+    MockEnvironment mockEnv1 = new MockEnvironment();
+    mockEnv1.setValue(
+        ScoringServer.ServerThreadConfiguration.ENV_VAR_MINIMUM_SERVER_THREADS, minThreads1);
+    mockEnv1.setValue(
+        ScoringServer.ServerThreadConfiguration.ENV_VAR_MAXIMUM_SERVER_THREADS, maxThreads1);
+    ScoringServer.ServerThreadConfiguration threadConfig1 =
+        ScoringServer.ServerThreadConfiguration.create(mockEnv1);
+    Assert.assertEquals(minThreads1, threadConfig1.getMinThreads());
+    Assert.assertEquals(maxThreads1, threadConfig1.getMaxThreads());
+
+    MockEnvironment mockEnv2 = new MockEnvironment();
+    ScoringServer.ServerThreadConfiguration threadConfig2 =
+        ScoringServer.ServerThreadConfiguration.create(mockEnv2);
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
+        threadConfig2.getMinThreads());
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
+        threadConfig2.getMaxThreads());
+
+    int maxThreads3 = 256;
+    MockEnvironment mockEnv3 = new MockEnvironment();
+    mockEnv3.setValue(
+        ScoringServer.ServerThreadConfiguration.ENV_VAR_MAXIMUM_SERVER_THREADS, maxThreads3);
+    ScoringServer.ServerThreadConfiguration threadConfig3 =
+        ScoringServer.ServerThreadConfiguration.create(mockEnv3);
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MINIMUM_SERVER_THREADS,
+        threadConfig3.getMinThreads());
+    Assert.assertEquals(maxThreads3, threadConfig3.getMaxThreads());
+
+    int minThreads4 = 4;
+    MockEnvironment mockEnv4 = new MockEnvironment();
+    mockEnv4.setValue(
+        ScoringServer.ServerThreadConfiguration.ENV_VAR_MINIMUM_SERVER_THREADS, minThreads4);
+    ScoringServer.ServerThreadConfiguration threadConfig4 =
+        ScoringServer.ServerThreadConfiguration.create(mockEnv4);
+    Assert.assertEquals(minThreads4, threadConfig4.getMinThreads());
+    Assert.assertEquals(ScoringServer.ServerThreadConfiguration.DEFAULT_MAXIMUM_SERVER_THREADS,
+        threadConfig4.getMaxThreads());
   }
 }
