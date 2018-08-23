@@ -102,7 +102,6 @@ class Utils {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
       const match = run.source_name.match(Utils.getGitHubRegex());
-      console.log(run.source_name);
       if (match) {
         const url = "https://github.com/" + match[1] + "/" + match[2];
         res = <a href={url}>{res}</a>;
