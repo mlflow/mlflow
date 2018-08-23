@@ -21,6 +21,8 @@ matrix:
     - language: r
       dist: trusty
       cache: packages
+      r_packages:
+        - covr
       before_install:
         - export NOT_CRAN=true
         - export MLFLOW_TEST_REQUIREMENTS=false
@@ -31,3 +33,5 @@ matrix:
         - cd tests
         - Rscript ../.travis.R
         - sleep 2
+      after_success:
+        - Rscript -e 'covr::codecov()'
