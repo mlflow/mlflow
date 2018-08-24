@@ -1,4 +1,4 @@
-from hpsklearn import HyperoptEstimator, any_classifier, any_regressor
+from hpsklearn import HyperoptEstimator, any_regressor
 import numpy as np
 import pandas as pd
 
@@ -18,12 +18,14 @@ def eval_metrics(actual, pred):
 
 
 if __name__ == '__main__':
-    max_evals = int(sys.argv[1]) if len(sys.argv) > 1 else 100
-    trial_timeout = float(sys.argv[2]) if len(sys.argv) > 2 else 300.0  # default timeout is 5 mins
-    seed = int(sys.argv[3]) if len(sys.argv) > 3 else 97531
+    wine_path = sys.argv[1]
+    import os
+    print("file =", os.path.abspath(wine_path))
+    max_evals = int(sys.argv[2]) if len(sys.argv) > 2 else 100
+    trial_timeout = float(sys.argv[3]) if len(sys.argv) > 3 else 300.0  # default timeout is 5 mins
+    seed = int(sys.argv[4]) if len(sys.argv) > 4 else 97531
 
     with mlflow.start_run():
-        wine_path = "wine-quality.csv"
         data = pd.read_csv(wine_path)
         # Create the estimator object
         estim = HyperoptEstimator(regressor=any_regressor("RoboTaster"),
@@ -47,6 +49,5 @@ if __name__ == '__main__':
         mlflow.log_metric("mae", mae)
         mlflow.log_metric("r2", r2)
         print("best model", estim.best_model())
-        mlflow.log_param("best-model", str(estim.best_model()))
         mlflow.sklearn.log_model(estim, "model")
 

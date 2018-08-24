@@ -21,14 +21,6 @@ def cli():
               help="Maximum number of runs to evaluate.")
 @click.option("--epochs", type=click.INT, default=500,
               help="Number of epochs")
-@click.option("--lr-min", type=click.FLOAT, default=1e-8,
-              help="Learning rate lower bound")
-@click.option("--lr-max", type=click.FLOAT, default=1e-1,
-              help="Learning rate upper bound")
-@click.option("--dropout-min", type=click.FLOAT, default=0.0,
-              help="Dropout lower bound")
-@click.option("--dropout-max", type=click.FLOAT, default=.99,
-              help="Dropout upper bound")
 @click.option("--metric", type=click.STRING, default="rmse",
               help="Metric to optimize on.")
 @click.option("--algo", type=click.STRING, default="tpe.suggest",
@@ -38,8 +30,7 @@ def cli():
 @click.option("--training-experiment-id", type=click.INT, default=-1,
               help="Maximum number of runs to evaluate. Inherit parent;s experiment if == -1.")
 @click.argument("training_data")
-def train(training_data, max_runs, epochs, lr_min, lr_max, dropout_min, dropout_max, metric,
-        algo, seed, training_experiment_id):
+def train(training_data, max_runs, epochs, metric, algo, seed, training_experiment_id):
     """
     Run hyper param optimization.
     """
@@ -52,7 +43,7 @@ def train(training_data, max_runs, epochs, lr_min, lr_max, dropout_min, dropout_
         active_run = mlflow.active_run()
         experiment_id = active_run.info.experiment_id if training_experiment_id == -1 \
             else training_experiment_id
-        lr, drop = parms
+        lr, beta1, beta2 = parms
         p = mlflow.projects.run(
             uri=".",
             entry_point="dl_train",
@@ -60,21 +51,36 @@ def train(training_data, max_runs, epochs, lr_min, lr_max, dropout_min, dropout_
                 "training_data": training_data,
                 "epochs": str(epochs),
                 "learning_rate": str(lr),
-                "dropout": str(drop),
+                "beta1": str(beta1),
+                "beta2": str(beta2),
                 "seed": seed},
             experiment_id=experiment_id
         )
         store = mlflow.tracking._get_store()
-        metric_val = store.get_metric(p.run_id, metric)
-        mlflow.log_metric(metric_val.key, metric_val.value)
+        if not p.wait():
+            # at least the null metric shoudl be available
+            try:
+                metric_val = store.get_metric(p.run_id, metric + "_null")
+            except Exception:
+                raise Exception("Training run failed.")
+        else:
+            metric_val = store.get_metric(p.run_id, metric)
+            metric_val_null = store.get_metric(p.run_id, metric + "_null")
+            # cap loss at the null model to avoid NaNs / Infs, GPyOpt can not handle those.
+            # also, get prettier plots this way.
+            if metric_val_null.value < metric_val.value:
+                metric_val = metric_val_null
+        mlflow.log_metric(metric, metric_val.value)
         with open(results_path, "a") as f:
-            f.write("{runId} {val}\n".format(runId=active_run.info.run_uuid, val=metric_val.value))
+            f.write("{runId} {val}\n".format(runId=p.run_id, val=metric_val.value))
         return metric_val.value
+
 
     with mlflow.start_run():
         space = [
-            hp.uniform('lr', lr_min, lr_max),
-            hp.uniform('drop_out_1', dropout_min, dropout_max),
+            hp.uniform('lr', 1e-3, 1e-1),
+            hp.uniform('beta1', .8, 1.0),
+            hp.uniform('beta2', .8, 1.0),
         ]
         best = fmin(fn=eval,
                     space=space,
@@ -99,6 +105,7 @@ def train(training_data, max_runs, epochs, lr_min, lr_max, dropout_min, dropout_
         mlflow.log_artifact(best_run_path, "best-run")
         mlflow.log_metric(metric, best_val)
         shutil.rmtree(tmp)
+
 
 
 if __name__ == '__main__':

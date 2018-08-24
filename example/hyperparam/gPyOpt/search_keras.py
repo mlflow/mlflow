@@ -2,7 +2,6 @@ import math
 
 import os
 import shutil
-import sys
 import tempfile
 
 import click
@@ -47,10 +46,11 @@ def cli():
               help="Maximum number of runs to evaluate. Inherit parent;s experiment if == -1.")
 @click.argument("training_data")
 def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, gpy_acquisition,
-          initial_design, seed, training_experiment_id):
+        initial_design, seed, training_experiment_id):
     bounds = [
-        {'name': 'lr', 'type': 'continuous', 'domain': (1e-5, 1e-1)},
-        {'name': 'drop_out_1', 'type': 'continuous', 'domain': (0, .9)},
+        {'name': 'lr', 'type': 'continuous', 'domain': (1e-3, 1e-1)},
+        {'name': 'lr_decay', 'type': 'continuous', 'domain': (.8, 1)},
+        {'name': 'rho', 'type': 'continuous', 'domain': (.8, 1)},
     ]
     # create random file to store run ids of the training tasks
     tmp = tempfile.mkdtemp()
@@ -70,7 +70,8 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
         active_run = mlflow.active_run()
         experiment_id = active_run.info.experiment_id if training_experiment_id == -1 \
             else training_experiment_id
-        lr, drop = parms[0]
+        lr, beta1, beta2 = parms[0]
+        # lr, beta1 = parms[0]
         p = mlflow.projects.run(
             uri=".",
             entry_point="dl_train",
@@ -78,26 +79,42 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                 "training_data": training_data,
                 "epochs": str(epochs),
                 "learning_rate": str(lr),
-                "dropout": str(drop),
+                "beta1": str(beta1),
+                "beta2": str(beta2),
                 "seed": str(seed)},
-            experiment_id=experiment_id
+            experiment_id=experiment_id,
+            block=False
         )
-        p.wait()
         store = mlflow.tracking._get_store()
-        metric_val = store.get_metric(p.run_id, metric)
-        mlflow.log_metric(metric_val.key, metric_val.value)
+        if not p.wait():
+            # at least the null metric shoudl be available
+            try:
+                metric_val = store.get_metric(p.run_id, metric + "_null")
+            except Exception:
+                raise Exception("Training run failed.")
+        else:
+            metric_val = store.get_metric(p.run_id, metric)
+            metric_val_null = store.get_metric(p.run_id, metric + "_null")
+            # cap loss at the null model to avoid NaNs / Infs, GPyOpt can not handle those.
+            # also, get prettier plots this way.
+            if metric_val_null.value < metric_val.value:
+                metric_val = metric_val_null
+        mlflow.log_metric(metric, metric_val.value)
         with open(results_path, "a") as f:
-            f.write("{runId} {val}\n".format(runId=active_run.info.run_uuid, val=metric_val.value))
+            f.write("{runId} {val}\n".format(runId=p.run_id, val=metric_val.value))
         return metric_val.value
 
     with mlflow.start_run():
+        # null model
         myProblem = GPyOpt.methods.BayesianOptimization(eval,
                                                         bounds,
                                                         batch_size=batch_size,
                                                         num_cores=max_p,
                                                         model_type=gpy_model,
                                                         acquisition_type=gpy_acquisition,
-                                                        initial_design_type=initial_design)
+                                                        initial_design_type=initial_design,
+                                                        initial_design_numdata=16,
+                                                        exact_feval=False)
         myProblem.run_optimization(max_runs)
         import matplotlib
         matplotlib.use('agg')

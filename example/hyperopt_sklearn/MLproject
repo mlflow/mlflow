@@ -3,13 +3,13 @@ name: hyperopt_sklearn_example
 conda_env: conda.yaml
 
 entry_points:
-  hyperopt_sklearn:
+  main:
     parameters:
-      training_data: {type: string, default: "../tutorial/wine.csv"}
+      training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       max_trials: {type: int, default: 100}
       trial_timeout: {type: float, default: 500}
       seed: {type: int, default: 97531}
-    command: "python -O train.py {max_trials} {trial_timeout} {seed}"
+    command: "python -O train.py {training_data} {max_trials} {trial_timeout} {seed}"
 
 
 

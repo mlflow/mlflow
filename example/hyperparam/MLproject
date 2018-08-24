@@ -6,24 +6,28 @@ entry_points:
   # train keras dl model
   dl_train:
     parameters:
-      training_data: {type: string, default: "../tutorial/wine.csv"}
-      epochs: int
-      learning_rate: float
-      dropout: float
-      seed: int
+      training_data: {type: string, default: "../tutorial/wine-quality.csv"}
+      epochs: {type: int, default: 100}
+      batch_size: {type: int, default: 32}
+      learning_rate: {type: float, default: 1e-2}
+      beta1: {type: float, default: .9}
+      beta2: {type: float, default: .9}
+      seed: {type: int, default: 97531}
     command: "python train_keras.py {training_data}
+                                    --batch-size {batch_size}
                                     --epochs {epochs}
                                     --learning-rate {learning_rate}
-                                    --dropout {dropout}"
+                                    --beta1 {beta1}
+                                    --beta2 {beta2}"
 
   # Use gPyOpt to optimize hyper params of the dl_train entry_point.
   GPyOpt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
-      max_runs: {type: int, default: 10}
+      max_runs: {type: int, default: 64}
       batch_size: {type: int, default: 1}
-      max_p: {type: int, default: 4}
-      max_epochs: {type: int, default: 10}
+      max_p: {type: int, default: 1}
+      max_epochs: {type: int, default: 128}
       metric: {type: string, default: "rmse"}
       gpy_model: {type: string, default: "GP_MCMC"}
       gpy_acquisition: {type: string, default: "EI_MCMC"}
@@ -42,15 +46,11 @@ entry_points:
                                              --seed {seed} \
                                              --training-experiment-id {training_experiment_id}"
 
-  hyperopt:
+  HyperOpt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       max_runs: {type: int, default: 10}
       max_epochs: {type: int, default: 100}
-      lr_min: {type: float, default: 0}
-      lr_max: {type: float, default: 1}
-      drop_out_1_min: {type: float, default: 0}
-      drop_out_1_max: {type: float, default: .99}
       metric: {type: string, default: "rmse"}
       algo: {type: string, default: "tpe.suggest"}
       seed: {type: int, default: 97531}
@@ -58,10 +58,6 @@ entry_points:
     command: "python -O hyperopt/search_keras.py {training_data} \
                                                  --max-runs {max_runs} \
                                                  --epochs {max_epochs} \
-                                                 --lr-min {lr_min} \
-                                                 --lr-max {lr_max} \
-                                                 --dropout-min {drop_out_1_min} \
-                                                 --dropout-max {drop_out_1_max} \
                                                  --metric {metric} \
                                                  --algo {algo} \
                                                  --seed {seed} \
