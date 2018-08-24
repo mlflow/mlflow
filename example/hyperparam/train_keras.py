@@ -63,6 +63,8 @@ class MLflowCheckpoint(Callback):
             return
         v = logs["val_loss"]
         if v < self._best:
+            # The result improved in the validation set.
+            # Log the model with mlflow and also evaluate and log on test set.
             self._best = v
             preds = self.model.predict((self._test_x))
             rmse, mae, r2 = eval_metrics(self._test_y, preds)
