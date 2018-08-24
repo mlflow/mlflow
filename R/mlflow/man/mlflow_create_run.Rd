@@ -4,11 +4,10 @@
 \alias{mlflow_create_run}
 \title{Create Run}
 \usage{
-mlflow_create_run(user_id = NULL, run_name = NULL,
-  source_type = NULL, source_name = NULL, status = NULL,
-  start_time = NULL, end_time = NULL, source_version = NULL,
-  artifact_uri = NULL, entry_point_name = NULL, run_tags = NULL,
-  experiment_id = NULL)
+mlflow_create_run(user_id = NULL, run_name = NULL, source_type = NULL,
+  source_name = NULL, status = NULL, start_time = NULL, end_time = NULL,
+  source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
+  run_tags = NULL, experiment_id = NULL)
 }
 \arguments{
 \item{user_id}{User ID or LDAP for the user executing the run.}

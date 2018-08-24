@@ -4,8 +4,8 @@
 \alias{mlflow_update_run}
 \title{Update Run}
 \usage{
-mlflow_update_run(status = c("FINISHED", "SCHEDULED", "FAILED",
-  "KILLED"), end_time = NULL, run_uuid = NULL)
+mlflow_update_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+  end_time = NULL, run_uuid = NULL)
 }
 \arguments{
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
