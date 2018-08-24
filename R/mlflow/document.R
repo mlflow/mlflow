@@ -5,6 +5,15 @@ Rd2md::ReferenceManual()
 markdown_doc <- readLines("Reference_Manual_mlflow.md")
 first_function <- which(grepl("active_experiment", markdown_doc))[[1]]
 markdown_fixed <- markdown_doc[first_function:length(markdown_doc)]
+
+# Remove function name from section
+markdown_fixed <- gsub("# `[^`]+`:", "#", markdown_fixed)
+
+# Remove description and usage headers
+markdown_fixed <- gsub("## Description", "", markdown_fixed)
+markdown_fixed <- gsub("## Usage", "", markdown_fixed)
+
+# Write fixed markdown file
 writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
 
 # Clear Sphinx docs and tree to correctly generate sections
