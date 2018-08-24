@@ -119,12 +119,10 @@ def run(training_data, epochs, batch_size, learning_rate, beta1, beta2, seed):
                         input_shape=(train_x.shape[1],)))
         model.add(Dense(16,
                         activation='relu',
-                        kernel_initializer='normal',
-                        input_shape=(train_x.shape[1],)))
-        model.add(Dense(8,
+                        kernel_initializer='normal'))
+        model.add(Dense(16,
                         activation='relu',
-                        kernel_initializer='normal',
-                        input_shape=(train_x.shape[1],)))
+                        kernel_initializer='normal'))
         model.add(Dense(1,
                         kernel_initializer='normal',
                         activation='linear'))
