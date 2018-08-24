@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.5.2 (2018-08-24)
+------------------
+
+MLflow 0.5.1 is a patch release on top of 0.5.0 containing only bug fixes and no breaking changes or features.
+
+Bug fixes:
+
+- Fix a bug with ECR client creation that caused ``mlflow.sagemaker.deploy()`` to fail when searching for a deployment Docker image.
+
+
 0.5.1 (2018-08-23)
 ------------------
 
