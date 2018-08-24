@@ -1,0 +1,110 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.mlflow</groupId>
+    <artifactId>mlflow-parent</artifactId>
+    <version>0.5.1</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>mlflow-client</artifactId>
+  <packaging>jar</packaging>
+  <version>0.5.1</version>
+  <name>MLflow Client SDK</name>
+  <url>http://mlflow.org</url>
+  <properties>
+    <mlflow.shade.packageName>org.mlflow_project</mlflow.shade.packageName>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <version>1.2.17</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.testng</groupId>
+      <artifactId>testng</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java-util</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <!--
+        We construct a comprehensive shaded artifact so that we do not require that downstream
+        clients pick particular versions of protobuf, guava, apache http, and apache commons.
+        -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <configuration>
+          <minimizeJar>false</minimizeJar>
+          <shadedArtifactAttached>false</shadedArtifactAttached>
+          <artifactSet>
+            <includes>
+              <include>com.google.protobuf:protobuf-java</include>
+              <include>com.google.protobuf:protobuf-java-util</include>
+              <include>org.apache.httpcomponents:httpclient</include>
+              <include>com.google.guava:guava</include>
+              <include>com.google.code.gson:gson</include>
+              <include>commons-codec:commons-codec</include>
+              <include>commons-logging:commons-logging</include>
+              <include>org.apache.httpcomponents:httpcore</include>
+            </includes>
+          </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>com.google</pattern>
+              <shadedPattern>${mlflow.shade.packageName}.google</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.apache.commons</pattern>
+              <shadedPattern>${mlflow.shade.packageName}.apachecommons</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.apache.http</pattern>
+              <shadedPattern>${mlflow.shade.packageName}.apachehttp</shadedPattern>
+            </relocation>
+            <relocation>
+              <!-- We have to move this package as it conflicts with other Databricks jars. -->
+              <pattern>com.databricks.api.proto.databricks</pattern>
+              <shadedPattern>${mlflow.shade.packageName}.databricks</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      </plugins>
+  </build>
+</project>
