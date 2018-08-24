@@ -13,6 +13,10 @@ markdown_fixed <- gsub("# `[^`]+`:", "#", markdown_fixed)
 markdown_fixed <- gsub("## Description", "", markdown_fixed)
 markdown_fixed <- gsub("## Usage", "", markdown_fixed)
 
+# Remove objects exported from other packages section
+last_section <- which(grepl("Objects exported from other packages", markdown_fixed))[[1]]
+markdown_fixed <- markdown_fixed[1:last_section - 1]
+
 # Write fixed markdown file
 writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
 
