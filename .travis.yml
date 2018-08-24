@@ -32,6 +32,7 @@ matrix:
         - R CMD build .
         - R CMD check --no-build-vignettes --no-manual --no-tests cloudml*tar.gz
         - cd tests
+        - export LINTR_COMMENT_BOT=false
         - Rscript ../.travis.R
       after_success:
         - Rscript -e 'covr::codecov()'
