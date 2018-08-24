@@ -126,7 +126,7 @@ class RunView extends Component {
           </div>
           <div className="run-info">
             <span className="metadata-header">Source: </span>
-            <span className="metadata-info">{Utils.renderSource(run)}</span>
+            <span className="metadata-info">{Utils.renderSource(run, tags)}</span>
           </div>
           {run.source_version ?
             <div className="run-info">

@@ -1,5 +1,6 @@
 import dateFormat from 'dateformat';
 import React from 'react';
+import databricksImage from '../static/databricks.png';
 
 class Utils {
   /**
@@ -98,13 +99,23 @@ class Utils {
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param run MlflowMessages.RunInfo
    */
-  static renderSource(run) {
+  static renderSource(run, tags) {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
       const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
         const url = "https://github.com/" + match[1] + "/" + match[2];
         res = <a href={url}>{res}</a>;
+      }
+      return res;
+    } else if (run.source_type === "NOTEBOOK") {
+      const notebookId = tags.DATABRICKS_NOTEBOOK_ID && tags.DATABRICKS_NOTEBOOK_ID.value;
+      if (notebookId) {
+        res = (
+          <span>
+            <img src={databricksImage}/><a href={`/#notebook/${notebookId}`}>{run.source_name}</a>
+          </span>
+        );
       }
       return res;
     } else {
