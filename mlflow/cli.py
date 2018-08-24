@@ -107,7 +107,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             git_password=git_password,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
-            block=mode == "local",
+            block=mode == "local" or mode is None,
             run_id=run_id,
         )
     except projects.ExecutionException as e:
