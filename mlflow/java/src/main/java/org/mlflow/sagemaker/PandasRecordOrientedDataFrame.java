@@ -49,8 +49,8 @@ class PandasRecordOrientedDataFrame {
    * Applies the specified MLeap frame schema ({@link LeapFrameSchema}) to this dataframe,
    * producing a {@link DefaultLeapFrame}
    *
-   * @throws MissingSchemaFieldException If the supplied pandas dataframe is missing a required
-   *     field
+   * @throws InvalidSchemaException If the supplied pandas dataframe is invalid (missing a required
+   *     field, etc)
    */
   DefaultLeapFrame toLeapFrame(LeapFrameSchema leapFrameSchema) throws JsonProcessingException {
     List<List<Object>> mleapRows = new ArrayList<>();
@@ -58,7 +58,8 @@ class PandasRecordOrientedDataFrame {
       List<Object> mleapRow = new ArrayList<>();
       for (String fieldName : leapFrameSchema.getFieldNames()) {
         if (!record.containsKey(fieldName)) {
-          throw new MissingSchemaFieldException(fieldName);
+          throw new InvalidSchemaException(
+              String.format("Pandas dataframe is missing a required field: `%s`", fieldName));
         }
         mleapRow.add(record.get(fieldName));
       }

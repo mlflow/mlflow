@@ -55,15 +55,6 @@ class LeapFrameSchema {
   }
 
   /**
-   * Exception denoting a problem with a serialized MLeap schema
-   */
-  public static class InvalidSchemaException extends RuntimeException {
-    InvalidSchemaException(String message) {
-      super(message);
-    }
-  }
-
-  /**
    * @return The list of dataframe fields expected by the transformer with this schema, in the order
    *     that these fields are expected to appear
    */
