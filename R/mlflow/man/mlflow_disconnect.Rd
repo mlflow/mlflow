@@ -4,10 +4,7 @@
 \alias{mlflow_disconnect}
 \title{Disconnect from MLflow}
 \usage{
-mlflow_disconnect(mc)
-}
-\arguments{
-\item{mc}{The MLflow connection created using \code{mlflow_connect()}.}
+mlflow_disconnect()
 }
 \description{
 Disconnects from a local MLflow instance.
