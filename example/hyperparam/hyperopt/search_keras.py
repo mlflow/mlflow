@@ -53,7 +53,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
         )
         store = mlflow.tracking._get_store()
         if not p.wait():
-            # at least the null metric shoudl be available
+            # at least the null metric should be available
             try:
                 metric_val = store.get_metric(p.run_id, metric + "_null")
             except Exception:
@@ -61,8 +61,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
         else:
             metric_val = store.get_metric(p.run_id, metric)
             metric_val_null = store.get_metric(p.run_id, metric + "_null")
-            # cap loss at the null model to avoid NaNs / Infs, GPyOpt can not handle those.
-            # also, get prettier plots this way.
+            # cap loss at the null model to avoid NaNs / Infs
             if metric_val_null.value < metric_val.value:
                 metric_val = metric_val_null
         mlflow.log_metric(metric, metric_val.value)

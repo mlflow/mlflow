@@ -101,8 +101,6 @@ def run(training_data, epochs, batch_size, learning_rate, beta1, beta2, seed):
     test_x = (test.drop(["quality"], axis=1).as_matrix()).astype("float32")
     test_y = test[["quality"]].as_matrix().astype("float32")
 
-    from keras import metrics
-    metrics.mae
     with mlflow.start_run():
         rmse, mae, r2 = eval_metrics(test_y, np.ones(len(test_y)) * np.mean(test_y))
         mlflow.log_metric("rmse_null", rmse)
