@@ -74,8 +74,19 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
+class MockProfileConfigProvider:
+    def __init__(self, profile):
+        assert profile == "my-profile"
+
+    def get_config(self):
+        return DatabricksConfig("host", "user", "pass", None, insecure=False)
+
+
+import databricks_cli
+
 @mock.patch('requests.request')
 @mock.patch('databricks_cli.configure.provider.get_config')
+# @mock.patch.object(databricks_cli.configure.provider, 'ProfileConfigProvider', MockProfileConfigProvider)
 def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
     def confirm_request_params(**kwargs):
@@ -99,6 +110,16 @@ def test_databricks_http_request_integration(get_config, request):
     response = rest_utils.databricks_api_request('clusters/list', 'PUT',
                                                  json={'a': 'b'})
     assert response == {'OK': 'woo'}
+    get_config.reset_mock()
+
+    mock_config_provider = mock.Mock(wraps=MockProfileConfigProvider)
+    with mock.patch.object(databricks_cli.configure.provider, 'ProfileConfigProvider',
+                           mock_config_provider):
+        response = rest_utils.databricks_api_request('clusters/list', 'PUT',
+                                                     json={'a': 'b'}, profile="my-profile")
+        assert response == {'OK': 'woo'}
+        assert get_config.call_count == 0
+        assert mock_config_provider.get_config.call_count == 1
 
 
 def test_numpy_encoder():
