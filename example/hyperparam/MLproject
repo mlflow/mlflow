@@ -20,7 +20,7 @@ entry_points:
                                     --beta1 {beta1}
                                     --beta2 {beta2}"
 
-  # Use gPyOpt to optimize hyper params of the dl_train entry_point.
+  # Use GPyOpt to optimize hyper params of the dl_train entry_point.
   GPyOpt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
@@ -46,6 +46,7 @@ entry_points:
                                              --seed {seed} \
                                              --training-experiment-id {training_experiment_id}"
 
+  # Use Hyperopt to optimize hyper params of the dl_train entry_point.
   HyperOpt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}

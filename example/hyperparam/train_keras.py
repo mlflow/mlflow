@@ -18,7 +18,6 @@ import mlflow
 import mlflow.keras
 
 
-
 def eval_metrics(actual, pred):
     rmse = np.sqrt(mean_squared_error(actual, pred))
     mae = mean_absolute_error(actual, pred)
@@ -42,7 +41,7 @@ from keras.callbacks import Callback
 
 
 class MLflowLogger(Callback):
-    def __init__(self, score_and_save_period=100):
+    def __init__(self):
         super(MLflowLogger, self).__init__()
         self._score_f = None
 
@@ -55,8 +54,6 @@ class MLflowLogger(Callback):
 
 class MLflowCheckpoint(Callback):
     def __init__(self, test_x, test_y):
-        # self._epoch_since_last_save = 0
-        # self._checkpoint_period = checkpoint_period
         self._test_x = test_x
         self._test_y = test_y
         self._best = math.inf
@@ -119,18 +116,14 @@ def run(training_data, epochs, batch_size, learning_rate, beta1, beta2, seed):
         model = Sequential()
         model.add(Lambda(get_standardize_f(train_x)))
         model.add(Dense(train_x.shape[1],
-                        activation='tanh',
-                        kernel_initializer='normal',
-                        input_shape=(train_x.shape[1],)))
-        model.add(Dense(128,
-                        activation='tanh',
-                        kernel_initializer='normal',
-                        input_shape=(train_x.shape[1],)))
-        model.add(Dense(64,
                         activation='relu',
                         kernel_initializer='normal',
                         input_shape=(train_x.shape[1],)))
-        model.add(Dense(32,
+        model.add(Dense(16,
+                        activation='relu',
+                        kernel_initializer='normal',
+                        input_shape=(train_x.shape[1],)))
+        model.add(Dense(8,
                         activation='relu',
                         kernel_initializer='normal',
                         input_shape=(train_x.shape[1],)))
