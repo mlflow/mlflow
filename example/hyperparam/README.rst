@@ -28,6 +28,7 @@ You can run any of the targets as a standard mlflow run.
 
 mlflow experiments create individual_runs
 
+
 This will create experiment for individual runs and return its experiment it.
 
 
@@ -47,13 +48,11 @@ This will run the keras deep learning training with default parameters and log i
 
 .. code::
 
-mlflow run  -e GPyOpt --experiment-id <hyperparam_experiment_id>  \
- -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
+mlflow run  -e GPyOpt --experiment-id <hyperparam_experiment_id>  -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
 
 .. code::
 
-mlflow run  -e HyperOpt --experiment-id <hyperparam_experiment_id> \
- -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
+mlflow run  -e HyperOpt --experiment-id <hyperparam_experiment_id> -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
 
 This will run the hyper parameter tuning with either GpyOpt or Hyperopt and log the results under
 <hyperparam_experiment_id>.
