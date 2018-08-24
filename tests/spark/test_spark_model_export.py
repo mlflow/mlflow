@@ -129,7 +129,8 @@ def test_model_export(spark_model_iris, model_path, spark_conda_env):
     assert preds1 == preds3
     assert os.path.exists(sparkm.DFS_TMP)
     print(os.listdir(sparkm.DFS_TMP))
-    assert not os.listdir(sparkm.DFS_TMP)
+    # We expect not to delete the DFS tempdir.
+    assert os.listdir(sparkm.DFS_TMP)
 
 
 @pytest.mark.large
@@ -150,30 +151,26 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
                     mlflow.start_run()
                 artifact_path = "model%d" % cnt
                 cnt += 1
-                if dfs_tmp_dir:
-                    sparkm.log_model(artifact_path=artifact_path,
-                                     spark_model=spark_model_iris.model,
-                                     dfs_tmpdir=dfs_tmp_dir)
-                else:
-                    sparkm.log_model(artifact_path=artifact_path,
-                                     spark_model=spark_model_iris.model)
+                sparkm.log_model(artifact_path=artifact_path, spark_model=model,
+                                 dfs_tmpdir=dfs_tmp_dir)
                 run_id = active_run().info.run_uuid
                 # test pyfunc
                 x = pyfunc.load_pyfunc(artifact_path, run_id=run_id)
                 preds2 = x.predict(spark_model_iris.inference_df)
                 assert preds1 == preds2
                 # test load model
-                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id)
+                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id, 
+                                                   dfs_tmpdir=dfs_tmp_dir)
                 preds_df_1 = reloaded_model.transform(spark_model_iris.training_df)
                 preds3 = [x.prediction for x in preds_df_1.select("prediction").collect()]
                 assert preds1 == preds3
                 # test spark_udf
                 preds4 = score_model_as_udf(artifact_path, run_id, spark_model_iris.inference_df)
                 assert preds1 == preds4
-                # make sure we did not leave any temp files behind
+                # We expect not to delete the DFS tempdir.
                 x = dfs_tmp_dir or sparkm.DFS_TMP
                 assert os.path.exists(x)
-                assert not os.listdir(x)
+                assert os.listdir(x)
                 shutil.rmtree(x)
             finally:
                 mlflow.end_run()

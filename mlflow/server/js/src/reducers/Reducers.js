@@ -158,7 +158,7 @@ const tagsByRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
-      return amendTagsByRunUuid(state, action.payload.run.info.tags, runInfo.getRunUuid());
+      return amendTagsByRunUuid(state, action.payload.run.data.tags, runInfo.getRunUuid());
     }
     case fulfilled(SEARCH_RUNS_API): {
       const runs = action.payload.runs;
@@ -167,7 +167,7 @@ const tagsByRunUuid = (state = {}, action) => {
         runs.forEach((rJson) => {
           const run = Run.fromJs(rJson);
           newState = amendTagsByRunUuid(
-              newState, rJson.info.tags, run.getInfo().getRunUuid());
+              newState, rJson.data.tags, run.getInfo().getRunUuid());
         });
       }
       return newState;

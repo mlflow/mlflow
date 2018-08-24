@@ -1,10 +1,11 @@
 import os
 import shutil
-import time
 import unittest
 import uuid
 
-from mlflow.entities import Experiment, Metric, Param
+import time
+
+from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from tests.helper_functions import random_int, random_str
@@ -171,6 +172,32 @@ class TestFileStore(unittest.TestCase):
             with self.assertRaises(Exception):
                 fs.create_experiment(name)
 
+    def _extract_ids(self, experiments):
+        return [e.experiment_id for e in experiments]
+
+    def test_delete_restore_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        exp_name = self.exp_data[exp_id]["name"]
+
+        # delete it
+        fs.delete_experiment(exp_id)
+        self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+
+        # restore it
+        fs.restore_experiment(exp_id)
+        restored_1 = fs.get_experiment(exp_id)
+        self.assertEqual(restored_1.experiment_id, exp_id)
+        self.assertEqual(restored_1.name, exp_name)
+        restored_2 = fs.get_experiment_by_name(exp_name)
+        self.assertEqual(restored_2.experiment_id, exp_id)
+        self.assertEqual(restored_2.name, exp_name)
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
+        self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
+        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+
     def test_get_run(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
@@ -180,6 +207,7 @@ class TestFileStore(unittest.TestCase):
                 run_info = self.run_data[run_uuid]
                 run_info.pop("metrics")
                 run_info.pop("params")
+                run_info.pop("tags")
                 self.assertEqual(run_info, dict(run.info))
 
     def test_list_run_infos(self):
@@ -191,6 +219,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info = self.run_data[run_uuid]
                 dict_run_info.pop("metrics")
                 dict_run_info.pop("params")
+                dict_run_info.pop("tags")
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_get_metric(self):
@@ -274,3 +303,31 @@ class TestFileStore(unittest.TestCase):
         assert metric.key == WEIRD_METRIC_NAME
         assert metric.value == 10
         assert metric.timestamp == 1234
+
+    def test_weird_tag_names(self):
+        WEIRD_TAG_NAME = "this is/a weird/but valid tag"
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
+        tag = fs.get_run(run_uuid).data.tags[0]
+        assert tag.key == WEIRD_TAG_NAME
+        assert tag.value == "Muhahaha!"
+
+    def test_set_tags(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.set_tag(run_uuid, RunTag("tag0", "value0"))
+        fs.set_tag(run_uuid, RunTag("tag1", "value1"))
+        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
+        assert set(tags) == {
+            ("tag0", "value0"),
+            ("tag1", "value1"),
+        }
+
+        # Can overwrite tags.
+        fs.set_tag(run_uuid, RunTag("tag0", "value2"))
+        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
+        assert set(tags) == {
+            ("tag0", "value2"),
+            ("tag1", "value1"),
+        }
