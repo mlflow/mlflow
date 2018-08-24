@@ -2,7 +2,13 @@
 MLflow Hyper Parameter Tuning Example
 =====================================
 Example of how you can use hyper param tuning with mlflow using external hyper param tuning
-libraries. 
+libraries. Both examples are implemented as a mlflow run entry point which evaluates the model by
+calling another mlflow run entry point. This way both the parent hyper param tuning run and the
+spawned training runs get logged. Both targets take optional experiment id for training runs.If
+provided, training runs will be logged under this experiment id. This is a short term solution to
+organizing the runs so that it is easy to view individual training runs and the hyper param runs
+separately. In he future this will be done by MLflow tags.
+
 
 examples/hyperparam/MLProject has 3 targets:
   * dl_train
@@ -15,8 +21,6 @@ examples/hyperparam/MLProject has 3 targets:
   * HyperOpt
     uses `Hyperopt <https://github.com/hyperopt/hyperopt>`_. to optimize hyper parameters.
 
-Both targets take optional experiment id for training runs. If provided, training runs will be
-logged under this experiment id (to avoid confusion in the ui).
 
 Example usage:
 ~~~~~~~~~~~~~
