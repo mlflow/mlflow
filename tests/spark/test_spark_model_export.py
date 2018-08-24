@@ -151,7 +151,7 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
                     mlflow.start_run()
                 artifact_path = "model%d" % cnt
                 cnt += 1
-                sparkm.log_model(artifact_path=artifact_path, spark_model=model,
+                sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
                                  dfs_tmpdir=dfs_tmp_dir)
                 run_id = active_run().info.run_uuid
                 # test pyfunc
