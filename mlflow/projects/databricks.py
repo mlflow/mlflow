@@ -6,7 +6,6 @@ import tempfile
 import textwrap
 import time
 
-import databricks_cli
 from six.moves import shlex_quote, urllib
 
 from mlflow.entities import RunStatus
@@ -221,9 +220,9 @@ def _fetch_and_clean_project(uri, version=None, git_username=None, git_password=
     return work_dir
 
 
-def _before_run_validations(tracking_uri, cluster_spec):
+def _before_run_validations(tracking_uri, cluster_spec, profile):
     """Validations to perform before running a project on Databricks."""
-    _check_databricks_auth_available()
+    _check_databricks_auth_available(profile)
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project runs "
                                  "on Databricks.")
@@ -240,8 +239,8 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
     tracking_uri = tracking.get_tracking_uri()
-    _before_run_validations(tracking_uri, cluster_spec)
     profile = tracking.utils.get_db_profile_from_uri(tracking_uri)
+    _before_run_validations(tracking_uri, cluster_spec, profile)
 
     dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id, profile)
     env_vars = {

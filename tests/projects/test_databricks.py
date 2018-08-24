@@ -155,8 +155,8 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         # Test that validations pass with good tracking URIs
-        databricks._before_run_validations("http://", cluster_spec_mock)
-        databricks._before_run_validations("databricks", cluster_spec_mock)
+        databricks._before_run_validations("http://", cluster_spec_mock, profile="DEFAULT")
+        databricks._before_run_validations("databricks", cluster_spec_mock, profile="DEFAULT")
 
 
 def test_run_databricks(
