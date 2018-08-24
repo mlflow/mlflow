@@ -135,7 +135,7 @@ serve_handlers <- function(host, port) {
 
       df <- data.frame()
       if (length(json_raw) > 0) {
-        df <- httpuv::fromJSON(
+        df <- jsonlite::fromJSON(
           rawToChar(json_raw),
           simplifyDataFrame = FALSE,
           simplifyMatrix = FALSE
@@ -153,7 +153,7 @@ serve_handlers <- function(host, port) {
           "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
         ),
         body = charToRaw(enc2utf8(
-          httpuv::toJSON(result, auto_unbox = TRUE)
+          jsonlite::toJSON(result, auto_unbox = TRUE)
         ))
       )
     },

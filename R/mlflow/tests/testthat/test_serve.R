@@ -29,6 +29,9 @@ test_that("mlflow can serve a model function", {
   expect_equal(status_code, 200)
 
   http_prediction <- httr::content(httr::POST("http://127.0.0.1:8090/predict/", body = "{}"))
+  if (is.character(http_prediction)) {
+    stop(http_prediction)
+  }
 
   expect_equal(
     unlist(http_prediction),
