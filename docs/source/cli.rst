@@ -21,7 +21,7 @@ and list experiments, and download artifacts.
     Commands:
       azureml      Serve models on Azure ML.
       download     Download the artifact at the specified DBFS or S3 URI. 
-      experiments  Run and list experiments.
+      experiments  Manage experiments.
       pyfunc       Serve Python models locally.
       run          Run an MLflow project from the given URI.
       sagemaker    Serve models on Amazon SageMaker.
@@ -49,7 +49,41 @@ specified.
 Experiments
 -----------
 
-Subcommands to create and list experiments.
+Subcommands to manage experiments.
+
+
+Create
+------
+Subcommand to create a new experiment using name. System will generate a unique ID for each
+experiment. Additionally, users can provide an artifact location  using ``-l`` or
+``--artifact-location`` option. If not provided, backend store will pick default location.
+
+All artifacts related to this experiment will be stored under artifact location under specific
+run directories.
+
+
+List
+----
+
+Listing of all experiments managed by backend store.
+
+
+Delete
+------
+
+Delete an active experiment. Command takes an mandatory argument experiment ID. If experiment
+is already deleted or not found, the command will throw error. This deletes associated metadata,
+runs and data as well. If the backend store controls locations of artifacts, they will be deleted
+as well. Deleted experiments can be restored using ``restore`` command.
+
+
+Restore
+-------
+
+Restore a deleted experiment. Command takes an mandatory argument experiment ID. If experiment is
+already active, permanently deleted, or cannot be found, the command will throw error. The command
+will restore all runs belonging to the experiment and all metadata associated with experiment and
+runs.
 
 
 Python Function

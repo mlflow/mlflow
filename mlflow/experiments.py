@@ -38,7 +38,7 @@ def list_experiments():
     List all experiments in the configured tracking server.
     """
     store = _get_store()
-    experiments = store.list_experiments()
+    experiments = store.list_experiments("deleted_only")
     table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
               else os.path.abspath(exp.artifact_location)] for exp in experiments]
     print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
@@ -53,7 +53,7 @@ def delete_experiment(experiment_id):
     """
     store = _get_store()
     store.delete_experiment(experiment_id)
-    print("Experiment with id %d has been deleted." % experiment_id)
+    print("Experiment with id %s has been deleted." % str(experiment_id))
 
 
 @commands.command("restore")
@@ -65,4 +65,4 @@ def restore_experiment(experiment_id):
     """
     store = _get_store()
     store.restore_experiment(experiment_id)
-    print("Experiment with id %d has been restored and is now active." % experiment_id)
+    print("Experiment with id %s has been restored and is now active." % str(experiment_id))
