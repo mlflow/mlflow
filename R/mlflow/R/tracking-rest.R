@@ -94,15 +94,19 @@ mlflow_get_experiment <- function(experiment_id) {
 #'   or a distributed file system (DFS) path, like s3://bucket/directory or dbfs:/my/directory. If not set, the local ./mlruns
 #'   directory will be chosen by default.
 #' @param entry_point_name Name of the entry point for the run.
-#' @param run_tags Additional metadata for run in key-value pairs.
+#' @param tags Additional metadata for run in key-value pairs.
 #' @export
 mlflow_create_run <- function(user_id = NULL,
                               run_name = NULL, source_type = NULL, source_name = NULL,
                               status = NULL, start_time = NULL, end_time = NULL,
                               source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
-                              run_tags = NULL, experiment_id = NULL) {
+                              tags = NULL, experiment_id = NULL) {
   experiment_id <- experiment_id %||% mlflow_active_experiment()
   start_time <- start_time %||% current_time()
+
+  tags <- if (!is.null(tags)) tags %>%
+    purrr::imap(~ list(key = .y, value = .x)) %>%
+    unname()
 
   response <- mlflow_rest("runs", "create", verb = "POST", data = list(
     experiment_id = experiment_id,
@@ -116,7 +120,7 @@ mlflow_create_run <- function(user_id = NULL,
     source_version = source_version,
     artifact_uri = artifact_uri,
     entry_point_name = entry_point_name,
-    run_tags = run_tags
+    tags = tags
   ))
 
   as.data.frame(response$run$info, stringsAsFactors = FALSE)
