@@ -46,13 +46,15 @@ This will run the keras deep learning training with default parameters and log i
 
 .. code:: bash
 
-    mlflow run  -e GPyOpt --experiment-id <hyperparam_experiment_id>  -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
+    mlflow run  -e GPyOpt --experiment-id <hyperparam_experiment_id>  -P \
+        training_experiment_id=<individual_runs_experiment_id> example/hyperparam
 
 .. code:: bash
 
-    mlflow run  -e HyperOpt --experiment-id <hyperparam_experiment_id> -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
+    mlflow run  -e HyperOpt --experiment-id <hyperparam_experiment_id> -P \
+        training_experiment_id=<individual_runs_experiment_id> example/hyperparam
 
 This will run the hyper parameter tuning with either GpyOpt or Hyperopt and log the results under
-<hyperparam_experiment_id>.
+``hyperparam_experiment_id``.
 
 You can compare these results by using ``mlflow ui``!
