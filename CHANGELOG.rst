@@ -4,7 +4,7 @@ Changelog
 0.5.2 (2018-08-24)
 ------------------
 
-MLflow 0.5.1 is a patch release on top of 0.5.0 containing only bug fixes and no breaking changes or features.
+MLflow 0.5.2 is a patch release on top of 0.5.1 containing only bug fixes and no breaking changes or features.
 
 Bug fixes:
 
