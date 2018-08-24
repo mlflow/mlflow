@@ -1,0 +1,19 @@
+name: hyperparam_example
+channels:
+  - defaults
+dependencies:
+  - python=3.6
+  - numpy=1.14.3
+  - pandas=0.22.0
+  - scikit-learn=0.19.1
+  - matplotlib=2.2.2
+  - pip:
+    - mlflow==0.5.0
+    - click
+    - Gpy
+    - GpyOpt
+    - tensorflow
+    - keras
+    - pyDOE
+    - hyperopt
+
