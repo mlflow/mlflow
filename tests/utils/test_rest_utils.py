@@ -3,6 +3,7 @@ import mock
 import numpy
 import pytest
 
+import databricks_cli
 from databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils import rest_utils
 from mlflow.utils.rest_utils import NumpyEncoder
@@ -81,8 +82,6 @@ class MockProfileConfigProvider:
     def get_config(self):
         return DatabricksConfig("host", "user", "pass", None, insecure=False)
 
-
-import databricks_cli
 
 @mock.patch('requests.request')
 @mock.patch('databricks_cli.configure.provider.get_config')
