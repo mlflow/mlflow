@@ -27,6 +27,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     models
     cli
     python_api/index
+    R-api
     rest-api
 
 .. warning::

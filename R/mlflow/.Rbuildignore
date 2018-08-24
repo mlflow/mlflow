@@ -8,3 +8,5 @@ packrat
 ^docs$
 ^model$
 ^r-dependencies.txt$
+document.R
+Reference_Manual_mlflow.md

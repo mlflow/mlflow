@@ -15,3 +15,4 @@ model/
 internal
 packrat.lock
 r-dependencies.txt
+Reference_Manual_mlflow.md
