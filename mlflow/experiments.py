@@ -42,3 +42,27 @@ def list_experiments():
     table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
               else os.path.abspath(exp.artifact_location)] for exp in experiments]
     print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+
+
+@commands.command("delete")
+@click.argument("experiment_id")
+def delete_experiment(experiment_id):
+    """
+    Delete an experiment from backend store.
+    Will error out if experiment does not exist or already deleted.
+    """
+    store = _get_store()
+    store.delete_experiment(experiment_id)
+    print("Experiment with id %d has been deleted." % experiment_id)
+
+
+@commands.command("restore")
+@click.argument("experiment_id")
+def restore_experiment(experiment_id):
+    """
+    Restore a deleted experiment.
+    Will error out if experiment is already active or has been permanently deleted.
+    """
+    store = _get_store()
+    store.restore_experiment(experiment_id)
+    print("Experiment with id %d has been restored and is now active." % experiment_id)
