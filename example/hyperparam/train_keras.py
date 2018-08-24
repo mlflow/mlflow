@@ -2,21 +2,21 @@ from __future__ import print_function
 
 import warnings
 
-import click
+import math
 import numpy as np
 import pandas as pd
 
+import click
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
-import mlflow.keras
-
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Lambda
-from keras.optimizers import RMSprop, Adam, SGD, Adamax
+from keras.layers import Dense, Lambda
+from keras.optimizers import Adamax
 
 import mlflow
-import math
+import mlflow.keras
+
 
 
 def eval_metrics(actual, pred):
