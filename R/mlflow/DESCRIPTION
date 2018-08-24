@@ -2,10 +2,17 @@ Package: mlflow
 Type: Package
 Title: Interface to MLflow
 Version: 0.1.0
-Author: Who wrote it
+Authors@R: c(
+    person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("aut", "cre")),
+    person("Kevin", "Kuo", role = c("aut", "cre"), email = "kevin.kuo@rstudio.com",
+           comment = c(ORCID = "0000-0001-7803-7901")),
+    person(family = "RStudio", role = c("cph"))
+    )
 Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-  Use four spaces when indenting paragraphs within the Description.
+Description: R interface to MLflow, open source platform for the complete machine
+    learning lifecycle, see <https://mlflow.org/>. This package supports installing
+    MLflow, tracking experiments, creating and running projects, saving and serving
+    models.
 License: Apache License 2.0
 Encoding: UTF-8
 LazyData: true
@@ -34,4 +41,4 @@ Suggests:
   testthat,
   lintr
 Remotes: 
-  kevinykuo/forge
+  rstudio/forge
