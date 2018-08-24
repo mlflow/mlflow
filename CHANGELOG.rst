@@ -8,7 +8,7 @@ MLflow 0.5.2 is a patch release on top of 0.5.1 containing only bug fixes and no
 
 Bug fixes:
 
-- Fix a bug with ECR client creation that caused ``mlflow.sagemaker.deploy()`` to fail when searching for a deployment Docker image.
+- Fix a bug with ECR client creation that caused ``mlflow.sagemaker.deploy()`` to fail when searching for a deployment Docker image (#366, @dbczumar)
 
 
 0.5.1 (2018-08-23)
