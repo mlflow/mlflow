@@ -9,8 +9,6 @@ import time
 from six.moves import shlex_quote, urllib
 
 from mlflow.entities import RunStatus
-
-
 from mlflow.projects import _fetch_project
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
@@ -136,11 +134,12 @@ def _upload_project_to_dbfs(project_dir, experiment_id):
     temp_tarfile_dir = tempfile.mkdtemp()
     temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
 
-    def exclude(x):
-        return os.path.basename(x) == "mlruns"
+    def custom_filter(x):
+        return None if os.path.basename(x.name) == "mlruns" else x
 
     try:
-        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, exclude)
+        file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME,
+                                custom_filter=custom_filter)
         with open(temp_tar_filename, "rb") as tarred_project:
             tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
         # TODO: Get subdirectory for experiment from the tracking server
@@ -233,7 +232,6 @@ def _before_run_validations(tracking_uri, cluster_spec):
             "accessible to both the current client and code running on Databricks. Got local "
             "tracking URI %s." % tracking_uri)
 
-from mlflow.entities.param import Param
 
 def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
     """
@@ -242,10 +240,11 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     """
     tracking_uri = tracking.get_tracking_uri()
     _before_run_validations(tracking_uri, cluster_spec)
+
     dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
     env_vars = {
-         tracking._TRACKING_URI_ENV_VAR: tracking_uri,
-         tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+        tracking._TRACKING_URI_ENV_VAR: tracking_uri,
+        tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
     }
     run_id = remote_run.info.run_uuid
     eprint("=== Running entry point %s of project %s on Databricks. ===" % (entry_point, uri))
@@ -287,7 +286,11 @@ class DatabricksSubmittedRun(SubmittedRun):
     def __init__(self, databricks_run_id, run_id):
         super(DatabricksSubmittedRun, self).__init__()
         self.databricks_run_id = databricks_run_id
-        self.run_id = run_id
+        self._run_id = run_id
+
+    @property
+    def run_id(self):
+        return self._run_id
 
     def wait(self):
         return _monitor_databricks(self.databricks_run_id)
