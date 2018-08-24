@@ -50,7 +50,7 @@ mlflow_list_experiments <- function() {
 mlflow_create_experiment <- function(name, artifact_location = NULL, activate = TRUE) {
   experiments <- mlflow_list_experiments()
   experiment_id <- if (name %in% experiments$name) {
-    message("Experiment with name ", name, " already exists.")
+    message("Experiment with name \"", name, "\" already exists.")
     experiments[experiments$name == name, ]$experiment_id
   } else {
     response <- mlflow_rest(

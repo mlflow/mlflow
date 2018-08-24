@@ -13,3 +13,10 @@ test_that("mlflow_create_experiment() `activate` parameter is respected", {
   mlflow_create_experiment("foo2", "art_loc", activate = FALSE)
   expect_identical(mlflow_active_experiment(), experiment_id)
 })
+
+test_that("mlflow_create_experiment() checks for existing experiment with same name", {
+  expect_message(
+    mlflow_create_experiment("foo2", "art_loc"),
+    "Experiment with name \"foo2\" already exists\\."
+  )
+})
