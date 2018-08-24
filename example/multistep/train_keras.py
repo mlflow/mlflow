@@ -52,6 +52,8 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     joined_train_df = training_df.join(item_factors, on="movieId").join(user_factors, on="userId")
     joined_test_df = test_df.join(item_factors, on="movieId").join(user_factors, on="userId")
 
+    # We'll combine the movies and ratings vectors into a single vector of length 24.
+    # We will then explode this features vector into a set of columns.
     def concat_arrays(*args):
         return list(chain(*args))
 
@@ -67,16 +69,16 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     pandas_df = concat_train_df.toPandas()
     pandas_test_df = concat_test_df.toPandas()
 
-    pandas_test_df[['f0','f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11','f12','f13','f14','f15',
-              'f16','f17','f18','f19','f20','f21','f22','f23']] = pd.DataFrame(pandas_test_df.features.values.tolist(), index= pandas_test_df.index)
+    # This syntax will create a new DataFrame where elements of the 'features' vector
+    # are each in their own column. This is what we'll train our neural network on.
+    x_test = pd.DataFrame(pandas_test_df.features.values.tolist(), index=pandas_test_df.index)
+    x_train = pd.DataFrame(pandas_df.features.values.tolist(), index=pandas_df.index)
 
-    x_test = pandas_test_df.drop(["features", "userId", "movieId", "rating"], axis=1)
+    # Show matrix for example.
+    print("Training matrix:")
+    print(x_train)
 
-    pandas_df[['f0','f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11','f12','f13','f14','f15',
-              'f16','f17','f18','f19','f20','f21','f22','f23']] = pd.DataFrame(pandas_df.features.values.tolist(), index= pandas_df.index)
-
-    x_train = pandas_df.drop(["features", "userId", "movieId", "rating"], axis=1)
-
+    # Create our Keras model with two fully connected hidden layers.
     model = Sequential()
     model.add(Dense(30, input_dim=24, activation='relu'))
     model.add(Dense(hidden_units, activation='relu'))
@@ -85,11 +87,10 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     model.compile(loss="mse", optimizer=keras.optimizers.Adam(lr=.0001))
 
     filepath = '/tmp/ALS_checkpoint_weights.hdf5'
-    checkpointer = ModelCheckpoint(filepath=filepath, verbose=1, save_best_only=True)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, patience=2, mode='auto')
 
-    history = model.fit(x_train, pandas_df["rating"], validation_split=.2, verbose=2, epochs=3, 
-                        batch_size=128, shuffle=False, callbacks=[early_stopping, checkpointer])
+    model.fit(x_train, pandas_df["rating"], validation_split=.2, verbose=2, epochs=3,
+              batch_size=128, shuffle=False, callbacks=[early_stopping])
 
     train_mse = model.evaluate(x_train, pandas_df["rating"], verbose=2)
     test_mse = model.evaluate(x_test, pandas_test_df["rating"], verbose=2)
