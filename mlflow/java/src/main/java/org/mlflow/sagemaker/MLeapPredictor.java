@@ -62,10 +62,11 @@ public class MLeapPredictor extends Predictor {
       logger.error(
           "Encountered a JSON conversion error during conversion of Pandas dataframe to LeapFrame.",
           e);
-      throw new PredictorEvaluationException(
+      throw new PredictorEvaluationException(String.format(
           "Failed to transform input into a JSON representation of an MLeap dataframe."
-          + "Please ensure that the input is a JSON-serialized Pandas Dataframe"
-          + "with the `record` orientation");
+              + " Please ensure that the input is a JSON-serialized Pandas Dataframe"
+              + " with the `record` orientation. Original exception text: %s",
+          e.getMessage()));
     }
 
     DefaultLeapFrame leapFrame = null;
@@ -77,8 +78,10 @@ public class MLeapPredictor extends Predictor {
     } catch (Exception e) {
       logger.error(
           "Encountered an unknown error during conversion of Pandas dataframe to LeapFrame.", e);
-      throw new PredictorEvaluationException(
-          "An unknown error occurred while converting the input dataframe to a LeapFrame.");
+      throw new PredictorEvaluationException(String.format(
+          "An unknown error occurred while converting the input dataframe to a LeapFrame."
+              + " Original exception text: %s",
+          e.getMessage()));
     }
 
     DefaultLeapFrame predictionsFrame =
