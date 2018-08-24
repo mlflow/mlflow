@@ -44,24 +44,40 @@ The :doc:`MLflow Tracking API<tracking/>` lets you log metrics and artifacts (fi
 science code and see a history of your runs. You can try it out by writing a simple Python script
 as follows (this example is also included in ``quickstart/test.py``):
 
-.. code:: python
+.. example-code::
+    .. code-block:: python
 
-    import os
-    from mlflow import log_metric, log_param, log_artifact
+        import os
+        from mlflow import log_metric, log_param, log_artifact
 
-    if __name__ == "__main__":
+        if __name__ == "__main__":
+            # Log a parameter (key-value pair)
+            log_param("param1", 5)
+
+            # Log a metric; metrics can be updated throughout the run
+            log_metric("foo", 1)
+            log_metric("foo", 2)
+            log_metric("foo", 3)
+
+            # Log an artifact (output file)
+            with open("output.txt", "w") as f:
+                f.write("Hello world!")
+            log_artifact("output.txt")
+    .. code-block:: R
+
+        library(mlflow)
+
         # Log a parameter (key-value pair)
-        log_param("param1", 5)
+        mlflow_log_param("param1", 5)
 
         # Log a metric; metrics can be updated throughout the run
-        log_metric("foo", 1)
-        log_metric("foo", 2)
-        log_metric("foo", 3)
+        mlflow_log_metric("foo", 1)
+        mlflow_log_metric("foo", 2)
+        mlflow_log_metric("foo", 3)
 
         # Log an artifact (output file)
-        with open("output.txt", "w") as f:
-            f.write("Hello world!")
-        log_artifact("output.txt")
+        writeLines("Hello world!", "output.txt")
+        mlflow_log_artifact("output.txt")
 
 Viewing the Tracking UI
 -----------------------
@@ -69,9 +85,13 @@ Viewing the Tracking UI
 By default, wherever you run your program, the tracking API writes data into files into an ``mlruns`` directory.
 You can then run MLflow's Tracking UI:
 
-.. code:: bash
+.. example-code::
+    .. code-block:: bash
 
-    mlflow ui
+        mlflow ui
+    .. code-block:: R
+
+        mlflow_ui()
 
 and view it at `<http://localhost:5000>`_. 
 
