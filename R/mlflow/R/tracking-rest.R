@@ -30,6 +30,8 @@ mlflow_list_experiments <- function() {
 #'
 #' @param name The name of the experiment to create.
 #' @param activate Whether to set the created experiment as the active experiment. Defaults to `TRUE`.
+#' @param artifact_location Location where all artifacts for this experiment are stored. If
+#'   not provided, the remote server will select an appropriate default.
 #'
 #' @examples
 #' \dontrun{
@@ -45,13 +47,16 @@ mlflow_list_experiments <- function() {
 #' }
 #'
 #' @export
-mlflow_create_experiment <- function(name, activate = TRUE) {
+mlflow_create_experiment <- function(name, artifact_location = NULL, activate = TRUE) {
   experiments <- mlflow_list_experiments()
   experiment_id <- if (name %in% experiments$name) {
     message("Experiment with name ", name, " already exists.")
     experiments[experiments$name == name, ]$experiment_id
   } else {
-    response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
+    response <- mlflow_rest(
+      "experiments", "create", verb = "POST",
+      data = list(name = name, artifact_location = artifact_location)
+    )
     response$experiment_id
   }
 
