@@ -27,11 +27,15 @@ $(function() {
 
   $('div.example-code ul.example-selector li').click(function(evt) {
     evt.preventDefault();
-    $('ul.example-selector li').removeClass('selected');
+
+    var parent = $(evt.target).parent().parent();
+
+    $('ul.example-selector li', parent).removeClass('selected');
     var sel_class = $(this).attr('class').replace('notranslate', '');
-    $('div.example').hide();
-    $('div.' + sel_class).show();
-    $('ul.example-selector li.' + sel_class).addClass('selected');
+    $('div.example', parent).hide();
+    $('div.' + sel_class, parent).show();
+    $('ul.example-selector li.' + sel_class, parent).addClass('selected');
+
     sel_class = null;
   });
 
