@@ -78,7 +78,7 @@ public class PandasDataFrameTest {
       pandasFrame.toLeapFrame(leapFrameSchema);
       Assert.fail(
           "Expected leap frame conversion of a pandas dataframe with a missing field to fail.");
-    } catch (MissingSchemaFieldException e) {
+    } catch (InvalidSchemaException e) {
       // Succeed
     }
   }

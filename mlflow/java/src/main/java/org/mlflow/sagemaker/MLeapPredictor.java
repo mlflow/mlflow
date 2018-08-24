@@ -46,7 +46,7 @@ public class MLeapPredictor extends Predictor {
     try {
       this.inputSchema = LeapFrameSchema.fromPath(inputSchemaPath);
     } catch (IOException e) {
-      logger.error(e);
+      logger.error("Could not read the model input schema from the specified path", e);
       throw new PredictorLoadingException(String.format(
           "Failed to load model input schema from specified path: %s", inputSchemaPath));
     }
@@ -71,10 +71,9 @@ public class MLeapPredictor extends Predictor {
     DefaultLeapFrame leapFrame = null;
     try {
       leapFrame = pandasFrame.toLeapFrame(this.inputSchema);
-    } catch (MissingSchemaFieldException e) {
+    } catch (InvalidSchemaException e) {
       throw new PredictorEvaluationException(
-          String.format("The input dataframe is missing the following required field: %s",
-              e.getMissingFieldName()));
+          "Encountered a schema mismatch when converting the input dataframe to a LeapFrame.");
     } catch (Exception e) {
       logger.error(
           "Encountered an unknown error during conversion of Pandas dataframe to LeapFrame.", e);
