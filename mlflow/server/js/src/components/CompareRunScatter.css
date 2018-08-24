@@ -38,3 +38,7 @@
 .recharts-responsive-container {
   padding-bottom: 10px;
 }
+
+.recharts-responsive-container svg {
+  overflow: visible;
+}
