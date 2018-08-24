@@ -159,7 +159,7 @@ def test_model_log_with_sparkml_format(tmpdir, spark_model_iris):
                 preds2 = x.predict(spark_model_iris.inference_df)
                 assert preds1 == preds2
                 # test load model
-                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id, 
+                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
                                                    dfs_tmpdir=dfs_tmp_dir)
                 preds_df_1 = reloaded_model.transform(spark_model_iris.training_df)
                 preds3 = [x.prediction for x in preds_df_1.select("prediction").collect()]
