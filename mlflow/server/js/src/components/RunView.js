@@ -114,10 +114,11 @@ class RunView extends Component {
       });
     }
 
+    const runName = run.getName() || "Run " + run.getRunUuid();
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experiment={experiment} title={"Run " + run.getRunUuid()}/>
+          <BreadcrumbTitle experiment={experiment} title={runName}/>
         </div>
         <div className="run-info-container">
           <div className="run-info">
