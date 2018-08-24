@@ -9,7 +9,7 @@ entry_points:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       epochs: {type: int, default: 32}
       batch_size: {type: int, default: 16}
-      learning_rate: {type: float, default: 1e-2}
+      learning_rate: {type: float, default: 1e-1}
       beta1: {type: float, default: .9}
       beta2: {type: float, default: .9}
       seed: {type: int, default: 97531}
