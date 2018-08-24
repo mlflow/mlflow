@@ -13,20 +13,20 @@ by @brookewenig and @smurching.
 
 There are four steps to this workflow:
 
-- **load_raw_data** (etl_data.py): Downloads the MovieLens dataset
+- **load_raw_data.py**: Downloads the MovieLens dataset
   (a set of triples of user id, movie id, and rating) as a CSV and puts
   it into the artifact store.
 
-- **etl_data** (etl_data.py): Converts the MovieLens CSV from the 
+- **etl_data.py**: Converts the MovieLens CSV from the 
   previous step into Parquet, dropping unnecessary columns along the way.
   This reduces the input size from 500 MB to 49 MB, and allows columnar 
   access of the data.
 
-- **als** (als.py): Runs Alternating Least Squares for collaborative
+- **als.py**: Runs Alternating Least Squares for collaborative
   filtering on the Parquet version of MovieLens to estimate the
   movieFactors and userFactors. This produces a relatively accurate estimator.
 
-- **keras** (train_keras.py): Trains a neural network on the 
+- **train_keras.py**: Trains a neural network on the 
   original data, supplemented by the ALS movie/userFactors -- we hope
   this can improve upon the ALS estimations.
 

@@ -96,7 +96,7 @@ def workflow(als_max_iter, keras_hidden_units):
             "als_model_uri": als_model_uri,
             "hidden_units": keras_hidden_units,
         }
-        _get_or_run("keras", keras_params, source_version, use_cache=False)
+        _get_or_run("train_keras", keras_params, source_version, use_cache=False)
 
 
 if __name__ == '__main__':
