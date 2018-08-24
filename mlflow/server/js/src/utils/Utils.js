@@ -1,6 +1,8 @@
 import dateFormat from 'dateformat';
 import React from 'react';
-import databricksImage from '../static/databricks.png';
+import notebookSvg from '../static/notebook.svg';
+import emptySvg from '../static/empty.svg';
+import laptopSvg from '../static/laptop.svg';
 
 class Utils {
   /**
@@ -98,6 +100,7 @@ class Utils {
   /**
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param run MlflowMessages.RunInfo
+   * @param tags Object containing tag key value pairs.
    */
   static renderSource(run, tags) {
     let res = Utils.formatSource(run);
@@ -109,18 +112,37 @@ class Utils {
       }
       return res;
     } else if (run.source_type === "NOTEBOOK") {
-      const notebookId = tags.DATABRICKS_NOTEBOOK_ID && tags.DATABRICKS_NOTEBOOK_ID.value;
-      if (notebookId) {
-        res = (
-          <span>
-            <img src={databricksImage}/><a href={`/#notebook/${notebookId}`}>{run.source_name}</a>
-          </span>
-        );
+      const notebookIdTag = 'mlflow.databricks.notebookID';
+      const webappUrlTag = 'mlflow.databricks.webappURL';
+      const notebookId = tags[notebookIdTag] && tags[notebookIdTag].value;
+      const webappUrl = tags[webappUrlTag] && tags[webappUrlTag].value;
+      if (notebookId && webappUrl) {
+        res = (<a href={`${webappUrl}/#notebook/${notebookId}`}>{run.source_name}</a>);
       }
       return res;
     } else {
       return res;
     }
+  }
+
+  /**
+   * Returns an svg with some styling applied.
+   */
+  static renderSourceTypeIcon(sourceType) {
+    const imageStyle = {
+      height: '20px',
+      position: 'relative',
+      top: '-1px',
+      right: '3px',
+    };
+    if (sourceType === "NOTEBOOK") {
+      return <img style={imageStyle} src={notebookSvg} />;
+    } else if (sourceType === "LOCAL") {
+      return <img style={imageStyle} src={laptopSvg} />;
+    } else if (sourceType === "PROJECT") {
+      return <img style={imageStyle} src={laptopSvg} />;
+    }
+    return <img style={imageStyle} src={emptySvg} />;
   }
 
   /**

@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getApis, getExperiment, getParams, getRunInfos } from '../reducers/Reducers';
+import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
 import 'react-virtualized/styles.css';
 import { Link, withRouter } from 'react-router-dom';
 import Routes from '../Routes';
@@ -14,6 +14,7 @@ import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 import Utils from '../utils/Utils';
+import emptySvg from '../static/empty.svg';
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -43,6 +44,8 @@ class ExperimentView extends Component {
     paramsList: PropTypes.arrayOf(Array).isRequired,
     // List of list of metrics in all the visible runs
     metricsList: PropTypes.arrayOf(Array).isRequired,
+    // List of tags dictionary in all the visible runs.
+    tagsList: PropTypes.arrayOf(Object).isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -115,10 +118,11 @@ class ExperimentView extends Component {
       } else if (sort.key === 'user_id') {
         sortValue = Utils.formatUser(runInfo.user_id);
       } else if (sort.key === 'source') {
-        sortValue = Utils.formatSource(runInfo);
+        sortValue = Utils.formatSource(runInfo, this.props.tagsList[idx]);
       } else {
         sortValue = runInfo[sort.key];
       }
+      console.log(this.props.tagsList[idx]);
 
       return {
         key: runInfo.run_uuid,
@@ -130,6 +134,7 @@ class ExperimentView extends Component {
           metricKeyList,
           paramsMap,
           metricsMap,
+          this.props.tagsList[idx],
           metricRanges,
           !!this.state.runsSelected[runInfo.run_uuid])
       };
@@ -363,6 +368,7 @@ class ExperimentView extends Component {
     metricKeyList,
     paramsMap,
     metricsMap,
+    tags,
     metricRanges,
     selected) {
     const numParams = paramKeyList.length;
@@ -376,7 +382,10 @@ class ExperimentView extends Component {
         </Link>
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td key="meta-source">{Utils.renderSource(runInfo)}</td>,
+      <td key="meta-source">
+        {Utils.renderSourceTypeIcon(runInfo.source_type)}
+        {Utils.renderSource(runInfo, tags)}
+      </td>,
       <td key="meta-version">{Utils.renderVersion(runInfo)}</td>,
     ];
 
@@ -439,9 +448,13 @@ class ExperimentView extends Component {
       }
       return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
     };
-    const getHeaderCell = (key, text) => {
+    const getHeaderCell = (key, text, sortable) => {
+      let onClick = () => {};
+      if (sortable) {
+        onClick = () => onSortBy(false, false, key);
+      }
       return <th key={"meta-" + key} className={"bottom-row " + sortedClassName(false, false, key)}
-        onClick={() => onSortBy(false, false, key)}>{text}</th>;
+        onClick={onClick}>{text}</th>;
     };
 
     const numParams = paramKeyList.length;
@@ -450,10 +463,10 @@ class ExperimentView extends Component {
       <th key="meta-check" className="bottom-row">
         <input type="checkbox" onChange={onCheckAll} checked={isAllChecked} />
       </th>,
-      getHeaderCell("start_time", "Date"),
-      getHeaderCell("user_id", "User"),
-      getHeaderCell("source", "Source"),
-      getHeaderCell("source_version", "Version")
+      getHeaderCell("start_time", <span>{"Date"}</span>, true),
+      getHeaderCell("user_id", <span>{"User"}</span>, true),
+      getHeaderCell("source", <span><img src={emptySvg}/>{"Source"}</span>, true),
+      getHeaderCell("source_version", <span>{"Version"}</span>, true)
     ];
     paramKeyList.forEach((paramKey, i) => {
       const className = "bottom-row "
@@ -654,6 +667,8 @@ const mapStateToProps = (state, ownProps) => {
     });
     return params;
   });
+
+  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
   return {
     runInfos,
     experiment,
@@ -661,6 +676,7 @@ const mapStateToProps = (state, ownProps) => {
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
     metricsList,
     paramsList,
+    tagsList,
   };
 };
 
