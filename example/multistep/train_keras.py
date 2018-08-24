@@ -7,6 +7,7 @@ import click
 import tempfile
 
 import mlflow
+import mlflow.keras
 import mlflow.spark
 import time
 
@@ -98,6 +99,7 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     mlflow.log_metric("train_mse", train_mse)
 
     print('The model had a MSE on the test set of {0}'.format(test_mse))
+    mlflow.keras.save_model(model, "keras-model")
 
 
 if __name__ == '__main__':
