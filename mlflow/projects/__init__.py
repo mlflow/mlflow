@@ -139,7 +139,7 @@ def _wait_for(submitted_run_obj):
             _maybe_set_run_terminated(active_run, "FAILED")
             raise ExecutionException("=== Run (ID '%s') failed ===" % run_id)
     except KeyboardInterrupt:
-        eprint("=== Run (ID '%s') === interrupted, cancelling run ===" % run_id)
+        eprint("=== Run (ID '%s') interrupted, cancelling run ===" % run_id)
         submitted_run_obj.cancel()
         _maybe_set_run_terminated(active_run, "FAILED")
         raise
