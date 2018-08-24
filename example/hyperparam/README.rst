@@ -1,5 +1,6 @@
 Hyper Parameter Tuning Example
 ------------------------------
+
 Example of how you can use hyper param tuning with mlflow using external hyper param tuning
 libraries. Both examples are implemented as an MLflow run entry point which evaluates the model by
 calling another MLflow run entry point. This way both the parent hyper param tuning run and the
@@ -22,6 +23,7 @@ examples/hyperparam/MLproject has 3 targets:
 
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
+
 You can run any of the targets as a standard mlflow run.
 
 .. code:: bash
