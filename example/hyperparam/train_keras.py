@@ -119,6 +119,18 @@ def run(training_data, epochs, batch_size, learning_rate, beta1, beta2, seed):
         model = Sequential()
         model.add(Lambda(get_standardize_f(train_x)))
         model.add(Dense(train_x.shape[1],
+                        activation='tanh',
+                        kernel_initializer='normal',
+                        input_shape=(train_x.shape[1],)))
+        model.add(Dense(128,
+                        activation='tanh',
+                        kernel_initializer='normal',
+                        input_shape=(train_x.shape[1],)))
+        model.add(Dense(64,
+                        activation='relu',
+                        kernel_initializer='normal',
+                        input_shape=(train_x.shape[1],)))
+        model.add(Dense(32,
                         activation='relu',
                         kernel_initializer='normal',
                         input_shape=(train_x.shape[1],)))
