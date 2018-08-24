@@ -7,8 +7,8 @@ entry_points:
   dl_train:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
-      epochs: {type: int, default: 100}
-      batch_size: {type: int, default: 32}
+      epochs: {type: int, default: 32}
+      batch_size: {type: int, default: 16}
       learning_rate: {type: float, default: 1e-2}
       beta1: {type: float, default: .9}
       beta2: {type: float, default: .9}
@@ -24,10 +24,10 @@ entry_points:
   GPyOpt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
-      max_runs: {type: int, default: 64}
+      max_runs: {type: int, default: 32}
       batch_size: {type: int, default: 1}
       max_p: {type: int, default: 1}
-      max_epochs: {type: int, default: 128}
+      max_epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       gpy_model: {type: string, default: "GP_MCMC"}
       gpy_acquisition: {type: string, default: "EI_MCMC"}
@@ -50,8 +50,8 @@ entry_points:
   HyperOpt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
-      max_runs: {type: int, default: 10}
-      max_epochs: {type: int, default: 100}
+      max_runs: {type: int, default: 32}
+      max_epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       algo: {type: string, default: "tpe.suggest"}
       seed: {type: int, default: 97531}
