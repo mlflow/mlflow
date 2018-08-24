@@ -24,33 +24,29 @@ Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 You can run any of the targets as a standard mlflow run.
 
-.. code::
+.. code:: bash
 
 mlflow experiments create individual_runs
 
-
 This will create experiment for individual runs and return its experiment it.
 
-
-.. code::
+.. code:: bash
 
 mlflow experiments create hyper_param_runs
 
-
 This will create experiment for hyper param runs and return its experiment it.
 
-
-.. code::
+.. code:: bash
 
 mlflow run  -e dl_train --experiment-id <individual_runs_experiment_id> example/hyperparam
 
 This will run the keras deep learning training with default parameters and log it in experiment 1.
 
-.. code::
+.. code:: bash
 
 mlflow run  -e GPyOpt --experiment-id <hyperparam_experiment_id>  -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
 
-.. code::
+.. code:: bash
 
 mlflow run  -e HyperOpt --experiment-id <hyperparam_experiment_id> -P training_experiment_id=<individual_runs_experiment_id> example/hyperparam
 
