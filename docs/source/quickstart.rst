@@ -8,9 +8,13 @@ Installing MLflow
 
 You install MLflow by running:
 
-.. code:: bash
+.. code-block:: bash
 
     pip install mlflow
+
+.. code-block:: R
+
+    mlflow_install()
 
 .. note::
 
