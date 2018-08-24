@@ -10,7 +10,7 @@ $(function() {
     $('div[class^="highlight-"]', this).each(function() {
       var sel_item = $('<li />', {
           class: $(this).attr('class'),
-          text: $(this).attr('class').substring(10)
+          text: $(this).attr('class').substring(10).replace('notranslate', '')
       });
       if (i++) {
         $(this).hide();
@@ -28,7 +28,7 @@ $(function() {
   $('div.example-code ul.example-selector li').click(function(evt) {
     evt.preventDefault();
     $('ul.example-selector li').removeClass('selected');
-    var sel_class = $(this).attr('class');
+    var sel_class = $(this).attr('class').replace('notranslate', '');
     $('div.example').hide();
     $('div.' + sel_class).show();
     $('ul.example-selector li.' + sel_class).addClass('selected');
