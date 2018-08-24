@@ -1,5 +1,6 @@
 import os
 
+import json
 import pandas as pd
 import pyspark
 from pyspark.ml.classification import LogisticRegression
@@ -221,6 +222,25 @@ def test_mleap_module_model_log_produces_mleap_flavor(spark_model_iris):
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert mleap.FLAVOR_NAME in mlflow_model.flavors
+
+
+def test_mleap_model_save_outputs_json_formatted_schema_with_named_fields(
+        spark_model_iris, model_path):
+    mlflow_model = Model()
+    mleap.save_model(spark_model=spark_model_iris.model,
+                     path=model_path,
+                     sample_input=spark_model_iris.training_df,
+                     mlflow_model=mlflow_model)
+    mleap_conf = mlflow_model.flavors[mleap.FLAVOR_NAME]
+    schema_path_sub = mleap_conf["input_schema"]
+    schema_path_full = os.path.join(model_path, schema_path_sub)
+    with open(schema_path_full, "w") as f:
+        json_schema = json.load(f)
+
+    assert "fields" in json_schema.keys()
+    assert len(json_schema["fields"]) > 0
+    assert type(json_schema["fields"][0]) == dict
+    assert "name" in json_schema["fields"][0]
 
 
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
