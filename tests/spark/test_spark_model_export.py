@@ -234,7 +234,7 @@ def test_mleap_model_save_outputs_json_formatted_schema_with_named_fields(
     mleap_conf = mlflow_model.flavors[mleap.FLAVOR_NAME]
     schema_path_sub = mleap_conf["input_schema"]
     schema_path_full = os.path.join(model_path, schema_path_sub)
-    with open(schema_path_full, "w") as f:
+    with open(schema_path_full, "r") as f:
         json_schema = json.load(f)
 
     assert "fields" in json_schema.keys()
