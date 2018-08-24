@@ -90,16 +90,13 @@ mlflow_get_experiment <- function(experiment_id) {
 #' @param start_time Unix timestamp of when the run started in milliseconds.
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @param source_version Git version of the source code used to create run.
-#' @param artifact_uri URI of the directory where artifacts should be uploaded This can be a local path (starting with “/”),
-#'   or a distributed file system (DFS) path, like s3://bucket/directory or dbfs:/my/directory. If not set, the local ./mlruns
-#'   directory will be chosen by default.
 #' @param entry_point_name Name of the entry point for the run.
 #' @param tags Additional metadata for run in key-value pairs.
 #' @export
 mlflow_create_run <- function(user_id = NULL,
                               run_name = NULL, source_type = NULL, source_name = NULL,
                               status = NULL, start_time = NULL, end_time = NULL,
-                              source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
+                              source_version = NULL, entry_point_name = NULL,
                               tags = NULL, experiment_id = NULL) {
   experiment_id <- experiment_id %||% mlflow_active_experiment()
   start_time <- start_time %||% current_time()
@@ -118,7 +115,6 @@ mlflow_create_run <- function(user_id = NULL,
     start_time = start_time,
     end_time = end_time,
     source_version = source_version,
-    artifact_uri = artifact_uri,
     entry_point_name = entry_point_name,
     tags = tags
   ))
@@ -135,8 +131,9 @@ mlflow_create_run <- function(user_id = NULL,
 #' @export
 mlflow_get_run <- function(run_uuid) {
   response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
-  run <- Filter(length, response$run)
-  lapply(run, as.data.frame, stringsAsFactors = FALSE)
+  run <- purrr::compact(response$run)
+  run %>%
+    purrr::map_at("info", as.data.frame, stringsAsFactors = FALSE)
 }
 
 #' Log Metric

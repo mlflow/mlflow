@@ -39,3 +39,22 @@ test_that("mlflow_get_experiment() works properly", {
   expect_identical(experiment$experiment$name, "foo1")
   expect_identical(experiment$experiment$artifact_location, "art_loc1")
 })
+
+test_that("mlflow_create_run()/mlflow_get_run() work properly", {
+  create_run_response <- mlflow_create_run(
+    user_id = "user1",
+    run_name = "run1",
+    tags = list(foo = "bar", foz = "baz")
+  )
+
+  run <- mlflow_get_run(create_run_response$run_uuid)
+  run_info <- run$info
+  expect_identical(run_info$name, "run1")
+  expect_identical(run_info$user_id, "user1")
+  expect_setequal(
+    run$data$tags %>%
+      unname() %>%
+      purrr::transpose(),
+    list(list("foo", "bar"), list("foz", "baz"))
+    )
+})
