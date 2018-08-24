@@ -16,14 +16,8 @@ import mlflow.projects
 Example of hyper param search in MLflow using GPyOpt.
 """
 
-
-@click.group()
-@click.version_option()
-def cli():
-    pass
-
-
-@cli.command()
+@click.command(help="Perform hyper parameter search with GPyOpt library."
+                    "Optimize dl_train target.")
 @click.option("--max-runs", type=click.INT, default=100,
               help="Maximum number of runs to evaluate.")
 @click.option("--batch-size", type=click.INT, default=4,

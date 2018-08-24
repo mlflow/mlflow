@@ -47,7 +47,7 @@ entry_points:
                                              --training-experiment-id {training_experiment_id}"
 
   # Use Hyperopt to optimize hyper params of the dl_train entry_point.
-  HyperOpt:
+  Hyperopt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       max_runs: {type: int, default: 32}

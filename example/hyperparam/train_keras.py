@@ -31,12 +31,6 @@ def get_standardize_f(train):
     return lambda x: (x - mu) / std
 
 
-@click.group()
-@click.version_option()
-def cli():
-    pass
-
-
 from keras.callbacks import Callback
 
 
@@ -78,7 +72,9 @@ class MLflowCheckpoint(Callback):
             mlflow.keras.log_model(self.model, "model")
 
 
-@cli.command()
+@click.command(help="Trains an Keras model on wine-quality dataset."
+                    "The input is expected in csv format."
+                    "The model and its metrics are logged with mlflow.")
 @click.option("--epochs", type=click.INT, default=100, help="Maximum number of epochs to evaluate.")
 @click.option("--batch-size", type=click.INT, default=16,
               help="Batch size passed to the learning algo.")

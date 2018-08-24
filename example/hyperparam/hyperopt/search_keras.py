@@ -10,13 +10,8 @@ from hyperopt import fmin, hp, tpe, rand
 import mlflow.projects
 
 
-@click.group()
-@click.version_option()
-def cli():
-    pass
-
-
-@cli.command()
+@click.command(help="Perform hyper parameter search with Hyperopt library."
+                    "Optimize dl_train target.")
 @click.option("--max-runs", type=click.INT, default=10,
               help="Maximum number of runs to evaluate.")
 @click.option("--epochs", type=click.INT, default=500,
@@ -75,7 +70,6 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
             f.write("{runId} {val}\n".format(runId=p.run_id, val=metric_val.value))
         return metric_val.value
 
-
     with mlflow.start_run():
         space = [
             hp.uniform('lr', 1e-3, 1e-1),
@@ -107,7 +101,5 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
         shutil.rmtree(tmp)
 
 
-
 if __name__ == '__main__':
     train()
-
