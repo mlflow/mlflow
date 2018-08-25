@@ -4,7 +4,7 @@ Title: Interface to MLflow
 Version: 0.1.0
 Authors@R: c(
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("aut", "cre")),
-    person("Kevin", "Kuo", role = c("aut", "cre"), email = "kevin.kuo@rstudio.com",
+    person("Kevin", "Kuo", role = c("aut"), email = "kevin.kuo@rstudio.com",
            comment = c(ORCID = "0000-0001-7803-7901")),
     person(family = "RStudio", role = c("cph"))
     )
