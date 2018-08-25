@@ -2,7 +2,7 @@ import random
 import filecmp
 import os
 import tempfile
-
+import shutil
 import pytest
 
 from mlflow.entities import RunStatus
@@ -46,7 +46,8 @@ def test_get_experiment_by_id():
         service.get_experiment(None)
 
     try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
+        temp_dir = tempfile.mkdtemp()
+        tracking.set_tracking_uri(temp_dir)
         service = get_service()
         exp_id = mlflow.create_experiment(
             "Some random experiment name %d" % random.randint(1, 1e6))
@@ -55,6 +56,7 @@ def test_get_experiment_by_id():
         assert experiment.experiment_id == exp_id
     finally:
         tracking.set_tracking_uri(None)
+        shutil.rmtree(temp_dir)
 
 
 def test_get_experiment_by_name():
@@ -71,7 +73,8 @@ def test_get_experiment_by_name():
         service.get_experiment_by_name(None)
 
     try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
+        temp_dir = tempfile.mkdtemp()
+        tracking.set_tracking_uri(temp_dir)
         service = get_service()
         rand_name = "Some random experiment name %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(rand_name)
@@ -80,6 +83,7 @@ def test_get_experiment_by_name():
         assert experiment.experiment_id == exp_id
     finally:
         tracking.set_tracking_uri(None)
+        shutil.rmtree(temp_dir)
 
 
 def test_no_nested_run():
