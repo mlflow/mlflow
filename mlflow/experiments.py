@@ -42,7 +42,7 @@ def list_experiments(view):
     List all experiments in the configured tracking server.
     """
     store = _get_store()
-    view_type = ViewType.from_string(view) if view else ViewType.ALL
+    view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
     experiments = store.list_experiments(view_type)
     table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
               else os.path.abspath(exp.artifact_location)] for exp in experiments]
