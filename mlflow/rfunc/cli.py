@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import click
 import os
 import subprocess
-import sys
 
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
