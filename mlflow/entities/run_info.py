@@ -1,5 +1,4 @@
 from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.entities.run_tag import RunTag
 
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 
@@ -7,7 +6,7 @@ from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 class RunInfo(_MLflowObject):
     """ Class containing metadata for a run. """
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                 user_id, status, start_time, end_time, source_version, tags, artifact_uri=None):
+                 user_id, status, start_time, end_time, source_version, artifact_uri=None):
         if run_uuid is None:
             raise Exception("run_uuid cannot be None")
         if experiment_id is None:
@@ -35,7 +34,6 @@ class RunInfo(_MLflowObject):
         self._start_time = start_time
         self._end_time = end_time
         self._source_version = source_version
-        self._tags = tags
         self._artifact_uri = artifact_uri
 
     def __eq__(self, other):
@@ -117,11 +115,6 @@ class RunInfo(_MLflowObject):
         return self._source_version
 
     @property
-    def tags(self):
-        """List of :py:class:`mlflow.entities.run_tag.RunTag` for the run."""
-        return self._tags
-
-    @property
     def artifact_uri(self):
         """String: root artifact URI of the run."""
         return self._artifact_uri
@@ -142,24 +135,24 @@ class RunInfo(_MLflowObject):
             proto.end_time = self.end_time
         if self.source_version:
             proto.source_version = self.source_version
-        proto.tags.extend([tag.to_proto() for tag in self.tags])
         if self.artifact_uri:
             proto.artifact_uri = self.artifact_uri
         return proto
 
     @classmethod
     def from_proto(cls, proto):
-        tags = [RunTag.from_proto(proto_tag) for proto_tag in proto.tags]
         return cls(proto.run_uuid, proto.experiment_id, proto.name, proto.source_type,
                    proto.source_name, proto.entry_point_name, proto.user_id, proto.status,
-                   proto.start_time, proto.end_time, proto.source_version, tags,
+                   proto.start_time, proto.end_time, proto.source_version,
                    proto.artifact_uri)
 
     @classmethod
     def from_dictionary(cls, the_dict):
-        info = cls(**the_dict)
-        # We must manually deserialize tags into proto tags
-        info._tags = the_dict.get("tags", [])
+        dict_copy = the_dict.copy()
+        # 'tags' was moved from RunInfo to RunData, so we must remove it from the serialzed copy.
+        if 'tags' in dict_copy:
+            del dict_copy['tags']
+        info = cls(**dict_copy)
         return info
 
     @classmethod
@@ -167,4 +160,4 @@ class RunInfo(_MLflowObject):
         # TODO: Hard coding this list of props for now. There has to be a clearer way...
         return ["run_uuid", "experiment_id", "name", "source_type", "source_name",
                 "entry_point_name", "user_id", "status", "start_time", "end_time",
-                "source_version", "tags", "artifact_uri"]
+                "source_version", "artifact_uri"]

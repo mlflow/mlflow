@@ -11,9 +11,11 @@ from querystring_parser import parser
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos import databricks_pb2
 
-from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
-    GetExperimentByName, GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
-    UpdateRun, LogMetric, LogParam, ListExperiments, GetMetric, GetParam
+from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, GetExperimentByName, \
+    GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
+    UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
+    DeleteExperiment, RestoreExperiment
+
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 
@@ -40,7 +42,7 @@ def _get_request_message(request_message, flask_request=request):
         # result.
         query_string = re.sub('%5B%5D', '%5B0%5D', flask_request.query_string.decode("utf-8"))
         request_dict = parser.parse(query_string, normalized=True)
-        ParseDict(request_dict, request_message)
+        ParseDict(request_dict, request_message, ignore_unknown_fields=True)
         return request_message
 
     request_json = flask_request.get_json(force=True, silent=True)
@@ -55,7 +57,7 @@ def _get_request_message(request_message, flask_request=request):
     # If request doesn't have json body then assume it's empty.
     if request_json is None:
         request_json = {}
-    ParseDict(request_json, request_message)
+    ParseDict(request_json, request_message, ignore_unknown_fields=True)
     return request_message
 
 
@@ -129,6 +131,24 @@ def _get_experiment_by_name():
     return response
 
 
+def _delete_experiment():
+    request_message = _get_request_message(DeleteExperiment())
+    _get_store().delete_experiment(request_message.experiment_id)
+    response_message = DeleteExperiment.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(_message_to_json(response_message))
+    return response
+
+
+def _restore_experiment():
+    request_message = _get_request_message(RestoreExperiment())
+    _get_store().restore_experiment(request_message.experiment_id)
+    response_message = RestoreExperiment.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(_message_to_json(response_message))
+    return response
+
+
 def _create_run():
     request_message = _get_request_message(CreateRun())
 
@@ -176,6 +196,16 @@ def _log_param():
     param = Param(request_message.key, request_message.value)
     _get_store().log_param(request_message.run_uuid, param)
     response_message = LogParam.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(_message_to_json(response_message))
+    return response
+
+
+def _set_tag():
+    request_message = _get_request_message(SetTag())
+    tag = RunTag(request_message.key, request_message.value)
+    _get_store().set_tag(request_message.run_uuid, tag)
+    response_message = SetTag.Response()
     response = Response(mimetype='application/json')
     response.set_data(_message_to_json(response_message))
     return response
@@ -249,8 +279,9 @@ def _get_param():
 
 
 def _list_experiments():
+    request_message = _get_request_message(ListExperiments())
+    experiment_entities = _get_store().list_experiments(request_message.view_type)
     response_message = ListExperiments.Response()
-    experiment_entities = _get_store().list_experiments()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
     response = Response(mimetype='application/json')
     response.set_data(_message_to_json(response_message))
@@ -297,10 +328,13 @@ HANDLERS = {
     CreateExperiment: _create_experiment,
     GetExperiment: _get_experiment,
     GetExperimentByName: _get_experiment_by_name,
+    DeleteExperiment: _delete_experiment,
+    RestoreExperiment: _restore_experiment,
     CreateRun: _create_run,
     UpdateRun: _update_run,
     LogParam: _log_param,
     LogMetric: _log_metric,
+    SetTag: _set_tag,
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,

@@ -23,7 +23,7 @@ public class SerializationUtilsTest {
     try {
       String listJson = SerializationUtils.toJson(inputList);
       List<Integer> loadedList = SerializationUtils.fromJson(listJson, List.class);
-      Assert.assertEquals(loadedList, inputList);
+      Assert.assertEquals(inputList, loadedList);
     } catch (IOException e) {
       Assert.fail(
           "Encountered an exception while serializing and deserializing list JSON content!");
@@ -37,7 +37,7 @@ public class SerializationUtilsTest {
     try {
       String mapJson = SerializationUtils.toJson(inputMap);
       Map<String, Integer> loadedMap = SerializationUtils.fromJson(mapJson, Map.class);
-      Assert.assertEquals(loadedMap, inputMap);
+      Assert.assertEquals(inputMap, loadedMap);
     } catch (IOException e) {
       Assert.fail("Encountered an exception while serializing and deserializing map JSON content!");
     }

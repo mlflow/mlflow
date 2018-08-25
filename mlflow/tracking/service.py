@@ -8,7 +8,8 @@ import os
 import time
 from six import iteritems
 
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id
+from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
+                                    _validate_tag_name, _validate_run_id
 from mlflow.entities import Param, Metric, RunStatus, RunTag
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
@@ -58,7 +59,7 @@ class MLflowService(object):
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_runs_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id):
         """:return: list of :py:class:`mlflow.entities.RunInfo`"""
         return self.store.list_run_infos(experiment_id)
 
@@ -86,6 +87,14 @@ class MLflowService(object):
             artifact_location=artifact_location,
         )
 
+    def delete_experiment(self, experiment_id):
+        """Deletes experiment with ID from backend store."""
+        return self.store.delete_experiment(experiment_id)
+
+    def restore_experiment(self, experiment_id):
+        """Restore deleted experiment with ID, unless permanently deleted."""
+        return self.store.restore_experiment(experiment_id)
+
     def log_metric(self, run_id, key, value, timestamp=None):
         """Logs a metric against the given run id. If timestamp is not provided, we will
         use the current timestamp.
@@ -100,6 +109,12 @@ class MLflowService(object):
         _validate_param_name(key)
         param = Param(key, str(value))
         self.store.log_param(run_id, param)
+
+    def set_tag(self, run_id, key, value):
+        """Sets a tag on the given run id. Value will be converted to a string."""
+        _validate_tag_name(key)
+        tag = RunTag(key, str(value))
+        self.store.set_tag(run_id, tag)
 
     def log_artifact(self, artifact_uri, local_path, artifact_path=None):
         """Writes a local file to the remote artifact_uri.
@@ -116,6 +131,40 @@ class MLflowService(object):
         :param artifact_path: If provided, will be directory in artifact_uri to write to"""
         artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
         artifact_repo.log_artifacts(local_dir, artifact_path)
+
+    def list_artifacts(self, run_id, path=None):
+        """
+        Lists the artifacts for a run.
+
+        :param run_id: The run to list artifacts from.
+        :type run_id: string
+        :param path: This run's relative artifact path to list from. By default it is set to None
+            or the root artifact path.
+        :type path: string or None
+        :return: List of artifacts listed directly under path.
+        :rtype: List of :py:class:`mlflow.entities.FileInfo`
+        """
+        run = self.get_run(run_id)
+        artifact_root = run.info.artifact_uri
+        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_root, self.store)
+        return artifact_repo.list_artifacts(path)
+
+    def download_artifacts(self, run_id, path):
+        """
+        Download an artifact file or directory from a run to a local directory if applicable,
+        and return a local path for it.
+
+        :param run_id: The run to download artifacts from.
+        :type run_id: string
+        :param path: Relative source path to the desired artifact
+        :type path: string
+        :return: local path of desired artifact.
+        :rtype: string
+        """
+        run = self.get_run(run_id)
+        artifact_root = run.info.artifact_uri
+        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_root, self.store)
+        return artifact_repo.download_artifacts(path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Sets a Run's status to terminated
