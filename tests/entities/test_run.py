@@ -1,4 +1,4 @@
-from mlflow.entities import Run
+from mlflow.entities import Run, Metric, Param, RunData, RunTag, SourceType, RunStatus, RunInfo
 from tests.entities.test_run_data import TestRunData
 from tests.entities.test_run_info import TestRunInfo
 
@@ -37,7 +37,7 @@ class TestRun(TestRunInfo, TestRunData):
                    "data": {"metrics": metrics,
                             "params": params,
                             "tags": tags}}
-        self.assertEqual(dict(run1), as_dict)
+        self.assertEqual(run1.to_dictionary(), as_dict)
 
         # proto = run1.to_proto()
         # run2 = Run.from_proto(proto)
@@ -45,3 +45,22 @@ class TestRun(TestRunInfo, TestRunData):
 
         run3 = Run.from_dictionary(as_dict)
         self._check_run(run3, run_info, run_data)
+
+    def test_string_repr(self):
+        run_info = RunInfo(
+            run_uuid="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
+            source_name="source-name", entry_point_name="entry-point-name",
+            user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
+            source_version="version")
+        metrics = [Metric("key", i, 0) for i in range(5)]
+        run_data = RunData(metrics=metrics, params=[], tags=[])
+        run1 = Run(run_info, run_data)
+        expected = "<mlflow.entities.run.Run: 'data'=<mlflow.entities.run_data.RunData: " \
+                   "'metrics'=[<mlflow.entities.metric.Metric: 'key'='key', 'timestamp'=0, " \
+                   "'value'=0>, <mlflow.entities.metric.Metric: 'key'='key', 'timestamp'=0, " \
+                   "'value'=1>, ...], 'params'=[], 'tags'=[]>, " \
+                   "'info'=<mlflow.entities.run_info.RunInfo: 'artifact_uri'=None, 'end_time'=1, " \
+                   "'entry_point_name'='entry-point-name', 'experiment_id'=0, 'name'='name', " \
+                   "'run_uuid'='hi', 'source_name'='source-name', 'source_type'=3, " \
+                   "'source_version'='version', 'start_time'=0, 'status'=4, 'user_id'='user-id'>>"
+        assert str(run1) == expected

@@ -27,3 +27,8 @@ class TestExperiment(unittest.TestCase):
 
         exp3 = Experiment.from_dictionary(as_dict)
         self._check(exp3, exp_id, name, location)
+
+    def test_string_repr(self):
+        exp = Experiment(experiment_id=0, name="myname", artifact_location="hi")
+        assert str(exp) == """<mlflow.entities.experiment.Experiment 'artifact_location'='hi', 'experiment_id'=0, 'name'='myname'>"""
+

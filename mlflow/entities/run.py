@@ -47,12 +47,7 @@ class Run(_MLflowObject):
     def to_dictionary(self):
         return {"info": dict(self.info), "data": dict(self.data)}
 
-    def __iter__(self):
-        the_dict = self.to_dictionary()
-        for k in the_dict:
-            yield k, the_dict[k]
 
     @classmethod
     def _properties(cls):
-        # This method should never get called since __iter__ from base class has been overridden.
-        raise NotImplementedError
+        return ["info", "data"]
