@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mlflow</groupId>
   <artifactId>mlflow-java</artifactId>
-  <version>0.4.2</version>
+  <version>0.5.2</version>
   <packaging>jar</packaging>
   <name>mlflow-java</name>
   <url>http://maven.apache.org</url>
