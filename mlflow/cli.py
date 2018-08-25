@@ -111,7 +111,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             run_id=run_id,
         )
     except projects.ExecutionException as e:
-        eprint(e)
+        eprint("=== %s ===" % e)
         sys.exit(1)
 
 
