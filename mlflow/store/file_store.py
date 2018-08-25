@@ -159,7 +159,7 @@ class FileStore(AbstractStore):
 
     def get_experiment_by_name(self, name):
         if name is None or name == "":
-            raise Exception("Invalid experiment name '%s'" % name)
+            raise ValueError("Invalid experiment name '%s'" % name)
         self._check_root_dir()
         for experiment in self.list_experiments(ViewType.ALL):
             if experiment.name == name:
