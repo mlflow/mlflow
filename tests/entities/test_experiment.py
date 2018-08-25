@@ -30,5 +30,4 @@ class TestExperiment(unittest.TestCase):
 
     def test_string_repr(self):
         exp = Experiment(experiment_id=0, name="myname", artifact_location="hi")
-        assert str(exp) == """<mlflow.entities.experiment.Experiment 'artifact_location'='hi', 'experiment_id'=0, 'name'='myname'>"""
-
+        assert str(exp) == "<Experiment: experiment_id=0, name='myname', artifact_location='hi'>"
