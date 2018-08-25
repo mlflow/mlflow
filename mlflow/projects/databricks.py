@@ -235,8 +235,6 @@ def _before_run_validations(tracking_uri, cluster_spec):
 
 def _get_tracking_uri_for_run():
     if not tracking.utils.is_tracking_uri_set():
-        eprint("No tracking URI was specified, defaulting to using tracking URI 'databricks' for "
-               "Databricks project execution.")
         return "databricks"
     uri = tracking.get_tracking_uri()
     if uri.startswith("databricks"):
