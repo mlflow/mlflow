@@ -129,5 +129,6 @@ public class MlflowClientTest {
     Assert.assertEquals(metrics.size(), 2);
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
+    assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
   }
 }
