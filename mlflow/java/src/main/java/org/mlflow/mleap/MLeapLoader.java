@@ -5,7 +5,6 @@ import ml.combust.mleap.runtime.frame.Transformer;
 import org.mlflow.LoaderModule;
 import org.mlflow.models.Model;
 import org.mlflow.sagemaker.MLeapPredictor;
-import org.mlflow.sagemaker.Predictor;
 import org.mlflow.sagemaker.PredictorLoadingException;
 import org.mlflow.utils.FileUtils;
 
@@ -28,7 +27,7 @@ public class MLeapLoader extends LoaderModule<MLeapFlavor> {
    * inference
    */
   @Override
-  protected Predictor createPredictor(String modelRootPath, MLeapFlavor flavor) {
+  protected MLeapPredictor createPredictor(String modelRootPath, MLeapFlavor flavor) {
     String modelDataPath = FileUtils.join(modelRootPath, flavor.getModelDataPath());
     String inputSchemaPath = FileUtils.join(modelRootPath, flavor.getInputSchemaPath());
     return new MLeapPredictor(modelDataPath, inputSchemaPath);
