@@ -15,6 +15,7 @@ import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
@@ -73,7 +74,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     """
     Run an MLflow project from the given URI.
 
-    Blocks till the run completes.
+    For local runs, blocks the run completes. Otherwise, runs the project asynchronously.
 
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.
@@ -106,12 +107,11 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             git_password=git_password,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
-            block=True,
+            block=mode == "local" or mode is None,
             run_id=run_id,
         )
-    except projects.ExecutionException:
-        import traceback
-        traceback.print_exc(file=sys.stderr)
+    except projects.ExecutionException as e:
+        eprint("=== %s ===" % e)
         sys.exit(1)
 
 
