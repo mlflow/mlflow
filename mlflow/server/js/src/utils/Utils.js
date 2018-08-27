@@ -1,6 +1,7 @@
 import dateFormat from 'dateformat';
 import React from 'react';
 
+
 class Utils {
   /**
    * Merge a runs parameters / metrics.
@@ -21,6 +22,10 @@ class Utils {
       });
     });
     return ret;
+  }
+
+  static getRunTagName() {
+    return '_MLFLOW_RUN_NAME';
   }
 
   static formatMetric(value) {
@@ -132,12 +137,18 @@ class Utils {
    * Renders the run name into a string.
    * @param run MlflowMessages.RunInfo
    */
-  static getRunDisplayName(runNameTag, runUuid) {
-    if (runNameTag) {
-      return runNameTag.value
-    }
-    return "Run " + runUuid;
+  static getRunDisplayName(runTags, runUuid) {
+    return Utils.getRunName(runTags) || "Run " + runUuid;
   }
+
+  static getRunName(runTags) {
+    const runNameTag = runTags[Utils.getRunTagName()];
+    if (runNameTag) {
+      return runNameTag.value;
+    }
+    return "";
+  }
+
 
   static renderVersion(run) {
     if (run.source_version) {

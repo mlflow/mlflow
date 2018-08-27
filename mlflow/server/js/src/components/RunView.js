@@ -16,15 +16,12 @@ const METRICS_KEY = 'metrics';
 const ARTIFACTS_KEY = 'artifacts';
 const TAGS_KEY = 'tags';
 
-const RUN_NAME_TAG_KEY = '_MLFLOW_RUN_NAME';
-
 class RunView extends Component {
   constructor(props) {
     super(props);
     this.onClickExpander = this.onClickExpander.bind(this);
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
     this.onSetRunName = this.onSetRunName.bind(this);
-    this.getRunName = this.getRunName.bind(this);
     this.state.showTags = getTagValues(props.tags).length > 0;
   }
 
@@ -90,15 +87,8 @@ class RunView extends Component {
     onSetRunName(event) {
       event.preventDefault();
       if (event.target.value) {
-        this.props.onSetTag(RUN_NAME_TAG_KEY, event.target.value);
+        this.props.onSetTag(Utils.RUN_NAME_TAG_KEY, event.target.value);
       }
-    }
-
-    getRunName(run) {
-      if (this.props.tags[RUN_NAME_TAG_KEY]) {
-        return Utils.getRunDisplayName(this.props.tags[RUN_NAME_TAG_KEY], run.getRunUuid());
-      }
-      return "";
     }
 
 
@@ -135,7 +125,7 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experiment={experiment} title={Utils.getRunDisplayName(this.props.tags[RUN_NAME_TAG_KEY], run.getRunUuid())}/>
+          <BreadcrumbTitle experiment={experiment} title={Utils.getRunDisplayName(this.props.tags, run.getRunUuid())}/>
         </div>
         <div className="run-info-container">
           <div className="run-info">
@@ -168,7 +158,7 @@ class RunView extends Component {
             <span className="metadata-header">Run Name: </span>
             <div className="filter-wrapper">
               <input type="text"
-                     placeholder={this.getRunName(run)}
+                     placeholder={Utils.getRunName(this.props.tags)}
                      value={this.state.runName}
                      onBlur={this.onSetRunName}
               />

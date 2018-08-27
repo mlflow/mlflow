@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getExperiment, getParams, getRunInfo } from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
@@ -19,6 +19,7 @@ class CompareRunView extends Component {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
+    runTagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
   };
 
   render() {
@@ -41,6 +42,14 @@ class CompareRunView extends Component {
                     <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
                       {r.getRunUuid()}
                     </Link>
+                  </th>
+                )}
+              </tr>
+              <tr>
+                <th scope="row" className="row-header">Run Name:</th>
+                {this.props.runInfos.map((r, i) =>
+                  <th scope="column" className="data-value" key={r.run_uuid}>
+                    Utils.getRunName(this.props.runTagsList[i], r.run_uuid);
                   </th>
                 )}
               </tr>
@@ -118,14 +127,16 @@ const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
   const metricLists = [];
   const paramLists = [];
+  const tagsList = [];
   const { experimentId, runUuids } = ownProps;
   const experiment = getExperiment(experimentId, state);
   runUuids.forEach((runUuid) => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
+    tagsList.push(Object.values(getRunTags(runUuid, state)));
   });
-  return { experiment, runInfos, metricLists, paramLists };
+  return { experiment, runInfos, metricLists, paramLists, tagsList };
 };
 
 export default connect(mapStateToProps)(CompareRunView);
