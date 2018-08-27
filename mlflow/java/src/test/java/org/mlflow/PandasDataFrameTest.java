@@ -23,7 +23,7 @@ public class PandasDataFrameTest {
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
     PandasRecordOrientedDataFrame pandasFrame =
         PandasRecordOrientedDataFrame.fromJson(sampleInputJson);
-    Assert.assertEquals((pandasFrame.size() > 0), true);
+    Assert.assertEquals((pandasFrame.size() == 150), true);
   }
 
   @Test

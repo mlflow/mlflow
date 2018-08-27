@@ -2,12 +2,10 @@ package org.mlflow.sagemaker;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
-import java.io.IOException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +18,8 @@ class LeapFrameSchema {
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   private static class SchemaField {
-    @JsonProperty("name") String name;
+    @JsonProperty("name")
+    String name;
   }
 
   private LeapFrameSchema(Map<String, Object> rawSchema) {
@@ -41,7 +40,7 @@ class LeapFrameSchema {
 
   /**
    * @throws InvalidSchemaException If the schema cannot be parsed from JSON or does not contain
-   * required keys
+   *     required keys
    * @throws IOException If the schema file cannot be loaded from the specified path
    */
   static LeapFrameSchema fromPath(String filePath) throws IOException {
@@ -64,7 +63,7 @@ class LeapFrameSchema {
 
   /**
    * @return A representation of the schema as a map containg standard Java objects. This is useful
-   * for serializing the schema as JSON
+   *     for serializing the schema as JSON
    */
   Map<String, Object> getRawSchema() {
     return this.rawSchema;

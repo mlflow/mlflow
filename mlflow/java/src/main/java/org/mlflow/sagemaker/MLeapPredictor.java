@@ -31,10 +31,6 @@ public class MLeapPredictor extends Predictor {
   private static final String PREDICTION_COLUMN_NAME = "prediction";
   private static final Logger logger = LoggerFactory.getLogger(MLeapPredictor.class);
 
-  static {
-    List<String> predictionColumnList = Arrays.asList("prediction");
-  }
-
   /**
    * Constructs an {@link MLeapPredictor}
    *
@@ -50,8 +46,9 @@ public class MLeapPredictor extends Predictor {
       this.inputSchema = LeapFrameSchema.fromPath(inputSchemaPath);
     } catch (IOException e) {
       logger.error("Could not read the model input schema from the specified path", e);
-      throw new PredictorLoadingException(String.format(
-          "Failed to load model input schema from specified path: %s", inputSchemaPath));
+      throw new PredictorLoadingException(
+          String.format(
+              "Failed to load model input schema from specified path: %s", inputSchemaPath));
     }
   }
 
@@ -94,10 +91,12 @@ public class MLeapPredictor extends Predictor {
         JavaConverters.asScalaIteratorConverter(Arrays.asList(PREDICTION_COLUMN_NAME).iterator())
             .asScala()
             .toSeq();
-    DefaultLeapFrame predictionsFrame = this.pipelineTransformer.transform(leapFrame)
-                                            .get()
-                                            .select(predictionColumnSelectionArgs)
-                                            .get();
+    DefaultLeapFrame predictionsFrame =
+        this.pipelineTransformer
+            .transform(leapFrame)
+            .get()
+            .select(predictionColumnSelectionArgs)
+            .get();
     Seq<Row> predictionRows = predictionsFrame.collect();
     Iterable<Row> predictionRowsIterable =
         JavaConverters.asJavaIterableConverter(predictionRows).asJava();

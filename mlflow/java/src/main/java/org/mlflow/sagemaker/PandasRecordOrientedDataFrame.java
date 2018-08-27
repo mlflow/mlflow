@@ -1,22 +1,18 @@
 package org.mlflow.sagemaker;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
-import org.mlflow.utils.SerializationUtils;
-import java.io.IOException;
-
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
-
-import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
+import org.mlflow.utils.SerializationUtils;
 
 /**
- * A representation of a serialized Pandas dataframe in record-oriented format.
- * For more information, see `pandas.DataFrame.toJson(orient="records")`
+ * A representation of a serialized Pandas dataframe in record-oriented format. For more
+ * information, see `pandas.DataFrame.toJson(orient="records")`
  * (https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html)
  */
 class PandasRecordOrientedDataFrame {
@@ -38,16 +34,14 @@ class PandasRecordOrientedDataFrame {
     return new PandasRecordOrientedDataFrame(SerializationUtils.fromJson(frameJson, List.class));
   }
 
-  /**
-   * @return The number of records contained in the dataframe
-   */
+  /** @return The number of records contained in the dataframe */
   int size() {
     return this.records.size();
   }
 
   /**
-   * Applies the specified MLeap frame schema ({@link LeapFrameSchema}) to this dataframe,
-   * producing a {@link DefaultLeapFrame}
+   * Applies the specified MLeap frame schema ({@link LeapFrameSchema}) to this dataframe, producing
+   * a {@link DefaultLeapFrame}
    *
    * @throws InvalidSchemaException If the supplied pandas dataframe is invalid (missing a required
    *     field, etc)
