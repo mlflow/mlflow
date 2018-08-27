@@ -382,7 +382,13 @@ class ExperimentView extends Component {
         </Link>
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td key="meta-source">
+      <td key="meta-source" style={{
+          "white-space": "nowrap" ,
+          "max-width": "250px",
+          "overflow": "hidden",
+          "text-overflow": "ellipsis",
+        }}
+      >
         {Utils.renderSourceTypeIcon(runInfo.source_type)}
         {Utils.renderSource(runInfo, tags)}
       </td>,
@@ -465,7 +471,7 @@ class ExperimentView extends Component {
       </th>,
       getHeaderCell("start_time", <span>{"Date"}</span>, true),
       getHeaderCell("user_id", <span>{"User"}</span>, true),
-      getHeaderCell("source", <span><img src={emptySvg}/>{"Source"}</span>, true),
+      getHeaderCell("source", <span>{"Source"}</span>, true),
       getHeaderCell("source_version", <span>{"Version"}</span>, true)
     ];
     paramKeyList.forEach((paramKey, i) => {

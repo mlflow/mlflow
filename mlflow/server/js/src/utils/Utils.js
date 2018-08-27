@@ -3,6 +3,7 @@ import React from 'react';
 import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
+import projectSvg from '../static/project.svg';
 
 class Utils {
   /**
@@ -114,10 +115,12 @@ class Utils {
     } else if (run.source_type === "NOTEBOOK") {
       const notebookIdTag = 'mlflow.databricks.notebookID';
       const webappUrlTag = 'mlflow.databricks.webappURL';
-      const notebookId = tags[notebookIdTag] && tags[notebookIdTag].value;
-      const webappUrl = tags[webappUrlTag] && tags[webappUrlTag].value;
+      const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
+      const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
       if (notebookId && webappUrl) {
-        res = (<a href={`${webappUrl}/#notebook/${notebookId}`}>{run.source_name}</a>);
+        res = (<a title={run.source_name} href={`${webappUrl}/#notebook/${notebookId}`}>
+          {run.source_name}
+        </a>);
       }
       return res;
     } else {
@@ -136,11 +139,11 @@ class Utils {
       right: '3px',
     };
     if (sourceType === "NOTEBOOK") {
-      return <img style={imageStyle} src={notebookSvg} />;
+      return <img title="Source Type: Notebook" style={imageStyle} src={notebookSvg} />;
     } else if (sourceType === "LOCAL") {
-      return <img style={imageStyle} src={laptopSvg} />;
+      return <img title="Source Type: Local" style={imageStyle} src={laptopSvg} />;
     } else if (sourceType === "PROJECT") {
-      return <img style={imageStyle} src={laptopSvg} />;
+      return <img title="Source Type: Project" style={imageStyle} src={projectSvg} />;
     }
     return <img style={imageStyle} src={emptySvg} />;
   }
