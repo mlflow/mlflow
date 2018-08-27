@@ -15,6 +15,7 @@ You install MLflow by running:
 
     .. code-block:: R
 
+        install.packages(mlflow)
         mlflow_install()
 
 .. note::
@@ -93,10 +94,10 @@ You can then run MLflow's Tracking UI:
 
         mlflow_ui()
 
-and view it at `<http://localhost:5000>`_. 
+and view it at `<http://localhost:5000>`_.
 
 .. note::
-    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.  
+    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.
 
 Alternatively, you can configure MLflow to :ref:`log runs to a remote server<tracking>` to manage
 your results centrally or share them across a team.
@@ -169,9 +170,9 @@ predictions:
 .. code:: bash
 
     curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
-         
+
 which returns::
-  
+
     {"predictions": [1, 0]}
 
 .. note::
