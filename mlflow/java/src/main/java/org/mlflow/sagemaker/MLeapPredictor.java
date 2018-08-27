@@ -23,13 +23,16 @@ public class MLeapPredictor extends Predictor {
   private final Transformer pipelineTransformer;
   private final LeapFrameSchema inputSchema;
 
-  private static final Seq<String> predictionColumnNames;
+  // As in the `pyfunc` wrapper for Spark models, we expect output dataframes
+  // to have a `prediction` column that contains model predictions. Only entries in this
+  // column are returned in the response to a query.`pyfunc` reference:
+  // https://github.com/mlflow/mlflow/blob/f4869beec5cd2220d1bf01861d80f7145a8601bf/mlflow/
+  // spark.py#L248
+  private static final String predictionColumnName = "prediction";
   private static final Logger logger = LoggerFactory.getLogger(MLeapPredictor.class);
 
   static {
     List<String> predictionColumnList = Arrays.asList("prediction");
-    predictionColumnNames =
-        JavaConverters.asScalaIteratorConverter(predictionColumnList.iterator()).asScala().toSeq();
   }
 
   /**
@@ -83,9 +86,18 @@ public class MLeapPredictor extends Predictor {
               + " Original exception text: %s",
           e.getMessage()));
     }
-
-    DefaultLeapFrame predictionsFrame =
-        this.pipelineTransformer.transform(leapFrame).get().select(predictionColumnNames).get();
+    // Create a single-element sequence of column names to select from the resulting dataframe.
+    // This single-element is the `prediction` column; as is the case with the `pyfunc` wrapper
+    // for Spark models, the query response is comprised solely of entries in the `prediction`
+    // column
+    Seq<String> predictionColumnSelectionArgs =
+        JavaConverters.asScalaIteratorConverter(Arrays.asList(predictionColumnName).iterator())
+            .asScala()
+            .toSeq();
+    DefaultLeapFrame predictionsFrame = this.pipelineTransformer.transform(leapFrame)
+                                            .get()
+                                            .select(predictionColumnSelectionArgs)
+                                            .get();
     Seq<Row> predictionRows = predictionsFrame.collect();
     Iterable<Row> predictionRowsIterable =
         JavaConverters.asJavaIterableConverter(predictionRows).asJava();
