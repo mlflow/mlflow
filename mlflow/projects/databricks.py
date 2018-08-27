@@ -185,7 +185,9 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
             'command': command,
             "env_vars": env_vars
         },
-        "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
+        # NB: We use <= on the version specifier to allow running projects on pre-release
+        # versions, where we will select the most up-to-date mlflow version available.
+        "libraries": [{"pypi": {"package": "mlflow<=%s" % VERSION}}]
     }
     run_submit_res = _jobs_runs_submit(req_body_json)
     databricks_run_id = run_submit_res["run_id"]
