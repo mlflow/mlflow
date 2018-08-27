@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
  * Client to an MLflow Tracking Sever.
  */
 public class MlflowClient {
+  private static long DEFAULT_EXPERIMENT_ID = 0;
+
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final MlflowHttpCaller httpCaller;
 
@@ -37,15 +39,27 @@ public class MlflowClient {
     httpCaller = new MlflowHttpCaller(hostCredsProvider);
   }
 
+  /** Returns the run associated with the id. */
   public Run getRun(String runUuid) {
     URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runUuid);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
   }
 
-  public RunInfo createRun(long experimentId, String sourceName) {
+  /** Creates a new run under the default experiment with no application name. */
+  public RunInfo createRun() {
+    return createRun(DEFAULT_EXPERIMENT_ID);
+  }
+
+  /** Creates a new run under the given experiment with no application name. */
+  public RunInfo createRun(long experimentId) {
+    return createRun(experimentId, "");
+  }
+
+  /** Creates a new run under the given experiment with the given application name. */
+  public RunInfo createRun(long experimentId, String appName) {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
-    request.setSourceName(sourceName);
+    request.setSourceName(appName);
     request.setSourceType(SourceType.LOCAL);
     request.setStartTime(System.currentTimeMillis());
     String username = System.getProperty("user.name");
@@ -55,12 +69,14 @@ public class MlflowClient {
     return createRun(request.build());
   }
 
+  /** Creates a new run. */
   public RunInfo createRun(CreateRun request) {
     String ijson = mapper.toJson(request);
     String ojson = doPost("runs/create", ijson);
     return mapper.toCreateRunResponse(ojson).getRun().getInfo();
   }
 
+  /** Returns a list of all RunInfos associated with the given experiment. */
   public List<RunInfo> listRunInfos(long experimentId) {
     SearchRuns request = SearchRuns.newBuilder().addExperimentIds(experimentId).build();
     String ijson = mapper.toJson(request);
@@ -69,31 +85,43 @@ public class MlflowClient {
       .collect(Collectors.toList());
   }
 
+  /** Returns a list of all Experiments. */
   public List<Experiment> listExperiments() {
     return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
       .getExperimentsList();
   }
 
+  /** Returns an experiment with the given id. */
   public GetExperiment.Response getExperiment(long experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
       .setParameter("experiment_id", "" + experimentId);
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
   }
 
+  /** Creates a new experiment using the default artifact location provided by the server. */
   public long createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
     String ojson = httpCaller.post("experiments/create", ijson);
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
+  /**
+   * Logs a parameter against the given run, as a key-value pair.
+   * This cannot be called against the same parameter key more than once.
+   */
   public void logParam(String runUuid, String key, String value) {
     doPost("runs/log-parameter", mapper.makeLogParam(runUuid, key, value));
   }
 
+  /**
+   * Logs a new metric against the given run, as a key-value pair.
+   * New values for the same metric may be recorded over time, and are marked with a timestamp.
+   * */
   public void logMetric(String runUuid, String key, float value) {
     doPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value));
   }
 
+  /** Returns the Metric associated with the given run and metric key. */
   public Metric getMetric(String runUuid, String metricKey) {
     URIBuilder builder = newURIBuilder("metrics/get")
       .setParameter("run_uuid", runUuid)
@@ -101,6 +129,10 @@ public class MlflowClient {
     return mapper.toGetMetricResponse(httpCaller.get(builder.toString())).getMetric();
   }
 
+  /**
+   * Returns all Metrics, in the same order as they were logged, associated with the given run
+   * and metric key.
+   */
   public List<Metric> getMetricHistory(String runUuid, String metricKey) {
     URIBuilder builder = newURIBuilder("metrics/get-history")
       .setParameter("run_uuid", runUuid)
@@ -108,6 +140,15 @@ public class MlflowClient {
     return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
   }
 
+  /** Returns the Param associated with the given run and parameter name. */
+  public String getParam(String runUuid, String paramName) {
+    URIBuilder builder = newURIBuilder("params/get")
+      .setParameter("run_uuid", runUuid)
+      .setParameter("param_name", paramName);
+    return mapper.toGeParamResponse(httpCaller.get(builder.toString())).getParameter().getValue();
+  }
+
+  /** Returns a list of all artifacts under the given artifact path within the run. */
   public ListArtifacts.Response listArtifacts(String runUuid, String path) {
     URIBuilder builder = newURIBuilder("artifacts/list")
       .setParameter("run_uuid", runUuid)
@@ -115,21 +156,25 @@ public class MlflowClient {
     return mapper.toListArtifactsResponse(httpCaller.get(builder.toString()));
   }
 
-  public byte[] getArtifact(String runUuid, String path) {
-    throw new UnsupportedOperationException();
-  }
-
+  /** Returns the experiment associated with the given name or Optional.empty if none exists. */
   public Optional<Experiment> getExperimentByName(String experimentName) {
     return listExperiments().stream().filter(e -> e.getName()
       .equals(experimentName)).findFirst();
   }
 
-  public void setTerminated(String runUuid, RunStatus status, long endTime) {
-    doPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
+  /** Sets the status of a run to be FINISHED at the current time. */
+  public void setTerminated(String runUuid) {
+    setTerminated(runUuid, RunStatus.FINISHED);
   }
 
+  /** Sets the status of a run to be completed at the current time. */
   public void setTerminated(String runUuid, RunStatus status) {
     setTerminated(runUuid, status, System.currentTimeMillis());
+  }
+
+  /** Sets the status of a run to be completed at the given endTime. */
+  public void setTerminated(String runUuid, RunStatus status, long endTime) {
+    doPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
   }
 
   /**

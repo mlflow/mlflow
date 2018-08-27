@@ -84,6 +84,12 @@ class MlflowProtobufMapper {
     return builder.build();
   }
 
+  GetParam.Response toGeParamResponse(String json) {
+    GetParam.Response.Builder builder = GetParam.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
   ListArtifacts.Response toListArtifactsResponse(String json) {
     ListArtifacts.Response.Builder builder = ListArtifacts.Response.newBuilder();
     merge(json, builder);

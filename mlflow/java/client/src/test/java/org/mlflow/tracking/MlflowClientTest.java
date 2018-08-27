@@ -10,7 +10,6 @@ import org.testng.annotations.*;
 import static org.mlflow.tracking.TestUtils.*;
 
 import org.mlflow.api.proto.Service.*;
-import org.mlflow.tracking.objects.*;
 
 public class MlflowClientTest {
   private static final Logger logger = Logger.getLogger(MlflowClientTest.class);
@@ -125,6 +124,7 @@ public class MlflowClientTest {
     Assert.assertEquals(params.size(), 2);
     assertParam(params, "min_samples_leaf", MIN_SAMPLES_LEAF);
     assertParam(params, "max_depth", MAX_DEPTH);
+    Assert.assertEquals(client.getParam(runId, "max_depth"), MAX_DEPTH);
 
     List<Metric> metrics = run.getData().getMetricsList();
     Assert.assertEquals(metrics.size(), 2);
