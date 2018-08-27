@@ -87,7 +87,7 @@ class RunView extends Component {
     onSetRunName(event) {
       event.preventDefault();
       if (event.target.value) {
-        this.props.onSetTag(Utils.RUN_NAME_TAG_KEY, event.target.value);
+        this.props.onSetTag(Utils.getRunTagName(), event.target.value);
       }
     }
 
