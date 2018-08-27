@@ -3,6 +3,7 @@ import os
 import boto3
 from six.moves import urllib
 
+from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
@@ -23,7 +24,7 @@ class S3ArtifactRepository(ArtifactRepository):
         return parsed.netloc, path
 
     def log_artifact(self, local_file, artifact_path=None):
-        (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         dest_path = build_path(dest_path, os.path.basename(local_file))
@@ -31,7 +32,7 @@ class S3ArtifactRepository(ArtifactRepository):
         boto3.client('s3').upload_file(local_file, bucket, dest_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         s3 = boto3.client('s3')
@@ -45,7 +46,7 @@ class S3ArtifactRepository(ArtifactRepository):
                 s3.upload_file(build_path(root, f), bucket, build_path(upload_path, f))
 
     def list_artifacts(self, path=None):
-        (bucket, artifact_path) = self.parse_s3_uri(self.artifact_uri)
+        (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
             dest_path = build_path(dest_path, path)
@@ -82,7 +83,7 @@ class S3ArtifactRepository(ArtifactRepository):
             for file_info in listing:
                 self._download_artifacts_into(file_info.path, local_path)
         else:
-            (bucket, s3_path) = self.parse_s3_uri(self.artifact_uri)
+            (bucket, s3_path) = data.parse_s3_uri(self.artifact_uri)
             s3_path = build_path(s3_path, artifact_path)
             boto3.client('s3').download_file(bucket, s3_path, local_path)
         return local_path
