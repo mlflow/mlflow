@@ -225,7 +225,9 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     db_job_runner = DatabricksJobRunner(profile=profile)
     db_run_id = db_job_runner.run_databricks(
         uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id)
-    return DatabricksSubmittedRun(db_run_id, run_id, profile)
+    submitted_run = DatabricksSubmittedRun(db_run_id, run_id, profile)
+    submitted_run._print_description()
+    return submitted_run
 
 
 class DatabricksSubmittedRun(SubmittedRun):
@@ -239,9 +241,11 @@ class DatabricksSubmittedRun(SubmittedRun):
         self._databricks_run_id = databricks_run_id
         self._run_id = run_id
         self._profile = profile
+
+    def _print_description(self):
         eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-               "page URL... ===" % databricks_run_id)
-        run_info = self._jobs_runs_get(databricks_run_id)
+               "page URL... ===" % self._databricks_run_id)
+        run_info = self._jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         eprint("=== Check the run's status at %s ===" % jobs_page_url)
 
