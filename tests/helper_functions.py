@@ -23,7 +23,7 @@ def random_file(ext):
 
 def score_model_in_sagemaker_docker_container(model_path, data):
     """
-    :param data: The data to send to the docker container for testing. This is either a 
+    :param data: The data to send to the docker container for testing. This is either a
                  Pandas dataframe or a JSON-formatted string.
     """
     env = dict(os.environ)
@@ -48,7 +48,7 @@ def score_model_in_sagemaker_docker_container(model_path, data):
         print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        if type(data) == pd.DataFrame: 
+        if type(data) == pd.DataFrame:
             data = data.to_dict(orient='records')
         y = requests.post(url='http://localhost:5000/invocations', json=data)
         import json
