@@ -1,6 +1,5 @@
 package org.mlflow.sagemaker;
 
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.util.ArrayList;
