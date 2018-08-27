@@ -1,26 +1,29 @@
-package org.mlflow.client.samples;
+package org.mlflow.tracking.samples;
 
 import java.util.*;
 
-import com.google.protobuf.Api;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 
-import org.mlflow.client.ApiClient;
+import org.mlflow.tracking.MlflowClient;
 import org.mlflow.api.proto.Service.*;
-import org.mlflow.client.objects.ObjectUtils;
+import org.mlflow.tracking.objects.ObjectUtils;
 
+/**
+ * This is an example application which uses the MLflow Tracking API to create and manage
+ * experiments and runs.
+ */
 public class QuickStartDriver {
   public static void main(String[] args) throws Exception {
     (new QuickStartDriver()).process(args);
   }
 
   void process(String[] args) throws Exception {
-    ApiClient client;
+    MlflowClient client;
     if (args.length < 1) {
-      client = ApiClient.defaultClient();
+      client = new MlflowClient();
     } else {
-      client = ApiClient.fromTrackingUri(args[0]);
+      client = new MlflowClient(args[0]);
     }
 
     boolean verbose = args.length >= 2 && "true".equals(args[1]);
@@ -53,7 +56,7 @@ public class QuickStartDriver {
     System.out.println("getExperimentByName: " + exp3);
   }
 
-  void createRun(ApiClient client, long expId) throws Exception {
+  void createRun(MlflowClient client, long expId) {
     System.out.println("====== createRun");
 
     // Create run
@@ -68,8 +71,8 @@ public class QuickStartDriver {
     String runId = runCreated.getRunUuid();
 
     // Log parameters
-    client.logParameter(runId, "min_samples_leaf", "2");
-    client.logParameter(runId, "max_depth", "3");
+    client.logParam(runId, "min_samples_leaf", "2");
+    client.logParam(runId, "max_depth", "3");
 
     // Log metrics
     client.logMetric(runId, "auc", 2.12F);
@@ -77,7 +80,7 @@ public class QuickStartDriver {
     client.logMetric(runId, "zero_one_loss", 4.12F);
 
     // Update finished run
-    client.updateRun(runId, RunStatus.FINISHED, startTime + 1001);
+    client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
 
     // Get run details
     Run run = client.getRun(runId);

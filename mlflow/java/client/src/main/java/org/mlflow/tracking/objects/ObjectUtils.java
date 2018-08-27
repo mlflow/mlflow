@@ -1,7 +1,4 @@
-package org.mlflow.client.objects;
-
-import java.util.*;
-import java.util.stream.Collectors;
+package org.mlflow.tracking.objects;
 
 import com.google.protobuf.MessageOrBuilder;
 

@@ -1,4 +1,4 @@
-package org.mlflow.client;
+package org.mlflow.tracking;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -14,9 +14,10 @@ import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 
-import org.mlflow.client.creds.MlflowHostCreds;
-import org.mlflow.client.creds.MlflowHostCredsProvider;
+import org.mlflow.tracking.creds.MlflowHostCreds;
+import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
@@ -25,69 +26,81 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 
-class HttpCaller {
-  private static final Logger logger = Logger.getLogger(HttpCaller.class);
+class MlflowHttpCaller {
+  private static final Logger logger = Logger.getLogger(MlflowHttpCaller.class);
   private static final String BASE_API_PATH = "api/2.0/preview/mlflow";
   private HttpClient httpClient;
   private final MlflowHostCredsProvider hostCredsProvider;
 
-  public HttpCaller(MlflowHostCredsProvider hostCredsProvider) {
+  public MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
     this.hostCredsProvider = hostCredsProvider;
   }
 
-  String get(String path) throws Exception {
+  String get(String path) {
     logger.debug("Sending GET " + path);
     HttpGet request = new HttpGet();
     fillRequestSettings(request, path);
-    HttpResponse response = httpClient.execute(request);
-    checkError(response);
-    String responseJosn = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-    logger.debug("Response: " + responseJosn);
-    return responseJosn;
+    try {
+      HttpResponse response = httpClient.execute(request);
+      checkError(response);
+      String responseJosn = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+      logger.debug("Response: " + responseJosn);
+      return responseJosn;
+    } catch (IOException e) {
+      throw new MlflowClientException(e);
+    }
   }
 
   // TODO(aaron) Convert to InputStream.
-  byte[] getAsBytes(String path) throws Exception {
+  byte[] getAsBytes(String path) {
     logger.debug("Sending GET " + path);
     HttpGet request = new HttpGet();
     fillRequestSettings(request, path);
-    HttpResponse response = httpClient.execute(request);
-    checkError(response);
-    byte[] bytes = EntityUtils.toByteArray(response.getEntity());
-    logger.debug("response: #bytes=" + bytes.length);
-    return bytes;
+    try {
+      HttpResponse response = httpClient.execute(request);
+      checkError(response);
+      byte[] bytes = EntityUtils.toByteArray(response.getEntity());
+      logger.debug("response: #bytes=" + bytes.length);
+      return bytes;
+    } catch (IOException e) {
+      throw new MlflowClientException(e);
+    }
   }
 
-  String post(String path, String json) throws Exception {
+  String post(String path, String json) {
     logger.debug("Sending POST " + path + ": " + json);
     HttpPost request = new HttpPost();
     fillRequestSettings(request, path);
-    request.setEntity(new StringEntity(json));
-    HttpResponse response = httpClient.execute(request);
-    checkError(response);
-    String responseJson = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-    logger.debug("Response: " + responseJson);
-    return responseJson;
+    request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
+    try {
+      HttpResponse response = httpClient.execute(request);
+      checkError(response);
+      String responseJson = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+      logger.debug("Response: " + responseJson);
+      return responseJson;
+    } catch (IOException e) {
+      throw new MlflowClientException(e);
+    }
   }
 
-  private void checkError(HttpResponse response) throws Exception {
+  private void checkError(HttpResponse response) throws MlflowClientException, IOException {
     int statusCode = response.getStatusLine().getStatusCode();
     String reasonPhrase = response.getStatusLine().getReasonPhrase();
     if (isError(statusCode)) {
-      String bodyMessage = EntityUtils.toString(response.getEntity());
+      String bodyMessage = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
       if (statusCode >= 400 && statusCode <= 499) {
-        throw new HttpClientException(statusCode, reasonPhrase, bodyMessage);
+        throw new MlflowHttpClientException(statusCode, reasonPhrase, bodyMessage);
       }
       if (statusCode >= 500 && statusCode <= 599) {
-        throw new HttpServerException(statusCode, reasonPhrase, bodyMessage);
+        throw new MlflowHttpServerException(statusCode, reasonPhrase, bodyMessage);
       }
-      throw new HttpException(statusCode, reasonPhrase, bodyMessage);
+      throw new MlflowHttpException(statusCode, reasonPhrase, bodyMessage);
     }
   }
 
   private void fillRequestSettings(HttpRequestBase request, String path) {
     MlflowHostCreds hostCreds = hostCredsProvider.getHostCreds();
-    createHttpClientIfNecessary(hostCreds.getNoTlsVerify());
+    createHttpClientIfNecessary(hostCreds.shouldIgnoreTlsVerification());
     String uri = hostCreds.getHost() + "/" + BASE_API_PATH + "/" + path;
     request.setURI(URI.create(uri));
     String username = hostCreds.getUsername();

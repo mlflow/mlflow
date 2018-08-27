@@ -1,4 +1,4 @@
-package org.mlflow.client.creds;
+package org.mlflow.tracking.creds;
 
 /**
  * Provides a hostname and optional authentication for talking to an MLflow server.
@@ -29,5 +29,5 @@ public interface MlflowHostCreds {
    * If true, we will not verify the server's hostname or TLS certificate.
    * This is useful for certain testing situations, but should never be true in production.
    */
-  boolean getNoTlsVerify();
+  boolean shouldIgnoreTlsVerification();
 }

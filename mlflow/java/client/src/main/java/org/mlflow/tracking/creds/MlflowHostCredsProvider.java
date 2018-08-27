@@ -1,4 +1,4 @@
-package org.mlflow.client.creds;
+package org.mlflow.tracking.creds;
 
 /** Provides a dynamic, refreshable set of MlflowHostCreds. */
 public interface MlflowHostCredsProvider {

@@ -1,4 +1,4 @@
-package org.mlflow.client.creds;
+package org.mlflow.tracking.creds;
 
 /** A static hostname and optional credentials to talk to an MLflow server. */
 public class BasicMlflowHostCreds implements MlflowHostCreds, MlflowHostCredsProvider {
@@ -57,7 +57,7 @@ public class BasicMlflowHostCreds implements MlflowHostCreds, MlflowHostCredsPro
   }
 
   @Override
-  public boolean getNoTlsVerify() {
+  public boolean shouldIgnoreTlsVerification() {
     return noTlsVerify;
   }
 

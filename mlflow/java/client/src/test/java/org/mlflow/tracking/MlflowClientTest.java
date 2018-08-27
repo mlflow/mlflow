@@ -1,23 +1,19 @@
-package org.mlflow.client;
+package org.mlflow.tracking;
 
 import java.io.*;
-import java.net.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 
 import org.apache.log4j.Logger;
 import org.testng.Assert;
 import org.testng.annotations.*;
 
-import static org.mlflow.client.TestUtils.*;
+import static org.mlflow.tracking.TestUtils.*;
 
 import org.mlflow.api.proto.Service.*;
-import org.mlflow.client.objects.*;
+import org.mlflow.tracking.objects.*;
 
-public class ApiClientTest {
-  private static final Logger logger = Logger.getLogger(ApiClientTest.class);
+public class MlflowClientTest {
+  private static final Logger logger = Logger.getLogger(MlflowClientTest.class);
 
   private static float ACCURACY_SCORE = 0.9733333333333334F;
   private static float ZERO_ONE_LOSS = 0.026666666666666616F;
@@ -27,10 +23,10 @@ public class ApiClientTest {
   private final TestClientProvider testClientProvider = new TestClientProvider();
   private String runId;
 
-  private ApiClient client;
+  private MlflowClient client;
 
   @BeforeSuite
-  public void beforeAll() throws IOException, InterruptedException {
+  public void beforeAll() throws IOException {
     client = testClientProvider.initializeClientAndServer();
   }
 
@@ -40,22 +36,22 @@ public class ApiClientTest {
   }
 
   @Test
-  public void getCreateExperimentTest() throws Exception {
+  public void getCreateExperimentTest() {
     String expName = createExperimentName();
     long expId = client.createExperiment(expName);
     GetExperiment.Response exp = client.getExperiment(expId);
     Assert.assertEquals(exp.getExperiment().getName(), expName);
   }
 
-  @Test(expectedExceptions = HttpServerException.class) // TODO: server should throw 406
-  public void createExistingExperiment() throws Exception {
+  @Test(expectedExceptions = MlflowHttpServerException.class) // TODO: server should throw 406
+  public void createExistingExperiment() {
     String expName = createExperimentName();
     client.createExperiment(expName);
     client.createExperiment(expName);
   }
 
   @Test
-  public void listExperimentsTest() throws Exception {
+  public void listExperimentsTest() {
     List<Experiment> expsBefore = client.listExperiments();
 
     String expName = createExperimentName();
@@ -74,7 +70,7 @@ public class ApiClientTest {
   }
 
   @Test
-  public void addGetRun() throws Exception {
+  public void addGetRun() {
     // Create exp
     String expName = createExperimentName();
     long expId = client.createExperiment(expName);
@@ -90,16 +86,25 @@ public class ApiClientTest {
     runId = runCreated.getRunUuid();
     logger.debug("runId=" + runId);
 
+    List<RunInfo> runInfos = client.listRunInfos(expId);
+    Assert.assertEquals(runInfos.size(), 1);
+    Assert.assertEquals(runInfos.get(0).getName(), "Run 0"); // Weird, but the API returns this
+    Assert.assertEquals(runInfos.get(0).getStatus(), RunStatus.RUNNING);
+
     // Log parameters
-    client.logParameter(runId, "min_samples_leaf", MIN_SAMPLES_LEAF);
-    client.logParameter(runId, "max_depth", MAX_DEPTH);
+    client.logParam(runId, "min_samples_leaf", MIN_SAMPLES_LEAF);
+    client.logParam(runId, "max_depth", MAX_DEPTH);
 
     // Log metrics
     client.logMetric(runId, "accuracy_score", ACCURACY_SCORE);
     client.logMetric(runId, "zero_one_loss", ZERO_ONE_LOSS);
 
     // Update finished run
-    client.updateRun(runId, RunStatus.FINISHED, startTime + 1001);
+    client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
+
+    List<RunInfo> updatedRunInfos = client.listRunInfos(expId);
+    Assert.assertEquals(updatedRunInfos.size(), 1);
+    Assert.assertEquals(updatedRunInfos.get(0).getStatus(), RunStatus.FINISHED);
 
     // Assert run from getExperiment
     GetExperiment.Response expResponse = client.getExperiment(expId);
@@ -114,7 +119,7 @@ public class ApiClientTest {
   }
 
   @Test(dependsOnMethods = {"addGetRun"})
-  public void checkParamsAndMetrics() throws Exception {
+  public void checkParamsAndMetrics() {
 
     Run run = client.getRun(runId);
     List<Param> params = run.getData().getParamsList();

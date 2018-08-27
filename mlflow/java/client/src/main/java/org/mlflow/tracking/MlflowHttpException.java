@@ -1,17 +1,17 @@
-package org.mlflow.client;
+package org.mlflow.tracking;
 
 /**
  * HTTP exception.
  */
-public class HttpException extends MlflowClientException {
+public class MlflowHttpException extends MlflowClientException {
 
-  public HttpException(int statusCode, String reasonPhrase) {
+  public MlflowHttpException(int statusCode, String reasonPhrase) {
     super("statusCode=" + statusCode + " reasonPhrase=" + reasonPhrase);
     this.statusCode = statusCode;
     this.reasonPhrase = reasonPhrase;
   }
 
-  public HttpException(int statusCode, String reasonPhrase, String bodyMessage) {
+  public MlflowHttpException(int statusCode, String reasonPhrase, String bodyMessage) {
     super("statusCode=" + statusCode + " reasonPhrase=[" + reasonPhrase + "] bodyMessage=["
       + bodyMessage + "]");
     this.statusCode = statusCode;

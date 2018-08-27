@@ -1,4 +1,4 @@
-package org.mlflow.client;
+package org.mlflow.tracking;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -29,7 +29,7 @@ class TestClientProvider {
    * Intializes an MLflow client and, if necessary, a local MLflow server process as well.
    * Callers should always call {@link #cleanupClientAndServer()}.
    */
-  ApiClient initializeClientAndServer() throws IOException {
+  MlflowClient initializeClientAndServer() throws IOException {
     if (serverProcess != null) {
       throw new IllegalStateException("Previous server process not cleaned up");
     }
@@ -37,7 +37,7 @@ class TestClientProvider {
     String trackingUri = System.getenv("MLFLOW_TRACKING_URI");
     if (trackingUri != null) {
       logger.info("MLFLOW_TRACKING_URI was set, test will run against that server");
-      return ApiClient.fromTrackingUri(trackingUri);
+      return new MlflowClient(trackingUri);
     } else {
       return startServerProcess();
     }
@@ -69,9 +69,9 @@ class TestClientProvider {
    * Standard out and error from the server will be streamed to System.out and System.err.
    *
    * This method will wait until the server is up and running
-   * @return ApiClient pointed at the local server.
+   * @return MlflowClient pointed at the local server.
    */
-  private ApiClient startServerProcess() throws IOException {
+  private MlflowClient startServerProcess() throws IOException {
     ProcessBuilder pb = new ProcessBuilder();
     Path tempDir = Files.createTempDirectory(getClass().getSimpleName());
     int freePort = getFreePort();
@@ -104,7 +104,7 @@ class TestClientProvider {
         + MAX_SERVER_WAIT_TIME_MILLIS + " milliseconds.");
     }
 
-    return ApiClient.fromTrackingUri("http://" + bindAddress + ":" + freePort);
+    return new MlflowClient("http://" + bindAddress + ":" + freePort);
   }
 
   /** Launches a new daemon Thread to drain the given InputStream into the given OutputStream. */
