@@ -178,6 +178,9 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
              Databricks Runs Get API (https://docs.databricks.com/api/latest/jobs.html#runs-get).
     """
     # Make jobs API request to launch run.
+    # NB: We use mlflow==VERSION unless we're in a dev version, in which case
+    # we use just 'mlflow' instead.
+    mlflow_package = "mlflow==%s" % VERSION if "dev" not in VERSION else "mlflow"
     req_body_json = {
         'run_name': 'MLflow Run for %s' % project_uri,
         'new_cluster': cluster_spec,
@@ -185,9 +188,7 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
             'command': command,
             "env_vars": env_vars
         },
-        # NB: We use <= on the version specifier to allow running projects on pre-release
-        # versions, where we will select the most up-to-date mlflow version available.
-        "libraries": [{"pypi": {"package": "mlflow<=%s" % VERSION}}]
+        "libraries": [{"pypi": {"package": mlflow_package}}]
     }
     run_submit_res = _jobs_runs_submit(req_body_json)
     databricks_run_id = run_submit_res["run_id"]
