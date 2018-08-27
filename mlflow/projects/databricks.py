@@ -130,7 +130,6 @@ class DatabricksJobRunner(object):
             "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
         }
         run_submit_res = self._jobs_runs_submit(req_body_json)
-        print(run_submit_res)
         databricks_run_id = run_submit_res["run_id"]
         return databricks_run_id
 
