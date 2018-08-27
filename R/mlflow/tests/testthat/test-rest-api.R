@@ -51,10 +51,11 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
   run_info <- run$info
   expect_identical(run_info$name, "run1")
   expect_identical(run_info$user_id, "user1")
-  expect_setequal(
+  expect_true(setequal(
     run$data$tags %>%
       unname() %>%
-      purrr::transpose(),
-    list(list("foo", "bar"), list("foz", "baz"))
-    )
+      purrr::transpose() %>%
+      purrr::map(purrr::flatten_chr),
+    list(c("foo", "bar"), c("foz", "baz"))
+  ))
 })
