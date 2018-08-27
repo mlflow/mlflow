@@ -127,7 +127,10 @@ class DatabricksJobRunner(object):
                 'command': command,
                 "env_vars": env_vars
             },
-            "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
+            # NB: We use <= on the version specifier to allow running projects on pre-release
+            # versions, where we will select the most up-to-date mlflow version available.
+            # Also note, that we escape this so '<' is not treated as a shell pipe.
+            "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}],
         }
         run_submit_res = self._jobs_runs_submit(req_body_json)
         databricks_run_id = run_submit_res["run_id"]
@@ -227,8 +230,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    tracking_uri = tracking.get_tracking_uri()
-    profile = tracking.utils.get_db_profile_from_uri(tracking_uri)
+    profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
     run_id = remote_run.info.run_uuid
     db_job_runner = DatabricksJobRunner(profile=profile)
     db_run_id = db_job_runner.run_databricks(
