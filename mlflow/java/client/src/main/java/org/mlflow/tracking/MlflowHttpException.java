@@ -6,7 +6,7 @@ package org.mlflow.tracking;
 public class MlflowHttpException extends MlflowClientException {
 
   public MlflowHttpException(int statusCode, String reasonPhrase) {
-    super("statusCode=" + statusCode + " reasonPhrase=" + reasonPhrase);
+    super("statusCode=" + statusCode + " reasonPhrase=[" + reasonPhrase +"]");
     this.statusCode = statusCode;
     this.reasonPhrase = reasonPhrase;
   }
@@ -25,27 +25,15 @@ public class MlflowHttpException extends MlflowClientException {
     return statusCode;
   }
 
-  public void setStatusCode(int statusCode) {
-    this.statusCode = statusCode;
-  }
-
   private String reasonPhrase;
 
   public String getReasonPhrase() {
     return reasonPhrase;
   }
 
-  public void setReasonPhrase(String reasonPhrase) {
-    this.reasonPhrase = reasonPhrase;
-  }
-
   private String bodyMessage;
 
   public String getBodyMessage() {
     return bodyMessage;
-  }
-
-  public void setBodyMessage(String bodyMessage) {
-    this.bodyMessage = bodyMessage;
   }
 }

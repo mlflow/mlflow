@@ -46,27 +46,25 @@ See [ApiClient.java](src/main/java/org/mlflow/client/ApiClient.java)
 and [Service.java domain objects](src/main/java/org/mlflow/api/proto/mlflow/Service.java).
 
 ```
-public GetExperiment.Response getExperiment(long experimentId) 
-public List<Experiment> listExperiments() 
-public long createExperiment(String experimentName) 
+Run getRun(String runUuid)
+RunInfo createRun()
+RunInfo createRun(long experimentId)
+RunInfo createRun(long experimentId, String appName)
+RunInfo createRun(CreateRun request)
+List<RunInfo> listRunInfos(long experimentId)
 
-public Run getRun(String runUuid) 
-public RunInfo createRun(CreateRun request) 
-public void updateRun(String runUuid, RunStatus status, long endTime) 
 
-public void logParameter(String runUuid, String key, String value) 
-public void logMetric(String runUuid, String key, float value) 
+List<Experiment> listExperiments()
+GetExperiment.Response getExperiment(long experimentId)
+Optional<Experiment> getExperimentByName(String experimentName)
+long createExperiment(String experimentName)
 
-public Metric getMetric(String runUuid, String metricKey) 
-public List<Metric> getMetricHistory(String runUuid, String metricKey) 
-
-public ListArtifacts.Response listArtifacts(String runUuid, String path) 
-public byte [] getArtifact(String runUuid, String path) 
-
-public SearchRuns.Response search(long [] experimentIds, BaseSearch[] clauses) 
-
-public Optional<Experiment> getExperimentByName(String experimentName) 
-public long getOrCreateExperimentId(String experimentName) 
+void logParam(String runUuid, String key, String value)
+void logMetric(String runUuid, String key, float value)
+void setTerminated(String runUuid)
+void setTerminated(String runUuid, RunStatus status)
+void setTerminated(String runUuid, RunStatus status, long endTime)
+ListArtifacts.Response listArtifacts(String runUuid, String path)
 ```
 
 ## Usage
@@ -140,7 +138,6 @@ public class QuickStartDriver {
 
     // Create run
     String sourceFile = "MyFile.java";
-
     RunInfo runCreated = client.createRun(expId, sourceFile);
     System.out.println("CreateRun: " + runCreated);
     String runId = runCreated.getRunUuid();

@@ -52,7 +52,7 @@ public class MlflowClient {
 
   /** Creates a new run under the given experiment with no application name. */
   public RunInfo createRun(long experimentId) {
-    return createRun(experimentId, "");
+    return createRun(experimentId, "Java Application");
   }
 
   /** Creates a new run under the given experiment with the given application name. */
@@ -98,6 +98,12 @@ public class MlflowClient {
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
   }
 
+  /** Returns the experiment associated with the given name or Optional.empty if none exists. */
+  public Optional<Experiment> getExperimentByName(String experimentName) {
+    return listExperiments().stream().filter(e -> e.getName()
+      .equals(experimentName)).findFirst();
+  }
+
   /** Creates a new experiment using the default artifact location provided by the server. */
   public long createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
@@ -118,21 +124,8 @@ public class MlflowClient {
    * New values for the same metric may be recorded over time, and are marked with a timestamp.
    * */
   public void logMetric(String runUuid, String key, float value) {
-    doPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value));
-  }
-
-  /** Returns a list of all artifacts under the given artifact path within the run. */
-  public ListArtifacts.Response listArtifacts(String runUuid, String path) {
-    URIBuilder builder = newURIBuilder("artifacts/list")
-      .setParameter("run_uuid", runUuid)
-      .setParameter("path", path);
-    return mapper.toListArtifactsResponse(httpCaller.get(builder.toString()));
-  }
-
-  /** Returns the experiment associated with the given name or Optional.empty if none exists. */
-  public Optional<Experiment> getExperimentByName(String experimentName) {
-    return listExperiments().stream().filter(e -> e.getName()
-      .equals(experimentName)).findFirst();
+    doPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
+      System.currentTimeMillis()));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */
@@ -148,6 +141,14 @@ public class MlflowClient {
   /** Sets the status of a run to be completed at the given endTime. */
   public void setTerminated(String runUuid, RunStatus status, long endTime) {
     doPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
+  }
+
+  /** Returns a list of all artifacts under the given artifact path within the run. */
+  public ListArtifacts.Response listArtifacts(String runUuid, String path) {
+    URIBuilder builder = newURIBuilder("artifacts/list")
+      .setParameter("run_uuid", runUuid)
+      .setParameter("path", path);
+    return mapper.toListArtifactsResponse(httpCaller.get(builder.toString()));
   }
 
   /**
