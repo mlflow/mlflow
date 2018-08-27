@@ -1,5 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
+from mlflow.entities import ViewType
+
 
 class AbstractStore:
     """
@@ -17,12 +19,11 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_experiments(self, include_deleted, only_deleted):
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         """
 
-        :param include_deleted: Response list to also includes experiments marked for deletion.
-        :param only_deleted: Response list to only include experiments that are marked for deletion.
-        :return: a list of all known Experiment objects
+        :param view_type: Qualify requested type of experiments.
+        :return: a list of Experiment objects stored in store for requested view.
         """
         pass
 
@@ -39,13 +40,12 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def get_experiment(self, experiment_id, include_deleted, only_deleted):
+    def get_experiment(self, experiment_id):
         """
-        Fetches the experiment from the backend store.
+        Fetches the experiment by ID from the backend store.
+        Throws an exception if experiment is not found or permanently deleted.
 
         :param experiment_id: Integer id for the experiment
-        :param include_deleted: Response list to also includes experiments marked for deletion.
-        :param only_deleted: Response list to only include experiments that are marked for deletion.
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
         pass
@@ -53,7 +53,8 @@ class AbstractStore:
     @abstractmethod
     def delete_experiment(self, experiment_id):
         """
-        Deletes the experiment from the backend store.
+        Deletes the experiment from the backend store. Deleted experiments can be restored until
+        permanently deleted.
 
         :param experiment_id: Integer id for the experiment
         """
@@ -62,7 +63,7 @@ class AbstractStore:
     @abstractmethod
     def restore_experiment(self, experiment_id):
         """
-        Restore deleted experiment.
+        Restore deleted experiment unless it is permanently deleted.
 
         :param experiment_id: Integer id for the experiment
         """

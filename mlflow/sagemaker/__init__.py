@@ -239,7 +239,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             mds=",".join(DEPLOYMENT_MODES)))
 
     if not image_url:
-        image_url = _get_default_image_url()
+        image_url = _get_default_image_url(region_name=region_name)
 
     if not execution_role_arn:
         execution_role_arn = _get_assumed_role_arn()
@@ -346,12 +346,12 @@ def _check_compatible(path):
     return model.run_id if hasattr(model, "run_id") else None
 
 
-def _get_default_image_url():
+def _get_default_image_url(region_name):
     env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
     if env_img:
         return env_img
 
-    ecr_client = boto3.client("ecr")
+    ecr_client = boto3.client("ecr", region_name=region_name)
     repository_conf = ecr_client.describe_repositories(
         repositoryNames=[DEFAULT_IMAGE_NAME])['repositories'][0]
     return (repository_conf["repositoryUri"] + ":{version}").format(version=mlflow.version.VERSION)

@@ -99,10 +99,9 @@ class TestDbfsArtifactRepository(object):
                 return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
-            basename = test_dir.basename
             assert set(endpoints) == {
-                '/dbfs/test/%s/subdir/test.txt' % basename,
-                '/dbfs/test/%s/test.txt' % basename
+                '/dbfs/test/subdir/test.txt',
+                '/dbfs/test/test.txt'
             }
             assert set(data) == {
                 TEST_FILE_2_CONTENT,
