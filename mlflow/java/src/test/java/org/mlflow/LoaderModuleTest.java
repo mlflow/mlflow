@@ -10,7 +10,7 @@ import org.mlflow.sagemaker.PredictorLoadingException;
 public class LoaderModuleTest {
   @Test
   public void testMLeapLoaderModuleDeserializesValidMLeapModelAsPredictor() {
-    String modelPath = getClass().getResource("mleap_model").getFile();
+    String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     try {
       Predictor predictor = (new MLeapLoader()).load(modelPath);
     } catch (PredictorLoadingException e) {
