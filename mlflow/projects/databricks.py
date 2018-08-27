@@ -127,7 +127,7 @@ class DatabricksJobRunner(object):
                 'command': command,
                 "env_vars": env_vars
             },
-            "libraries": [{"pypi": {"package": "mlflow==%s" % VERSION}}]
+            "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
         }
         run_submit_res = self._jobs_runs_submit(req_body_json)
         print(run_submit_res)
