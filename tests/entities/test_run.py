@@ -1,4 +1,4 @@
-from mlflow.entities import Run
+from mlflow.entities import Run, Metric, RunData, SourceType, RunStatus, RunInfo
 from tests.entities.test_run_data import TestRunData
 from tests.entities.test_run_info import TestRunInfo
 
@@ -37,7 +37,7 @@ class TestRun(TestRunInfo, TestRunData):
                    "data": {"metrics": metrics,
                             "params": params,
                             "tags": tags}}
-        self.assertEqual(dict(run1), as_dict)
+        self.assertEqual(run1.to_dictionary(), as_dict)
 
         # proto = run1.to_proto()
         # run2 = Run.from_proto(proto)
@@ -45,3 +45,20 @@ class TestRun(TestRunInfo, TestRunData):
 
         run3 = Run.from_dictionary(as_dict)
         self._check_run(run3, run_info, run_data)
+
+    def test_string_repr(self):
+        run_info = RunInfo(
+            run_uuid="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
+            source_name="source-name", entry_point_name="entry-point-name",
+            user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
+            source_version="version")
+        metrics = [Metric("key", i, 0) for i in range(5)]
+        run_data = RunData(metrics=metrics, params=[], tags=[])
+        run1 = Run(run_info, run_data)
+        expected = "<Run: info=<RunInfo: run_uuid='hi', experiment_id=0, name='name', " \
+                   "source_type=3, source_name='source-name', " \
+                   "entry_point_name='entry-point-name', user_id='user-id', status=4, " \
+                   "start_time=0, end_time=1, source_version='version', artifact_uri=None>, " \
+                   "data=<RunData: metrics=[<Metric: key='key', value=0, timestamp=0>, " \
+                   "<Metric: key='key', value=1, timestamp=0>, ...], params=[], tags=[]>>"
+        assert str(run1) == expected
