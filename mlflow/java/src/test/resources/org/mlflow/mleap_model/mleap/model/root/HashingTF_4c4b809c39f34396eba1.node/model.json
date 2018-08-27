@@ -1,0 +1,11 @@
+{
+  "op": "hashing_term_frequency",
+  "attributes": {
+    "num_features": {
+      "long": 2000
+    },
+    "binary": {
+
+    }
+  }
+}
