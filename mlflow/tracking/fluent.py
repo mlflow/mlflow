@@ -57,7 +57,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                      (the run's ``source_version``, ``source_type``, etc. are not changed).
     :param experiment_id: Used only when ``run_uuid`` is unspecified. ID of the experiment under
                           which to create the current run. If unspecified, the run is created under
-                          a new experiment with a randomly generated name.
+                          default experiment.
     :param source_name: Name of the source file or URI of the project to be associated with the run.
                         Defaults to the current file if none provided.
     :param source_version: Optional Git commit hash to associate with the run.
@@ -65,6 +65,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     :param source_type: Integer enum value describing the type of the run
                         ("local", "project", etc.). Defaults to
                         ``mlflow.entities.SourceType.LOCAL``.
+    :param run_name: Used only when ``run_uuid`` is unspecified. Desired name of new run created.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
