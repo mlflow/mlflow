@@ -84,6 +84,17 @@ export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
   };
 };
 
+export const SET_TAG_API = 'SET_TAG_API';
+export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
+  return {
+    type: SET_TAG_API,
+    payload: wrapDeferred(MlflowService.setTag, {
+      run_uuid: runUuid, key: tagName, value: tagValue
+    }),
+    meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
+  };
+};
+
 export const getUUID = () => {
   const randomPart = Math.random()
     .toString(36)

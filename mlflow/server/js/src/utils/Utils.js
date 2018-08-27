@@ -128,6 +128,17 @@ class Utils {
     }
   }
 
+  /**
+   * Renders the run name into a string.
+   * @param run MlflowMessages.RunInfo
+   */
+  static getRunDisplayName(runNameTag, runUuid) {
+    if (runNameTag) {
+      return runNameTag.value
+    }
+    return "Run " + runUuid;
+  }
+
   static renderVersion(run) {
     if (run.source_version) {
       const shortVersion = run.source_version.substring(0, 6);
