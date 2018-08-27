@@ -4,7 +4,8 @@
 \alias{mlflow_rfunc_predict}
 \title{Predict using RFunc MLflow Model}
 \usage{
-mlflow_rfunc_predict(model_dir, data, output_file = NULL, restore = FALSE)
+mlflow_rfunc_predict(model_dir, data, output_file = NULL,
+  restore = FALSE)
 }
 \arguments{
 \item{model_dir}{The path to the MLflow model, as a string.}

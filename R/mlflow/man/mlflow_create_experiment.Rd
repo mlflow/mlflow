@@ -4,7 +4,8 @@
 \alias{mlflow_create_experiment}
 \title{Create Experiment}
 \usage{
-mlflow_create_experiment(name, artifact_location = NULL, activate = TRUE)
+mlflow_create_experiment(name, artifact_location = NULL,
+  activate = TRUE)
 }
 \arguments{
 \item{name}{The name of the experiment to create.}
