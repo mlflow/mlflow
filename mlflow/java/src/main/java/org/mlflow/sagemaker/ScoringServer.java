@@ -41,10 +41,12 @@ public class ScoringServer {
    * on a randomly-selected available port
    */
   public ScoringServer(Predictor predictor) {
-    int minThreads = EnvironmentUtils.getIntegerValue(
-        ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
-    int maxThreads = EnvironmentUtils.getIntegerValue(
-        ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
+    int minThreads =
+        EnvironmentUtils.getIntegerValue(
+            ENV_VAR_MINIMUM_SERVER_THREADS, DEFAULT_MINIMUM_SERVER_THREADS);
+    int maxThreads =
+        EnvironmentUtils.getIntegerValue(
+            ENV_VAR_MAXIMUM_SERVER_THREADS, DEFAULT_MAXIMUM_SERVER_THREADS);
     this.server = new Server(new QueuedThreadPool(maxThreads, minThreads));
     this.server.setStopAtShutdown(true);
 
@@ -102,8 +104,9 @@ public class ScoringServer {
   public void start(int portNumber) {
     if (isActive()) {
       int activePort = this.httpConnector.getLocalPort();
-      throw new IllegalStateException(String.format(
-          "Attempted to start a server that is already active on port %d", activePort));
+      throw new IllegalStateException(
+          String.format(
+              "Attempted to start a server that is already active on port %d", activePort));
     }
 
     this.httpConnector.setPort(portNumber);
@@ -184,11 +187,13 @@ public class ScoringServer {
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         responseContent = getErrorResponseJson(e.getMessage());
       } catch (InvalidRequestTypeException e) {
-        logger.info(String.format(
-            "Received a request with an unsupported content type: %s", requestContentType));
+        logger.info(
+            String.format(
+                "Received a request with an unsupported content type: %s", requestContentType));
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        responseContent = getErrorResponseJson(
-            "Invocations requests must have a content header of type `application/json` or `text/csv`");
+        responseContent =
+            getErrorResponseJson(
+                "Invocations requests must have a content header of type `application/json` or `text/csv`");
       } catch (Exception e) {
         logger.error("An unknown error occurred while evaluating the prediction request.", e);
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -216,8 +221,9 @@ public class ScoringServer {
         PredictorDataWrapper result = predictor.predict(predictorInput);
         return result.toCsv();
       } else {
-        logger.error(String.format(
-            "Received a request with an unsupported content type: %s", requestContentType));
+        logger.error(
+            String.format(
+                "Received a request with an unsupported content type: %s", requestContentType));
         throw new InvalidRequestTypeException(
             "Invocations content must be of content type `application/json` or `text/csv`");
       }
