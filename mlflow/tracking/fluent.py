@@ -15,6 +15,8 @@ from mlflow.entities import Experiment, Run, SourceType
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
+    MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.validation import _validate_run_id
 from mlflow.tracking.service import get_service
 
@@ -22,9 +24,6 @@ from mlflow.tracking.service import get_service
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run = None
-_TAG_MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
-_TAG_MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
-_TAG_MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
@@ -85,11 +84,11 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
             notebook_path = get_notebook_path()
             webapp_url = get_webapp_url()
             if notebook_id is not None:
-                databricks_tags[_TAG_MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
+                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
             if notebook_path is not None:
-                databricks_tags[_TAG_MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
+                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
             if webapp_url is not None:
-                databricks_tags[_TAG_MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
+                databricks_tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
             active_run_obj = get_service().create_run(
                 experiment_id=exp_id_for_run,
                 run_name=run_name,

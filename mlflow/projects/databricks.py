@@ -14,7 +14,8 @@ from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
 from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
-from mlflow import tracking
+from mlflow import tracking, set_tag
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -197,6 +198,7 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
     run_info = _jobs_runs_get(databricks_run_id)
     jobs_page_url = run_info["run_page_url"]
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
+    set_tag(MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
     return databricks_run_id
 
 
