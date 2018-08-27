@@ -1,13 +1,13 @@
 package org.mlflow.tracking.samples;
 
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 
-import org.mlflow.tracking.MlflowClient;
 import org.mlflow.api.proto.Service.*;
-import org.mlflow.tracking.objects.ObjectUtils;
+import org.mlflow.tracking.MlflowClient;
 
 /**
  * This is an example application which uses the MLflow Tracking API to create and manage
@@ -60,13 +60,9 @@ public class QuickStartDriver {
     System.out.println("====== createRun");
 
     // Create run
-    String user = System.getenv("USER");
-    long startTime = System.currentTimeMillis();
     String sourceFile = "MyFile.java";
 
-    CreateRun request = ObjectUtils.makeCreateRun(expId, "run_for_" + expId, SourceType.LOCAL,
-      sourceFile, startTime, user);
-    RunInfo runCreated = client.createRun(request);
+    RunInfo runCreated = client.createRun(expId, sourceFile);
     System.out.println("CreateRun: " + runCreated);
     String runId = runCreated.getRunUuid();
 
@@ -80,7 +76,7 @@ public class QuickStartDriver {
     client.logMetric(runId, "zero_one_loss", 4.12F);
 
     // Update finished run
-    client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
+    client.setTerminated(runId, RunStatus.FINISHED);
 
     // Get run details
     Run run = client.getRun(runId);

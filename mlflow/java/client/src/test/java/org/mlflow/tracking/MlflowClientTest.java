@@ -80,9 +80,8 @@ public class MlflowClientTest {
     String user = System.getenv("USER");
     long startTime = System.currentTimeMillis();
     String sourceFile = "MyFile.java";
-    CreateRun request = ObjectUtils.makeCreateRun(expId, "run_for_" + expId, SourceType.LOCAL, sourceFile, startTime, user);
 
-    RunInfo runCreated = client.createRun(request);
+    RunInfo runCreated = client.createRun(expId, sourceFile);
     runId = runCreated.getRunUuid();
     logger.debug("runId=" + runId);
 

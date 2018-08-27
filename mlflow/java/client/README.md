@@ -77,80 +77,89 @@ For a simple example see [QuickStartDriver.java](src/main/java/org/mlflow/client
 For full examples of API coverage see the [tests](src/test/java/org/mlflow/client) such as [ApiClientTest.java](src/test/java/org/mlflow/client/ApiClientTest.java).
 
 ```
-package com.databricks.mlflow.client.samples;
+package org.mlflow.tracking.samples;
 
-import java.util.*;
-import com.databricks.mlflow.client.ApiClient;
-import com.databricks.api.proto.mlflow.Service.*;
-import com.databricks.mlflow.client.objects.ObjectUtils;
+import java.util.List;
+import java.util.Optional;
 
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
+
+import org.mlflow.api.proto.Service.*;
+import org.mlflow.tracking.MlflowClient;
+
+/**
+ * This is an example application which uses the MLflow Tracking API to create and manage
+ * experiments and runs.
+ */
 public class QuickStartDriver {
-    public static void main(String [] args) throws Exception {
-        (new QuickStartDriver()).process(args);
+  public static void main(String[] args) throws Exception {
+    (new QuickStartDriver()).process(args);
+  }
+
+  void process(String[] args) throws Exception {
+    MlflowClient client;
+    if (args.length < 1) {
+      client = new MlflowClient();
+    } else {
+      client = new MlflowClient(args[0]);
     }
 
-    void process(String [] args) throws Exception {
-        if (args.length < 1) {
-            System.out.println("ERROR: Missing URI");
-            System.exit(1);
-        }
-        boolean verbose = args.length < 2 ? false : Boolean.parseBoolean("true");
-        ApiClient client = new ApiClient(args[0]);
-        client.setVerbose(verbose);
-
-        System.out.println("====== createExperiment");
-        String expName = "Exp_"+System.currentTimeMillis();
-        long expId = client.createExperiment(expName);
-        System.out.println("createExperiment: expId="+expId);
-
-        System.out.println("====== getExperiment");
-        GetExperiment.Response exp = client.getExperiment(expId);
-        System.out.println("getExperiment: "+exp);
-
-        System.out.println("====== listExperiments");
-        List<Experiment> exps = client.listExperiments();
-        System.out.println("#experiments: "+exps.size());
-        exps.forEach(e -> System.out.println("  Exp: "+e));
-
-        createRun(client, expId);
-
-        System.out.println("====== getExperiment again");
-        GetExperiment.Response exp2 = client.getExperiment(expId);
-        System.out.println("getExperiment: "+exp2);
-
-        System.out.println("====== getExperiment by name");
-        Optional<Experiment> exp3 = client.getExperimentByName(expName);
-        System.out.println("getExperimentByName: "+exp3);
+    boolean verbose = args.length >= 2 && "true".equals(args[1]);
+    if (verbose) {
+      LogManager.getLogger("org.mlflow.client").setLevel(Level.DEBUG);
     }
 
-    void createRun(ApiClient client, long expId) throws Exception {
-        System.out.println("====== createRun");
+    System.out.println("====== createExperiment");
+    String expName = "Exp_" + System.currentTimeMillis();
+    long expId = client.createExperiment(expName);
+    System.out.println("createExperiment: expId=" + expId);
 
-        // Create run
-        String user = System.getenv("USER");
-        long startTime = System.currentTimeMillis();
-        String sourceFile = "MyFile.java";
+    System.out.println("====== getExperiment");
+    GetExperiment.Response exp = client.getExperiment(expId);
+    System.out.println("getExperiment: " + exp);
 
-        CreateRun request = ObjectUtils.makeCreateRun(expId, "run_for_"+expId, SourceType.LOCAL, sourceFile, startTime, user);
-        RunInfo runCreated = client.createRun(request);
-        System.out.println("CreateRun: "+runCreated);
-        String runId = runCreated.getRunUuid();
+    System.out.println("====== listExperiments");
+    List<Experiment> exps = client.listExperiments();
+    System.out.println("#experiments: " + exps.size());
+    exps.forEach(e -> System.out.println("  Exp: " + e));
 
-        // Log parameters
-        client.logParameter(runId, "min_samples_leaf", "2");
-        client.logParameter(runId, "max_depth", "3");
+    createRun(client, expId);
 
-        // Log metrics
-        client.logMetric(runId, "auc", 2.12F);
-        client.logMetric(runId, "accuracy_score", 3.12F);
-        client.logMetric(runId, "zero_one_loss", 4.12F);
+    System.out.println("====== getExperiment again");
+    GetExperiment.Response exp2 = client.getExperiment(expId);
+    System.out.println("getExperiment: " + exp2);
 
-        // Update finished run
-        client.updateRun(runId, RunStatus.FINISHED, startTime+1001);
-    
-        // Get run details
-        Run run = client.getRun(runId);
-        System.out.println("GetRun: "+run);
-    }
+    System.out.println("====== getExperiment by name");
+    Optional<Experiment> exp3 = client.getExperimentByName(expName);
+    System.out.println("getExperimentByName: " + exp3);
+  }
+
+  void createRun(MlflowClient client, long expId) {
+    System.out.println("====== createRun");
+
+    // Create run
+    String sourceFile = "MyFile.java";
+
+    RunInfo runCreated = client.createRun(expId, sourceFile);
+    System.out.println("CreateRun: " + runCreated);
+    String runId = runCreated.getRunUuid();
+
+    // Log parameters
+    client.logParam(runId, "min_samples_leaf", "2");
+    client.logParam(runId, "max_depth", "3");
+
+    // Log metrics
+    client.logMetric(runId, "auc", 2.12F);
+    client.logMetric(runId, "accuracy_score", 3.12F);
+    client.logMetric(runId, "zero_one_loss", 4.12F);
+
+    // Update finished run
+    client.setTerminated(runId, RunStatus.FINISHED);
+
+    // Get run details
+    Run run = client.getRun(runId);
+    System.out.println("GetRun: " + run);
+  }
 }
 ```

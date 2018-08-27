@@ -46,7 +46,7 @@ public class MlflowClient {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
     request.setSourceName(sourceName);
-    request.setSourceType(SourceType.PROJECT);
+    request.setSourceType(SourceType.LOCAL);
     request.setStartTime(System.currentTimeMillis());
     String username = System.getProperty("user.name");
     if (username != null) {
