@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import re
 
+import boto3
 import click
 from six.moves import urllib
 
@@ -25,7 +26,19 @@ def _fetch_dbfs(uri, local_path):
 
 def _fetch_s3(uri, local_path):
     print("=== Downloading S3 object %s to local path %s ===" % (uri, os.path.abspath(local_path)))
-    process.exec_cmd(cmd=["aws", "s3", "cp", uri, local_path])
+    (bucket, s3_path) = parse_s3_uri(uri)
+    boto3.client('s3').download_file(bucket, s3_path, local_path)
+
+
+def parse_s3_uri(uri):
+    """Parse an S3 URI, returning (bucket, path)"""
+    parsed = urllib.parse.urlparse(uri)
+    if parsed.scheme != "s3":
+        raise Exception("Not an S3 URI: %s" % uri)
+    path = parsed.path
+    if path.startswith('/'):
+        path = path[1:]
+    return parsed.netloc, path
 
 
 def is_uri(string):
