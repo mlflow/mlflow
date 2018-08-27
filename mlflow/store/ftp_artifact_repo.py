@@ -10,7 +10,7 @@ from mlflow.utils.file_utils import TempDir, build_path, get_relative_path
 
 
 class FTPArtifactRepository(ArtifactRepository):
-    """Stores artifacts as files in a remote directory, via sftp."""
+    """Stores artifacts as files in a remote directory, via ftp."""
 
     def __init__(self, artifact_uri, client=None):
         self.uri = artifact_uri
@@ -26,52 +26,73 @@ class FTPArtifactRepository(ArtifactRepository):
         if self.config['host'] is None:
             self.config['host'] = 'localhost'
 
-        if client:
-            self.ftp = client
-        else:
-            self.ftp = FTP()
-            self.ftp.connect(self.config['host'], self.config['port'])
-            self.ftp.login(self.config['username'], self.config['password'])
+        self.client = client
 
         super(FTPArtifactRepository, self).__init__(artifact_uri)
 
+    def get_ftp_client(self):
+        if self.client:
+            return self.client
+        else:
+            ftp = FTP()
+            ftp.connect(self.config['host'], self.config['port'])
+            ftp.login(self.config['username'], self.config['password'])
+            return ftp
+
     def _is_dir(self, full_file_path):
+        ftp = self.get_ftp_client()
         try:
-            self.ftp.cwd(full_file_path)
-            return True
+            ftp.cwd(full_file_path)
+            result = True
         except ftplib.error_perm:
-            return False
+            result = False
+        ftp.close()
+        return result
 
     def _mkdir(self, artifact_dir):
+        ftp = self.get_ftp_client()
         try:
-            self.ftp.mkd(artifact_dir)
+            ftp.mkd(artifact_dir)
         except ftplib.error_perm:
             head, _ = os.path.split(artifact_dir)
             self._mkdir(head)
             self._mkdir(artifact_dir)
+        ftp.close()
+
+    def _size(self, full_file_path):
+        ftp = self.get_ftp_client()
+        ftp.voidcmd('TYPE I')
+        size = ftp.size(full_file_path)
+        ftp.voidcmd('TYPE A')
+        ftp.close()
+        return size
 
     def download_files(self, path, destination):
-        self.ftp.cwd(path)
+        ftp = self.get_ftp_client()
+        ftp.cwd(path)
         if not os.path.isdir(destination):
             os.makedirs(destination)
 
-        filelist = self.ftp.nlst()
+        filelist = ftp.nlst()
 
         for ftp_file in filelist:
             if self._is_dir(build_path(path, ftp_file)):
                 self.download_files(build_path(path, ftp_file), build_path(destination, ftp_file))
             else:
                 with open(os.path.join(destination, ftp_file), "wb") as f:
-                    self.ftp.retrbinary("RETR "+ftp_file, f)
+                    ftp.retrbinary("RETR "+ftp_file, f)
+        ftp.close()
         return
 
     def log_artifact(self, local_file, artifact_path=None):
+        ftp = self.get_ftp_client()
         artifact_dir = os.path.join(self.path, artifact_path) \
             if artifact_path else self.path
         self._mkdir(artifact_dir)
         with open(local_file, 'rb') as f:
-            self.ftp.cwd(artifact_dir)
-            self.ftp.storbinary('STOR ' + os.path.split(local_file)[1], f)
+            ftp.cwd(artifact_dir)
+            ftp.storbinary('STOR ' + os.path.basename(local_file), f)
+        ftp.close()
 
     def log_artifacts(self, local_dir, artifact_path=None):
         dest_path = os.path.join(self.path, artifact_path) \
@@ -95,9 +116,10 @@ class FTPArtifactRepository(ArtifactRepository):
                     self.log_artifact(build_path(root, f), upload_path)
 
     def list_artifacts(self, path=None):
+        ftp = self.get_ftp_client()
         artifact_dir = self.path
         list_dir = os.path.join(artifact_dir, path) if path else artifact_dir
-        artifact_files = self.ftp.nlst(list_dir)
+        artifact_files = ftp.nlst(list_dir)
         infos = []
         for file_name in artifact_files:
             file_path = file_name if path is None else os.path.join(path, file_name)
@@ -105,20 +127,25 @@ class FTPArtifactRepository(ArtifactRepository):
             if self._is_dir(full_file_path):
                 infos.append(FileInfo(file_path, True, None))
             else:
-                self.ftp.voidcmd('TYPE I')
-                infos.append(FileInfo(file_path, False, self.ftp.size(full_file_path)))
+                size = self._size(full_file_path)
+                infos.append(FileInfo(file_path, False, size))
+        ftp.close()
         return infos
 
     def download_artifacts(self, artifact_path=None):
+        ftp = self.get_ftp_client()
         full_path = os.path.join(self.path, artifact_path) \
             if artifact_path else self.path
+        return_path = None
         with TempDir(remove_on_exit=False) as tmp:
             tmp_path = tmp.path()
             if self._is_dir(full_path):
                 self.download_files(full_path, tmp_path)
-                return tmp_path
+                return_path = tmp_path
             else:
                 local_file = os.path.join(tmp_path, os.path.basename(full_path))
                 with open(local_file, 'wb') as f:
-                    self.ftp.retrbinary('RETR ' + full_path, f)
-                return local_file
+                    ftp.retrbinary('RETR ' + full_path, f)
+                return_path = local_file
+        ftp.close()
+        return return_path

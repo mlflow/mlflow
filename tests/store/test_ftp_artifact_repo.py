@@ -1,6 +1,7 @@
 # pylint: disable=redefined-outer-name
 from mock import Mock, MagicMock
 import pytest
+import os
 import ftplib
 from ftplib import FTP
 
@@ -14,9 +15,8 @@ def ftp_mock():
 
 
 def test_artifact_uri_factory():
-    import socket
-    with pytest.raises(socket.gaierror):
-        ArtifactRepository.from_artifact_uri("ftp://user:pass@test_ftp:123/some/path", Mock())
+    repo = ArtifactRepository.from_artifact_uri("ftp://user:pass@test_ftp:123/some/path", Mock())
+    assert isinstance(repo, FTPArtifactRepository)
 
 
 def test_list_artifacts_empty(ftp_mock):
@@ -160,9 +160,9 @@ def test_download_artifacts(ftp_mock):
     repo.download_artifacts("model")
 
     cwd_call_args = sorted([ftp_mock.cwd.call_args_list[i][0][0] for i in range(6)])
-    expect_args = [ftp_dir_name, ftp_dir_name, ftp_dir_name + '/' + file_path,
-                   ftp_dir_name + '/' + subdir_name, ftp_dir_name + '/' + subdir_name,
-                   ftp_dir_name + '/' + subdir_name + '/' + subfile_name]
+    expect_args = [ftp_dir_name, ftp_dir_name, os.path.join(ftp_dir_name, file_path),
+                   os.path.join(ftp_dir_name, subdir_name), os.path.join(ftp_dir_name, subdir_name),
+                   os.path.join(ftp_dir_name, subdir_name, subfile_name)]
     assert cwd_call_args == expect_args
     assert ftp_mock.nlst.call_count == 2
     assert ftp_mock.retrbinary.call_args_list[0][0][0] == 'RETR ' + file_path
