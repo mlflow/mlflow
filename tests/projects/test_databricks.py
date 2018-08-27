@@ -200,3 +200,16 @@ def test_run_databricks_cancel(
     runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
     with pytest.raises(mlflow.projects.ExecutionException):
         run_databricks_project(cluster_spec_mock, block=True)
+
+
+def test_get_tracking_uri_for_run():
+    with mock.patch.dict(os.environ, {}):
+        mlflow.set_tracking_uri(None)
+    assert databricks._get_tracking_uri_for_run() == "databricks"
+    mlflow.set_tracking_uri("http://some-uri")
+    assert databricks._get_tracking_uri_for_run() == "http://some-uri"
+    mlflow.set_tracking_uri("databricks://profile")
+    assert databricks._get_tracking_uri_for_run() == "databricks"
+    mlflow.set_tracking_uri(None)
+    with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
+        assert mlflow.tracking.utils.get_tracking_uri() == "http://some-uri"

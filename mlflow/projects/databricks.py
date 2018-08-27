@@ -147,7 +147,7 @@ class DatabricksJobRunner(object):
 
     def run_databricks(self, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec,
                        run_id):
-        tracking_uri = tracking.get_tracking_uri()
+        tracking_uri = _get_tracking_uri_for_run()
         self._before_run_validations(tracking_uri, cluster_spec)
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
         env_vars = {
@@ -165,6 +165,15 @@ class DatabricksJobRunner(object):
                 raise
         command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
+
+
+def _get_tracking_uri_for_run():
+    if not tracking.utils.is_tracking_uri_set():
+        return "databricks"
+    uri = tracking.get_tracking_uri()
+    if uri.startswith("databricks"):
+        return "databricks"
+    return uri
 
 
 def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
