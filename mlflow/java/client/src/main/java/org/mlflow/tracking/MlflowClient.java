@@ -121,33 +121,6 @@ public class MlflowClient {
     doPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value));
   }
 
-  /** Returns the Metric associated with the given run and metric key. */
-  public Metric getMetric(String runUuid, String metricKey) {
-    URIBuilder builder = newURIBuilder("metrics/get")
-      .setParameter("run_uuid", runUuid)
-      .setParameter("metric_key", metricKey);
-    return mapper.toGetMetricResponse(httpCaller.get(builder.toString())).getMetric();
-  }
-
-  /**
-   * Returns all Metrics, in the same order as they were logged, associated with the given run
-   * and metric key.
-   */
-  public List<Metric> getMetricHistory(String runUuid, String metricKey) {
-    URIBuilder builder = newURIBuilder("metrics/get-history")
-      .setParameter("run_uuid", runUuid)
-      .setParameter("metric_key", metricKey);
-    return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
-  }
-
-  /** Returns the Param associated with the given run and parameter name. */
-  public String getParam(String runUuid, String paramName) {
-    URIBuilder builder = newURIBuilder("params/get")
-      .setParameter("run_uuid", runUuid)
-      .setParameter("param_name", paramName);
-    return mapper.toGeParamResponse(httpCaller.get(builder.toString())).getParameter().getValue();
-  }
-
   /** Returns a list of all artifacts under the given artifact path within the run. */
   public ListArtifacts.Response listArtifacts(String runUuid, String path) {
     URIBuilder builder = newURIBuilder("artifacts/list")

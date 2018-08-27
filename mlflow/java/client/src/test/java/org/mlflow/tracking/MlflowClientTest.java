@@ -124,21 +124,10 @@ public class MlflowClientTest {
     Assert.assertEquals(params.size(), 2);
     assertParam(params, "min_samples_leaf", MIN_SAMPLES_LEAF);
     assertParam(params, "max_depth", MAX_DEPTH);
-    Assert.assertEquals(client.getParam(runId, "max_depth"), MAX_DEPTH);
 
     List<Metric> metrics = run.getData().getMetricsList();
     Assert.assertEquals(metrics.size(), 2);
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
-
-    Metric m = client.getMetric(runId, "accuracy_score");
-    Assert.assertEquals(m.getKey(), "accuracy_score");
-    Assert.assertEquals(m.getValue(), ACCURACY_SCORE);
-
-    metrics = client.getMetricHistory(runId, "accuracy_score");
-    Assert.assertEquals(metrics.size(), 1);
-    m = metrics.get(0);
-    Assert.assertEquals(m.getKey(), "accuracy_score");
-    Assert.assertEquals(m.getValue(), ACCURACY_SCORE);
   }
 }
