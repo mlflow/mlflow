@@ -36,7 +36,7 @@ def create(experiment_name, artifact_location):
 @commands.command("list")
 @click.option("--view", "-v", default="active_only",
               help="Select view type for list experiments. Valid view types are "
-                   "'active_only' (default), 'delete_only', and 'all'.")
+                   "'active_only' (default), 'deleted_only', and 'all'.")
 def list_experiments(view):
     """
     List all experiments in the configured tracking server.
