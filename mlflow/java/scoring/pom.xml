@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>0.5.1</version>
+    <version>0.5.2</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>mlflow-scoring</artifactId>
-  <version>0.5.1</version>
+  <version>0.5.2</version>
   <packaging>jar</packaging>
   <name>MLflow scoring server</name>
   <url>http://mlflow.org</url>
