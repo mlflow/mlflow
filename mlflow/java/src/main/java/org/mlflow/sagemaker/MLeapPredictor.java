@@ -28,7 +28,7 @@ public class MLeapPredictor extends Predictor {
   // column are returned in the response to a query.`pyfunc` reference:
   // https://github.com/mlflow/mlflow/blob/f4869beec5cd2220d1bf01861d80f7145a8601bf/mlflow/
   // spark.py#L248
-  private static final String predictionColumnName = "prediction";
+  private static final String PREDICTION_COLUMN_NAME = "prediction";
   private static final Logger logger = LoggerFactory.getLogger(MLeapPredictor.class);
 
   static {
@@ -65,11 +65,11 @@ public class MLeapPredictor extends Predictor {
       logger.error(
           "Encountered a JSON conversion error during conversion of Pandas dataframe to LeapFrame.",
           e);
-      throw new PredictorEvaluationException(String.format(
+      throw new PredictorEvaluationException(
           "Failed to transform input into a JSON representation of an MLeap dataframe."
               + " Please ensure that the input is a JSON-serialized Pandas Dataframe"
-              + " with the `record` orientation. Original exception text: %s",
-          e.getMessage()));
+              + " with the `record` orientation.",
+          e);
     }
 
     DefaultLeapFrame leapFrame = null;
@@ -81,17 +81,17 @@ public class MLeapPredictor extends Predictor {
     } catch (Exception e) {
       logger.error(
           "Encountered an unknown error during conversion of Pandas dataframe to LeapFrame.", e);
-      throw new PredictorEvaluationException(String.format(
+      throw new PredictorEvaluationException(
           "An unknown error occurred while converting the input dataframe to a LeapFrame."
               + " Original exception text: %s",
-          e.getMessage()));
+          e);
     }
     // Create a single-element sequence of column names to select from the resulting dataframe.
     // This single-element is the `prediction` column; as is the case with the `pyfunc` wrapper
     // for Spark models, the query response is comprised solely of entries in the `prediction`
     // column
     Seq<String> predictionColumnSelectionArgs =
-        JavaConverters.asScalaIteratorConverter(Arrays.asList(predictionColumnName).iterator())
+        JavaConverters.asScalaIteratorConverter(Arrays.asList(PREDICTION_COLUMN_NAME).iterator())
             .asScala()
             .toSeq();
     DefaultLeapFrame predictionsFrame = this.pipelineTransformer.transform(leapFrame)
