@@ -24,6 +24,7 @@ from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
+
 def _init(cmd):
     """
     Initialize the container and execute command.
@@ -48,7 +49,7 @@ def _server_dependencies_cmds():
     """
     # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
-            "pip install /opt/mlflow/." if _container_includes_mlflow_source() 
+            "pip install /opt/mlflow/." if _container_includes_mlflow_source()
             else "pip install mlflow=={}".format(MLFLOW_VERSION)]
 
 
@@ -103,13 +104,12 @@ def _serve_pyfunc(model):
 
 
 def _serve_mleap(model):
-    mleap = Popen(["java", "-cp", 
-                    "/opt/mlflow/java/target/mlflow-java-"
-                    "{mlflow_version}-with-dependencies.jar".format(
+    mleap = Popen(["java", "-cp", "/opt/mlflow/java/target/mlflow-java-"
+                   "{mlflow_version}-with-dependencies.jar".format(
                         mlflow_version=mlflow.version.VERSION),
                    "com.databricks.mlflow.sagemaker.ScoringServer",
                    MODEL_PATH])
-    signal.signal(signal.SIGTERM, lambda a,b: _sigterm_handler(pids=[mleap.pid]))
+    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[mleap.pid]))
     awaited_pids = _await_subprocess_exit_any(procs=[mleap])
     _sigterm_handler(awaited_pids)
 
@@ -144,6 +144,5 @@ def _sigterm_handler(pids):
             os.kill(pid, signal.SIGQUIT)
         except OSError:
             pass
-    
-    sys.exit(0)
 
+    sys.exit(0)
