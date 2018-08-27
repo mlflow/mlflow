@@ -119,7 +119,7 @@ class Utils {
       const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
       if (notebookId && webappUrl) {
         res = (<a title={run.source_name} href={`${webappUrl}/#notebook/${notebookId}`}>
-          {run.source_name}
+          {Utils.baseName(run.source_name)}
         </a>);
       }
       return res;
@@ -139,11 +139,11 @@ class Utils {
       right: '3px',
     };
     if (sourceType === "NOTEBOOK") {
-      return <img title="Source Type: Notebook" style={imageStyle} src={notebookSvg} />;
+      return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
     } else if (sourceType === "LOCAL") {
-      return <img title="Source Type: Local" style={imageStyle} src={laptopSvg} />;
+      return <img title="Local Source" style={imageStyle} src={laptopSvg} />;
     } else if (sourceType === "PROJECT") {
-      return <img title="Source Type: Project" style={imageStyle} src={projectSvg} />;
+      return <img title="Project" style={imageStyle} src={projectSvg} />;
     }
     return <img style={imageStyle} src={emptySvg} />;
   }
