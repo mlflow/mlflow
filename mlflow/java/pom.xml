@@ -152,7 +152,7 @@
                     </module>
                   </module>
                 </checkstyleRules>
-                <excludes>com/databricks/**,org/mlflow/api/proto/**</excludes>
+                <excludes>com/databricks/**,org/mlflow/api/proto/**,org/mlflow/scalapb_interface/**</excludes>
               </configuration>
             </execution>
           </executions>
@@ -163,29 +163,6 @@
           <artifactId>maven-shade-plugin</artifactId>
           <version>3.1.0</version>
         </plugin>
-          <!--<executions>-->
-            <!--<execution>-->
-              <!--<phase>package</phase>-->
-              <!--<goals>-->
-                <!--<goal>shade</goal>-->
-              <!--</goals>-->
-              <!--<configuration>-->
-                <!--<shadedArtifactAttached>true</shadedArtifactAttached>-->
-                <!--<shadedClassifierName>with-dependencies</shadedClassifierName>-->
-                <!--<artifactSet>-->
-                  <!--<includes>-->
-                    <!--<include>*:*</include>-->
-                  <!--</includes>-->
-                <!--</artifactSet>-->
-                <!--<transformers>-->
-                  <!--<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">-->
-                    <!--<resource>reference.conf</resource>-->
-                  <!--</transformer>-->
-                <!--</transformers>-->
-              <!--</configuration>-->
-            <!--</execution>-->
-          <!--</executions>-->
-        <!--</plugin>-->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
