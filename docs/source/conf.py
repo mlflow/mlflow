@@ -35,7 +35,6 @@ from examplecode import *
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
-    #'sphinxcontrib-examplecode',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

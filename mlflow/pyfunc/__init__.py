@@ -8,7 +8,7 @@ that it includes all necessary information for anyone to load it and use it. Dep
 are either stored directly with the model or referenced via a Conda environment.
 
 The convention for pyfunc models is to have a ``predict`` method or function with the following
-signature:
+signature::
 
     predict(data: pandas.DataFrame) -> numpy.ndarray | pandas.Series | pandas.DataFrame
 
