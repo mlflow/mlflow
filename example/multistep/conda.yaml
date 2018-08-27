@@ -1,0 +1,11 @@
+name: multistep
+channels:
+  - defaults
+dependencies:
+  - python=3.6
+  - pyspark
+  - keras
+  - requests
+  - click
+  - pip:
+    - -e ../../

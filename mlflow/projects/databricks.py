@@ -233,12 +233,21 @@ def _before_run_validations(tracking_uri, cluster_spec):
             "tracking URI %s." % tracking_uri)
 
 
+def _get_tracking_uri_for_run():
+    if not tracking.utils.is_tracking_uri_set():
+        return "databricks"
+    uri = tracking.get_tracking_uri()
+    if uri.startswith("databricks"):
+        return "databricks"
+    return uri
+
+
 def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
     """
     Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    tracking_uri = tracking.get_tracking_uri()
+    tracking_uri = _get_tracking_uri_for_run()
     _before_run_validations(tracking_uri, cluster_spec)
 
     dbfs_fuse_uri = _upload_project_to_dbfs(work_dir, experiment_id)
