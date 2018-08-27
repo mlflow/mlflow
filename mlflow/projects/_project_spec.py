@@ -1,6 +1,7 @@
 """Internal utilities for parsing MLproject YAML files."""
 
 import os
+import sys
 import yaml
 
 import six
@@ -71,7 +72,8 @@ class EntryPoint(object):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
         self.command = command
-        assert isinstance(self.command, str) or isinstance(self.command, unicode)
+        assert isinstance(self.command, str) or \
+            (sys.version_info[0] < 3 or isinstance(self.command, unicode))
 
     def _validate_parameters(self, user_parameters):
         missing_params = []
