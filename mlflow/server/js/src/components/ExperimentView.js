@@ -14,7 +14,6 @@ import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 import Utils from '../utils/Utils';
-import emptySvg from '../static/empty.svg';
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -127,16 +126,16 @@ class ExperimentView extends Component {
       return {
         key: runInfo.run_uuid,
         sortValue: sortValue,
-        contents: ExperimentView.runInfoToRow(
+        contents: ExperimentView.runInfoToRow({
           runInfo,
-          this.onCheckbox,
+          onCheckbox: this.onCheckbox,
           paramKeyList,
           metricKeyList,
           paramsMap,
           metricsMap,
-          this.props.tagsList[idx],
+          tags: this.props.tagsList[idx],
           metricRanges,
-          !!this.state.runsSelected[runInfo.run_uuid])
+          selected: !!this.state.runsSelected[runInfo.run_uuid]})
       };
     });
     rows.sort((a, b) => {
@@ -361,7 +360,7 @@ class ExperimentView extends Component {
   /**
    * Generate a row for a specific run, extracting the params and metrics in the given lists.
    */
-  static runInfoToRow(
+  static runInfoToRow({
     runInfo,
     onCheckbox,
     paramKeyList,
@@ -370,7 +369,7 @@ class ExperimentView extends Component {
     metricsMap,
     tags,
     metricRanges,
-    selected) {
+    selected}) {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const row = [
@@ -383,12 +382,11 @@ class ExperimentView extends Component {
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
       <td key="meta-source" style={{
-          "white-space": "nowrap" ,
-          "max-width": "250px",
-          "overflow": "hidden",
-          "text-overflow": "ellipsis",
-        }}
-      >
+        "white-space": "nowrap",
+        "max-width": "250px",
+        "overflow": "hidden",
+        "text-overflow": "ellipsis",
+      }}>
         {Utils.renderSourceTypeIcon(runInfo.source_type)}
         {Utils.renderSource(runInfo, tags)}
       </td>,
