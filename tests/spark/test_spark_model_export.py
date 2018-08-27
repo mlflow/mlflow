@@ -292,3 +292,41 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
         mleap.save_model(spark_model=unsupported_model,
                          path=model_path,
                          sample_input=spark_model_iris.training_df)
+
+@pytest.mark.large
+def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
+        spark_model_iris, model_path, spark_conda_env):
+    sparkml_model = Model()
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      conda_env=spark_conda_env, mlflow_model=sparkml_model)
+    assert SPARKML_FLAVOR_NAME in sparkml_model.flavors
+    assert mleap.FLAVOR_NAME not in sparkml_model.flavors
+    sparkml_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                              data=spark_model_iris.inference_df)
+    shutil.rmtree(model_path)
+    assert not os.path.exists(model_path)
+    os.makedirs(model_path)
+    assert os.path.exists(model_path)
+     mleap_model = Model()
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      sample_input=spark_model_iris.training_df,
+                      mlflow_model=mleap_model)
+    assert mleap.FLAVOR_NAME in mleap_model.flavors
+    mleap_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                            data=spark_model_iris.inference_df)
+    assert type(mleap_preds) == type(sparkml_preds) == list
+    assert len(mleap_preds) == len(sparkml_preds)
+    assert not any([type(mleap_preds[i]) != type(sparkml_preds[i]) 
+        for i in range(len(mleap_preds))])
+
+def test_container_scoring_responds_to_bad_inputs_using_error_message_with_mleap_flavor(
+        spark_model_iris, model_path):
+    mleap_model = Model()
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      sample_input=spark_model_iris.training_df,
+                      mlflow_model=mleap_model)
+    assert mleap.FLAVOR_NAME in mleap_model.flavors
+    mleap_response = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                               data="invalid")
+    assert "Error" in mleap_response.keys()
+    print(mleap_response["Error"])
