@@ -71,9 +71,9 @@ class MLflowService(object):
         """:return: :py:class:`mlflow.entities.Experiment`"""
         return self.store.get_experiment(experiment_id)
 
-    def get_experiment_by_name(self, experiment_name):
+    def get_experiment_by_name(self, name):
         """:return: :py:class:`mlflow.entities.Experiment`"""
-        return self.store.get_experiment_by_name(experiment_name)
+        return self.store.get_experiment_by_name(name)
 
     def create_experiment(self, name, artifact_location=None):
         """Creates an experiment.

@@ -69,7 +69,8 @@ def get_handler(request_class):
     return HANDLERS.get(request_class, _not_implemented)
 
 
-_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'md', 'rst', 'MLmodel', 'MLproject']
+_TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
+                    'csv', 'md', 'rst', 'MLmodel', 'MLproject']
 
 
 def get_artifact_handler():

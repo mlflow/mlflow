@@ -12,7 +12,7 @@ import tempfile
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects import _project_spec
-from mlflow.utils.exception import ExecutionException
+from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus, SourceType, Param
 import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
@@ -137,9 +137,9 @@ def _wait_for(submitted_run_obj):
             _maybe_set_run_terminated(active_run, "FINISHED")
         else:
             _maybe_set_run_terminated(active_run, "FAILED")
-            raise ExecutionException("=== Run (ID '%s') failed ===" % run_id)
+            raise ExecutionException("Run (ID '%s') failed" % run_id)
     except KeyboardInterrupt:
-        eprint("=== Run (ID '%s') === interrupted, cancelling run ===" % run_id)
+        eprint("=== Run (ID '%s') interrupted, cancelling run ===" % run_id)
         submitted_run_obj.cancel()
         _maybe_set_run_terminated(active_run, "FAILED")
         raise
