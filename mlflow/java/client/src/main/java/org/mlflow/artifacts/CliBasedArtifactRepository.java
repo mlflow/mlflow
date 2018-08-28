@@ -97,6 +97,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     forkProcess(command, tag);
   }
 
+  @Override
   public void logArtifacts(File localDir) {
     logArtifacts(localDir, null);
   }
@@ -111,6 +112,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     return new File(localPath);
   }
 
+  @Override
   public File downloadArtifacts() {
     return downloadArtifacts(null);
   }
@@ -125,6 +127,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     return parseFileInfos(jsonOutput);
   }
 
+  @Override
   public List<Service.FileInfo> listArtifacts() {
     return listArtifacts(null);
   }
