@@ -24,6 +24,8 @@ from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
+DEFAULT_SAGEMAKER_SERVER_PORT = 8080
+
 
 def _init(cmd):
     """
@@ -108,7 +110,7 @@ def _serve_mleap(model):
                    "{mlflow_version}-with-dependencies.jar".format(
                         mlflow_version=mlflow.version.VERSION),
                    "com.databricks.mlflow.sagemaker.ScoringServer",
-                   MODEL_PATH])
+                   MODEL_PATH, DEFAULT_SAGEMAKER_SERVER_PORT])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[mleap.pid]))
     awaited_pids = _await_subprocess_exit_any(procs=[mleap])
     _sigterm_handler(awaited_pids)
