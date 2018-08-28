@@ -41,6 +41,10 @@
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java-util</artifactId>
     </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -72,6 +76,7 @@
               <include>com.google.guava:guava</include>
               <include>com.google.code.gson:gson</include>
               <include>commons-codec:commons-codec</include>
+              <include>commons-io:commons-io</include>
               <include>commons-logging:commons-logging</include>
               <include>org.apache.httpcomponents:httpcore</include>
             </includes>
