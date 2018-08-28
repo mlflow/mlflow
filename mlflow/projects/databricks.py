@@ -15,7 +15,9 @@ from mlflow.utils import rest_utils, file_utils
 from mlflow.utils.exception import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking, set_tag
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
+    MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.rest_utils import get_databricks_http_request_kwargs_or_fail
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -199,6 +201,13 @@ def _run_shell_command_job(project_uri, command, env_vars, cluster_spec):
     jobs_page_url = run_info["run_page_url"]
     eprint("=== Check the run's status at %s ===" % jobs_page_url)
     set_tag(MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
+    set_tag(MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, run_submit_res['run_id'])
+    set_tag(MLFLOW_DATABRICKS_WEBAPP_URL, get_databricks_http_request_kwargs_or_fail()['hostname'])
+    job_id = run_info.get('job_id')
+    # In some releases of Databricks we do not return the job ID. We start including it in DB
+    # releases 2.80 and above.
+    if job_id is not None:
+        set_tag(MLFLOW_DATABRICKS_SHELL_JOB_ID, job_id)
     return databricks_run_id
 
 
