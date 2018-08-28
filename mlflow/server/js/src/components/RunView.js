@@ -153,6 +153,15 @@ class RunView extends Component {
             </div>
             : null
           }
+          {tags['mlflow.databricks.runURL'] !== undefined ?
+            <div className="run-info">
+              <span className="metadata-header">Job Output: </span>
+              <span className="metadata-info">
+                <a href={tags['mlflow.databricks.runURL'].value}>Databricks</a>
+              </span>
+            </div>
+            : null
+          }
         </div>
         {runCommand ?
           <div className="RunView-info">
