@@ -99,7 +99,6 @@ def set_tag_mock():
         yield mlflow_service_mock.set_tag
 
 
-
 @pytest.fixture()
 def get_databricks_http_request_kwargs_or_fail_mock():
     with mock.patch("mlflow.projects.databricks.get_databricks_http_request_kwargs_or_fail") as m:
