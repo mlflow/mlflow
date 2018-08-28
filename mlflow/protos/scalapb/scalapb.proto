@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package scalapb;
 
-option java_package = "com.trueaccord.scalapb";
+option java_package = "org.mlflow.scalapb_interface";
 
 import "google/protobuf/descriptor.proto";
 
