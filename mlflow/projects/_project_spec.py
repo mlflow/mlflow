@@ -84,15 +84,10 @@ class EntryPoint(object):
                 ", ".join(["'%s'" % name for name in missing_params]))
 
     def consolidate_parameters(self, user_parameters):
-        final_params = {}
+        final_params = user_parameters.copy()
         for name, param_obj in self.parameters.items():
-            if name in user_parameters:
-                final_params[name] = user_parameters[name]
-            else:
+            if name not in user_parameters:
                 final_params[name] = param_obj.default
-        for key, value in user_parameters.items():
-            if key not in final_params:
-                final_params[key] = value
         return final_params
 
     def compute_parameters(self, user_parameters, storage_dir):
