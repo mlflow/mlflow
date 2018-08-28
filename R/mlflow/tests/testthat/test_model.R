@@ -5,9 +5,8 @@ test_that("mlflow can save model function", {
 
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
 
-  mlflow_save_model(function(data, model) {
-    predict(model, data)
-  })
+  fn <- crate(~ stats::predict(model, .x), model)
+  mlflow_save_model(fn)
 
   expect_true(dir.exists("model"))
 
