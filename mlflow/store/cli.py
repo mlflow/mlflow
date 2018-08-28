@@ -13,10 +13,7 @@ def commands():
     pass
 
 
-@commands.command("log-artifact",
-                  help="Logs a local file as an artifact of a run, optionally within a " +
-                       "run-specific artifact path. Run artifacts can be organized into " +
-                       "directories, so you can place the artifact in a directory this way.")
+@commands.command("log-artifact")
 @click.option("--local-file", "-l", required=True,
               help="Local path to artifact to log")
 @click.option("--run-id", "-r", required=True,
@@ -26,7 +23,9 @@ def commands():
                    "run's artifact directory.")
 def log_artifact(local_file, run_id, artifact_path):
     """
-    Creates a new experiment in the configured tracking server.
+    Logs a local file as an artifact of a run, optionally within a run-specific
+    artifact path. Run artifacts can be organized into directories, so you can
+    place the artifact in a directory this way.
     """
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
@@ -35,11 +34,7 @@ def log_artifact(local_file, run_id, artifact_path):
     eprint("Logged artifact from local file %s to artifact_path=%s" % (local_file, artifact_path))
 
 
-@commands.command("log-artifacts",
-                  help="Logs the files within a local directory as an artifact " +
-                       "of a run, optionally within a run-specific artifact path. Run " +
-                       "artifacts can be organized into directories, so you can place the " +
-                       "artifact in a directory this way.")
+@commands.command("log-artifacts")
 @click.option("--local-dir", "-l", required=True,
               help="Directory of local artifacts to log")
 @click.option("--run-id", "-r", required=True,
@@ -49,7 +44,9 @@ def log_artifact(local_file, run_id, artifact_path):
                    "run's artifact directory.")
 def log_artifacts(local_dir, run_id, artifact_path):
     """
-    Creates a new experiment in the configured tracking server.
+    Logs the files within a local directory as an artifact of a run, optionally
+    within a run-specific artifact path. Run artifacts can be organized into
+    directories, so you can place the artifact in a directory this way.
     """
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
@@ -58,16 +55,15 @@ def log_artifacts(local_dir, run_id, artifact_path):
     eprint("Logged artifact from local dir %s to artifact_path=%s" % (local_dir, artifact_path))
 
 
-@commands.command("list",
-                  help="Return all the artifacts directly under run's root artifact " +
-                       "directory, or a sub-directory. The output is a JSON-formatted list.")
+@commands.command("list")
 @click.option("--run-id", "-r", required=True,
               help="Run ID to be listed")
 @click.option("--artifact-path", "-a",
               help="If specified, a path relative to the run's root directory to list.")
 def list_artifacts(run_id, artifact_path):
     """
-    Creates a new experiment in the configured tracking server.
+    Return all the artifacts directly under run's root artifact directory,
+    or a sub-directory. The output is a JSON-formatted list.
     """
     artifact_path = artifact_path if artifact_path is not None else ""
     store = _get_store()
@@ -82,16 +78,15 @@ def _file_infos_to_json(file_infos):
     return "[" + ", ".join(json_list) + "]"
 
 
-@commands.command("download-artifacts",
-                  help="Download an artifact file or directory to a local directory. " +
-                       "The output is the name of the file or directory on the local disk.")
+@commands.command("download")
 @click.option("--run-id", "-r", required=True,
               help="Run ID from which to download")
 @click.option("--artifact-path", "-a",
               help="If specified, a path relative to the run's root directory to download")
 def download_artifacts(run_id, artifact_path):
     """
-    Creates a new experiment in the configured tracking server.
+    Download an artifact file or directory to a local directory. 
+    The output is the name of the file or directory on the local disk.
     """
     artifact_path = artifact_path if artifact_path is not None else ""
     store = _get_store()
