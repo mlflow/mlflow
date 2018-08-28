@@ -304,8 +304,6 @@ def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
     assert mleap.FLAVOR_NAME not in sparkml_model.flavors
     sparkml_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                               data=spark_model_iris.inference_df)
-    assert isinstance(sparkml_preds, list)
-    assert [isinstance(entry, int) for entry in sparkml_preds]
     shutil.rmtree(model_path)
     assert not os.path.exists(model_path)
     os.makedirs(model_path)
@@ -317,8 +315,10 @@ def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
     assert mleap.FLAVOR_NAME in mleap_model.flavors
     mleap_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                             data=spark_model_iris.inference_df)
+    assert isinstance(sparkml_preds, list)
     assert isinstance(mleap_preds, list)
     assert len(mleap_preds) == len(sparkml_preds)
+    assert [isinstance(entry, int) for entry in sparkml_preds]
     assert [isinstance(entry, int) for entry in mleap_preds]
 
 
