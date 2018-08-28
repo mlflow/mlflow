@@ -15,7 +15,8 @@ from mlflow.entities import Experiment, Run, SourceType
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
+    MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.validation import _validate_run_id
 from mlflow.tracking.service import get_service
