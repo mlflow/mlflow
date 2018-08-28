@@ -4,64 +4,82 @@ conda_env: conda.yaml
 
 entry_points:
   # train keras dl model
-  dl_train:
+  main:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       epochs: {type: int, default: 32}
       batch_size: {type: int, default: 16}
       learning_rate: {type: float, default: 1e-1}
-      beta1: {type: float, default: .9}
-      beta2: {type: float, default: .9}
+      momentum: {type: float, default: .0}
       seed: {type: int, default: 97531}
-    command: "python train_keras.py {training_data}
+    command: "python train.py {training_data}
                                     --batch-size {batch_size}
                                     --epochs {epochs}
                                     --learning-rate {learning_rate}
-                                    --beta1 {beta1}
-                                    --beta2 {beta2}"
+                                    --momentum {momentum}"
 
-  # Use GPyOpt to optimize hyper params of the dl_train entry_point.
-  GPyOpt:
+# Use grid search to optimize hyperparams of the dl_train entry_point.
+  grid:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
-      max_runs: {type: int, default: 32}
+      max_runs: {type: int, default: 16}
+      max_p: {type: int, default: 4}
+      epochs: {type: int, default: 32}
+      metric: {type: string, default: "rmse"}
+      seed: {type: int, default: 97531}
+      training_experiment_id: {type: int, default: "-1"}
+    command: "python grid.py  {training_data}
+                                             --max-runs {max_runs}
+                                             --max-p {max_p}
+                                             --epochs {epochs}
+                                             --metric {metric}
+                                             --seed {seed}
+                                             --training-experiment-id {training_experiment_id}"
+
+
+  # Use GPyOpt to optimize hyperparams of the dl_train entry_point.
+  gpyopt:
+    parameters:
+      training_data: {type: string, default: "../tutorial/wine-quality.csv"}
+      max_runs: {type: int, default: 8}
       batch_size: {type: int, default: 1}
       max_p: {type: int, default: 1}
-      max_epochs: {type: int, default: 32}
+      epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       gpy_model: {type: string, default: "GP_MCMC"}
       gpy_acquisition: {type: string, default: "EI_MCMC"}
       initial_design: {type: string, default: "random"}
-      training_experiment_id: {type: int, default: "-1"}
       seed: {type: int, default: 97531}
-    command: "python gPyOpt/search_keras.py  {training_data}  \
-                                             --max-runs {max_runs} \
-                                             --batch-size {batch_size} \
-                                             --max-p {max_p} \
-                                             --epochs {max_epochs} \
+      training_experiment_id: {type: int, default: "-1"}
+
+    command: "python gpyopt.py  {training_data}
+                                             --max-runs {max_runs}
+                                             --batch-size {batch_size}
+                                             --max-p {max_p}
+                                             --epochs {epochs}
                                              --metric {metric}
-                                             --gpy-model {gpy_model} \
-                                             --gpy-acquisition {gpy_acquisition} \
-                                             --initial-design {initial_design} \
-                                             --seed {seed} \
+                                             --gpy-model {gpy_model}
+                                             --gpy-acquisition {gpy_acquisition}
+                                             --initial-design {initial_design}
+                                             --seed {seed}
                                              --training-experiment-id {training_experiment_id}"
 
-  # Use Hyperopt to optimize hyper params of the dl_train entry_point.
-  Hyperopt:
+  # Use Hyperopt to optimize hyperparams of the dl_train entry_point.
+  hyperopt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
-      max_runs: {type: int, default: 32}
-      max_epochs: {type: int, default: 32}
+      max_runs: {type: int, default: 12}
+      epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       algo: {type: string, default: "tpe.suggest"}
       seed: {type: int, default: 97531}
       training_experiment_id: {type: int, default: "-1"}
-    command: "python -O hyperopt/search_keras.py {training_data} \
-                                                 --max-runs {max_runs} \
-                                                 --epochs {max_epochs} \
-                                                 --metric {metric} \
-                                                 --algo {algo} \
-                                                 --seed {seed} \
+    command: "python -O hyperopt.py {training_data}
+                                                 --max-runs {max_runs}
+                                                 --epochs {epochs}
+                                                 --metric {metric}
+                                                 --algo {algo}
+                                                 --seed {seed}
                                                  --training-experiment-id {training_experiment_id}"
 
 
