@@ -290,6 +290,9 @@ class DatabricksSubmittedRun(SubmittedRun):
     :param databricks_job_runner: Instance of ``DatabricksJobRunner`` used to make Databricks API
                                   requests.
     """
+    # How often to poll run status when waiting on a run
+    POLL_STATUS_INTERVAL = 30
+
     def __init__(self, databricks_run_id, mlflow_run_id, databricks_job_runner):
         super(DatabricksSubmittedRun, self).__init__()
         self._databricks_run_id = databricks_run_id
@@ -307,10 +310,10 @@ class DatabricksSubmittedRun(SubmittedRun):
     def run_id(self):
         return self._mlflow_run_id
 
-    def wait(self, sleep_interval=30):
+    def wait(self):
         result_state = self._job_runner.get_run_result_state(self._databricks_run_id)
         while result_state is None:
-            time.sleep(sleep_interval)
+            time.sleep(self.POLL_STATUS_INTERVAL)
             result_state = self._job_runner.get_run_result_state(self._databricks_run_id)
         return result_state == "SUCCESS"
 
