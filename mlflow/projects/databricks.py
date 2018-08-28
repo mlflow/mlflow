@@ -12,7 +12,7 @@ from mlflow.entities import RunStatus
 from mlflow.projects import _fetch_project
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
-from mlflow.utils.exception import ExecutionException
+from mlflow.exceptions import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.version import VERSION
