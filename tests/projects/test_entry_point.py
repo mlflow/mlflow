@@ -4,7 +4,7 @@ import mock
 import pytest
 from six.moves import shlex_quote
 
-
+from mlflow.projects._project_spec import Parameter, EntryPoint
 from mlflow.utils.exception import ExecutionException
 from mlflow.utils.file_utils import TempDir
 from tests.projects.utils import load_project, TEST_PROJECT_DIR
@@ -99,3 +99,36 @@ def test_uri_parameter():
         # Test that we raise an exception if a local path is passed to a parameter of type URI
         with pytest.raises(ExecutionException):
             entry_point.compute_command(user_parameters={"uri": dst_dir}, storage_dir=dst_dir)
+
+
+def test_params():
+    defaults = {
+        "alpha": "float",
+        "l1_ratio": {"type": "float", "default": 0.1},
+        "l2_ratio": {"type": "float", "default": 0.0003},
+        "random_str": {"type": "string", "default": "hello"},
+    }
+    entry_point = EntryPoint("entry_point_name", defaults, "command_name script.py")
+
+    user1 = {}
+    with pytest.raises(ExecutionException):
+        entry_point._validate_parameters(user1)
+
+    user_2 = {"beta": 0.004}
+    with pytest.raises(ExecutionException):
+        entry_point._validate_parameters(user_2)
+
+    user_3 = {"alpha": 0.004}
+    expected_3 = {"alpha": 0.004, "l1_ratio": 0.1, "l2_ratio": 0.0003, "random_str": "hello"}
+    assert entry_point.final_parameters(user_3)
+    assert entry_point.final_parameters(user_3) == expected_3
+
+    user_4 = {"alpha": 0.004, "l1_ratio": 0.0008}
+    expected_4 = {"alpha": 0.004, "l1_ratio": 0.0008, "l2_ratio": 0.0003, "random_str": "hello"}
+    assert entry_point.final_parameters(user_4)
+    assert entry_point.final_parameters(user_4) == expected_4
+
+    user_5 = {"alpha": -0.99, "random_str": "hi"}
+    expected_5 = {"alpha": -0.99, "l1_ratio": 0.1, "l2_ratio": 0.0003, "random_str": "hi"}
+    assert entry_point.final_parameters(user_5)
+    assert entry_point.final_parameters(user_5) == expected_5
