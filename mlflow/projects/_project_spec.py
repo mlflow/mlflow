@@ -83,7 +83,7 @@ class EntryPoint(object):
                 "No value given for missing parameters: %s" %
                 ", ".join(["'%s'" % name for name in missing_params]))
 
-    def final_parameters(self, user_parameters):
+    def consolidate_parameters(self, user_parameters):
         final_params = {}
         for name, param_obj in self.parameters.items():
             if name in user_parameters:

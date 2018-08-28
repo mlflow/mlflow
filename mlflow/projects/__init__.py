@@ -47,7 +47,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         active_run = _create_run(uri, exp_id, work_dir, entry_point)
 
     # log all params
-    final_params = project.get_entry_point(entry_point).final_parameters(parameters)
+    final_params = project.get_entry_point(entry_point).consolidate_parameters(parameters)
     for key, value in final_params.items():
         tracking.get_service().log_param(active_run.info.run_uuid, key, value)
 

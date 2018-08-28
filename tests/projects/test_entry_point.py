@@ -4,7 +4,7 @@ import mock
 import pytest
 from six.moves import shlex_quote
 
-from mlflow.projects._project_spec import Parameter, EntryPoint
+from mlflow.projects._project_spec import EntryPoint
 from mlflow.utils.exception import ExecutionException
 from mlflow.utils.file_utils import TempDir
 from tests.projects.utils import load_project, TEST_PROJECT_DIR
@@ -120,15 +120,15 @@ def test_params():
 
     user_3 = {"alpha": 0.004}
     expected_3 = {"alpha": 0.004, "l1_ratio": 0.1, "l2_ratio": 0.0003, "random_str": "hello"}
-    assert entry_point.final_parameters(user_3)
-    assert entry_point.final_parameters(user_3) == expected_3
+    assert entry_point.consolidate_parameters(user_3)
+    assert entry_point.consolidate_parameters(user_3) == expected_3
 
     user_4 = {"alpha": 0.004, "l1_ratio": 0.0008}
     expected_4 = {"alpha": 0.004, "l1_ratio": 0.0008, "l2_ratio": 0.0003, "random_str": "hello"}
-    assert entry_point.final_parameters(user_4)
-    assert entry_point.final_parameters(user_4) == expected_4
+    assert entry_point.consolidate_parameters(user_4)
+    assert entry_point.consolidate_parameters(user_4) == expected_4
 
     user_5 = {"alpha": -0.99, "random_str": "hi"}
     expected_5 = {"alpha": -0.99, "l1_ratio": 0.1, "l2_ratio": 0.0003, "random_str": "hi"}
-    assert entry_point.final_parameters(user_5)
-    assert entry_point.final_parameters(user_5) == expected_5
+    assert entry_point.consolidate_parameters(user_5)
+    assert entry_point.consolidate_parameters(user_5) == expected_5
