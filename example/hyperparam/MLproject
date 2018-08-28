@@ -28,7 +28,7 @@ entry_points:
       metric: {type: string, default: "rmse"}
       seed: {type: int, default: 97531}
       training_experiment_id: {type: int, default: "-1"}
-    command: "python grid.py  {training_data}
+    command: "python search_grid.py  {training_data}
                                              --max-runs {max_runs}
                                              --max-p {max_p}
                                              --epochs {epochs}
@@ -52,7 +52,7 @@ entry_points:
       seed: {type: int, default: 97531}
       training_experiment_id: {type: int, default: "-1"}
 
-    command: "python gpyopt.py  {training_data}
+    command: "python search_gpyopt.py  {training_data}
                                              --max-runs {max_runs}
                                              --batch-size {batch_size}
                                              --max-p {max_p}
@@ -74,7 +74,7 @@ entry_points:
       algo: {type: string, default: "tpe.suggest"}
       seed: {type: int, default: 97531}
       training_experiment_id: {type: int, default: "-1"}
-    command: "python -O hyperopt.py {training_data}
+    command: "python -O search_hyperopt.py {training_data}
                                                  --max-runs {max_runs}
                                                  --epochs {epochs}
                                                  --metric {metric}

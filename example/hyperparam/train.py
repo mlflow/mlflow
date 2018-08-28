@@ -24,7 +24,9 @@ import mlflow.keras
 Train a simple Keras DL model on the dataset used in MLflow tutorial (wine-quality.csv).
 
 Dataset is split into train (~ 0.56), validation(~ 0.19) and test (0.25).
-Validation data is used to select the best hyperparameters.  
+Validation data is used to select the best hyperparameters, test set performance is evaluated only 
+at epochs which improved performance on the validation dataset. The model with best validation set 
+performance is logged with MLflow.
 """
 
 def eval_and_log_metrics(prefix, actual, pred, compute_r2=True):

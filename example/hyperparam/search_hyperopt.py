@@ -5,6 +5,10 @@ import os
 import shutil
 import tempfile
 
+import hyperopt
+
+print("hyperopt version =", hyperopt.__version__)
+
 from hyperopt import fmin, hp, tpe, rand
 
 import mlflow.projects
