@@ -20,8 +20,8 @@ import org.mlflow.api.proto.Service.RunInfo;
 import org.mlflow.tracking.MlflowClient;
 import org.mlflow.tracking.TestClientProvider;
 
-public class CliBasedArtifactRepositorySuite {
-  private static final Logger logger = Logger.getLogger(CliBasedArtifactRepositorySuite.class);
+public class CliBasedArtifactRepositoryTest {
+  private static final Logger logger = Logger.getLogger(CliBasedArtifactRepositoryTest.class);
 
   private final TestClientProvider testClientProvider = new TestClientProvider();
 
@@ -54,6 +54,7 @@ public class CliBasedArtifactRepositorySuite {
     repo.logArtifact(tempFile.toFile());
     Path returnFile = repo.downloadArtifacts(tempFile.getFileName().toString()).toPath();
     Assert.assertEquals(readFile(returnFile), "Hello, World!");
+    throw new RuntimeException();
   }
 
   @Test
