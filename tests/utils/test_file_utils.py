@@ -57,7 +57,7 @@ def test_make_tarfile(tmpdir):
         output_filename=tarfile1, source_dir=dst_dir, archive_name="some-archive")
     # Compare the archives & explicitly verify their SHA256 hashes match (i.e. that
     # changes in file modification timestamps don't affect the archive contents)
-    if !filecmp.cmp(tarfile0, tarfile1, shallow=False):
+    if not filecmp.cmp(tarfile0, tarfile1, shallow=False):
         print("Compare project source and destination")
         dd = filecmp.dircmp(TEST_PROJECT_DIR, dst_dir)
         dd.report_full_closure()
