@@ -118,17 +118,34 @@ def test_params():
     with pytest.raises(ExecutionException):
         entry_point._validate_parameters(user_2)
 
-    user_3 = {"alpha": 0.004}
-    expected_3 = {"alpha": 0.004, "l1_ratio": 0.1, "l2_ratio": 0.0003, "random_str": "hello"}
-    assert entry_point.consolidate_parameters(user_3)
-    assert entry_point.consolidate_parameters(user_3) == expected_3
+    user_3 = {"alpha": 0.004, "gamma": 0.89}
+    expected_final_3 = {"alpha": '0.004', "l1_ratio": '0.1', "l2_ratio": '0.0003',
+                        "random_str": "hello"}
+    expected_extra_3 = {"gamma": "0.89"}
+    final_3, extra_3 = entry_point.compute_parameters(user_3, None)
+    assert expected_extra_3 == extra_3
+    assert expected_final_3 == final_3
 
-    user_4 = {"alpha": 0.004, "l1_ratio": 0.0008}
-    expected_4 = {"alpha": 0.004, "l1_ratio": 0.0008, "l2_ratio": 0.0003, "random_str": "hello"}
-    assert entry_point.consolidate_parameters(user_4)
-    assert entry_point.consolidate_parameters(user_4) == expected_4
+    user_4 = {"alpha": 0.004, "l1_ratio": 0.0008, "random_str_2": "hello"}
+    expected_final_4 = {"alpha": '0.004', "l1_ratio": '0.0008', "l2_ratio": '0.0003',
+                        "random_str": "hello"}
+    expected_extra_4 = {"random_str_2": "hello"}
+    final_4, extra_4 = entry_point.compute_parameters(user_4, None)
+    assert expected_extra_4 == extra_4
+    assert expected_final_4 == final_4
 
     user_5 = {"alpha": -0.99, "random_str": "hi"}
-    expected_5 = {"alpha": -0.99, "l1_ratio": 0.1, "l2_ratio": 0.0003, "random_str": "hi"}
-    assert entry_point.consolidate_parameters(user_5)
-    assert entry_point.consolidate_parameters(user_5) == expected_5
+    expected_final_5 = {"alpha": '-0.99', "l1_ratio": '0.1', "l2_ratio": '0.0003',
+                        "random_str": "hi"}
+    expected_extra_5 = {}
+    final_5, extra_5 = entry_point.compute_parameters(user_5, None)
+    assert expected_final_5 == final_5
+    assert expected_extra_5 == extra_5
+
+    user_6 = {"alpha": 0.77, "ALPHA": 0.89}
+    expected_final_6 = {"alpha": '0.77', "l1_ratio": '0.1', "l2_ratio": '0.0003',
+                        "random_str": "hello"}
+    expected_extra_6 = {"ALPHA": "0.89"}
+    final_6, extra_6 = entry_point.compute_parameters(user_6, None)
+    assert expected_extra_6 == extra_6
+    assert expected_final_6 == final_6
