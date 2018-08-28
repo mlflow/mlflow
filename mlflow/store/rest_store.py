@@ -125,7 +125,7 @@ class RestStore(AbstractStore):
     def update_run_info(self, run_uuid, run_status, end_time):
         """ Updates the metadata of the specified run. """
         req_body = message_to_json(UpdateRun(run_uuid=run_uuid, status=run_status,
-                                              end_time=end_time))
+                                             end_time=end_time))
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
@@ -227,7 +227,7 @@ class RestStore(AbstractStore):
         """
         search_expressions_protos = [expr.to_proto() for expr in search_expressions]
         req_body = message_to_json(SearchRuns(experiment_ids=experiment_ids,
-                                               anded_expressions=search_expressions_protos))
+                                              anded_expressions=search_expressions_protos))
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 

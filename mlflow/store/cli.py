@@ -1,15 +1,7 @@
 from mlflow.utils.logging_utils import eprint
 
-import json
-import os
-import tempfile
-
 import click
 
-from tabulate import tabulate
-
-from mlflow.data import is_uri
-from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.proto_json_utils import message_to_json
@@ -17,16 +9,21 @@ from mlflow.utils.proto_json_utils import message_to_json
 
 @click.group("artifacts")
 def commands():
-    """Manage experiments."""
+    """Upload, list, and download artifacts from an MLflow artifact repository."""
     pass
 
 
-@commands.command("log-artifact")
+@commands.command("log-artifact",
+                  help="Logs a local file as an artifact of a run, optionally within a " +
+                       "run-specific artifact path. Run artifacts can be organized into " +
+                       "directories, so you can place the artifact in a directory this way.")
 @click.option("--local-file", "-l", required=True,
-              help="Base location for runs to store artifact results. Artifacts will be stored ")
-@click.option("--run-id", "-r", required=True)
+              help="Local path to artifact to log")
+@click.option("--run-id", "-r", required=True,
+              help="Run ID into which we should log the artifact.")
 @click.option("--artifact-path", "-a",
-              help="Base location for runs to store artifact results. Artifacts will be stored ")
+              help="If specified, we will log the artifact into this subdirectory of the " +
+                   "run's artifact directory.")
 def log_artifact(local_file, run_id, artifact_path):
     """
     Creates a new experiment in the configured tracking server.
@@ -38,12 +35,18 @@ def log_artifact(local_file, run_id, artifact_path):
     eprint("Logged artifact from local file '%s' to '%s'" % (local_file, artifact_path))
 
 
-@commands.command("log-artifacts")
+@commands.command("log-artifacts",
+                  help="Logs the files within a local directory as an artifact " +
+                       "of a run, optionally within a run-specific artifact path. Run " +
+                       "artifacts can be organized into directories, so you can place the " +
+                       "artifact in a directory this way.")
 @click.option("--local-dir", "-l", required=True,
-              help="Base location for runs to store artifact results. Artifacts will be stored ")
-@click.option("--run-id", "-r", required=True)
+              help="Directory of local artifacts to log")
+@click.option("--run-id", "-r", required=True,
+              help="Run ID into which we should log the artifact.")
 @click.option("--artifact-path", "-a",
-              help="Base location for runs to store artifact results. Artifacts will be stored ")
+              help="If specified, we will log the artifact into this subdirectory of the " +
+                   "run's artifact directory.")
 def log_artifacts(local_dir, run_id, artifact_path):
     """
     Creates a new experiment in the configured tracking server.
@@ -55,10 +58,13 @@ def log_artifacts(local_dir, run_id, artifact_path):
     eprint("Logged artifact from local file '%s' to '%s'" % (local_dir, artifact_path))
 
 
-@commands.command("list")
-@click.option("--run-id", "-r", required=True)
+@commands.command("list",
+                  help="Return all the artifacts directly under run's root artifact " +
+                       "directory, or a sub-directory. The output is a JSON-formatted list.")
+@click.option("--run-id", "-r", required=True,
+              help="Run ID to be listed")
 @click.option("--artifact-path", "-a",
-              help="Base location for runs to store artifact results. Artifacts will be stored ")
+              help="If specified, a path relative to the run's root directory to list.")
 def list_artifacts(run_id, artifact_path):
     """
     Creates a new experiment in the configured tracking server.
@@ -72,14 +78,17 @@ def list_artifacts(run_id, artifact_path):
 
 
 def _file_infos_to_json(file_infos):
-  json_list = [message_to_json(file_info.to_proto()) for file_info in file_infos]
-  return "[" + ", ".join(json_list) + "]"
+    json_list = [message_to_json(file_info.to_proto()) for file_info in file_infos]
+    return "[" + ", ".join(json_list) + "]"
 
 
-@commands.command("download-artifacts")
-@click.option("--run-id", "-r", required=True)
+@commands.command("download-artifacts",
+                  help="Download an artifact file or directory to a local directory. " +
+                       "The output is the name of the file or directory on the local disk.")
+@click.option("--run-id", "-r", required=True,
+              help="Run ID from which to download")
 @click.option("--artifact-path", "-a",
-              help="Base location for runs to store artifact results. Artifacts will be stored ")
+              help="If specified, a path relative to the run's root directory to download")
 def download_artifacts(run_id, artifact_path):
     """
     Creates a new experiment in the configured tracking server.
