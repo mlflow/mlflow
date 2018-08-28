@@ -85,7 +85,7 @@ def _file_infos_to_json(file_infos):
               help="If specified, a path relative to the run's root directory to download")
 def download_artifacts(run_id, artifact_path):
     """
-    Download an artifact file or directory to a local directory. 
+    Download an artifact file or directory to a local directory.
     The output is the name of the file or directory on the local disk.
     """
     artifact_path = artifact_path if artifact_path is not None else ""
