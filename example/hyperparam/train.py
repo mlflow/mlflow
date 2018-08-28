@@ -42,6 +42,15 @@ def get_standardize_f(train):
 
 
 class MLflowCheckpoint(Callback):
+    """
+    Example of Keras MLflow logger.
+    Logs training metrics and final model with MLflow.
+
+    We log metrics provided by Keras during training and keep track of the best model (best loss
+    on validation dataset). Every improvement of the best model is also evaluated on the test set.
+
+    At the end of the training, log the best model with MLflow.
+    """
     def __init__(self, test_x, test_y, loss="rmse"):
         self._test_x = test_x
         self._test_y = test_y
@@ -54,9 +63,16 @@ class MLflowCheckpoint(Callback):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Log the best model at the end of the training run.
+        """
         mlflow.keras.log_model(self._best_model, "model")
 
     def on_epoch_end(self, epoch, logs=None):
+        """
+        Log Keras metrics with MLflow. If model improved on the validation data, evaluate it on
+        a test set and store it as the best model.
+        """
         if not logs:
             return
         train_loss = logs["loss"]
