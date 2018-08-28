@@ -21,7 +21,6 @@ class RunView extends Component {
     super(props);
     this.onClickExpander = this.onClickExpander.bind(this);
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
-    this.onSetRunName = this.onSetRunName.bind(this);
     this.state.showTags = getTagValues(props.tags).length > 0;
   }
 
@@ -84,13 +83,6 @@ class RunView extends Component {
     }
   }
 
-    onSetRunName(event) {
-      event.preventDefault();
-      if (event.target.value) {
-        this.props.onSetTag(Utils.getRunTagName(), event.target.value);
-      }
-    }
-
 
   render() {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
@@ -125,7 +117,7 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experiment={experiment} title={Utils.getRunDisplayName(this.props.tags, run.getRunUuid())}/>
+          <BreadcrumbTitle experiment={experiment} runUuids={[this.props.runUuid]} tags={this.props.tags} onSetTag={this.props.onSetTag}/>
         </div>
         <div className="run-info-container">
           <div className="run-info">
@@ -153,16 +145,6 @@ class RunView extends Component {
           <div className="run-info">
             <span className="metadata-header">User: </span>
             <span className="metadata-info">{run.getUserId()}</span>
-          </div>
-          <div className="run-info">
-            <span className="metadata-header">Run Name: </span>
-            <div className="filter-wrapper">
-              <input type="text"
-                     placeholder={Utils.getRunName(this.props.tags)}
-                     value={this.state.runName}
-                     onBlur={this.onSetRunName}
-              />
-            </div>
           </div>
           {duration !== null ?
             <div className="run-info">
