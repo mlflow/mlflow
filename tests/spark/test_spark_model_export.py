@@ -293,6 +293,7 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
                          path=model_path,
                          sample_input=spark_model_iris.training_df)
 
+
 @pytest.mark.large
 def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
         spark_model_iris, model_path, spark_conda_env):
@@ -318,6 +319,7 @@ def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
     assert len(mleap_preds) == len(sparkml_preds)
     assert not any([type(mleap_preds[i]) != type(sparkml_preds[i]) 
         for i in range(len(mleap_preds))])
+
 
 def test_container_scoring_responds_to_bad_inputs_using_error_message_with_mleap_flavor(
         spark_model_iris, model_path):
