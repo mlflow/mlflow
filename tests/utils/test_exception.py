@@ -1,4 +1,4 @@
-from mlflow.exception import ExecutionException
+from mlflow.exceptions import ExecutionException
 
 
 def test_execution_exception_string_repr():
