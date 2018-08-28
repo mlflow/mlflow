@@ -4,6 +4,8 @@ import mock
 import os
 import shutil
 
+from databricks_cli.configure.provider import DatabricksConfig
+import databricks_cli
 import pytest
 
 import mlflow
@@ -19,7 +21,7 @@ from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-imp
 @pytest.fixture()
 def runs_cancel_mock():
     """Mocks the Jobs Runs Cancel API request"""
-    with mock.patch("mlflow.projects.databricks.DatabricksSubmittedRun._jobs_runs_cancel")\
+    with mock.patch("mlflow.projects.databricks.DatabricksJobRunner.jobs_runs_cancel")\
             as runs_cancel_mock:
         runs_cancel_mock.return_value = None
         yield runs_cancel_mock
@@ -37,7 +39,7 @@ def runs_submit_mock():
 @pytest.fixture()
 def runs_get_mock():
     """Mocks the Jobs Runs Get API request"""
-    with mock.patch("mlflow.projects.databricks.DatabricksSubmittedRun._jobs_runs_get")\
+    with mock.patch("mlflow.projects.databricks.DatabricksJobRunner.jobs_runs_get")\
             as runs_get_mock:
         yield runs_get_mock
 
@@ -111,7 +113,7 @@ def test_upload_project_to_dbfs(
         upload_to_dbfs_mock):  # pylint: disable=unused-argument
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
-    runner = DatabricksJobRunner(profile="DEFAULT")
+    runner = DatabricksJobRunner(databricks_profile="DEFAULT")
     dbfs_uri = runner._upload_project_to_dbfs(
         project_dir=TEST_PROJECT_DIR, experiment_id=0)
     # Get expected tar
@@ -129,7 +131,7 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
     with mock.patch("mlflow.projects.databricks.DatabricksJobRunner._upload_to_dbfs")\
             as upload_to_dbfs_mock:
         dbfs_path_exists_mock.return_value = True
-        runner = DatabricksJobRunner(profile="DEFAULT")
+        runner = DatabricksJobRunner(databricks_profile="DEFAULT")
         runner._upload_project_to_dbfs(
             project_dir=TEST_PROJECT_DIR, experiment_id=0)
         assert upload_to_dbfs_mock.call_count == 0
@@ -142,7 +144,8 @@ def test_run_databricks_validations(
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
     with mock.patch("mlflow.projects.databricks.DatabricksJobRunner._check_auth_available"),\
-        mock.patch("mlflow.utils.rest_utils.databricks_api_request") as db_api_req_mock:
+        mock.patch("mlflow.projects.databricks.DatabricksJobRunner.databricks_api_request")\
+            as db_api_req_mock:
         # Test bad tracking URI
         tracking_uri_mock.return_value = tmpdir.strpath
         with pytest.raises(ExecutionException):
@@ -163,7 +166,7 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         # Test that validations pass with good tracking URIs
-        runner = DatabricksJobRunner(profile="DEFAULT")
+        runner = DatabricksJobRunner(databricks_profile="DEFAULT")
         runner._before_run_validations("http://", cluster_spec_mock)
         runner._before_run_validations("databricks", cluster_spec_mock)
 
@@ -213,3 +216,45 @@ def test_get_tracking_uri_for_run():
     mlflow.set_tracking_uri(None)
     with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
         assert mlflow.tracking.utils.get_tracking_uri() == "http://some-uri"
+
+
+class MockProfileConfigProvider:
+    def __init__(self, profile):
+        assert profile == "my-profile"
+
+    def get_config(self):
+        return DatabricksConfig("host", "user", "pass", None, insecure=False)
+
+
+@mock.patch('requests.request')
+@mock.patch('databricks_cli.configure.provider.get_config')
+@mock.patch.object(databricks_cli.configure.provider, 'ProfileConfigProvider',
+                   MockProfileConfigProvider)
+def test_databricks_http_request_integration(get_config, request):
+    """Confirms that the databricks http request params can in fact be used as an HTTP request"""
+    def confirm_request_params(**kwargs):
+        assert kwargs == {
+            'method': 'PUT',
+            'url': 'host/clusters/list',
+            'headers': {
+                'Authorization': 'Basic dXNlcjpwYXNz'
+            },
+            'verify': True,
+            'json': {'a': 'b'}
+        }
+        http_response = mock.MagicMock()
+        http_response.status_code = 200
+        http_response.text = '{"OK": "woo"}'
+        return http_response
+    request.side_effect = confirm_request_params
+    get_config.return_value = \
+        DatabricksConfig("host", "user", "pass", None, insecure=False)
+
+    response = DatabricksJobRunner(databricks_profile=None).databricks_api_request(
+        '/clusters/list', 'PUT', json={'a': 'b'})
+    assert response == {'OK': 'woo'}
+    get_config.reset_mock()
+    response = DatabricksJobRunner(databricks_profile="my-profile").databricks_api_request(
+        '/clusters/list', 'PUT', json={'a': 'b'})
+    assert response == {'OK': 'woo'}
+    assert get_config.call_count == 0

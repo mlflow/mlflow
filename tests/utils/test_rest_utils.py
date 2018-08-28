@@ -3,7 +3,6 @@ import mock
 import numpy
 import pytest
 
-import databricks_cli
 from databricks_cli.configure.provider import DatabricksConfig
 from mlflow.utils import rest_utils
 from mlflow.utils.rest_utils import NumpyEncoder
@@ -73,48 +72,6 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
     ProfileConfigProvider.return_value = mock_provider
     with pytest.raises(Exception):
         rest_utils.get_databricks_http_request_kwargs_or_fail()
-
-
-class MockProfileConfigProvider:
-    def __init__(self, profile):
-        assert profile == "my-profile"
-
-    def get_config(self):
-        return DatabricksConfig("host", "user", "pass", None, insecure=False)
-
-
-@mock.patch('requests.request')
-@mock.patch('databricks_cli.configure.provider.get_config')
-@mock.patch.object(databricks_cli.configure.provider, 'ProfileConfigProvider',
-                   MockProfileConfigProvider)
-def test_databricks_http_request_integration(get_config, request):
-    """Confirms that the databricks http request params can in fact be used as an HTTP request"""
-    def confirm_request_params(**kwargs):
-        assert kwargs == {
-            'method': 'PUT',
-            'url': 'host/api/2.0/clusters/list',
-            'headers': {
-                'Authorization': 'Basic dXNlcjpwYXNz'
-            },
-            'verify': True,
-            'json': {'a': 'b'}
-        }
-        http_response = mock.MagicMock()
-        http_response.status_code = 200
-        http_response.text = '{"OK": "woo"}'
-        return http_response
-    request.side_effect = confirm_request_params
-    get_config.return_value = \
-        DatabricksConfig("host", "user", "pass", None, insecure=False)
-
-    response = rest_utils.databricks_api_request('clusters/list', 'PUT',
-                                                 json={'a': 'b'})
-    assert response == {'OK': 'woo'}
-    get_config.reset_mock()
-    response = rest_utils.databricks_api_request('clusters/list', 'PUT',
-                                                 json={'a': 'b'}, profile="my-profile")
-    assert response == {'OK': 'woo'}
-    assert get_config.call_count == 0
 
 
 def test_numpy_encoder():

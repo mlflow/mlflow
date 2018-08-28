@@ -30,20 +30,32 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
 class DatabricksJobRunner(object):
-    """Helper class for running an MLflow project as a Databricks Job."""
-    def __init__(self, profile):
-        self.profile = profile
+    """
+    Helper class for running an MLflow project as a Databricks Job.
+    :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
+           authentication information when making Databricks API requests.
+    """
+    def __init__(self, databricks_profile):
+        self.databricks_profile = databricks_profile
+
+    def databricks_api_request(self, endpoint, method, **kwargs):
+        request_params = rest_utils.get_databricks_http_request_kwargs_or_fail(
+            self.databricks_profile)
+        request_params.update(kwargs)
+        response = rest_utils.http_request(
+            endpoint=endpoint, method=method, **request_params)
+        return json.loads(response.text)
 
     def _jobs_runs_submit(self, json):
-        return rest_utils.databricks_api_request(
-            endpoint="jobs/runs/submit", method="POST", json=json, profile=self.profile)
+        return self.databricks_api_request(
+            endpoint="/api/2.0/jobs/runs/submit", method="POST", json=json)
 
     def _check_auth_available(self):
         """
         Verifies that information for making API requests to Databricks is available to MLflow,
         raising an exception if not.
         """
-        rest_utils.get_databricks_http_request_kwargs_or_fail(self.profile)
+        rest_utils.get_databricks_http_request_kwargs_or_fail(self.databricks_profile)
 
     def _upload_to_dbfs(self, src_path, dbfs_fuse_uri):
         """
@@ -52,7 +64,8 @@ class DatabricksJobRunner(object):
         """
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
-        http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(self.profile)
+        http_request_kwargs = \
+            rest_utils.get_databricks_http_request_kwargs_or_fail(self.databricks_profile)
         with open(src_path, 'rb') as f:
             rest_utils.http_request(
                 endpoint=http_endpoint, method='POST', data=f, **http_request_kwargs)
@@ -63,9 +76,8 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile.
         """
         dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
-        json_response_obj = rest_utils.databricks_api_request(
-            endpoint="dbfs/get-status", method="GET", json={"path": dbfs_path},
-            profile=self.profile)
+        json_response_obj = self.databricks_api_request(
+            endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": dbfs_path})
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
         if error_code_field in json_response_obj:
@@ -169,6 +181,34 @@ class DatabricksJobRunner(object):
         command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
 
+    def _get_status(self, databricks_run_id):
+        run_state = self.get_run_result_state(databricks_run_id)
+        if run_state is None:
+            return RunStatus.RUNNING
+        if run_state == "SUCCESS":
+            return RunStatus.FINISHED
+        return RunStatus.FAILED
+
+    def get_status(self, databricks_run_id):
+        return RunStatus.to_string(self._get_status(databricks_run_id))
+
+    def get_run_result_state(self, databricks_run_id):
+        """
+        Returns the run result state (string) of the Databricks run with the passed-in ID, or None
+        if the run is still active. See possible values at
+        https://docs.databricks.com/api/latest/jobs.html#runresultstate.
+        """
+        res = self.jobs_runs_get(databricks_run_id)
+        return res["state"].get("result_state", None)
+
+    def jobs_runs_cancel(self, databricks_run_id):
+        return self.databricks_api_request(
+            endpoint="/api/2.0/jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
+
+    def jobs_runs_get(self, databricks_run_id):
+        return self.databricks_api_request(
+            endpoint="/api/2.0/jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
+
 
 def _get_tracking_uri_for_run():
     if not tracking.utils.is_tracking_uri_set():
@@ -232,10 +272,10 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     """
     profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
     run_id = remote_run.info.run_uuid
-    db_job_runner = DatabricksJobRunner(profile=profile)
+    db_job_runner = DatabricksJobRunner(databricks_profile=profile)
     db_run_id = db_job_runner.run_databricks(
         uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id)
-    submitted_run = DatabricksSubmittedRun(db_run_id, run_id, profile)
+    submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description()
     return submitted_run
 
@@ -245,61 +285,38 @@ class DatabricksSubmittedRun(SubmittedRun):
     Instance of SubmittedRun corresponding to a Databricks Job run launched to run an MLflow
     project. Note that run_id may be None, e.g. if we did not launch the run against a tracking
     server accessible to the local client.
+    :param databricks_run_id: Run ID of the launched Databricks Job.
+    :param mlflow_run_id: ID of the MLflow project run.
+    :param databricks_job_runner: Instance of ``DatabricksJobRunner`` used to make Databricks API
+                                  requests.
     """
-    def __init__(self, databricks_run_id, run_id, profile):
+    def __init__(self, databricks_run_id, mlflow_run_id, databricks_job_runner):
         super(DatabricksSubmittedRun, self).__init__()
         self._databricks_run_id = databricks_run_id
-        self._run_id = run_id
-        self._profile = profile
+        self._mlflow_run_id = mlflow_run_id
+        self._job_runner = databricks_job_runner
 
     def _print_description(self):
         eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
                "page URL... ===" % self._databricks_run_id)
-        run_info = self._jobs_runs_get(self._databricks_run_id)
+        run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         eprint("=== Check the run's status at %s ===" % jobs_page_url)
 
     @property
     def run_id(self):
-        return self._run_id
+        return self._mlflow_run_id
 
     def wait(self, sleep_interval=30):
-        result_state = self._get_run_result_state(self._databricks_run_id)
+        result_state = self._job_runner.get_run_result_state(self._databricks_run_id)
         while result_state is None:
             time.sleep(sleep_interval)
-            result_state = self._get_run_result_state(self._databricks_run_id)
+            result_state = self._job_runner.get_run_result_state(self._databricks_run_id)
         return result_state == "SUCCESS"
 
     def cancel(self):
-        self._jobs_runs_cancel(self._databricks_run_id)
+        self._job_runner.jobs_runs_cancel(self._databricks_run_id)
         self.wait()
 
-    def _get_status(self):
-        run_state = self._get_run_result_state(self._databricks_run_id)
-        if run_state is None:
-            return RunStatus.RUNNING
-        if run_state == "SUCCESS":
-            return RunStatus.FINISHED
-        return RunStatus.FAILED
-
     def get_status(self):
-        return RunStatus.to_string(self._get_status())
-
-    def _get_run_result_state(self, databricks_run_id):
-        """
-        Returns the run result state (string) of the Databricks run with the passed-in ID, or None
-        if the run is still active. See possible values at
-        https://docs.databricks.com/api/latest/jobs.html#runresultstate.
-        """
-        res = self._jobs_runs_get(databricks_run_id)
-        return res["state"].get("result_state", None)
-
-    def _jobs_runs_cancel(self, databricks_run_id):
-        return rest_utils.databricks_api_request(
-            endpoint="jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id},
-            profile=self._profile)
-
-    def _jobs_runs_get(self, databricks_run_id):
-        return rest_utils.databricks_api_request(
-            endpoint="jobs/runs/get", method="GET", json={"run_id": databricks_run_id},
-            profile=self._profile)
+        return self._job_runner.get_status(self._databricks_run_id)
