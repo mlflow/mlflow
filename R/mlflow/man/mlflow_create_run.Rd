@@ -7,8 +7,7 @@
 mlflow_create_run(user_id = NULL, run_name = NULL,
   source_type = NULL, source_name = NULL, status = NULL,
   start_time = NULL, end_time = NULL, source_version = NULL,
-  artifact_uri = NULL, entry_point_name = NULL, run_tags = NULL,
-  experiment_id = NULL)
+  entry_point_name = NULL, tags = NULL, experiment_id = NULL)
 }
 \arguments{
 \item{user_id}{User ID or LDAP for the user executing the run.}
@@ -27,13 +26,9 @@ mlflow_create_run(user_id = NULL, run_name = NULL,
 
 \item{source_version}{Git version of the source code used to create run.}
 
-\item{artifact_uri}{URI of the directory where artifacts should be uploaded This can be a local path (starting with “/”),
-or a distributed file system (DFS) path, like s3://bucket/directory or dbfs:/my/directory. If not set, the local ./mlruns
-directory will be chosen by default.}
-
 \item{entry_point_name}{Name of the entry point for the run.}
 
-\item{run_tags}{Additional metadata for run in key-value pairs.}
+\item{tags}{Additional metadata for run in key-value pairs.}
 
 \item{experiment_id}{Unique identifier for the associated experiment.}
 }

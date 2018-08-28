@@ -30,6 +30,8 @@ mlflow_list_experiments <- function() {
 #'
 #' @param name The name of the experiment to create.
 #' @param activate Whether to set the created experiment as the active experiment. Defaults to `TRUE`.
+#' @param artifact_location Location where all artifacts for this experiment are stored. If
+#'   not provided, the remote server will select an appropriate default.
 #'
 #' @examples
 #' \dontrun{
@@ -45,13 +47,16 @@ mlflow_list_experiments <- function() {
 #' }
 #'
 #' @export
-mlflow_create_experiment <- function(name, activate = TRUE) {
+mlflow_create_experiment <- function(name, artifact_location = NULL, activate = TRUE) {
   experiments <- mlflow_list_experiments()
   experiment_id <- if (name %in% experiments$name) {
-    message("Experiment with name ", name, " already exists.")
+    message("Experiment with name \"", name, "\" already exists.")
     experiments[experiments$name == name, ]$experiment_id
   } else {
-    response <- mlflow_rest("experiments", "create", verb = "POST", data = list(name = name))
+    response <- mlflow_rest(
+      "experiments", "create", verb = "POST",
+      data = list(name = name, artifact_location = artifact_location)
+    )
     response$experiment_id
   }
 
@@ -85,19 +90,20 @@ mlflow_get_experiment <- function(experiment_id) {
 #' @param start_time Unix timestamp of when the run started in milliseconds.
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @param source_version Git version of the source code used to create run.
-#' @param artifact_uri URI of the directory where artifacts should be uploaded This can be a local path (starting with “/”),
-#'   or a distributed file system (DFS) path, like s3://bucket/directory or dbfs:/my/directory. If not set, the local ./mlruns
-#'   directory will be chosen by default.
 #' @param entry_point_name Name of the entry point for the run.
-#' @param run_tags Additional metadata for run in key-value pairs.
+#' @param tags Additional metadata for run in key-value pairs.
 #' @export
 mlflow_create_run <- function(user_id = NULL,
                               run_name = NULL, source_type = NULL, source_name = NULL,
                               status = NULL, start_time = NULL, end_time = NULL,
-                              source_version = NULL, artifact_uri = NULL, entry_point_name = NULL,
-                              run_tags = NULL, experiment_id = NULL) {
+                              source_version = NULL, entry_point_name = NULL,
+                              tags = NULL, experiment_id = NULL) {
   experiment_id <- experiment_id %||% mlflow_active_experiment()
   start_time <- start_time %||% current_time()
+
+  tags <- if (!is.null(tags)) tags %>%
+    purrr::imap(~ list(key = .y, value = .x)) %>%
+    unname()
 
   response <- mlflow_rest("runs", "create", verb = "POST", data = list(
     experiment_id = experiment_id,
@@ -109,9 +115,8 @@ mlflow_create_run <- function(user_id = NULL,
     start_time = start_time,
     end_time = end_time,
     source_version = source_version,
-    artifact_uri = artifact_uri,
     entry_point_name = entry_point_name,
-    run_tags = run_tags
+    tags = tags
   ))
 
   as.data.frame(response$run$info, stringsAsFactors = FALSE)
@@ -126,8 +131,9 @@ mlflow_create_run <- function(user_id = NULL,
 #' @export
 mlflow_get_run <- function(run_uuid) {
   response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
-  run <- Filter(length, response$run)
-  lapply(run, as.data.frame, stringsAsFactors = FALSE)
+  run <- purrr::compact(response$run)
+  run %>%
+    purrr::map_at("info", as.data.frame, stringsAsFactors = FALSE)
 }
 
 #' Log Metric

@@ -4,10 +4,14 @@
 \alias{mlflow_create_experiment}
 \title{Create Experiment}
 \usage{
-mlflow_create_experiment(name, activate = TRUE)
+mlflow_create_experiment(name, artifact_location = NULL,
+  activate = TRUE)
 }
 \arguments{
 \item{name}{The name of the experiment to create.}
+
+\item{artifact_location}{Location where all artifacts for this experiment are stored. If
+not provided, the remote server will select an appropriate default.}
 
 \item{activate}{Whether to set the created experiment as the active experiment. Defaults to `TRUE`.}
 }
