@@ -1,6 +1,5 @@
 import base64
 import time
-from json import loads
 from json import JSONEncoder
 
 import numpy
@@ -65,16 +64,6 @@ def get_databricks_http_request_kwargs_or_fail(profile=None):
         'headers': headers,
         'verify': verify,
     }
-
-
-def databricks_api_request(endpoint, method, json=None):
-    final_endpoint = "/api/2.0/%s" % endpoint
-    # Warning: before refactoring this to take arbitrary databricks profiles, we must also
-    # refactor the logic to set "mlflow.databricks.webappURL" in mlflow/projects/databricks.py
-    # to respect the profile as well.
-    request_params = get_databricks_http_request_kwargs_or_fail()
-    response = http_request(endpoint=final_endpoint, method=method, json=json, **request_params)
-    return loads(response.text)
 
 
 def http_request(hostname, endpoint, retries=3, retry_interval=3, **kwargs):
