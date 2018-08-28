@@ -191,9 +191,8 @@ public class ScoringServer {
             String.format(
                 "Received a request with an unsupported content type: %s", requestContentType));
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        responseContent =
-            getErrorResponseJson(
-                "Invocations requests must have a content header of type `application/json` or `text/csv`");
+        responseContent = getErrorResponseJson(
+            "Requests must have a content header of type `application/json` or `text/csv`");
       } catch (Exception e) {
         logger.error("An unknown error occurred while evaluating the prediction request.", e);
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

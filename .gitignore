@@ -85,3 +85,6 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# java targets
+target/
