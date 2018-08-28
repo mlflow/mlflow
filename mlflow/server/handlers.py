@@ -67,7 +67,7 @@ def get_handler(request_class):
     return HANDLERS.get(request_class, _not_implemented)
 
 
-_TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'json', 'js', 'py',
+_TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
                     'csv', 'md', 'rst', 'MLmodel', 'MLproject']
 
 
