@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom';
 import Routes from "../Routes";
 import Utils from '../utils/Utils';
 import DropdownMenuView from './DropdownMenuView';
+import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
+import { connect } from 'react-redux';
 
 /**
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
@@ -14,13 +16,13 @@ import DropdownMenuView from './DropdownMenuView';
 const DROPDOWN_MENU = 'dropdownMenu';
 
 
-export default class BreadcrumbTitle extends Component {
+class BreadcrumbTitle extends Component {
   constructor(props) {
     super(props);
     this.onSetRunName = this.onSetRunName.bind(this);
-    debugger;
     this.onSetTag = this.props.onSetTag.bind(this);
-    this.menuShowing = false;
+    // TODO do we need this here and below?
+    this.state.showMenu = true;
   }
   // title={Utils.getRunDisplayName(this.props.tags, run.getRunUuid())}
   static propTypes = {
@@ -29,6 +31,12 @@ export default class BreadcrumbTitle extends Component {
     // TODO this might need to be an array for multiple runs?
     tags: PropTypes.object,
     onSetTag: PropTypes.func,
+  };
+
+  state = {
+      showMenu: true,
+      above: false,
+      dropdownHeight: 0,
   };
 
   onSetRunName(event) {
@@ -43,7 +51,7 @@ export default class BreadcrumbTitle extends Component {
    **/
   hideMenu() {
     this.setState({
-      menuShowing: null,
+      showMenu: true,
       above: false,
       dropdownHeight: 0,
     });
@@ -94,11 +102,7 @@ export default class BreadcrumbTitle extends Component {
           <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
             {Utils.getRunDisplayName(this.props.tags, runUuids[0])}
           </Link>
-          {this.state.menuShowing ?
-            this.renderDropdown(this.state.menuShowing.model, this.state.menuShowing.position,
-              this.state.above, this.state.dropdownHeight) :
-            null}
-
+          <button>Hi from sid</button>
         </div>
         :
         <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
@@ -117,3 +121,18 @@ export default class BreadcrumbTitle extends Component {
     );
   }
 }
+
+
+const mapStateToProps = (state, ownProps) => {
+  const { experimentId, runUuids, onSetTag } = ownProps;
+  const experiment = getExperiment(experimentId, state);
+  // TODO handle array
+  debugger;
+  const params = getParams(runUuids[0], state);
+  const tags = getRunTags(runUuids[0], state);
+  const run = getRunInfo(runUuids[0], state);
+  return { run, experiment, params, tags };
+};
+
+
+export default connect(mapStateToProps)(BreadcrumbTitle);

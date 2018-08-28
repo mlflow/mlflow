@@ -117,7 +117,7 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experiment={experiment} runUuids={[this.props.runUuid]} tags={this.props.tags} onSetTag={this.props.onSetTag}/>
+          <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]} onSetTag={this.props.onSetTag}/>
         </div>
         <div className="run-info-container">
           <div className="run-info">

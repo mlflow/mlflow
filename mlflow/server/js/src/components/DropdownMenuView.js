@@ -45,12 +45,12 @@ export default class DropdownMenuView extends Component {
     this.documentClickHandler = function(e) {
       const ignoreClasses = ['dropdown-menu']
         .concat(self.props.ignoreClickClasses ? self.props.ignoreClickClasses : []);
-      const ignore = _.some(ignoreClasses, function(cls) {
-        return $(e.target).closest('.' + cls).length !== 0;
-      });
-      if (!ignore) {
+//      const ignore = _.some(ignoreClasses, function(cls) {
+//        return $(e.target).closest('.' + cls).length !== 0;
+//      });
+//      if (!ignore) {
         self.props.outsideClickHandler();
-      }
+//      }
       return true;
     };
 
@@ -65,7 +65,7 @@ export default class DropdownMenuView extends Component {
   render() {
     // Wrap each passed in item in a <li>
     let key = 0;
-    const items = _.map(this.props.getItems(), function(item) {
+    const items = this.props.getItems().map(function(item) {
       key++;
       return (<li key={key}>{item}</li>);
     });
