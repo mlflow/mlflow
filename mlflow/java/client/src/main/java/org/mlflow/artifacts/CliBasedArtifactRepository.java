@@ -106,7 +106,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     checkMlflowAccessible();
     String tag = "download artifacts for " + getTargetIdentifier(artifactPath);
     List<String> command = appendRunIdArtifactPath(
-      Lists.newArrayList(mlflowExecutable, "artifacts", "download-artifacts"), runId, artifactPath);
+      Lists.newArrayList(mlflowExecutable, "artifacts", "download"), runId, artifactPath);
     String localPath = forkProcess(command, tag).trim();
     return new File(localPath);
   }
