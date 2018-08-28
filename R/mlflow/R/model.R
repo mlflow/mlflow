@@ -3,35 +3,20 @@
 #' Saves model in MLflow's format that can later be used
 #' for prediction and serving.
 #'
-#' @param f The serving function that will perform a prediction.
+#' @param fn The serving function that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
 #'
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(f, path = "model") {
+mlflow_save_model <- function(fn, path = "model") {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
-  context_names <- names(formals(f))[2:length(formals(f))]
-
-  context <- lapply(
-    context_names,
-    function(n) get0(n) %||% dynGet(n)
-  )
-
-  names(context) <- context_names
-
-  model_raw <- serialize(
-    list(
-      r_function = f,
-      context = context
-    ),
-    NULL
-  )
+  serialized <- serialize(fn, NULL)
 
   saveRDS(
-    model_raw,
+    serialized,
     file.path(path, "r_model.bin")
   )
 
@@ -56,10 +41,6 @@ mlflow_load_model <- function(model_dir) {
     stop("Model must define r_function to be used from R.")
 
   unserialize(readRDS(fs::path(model_dir, spec$flavors$r_function$model)))
-}
-
-mlflow_predict_model <- function(model, df) {
-  do.call(model$r_function, args = model$context)
 }
 
 #' Predict using RFunc MLflow Model
@@ -108,7 +89,7 @@ mlflow_rfunc_predict <- function(
     stop("Could not load data as a data frame.")
 
   model <- mlflow_load_model(model_dir)
-  prediction <- mlflow_predict_model(model, data)
+  prediction <- model(data)
 
   if (is.null(output_file)) {
     if (!interactive()) message(prediction)
