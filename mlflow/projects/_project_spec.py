@@ -83,6 +83,18 @@ class EntryPoint(object):
                 "No value given for missing parameters: %s" %
                 ", ".join(["'%s'" % name for name in missing_params]))
 
+    def final_parameters(self, user_parameters):
+        final_params = {}
+        for name, param_obj in self.parameters.items():
+            if name in user_parameters:
+                final_params[name] = user_parameters[name]
+            else:
+                final_params[name] = param_obj.default
+        for key, value in user_parameters.items():
+            if key not in final_params:
+                final_params[key] = value
+        return final_params
+
     def compute_parameters(self, user_parameters, storage_dir):
         """
         Given a dict mapping user-specified param names to values, computes parameters to
