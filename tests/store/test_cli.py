@@ -1,3 +1,5 @@
+import json
+
 from mlflow.entities import FileInfo
 from mlflow.store.cli import _file_infos_to_json
 
@@ -8,13 +10,11 @@ def test_file_info_to_json():
         FileInfo("/my/dir", True, None),
     ]
     info_str = _file_infos_to_json(file_infos)
-    assert info_str == (
-        '[{\n' +
-        '  "path": "/my/file",\n' +
-        '  "is_dir": false,\n' +
-        '  "file_size": "123"\n' +
-        '}, {\n' +
-        '  "path": "/my/dir",\n' +
-        '  "is_dir": true\n' +
-        '}]'
-    )
+    assert json.loads(info_str) == [{
+        "path": "/my/file",
+        "is_dir": False,
+        "file_size": "123",
+    }, {
+        "path": "/my/dir",
+        "is_dir": True,
+    }]

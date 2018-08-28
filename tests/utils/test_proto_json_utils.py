@@ -1,17 +1,17 @@
+import json
+
 from mlflow.entities import Experiment
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
 
 def test_message_to_json():
-    json = message_to_json(Experiment(123, "name", "arty").to_proto())
-    assert json == (
-        '{\n' +
-        '  "experiment_id": "123",\n' +
-        '  "name": "name",\n' +
-        '  "artifact_location": "arty"\n' +
-        '}'
-    )
+    json_out = message_to_json(Experiment(123, "name", "arty").to_proto())
+    assert json.loads(json_out) == {
+        "experiment_id": "123",
+        "name": "name",
+        "artifact_location": "arty",
+    }
 
 
 def test_parse_dict():
