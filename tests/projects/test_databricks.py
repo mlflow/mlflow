@@ -12,6 +12,7 @@ import mlflow
 from mlflow.projects.databricks import DatabricksJobRunner
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
+from mlflow.tracking import get_service
 from mlflow.utils import file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
@@ -92,8 +93,11 @@ def before_run_validations_mock():  # pylint: disable=unused-argument
 
 @pytest.fixture()
 def set_tag_mock():
-    with mock.patch("mlflow.projects.databricks.set_tag") as m:
-        yield m
+    with mock.patch("mlflow.projects.databricks.tracking.get_service") as m:
+        mlflow_service_mock = mock.Mock(wraps=get_service())
+        m.return_value = mlflow_service_mock
+        yield mlflow_service_mock.set_tag
+
 
 
 @pytest.fixture()
@@ -203,14 +207,14 @@ def test_run_databricks(
         assert runs_submit_mock.call_count == 1
         assert set_tag_mock.call_count == 3
         set_tag_args, _ = set_tag_mock.call_args_list[0]
-        assert set_tag_args[0] == MLFLOW_DATABRICKS_RUN_URL
-        assert set_tag_args[1] == 'test_url'
+        assert set_tag_args[1] == MLFLOW_DATABRICKS_RUN_URL
+        assert set_tag_args[2] == 'test_url'
         set_tag_args, _ = set_tag_mock.call_args_list[1]
-        assert set_tag_args[0] == MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID
-        assert set_tag_args[1] == '-1'
+        assert set_tag_args[1] == MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID
+        assert set_tag_args[2] == '-1'
         set_tag_args, _ = set_tag_mock.call_args_list[2]
-        assert set_tag_args[0] == MLFLOW_DATABRICKS_WEBAPP_URL
-        assert set_tag_args[1] == 'test-host'
+        assert set_tag_args[1] == MLFLOW_DATABRICKS_WEBAPP_URL
+        assert set_tag_args[2] == 'test-host'
         set_tag_mock.reset_mock()
         runs_submit_mock.reset_mock()
         validate_exit_status(submitted_run.get_status(), expected_status)
