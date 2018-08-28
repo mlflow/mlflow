@@ -35,6 +35,6 @@ npm i
 ./lint.sh
 npm test -- --coverage
 cd ../../java
-mvn clean test
+mvn clean package
 cd ../..
 codecov -e TOXENV
