@@ -18,6 +18,13 @@ _REMOTE_URI_PREFIX = "http://"
 _tracking_uri = None
 
 
+def is_tracking_uri_set():
+    """Returns True if the tracking URI has been set, False otherwise."""
+    if _tracking_uri or env.get_env(_TRACKING_URI_ENV_VAR):
+        return True
+    return False
+
+
 def set_tracking_uri(uri):
     """
     Set the tracking server URI to the passed-in value. This does not affect the

@@ -59,7 +59,7 @@ class MLflowService(object):
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_runs_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id):
         """:return: list of :py:class:`mlflow.entities.RunInfo`"""
         return self.store.list_run_infos(experiment_id)
 

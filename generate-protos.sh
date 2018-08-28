@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 PROTOC_VERSION="$(protoc --version)"
 if [ "$PROTOC_VERSION" != "libprotoc 3.6.0" ]; then
 	echo "Must have libprotoc version 3.6.0."
@@ -8,9 +8,12 @@ if [ "$PROTOC_VERSION" != "libprotoc 3.6.0" ]; then
 	exit 1
 fi
 PROTOS="mlflow/protos"
-protoc -I="$PROTOS" --python_out="$PROTOS" "$PROTOS"/databricks.proto \
-	"$PROTOS"/service.proto \
-	"$PROTOS"/scalapb/scalapb.proto
+protoc -I="$PROTOS" \
+    --python_out="$PROTOS" \
+    --java_out="mlflow/java/client/src/main/java" \
+    "$PROTOS"/databricks.proto \
+    "$PROTOS"/service.proto \
+    "$PROTOS"/scalapb/scalapb.proto
 
 OLD_SCALAPB="from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2"
 NEW_SCALAPB="from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2"

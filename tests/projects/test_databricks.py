@@ -205,3 +205,16 @@ def test_fetch_and_clean_project(tmpdir):
     for fetched_dir in [fetched0, fetched1]:
         with open(os.path.join(fetched_dir, "MLproject")) as handle:
             assert handle.read() == "Hello"
+
+
+def test_get_tracking_uri_for_run():
+    with mock.patch.dict(os.environ, {}):
+        mlflow.set_tracking_uri(None)
+        assert databricks._get_tracking_uri_for_run() == "databricks"
+        mlflow.set_tracking_uri("http://some-uri")
+        assert databricks._get_tracking_uri_for_run() == "http://some-uri"
+        mlflow.set_tracking_uri("databricks://profile")
+        assert databricks._get_tracking_uri_for_run() == "databricks"
+    mlflow.set_tracking_uri(None)
+    with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
+        assert mlflow.tracking.utils.get_tracking_uri() == "http://some-uri"
