@@ -1,5 +1,9 @@
 import dateFormat from 'dateformat';
 import React from 'react';
+import notebookSvg from '../static/notebook.svg';
+import emptySvg from '../static/empty.svg';
+import laptopSvg from '../static/laptop.svg';
+import projectSvg from '../static/project.svg';
 
 class Utils {
   /**
@@ -94,16 +98,65 @@ class Utils {
     return /[@/]github.com[:/]([^/.]+)\/([^/.]+)/;
   }
 
-  static renderSource(run) {
+  /**
+   * Renders the source name and entry point into an HTML element. Used for display.
+   * @param run MlflowMessages.RunInfo
+   * @param tags Object containing tag key value pairs.
+   */
+  static renderSource(run, tags) {
+    let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
-      let res = Utils.dropExtension(Utils.baseName(run.source_name));
-      if (run.entry_point && run.entry_point !== "main") {
-        res += ":" + run.entry_point;
-      }
       const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
         const url = "https://github.com/" + match[1] + "/" + match[2];
         res = <a href={url}>{res}</a>;
+      }
+      return res;
+    } else if (run.source_type === "NOTEBOOK") {
+      const notebookIdTag = 'mlflow.databricks.notebookID';
+      const webappUrlTag = 'mlflow.databricks.webappURL';
+      const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
+      const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
+      if (notebookId && webappUrl) {
+        res = (<a title={run.source_name} href={`${webappUrl}/#notebook/${notebookId}`}>
+          {Utils.baseName(run.source_name)}
+        </a>);
+      }
+      return res;
+    } else {
+      return res;
+    }
+  }
+
+  /**
+   * Returns an svg with some styling applied.
+   */
+  static renderSourceTypeIcon(sourceType) {
+    const imageStyle = {
+      height: '20px',
+      position: 'relative',
+      top: '-1px',
+      right: '3px',
+    };
+    if (sourceType === "NOTEBOOK") {
+      return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
+    } else if (sourceType === "LOCAL") {
+      return <img title="Local Source" style={imageStyle} src={laptopSvg} />;
+    } else if (sourceType === "PROJECT") {
+      return <img title="Project" style={imageStyle} src={projectSvg} />;
+    }
+    return <img style={imageStyle} src={emptySvg} />;
+  }
+
+  /**
+   * Renders the source name and entry point into a string. Used for sorting.
+   * @param run MlflowMessages.RunInfo
+   */
+  static formatSource(run) {
+    if (run.source_type === "PROJECT") {
+      let res = Utils.dropExtension(Utils.baseName(run.source_name));
+      if (run.entry_point_name && run.entry_point_name !== "main") {
+        res += ":" + run.entry_point_name;
       }
       return res;
     } else {

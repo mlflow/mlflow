@@ -10,7 +10,7 @@ import pytest
 
 import mlflow
 from mlflow.entities import RunStatus
-from mlflow.utils.exception import ExecutionException
+from mlflow.exceptions import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 

@@ -1,0 +1,13 @@
+{
+  "name": "StringIndexer_4cd08b474f8588514dbe",
+  "shape": {
+    "inputs": [{
+      "port": "input",
+      "name": "topic"
+    }],
+    "outputs": [{
+      "port": "output",
+      "name": "label"
+    }]
+  }
+}

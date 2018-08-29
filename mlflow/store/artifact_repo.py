@@ -52,6 +52,7 @@ class ArtifactRepository:
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
+        The caller is responsible for managing the lifecycle of the downloaded artifacts.
         :param path: Relative source path to the desired artifact
         :return: Full path desired artifact.
         """
