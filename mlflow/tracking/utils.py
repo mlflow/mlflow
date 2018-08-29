@@ -100,7 +100,7 @@ def _get_file_store(store_uri):
 
 def _get_rest_store(store_uri):
     def get_default_host_creds():
-        rest_utils.MlflowHostCreds(
+        return rest_utils.MlflowHostCreds(
             host=store_uri,
             username=os.environ.get("MLFLOW_TRACKING_USERNAME"),
             password=os.environ.get("MLFLOW_TRACKING_PASSWORD"),
