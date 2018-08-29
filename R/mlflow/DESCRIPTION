@@ -38,7 +38,8 @@ Imports:
   yaml
 RoxygenNote: 6.1.0
 Suggests: 
-  testthat,
-  lintr
+  covr,
+  lintr,
+  testthat
 Remotes: 
   rstudio/forge

@@ -8,6 +8,33 @@ matrix:
   include:
     - python: 2.7
     - python: 3.6
+    - language: r
+      dist: trusty
+      cache: packages
+      before_install:
+        - export NOT_CRAN=true
+        - export MLFLOW_HOME=$(pwd)
+        - cd R/mlflow
+        - Rscript -e 'install.packages(devtools);'
+        - |
+          Rscript -e ''\
+          'deps <- devtools::dev_package_deps(dependencies = NA);'\
+          'devtools::install_deps(dependencies = TRUE);'\
+          'if (!all(deps$package %in% installed.packages())) {'\
+          ' message("missing: ", paste(setdiff(deps$package, installed.packages()), collapse=", "));'\
+          ' q(status = 1, save = "no")'\
+          '}'
+        - cd ../..
+      script:
+        - cd R/mlflow
+        - R CMD build .
+        - R CMD check --no-build-vignettes --no-manual --no-tests cloudml*tar.gz
+        - cd tests
+        - export LINTR_COMMENT_BOT=false
+        - Rscript ../.travis.R
+      after_success:
+        - Rscript -e 'covr::codecov()'
+
 install:
   - sudo mkdir -p /travis-install
   - sudo chown travis /travis-install
