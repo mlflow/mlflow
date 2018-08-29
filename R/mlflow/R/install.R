@@ -19,10 +19,25 @@ mlflow_install <- function() {
     "mlflow"
   )
 
-  if (!"r-mlflow" %in% conda_list()$name) conda_create("r-mlflow")
-  conda_install(packages, envname = "r-mlflow", pip = TRUE)
+  if (!"r-mlflow" %in% conda_list()$name) {
+    conda_create("r-mlflow")
+    conda_install(packages, envname = "r-mlflow", pip = TRUE)
+  }
 }
 
-mlflow_is_installed <- function() {
-  python_conda_installed() && "r-mlflow" %in% conda_list()$name
+#' Uninstalls MLflow.
+#'
+#' Uninstalls MLflow by removing the Conda environment.
+#'
+#' @examples
+#' \dontrun{
+#' library(mlflow)
+#' mlflow_install()
+#' mlflow_uninstall()
+#' }
+#'
+#' @importFrom reticulate conda_install conda_create conda_list
+#' @export
+mlflow_uninstall <- function() {
+  reticulate::conda_remove(envname = "r-mlflow")
 }
