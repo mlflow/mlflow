@@ -20,6 +20,7 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
+import mlflow.store.cli
 
 
 @click.group()
@@ -196,6 +197,7 @@ cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.experiments.commands)
+cli.add_command(mlflow.store.cli.commands)
 
 if __name__ == '__main__':
     cli()
