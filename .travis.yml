@@ -13,17 +13,9 @@ matrix:
       cache: packages
       before_install:
         - export NOT_CRAN=true
-        - export MLFLOW_HOME=$(pwd)
         - cd R/mlflow
-        - Rscript -e 'install.packages(devtools);'
-        - |
-          Rscript -e ''\
-          'deps <- devtools::dev_package_deps(dependencies = NA);'\
-          'devtools::install_deps(dependencies = TRUE);'\
-          'if (!all(deps$package %in% installed.packages())) {'\
-          ' message("missing: ", paste(setdiff(deps$package, installed.packages()), collapse=", "));'\
-          ' q(status = 1, save = "no")'\
-          '}'
+        - Rscript -e 'install.packages("devtools")'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
         - cd ../..
       script:
         - cd R/mlflow
