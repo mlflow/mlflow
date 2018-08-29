@@ -4,9 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 
-import org.ini4j.ConfigParser;
+import org.ini4j.Ini;
 import org.ini4j.Profile;
-import org.ini4j.PyIniConfigParserUtils;
 
 public class DatabricksConfigHostCredsProvider implements MlflowHostCredsProvider {
   private static final String CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE";
@@ -41,22 +40,22 @@ public class DatabricksConfigHostCredsProvider implements MlflowHostCredsProvide
         " (" + basePath + "). Please run 'databricks configure' using the Databricks CLI.");
     }
 
-    ConfigParser config = new ConfigParser();
+    Ini ini;
     try {
-      config.read(basePath);
+      ini = new Ini(new File(basePath));
     } catch (IOException e) {
       throw new IllegalStateException("Failed to load databrickscfg file at " + basePath, e);
     }
 
     Profile.Section section;
     if (profile == null) {
-      section = PyIniConfigParserUtils.getDefaultSection(config);
+      section = ini.get("DEFAULT");
       if (section == null) {
         throw new IllegalStateException("Could not find 'DEFAULT' section within config file" +
           " (" + basePath + "). Please run 'databricks configure' using the Databricks CLI.");
       }
     } else {
-      section = PyIniConfigParserUtils.getSection(config, profile);
+      section = ini.get(profile);
       if (section == null) {
         throw new IllegalStateException("Could not find '" + profile + "' section within config" +
           " file  (" + basePath + "). Please run 'databricks configure --profile " + profile + "'" +

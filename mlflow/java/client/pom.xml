@@ -44,6 +44,7 @@
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
@@ -92,7 +93,6 @@
               <include>commons-io:commons-io</include>
               <include>commons-logging:commons-logging</include>
               <include>org.apache.httpcomponents:httpcore</include>
-              <include>org.yaml:snakeyaml</include>
             </includes>
           </artifactSet>
           <relocations>
