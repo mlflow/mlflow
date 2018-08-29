@@ -3,8 +3,7 @@ package org.mlflow.tracking;
 import org.apache.http.client.utils.URIBuilder;
 
 import org.mlflow.api.proto.Service.*;
-import org.mlflow.tracking.creds.BasicMlflowHostCreds;
-import org.mlflow.tracking.creds.MlflowHostCredsProvider;
+import org.mlflow.tracking.creds.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -207,8 +206,20 @@ public class MlflowClient {
   private static MlflowHostCredsProvider getHostCredsProviderFromTrackingUri(String trackingUri) {
     URI uri = URI.create(trackingUri);
     MlflowHostCredsProvider provider;
+
     if ("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())) {
       provider = new BasicMlflowHostCreds(trackingUri);
+    } else if (trackingUri.equals("databricks")) {
+      MlflowHostCredsProvider profileProvider = new DatabricksConfigHostCredsProvider();
+      MlflowHostCredsProvider dynamicProvider =
+        DatabricksDynamicHostCredsProvider.createIfAvailable();
+      if (dynamicProvider != null) {
+        provider = new HostCredsProviderChain(dynamicProvider, profileProvider);
+      } else {
+        provider = profileProvider;
+      }
+    } else if ("databricks".equals(uri.getScheme())) {
+      provider = new DatabricksConfigHostCredsProvider(uri.getHost());
     } else if (uri.getScheme() == null || "file".equals(uri.getScheme())) {
       throw new IllegalArgumentException("Java Client currently does not support" +
         " local tracking URIs. Please point to a Tracking Server.");

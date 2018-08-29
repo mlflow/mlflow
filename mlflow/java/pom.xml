@@ -129,6 +129,11 @@
         <artifactId>javax.annotation-api</artifactId>
         <version>1.2</version>
       </dependency>
+      <dependency>
+        <groupId>org.ini4j</groupId>
+        <artifactId>ini4j</artifactId>
+        <version>0.5.4</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <build>

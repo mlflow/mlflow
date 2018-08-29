@@ -6,7 +6,7 @@ public class BasicMlflowHostCreds implements MlflowHostCreds, MlflowHostCredsPro
   private String username;
   private String password;
   private String token;
-  private boolean noTlsVerify;
+  private boolean shouldIgnoreTlsVerification;
 
   public BasicMlflowHostCreds(String host) {
     this.host = host;
@@ -28,12 +28,12 @@ public class BasicMlflowHostCreds implements MlflowHostCreds, MlflowHostCredsPro
       String username,
       String password,
       String token,
-      boolean noTlsVerify) {
+      boolean shouldIgnoreTlsVerification) {
     this.host = host;
     this.username = username;
     this.password = password;
     this.token = token;
-    this.noTlsVerify = noTlsVerify;
+    this.shouldIgnoreTlsVerification = shouldIgnoreTlsVerification;
   }
 
   @Override
@@ -58,7 +58,7 @@ public class BasicMlflowHostCreds implements MlflowHostCreds, MlflowHostCredsPro
 
   @Override
   public boolean shouldIgnoreTlsVerification() {
-    return noTlsVerify;
+    return shouldIgnoreTlsVerification;
   }
 
   @Override
