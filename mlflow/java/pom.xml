@@ -124,6 +124,11 @@
         <artifactId>protobuf-java-util</artifactId>
         <version>${protobuf.version}</version>
       </dependency>
+      <dependency>
+        <groupId>javax.annotation</groupId>
+        <artifactId>javax.annotation-api</artifactId>
+        <version>1.2</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <build>

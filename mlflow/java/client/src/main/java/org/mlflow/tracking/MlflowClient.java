@@ -16,10 +16,11 @@ import java.util.stream.Collectors;
  * Client to an MLflow Tracking Sever.
  */
 public class MlflowClient {
-  private static long DEFAULT_EXPERIMENT_ID = 0;
+  private static final long DEFAULT_EXPERIMENT_ID = 0;
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final MlflowHttpCaller httpCaller;
+  private final MlflowHostCredsProvider hostCredsProvider;
 
   /** Returns a default client based on the MLFLOW_TRACKING_URI environment variable. */
   public MlflowClient() {
@@ -36,7 +37,8 @@ public class MlflowClient {
    * {@link #MlflowClient()} ()} or {@link #MlflowClient(String)} if possible.
    */
   public MlflowClient(MlflowHostCredsProvider hostCredsProvider) {
-    httpCaller = new MlflowHttpCaller(hostCredsProvider);
+    this.hostCredsProvider = hostCredsProvider;
+    this.httpCaller = new MlflowHttpCaller(hostCredsProvider);
   }
 
   /** Returns the run associated with the id. */
@@ -165,6 +167,14 @@ public class MlflowClient {
    */
   public String doPost(String path, String json) {
     return httpCaller.post(path, json);
+  }
+
+  /**
+   * Returns the HostCredsProvider backing this MlflowClient.
+   * Intended for internal usage, and may be removed in future versions.
+   */
+  public MlflowHostCredsProvider getInternalHostCredsProvider() {
+    return hostCredsProvider;
   }
 
   private URIBuilder newURIBuilder(String base) {
