@@ -1,11 +1,11 @@
-### MLflow examples
+## MLflow examples
 
-## Hello World
-* `hello_world.py` is a basic example to introduce MLflow concepts.
-* `sklearn_logisic_regression.py` is a simple ML flow with hooks to training data to MLflow 
+### Quick Start examples
+* `quick_start/mlflow_tracking.py` is a basic example to introduce MLflow concepts.
+* `quick_start_ml/sklearn_logisic_regression.py` is a simple ML flow with hooks to training data to MLflow 
 tracking server.
 
-## MLflow Tutorials
+## Tutorials
 Various example that depict MLflow tracking, projects, and serving use cases.
 
 * `backend_store`: has a usage example of REST based backed store for tracking.
