@@ -49,7 +49,7 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
 
   run <- mlflow_get_run(create_run_response$run_uuid)
   run_info <- run$info
-  expect_identical(run_info$name, "run1")
+
   expect_identical(run_info$user_id, "user1")
   expect_true(setequal(
     run$data$tags %>%
