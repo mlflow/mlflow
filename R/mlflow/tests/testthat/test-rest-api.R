@@ -64,13 +64,39 @@ test_that("mlflow_log_param()/mlflow_get_param() work properly", {
   mlflow_disconnect()
   some_param <- mlflow_log_param("some_param", 42)
   expect_identical(some_param, 42)
-  expect_identical(mlflow_get_param("some_param"), list(some_param = "42"))
+  expect_identical(
+    mlflow_get_param("some_param"),
+    data.frame(key = "some_param", value = "42", stringsAsFactors = FALSE)
+  )
 })
 
 test_that("mlflow_get_param() requires `run_uuid` when there is no active run", {
   mlflow_disconnect()
   expect_error(
     mlflow_get_param("some_param"),
+    "`run_uuid` must be specified when there is no active run\\."
+  )
+})
+
+test_that("mlflow_log_metric()/mlflow_get_metric() work properly", {
+  mlflow_disconnect()
+  log_time <- mlflow:::current_time()
+  some_metric <- mlflow_log_metric("some_metric", 42, timestamp = log_time)
+  expect_identical(some_metric, 42)
+  expect_identical(
+    mlflow_get_metric("some_metric"),
+    data.frame(
+      key = "some_metric", value = 42,
+      timestamp = as.POSIXct(as.double(log_time) / 1000, origin = "1970-01-01"),
+      stringsAsFactors = FALSE
+    )
+  )
+})
+
+test_that("mlflow_get_metric() requires `run_uuid` when there is no active run", {
+  mlflow_disconnect()
+  expect_error(
+    mlflow_get_metric("some_metric"),
     "`run_uuid` must be specified when there is no active run\\."
   )
 })

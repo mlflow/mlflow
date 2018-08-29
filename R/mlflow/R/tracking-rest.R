@@ -201,9 +201,7 @@ mlflow_get_param <- function(param_name, run_uuid = NULL) {
     param_name = param_name
   ))
 
-  response %>%
-    purrr::map(~ rlang::set_names(list(.x$value), .x$key)) %>%
-    purrr::flatten()
+  as.data.frame(response$parameter, stringsAsFactors = FALSE)
 }
 
 #' Get Metric
@@ -215,13 +213,18 @@ mlflow_get_param <- function(param_name, run_uuid = NULL) {
 #' @param metric_key Name of the metric.
 #' @export
 mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  mlflow_get_or_create_active_connection()
+  run_uuid <- run_uuid %||%
+    mlflow_active_run()$run_info$run_uuid %||%
+    stop("`run_uuid` must be specified when there is no active run.")
+
   response <- mlflow_rest("metrics", "get", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
   ))
+
   metric <- response$metric
-  metric$timestamp <- as.POSIXct(as.integer(metric$timestamp), origin = "1970-01-01")
+  metric$timestamp <- as.POSIXct(as.double(metric$timestamp) / 1000, origin = "1970-01-01")
   as.data.frame(metric, stringsAsFactors = FALSE)
 }
 
