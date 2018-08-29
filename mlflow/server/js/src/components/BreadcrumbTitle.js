@@ -46,10 +46,6 @@ class BreadcrumbTitle extends Component {
     });
   }
 
-  renameRun() {
-    console.log("Hi! In renameRun() in BreadCrumbTitle.js");
-  }
-
   render() {
     const {experiment, runUuids, title} = this.props;
     const experimentId = experiment.getExperimentId();
@@ -61,11 +57,9 @@ class BreadcrumbTitle extends Component {
     let runsLink = null;
     if (runUuids) {
       runsLink = (runUuids.length === 1 ?
-        <div>
-          <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
-            {Utils.getRunDisplayName(this.props.tags, runUuids[0])}
-          </Link>
-        </div>
+        <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
+          {Utils.getRunDisplayName(this.props.tags, runUuids[0])}
+        </Link>
         :
         <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
           Comparing {runUuids.length} Runs
@@ -77,7 +71,7 @@ class BreadcrumbTitle extends Component {
       <h1>
         {experimentLink}
         {chevron}
-        { runsLink ? [runsLink, chevron] : [] }
+        { runsLink ? [runsLink] : [] }
         {title}
       </h1>
     );
@@ -91,6 +85,7 @@ const mapStateToProps = (state, ownProps) => {
   // TODO handle array
   const tags = getRunTags(runUuids[0], state);
   const run = getRunInfo(runUuids[0], state);
+  debugger;
   return { run, experiment, tags };
 };
 

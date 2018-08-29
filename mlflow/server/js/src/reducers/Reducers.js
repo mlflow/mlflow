@@ -3,11 +3,13 @@ import {
   fulfilled, GET_EXPERIMENT_API, GET_RUN_API, isFulfilledApi, isPendingApi,
   isRejectedApi,
   LIST_ARTIFACTS_API,
-  LIST_EXPERIMENTS_API, SEARCH_RUNS_API,
+  LIST_EXPERIMENTS_API, SEARCH_RUNS_API, SET_TAG_API,
 } from '../Actions';
 import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid } from './MetricReducer';
+
+import modalsReducer from '../modals/reducer';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -172,6 +174,11 @@ const tagsByRunUuid = (state = {}, action) => {
       }
       return newState;
     }
+    case fulfilled(SET_TAG_API): {
+      //     meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
+      const tag = {key: action.meta.key, value: action.meta.value}
+      return amendTagsByRunUuid(state, [tag], action.meta.runUuid);
+    }
     default:
       return state;
   }
@@ -192,6 +199,7 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
       };
     });
   }
+  debugger;
   return newState;
 };
 
@@ -292,4 +300,5 @@ const apis = (state = {}, action) => {
 export const rootReducer = combineReducers({
   entities,
   apis,
+  modals: modalsReducer,
 });

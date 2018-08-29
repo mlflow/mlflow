@@ -29,7 +29,6 @@ export class ModalsContainer extends Component {
 
   renderModals() {
     const { modalComponents, currentModalState, previousModalState } = this.props;
-
     const result = [
       [currentModalState, true],
       [previousModalState, false],
@@ -53,7 +52,7 @@ export class ModalsContainer extends Component {
   render() {
     const { style, children } = this.props;
     return (
-      <div style={{height: '100%', ...style}}>
+      <div>
         {this.renderModals()}
         {children}
       </div>

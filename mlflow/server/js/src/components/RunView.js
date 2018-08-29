@@ -5,12 +5,17 @@ import { connect } from 'react-redux';
 import './RunView.css';
 import HtmlTableView from './HtmlTableView';
 import { Link } from 'react-router-dom';
+import { Button } from 'react-bootstrap';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal"
+import ModalsContainer from "../modals/ModalsContainer"
+
+import { showModal } from '../modals/actions';
+
 
 const PARAMATERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
@@ -22,6 +27,7 @@ class RunView extends Component {
     super(props);
     this.onClickExpander = this.onClickExpander.bind(this);
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
+    this.handleRenameRunClick = this.handleRenameRunClick.bind(this)
     this.state.showTags = getTagValues(props.tags).length > 0;
   }
 
@@ -84,6 +90,10 @@ class RunView extends Component {
     }
   }
 
+  handleRenameRunClick() {
+    this.props.showModal('RenameRunModal', {runUuid: this.props.runUuid});
+  };
+
 
   render() {
     const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
@@ -119,7 +129,8 @@ class RunView extends Component {
       <div className="RunView">
         <div className="header-container">
           <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]} />
-          <RenameRunModal open={true} runUuid={this.props.runUuid}></RenameRunModal>
+          <ModalsContainer modalComponents={{"RenameRunModal": RenameRunModal}} />
+          <Button onClick={this.handleRenameRunClick}>Rename Run</Button>
         </div>
         <div className="run-info-container">
           <div className="run-info">
@@ -230,7 +241,7 @@ const mapStateToProps = (state, ownProps) => {
   return { run, experiment, params, tags, latestMetrics, metricPageRoute, getMetricPagePath };
 };
 
-export default connect(mapStateToProps)(RunView);
+export default connect(mapStateToProps, { showModal })(RunView);
 
 // Private helper functions.
 

@@ -28,10 +28,10 @@ class RenameRunModal extends Component {
   }
 
   static propTypes = {
+    modalParams: PropTypes.instanceOf(Immutable.Map),
     open: PropTypes.bool,
     runUuid: PropTypes.string.isRequired,
     runTags: PropTypes.object.isRequired,
-    dispatchSetTag: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
   }
 
@@ -44,9 +44,9 @@ class RenameRunModal extends Component {
   }
 
   handleSubmit = function(values) {
-    const { runUuid } = this.props;
+    const { runUuid, onClose } = this.props;
     const promise = this.updateRunName({...values, id: runUuid});
-    return promise.then(function() { console.log("Sid: Promise resolved in RenameRunModal.js!")});
+    return promise.then(onClose);
   }
 
   renderForm() {
@@ -66,9 +66,10 @@ class RenameRunModal extends Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const { open, updateRunName, runUuid } = ownProps;
+  const { modalParams } = ownProps;
+  const runUuid = modalParams.get('runUuid');
   const runTags = getRunTags(runUuid, state);
-  return { open, updateRunName, runUuid, runTags };
+  return { runUuid, runTags };
 }
 
 // TODO: should this be higher up in the view hierarchy for reuse? Or maybe like a static thing
@@ -82,11 +83,6 @@ function onSetTag(tagKey, tagValue) {
 const mapDispatchToProps = (dispatch, ownProps) => {
   return {
     dispatch,
-    dispatchSetTag: (runUuid, tagKey, tagValue) => {
-      const requestId = getUUID();
-      dispatch(setTagApi(runUuid, tagKey, tagValue, requestId));
-      return requestId;
-    }
   };
 };
 
