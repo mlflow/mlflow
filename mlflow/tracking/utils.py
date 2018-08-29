@@ -16,6 +16,14 @@ _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
 
+# Extra environment variables which take precedence for setting the basic/bearer
+# auth on http requests.
+_TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
+_TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
+_TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
+_TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
+
+
 _tracking_uri = None
 
 
@@ -102,10 +110,10 @@ def _get_rest_store(store_uri):
     def get_default_host_creds():
         return rest_utils.MlflowHostCreds(
             host=store_uri,
-            username=os.environ.get("MLFLOW_TRACKING_USERNAME"),
-            password=os.environ.get("MLFLOW_TRACKING_PASSWORD"),
-            token=os.environ.get("MLFLOW_TRACKING_TOKEN"),
-            ignore_tls_verification=os.environ.get("MLFLOW_TRACKING_INSECURE_TLS", False),
+            username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
+            password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
+            token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+            ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
         )
     return RestStore(get_default_host_creds)
 

@@ -76,15 +76,14 @@ def get_databricks_host_creds(profile=None):
     else:
         config = provider.get_config()
 
-    hostname = config.host
-    if not hostname:
+    if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 
     insecure = hasattr(config, 'insecure') and config.insecure
 
     if config.username is not None and config.password is not None:
-        return MlflowHostCreds(hostname, username=config.username, password=config.password,
+        return MlflowHostCreds(config.host, username=config.username, password=config.password,
                                ignore_tls_verification=insecure)
     elif config.token:
-        return MlflowHostCreds(hostname, token=config.token, ignore_tls_verification=insecure)
+        return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
