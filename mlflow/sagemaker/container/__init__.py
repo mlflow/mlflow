@@ -106,8 +106,8 @@ def _serve_pyfunc(model):
 
 
 def _serve_mleap(model):
-    mleap = Popen(["java", "-cp", "/opt/mlflow/mlflow/java/target/mlflow-java-"
-                   "{mlflow_version}-with-dependencies.jar".format(
+    mleap = Popen(["java", "-cp", "/opt/mlflow/mlflow/java/target/mlflow-java-*"
+                   "-with-dependencies.jar".format(
                         mlflow_version=mlflow.version.VERSION),
                    "com.databricks.mlflow.sagemaker.ScoringServer",
                    MODEL_PATH, DEFAULT_SAGEMAKER_SERVER_PORT])
