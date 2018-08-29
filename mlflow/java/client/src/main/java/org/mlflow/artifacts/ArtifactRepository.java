@@ -81,8 +81,8 @@ public interface ArtifactRepository {
 
   /**
    * Returns a local directory containing *all* artifacts within the run's artifact directory.
-   * This method is recursive, and so may be an expensive operation if the artifact directory
-   * is large.
+   * Note that this will download the entire directory path, and so may be expensive if
+   * the directory a lot of data.
    */
   File downloadArtifacts();
 
@@ -94,8 +94,9 @@ public interface ArtifactRepository {
    *   downloadArtifacts("model") // returns a local directory containing "file1" and "file2"
    *   downloadArtifacts("model/file1") // returns a local *file* with the contents of file1.
    *
-   * This method is recursive, and so may be an expensive operation if the given subdirectory
-   * is large.
+   * Note that this will download the entire subdirectory path, and so may be expensive if
+   * the subdirectory a lot of data.
+   *
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
