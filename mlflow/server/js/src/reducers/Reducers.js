@@ -199,7 +199,6 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
       };
     });
   }
-  debugger;
   return newState;
 };
 

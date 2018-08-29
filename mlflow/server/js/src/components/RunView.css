@@ -3,6 +3,7 @@
   display: inline-block;
 }
 .header-container {
+  margin-top: 32px;
   margin-bottom: 8px;
 }
 

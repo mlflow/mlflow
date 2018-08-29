@@ -11,6 +11,7 @@ import RenameRunFormView from './RenameRunFormView';
 
 import Utils from '../../utils/Utils';
 
+import { Button } from 'react-bootstrap';
 import ReactModal from 'react-modal';
 import { getRunTags, getApis } from '../../reducers/Reducers';
 
@@ -57,11 +58,10 @@ class RenameRunModal extends Component {
 
   render() {
     const { open } = this.props;
-//    <RequestStateWrapper
-//      requestIds={[this.state.getTagsRequestId]}
-//    >
-    return <ReactModal isOpen={open} role="dialog">{this.renderForm()}</ReactModal>
-//    </RequestStateWrapper>
+    return (<ReactModal isOpen={open} onRequestClose={this.props.onClose} role="dialog">
+      {this.renderForm()}
+      <Button onClick={this.props.onClose} style={{position:"absolute", top: "8px", right: "8px"}}>x</Button>
+    </ReactModal>);
   }
 }
 

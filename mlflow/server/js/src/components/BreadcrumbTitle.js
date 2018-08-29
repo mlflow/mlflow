@@ -68,7 +68,7 @@ class BreadcrumbTitle extends Component {
     }
     const chevron = <i className="fas fa-chevron-right breadcrumb-chevron" key="chevron"/>;
     return (
-      <h1>
+      <h1 style={{display: "inline", "margin-right": "8px"}}>
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink] : [] }
@@ -85,7 +85,6 @@ const mapStateToProps = (state, ownProps) => {
   // TODO handle array
   const tags = getRunTags(runUuids[0], state);
   const run = getRunInfo(runUuids[0], state);
-  debugger;
   return { run, experiment, tags };
 };
 
