@@ -159,7 +159,8 @@ Training the Model
 
         mlflow_start_run({
           model <- glmnet(train_x, train_y, alpha=alpha, lambda=lambda, family="gaussian")
-          predicted <- predict(model, test_x)
+          predictor <- crate(~ stats::predict(model, .x), model)
+          predicted <- predictor(test_x)
 
           rmse <- sqrt(mean((predicted - test_y) ^ 2))
           mae <- mean(abs(predicted - test_y))
@@ -176,7 +177,7 @@ Training the Model
           mlflow_log_metric("r2", r2)
           mlflow_log_metric("mae", mae)
 
-          mlflow_log_model(model, "model")
+          mlflow_log_model(predictor, "model")
         })
 
 
