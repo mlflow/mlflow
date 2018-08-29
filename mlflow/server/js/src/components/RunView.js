@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import './RunView.css';
 import HtmlTableView from './HtmlTableView';
 import { Link } from 'react-router-dom';
-import { DropdownButton, MenuItem } from 'react-bootstrap';
+import { Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
@@ -129,9 +129,14 @@ class RunView extends Component {
       <div className="RunView">
         <div className="header-container">
           <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]}/>
-          <DropdownButton title="" id="run-dropdown" className="dropdown-button">
-            <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
-          </DropdownButton>
+          <Dropdown id="dropdown-custom-1">
+             <Dropdown.Toggle noCaret className="dropdown-button">
+               <i class="fas fa-chevron-down"/>
+             </Dropdown.Toggle>
+             <Dropdown.Menu>
+               <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
+             </Dropdown.Menu>
+          </Dropdown>
           <ModalsContainer modalComponents={{"RenameRunModal": RenameRunModal}} />
         </div>
         <div className="run-info-container">

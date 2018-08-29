@@ -19,7 +19,7 @@ class CompareRunView extends Component {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
-    runTagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
+    tagsList: PropTypes.arrayOf(Array).isRequired,
   };
 
   render() {
@@ -29,8 +29,8 @@ class CompareRunView extends Component {
     return (
       <div className="CompareRunView">
         <BreadcrumbTitle
-          experiment={experiment}
-          title={"Comparing " + this.props.runInfos.length + " Runs"}
+          experimentId={experimentId}
+          runUuids={this.props.runInfos}
         />
         <div className="responsive-table-container">
           <table className="compare-table table">
@@ -47,11 +47,12 @@ class CompareRunView extends Component {
               </tr>
               <tr>
                 <th scope="row" className="row-header">Run Name:</th>
-                {this.props.runInfos.map((r, i) =>
+                {this.props.runInfos.map(function(r, i) {
+                  debugger;
                   <th scope="column" className="data-value" key={r.run_uuid}>
-                    Utils.getRunName(this.props.runTagsList[i], r.run_uuid);
+                    {Utils.getRunDisplayName(this.props.tagsList[i], r.run_uuid)}
                   </th>
-                )}
+                }, this)}
               </tr>
             </thead>
             <tbody>
@@ -134,7 +135,7 @@ const mapStateToProps = (state, ownProps) => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
-    tagsList.push(Object.values(getRunTags(runUuid, state)));
+    tagsList.push(getRunTags(runUuid, state));
   });
   return { experiment, runInfos, metricLists, paramLists, tagsList };
 };

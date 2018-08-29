@@ -58,7 +58,7 @@ class RenameRunFormView extends Component {
             autoFocus
             style={{"width": "100%"}}
         />
-        <div style={{"text-align": "right", "margin-top": "8px"}}>
+        <div style={{"margin-top": "8px"}}>
         <Button bsStyle="primary" type="submit" disabled={isSubmitting}>
           Save
         </Button>

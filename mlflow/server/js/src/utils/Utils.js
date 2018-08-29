@@ -171,7 +171,7 @@ class Utils {
 
   /**
    * Renders the run name into a string.
-   * @param run MlflowMessages.RunInfo
+   * @param runTags Object of tag name to MlflowMessages.RunTag instance
    */
   static getRunDisplayName(runTags, runUuid) {
     return Utils.getRunName(runTags) || "Run " + runUuid;
