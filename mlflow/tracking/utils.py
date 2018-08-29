@@ -6,9 +6,10 @@ import sys
 from six.moves import urllib
 
 from mlflow.store.file_store import FileStore
-from mlflow.store.rest_store import RestStore, DatabricksStore
+from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
@@ -98,7 +99,15 @@ def _get_file_store(store_uri):
 
 
 def _get_rest_store(store_uri):
-    return RestStore({'hostname': store_uri})
+    def get_default_host_creds():
+        rest_utils.MlflowHostCreds(
+            host=store_uri,
+            username=os.environ.get("MLFLOW_TRACKING_USERNAME"),
+            password=os.environ.get("MLFLOW_TRACKING_PASSWORD"),
+            token=os.environ.get("MLFLOW_TRACKING_TOKEN"),
+            ignore_tls_verification=os.environ.get("MLFLOW_TRACKING_INSECURE_TLS", False),
+        )
+    return RestStore(get_default_host_creds)
 
 
 def get_db_profile_from_uri(uri):
@@ -114,8 +123,7 @@ def get_db_profile_from_uri(uri):
 
 def _get_databricks_rest_store(store_uri):
     profile = get_db_profile_from_uri(store_uri)
-    http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(profile)
-    return DatabricksStore(http_request_kwargs)
+    return RestStore(lambda: get_databricks_host_creds(profile))
 
 
 def _get_model_log_dir(model_name, run_id):

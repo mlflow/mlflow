@@ -10,7 +10,7 @@ from six.moves import shlex_quote, urllib
 
 from mlflow.entities import RunStatus
 from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.utils import rest_utils, file_utils
+from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
@@ -42,11 +42,9 @@ class DatabricksJobRunner(object):
         self.databricks_profile = databricks_profile
 
     def databricks_api_request(self, endpoint, method, **kwargs):
-        request_params = rest_utils.get_databricks_http_request_kwargs_or_fail(
-            self.databricks_profile)
-        request_params.update(kwargs)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         response = rest_utils.http_request(
-            endpoint=endpoint, method=method, **request_params)
+            host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
         return json.loads(response.text)
 
     def _jobs_runs_submit(self, json):
@@ -58,7 +56,7 @@ class DatabricksJobRunner(object):
         Verifies that information for making API requests to Databricks is available to MLflow,
         raising an exception if not.
         """
-        rest_utils.get_databricks_http_request_kwargs_or_fail(self.databricks_profile)
+        databricks_utils.get_databricks_host_creds(self.databricks_profile)
 
     def _upload_to_dbfs(self, src_path, dbfs_fuse_uri):
         """
@@ -67,11 +65,10 @@ class DatabricksJobRunner(object):
         """
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
-        http_request_kwargs = \
-            rest_utils.get_databricks_http_request_kwargs_or_fail(self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         with open(src_path, 'rb') as f:
             rest_utils.http_request(
-                endpoint=http_endpoint, method='POST', data=f, **http_request_kwargs)
+                host_creds=host_creds, endpoint=http_endpoint, method='POST', data=f)
 
     def _dbfs_path_exists(self, dbfs_uri):
         """
