@@ -59,3 +59,18 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
     list(c("foo", "bar"), c("foz", "baz"))
   ))
 })
+
+test_that("mlflow_log_param()/mlflow_get_param() work properly", {
+  mlflow_disconnect()
+  some_param <- mlflow_log_param("some_param", 42)
+  expect_identical(some_param, 42)
+  expect_identical(mlflow_get_param("some_param"), list(some_param = "42"))
+})
+
+test_that("mlflow_get_param() requires `run_uuid` when there is no active run", {
+  mlflow_disconnect()
+  expect_error(
+    mlflow_get_param("some_param"),
+    "`run_uuid` must be specified when there is no active run\\."
+  )
+})
