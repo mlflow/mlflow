@@ -8,6 +8,26 @@ matrix:
   include:
     - python: 2.7
     - python: 3.6
+    - language: r
+      dist: trusty
+      cache: packages
+      before_install:
+        - export NOT_CRAN=true
+        - export MLFLOW_TEST_REQUIREMENTS=false
+        - cd R/mlflow
+        - Rscript -e 'install.packages("devtools")'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
+        - cd ../..
+      script:
+        - cd R/mlflow
+        - R CMD build .
+        - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
+        - cd tests
+        - export LINTR_COMMENT_BOT=false
+        - Rscript ../.travis.R
+      after_success:
+        - Rscript -e 'covr::codecov()'
+
 install:
   - sudo mkdir -p /travis-install
   - sudo chown travis /travis-install
@@ -31,7 +51,9 @@ install:
   - python --version
   - pip install --upgrade pip
   - pip install -r dev-requirements.txt -q
-  - pip install -r test-requirements.txt -q
+  - if [[ "$MLFLOW_TEST_REQUIREMENTS" != "false" ]]; then
+      pip install -r test-requirements.txt -q;
+    fi
   - pip install .
   - export MLFLOW_HOME=$(pwd)
   # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)

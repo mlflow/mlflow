@@ -1,0 +1,50 @@
+#' Run in MLflow
+#'
+#' Wrapper for `mlflow run`.
+#'
+#' @param uri A directory or an R script.
+#' @param entry_point Entry point within project, defaults to `main` if not specified.
+#' @param version Version of the project to run, as a Git commit reference for Git projects.
+#' @param param_list A list of parameters.
+#' @param experiment_id ID of the experiment under which to launch the run.
+#' @param mode Execution mode to use for run.
+#' @param cluster_spec Path to JSON file describing the cluster to use when launching a run on Databricks.
+#' @param git_username Username for HTTP(S) Git authentication.
+#' @param git_password Password for HTTP(S) Git authentication.
+#' @param no_conda If specified, assume that MLflow is running within a Conda environment with the necessary
+#'   dependencies for the current project instead of attempting to create a new conda environment. Only
+#'   valid if running locally.
+#' @param storage_dir Only valid when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
+#'  parameters of type 'path' to subdirectories of storage_dir.
+#' @export
+mlflow_run <- function(uri, entry_point = NULL, version = NULL, param_list = NULL,
+                       experiment_id = NULL, mode = NULL, cluster_spec = NULL,
+                       git_username = NULL, git_password = NULL, no_conda = FALSE,
+                       storage_dir = NULL) {
+  if (file.exists(uri))
+    uri <- fs::path_expand(uri)
+
+  param_list <- if (!is.null(param_list)) param_list %>%
+    purrr::imap_chr(~ paste0(.y, "=", .x)) %>%
+    purrr::reduce(~ mlflow_cli_param(.x, "--param-list", .y), .init = list())
+
+  args <- list(uri) %>%
+    mlflow_cli_param("--entry-point", entry_point) %>%
+    mlflow_cli_param("--version", version) %>%
+    mlflow_cli_param("--experiment-id", experiment_id) %>%
+    mlflow_cli_param("--mode", mode) %>%
+    mlflow_cli_param("--cluster_spec", cluster_spec) %>%
+    mlflow_cli_param("--git-username", git_username) %>%
+    mlflow_cli_param("--git-password", git_password) %>%
+    mlflow_cli_param("--no-conda", if (no_conda) "") %>%
+    mlflow_cli_param("--storage-dir", storage_dir) %>%
+    c(param_list)
+
+  do.call(mlflow_cli, c("run", args))
+
+  invisible(NULL)
+}
+
+clear_run <- function() {
+  .globals$run_params <- NULL
+}

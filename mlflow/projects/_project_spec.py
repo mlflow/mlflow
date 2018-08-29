@@ -56,6 +56,9 @@ class Project(object):
             if type(command) not in six.string_types:
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
+        elif file_extension == ".R":
+            command = "Rscript -e \"mlflow::mlflow_source('%s')\" --args" % shlex_quote(entry_point)
+            return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
                                  "runnable script. Supported script file extensions: "
                                  "{2}".format(entry_point, list(self._entry_points.keys()),
@@ -68,7 +71,6 @@ class EntryPoint(object):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
         self.command = command
-        assert isinstance(self.command, str)
 
     def _validate_parameters(self, user_parameters):
         missing_params = []
