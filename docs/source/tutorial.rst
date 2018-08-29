@@ -33,7 +33,8 @@ To run this tutorial, you'll need to:
 
 Training the Model
 ------------------
-First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``tutorial/train.py`` and is reproduced below.
+First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``.
+The code is located at ``examples/sklearn_elasticnet_wine/train.py`` and is reproduced below.
 
 .. code:: python
 
@@ -96,18 +97,19 @@ You can run the example with default hyperparameters as follows:
 
 .. code:: bash
 
-    python tutorial/train.py
+    python examples/sklearn_elasticnet_wine/train.py
 
 Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
 .. code:: bash
 
-    python tutorial/train.py <alpha> <l1_ratio>
+    python examples/sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
 
 Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
 .. note::
-    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``tutorial/train.py/train.ipynb``.
+    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial
+    notebook at ``examples/sklearn_elasticnet_wine/train.ipynb``.
 
 Comparing the Models
 --------------------
@@ -191,7 +193,7 @@ runs you'll see this page.
 .. image:: _static/images/tutorial-artifact.png
 
 At the bottom, you can see that the call to ``mlflow.sklearn.log_model`` produced two files in
-``/Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model``.
+``/Users/mlflow/mlflow/mlruns/<experiment_id>/<run_id>/artifacts/model``.
 The first file, ``MLmodel``, is a metadata file that tells MLflow how to load the model. The
 second file, ``model.pkl``, is a serialized version of the linear regression model that you trained.
 
@@ -201,7 +203,7 @@ To deploy the server, run:
 
 .. code::
 
-    mlflow sklearn serve /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
+    mlflow sklearn serve /Users/mlflow/mlflow/mlruns/<experiment_id>/<run_id>/artifacts/model -p 1234
 
 .. note::
 

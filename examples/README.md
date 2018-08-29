@@ -1,9 +1,7 @@
 ## MLflow examples
 
-### Quick Start examples
+### Quick Start example
 * `quick_start/mlflow_tracking.py` is a basic example to introduce MLflow concepts.
-* `quick_start_ml/sklearn_logisic_regression.py` is a simple ML flow with hooks to training data to MLflow 
-tracking server.
 
 ## Tutorials
 Various example that depict MLflow tracking, projects, and serving use cases.
@@ -21,4 +19,6 @@ and stores (logs) them as MLflow artifacts.
    * `wine_quality` is an example for MLflow projects. This uses the previously mentioned Wine 
    Quality dataset and uses Elastic Net to predict quality. The example uses `MLproject` to setup a 
    conda environment, define parameter types and defaults, entry point for training ... etc.
+* `sklearn_logisic_regression` is a simple ML flow with hooks to training data to MLflow 
+tracking server.
 * `tensorflow` is an end-to-end one run example from train to predict.
