@@ -14,4 +14,8 @@ wait_for <- function(f, wait, sleep) {
 
     if (!success) Sys.sleep(sleep)
   }
+
+  if (!success) {
+    stop("Operation failed after waiting for ", wait, " seconds")
+  }
 }

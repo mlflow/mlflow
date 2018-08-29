@@ -10,3 +10,4 @@ packrat
 ^r-dependencies.txt$
 document.R
 Reference_Manual_mlflow.md
+.lintr
