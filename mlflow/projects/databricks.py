@@ -268,7 +268,6 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
             eprint("Error when attempting to load and parse JSON cluster spec from file "
                    "%s. " % cluster_spec)
             raise
-    tracking.get_service().log_param(remote_run.info.run_uuid, key, value)
     command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
     db_run_id = _run_shell_command_job(uri, command, env_vars, cluster_spec)
     return DatabricksSubmittedRun(db_run_id, run_id)
