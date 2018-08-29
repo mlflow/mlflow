@@ -13,7 +13,7 @@ from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
 from mlflow.exceptions import ExecutionException
 from mlflow.utils.logging_utils import eprint
-from mlflow import tracking, set_tag
+from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
 from mlflow.utils.rest_utils import get_databricks_http_request_kwargs_or_fail
