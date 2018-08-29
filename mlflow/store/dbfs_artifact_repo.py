@@ -7,7 +7,6 @@ from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
 from mlflow.utils.rest_utils import http_request, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
-from mlflow.utils import databricks_utils
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'

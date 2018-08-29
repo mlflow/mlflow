@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
 from mlflow.store.rest_store import RestStore
+from mlflow.exceptions import MlflowException
 
 
 class ArtifactRepository:
@@ -65,6 +66,7 @@ class ArtifactRepository:
         Given an artifact URI for an Experiment Run (e.g., /local/file/path or s3://my/bucket),
         returns an ArtifactReposistory instance capable of logging and downloading artifacts
         on behalf of this URI.
+        :param store: An instance of AbstractStore which the artifacts are registered in.
         """
         if artifact_uri.startswith("s3:/"):
             # Import these locally to avoid creating a circular import loop

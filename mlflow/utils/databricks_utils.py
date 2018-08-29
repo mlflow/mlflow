@@ -64,8 +64,8 @@ def get_databricks_host_creds(profile=None):
     This method will throw an exception if sufficient auth cannot be found.
 
     :param profile: Databricks CLI profile. If not provided, we will read the default profile.
-    :return: Dictionary with parameters that can be passed to http_request(). This will
-             at least include the hostname and headers sufficient to authenticate to Databricks.
+    :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
+        authentication information necessary to talk to the Databricks server.
     """
     if not hasattr(provider, 'get_config'):
         eprint("Warning: support for databricks-cli<0.8.0 is deprecated and will be removed"

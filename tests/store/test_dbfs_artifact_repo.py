@@ -67,7 +67,7 @@ class TestDbfsArtifactRepository(object):
             endpoints = []
             data = []
 
-            def my_http_request(host_creds, **kwargs):
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
                 data.append(kwargs['data'].read())
                 return Mock(status_code=200)
@@ -96,7 +96,7 @@ class TestDbfsArtifactRepository(object):
             endpoints = []
             data = []
 
-            def my_http_request(host_creds, **kwargs):
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
                 data.append(kwargs['data'].read())
                 return Mock(status_code=200)
@@ -127,7 +127,7 @@ class TestDbfsArtifactRepository(object):
         with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
             endpoints = []
 
-            def my_http_request(host_creds, **kwargs):
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
                 return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
