@@ -46,30 +46,18 @@ def test_mkdir(tmpdir):
 def test_make_tarfile(tmpdir):
     # Tar a local project
     tarfile0 = str(tmpdir.join("first-tarfile"))
-    # Copy local project into a temp dir
-    dst_dir0 = str(tmpdir.join("project-directory0"))
-    shutil.copytree(TEST_PROJECT_DIR, dst_dir0)
-    # Tar the copied project
     file_utils.make_tarfile(
-        output_filename=tarfile0, source_dir=dst_dir0, archive_name="some-archive")
+        output_filename=tarfile0, source_dir=TEST_PROJECT_DIR, archive_name="some-archive")
     # Copy local project into a temp dir
-    dst_dir1 = str(tmpdir.join("project-directory1"))
-    shutil.copytree(TEST_PROJECT_DIR, dst_dir1)
+    dst_dir = str(tmpdir.join("project-directory"))
+    shutil.copytree(TEST_PROJECT_DIR, dst_dir)
     # Tar the copied project
     tarfile1 = str(tmpdir.join("second-tarfile"))
     file_utils.make_tarfile(
-        output_filename=tarfile1, source_dir=dst_dir1, archive_name="some-archive")
+        output_filename=tarfile1, source_dir=dst_dir, archive_name="some-archive")
     # Compare the archives & explicitly verify their SHA256 hashes match (i.e. that
     # changes in file modification timestamps don't affect the archive contents)
-    if not filecmp.cmp(tarfile0, tarfile1, shallow=False):
-        print("Compare project source and destination")
-        dd = filecmp.dircmp(dst_dir0, dst_dir1)
-        dd.report_full_closure()
-        print("Tar local project stats:")
-        print(os.stat(tarfile0))
-        print("Tar copied project stats:")
-        print(os.stat(tarfile1))
-        assert False
+    assert filecmp.cmp(tarfile0, tarfile1, shallow=False)
     with open(tarfile0, 'rb') as first_tar, open(tarfile1, 'rb') as second_tar:
         assert hashlib.sha256(first_tar.read()).hexdigest()\
                == hashlib.sha256(second_tar.read()).hexdigest()
