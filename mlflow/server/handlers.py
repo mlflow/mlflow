@@ -6,7 +6,6 @@ import six
 
 from flasgger import swag_from
 from flask import Response, request, send_file
-from google.protobuf.json_format import MessageToJson, ParseDict
 from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag
@@ -18,6 +17,8 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 from mlflow.utils.swagger import swagger_object_dict
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+
 
 _store = None
 
@@ -41,7 +42,7 @@ def _get_request_message(request_message, flask_request=request):
         # result.
         query_string = re.sub('%5B%5D', '%5B0%5D', flask_request.query_string.decode("utf-8"))
         request_dict = parser.parse(query_string, normalized=True)
-        ParseDict(request_dict, request_message, ignore_unknown_fields=True)
+        parse_dict(request_dict, request_message)
         return request_message
 
     request_json = flask_request.get_json(force=True, silent=True)
@@ -56,7 +57,7 @@ def _get_request_message(request_message, flask_request=request):
     # If request doesn't have json body then assume it's empty.
     if request_json is None:
         request_json = {}
-    ParseDict(request_json, request_message, ignore_unknown_fields=True)
+    parse_dict(request_json, request_message)
     return request_message
 
 
@@ -68,7 +69,8 @@ def get_handler(request_class):
     return HANDLERS.get(request_class, _not_implemented)
 
 
-_TEXT_EXTENSIONS = ['txt', 'yaml', 'json', 'js', 'py', 'csv', 'md', 'rst', 'MLmodel', 'MLproject']
+_TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
+                    'csv', 'md', 'rst', 'MLmodel', 'MLproject']
 
 
 def get_artifact_handler():
@@ -87,11 +89,6 @@ def _not_implemented():
     response = Response()
     response.status_code = 404
     return response
-
-
-def _message_to_json(message):
-    # preserving_proto_field_name keeps the JSON-serialized form snake_case
-    return MessageToJson(message, preserving_proto_field_name=True)
 
 
 @swag_from(swagger_object_dict)
@@ -121,7 +118,7 @@ def _create_experiment():
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -149,7 +146,7 @@ def _get_experiment():
     run_info_entities = _get_store().list_run_infos(request_message.experiment_id)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -174,7 +171,7 @@ def _delete_experiment():
     _get_store().delete_experiment(request_message.experiment_id)
     response_message = DeleteExperiment.Response()
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -201,7 +198,7 @@ def _restore_experiment():
     _get_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -241,7 +238,7 @@ def _create_run():
     response_message = CreateRun.Response()
     response_message.run.MergeFrom(run.to_proto())
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -266,7 +263,7 @@ def _update_run():
                                                 request_message.end_time)
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -292,7 +289,7 @@ def _log_metric():
     _get_store().log_metric(request_message.run_uuid, metric)
     response_message = LogMetric.Response()
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -319,7 +316,7 @@ def _log_param():
     _get_store().log_param(request_message.run_uuid, param)
     response_message = LogParam.Response()
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -329,7 +326,7 @@ def _set_tag():
     _get_store().set_tag(request_message.run_uuid, tag)
     response_message = SetTag.Response()
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -354,7 +351,7 @@ def _get_run():
     response_message = GetRun.Response()
     response_message.run.MergeFrom(_get_store().get_run(request_message.run_uuid).to_proto())
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -397,7 +394,7 @@ def _search_runs():
                                             request_message.anded_expressions)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -436,7 +433,7 @@ def _list_artifacts():
     response_message.files.extend([a.to_proto() for a in artifact_entities])
     response_message.root_uri = _get_artifact_repo(run).artifact_uri
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -467,7 +464,7 @@ def _get_metric_history():
                                                      request_message.metric_key)
     response_message.metrics.extend([m.to_proto() for m in metric_entites])
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -499,7 +496,7 @@ def _get_metric():
     metric = _get_store().get_metric(request_message.run_uuid, request_message.metric_key)
     response_message.metric.MergeFrom(metric.to_proto())
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -529,7 +526,7 @@ def _get_param():
     parameter = _get_store().get_param(request_message.run_uuid, request_message.param_name)
     response_message.parameter.MergeFrom(parameter.to_proto())
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 
@@ -548,7 +545,7 @@ def _list_experiments():
     response_message = ListExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
     response = Response(mimetype='application/json')
-    response.set_data(_message_to_json(response_message))
+    response.set_data(message_to_json(response_message))
     return response
 
 

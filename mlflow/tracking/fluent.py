@@ -13,6 +13,11 @@ import time
 
 from mlflow.entities import Experiment, Run, SourceType
 from mlflow.utils import env
+from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
+    get_notebook_path, get_webapp_url
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
+    MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
+    MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.validation import _validate_run_id
 from mlflow.tracking.service import get_service
 
@@ -52,7 +57,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                      (the run's ``source_version``, ``source_type``, etc. are not changed).
     :param experiment_id: Used only when ``run_uuid`` is unspecified. ID of the experiment under
                           which to create the current run. If unspecified, the run is created under
-                          a new experiment with a randomly generated name.
+                          default experiment.
     :param source_name: Name of the source file or URI of the project to be associated with the run.
                         Defaults to the current file if none provided.
     :param source_version: Optional Git commit hash to associate with the run.
@@ -60,6 +65,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     :param source_type: Integer enum value describing the type of the run
                         ("local", "project", etc.). Defaults to
                         ``mlflow.entities.SourceType.LOCAL``.
+    :param run_name: Used only when ``run_uuid`` is unspecified. Desired name of new run created.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
@@ -73,13 +79,33 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         active_run_obj = get_service().get_run(existing_run_uuid)
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()
-        active_run_obj = get_service().create_run(
-            experiment_id=exp_id_for_run,
-            run_name=run_name,
-            source_name=source_name or _get_source_name(),
-            source_version=source_version or _get_source_version(),
-            entry_point_name=entry_point_name,
-            source_type=source_type or _get_source_type())
+        if is_in_databricks_notebook():
+            databricks_tags = {}
+            notebook_id = get_notebook_id()
+            notebook_path = get_notebook_path()
+            webapp_url = get_webapp_url()
+            if notebook_id is not None:
+                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
+            if notebook_path is not None:
+                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
+            if webapp_url is not None:
+                databricks_tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
+            active_run_obj = get_service().create_run(
+                experiment_id=exp_id_for_run,
+                run_name=run_name,
+                source_name=notebook_path,
+                source_version=source_version or _get_source_version(),
+                entry_point_name=entry_point_name,
+                source_type=SourceType.NOTEBOOK,
+                tags=databricks_tags)
+        else:
+            active_run_obj = get_service().create_run(
+                experiment_id=exp_id_for_run,
+                run_name=run_name,
+                source_name=source_name or _get_source_name(),
+                source_version=source_version or _get_source_version(),
+                entry_point_name=entry_point_name,
+                source_type=source_type or _get_source_type())
     _active_run = ActiveRun(active_run_obj)
     return _active_run
 

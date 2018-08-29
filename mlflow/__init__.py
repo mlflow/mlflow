@@ -20,6 +20,8 @@ You can also use syntax like this:
 which will automatically terminate the run at the end of the block.
 """
 
+from mlflow.version import VERSION as __version__
+
 import os
 
 # Filter annoying Cython warnings that serve no good purpose, and so before

@@ -26,7 +26,6 @@ setup(
     packages=find_packages(exclude=['tests', 'tests.*']),
     package_data={"mlflow": js_files + sagmaker_server_files},
     install_requires=[
-        'awscli',
         'click>=6.7',
         'databricks-cli>=0.8.0',
         'requests>=2.17.3',
@@ -45,6 +44,7 @@ setup(
         'boto3',
         'querystring_parser',
         'simplejson',
+        'mleap>=0.8.1',
     ],
     entry_points='''
         [console_scripts]

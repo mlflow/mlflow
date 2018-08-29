@@ -74,33 +74,6 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         rest_utils.get_databricks_http_request_kwargs_or_fail()
 
 
-@mock.patch('requests.request')
-@mock.patch('databricks_cli.configure.provider.get_config')
-def test_databricks_http_request_integration(get_config, request):
-    """Confirms that the databricks http request params can in fact be used as an HTTP request"""
-    def confirm_request_params(**kwargs):
-        assert kwargs == {
-            'method': 'PUT',
-            'url': 'host/api/2.0/clusters/list',
-            'headers': {
-                'Authorization': 'Basic dXNlcjpwYXNz'
-            },
-            'verify': True,
-            'json': {'a': 'b'}
-        }
-        http_response = mock.MagicMock()
-        http_response.status_code = 200
-        http_response.text = '{"OK": "woo"}'
-        return http_response
-    request.side_effect = confirm_request_params
-    get_config.return_value = \
-        DatabricksConfig("host", "user", "pass", None, insecure=False)
-
-    response = rest_utils.databricks_api_request('clusters/list', 'PUT',
-                                                 json={'a': 'b'})
-    assert response == {'OK': 'woo'}
-
-
 def test_numpy_encoder():
     test_number = numpy.int64(42)
     ne = NumpyEncoder()

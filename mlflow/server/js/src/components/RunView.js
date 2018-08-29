@@ -126,7 +126,10 @@ class RunView extends Component {
           </div>
           <div className="run-info">
             <span className="metadata-header">Source: </span>
-            <span className="metadata-info">{Utils.renderSource(run)}</span>
+            <span className="metadata-info">
+              {Utils.renderSourceTypeIcon(run.source_type)}
+              {Utils.renderSource(run, tags)}
+            </span>
           </div>
           {run.source_version ?
             <div className="run-info">
@@ -150,6 +153,15 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Duration: </span>
               <span className="metadata-info">{Utils.formatDuration(duration)}</span>
+            </div>
+            : null
+          }
+          {tags['mlflow.databricks.runURL'] !== undefined ?
+            <div className="run-info">
+              <span className="metadata-header">Job Output: </span>
+              <span className="metadata-info">
+                <a href={tags['mlflow.databricks.runURL'].value}>Logs</a>
+              </span>
             </div>
             : null
           }
