@@ -29,12 +29,11 @@ at epochs which improved performance on the validation dataset. The model with b
 performance is logged with MLflow.
 """
 
-def eval_and_log_metrics(prefix, actual, pred, compute_r2=True):
+
+def eval_and_log_metrics(prefix, actual, pred):
     rmse = np.sqrt(mean_squared_error(actual, pred))
-    r2 = r2_score(actual, pred)
     mlflow.log_metric("{}_rmse".format(prefix), rmse)
-    mlflow.log_metric("{}_r2".format(prefix), r2)
-    return rmse, r2
+    return rmse
 
 
 def get_standardize_f(train):
@@ -53,12 +52,15 @@ class MLflowCheckpoint(Callback):
 
     At the end of the training, log the best model with MLflow.
     """
+
     def __init__(self, test_x, test_y, loss="rmse"):
         self._test_x = test_x
         self._test_y = test_y
-        self._best = math.inf
-        self.loss = loss
-        self._best = math.inf
+        self.train_loss = "train_{}".format(loss)
+        self.val_loss = "val_{}".format(loss)
+        self.test_loss = "test_{}".format(loss)
+        self._best_train_loss = math.inf
+        self._best_val_loss = math.inf
         self._best_model = None
 
     def __enter__(self):
@@ -68,6 +70,10 @@ class MLflowCheckpoint(Callback):
         """
         Log the best model at the end of the training run.
         """
+        if not self._best_model:
+            raise Exception("Failed to build any model")
+        mlflow.log_metric(self.train_loss, self._best_train_loss)
+        mlflow.log_metric(self.val_loss, self._best_val_loss)
         mlflow.keras.log_model(self._best_model, "model")
 
     def on_epoch_end(self, epoch, logs=None):
@@ -79,13 +85,14 @@ class MLflowCheckpoint(Callback):
             return
         train_loss = logs["loss"]
         val_loss = logs["val_loss"]
-        mlflow.log_metric("train_{}".format(self.loss), train_loss)
-        mlflow.log_metric("val_{}".format(self.loss), val_loss)
+        mlflow.log_metric(self.train_loss, train_loss)
+        mlflow.log_metric(self.val_loss, val_loss)
 
-        if val_loss < self._best:
+        if val_loss < self._best_val_loss:
             # The result improved in the validation set.
             # Log the model with mlflow and also evaluate and log on test set.
-            self._best = val_loss
+            self._best_train_loss = train_loss
+            self._best_val_loss = val_loss
             self._best_model = keras.models.clone_model(self.model)
             self._best_model.set_weights([x.copy() for x in self.model.get_weights()])
             preds = self._best_model.predict((self._test_x))
@@ -122,8 +129,8 @@ def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
 
     with mlflow.start_run():
         if epochs == 0:  # score null model
-            eval_and_log_metrics("val", valid_y, np.ones(len(valid_y)) * np.mean(valid_y),
-                                 compute_r2=False)
+            eval_and_log_metrics("train", train_y, np.ones(len(train_y)) * np.mean(train_y))
+            eval_and_log_metrics("val", valid_y, np.ones(len(valid_y)) * np.mean(valid_y))
             eval_and_log_metrics("test", test_y, np.ones(len(test_y)) * np.mean(test_y))
         else:
             with MLflowCheckpoint(test_x, test_y) as mlflow_logger:

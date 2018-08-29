@@ -57,8 +57,14 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
     # create random file to store run ids of the training tasks
     tmp = tempfile.mkdtemp()
     results_path = os.path.join(tmp, "results.txt")
+    tracking_service = mlflow.tracking.get_service()
 
-    def new_eval(nepochs, experiment_id, valid_null_loss, test_null_loss, return_test_loss=False):
+    def new_eval(nepochs,
+                 experiment_id,
+                 null_train_loss,
+                 null_valid_loss,
+                 null_test_loss,
+                 return_all=False):
         """
         Create a new eval function
 
@@ -99,24 +105,30 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
             store = mlflow.tracking._get_store()
             if p.wait():
                 # cap the loss at the loss of the null model
-                valid_loss = min(valid_null_loss,
+                train_loss = min(null_valid_loss,
+                                 store.get_metric(p.run_id, "train_{}".format(metric)).value)
+                valid_loss = min(null_valid_loss,
                                  store.get_metric(p.run_id, "val_{}".format(metric)).value)
-                test_loss = min(test_null_loss,
+                test_loss = min(null_test_loss,
                                 store.get_metric(p.run_id, "test_{}".format(metric)).value)
 
             else:
                 # run failed => return null loss
-                valid_loss = valid_null_loss
-                test_loss = test_null_loss
+                tracking_service.set_terminated(p.run_id, "FAILED")
+                train_loss = null_train_loss
+                valid_loss = null_valid_loss
+                test_loss = null_test_loss
 
+            mlflow.log_metric("train_{}".format(metric), valid_loss)
             mlflow.log_metric("val_{}".format(metric), valid_loss)
             mlflow.log_metric("test_{}".format(metric), test_loss)
             with open(results_path, "a") as f:
-                f.write("{runId} {val} {test}\n".format(runId=p.run_id,
-                                                        val=valid_loss,
-                                                        test=test_loss))
-            if return_test_loss:
-                return valid_loss, test_loss
+                f.write("{runId} {train} {val} {test}\n".format(runId=p.run_id,
+                                                                train=train_loss,
+                                                                val=valid_loss,
+                                                                test=test_loss))
+            if return_all:
+                return train_loss, valid_loss, test_loss
             else:
                 return valid_loss
 
@@ -130,13 +142,15 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
         # We need an upper bound to handle the failed runs (e.g. return NaNs) because GPyOpt can not
         # handle Infs.
         # Allways including a null model in our results is also a good ML practice.
-        valid_null_loss, test_null_loss = new_eval(0,
-                                                   experiment_id,
-                                                   math.inf,
-                                                   math.inf,
-                                                   True)(params=[[0, 0]])
+        train_null_loss, valid_null_loss, test_null_loss = new_eval(0,
+                                                                    experiment_id,
+                                                                    math.inf,
+                                                                    math.inf,
+                                                                    math.inf,
+                                                                    True)(params=[[0, 0]])
         myProblem = GPyOpt.methods.BayesianOptimization(new_eval(epochs,
                                                                  experiment_id,
+                                                                 train_null_loss,
                                                                  valid_null_loss,
                                                                  test_null_loss),
                                                         bounds,
@@ -160,24 +174,27 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
             mlflow.log_artifact(convergence_plot, "converegence_plot")
         if os.path.exists(acquisition_plot):
             mlflow.log_artifact(acquisition_plot, "acquisition_plot")
+        best_val_train = math.inf
         best_val_valid = math.inf
         best_val_test = math.inf
         best_run = None
-        # we do not have tags yet, for now store list of executed runs as an artifact
+        # we do not have tags yet, for now store the list of executed runs as an artifact
         mlflow.log_artifact(results_path, "training_runs")
         with open(results_path) as f:
             for line in f.readlines():
-                run_id, str_val, str_val2 = line.split(" ")
-                val = float(str_val)
+                run_id, str_val, str_val2, str_val3 = line.split(" ")
+                val = float(str_val2)
                 if val < best_val_valid:
+                    best_val_train = float(str_val)
                     best_val_valid = val
-                    best_val_test = float(str_val2)
+                    best_val_test = float(str_val3)
                     best_run = run_id
         # record which run produced the best results, store it as a param for now
         best_run_path = os.path.join(os.path.join(tmp, "best_run.txt"))
         with open(best_run_path, "w") as f:
             f.write("{run_id} {val}\n".format(run_id=best_run, val=best_val_valid))
         mlflow.log_artifact(best_run_path, "best-run")
+        mlflow.log_metric("train_{}".format(metric), best_val_train)
         mlflow.log_metric("val_{}".format(metric), best_val_valid)
         mlflow.log_metric("test_{}".format(metric), best_val_test)
         shutil.rmtree(tmp)

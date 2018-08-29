@@ -19,16 +19,16 @@ entry_points:
                                     --momentum {momentum}"
 
 # Use grid search to optimize hyperparams of the dl_train entry_point.
-  grid:
+  random:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
-      max_runs: {type: int, default: 16}
-      max_p: {type: int, default: 4}
+      max_runs: {type: int, default: 8}
+      max_p: {type: int, default: 8}
       epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       seed: {type: int, default: 97531}
       training_experiment_id: {type: int, default: "-1"}
-    command: "python search_grid.py  {training_data}
+    command: "python search_random.py  {training_data}
                                              --max-runs {max_runs}
                                              --max-p {max_p}
                                              --epochs {epochs}
