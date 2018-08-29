@@ -1112,7 +1112,7 @@ Description of the source that generated a run.
 +----------+----------------------------------------------------------------------------+
 | PROJECT  | As a prepackaged project: either a docker image or github source, ... etc. |
 +----------+----------------------------------------------------------------------------+
-| LOCAL    | Local run: Using CLI, IDE, or local notebook                               |
+| LOCAL    | Local run: Using CLI, IDE, or local notebook.                              |
 +----------+----------------------------------------------------------------------------+
-| UNKNOWN  | Unknown source type                                                        |
+| UNKNOWN  | Unknown source type.                                                       |
 +----------+----------------------------------------------------------------------------+
