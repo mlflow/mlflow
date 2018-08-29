@@ -214,7 +214,7 @@ and the model definition `model/MLmodel` like:
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
-    ## time_created: 1.5350676e+09
+    ## time_created: 1.535526e+09
     ## flavors:
     ##   r_function:
     ##     version: 0.1.0
