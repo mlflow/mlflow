@@ -22,7 +22,7 @@ import os
 sys.path.insert(0, os.path.abspath('../..'))
 sys.path.insert(0, os.path.abspath('.'))
 
-from examplecode import *
+from languagesections import *
 
 # -- General configuration ------------------------------------------------
 
@@ -127,7 +127,7 @@ html_theme_path = ["../theme/"]
 html_theme = 'mlflow'
 html_favicon = "_static/favicon.ico"
 
-    
+
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
