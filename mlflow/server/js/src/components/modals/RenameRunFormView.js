@@ -7,7 +7,8 @@ import { Formik, Field } from 'formik';
 import { validationSchema } from './validation';
 
 
-class RenameRunModalView extends Component {
+/** TODO: Can we make this a generic class that renders a form? */
+class RenameRunFormView extends Component {
 
   static propTypes = {
     onSubmit: PropTypes.func.isRequired
@@ -63,9 +64,8 @@ class RenameRunModalView extends Component {
   }
 
   render() {
-    const { classes, initialValues, componentLibrary } = this.props;
-    const className = classes.root;
-    return <div className={className}>
+    const { initialValues } = this.props;
+    return <div>
       <Formik
         initialValues={initialValues}
         validationSchema={validationSchema}
@@ -75,12 +75,10 @@ class RenameRunModalView extends Component {
   }
 }
 
-function mapStateToProps(state) {
+function mapStateToProps(state, ownProps) {
   return {
   }
 }
 
 
-export default withStyles(styles)(
-    connect(mapStateToProps)(FormikContactForm)
-)
+export default connect(mapStateToProps)(RenameRunFormView)

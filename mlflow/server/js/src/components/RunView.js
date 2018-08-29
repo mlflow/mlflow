@@ -10,6 +10,7 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
+import RenameRunModal from "./modals/RenameRunModal"
 
 const PARAMATERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
@@ -117,7 +118,8 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]} onSetTag={this.props.onSetTag}/>
+          <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]} />
+          <RenameRunModal open={true} runUuid={this.props.runUuid}></RenameRunModal>
         </div>
         <div className="run-info-container">
           <div className="run-info">

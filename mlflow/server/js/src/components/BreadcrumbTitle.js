@@ -4,7 +4,6 @@ import { Experiment } from "../sdk/MlflowMessages";
 import { Link } from 'react-router-dom';
 import Routes from "../Routes";
 import Utils from '../utils/Utils';
-import DropdownMenuView from './DropdownMenuView';
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 
@@ -19,8 +18,6 @@ const DROPDOWN_MENU = 'dropdownMenu';
 class BreadcrumbTitle extends Component {
   constructor(props) {
     super(props);
-    this.onSetRunName = this.onSetRunName.bind(this);
-    this.onSetTag = this.props.onSetTag.bind(this);
     // TODO do we need this here and below?
     this.state.showMenu = true;
   }
@@ -30,7 +27,6 @@ class BreadcrumbTitle extends Component {
     runUuids: PropTypes.arrayOf(String), // Optional because not all pages are nested under runs
     // TODO this might need to be an array for multiple runs?
     tags: PropTypes.object,
-    onSetTag: PropTypes.func,
   };
 
   state = {
@@ -38,13 +34,6 @@ class BreadcrumbTitle extends Component {
       above: false,
       dropdownHeight: 0,
   };
-
-  onSetRunName(event) {
-    event.preventDefault();
-    if (event.target.value) {
-      this.props.onSetTag(Utils.getRunTagName(), event.target.value);
-    }
-  }
 
   /**
    * Hide the dropdown menu for a table item.
@@ -59,32 +48,6 @@ class BreadcrumbTitle extends Component {
 
   renameRun() {
     console.log("Hi! In renameRun() in BreadCrumbTitle.js");
-  }
-
-  getMenuItems() {
-    // Table specific menu options
-    const menuItems = [];
-
-    const renameOnClick = this.renameRun.bind(this);
-    menuItems.push(
-      <a
-        key='rename-item'
-        data-name='Rename'
-        className='sidebar-dropdown-link'
-        onClick={renameOnClick}
-      >Rename
-      </a>
-    );
-    return menuItems;
-  }
-
-  renderDropdown() {
-    return (<DropdownMenuView
-            ref={DROPDOWN_MENU}
-            getItems={this.getMenuItems}
-            outsideClickHandler={this.hideMenu}
-            ignoreClickClasses={['sidebar-dropdown']}
-          />)
   }
 
   render() {
@@ -102,7 +65,6 @@ class BreadcrumbTitle extends Component {
           <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
             {Utils.getRunDisplayName(this.props.tags, runUuids[0])}
           </Link>
-          <button>Hi from sid</button>
         </div>
         :
         <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
@@ -124,14 +86,12 @@ class BreadcrumbTitle extends Component {
 
 
 const mapStateToProps = (state, ownProps) => {
-  const { experimentId, runUuids, onSetTag } = ownProps;
+  const { experimentId, runUuids } = ownProps;
   const experiment = getExperiment(experimentId, state);
   // TODO handle array
-  debugger;
-  const params = getParams(runUuids[0], state);
   const tags = getRunTags(runUuids[0], state);
   const run = getRunInfo(runUuids[0], state);
-  return { run, experiment, params, tags };
+  return { run, experiment, tags };
 };
 
 

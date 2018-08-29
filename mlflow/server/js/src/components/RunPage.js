@@ -10,7 +10,6 @@ class RunPage extends Component {
 
   constructor(props) {
     super(props);
-    this.onSetTag = this.onSetTag.bind(this);
   }
 
   static propTypes = {
@@ -18,7 +17,6 @@ class RunPage extends Component {
     runUuid: PropTypes.string.isRequired,
     experimentId: PropTypes.number.isRequired,
     dispatch: PropTypes.func.isRequired,
-    dispatchSetTag: PropTypes.func.isRequired,
   };
 
   state = {
@@ -55,12 +53,6 @@ class RunPage extends Component {
       </div>
     );
   }
-
-  onSetTag(tagKey, tagValue) {
-    const setTagRequestId = this.props.dispatchSetTag(
-      this.props.runUuid, tagKey, tagValue);
-    this.setState({ setTagRequestId });
-  }
 }
 
 const mapStateToProps = (state, ownProps) => {
@@ -77,11 +69,6 @@ const mapStateToProps = (state, ownProps) => {
 const mapDispatchToProps = (dispatch, ownProps) => {
   return {
     dispatch,
-    dispatchSetTag: (runUuid, tagKey, tagValue) => {
-      const requestId = getUUID();
-      dispatch(setTagApi(runUuid, tagKey, tagValue, requestId));
-      return requestId;
-    }
   };
 };
 
