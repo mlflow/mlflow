@@ -143,7 +143,7 @@ def _sigterm_handler(pids):
     print("Got sigterm signal, exiting.")
     for pid in pids:
         try:
-            os.kill(pid, signal.SIGQUIT)
+            os.kill(pid, signal.SIGTERM)
         except OSError:
             pass
 
