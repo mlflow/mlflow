@@ -44,6 +44,4 @@ Suggests:
   testthat
 Remotes: 
   rstudio/forge
-  testthat,
-  lintr,
   r-lib/carrier
