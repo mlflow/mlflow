@@ -7,7 +7,11 @@
 #'
 #' @export
 mlflow_set_tracking_uri <- function(uri) {
-  .globals$tracking_uri <- uri
+  if (!identical(.globals, uri)) {
+    .globals$tracking_uri <- uri
+    mlflow_set_active_experiment(NULL)
+  }
+  invisible(uri)
 }
 
 #' Get Remote Tracking URI

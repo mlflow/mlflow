@@ -18,9 +18,12 @@ mlflow_active_connection <- function() {
 }
 
 mlflow_set_active_connection <- function(mc) {
-  .globals$active_connection <- mc
-  mlflow_set_tracking_uri(mc$tracking_uri)
-  invisible(NULL)
+  if (!identical(mc, .globals$active_connection)) {
+    .globals$active_connection <- mc
+    mlflow_set_tracking_uri(mc$tracking_uri)
+    mlflow_set_active_experiment(NULL)
+  }
+  invisible(mc)
 }
 
 #' @importFrom httpuv startDaemonizedServer
@@ -154,9 +157,13 @@ new_mlflow_connection <- function(tracking_uri, handle, ...) {
 #' @export
 mlflow_disconnect <- function() {
   mc <- mlflow_active_connection()
-  if (is.null(mc)) message("Not connected to an MLflow service.") else {
+  if (is.null(mc)) {
+    message("Not connected to an MLflow service.")
+  } else {
     if (mc$handle$is_alive()) invisible(mc$handle$kill())
     mlflow_set_active_connection(NULL)
+    mlflow_set_active_experiment(NULL)
+    mlflow_set_active_run(NULL)
   }
   invisible(NULL)
 }
