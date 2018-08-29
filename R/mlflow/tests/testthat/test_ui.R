@@ -1,6 +1,8 @@
 context("UI")
 
 test_that("mlflow can launch the UI", {
+  skip_on_travis()
+
   url <- mlflow_ui()
 
   response <- httr::GET(url)

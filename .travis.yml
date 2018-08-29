@@ -24,7 +24,6 @@ matrix:
         - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
         - cd tests
         - export LINTR_COMMENT_BOT=false
-        - Rscript -e 'options(mlflow.connect.wait = 30)'
         - Rscript ../.travis.R
       after_success:
         - Rscript -e 'covr::codecov()'
