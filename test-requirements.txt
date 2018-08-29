@@ -2,6 +2,8 @@
 azure-storage
 google-cloud-storage
 h2o
+# TODO: don't pin boto version once https://github.com/spulec/moto/issues/1793 is addressed
+boto3==1.7.84
 mock==2.0.0
 moto
 prospector[with_pyroma]==0.12.7

@@ -1,6 +1,7 @@
 import Utils from './Utils';
 import { RunInfo } from '../sdk/MlflowMessages';
 import React from 'react';
+import { shallow } from 'enzyme';
 
 
 test("formatMetric", () => {
@@ -114,6 +115,19 @@ test("formatSource & renderSource", () => {
   expect(Utils.formatSource(github_url)).toEqual("mlflow-apps:entry");
   expect(Utils.renderSource(github_url)).toEqual(
     <a href="https://github.com/mlflow/mlflow-apps">mlflow-apps:entry</a>);
+
+
+  const databricksRun = RunInfo.fromJs({
+    "source_name": "/Users/admin/test",
+    "source_type": "NOTEBOOK"
+  });
+  const databricksRunTags = {
+    "mlflow.databricks.notebookID": { value: "13" },
+    "mlflow.databricks.webappURL": { value: "https://databricks.com" },
+  };
+  const wrapper = shallow(Utils.renderSource(databricksRun, databricksRunTags));
+  expect(wrapper.is("a")).toEqual(true);
+  expect(wrapper.props().href).toEqual("https://databricks.com/#notebook/13");
 });
 
 test("dropExtension", () => {
