@@ -4,8 +4,8 @@ import mock
 import pytest
 from six.moves import shlex_quote
 
+from mlflow.exceptions import ExecutionException
 from mlflow.projects._project_spec import EntryPoint
-from mlflow.utils.exception import ExecutionException
 from mlflow.utils.file_utils import TempDir
 from tests.projects.utils import load_project, TEST_PROJECT_DIR
 

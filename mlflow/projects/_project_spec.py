@@ -7,7 +7,7 @@ import six
 from six.moves import shlex_quote
 
 from mlflow import data
-from mlflow.utils.exception import ExecutionException
+from mlflow.exceptions import ExecutionException
 
 
 MLPROJECT_FILE_NAME = "MLproject"
