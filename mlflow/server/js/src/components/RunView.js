@@ -11,8 +11,10 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
-import RenameRunModal from "./modals/RenameRunModal"
-import ModalsContainer from "../modals/ModalsContainer"
+import RenameRunModal from "./modals/RenameRunModal";
+import RenameRunFailedModal from "./modals/RenameRunFailedModal";
+
+import ModalsContainer from "../modals/ModalsContainer";
 
 import { showModal } from '../modals/actions';
 
@@ -137,7 +139,7 @@ class RunView extends Component {
                <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
              </Dropdown.Menu>
           </Dropdown>
-          <ModalsContainer modalComponents={{"RenameRunModal": RenameRunModal}} />
+          <ModalsContainer modalComponents={{RenameRunModal, RenameRunFailedModal}} />
         </div>
         <div className="run-info-container">
           <div className="run-info">

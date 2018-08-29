@@ -51,9 +51,9 @@ class RenameRunModal extends Component {
   }
 
   renderForm() {
-    const { runUuid, runTags } = this.props;
+    const { runUuid, runTags, onClose } = this.props;
     const runName = Utils.getRunDisplayName(runTags, runUuid);
-    return <RenameRunFormView onSubmit={this.handleSubmit} initialValues={{ runName }}/>
+    return <RenameRunFormView onSubmit={this.handleSubmit} onCancel={onClose} initialValues={{ runName }}/>
   }
 
   render() {
@@ -61,7 +61,8 @@ class RenameRunModal extends Component {
     return (<Modal show={open} onHide={this.props.onClose}>
       <Modal.Body>
       {this.renderForm()}
-      <Button className="borderless-button" onClick={this.props.onClose} style={{position:"absolute", top: "8px", right: "8px"}}><i class="fas fa-times"/> </Button>
+      <Button className="borderless-button" onClick={this.props.onClose}
+      style={{position:"absolute", top: "8px", right: "8px"}}><i class="fas fa-times"/> </Button>
       </Modal.Body>
     </Modal>);
   }
@@ -74,12 +75,6 @@ function mapStateToProps(state, ownProps) {
   return { runUuid, runTags };
 }
 
-// TODO: should this be higher up in the view hierarchy for reuse? Or maybe like a static thing
-function onSetTag(tagKey, tagValue) {
-  const setTagRequestId = this.props.dispatchSetTag(
-    this.props.runUuid, tagKey, tagValue);
-  this.setState({ setTagRequestId });
-}
 
 // eslint-disable-next-line no-unused-vars
 const mapDispatchToProps = (dispatch, ownProps) => {

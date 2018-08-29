@@ -6,25 +6,14 @@ import { Button, Modal, Form } from 'react-bootstrap';
 import { Formik, Field } from 'formik';
 
 import { validationSchema } from './validation';
-
+import { showModal } from '../../modals/actions';
 
 /** TODO: Can we make this a generic class that renders a form? */
 class RenameRunFormView extends Component {
 
   static propTypes = {
-    onSubmit: PropTypes.func.isRequired
-  }
-
-  getInputProps(renderProps, name, label) {
-    return {
-      name,
-      label,
-      onChange: renderProps.handleChange,
-      onBlur: renderProps.handleBlur,
-      value: renderProps.values[name],
-      error: renderProps.errors[name],
-      touched: renderProps.touched[name],
-    }
+    onSubmit: PropTypes.func.isRequired,
+    onCancel: PropTypes.func.isRequired,
   }
 
   handleSubmit = (
@@ -35,6 +24,7 @@ class RenameRunFormView extends Component {
       setErrors /* setValues, setStatus, and other goodies */,
     }) => {
       return this.props.onSubmit(values).catch((err) => {
+        this.props.showModal('RenameRunFailedModal', {});
         setErrors(err.errors)
       }).finally(() => {
         setSubmitting(false)
@@ -46,7 +36,6 @@ class RenameRunFormView extends Component {
       handleSubmit,
       isSubmitting,
     } = renderProps;
-    const { classes } = this.props;
     return <form onSubmit={handleSubmit}>
       <h2> Rename Run </h2>
       <div> Please enter a new name for the run: </div>
@@ -61,6 +50,9 @@ class RenameRunFormView extends Component {
         <div style={{"margin-top": "8px"}}>
         <Button bsStyle="primary" type="submit" disabled={isSubmitting}>
           Save
+        </Button>
+        <Button bsStyle="default" type="submit" disabled={isSubmitting} onClick={this.props.onCancel}>
+          Cancel
         </Button>
         </div>
       </div>
@@ -79,4 +71,4 @@ class RenameRunFormView extends Component {
   }
 }
 
-export default RenameRunFormView;
+export default connect(function() {}, { showModal })(RenameRunFormView);
