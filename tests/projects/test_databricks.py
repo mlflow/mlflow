@@ -12,7 +12,11 @@ import mlflow
 from mlflow.projects.databricks import DatabricksJobRunner
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
+from mlflow.tracking import get_service
 from mlflow.utils import file_utils
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
+    MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
+    MLFLOW_DATABRICKS_WEBAPP_URL
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -87,6 +91,20 @@ def before_run_validations_mock():  # pylint: disable=unused-argument
         yield
 
 
+@pytest.fixture()
+def set_tag_mock():
+    with mock.patch("mlflow.projects.databricks.tracking.get_service") as m:
+        mlflow_service_mock = mock.Mock(wraps=get_service())
+        m.return_value = mlflow_service_mock
+        yield mlflow_service_mock.set_tag
+
+
+@pytest.fixture()
+def get_databricks_http_request_kwargs_or_fail_mock():
+    with mock.patch("mlflow.projects.databricks.get_databricks_http_request_kwargs_or_fail") as m:
+        yield m
+
+
 def _get_mock_run_state(succeeded):
     if succeeded is None:
         return {"life_cycle_state": "RUNNING", "state_message": ""}
@@ -99,7 +117,7 @@ def _get_mock_run_state(succeeded):
 
 def mock_runs_get_result(succeeded):
     run_state = _get_mock_run_state(succeeded)
-    return {"state": run_state, "run_page_url": ""}
+    return {"state": run_state, "run_page_url": "test_url"}
 
 
 def run_databricks_project(cluster_spec_path, block=False):
@@ -139,7 +157,8 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
 
 def test_run_databricks_validations(
         tmpdir, cluster_spec_mock,  # pylint: disable=unused-argument
-        tracking_uri_mock, dbfs_mocks):  # pylint: disable=unused-argument
+        tracking_uri_mock, dbfs_mocks, set_tag_mock,  # pylint: disable=unused-argument
+        get_databricks_http_request_kwargs_or_fail_mock):  # pylint: disable=unused-argument
     """
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
@@ -174,8 +193,10 @@ def test_run_databricks_validations(
 def test_run_databricks(
         before_run_validations_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
-        runs_submit_mock, runs_get_mock, cluster_spec_mock):
+        runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock,
+        get_databricks_http_request_kwargs_or_fail_mock):
     """Test running on Databricks with mocks."""
+    get_databricks_http_request_kwargs_or_fail_mock.return_value = {'hostname': 'test-host'}
     # Test that MLflow gets the correct run status when performing a Databricks run
     for run_succeeded, expected_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
         runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
@@ -183,13 +204,25 @@ def test_run_databricks(
         assert submitted_run.wait() == run_succeeded
         assert submitted_run.run_id is not None
         assert runs_submit_mock.call_count == 1
+        assert set_tag_mock.call_count == 3
+        set_tag_args, _ = set_tag_mock.call_args_list[0]
+        assert set_tag_args[1] == MLFLOW_DATABRICKS_RUN_URL
+        assert set_tag_args[2] == 'test_url'
+        set_tag_args, _ = set_tag_mock.call_args_list[1]
+        assert set_tag_args[1] == MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID
+        assert set_tag_args[2] == '-1'
+        set_tag_args, _ = set_tag_mock.call_args_list[2]
+        assert set_tag_args[1] == MLFLOW_DATABRICKS_WEBAPP_URL
+        assert set_tag_args[2] == 'test-host'
+        set_tag_mock.reset_mock()
         runs_submit_mock.reset_mock()
         validate_exit_status(submitted_run.get_status(), expected_status)
 
 
 def test_run_databricks_cancel(
         before_run_validations_mock, tracking_uri_mock,  # pylint: disable=unused-argument
-        runs_submit_mock, dbfs_mocks,  # pylint: disable=unused-argument
+        runs_submit_mock, dbfs_mocks, set_tag_mock,  # pylint: disable=unused-argument
+        get_databricks_http_request_kwargs_or_fail_mock,  # pylint: disable=unused-argument
         runs_cancel_mock, runs_get_mock, cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
