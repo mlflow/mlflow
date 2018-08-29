@@ -149,3 +149,43 @@ def test_params():
     final_6, extra_6 = entry_point.compute_parameters(user_6, None)
     assert expected_extra_6 == extra_6
     assert expected_final_6 == final_6
+
+
+def test_path_params():
+    with TempDir() as tmp:
+        dest_path = tmp.path()
+        data_file = "s3://path.test/resources/data_file.csv"
+        defaults = {
+            "constants": {"type": "uri", "default": "s3://path.test/b1"},
+            "data": {"type": "path", "default": data_file}
+        }
+        entry_point = EntryPoint("entry_point_name", defaults, "command_name script.py")
+
+        with mock.patch("mlflow.data.download_uri") as download_uri_mock:
+            final_1, extra_1 = entry_point.compute_parameters({}, None)
+            assert (final_1 == {"constants": "s3://path.test/b1", "data": data_file})
+            assert (extra_1 == {})
+            assert download_uri_mock.call_count == 0
+
+        with mock.patch("mlflow.data.download_uri") as download_uri_mock:
+            user_2 = {"alpha": 0.001, "constants": "s3://path.test/b_two"}
+            final_2, extra_2 = entry_point.compute_parameters(user_2, None)
+            assert (final_2 == {"constants": "s3://path.test/b_two", "data": data_file})
+            assert (extra_2 == {"alpha": "0.001"})
+            assert download_uri_mock.call_count == 0
+
+        with mock.patch("mlflow.data.download_uri") as download_uri_mock:
+            user_3 = {"alpha": 0.001}
+            final_3, extra_3 = entry_point.compute_parameters(user_3, dest_path)
+            assert (final_3 == {"constants": "s3://path.test/b1",
+                                "data": "%s/data_file.csv" % dest_path})
+            assert (extra_3 == {"alpha": "0.001"})
+            assert download_uri_mock.call_count == 1
+
+        with mock.patch("mlflow.data.download_uri") as download_uri_mock:
+            user_4 = {"data": "s3://another.example.test/data_stash/images.tgz"}
+            final_4, extra_4 = entry_point.compute_parameters(user_4, dest_path)
+            assert (final_4 == {"constants": "s3://path.test/b1",
+                                "data": "%s/images.tgz" % dest_path})
+            assert (extra_4 == {})
+            assert download_uri_mock.call_count == 1

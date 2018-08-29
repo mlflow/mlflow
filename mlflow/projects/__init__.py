@@ -50,7 +50,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
-    for key, value in (final_params.items() + extra_params.items()):
+    for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.get_service().log_param(active_run.info.run_uuid, key, value)
 
     if mode == "databricks":
