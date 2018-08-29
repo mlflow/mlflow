@@ -10,6 +10,11 @@
 #' @importFrom yaml write_yaml
 #' @export
 mlflow_save_model <- function(fn, path = "model") {
+
+  if (!"crate" %in% class(fn)) {
+    stop("Serving function must be crated using mlflow::crate().")
+  }
+
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
@@ -89,6 +94,11 @@ mlflow_rfunc_predict <- function(
     stop("Could not load data as a data frame.")
 
   model <- mlflow_load_model(model_dir)
+
+  if (!"crate" %in% class(model)) {
+    stop("MLflow rfunc model expected to be crated using mlflow::crate().")
+  }
+
   prediction <- model(data)
 
   if (is.null(output_file)) {
