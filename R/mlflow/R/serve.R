@@ -142,10 +142,7 @@ serve_handlers <- function(host, port) {
         )
       }
 
-      result <- mlflow_predict_model(
-        model,
-        df
-      )
+      result <- model(df)
 
       list(
         status = 200L,

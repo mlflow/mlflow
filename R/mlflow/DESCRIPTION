@@ -19,27 +19,29 @@ LazyData: true
 Depends:
   R (>= 3.1.2)
 Imports:
-  aws.s3,
-  forge,
-  fs,
-  git2r,
-  httpuv,
-  httr,
-  jsonlite,
-  openssl,
-  processx,
-  reticulate,
-  rlang,
-  packrat,
-  purrr,
-  swagger,
-  withr,
-  xml2,
-  yaml
+    aws.s3,
+    forge,
+    fs,
+    git2r,
+    httpuv,
+    httr,
+    jsonlite,
+    openssl,
+    processx,
+    reticulate,
+    rlang,
+    packrat,
+    purrr,
+    swagger,
+    withr,
+    xml2,
+    yaml,
+    carrier (>= 0.0.0.9000)
 RoxygenNote: 6.1.0
 Suggests: 
   covr,
   lintr,
   testthat
 Remotes: 
-  rstudio/forge
+  rstudio/forge,
+  r-lib/carrier
