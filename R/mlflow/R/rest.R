@@ -38,7 +38,13 @@ mlflow_rest_timeout <- function() {
 mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
 
-  mc <- mlflow_get_or_create_active_connection()
+  if (is.null(args$mc)) {
+    mc <- mlflow_get_or_create_active_connection()
+  }
+  else {
+    mc <- args$mc
+    args$mc <- NULL
+  }
 
   api_url <- file.path(
     mc$tracking_uri,

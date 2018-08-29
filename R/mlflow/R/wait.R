@@ -3,13 +3,13 @@ wait_for <- function(f, wait, sleep) {
 
   success <- FALSE
   while (!success && Sys.time() < command_start + wait) {
-    tryCatch({
-      suppressWarnings({
+    success <- suppressWarnings({
+      tryCatch({
         f()
+        TRUE
+      }, error = function(err) {
+        FALSE
       })
-
-      success <- TRUE
-    }, error = function(err) {
     })
 
     if (!success) Sys.sleep(sleep)
