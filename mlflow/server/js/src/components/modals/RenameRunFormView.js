@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Button, Modal, Form } from 'react-bootstrap';
 
 import { Formik, Field } from 'formik';
 
@@ -47,19 +48,22 @@ class RenameRunFormView extends Component {
     } = renderProps;
     const { classes } = this.props;
     return <form onSubmit={handleSubmit}>
-      <h3> Rename Run </h3>
-      <div>
-        <div> Please enter a new name for the run: </div>
+      <h2> Rename Run </h2>
+      <div> Please enter a new name for the run: </div>
+      <div style={{"marginTop":"8px", "width": "80%"}}>
         <Field
-          type="newRunName"
-          name="newRunName"
-          label="New Run Name"
-          autoFocus
+            type="newRunName"
+            name="newRunName"
+            label="New Run Name"
+            autoFocus
+            style={{"width": "100%"}}
         />
+        <div style={{"text-align": "right", "margin-top": "8px"}}>
+        <Button bsStyle="primary" type="submit" disabled={isSubmitting}>
+          Save
+        </Button>
+        </div>
       </div>
-      <button type="submit" disabled={isSubmitting}>
-        Save
-      </button>
     </form>;
   }
 
@@ -75,10 +79,4 @@ class RenameRunFormView extends Component {
   }
 }
 
-function mapStateToProps(state, ownProps) {
-  return {
-  }
-}
-
-
-export default connect(mapStateToProps)(RenameRunFormView)
+export default RenameRunFormView;

@@ -129,7 +129,7 @@ class RunView extends Component {
       <div className="RunView">
         <div className="header-container">
           <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]}/>
-          <DropdownButton className=".dropdown-button-sid">
+          <DropdownButton title="" id="run-dropdown" className="dropdown-button">
             <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
           </DropdownButton>
           <ModalsContainer modalComponents={{"RenameRunModal": RenameRunModal}} />

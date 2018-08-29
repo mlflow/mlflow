@@ -11,40 +11,15 @@ import { connect } from 'react-redux';
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
  * a run or a run comparison page.
  */
-
-const DROPDOWN_MENU = 'dropdownMenu';
-
-
 class BreadcrumbTitle extends Component {
   constructor(props) {
     super(props);
-    // TODO do we need this here and below?
-    this.state.showMenu = true;
   }
-  // title={Utils.getRunDisplayName(this.props.tags, run.getRunUuid())}
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     runUuids: PropTypes.arrayOf(String), // Optional because not all pages are nested under runs
-    // TODO this might need to be an array for multiple runs?
-    tags: PropTypes.object,
+    tags: PropTypes.object, // Optional, only used when we're rendering a title for a single run
   };
-
-  state = {
-      showMenu: true,
-      above: false,
-      dropdownHeight: 0,
-  };
-
-  /**
-   * Hide the dropdown menu for a table item.
-   **/
-  hideMenu() {
-    this.setState({
-      showMenu: true,
-      above: false,
-      dropdownHeight: 0,
-    });
-  }
 
   render() {
     const {experiment, runUuids, title} = this.props;
@@ -68,7 +43,7 @@ class BreadcrumbTitle extends Component {
     }
     const chevron = <i className="fas fa-chevron-right breadcrumb-chevron" key="chevron"/>;
     return (
-      <h1 style={{display: "inline", "margin-right": "8px"}}>
+      <h1 style={{display: "inline", "marginRight": "8px"}}>
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink] : [] }
@@ -82,10 +57,11 @@ class BreadcrumbTitle extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { experimentId, runUuids } = ownProps;
   const experiment = getExperiment(experimentId, state);
-  // TODO handle array
-  const tags = getRunTags(runUuids[0], state);
-  const run = getRunInfo(runUuids[0], state);
-  return { run, experiment, tags };
+  let tags;
+  if (runUuids && runUuids.length > 0) {
+    tags = getRunTags(runUuids[0], state);
+  }
+  return { experiment, tags };
 };
 
 

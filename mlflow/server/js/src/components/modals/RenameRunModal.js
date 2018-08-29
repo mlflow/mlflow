@@ -11,7 +11,7 @@ import RenameRunFormView from './RenameRunFormView';
 
 import Utils from '../../utils/Utils';
 
-import { Button } from 'react-bootstrap';
+import { Button, Modal } from 'react-bootstrap';
 import ReactModal from 'react-modal';
 import { getRunTags, getApis } from '../../reducers/Reducers';
 
@@ -58,10 +58,12 @@ class RenameRunModal extends Component {
 
   render() {
     const { open } = this.props;
-    return (<ReactModal isOpen={open} onRequestClose={this.props.onClose} role="dialog">
+    return (<Modal show={open} onHide={this.props.onClose}>
+      <Modal.Body>
       {this.renderForm()}
-      <Button onClick={this.props.onClose} style={{position:"absolute", top: "8px", right: "8px"}}>x</Button>
-    </ReactModal>);
+      <Button className="borderless-button" onClick={this.props.onClose} style={{position:"absolute", top: "8px", right: "8px"}}><i class="fas fa-times"/> </Button>
+      </Modal.Body>
+    </Modal>);
   }
 }
 

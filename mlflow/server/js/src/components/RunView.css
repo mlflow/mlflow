@@ -76,3 +76,8 @@ textarea.run-command {
   width: 100%;
   font-family: Menlo, Consolas, monospace;
 }
+
+.borderless-button, .dropdown-button {
+  background-color: transparent;
+  border-color: transparent;
+}
