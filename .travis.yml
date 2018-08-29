@@ -1,38 +1,70 @@
 sudo: true
+language: python
 
 services:
   - docker
 
 matrix:
   include:
-    - language: python
-      python: 2.7
-      install:
-        - sudo ./install-travis.sh
-      script:
-        - sudo ./test-travis.sh
-    - language: python
-      python: 3.6
-      install:
-        - sudo ./install-travis.sh
-      script:
-        - sudo ./test-travis.sh
-    - language: r
-      dist: trusty
-      cache: packages
-      r_packages:
-        - covr
-      before_install:
-        - export NOT_CRAN=true
-        - export MLFLOW_TEST_REQUIREMENTS=false
-        - sudo ./install-travis.sh
-        - export MLFLOW_HOME=$(pwd)
-        - cd R/mlflow
-      script:
-        - R CMD build .
-        - R CMD check --no-build-vignettes --no-manual --no-tests cloudml*tar.gz
-        - cd tests
-        - export LINTR_COMMENT_BOT=false
-        - Rscript ../.travis.R
-      after_success:
-        - Rscript -e 'covr::codecov()'
+    - python: 2.7
+    - python: 3.6
+install:
+  - sudo mkdir -p /travis-install
+  - sudo chown travis /travis-install
+  # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
+  # We do this conditionally because it saves us some downloading if the
+  # version is the same.
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+    else
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+    fi
+
+  - bash /travis-install/miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  # Useful for debugging any issues with conda
+  - conda info -a
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
+  - source activate test-environment
+  - python --version
+  - pip install --upgrade pip
+  - pip install -r dev-requirements.txt -q
+  - pip install -r test-requirements.txt -q
+  - pip install .
+  - export MLFLOW_HOME=$(pwd)
+  # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
+  - sudo rm -f /etc/boto.cfg
+  # Install protoc
+  - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
+  - sudo unzip /travis-install/protoc.zip -d /usr
+script:
+  - sudo ./test-generate-protos.sh
+  - pip list
+  - which mlflow
+  - echo $MLFLOW_HOME
+  - mlflow sagemaker build-and-push-container --no-push --mlflow-home .
+  - ./lint.sh
+  # Run tests that don't leverage specific ML frameworks
+  - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
+    --ignore=tests/pytorch --ignore=tests/pyfunc--ignore=tests/sagemaker --ignore=tests/sklearn
+    --ignore=tests/spark --ignore=tests/tensorflow
+  # Run ML framework tests in their own Python processes. TODO: find a better method of isolating
+  # tests.
+  - pytest --cov=mlflow --verbose tests/h2o --large
+  - pytest --cov=mlflow --verbose tests/keras --large
+  - pytest --cov=mlflow --verbose tests/pytorch --large
+  - pytest --cov=mlflow --verbose tests/pyfunc --large
+  - pytest --cov=mlflow --verbose tests/sagemaker --large
+  - pytest --cov=mlflow --verbose tests/sklearn --large
+  - pytest --cov=mlflow --verbose tests/spark --large
+  - pytest --cov=mlflow --verbose tests/tensorflow --large
+  - cd mlflow/server/js
+  - npm i
+  - ./lint.sh
+  - npm test -- --coverage
+  - cd ../../java
+  - mvn clean package
+  - cd ../..
+  - codecov -e TOXENV
