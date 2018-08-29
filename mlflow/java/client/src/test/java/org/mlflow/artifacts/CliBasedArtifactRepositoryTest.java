@@ -54,7 +54,6 @@ public class CliBasedArtifactRepositoryTest {
     repo.logArtifact(tempFile.toFile());
     Path returnFile = repo.downloadArtifacts(tempFile.getFileName().toString()).toPath();
     Assert.assertEquals(readFile(returnFile), "Hello, World!");
-    throw new RuntimeException();
   }
 
   @Test
