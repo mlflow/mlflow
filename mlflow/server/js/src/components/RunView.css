@@ -77,14 +77,6 @@ textarea.run-command {
   font-family: Menlo, Consolas, monospace;
 }
 
-
-.header-container .btn-group button.dropdown-toggle, .header-container .btn-group.open button.dropdown-toggle, .borderless-button {
-  background-color: transparent;
-  border-color: transparent;
-  border: none;
-  box-shadow: none;
-}
-
 .modal-content .modal-body {
   padding: 24px;
 }

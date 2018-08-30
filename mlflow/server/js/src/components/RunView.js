@@ -133,14 +133,17 @@ class RunView extends Component {
         <div className="header-container">
           <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]}/>
           <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
-             <Dropdown.Toggle noCaret className="dropdown-button">
+             <Dropdown.Toggle noCaret className="dropdown-button"
+               style={{backgroundColor: "transparent", borderColor: "transparent",
+               border: "none", boxShadow: "none"}}>
                <i className="fas fa-chevron-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu>
                <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
              </Dropdown.Menu>
           </Dropdown>
-          <RenameRunModal modalParams={{runUuid: this.props.runUuid, experimentId: this.props.experimentId}} onClose={this.hideModal} open={this.state.showRunRenameModal} />
+          <RenameRunModal runUuid={this.props.runUuid} experimentId={this.props.experimentId}
+            onClose={this.hideModal} open={this.state.showRunRenameModal} />
         </div>
         <div className="run-info-container">
           <div className="run-info">

@@ -27,7 +27,7 @@ class CompareRunView extends Component {
     const runUuids = this.props.runUuids;
 
     return (
-      <div className="CompareRunView head">
+      <div className="CompareRunView">
         <div className="header-container">
           <BreadcrumbTitle
             experimentId={experimentId}

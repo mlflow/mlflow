@@ -49,7 +49,6 @@ class RenameRunModal extends Component {
   }
 
   static propTypes = {
-    modalParams: PropTypes.object.isRequired,
     open: PropTypes.bool,
     experimentId: PropTypes.number.isRequired,
     runUuid: PropTypes.string.isRequired,
@@ -103,11 +102,9 @@ class RenameRunModal extends Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const { modalParams } = ownProps;
-  const runUuid = modalParams.runUuid;
-  const experimentId = modalParams.experimentId;
+  const { runUuid } = ownProps;
   const runTags = getRunTags(runUuid, state);
-  return { runUuid, runTags, experimentId };
+  return { runTags };
 }
 
 
