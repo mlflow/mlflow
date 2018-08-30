@@ -105,7 +105,7 @@ class MlflowProtobufMapper {
 
   private String print(MessageOrBuilder message) {
     try {
-      return JsonFormat.printer().print(message);
+      return JsonFormat.printer().preservingProtoFieldNames().print(message);
     } catch (InvalidProtocolBufferException e) {
       throw new MlflowClientException("Failed to serialize message " + message, e);
     }
@@ -113,7 +113,7 @@ class MlflowProtobufMapper {
 
   private void merge(String json, com.google.protobuf.Message.Builder builder) {
     try {
-      JsonFormat.parser().merge(json, builder);
+      JsonFormat.parser().ignoringUnknownFields().merge(json, builder);
     } catch (InvalidProtocolBufferException e) {
       throw new MlflowClientException("Failed to serialize json " + json + " into " + builder, e);
     }

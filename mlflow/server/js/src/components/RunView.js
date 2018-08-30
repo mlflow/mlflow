@@ -11,7 +11,7 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 
-const PARAMATERS_KEY = 'parameters';
+const PARAMETERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
 const ARTIFACTS_KEY = 'artifacts';
 const TAGS_KEY = 'tags';
@@ -43,7 +43,7 @@ class RunView extends Component {
 
   onClickExpander(key) {
     switch (key) {
-      case PARAMATERS_KEY: {
+      case PARAMETERS_KEY: {
         this.setState({ showParameters: !this.state.showParameters });
         return;
       }
@@ -65,7 +65,7 @@ class RunView extends Component {
 
   getExpanderClassName(key) {
     switch (key) {
-      case PARAMATERS_KEY: {
+      case PARAMETERS_KEY: {
         return this.state.showParameters ? 'fa-caret-down' : 'fa-caret-right';
       }
       case METRICS_KEY: {
@@ -156,6 +156,15 @@ class RunView extends Component {
             </div>
             : null
           }
+          {tags['mlflow.databricks.runURL'] !== undefined ?
+            <div className="run-info">
+              <span className="metadata-header">Job Output: </span>
+              <span className="metadata-info">
+                <a href={tags['mlflow.databricks.runURL'].value}>Logs</a>
+              </span>
+            </div>
+            : null
+          }
         </div>
         {runCommand ?
           <div className="RunView-info">
@@ -165,8 +174,8 @@ class RunView extends Component {
           : null
         }
         <div className="RunView-info">
-          <h2 onClick={() => this.onClickExpander(PARAMATERS_KEY)} className="table-name">
-            <span ><i className={`fa ${this.getExpanderClassName(PARAMATERS_KEY)}`}/></span>
+          <h2 onClick={() => this.onClickExpander(PARAMETERS_KEY)} className="table-name">
+            <span ><i className={`fa ${this.getExpanderClassName(PARAMETERS_KEY)}`}/></span>
             {' '}Parameters
           </h2>
           {this.state.showParameters ?

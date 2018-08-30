@@ -101,12 +101,19 @@ def _get_rest_store(store_uri):
     return RestStore({'hostname': store_uri})
 
 
-def _get_databricks_rest_store(store_uri):
-    parsed_uri = urllib.parse.urlparse(store_uri)
+def get_db_profile_from_uri(uri):
+    """
+    Returns the Databricks profile specified by the passed-in tracking URI (if any), otherwise
+    returns None.
+    """
+    parsed_uri = urllib.parse.urlparse(uri)
+    if parsed_uri.scheme == "databricks":
+        return parsed_uri.hostname
+    return None
 
-    profile = None
-    if parsed_uri.scheme == 'databricks':
-        profile = parsed_uri.hostname
+
+def _get_databricks_rest_store(store_uri):
+    profile = get_db_profile_from_uri(store_uri)
     http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(profile)
     return DatabricksStore(http_request_kwargs)
 
