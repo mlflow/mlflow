@@ -93,7 +93,7 @@ def _serve():
         deployment_config = yaml.load(os.environ[ENV_KEY_DEPLOYMENT_CONFIG])
         serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
     else:
-        # Older versions of mlflow may not specify a deployment configuration 
+        # Older versions of mlflow may not specify a deployment configuration
         serving_flavor = get_preferred_serving_flavor(m)
 
     if serving_flavor == mleap.FLAVOR_NAME:
@@ -103,7 +103,7 @@ def _serve():
             _serve_mleap()
         elif pyfunc.FLAVOR_NAME in m.flavors:
             raise Exception("The container does not support the specified deployment flavor:"
-                            " `{mleap_flavor}`. Please build the container with the `mlflow_home`" 
+                            " `{mleap_flavor}`. Please build the container with the `mlflow_home`"
                             " parameter specified to enable this feature.".format(
                                 mleap_flavor=mleap.FLAVOR_NAME))
     elif pyfunc.FLAVOR_NAME in m.flavors:
@@ -148,10 +148,10 @@ def _serve_pyfunc(model):
 
 def _serve_mleap():
     serve_cmd = ["java", "-cp", "/opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*"
-                   "-with-dependencies.jar".format(
-                        mlflow_version=mlflow.version.VERSION),
-                   "org.mlflow.sagemaker.ScoringServer",
-                   MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)]
+                 "-with-dependencies.jar".format(
+                    mlflow_version=mlflow.version.VERSION),
+                 "org.mlflow.sagemaker.ScoringServer",
+                 MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)]
     # Invoke `Popen` with a single string command in the shell to support wildcard usage
     # with the mlflow jar version.
     serve_cmd = " ".join(serve_cmd)
