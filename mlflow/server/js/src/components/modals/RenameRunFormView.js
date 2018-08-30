@@ -6,34 +6,15 @@ import { Button, Modal, Form } from 'react-bootstrap';
 import { Formik, Field } from 'formik';
 
 import { validationSchema } from './validation';
-import { showModal } from '../../modals/actions';
-
-import onClickOutside from "react-onclickoutside";
-
-
 class RenameRunFormView extends Component {
 
   constructor(props) {
     super(props);
-    this.handleClickOutside = this.handleClickOutside.bind(this);
   }
-
-  handleClickOutside(event) {
-    console.log(event);
-    console.log(this.state.isSubmittingState);
-    if (this.state.isSubmittingState) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  };
-
-  state = {
-    isSubmittingState: false,
-  };
 
   static propTypes = {
     onSubmit: PropTypes.func.isRequired,
-    onCancel: PropTypes.func.isRequired,
+    onClose: PropTypes.func.isRequired,
   }
 
   handleSubmit = (
@@ -43,15 +24,14 @@ class RenameRunFormView extends Component {
       setSubmitting,
       setErrors /* setValues, setStatus, and other goodies */,
     }) => {
-      this.setState({isSubmittingState: true});
       return this.props.onSubmit(values).catch((err) => {
+        debugger;
         // TODO: Handle errors here: on network failures, show failed form. If run was deleted,
         // redirect to an error page.
         setErrors(err.errors)
       }).finally(function() {
-        this.setState({isSubmittingState: false});
         setSubmitting(false);
-        this.props.onCancel();
+        this.props.onClose();
       }.bind(this))
     }
 
@@ -76,7 +56,8 @@ class RenameRunFormView extends Component {
         <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
           Save
         </Button>
-        <Button bsStyle="default" className="cancel-button" disabled={isSubmitting} onClick={this.props.onCancel}>
+        <Button bsStyle="default" className="cancel-button" disabled={isSubmitting}
+          onClick={this.props.onClose}>
           Cancel
         </Button>
       </div>
@@ -94,4 +75,4 @@ class RenameRunFormView extends Component {
   }
 }
 
-export default connect(function() {return {}}, { showModal })(RenameRunFormView);
+export default RenameRunFormView;

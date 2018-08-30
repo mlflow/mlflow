@@ -44,7 +44,7 @@ class RenameRunModal extends Component {
   }
 
   static propTypes = {
-    modalParams: PropTypes.instanceOf(Immutable.Map),
+    modalParams: PropTypes.object.isRequired,
     open: PropTypes.bool,
     runUuid: PropTypes.string.isRequired,
     runTags: PropTypes.object.isRequired,
@@ -75,7 +75,7 @@ class RenameRunModal extends Component {
     const { runUuid, runTags, onClose } = this.props;
     const runName = Utils.getRunDisplayName(runTags, runUuid);
     return <RenameRunFormView onSubmit={this.handleSubmit}
-      onCancel={this.onRequestCloseHandler} initialValues={{ runName }}/>
+      onClose={this.onRequestCloseHandler} initialValues={{ runName }}/>
   }
 
   onRequestCloseHandler(event) {
@@ -97,7 +97,7 @@ class RenameRunModal extends Component {
 
 function mapStateToProps(state, ownProps) {
   const { modalParams } = ownProps;
-  const runUuid = modalParams.get('runUuid');
+  const runUuid = modalParams.runUuid;
   const runTags = getRunTags(runUuid, state);
   return { runUuid, runTags };
 }

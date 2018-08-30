@@ -9,8 +9,6 @@ import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid } from './MetricReducer';
 
-import modalsReducer from '../modals/reducer';
-
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
 };
@@ -299,5 +297,4 @@ const apis = (state = {}, action) => {
 export const rootReducer = combineReducers({
   entities,
   apis,
-  modals: modalsReducer,
 });

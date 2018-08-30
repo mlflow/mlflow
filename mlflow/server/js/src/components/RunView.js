@@ -12,11 +12,6 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
-import RenameRunFailedModal from "./modals/RenameRunFailedModal";
-
-import ModalsContainer from "../modals/ModalsContainer";
-
-import { showModal } from '../modals/actions';
 
 
 const PARAMATERS_KEY = 'parameters';
@@ -29,7 +24,8 @@ class RunView extends Component {
     super(props);
     this.onClickExpander = this.onClickExpander.bind(this);
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
-    this.handleRenameRunClick = this.handleRenameRunClick.bind(this)
+    this.handleRenameRunClick = this.handleRenameRunClick.bind(this);
+    this.hideModal = this.hideModal.bind(this)
     this.state.showTags = getTagValues(props.tags).length > 0;
   }
 
@@ -48,6 +44,7 @@ class RunView extends Component {
     showMetrics: true,
     showArtifacts: true,
     showTags: true,
+    showRunRenameModal: false,
   };
 
   onClickExpander(key) {
@@ -93,8 +90,12 @@ class RunView extends Component {
   }
 
   handleRenameRunClick() {
-    this.props.showModal('RenameRunModal', {runUuid: this.props.runUuid});
+    this.setState({showRunRenameModal: true});
   };
+
+  hideModal() {
+    this.setState({showRunRenameModal: false});
+  }
 
 
   render() {
@@ -139,7 +140,7 @@ class RunView extends Component {
                <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
              </Dropdown.Menu>
           </Dropdown>
-          <ModalsContainer modalComponents={{RenameRunModal, RenameRunFailedModal}} />
+          <RenameRunModal modalParams={{runUuid: this.props.runUuid}} onClose={this.hideModal} open={this.state.showRunRenameModal} />
         </div>
         <div className="run-info-container">
           <div className="run-info">
@@ -253,7 +254,7 @@ const mapStateToProps = (state, ownProps) => {
   return { run, experiment, params, tags, latestMetrics, metricPageRoute, getMetricPagePath };
 };
 
-export default connect(mapStateToProps, { showModal })(RunView);
+export default connect(mapStateToProps)(RunView);
 
 // Private helper functions.
 
