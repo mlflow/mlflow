@@ -238,49 +238,107 @@ Comparing the Models
       
 Packaging the Training Code
 ---------------------------
-Now that you have your training code, you can package it so that other data scientists can easily reuse the model, or so that you can run the training remotely, for example on Databricks. You do this by using :doc:`projects` conventions to specify the
-dependencies and entry points to your code. The ``tutorial/MLproject`` file specifies that the project has the dependencies located in a
-`Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
-called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-.. code:: yaml
+.. plain-section::
 
-    # tutorial/MLproject
+    .. container:: python
 
-    name: tutorial
+      Now that you have your training code, you can package it so that other data scientists can easily reuse the model, or so that you can run the training remotely, for example on Databricks. You do this by using :doc:`projects` conventions to specify the
+      dependencies and entry points to your code. The ``tutorial/MLproject`` file specifies that the project has the dependencies located in a
+      `Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-    conda_env: conda.yaml
+      .. code:: yaml
 
-    entry_points:
-      main:
-        parameters:
-          alpha: float
-          l1_ratio: {type: float, default: 0.1}
-        command: "python train.py {alpha} {l1_ratio}"
+          # tutorial/MLproject
+
+          name: tutorial
+
+          conda_env: conda.yaml
+
+          entry_points:
+            main:
+              parameters:
+                alpha: float
+                l1_ratio: {type: float, default: 0.1}
+              command: "python train.py {alpha} {l1_ratio}"
 
 
-The Conda file lists the dependencies:
+      The Conda file lists the dependencies:
 
-.. code:: yaml
+      .. code:: yaml
 
-    # tutorial/conda.yaml
+          # tutorial/conda.yaml
 
-    name: tutorial
-    channels:
-      - defaults
-    dependencies:
-      - numpy=1.14.3
-      - pandas=0.22.0
-      - scikit-learn=0.19.1
-      - pip:
-        - mlflow
+          name: tutorial
+          channels:
+            - defaults
+          dependencies:
+            - numpy=1.14.3
+            - pandas=0.22.0
+            - scikit-learn=0.19.1
+            - pip:
+              - mlflow
 
-To run this project, invoke ``mlflow run tutorial -P alpha=0.42``. After running
-this command, MLflow will run your training code in a new Conda environment with the dependencies
-specified in ``conda.yaml``.
+      To run this project, invoke ``mlflow run tutorial -P alpha=0.42``. After running
+      this command, MLflow will run your training code in a new Conda environment with the dependencies
+      specified in ``conda.yaml``.
 
-If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
-which you can run with ``mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.42``.
+      If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
+      which you can run with ``mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.42``.
+
+    .. container:: R
+
+      Now that you have your training code, you can package it so that other data scientists can easily reuse the model, or so that you can run the training remotely, for example on Databricks. You do this by running ``mlflow_snapshot()`` to create an `R dependencies packrat file <https://rstudio.github.io/packrat/>`_ called ``r-dependencies.txt``.
+
+      The R dependencies file lists the dependencies:
+
+      .. code::
+
+          # tutorial/R/r-dependencies.txt
+
+          PackratFormat: 1.4
+          PackratVersion: 0.4.9.3
+          RVersion: 3.5.1
+          Repos: CRAN=https://cran.rstudio.com/
+
+          Package: BH
+          Source: CRAN
+          Version: 1.66.0-1
+          Hash: 4cc8883584b955ed01f38f68bc03af6d
+
+          Package: Matrix
+          Source: CRAN
+          Version: 1.2-14
+          Hash: 521aa8772a1941dfdb007bf532d19dde
+          Requires: lattice
+
+          ...
+
+      To run this project, invoke:
+
+      .. code:: R
+
+        mlflow_run("tutorial/R", "train.R", param_list = list(alpha = 0.2))
+
+      After running this command, MLflow will run your training code in a new R session.
+
+      To restore the dependencies specified in ``r-dependencies.txt``, you can run instead:
+
+      .. code:: R
+
+        mlflow_run("tutorial/R", "train.R", param_list = list(alpha = 0.2))
+
+      You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
+
+      .. code:: R
+
+        mlflow_run(
+          "git@github.com:rstudio/mlflow-example.git",
+          "train.R",
+          param_list = list(alpha = 0.2),
+          restore = TRUE
+        )
 
 Serving the Model
 -----------------
