@@ -186,6 +186,28 @@ mlflow_log_param <- function(key, value, run_uuid = NULL) {
   invisible(value)
 }
 
+#' Get Param
+#'
+#' Get a param value.
+#'
+#' @return The param value as a named list.
+#' @param run_uuid ID of the run from which to retrieve the param value.
+#' @param param_name Name of the param. This field is required.
+#' @export
+mlflow_get_param <- function(param_name, run_uuid = NULL) {
+  mlflow_get_or_create_active_connection()
+  run_uuid <- run_uuid %||%
+    mlflow_active_run()$run_info$run_uuid %||%
+    stop("`run_uuid` must be specified when there is no active run.")
+
+  response <- mlflow_rest("params", "get", query = list(
+    run_uuid = run_uuid,
+    param_name = param_name
+  ))
+
+  as.data.frame(response$parameter, stringsAsFactors = FALSE)
+}
+
 #' Get Metric
 #'
 #' API to retrieve the logged value for a metric during a run. For a run, if this
@@ -195,13 +217,18 @@ mlflow_log_param <- function(key, value, run_uuid = NULL) {
 #' @param metric_key Name of the metric.
 #' @export
 mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  mlflow_get_or_create_active_connection()
+  run_uuid <- run_uuid %||%
+    mlflow_active_run()$run_info$run_uuid %||%
+    stop("`run_uuid` must be specified when there is no active run.")
+
   response <- mlflow_rest("metrics", "get", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
   ))
+
   metric <- response$metric
-  metric$timestamp <- as.POSIXct(as.integer(metric$timestamp), origin = "1970-01-01")
+  metric$timestamp <- as.POSIXct(as.double(metric$timestamp) / 1000, origin = "1970-01-01")
   as.data.frame(metric, stringsAsFactors = FALSE)
 }
 

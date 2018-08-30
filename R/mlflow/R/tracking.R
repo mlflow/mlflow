@@ -12,7 +12,11 @@ mlflow_active_experiment <- function() {
 #' @param experiment_id Identifer to get an experiment.
 #' @export
 mlflow_set_active_experiment <- function(experiment_id) {
-  .globals$active_experiment <- experiment_id
+  if (!identical(experiment_id, .globals$active_experiment)) {
+    .globals$active_experiment <- experiment_id
+    mlflow_set_active_run(NULL)
+  }
+
   invisible(experiment_id)
 }
 
