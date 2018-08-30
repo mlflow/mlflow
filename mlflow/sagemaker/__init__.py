@@ -280,7 +280,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         bucket = _get_default_s3_bucket(region_name)
 
     model_s3_path = _upload_s3(
-        local_model_path=model_path, flavor=deployment_flavor, bucket=bucket, prefix=s3_bucket_prefix)
+        local_model_path=model_path, bucket=bucket, prefix=s3_bucket_prefix)
     _deploy(role=execution_role_arn,
             image_url=image_url,
             app_name=app_name,
@@ -395,7 +395,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
 
     model_config = Model.load(model_config_path)
     deployment_flavor = _get_or_validate_deployment_flavor(model_config=model_config, flavor=flavor)
-    deployment_config = _write_deployment_config(flavor_name=deployment_flavor, path=None)
+    deployment_config = _get_deployment_config(flavor_name=deployment_flavor)
 
     eprint("launching docker image with path {}".format(model_path))
     cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port,
@@ -473,21 +473,16 @@ def _get_default_s3_bucket(region_name):
                bucket_name)
     return bucket_name
 
-
-def _make_tarfile(output_filename, source_dirs, source_files):
+def _make_tarfile(output_filename, source_dir):
     """
     create a tar.gz from a directory.
     """
-    file_paths = [os.path.join(source_dir, fname) for source_dir in source_dirs 
-                  for fname in os.listdir(source_dir)]
-    file_paths += source_files
     with tarfile.open(output_filename, "w:gz") as tar:
-        for file_path in file_paths:
-            file_name = os.path.basename(file_path)
-            tar.add(file_path, arcname=file_name)
+        for f in os.listdir(source_dir):
+            tar.add(os.path.join(source_dir, f), arcname=f)
 
 
-def _upload_s3(local_model_path, flavor, bucket, prefix):
+def _upload_s3(local_model_path, bucket, prefix):
     """
     Upload dir to S3 as .tar.gz.
     :param local_model_path: Local path to a dir.
@@ -497,11 +492,8 @@ def _upload_s3(local_model_path, flavor, bucket, prefix):
     """
     sess = boto3.Session()
     with TempDir() as tmp:
-        deployment_config_file = tmp.path("deployment.yaml")
-        _write_deployment_config(path=deployment_config_file, flavor_name=flavor)
         model_data_file = tmp.path("model.tar.gz")
-        _make_tarfile(model_data_file, source_dirs=[local_model_path], 
-                      source_files=[deployment_config_file])
+        _make_tarfile(model_data_file, local_model_path)
         s3 = boto3.client('s3')
         with open(model_data_file, 'rb') as fobj:
             key = os.path.join(prefix, 'model.tar.gz')
@@ -516,16 +508,12 @@ def _upload_s3(local_model_path, flavor, bucket, prefix):
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
-def _write_deployment_config(flavor_name, path=None):
+def _get_deployment_config(flavor_name):
     """
-    Writes a deployment configuration to the specified path or returns it as a string
-
-    :param path: The path to which to write the configuration. If `None`, the configuration
-                 will be returned as a string
+    :return: The deployment configuration as a yaml-formatted string
     """
     deployment_flavor_config = { DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME : flavor_name }
-    stream = open(path, "w") if path is not None else None
-    return yaml.dump(deployment_flavor_config, stream=stream)
+    return yaml.dump(deployment_flavor_config) 
         
 
 def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive,
@@ -780,7 +768,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 
 
 def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image_url,
-                            execution_role, sage_client):
+                            execution_role, sage_client, flavor):
     """
     :param model_s3_path: S3 path where the model artifacts are stored
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
@@ -790,6 +778,7 @@ def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image
                       model's container
     :param execution_role: The ARN of the role that SageMaker will assume when creating the model
     :param sage_client: A boto3 client for SageMaker
+    :param flavor: The name of the flavor of the model to use for deployment.
     :return: AWS response containing metadata associated with the new model
     """
     create_model_args = {
@@ -798,7 +787,8 @@ def _create_sagemaker_model(model_name, model_s3_path, vpc_config, run_id, image
             'ContainerHostname': 'mfs-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
-            'Environment': {},
+            'Environment': { DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME : 
+                _get_deployment_config(flavor_name=flavor) },
         },
         "ExecutionRoleArn": execution_role,
         "Tags": [{'Key': 'run_id', 'Value': str(run_id)}],
