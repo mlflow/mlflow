@@ -44,12 +44,12 @@ def commands():
               " with this application. For more information, see"
               " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
 @click.option("--flavor", "-f", default=None, 
-              help=("The name of the flavor to use for local serving. Must be one of the following:" 
+              help=("The name of the flavor to use for deployment. Must be one of the following:" 
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected" 
                     " from the model's available flavors.".format(
                         supported_flavors=mlflow.sagemaker.container.SUPPORTED_FLAVORS)))
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
-           archive, instance_type, instance_count, vpc_config):
+           archive, instance_type, instance_count, vpc_config, flavor):
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
@@ -62,7 +62,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
                             image_url=image_url, region_name=region_name, mode=mode,
                             archive=archive, instance_type=instance_type,
-                            instance_count=instance_count, vpc_config=vpc_config)
+                            instance_count=instance_count, vpc_config=vpc_config, flavor=flavor)
 
 
 @commands.command("delete")
@@ -86,9 +86,10 @@ def delete(app_name, region_name, archive):
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--image", "-i", default=IMAGE, help="Docker image name")
 @click.option("--flavor", "-f", default=None, 
-              help=("The name of the flavor to use for local serving." 
-                     " If unspecified, a flavor will be automatically selected from the" 
-                     " model's available flavors."))
+              help=("The name of the flavor to use for local serving. Must be one of the following:" 
+                    " {supported_flavors}. If unspecified, a flavor will be automatically selected" 
+                    " from the model's available flavors.".format(
+                        supported_flavors=mlflow.sagemaker.container.SUPPORTED_FLAVORS)))
 def run_local(model_path, run_id, port, image, flavor):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
