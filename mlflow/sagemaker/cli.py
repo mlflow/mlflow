@@ -47,7 +47,7 @@ def commands():
               help=("The name of the flavor to use for deployment. Must be one of the following:" 
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected" 
                     " from the model's available flavors.".format(
-                        supported_flavors=mlflow.sagemaker.container.SUPPORTED_FLAVORS)))
+                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
            archive, instance_type, instance_count, vpc_config, flavor):
     """
@@ -89,7 +89,7 @@ def delete(app_name, region_name, archive):
               help=("The name of the flavor to use for local serving. Must be one of the following:" 
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected" 
                     " from the model's available flavors.".format(
-                        supported_flavors=mlflow.sagemaker.container.SUPPORTED_FLAVORS)))
+                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def run_local(model_path, run_id, port, image, flavor):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
