@@ -16,7 +16,6 @@ from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
-from mlflow.utils.rest_utils import get_databricks_http_request_kwargs_or_fail
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -305,14 +304,13 @@ class DatabricksSubmittedRun(SubmittedRun):
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         eprint("=== Check the run's status at %s ===" % jobs_page_url)
+        host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
         tracking.get_service().set_tag(self._mlflow_run_id,
                                        MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
         tracking.get_service().set_tag(self._mlflow_run_id,
                                        MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
         tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_WEBAPP_URL,
-                                       get_databricks_http_request_kwargs_or_fail(
-                                           profile=self._job_runner.databricks_profile)['hostname'])
+                                       MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
         job_id = run_info.get('job_id')
         # In some releases of Databricks we do not return the job ID. We start including it in DB
         # releases 2.80 and above.
