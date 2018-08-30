@@ -9,6 +9,7 @@ import databricks_cli
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
@@ -250,6 +251,12 @@ def test_get_tracking_uri_for_run():
     with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
         assert mlflow.tracking.utils.get_tracking_uri() == "http://some-uri"
 
+def test_run_databricks_failed():
+    with mock.patch('mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit') as m:
+        m.return_value = {'message': 'Node type not supported'}
+        runner = DatabricksJobRunner('profile')
+        with pytest.raises(MlflowException):
+            runner._run_shell_command_job('/project', 'command', {}, {})
 
 class MockProfileConfigProvider:
     def __init__(self, profile):
