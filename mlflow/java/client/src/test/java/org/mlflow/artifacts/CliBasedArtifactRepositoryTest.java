@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,7 +16,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
-import org.testng.collections.Maps;
 
 import org.mlflow.api.proto.Service.FileInfo;
 import org.mlflow.api.proto.Service.RunInfo;
@@ -137,9 +137,9 @@ public class CliBasedArtifactRepositoryTest {
   public void testSettingProcessEnvBasic() {
     CliBasedArtifactRepository repo = newRepo();
     MlflowHostCreds hostCreds = new BasicMlflowHostCreds("just-host");
-    Map<String, String> env = Maps.newHashMap();
+    Map<String, String> env = new HashMap<>();
     repo.setProcessEnvironment(env, hostCreds);
-    Map<String, String> expectedEnv = Maps.newHashMap();
+    Map<String, String> expectedEnv = new HashMap<>();
     expectedEnv.put("MLFLOW_TRACKING_URI", "just-host");
     Assert.assertEquals(env, expectedEnv);
   }
@@ -148,9 +148,9 @@ public class CliBasedArtifactRepositoryTest {
   public void testSettingProcessEnvUserPass() {
     CliBasedArtifactRepository repo = newRepo();
     MlflowHostCreds hostCreds = new BasicMlflowHostCreds("just-host", "user", "pass");
-    Map<String, String> env = Maps.newHashMap();
+    Map<String, String> env = new HashMap<>();
     repo.setProcessEnvironment(env, hostCreds);
-    Map<String, String> expectedEnv = Maps.newHashMap();
+    Map<String, String> expectedEnv = new HashMap<>();
     expectedEnv.put("MLFLOW_TRACKING_URI", "just-host");
     expectedEnv.put("MLFLOW_TRACKING_USERNAME", "user");
     expectedEnv.put("MLFLOW_TRACKING_PASSWORD", "pass");
@@ -161,9 +161,9 @@ public class CliBasedArtifactRepositoryTest {
   public void testSettingProcessEnvToken() {
     CliBasedArtifactRepository repo = newRepo();
     MlflowHostCreds hostCreds = new BasicMlflowHostCreds("just-host", "token");
-    Map<String, String> env = Maps.newHashMap();
+    Map<String, String> env = new HashMap<>();
     repo.setProcessEnvironment(env, hostCreds);
-    Map<String, String> expectedEnv = Maps.newHashMap();
+    Map<String, String> expectedEnv = new HashMap<>();
     expectedEnv.put("MLFLOW_TRACKING_URI", "just-host");
     expectedEnv.put("MLFLOW_TRACKING_TOKEN", "token");
     Assert.assertEquals(env, expectedEnv);
@@ -174,9 +174,9 @@ public class CliBasedArtifactRepositoryTest {
     CliBasedArtifactRepository repo = newRepo();
     MlflowHostCreds hostCreds = new BasicMlflowHostCreds("insecure-host", null, null, null,
       true);
-    Map<String, String> env = Maps.newHashMap();
+    Map<String, String> env = new HashMap<>();
     repo.setProcessEnvironment(env, hostCreds);
-    Map<String, String> expectedEnv = Maps.newHashMap();
+    Map<String, String> expectedEnv = new HashMap<>();
     expectedEnv.put("MLFLOW_TRACKING_URI", "insecure-host");
     expectedEnv.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
     Assert.assertEquals(env, expectedEnv);
