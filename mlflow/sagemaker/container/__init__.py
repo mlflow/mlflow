@@ -93,8 +93,8 @@ def _serve():
         deployment_config = yaml.load(os.environ[ENV_KEY_DEPLOYMENT_CONFIG])
         serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
     else:
-        # Older models may not contain a deployment configuration
-        serving_flavor = get_serving_flavor(m)
+        # Older versions of mlflow may not specify a deployment configuration 
+        serving_flavor = get_preferred_serving_flavor(m)
 
     if serving_flavor == mleap.FLAVOR_NAME:
         # TODO(dbczumar): Host the scoring Java package on Maven Central so that we no
@@ -102,14 +102,9 @@ def _serve():
         if _container_includes_mlflow_source():
             _serve_mleap()
         elif pyfunc.FLAVOR_NAME in m.flavors:
-            eprint("The container does not support the specified deployment flavor:"
-                   " `{mleap_flavor}`. Using the `{pyfunc_flavor}` instead.".format(
-                       mleap_flavor=mleap.FLAVOR_NAME, pyfunc_flavor=pyfunc.FLAVOR_NAME))
-            _serve_pyfunc(m)
-        else:
             raise Exception("The container does not support the specified deployment flavor:"
-                            " `{mleap_flavor}`, and the model does not contain a supported"
-                            " alternative flavor for deployment.".format(
+                            " `{mleap_flavor}`. Please build the container with the `mlflow_home`" 
+                            " parameter specified to enable this feature.".format(
                                 mleap_flavor=mleap.FLAVOR_NAME))
     elif pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m)
