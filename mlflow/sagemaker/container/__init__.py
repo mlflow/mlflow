@@ -85,19 +85,14 @@ def _serve():
 
     Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
-    deployment_config_path = os.path.join(MODEL_PATH, "deployment.yaml")
     model_config_path = os.path.join(MODEL_PATH, "MLmodel")
     m = Model.load(model_config_path)
 
     if ENV_KEY_DEPLOYMENT_CONFIG in os.environ:
         deployment_config = yaml.load(os.environ[ENV_KEY_DEPLOYMENT_CONFIG])
         serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
-    elif os.path.exists(deployment_config_path):
-        with open(deployment_config_path, "r") as f:
-            deployment_config = yaml.load(f)
-            serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME] 
     else:
-        # Older models may not contain a deployment configuration file
+        # Older models may not contain a deployment configuration 
         serving_flavor = get_serving_flavor(m)
 
     if serving_flavor == mleap.FLAVOR_NAME: 
