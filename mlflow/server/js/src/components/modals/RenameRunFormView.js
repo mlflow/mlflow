@@ -8,8 +8,28 @@ import { Formik, Field } from 'formik';
 import { validationSchema } from './validation';
 import { showModal } from '../../modals/actions';
 
-/** TODO: Can we make this a generic class that renders a form? */
+import onClickOutside from "react-onclickoutside";
+
+
 class RenameRunFormView extends Component {
+
+  constructor(props) {
+    super(props);
+    this.handleClickOutside = this.handleClickOutside.bind(this);
+  }
+
+  handleClickOutside(event) {
+    console.log(event);
+    console.log(this.state.isSubmittingState);
+    if (this.state.isSubmittingState) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
+  state = {
+    isSubmittingState: false,
+  };
 
   static propTypes = {
     onSubmit: PropTypes.func.isRequired,
@@ -23,12 +43,14 @@ class RenameRunFormView extends Component {
       setSubmitting,
       setErrors /* setValues, setStatus, and other goodies */,
     }) => {
+      this.setState({isSubmittingState: true});
       return this.props.onSubmit(values).catch((err) => {
-        this.props.showModal('RenameRunFailedModal', {});
+        // TODO: Redirect to error page here once it's ready
         setErrors(err.errors)
-      }).finally(() => {
+      }).finally(function() {
+        this.setState({isSubmittingState: false});
         setSubmitting(false)
-      })
+      }.bind(this))
     }
 
   renderForm = (renderProps) => {
@@ -48,7 +70,7 @@ class RenameRunFormView extends Component {
             style={{"width": "100%"}}
         />
       </div>
-      <div style={{"display": "flex", "justify-content": "flex-end"}}>
+      <div style={{"display": "flex", "justifyContent": "flex-end"}}>
         <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
           Save
         </Button>
@@ -71,4 +93,4 @@ class RenameRunFormView extends Component {
   }
 }
 
-export default connect(function() {}, { showModal })(RenameRunFormView);
+export default connect(function() {return {}}, { showModal })(RenameRunFormView);

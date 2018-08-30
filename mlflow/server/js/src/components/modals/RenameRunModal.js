@@ -19,14 +19,27 @@ import { setTagApi, getUUID } from '../../Actions';
 
 import RequestStateWrapper from '../RequestStateWrapper';
 
-
+import onClickOutside from "react-onclickoutside";
 
 class RenameRunModal extends Component {
   constructor(props) {
     super(props);
     this.updateRunName = this.updateRunName.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
+    this.handleClickOutside = this.handleClickOutside.bind(this);
   }
+
+  state = {
+    isSubmittingState: false,
+  }
+
+  handleClickOutside(event) {
+    console.log("RenameRunModal " + this.state.isSubmittingState);
+    if (this.state.isSubmittingState) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
 
   static propTypes = {
     modalParams: PropTypes.instanceOf(Immutable.Map),
@@ -46,8 +59,13 @@ class RenameRunModal extends Component {
 
   handleSubmit = function(values) {
     const { runUuid, onClose } = this.props;
+    this.setState({isSubmitting: true});
     const promise = this.updateRunName({...values, id: runUuid});
-    return promise.then(onClose);
+    return promise.then(function() {
+      debugger;
+      this.setState({isSubmitting: false});
+      onClose();
+      }.bind(this));
   }
 
   renderForm() {
@@ -58,9 +76,9 @@ class RenameRunModal extends Component {
 
   render() {
     const { open } = this.props;
-    return (<ReactModal isOpen={open} onRequestClose={this.props.onClose} shouldCloseOnOverlayClick={false} style={{"width": "480px"}}>
+    return (<ReactModal isOpen={open} onRequestClose={this.props.onClose} shouldCloseOnOverlayClick=false style={{"width": "480px"}}>
       {this.renderForm()}
-      <a className="exit-link" style={{}}><i onClick={this.props.onClose} className="fas fa-times"/></a>
+      <a className="exit-link"><i onClick={this.props.onClose} className="fas fa-times"/></a>
     </ReactModal>);
   }
 }
