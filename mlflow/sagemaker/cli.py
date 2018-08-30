@@ -80,12 +80,16 @@ def delete(app_name, region_name, archive):
 @cli_args.RUN_ID
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--image", "-i", default=IMAGE, help="Docker image name")
-def run_local(model_path, run_id, port, image):
+@click.option("--flavor", "-f", default=None, 
+              help=("The name of the flavor to use for local serving." 
+                     " If unspecified, a flavor will be automatically selected from the" 
+                     " model's available flavors."))
+def run_local(model_path, run_id, port, image, flavor):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
     """
     mlflow.sagemaker.run_local(
-        model_path=model_path, run_id=run_id, port=port, image=image)
+        model_path=model_path, run_id=run_id, port=port, image=image, flavor=flavor)
 
 
 @commands.command("build-and-push-container")
@@ -102,7 +106,7 @@ def build_and_push_container(build, push, container, mlflow_home):
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
     if not (build or push):
-        print("skipping both build nad push, have nothing to do!")
+        print("skipping both build and push, have nothing to do!")
     if build:
         mlflow.sagemaker.build_image(container,
                                      mlflow_home=os.path.abspath(mlflow_home) if mlflow_home

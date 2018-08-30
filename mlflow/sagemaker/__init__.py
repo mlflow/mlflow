@@ -9,9 +9,11 @@ from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib
 import tarfile
 import uuid
+import shutil
 
 import base64
 import boto3
+import yaml
 import mlflow
 import mlflow.version
 from mlflow import pyfunc
@@ -19,8 +21,12 @@ from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
+from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
+from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, ENV_KEY_DEPLOYMENT_CONFIG
+from mlflow.sagemaker.container import get_serving_flavor
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
+
 
 DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
@@ -117,7 +123,8 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
             mlflow_dir = _copy_project(
                 src_path=mlflow_home, dst_path=tmp.path())
             install_mlflow = ("COPY {mlflow_dir} /opt/mlflow\n"
-                              "RUN cd /opt/mlflow/mlflow/java && mvn package\n"
+                              "RUN cd /opt/mlflow/mlflow/java/scoring &&" 
+                              " mvn --batch-mode package -DskipTests \n"
                               "RUN pip install /opt/mlflow\n")
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
 
@@ -173,7 +180,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
            image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False,
            instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
-           instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT, vpc_config=None):
+           instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT, vpc_config=None, flavor=None):
     """
     Deploy model on SageMaker.
     Currently active AWS account needs to have correct permissions set up.
@@ -236,10 +243,28 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                        ...                  ]
                        ...              }
                        >>> mfs.deploy(..., vpc_config=vpc_config)
+
+    :param flavor: The name of the flavor of the model to use for deployment. If `None`, a flavor
+                   will be automatically selected from the model's available flavors. If the 
+                   specified flavor is not present or not supported for deployment, an exception 
+                   will be thrown.
     """
     if mode not in DEPLOYMENT_MODES:
         raise ValueError("`mode` must be one of: {mds}".format(
             mds=",".join(DEPLOYMENT_MODES)))
+
+    s3_bucket_prefix = model_path
+    if run_id:
+        model_path = _get_model_log_dir(model_path, run_id)
+        s3_bucket_prefix = os.path.join(run_id, s3_bucket_prefix)
+
+    model_config_path = os.path.join(model_path, "MLmodel")
+    if not os.path.exists(model_config_path):
+        raise Exception(
+            "Failed to find MLmodel configuration within the specified model's root directory.")
+    model_config = Model.load(model_config_path)
+
+    deployment_flavor = _get_or_validate_deployment_flavor(model_config=model_config, flavor=flavor)
 
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
@@ -251,14 +276,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         eprint("No model data bucket specified, using the default bucket")
         bucket = _get_default_s3_bucket(region_name)
 
-    prefix = model_path
-    if run_id:
-        model_path = _get_model_log_dir(model_path, run_id)
-        prefix = os.path.join(run_id, prefix)
-    run_id = _check_compatible(model_path)
-
     model_s3_path = _upload_s3(
-        local_model_path=model_path, bucket=bucket, prefix=prefix)
+        local_model_path=model_path, flavor=flavor, bucket=bucket, prefix=s3_bucket_prefix)
     _deploy(role=execution_role_arn,
             image_url=image_url,
             app_name=app_name,
@@ -269,7 +288,53 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             archive=archive,
             instance_type=instance_type,
             instance_count=instance_count,
-            vpc_config=vpc_config)
+            vpc_config=vpc_config,
+            flavor=deployment_flavor)
+
+
+def _get_or_validate_deployment_flavor(model_config, flavor=None):
+    """
+    Validates and or obtains the name of a flavor that is compatible with the model
+    and will be used by the container for deployment. If the specified flavor is
+    unsupported, the specified flavor is not contained in the model, or the model does not
+    contain any supported flavors, an exception will be thrown.
+
+    :param model_config: An MLflow Model object
+    :param flavor: The name of the flavor to validate. If not `None`, this flavor will be
+                   validated; we will determine if it is supported and contained in the model.
+                   If `None`, a flavor will be selected from the set of flavors contained in
+                   the model and returned, if possible.
+
+    :return: The name of the flavor to be used for deployment. 
+    """
+    default_flavor = get_serving_flavor(model_config)
+    if default_flavor is None:
+        raise ValueError("The specified model does not contain any of the supported flavors for" 
+                         " deployment. The model contains the following flavors: {model_flavors}." 
+                         " Supported flavors: {supported_flavors}".format(
+                             model_flavors=model_config.flavors.keys(),
+                             supported_flavors=SUPPORTED_DEPLOYMENT_FLAVORS))
+    
+    if flavor is None:
+        print("No flavor was specified. Deploying model with the default flavor:"
+              " `{default_flavor_name}`. To use a specific flavor for deployment, specify it"
+              " using the `flavor` parameter.".format(default_flavor_name=default_flavor))
+        return default_flavor
+    elif flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
+        raise ValueError("The specified flavor: `{flavor_name}` is not supported for" 
+                         " deployment. Please use one of the supported flavors:" 
+                         " {supported_flavor_names}".format(
+                             flavor_name=flavor,
+                             supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS))
+    elif flavor not in model_config.flavors:
+        raise ValueError("The specified model does not contain the specified deployment flavor:"
+                         " `{flavor_name}`. Please use one of the following deployment flavors that" 
+                         " the model contains: {model_flavors}".format(
+                             flavor_name=flavor, model_flavors=model_config.flavors.keys()))
+    else:
+        print("Deploying model with the specified flavor: {flavor_name}".format(
+          flavor_name=flavor))
+        return flavor
 
 
 def delete(app_name, region_name="us-west-2", archive=False):
@@ -307,22 +372,33 @@ def delete(app_name, region_name="us-west-2", archive=False):
                 marn=model_arn))
 
 
-def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
+def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     """
     Serve model locally in a SageMaker compatible Docker container.
-
     :param model_path: path to the model. Either local if no ``run_id`` or MLflow-relative if
                                           ``run_id`` is specified.
     :param run_id: MLflow run ID.
     :param port: Local port.
     :param image: Name of the Docker image to be used.
+    :param flavor: The name of the flavor of the model to use for local serving. If `None`, a flavor
+                   will be automatically selected from the model's available flavors. If the 
+                   specified flavor is not present or not supported for deployment, an exception 
+                   will be thrown.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
-    _check_compatible(model_path)
     model_path = os.path.abspath(model_path)
+    model_config_path = os.path.join(model_path, "MLmodel")
+
+    model_config = Model.load(model_config_path)
+    deployment_flavor = _get_or_validate_deployment_flavor(model_config=model_config, flavor=flavor)
+    deployment_config = _write_deployment_config(flavor_name=deployment_flavor, path=None)
+
     eprint("launching docker image with path {}".format(model_path))
     cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port,
+           "-e", "{config_var_name}={config_var_value}".format(
+               config_var_name=ENV_KEY_DEPLOYMENT_CONFIG,
+               config_var_value=deployment_config),
            "--rm", image, "serve"]
     eprint('executing', ' '.join(cmd))
     proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
@@ -335,18 +411,6 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME):
     signal.signal(signal.SIGTERM, _sigterm_handler)
     for x in iter(proc.stdout.readline, ""):
         eprint(x, end='')
-
-
-def _check_compatible(path):
-    """
-    Check that we can handle this model and raise exception if we can not.
-    :return: RUN_ID if it exists or None.
-    """
-    path = os.path.abspath(path)
-    model = Model.load(os.path.join(path, "MLmodel"))
-    if pyfunc.FLAVOR_NAME not in model.flavors:
-        raise Exception("Currenlty only supports pyfunc format.")
-    return model.run_id if hasattr(model, "run_id") else None
 
 
 def _get_default_image_url(region_name):
@@ -407,16 +471,20 @@ def _get_default_s3_bucket(region_name):
     return bucket_name
 
 
-def _make_tarfile(output_filename, source_dir):
+def _make_tarfile(output_filename, source_dirs, source_files):
     """
     create a tar.gz from a directory.
     """
+    file_paths = [os.path.join(source_dir, fname) for source_dir in source_dirs 
+                  for fname in os.listdir(source_dir)]
+    file_paths += source_files
     with tarfile.open(output_filename, "w:gz") as tar:
-        for f in os.listdir(source_dir):
-            tar.add(os.path.join(source_dir, f), arcname=f)
+        for file_path in file_paths:
+            file_name = os.path.basename(file_path)
+            tar.add(file_path, arcname=file_name)
 
 
-def _upload_s3(local_model_path, bucket, prefix):
+def _upload_s3(local_model_path, flavor, bucket, prefix):
     """
     Upload dir to S3 as .tar.gz.
     :param local_model_path: Local path to a dir.
@@ -426,8 +494,11 @@ def _upload_s3(local_model_path, bucket, prefix):
     """
     sess = boto3.Session()
     with TempDir() as tmp:
+        deployment_config_file = tmp.path("deployment.yaml")
+        _write_deployment_config(path=deployment_config_file, flavor_name=flavor)
         model_data_file = tmp.path("model.tar.gz")
-        _make_tarfile(model_data_file, local_model_path)
+        _make_tarfile(model_data_file, source_dirs=[local_model_path], 
+                      source_files=[deployment_config_file])
         s3 = boto3.client('s3')
         with open(model_data_file, 'rb') as fobj:
             key = os.path.join(prefix, 'model.tar.gz')
@@ -442,8 +513,20 @@ def _upload_s3(local_model_path, bucket, prefix):
             return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
 
 
+def _write_deployment_config(flavor_name, path=None):
+    """
+    Writes a deployment configuration to the specified path or returns it as a string
+
+    :param path: The path to which to write the configuration. If `None`, the configuration
+                 will be returned as a string
+    """
+    deployment_flavor_config = { DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME : flavor_name }
+    stream = open(path, "w") if path is not None else None
+    return yaml.dump(deployment_flavor_config, stream=stream)
+        
+
 def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive,
-            instance_type, instance_count, vpc_config):
+            instance_type, instance_count, vpc_config, flavor):
     """
     Deploy model on sagemaker.
     :param role: SageMaker execution ARN role
@@ -459,6 +542,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this application.
+    :param flavor: The name of the flavor of the model to use for deployment.
     """
     sage_client = boto3.client('sagemaker', region_name=region_name)
     s3_client = boto3.client('s3', region_name=region_name)

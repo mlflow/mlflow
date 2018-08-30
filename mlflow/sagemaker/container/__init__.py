@@ -12,6 +12,7 @@ import shutil
 import signal
 from subprocess import check_call, Popen
 import sys
+import yaml
 
 from pkg_resources import resource_filename
 
@@ -24,7 +25,29 @@ from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
+ENV_KEY_DEPLOYMENT_CONFIG = "deployment_config"
+DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "deployment_flavor_name"
+
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
+
+SUPPORTED_FLAVORS = [
+    pyfunc.FLAVOR_NAME,
+    mleap.FLAVOR_NAME
+]
+
+def get_serving_flavor(model):
+    """
+    :param model: An MLflow Model object
+
+    :return: The name of the flavor that will be used for serving, or None
+             if the model does not contain any supported flavors
+    """
+    if mleap.FLAVOR_NAME in model.flavors:
+        return mleap.FLAVOR_NAME
+    elif pyfunc.FLAVOR_NAME in model.flavors:
+        return pyfunc.FLAVOR_NAME
+    else:
+        return None
 
 
 def _init(cmd):
@@ -61,10 +84,26 @@ def _serve():
 
     Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
+    deployment_config_path = os.path.join(MODEL_PATH, "deployment.yaml")
     model_config_path = os.path.join(MODEL_PATH, "MLmodel")
     m = Model.load(model_config_path)
-    if mleap.FLAVOR_NAME in m.flavors and _container_includes_mlflow_source():
-        _serve_mleap(m)
+
+    if ENV_KEY_DEPLOYMENT_CONFIG in os.environ:
+        deployment_config = yaml.load(os.environ[ENV_KEY_DEPLOYMENT_CONFIG])
+        serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
+    elif os.path.exists(deployment_config_path):
+        with open(deployment_config_path, "r") as f:
+            deployment_config = yaml.load(f)
+            serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME] 
+    else:
+        # Older models may not contain a deployment configuration
+        serving_flavor = get_serving_flavor(m)
+
+    # TODO(dbczumar): Host the scoring Java package on Maven Central so that we no
+    # longer require the container source for this flavor. After adding Maven Central support,
+    # we can switch-case on `serving_flavor` exclusively.
+    if serving_flavor == mleap.FLAVOR_NAME and _container_includes_mlflow_source():
+        _serve_mleap()
     elif pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m)
     else:
@@ -105,12 +144,12 @@ def _serve_pyfunc(model):
     _sigterm_handler(awaited_pids)
 
 
-def _serve_mleap(model):
-    mleap = Popen(["java", "-cp", "/opt/mlflow/mlflow/java/target/mlflow-java-*"
+def _serve_mleap():
+    mleap = Popen(["java", "-cp", "/opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*"
                    "-with-dependencies.jar".format(
                         mlflow_version=mlflow.version.VERSION),
-                   "com.databricks.mlflow.sagemaker.ScoringServer",
-                   MODEL_PATH, DEFAULT_SAGEMAKER_SERVER_PORT])
+                   "org.mlflow.sagemaker.ScoringServer", 
+                   MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[mleap.pid]))
     awaited_pids = _await_subprocess_exit_any(procs=[mleap])
     _sigterm_handler(awaited_pids)
