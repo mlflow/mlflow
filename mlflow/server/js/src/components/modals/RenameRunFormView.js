@@ -2,7 +2,8 @@ import React, { Component } from 'react'
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Button, Modal, Form } from 'react-bootstrap';
-
+import { withRouter } from 'react-router-dom';
+import Routes from "../../Routes";
 import { Formik, Field } from 'formik';
 
 import { validationSchema } from './validation';
@@ -16,6 +17,7 @@ class RenameRunFormView extends Component {
     onSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
     runName: PropTypes.string.isRequired,
+    experimentId: PropTypes.number.isRequired
   }
 
   handleSubmit = (
@@ -25,12 +27,12 @@ class RenameRunFormView extends Component {
       setSubmitting,
       setErrors /* setValues, setStatus, and other goodies */,
     }) => {
-      return this.props.onSubmit(values).catch((err) => {
-        debugger;
-        // TODO: Handle errors here: on network failures, show failed form. If run was deleted,
-        // redirect to an error page.
-        setErrors(err.errors)
-      }).finally(function() {
+      return this.props.onSubmit(values).catch(function(err) {
+        // TODO: remove alert, redirect to an error page on failed requests once one exists
+        alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
+          "page.");
+        this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
+      }.bind(this)).finally(function() {
         setSubmitting(false);
         this.props.onClose();
       }.bind(this))
@@ -76,4 +78,4 @@ class RenameRunFormView extends Component {
   }
 }
 
-export default RenameRunFormView;
+export default withRouter(RenameRunFormView);

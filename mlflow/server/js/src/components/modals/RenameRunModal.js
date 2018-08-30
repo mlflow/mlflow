@@ -20,16 +20,21 @@ import { setTagApi, getUUID } from '../../Actions';
 import RequestStateWrapper from '../RequestStateWrapper';
 
 
-const customStyles = {
+const modalStyles = {
   content : {
-    top                   : '50%',
-    left                  : '50%',
-    right                 : 'auto',
-    bottom                : 'auto',
-    marginRight           : '-50%',
-    transform             : 'translate(-50%, -50%)'
+    top: '50%',
+    left: '50%',
+    right: 'auto',
+    bottom: 'auto',
+    marginRight: '-50%',
+    transform: 'translate(-50%, -50%)'
+  },
+  overlay: {
+    backgroundColor: 'rgba(33, 37, 41, .75)'
   }
 };
+
+
 
 class RenameRunModal extends Component {
   constructor(props) {
@@ -46,6 +51,7 @@ class RenameRunModal extends Component {
   static propTypes = {
     modalParams: PropTypes.object.isRequired,
     open: PropTypes.bool,
+    experimentId: PropTypes.number.isRequired,
     runUuid: PropTypes.string.isRequired,
     runTags: PropTypes.object.isRequired,
     onClose: PropTypes.func.isRequired,
@@ -65,17 +71,18 @@ class RenameRunModal extends Component {
     this.setState({isSubmittingState: true});
     // We don't close the modal here, instead delegating that logic to the the form view component,
     // which is responsible for waiting on the promise & calling a callback to close the
-    // modal once submission completes
-    return this.updateRunName({...values, id: runUuid}).then(function() {
+    // modal once submission completes. This allows us to avoid removing the form component from
+    // underneath itself
+    return this.updateRunName({...values, id: runUuid}).finally(function() {
       this.setState({isSubmittingState: false});
     }.bind(this));
   }
 
   renderForm() {
-    const { runUuid, runTags, onClose } = this.props;
+    const { runUuid, runTags, onClose, experimentId } = this.props;
     const runName = Utils.getRunName(runTags, runUuid);
     return <RenameRunFormView onSubmit={this.handleSubmit}
-      onClose={this.onRequestCloseHandler} runName={runName}/>
+      onClose={this.onRequestCloseHandler} runName={runName} experimentId={experimentId}/>
   }
 
   onRequestCloseHandler(event) {
@@ -87,7 +94,7 @@ class RenameRunModal extends Component {
   render() {
     const { open } = this.props;
     return (
-    <ReactModal isOpen={open} onRequestClose={this.onRequestCloseHandler} style={customStyles}
+    <ReactModal isOpen={open} onRequestClose={this.onRequestCloseHandler} style={modalStyles}
      appElement={document.body}>
       {this.renderForm()}
       <a className="exit-link"><i onClick={this.onRequestCloseHandler} className="fas fa-times"/></a>
@@ -98,8 +105,9 @@ class RenameRunModal extends Component {
 function mapStateToProps(state, ownProps) {
   const { modalParams } = ownProps;
   const runUuid = modalParams.runUuid;
+  const experimentId = modalParams.experimentId;
   const runTags = getRunTags(runUuid, state);
-  return { runUuid, runTags };
+  return { runUuid, runTags, experimentId };
 }
 
 

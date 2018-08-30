@@ -140,7 +140,7 @@ class RunView extends Component {
                <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
              </Dropdown.Menu>
           </Dropdown>
-          <RenameRunModal modalParams={{runUuid: this.props.runUuid}} onClose={this.hideModal} open={this.state.showRunRenameModal} />
+          <RenameRunModal modalParams={{runUuid: this.props.runUuid, experimentId: this.props.experimentId}} onClose={this.hideModal} open={this.state.showRunRenameModal} />
         </div>
         <div className="run-info-container">
           <div className="run-info">

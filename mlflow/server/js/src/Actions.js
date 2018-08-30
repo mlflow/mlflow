@@ -103,11 +103,6 @@ export const getUUID = () => {
 };
 
 
-class MlflowError {
-  constructor(props) {
-    console.log("constructing MLflowError")
-  }
-}
 
 /**
  * Jquery's ajax promise is a bit weird so I chose to create a new Promise which resolves and
@@ -120,7 +115,6 @@ const wrapDeferred = (deferred, data) => {
       success: response => resolve(response),
       error: xhr => {
         console.error("XHR failed", xhr);
-        debugger;
         reject(new Error("XHR failed"));
       }
     });
