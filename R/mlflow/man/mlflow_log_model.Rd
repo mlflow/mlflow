@@ -4,15 +4,15 @@
 \alias{mlflow_log_model}
 \title{Log Model}
 \usage{
-mlflow_log_model(f, path = "model")
+mlflow_log_model(fn, path = "model")
 }
 \arguments{
-\item{f}{The serving function that will perform a prediction.}
+\item{fn}{The serving function that will perform a prediction.}
 
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
 }
 \description{
 Logs a model in the given run. Similar to `mlflow_save_model()`
-but stores model only as an artifact within the active run.
+but stores model as an artifact within the active run.
 }
