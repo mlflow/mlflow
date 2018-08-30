@@ -206,19 +206,36 @@ Training the Model
 Comparing the Models
 --------------------
 
-Next, use the MLflow UI to compare the models that you have produced. Run ``mlflow ui``
-in the same current working directory as the one that contains the ``mlruns`` directory and
-open http://localhost:5000 in your browser.
+.. plain-section::
 
-On this page, you can see a list of experiment runs with metrics you can use to compare the models.
+    .. container:: python
 
-.. image:: _static/images/tutorial-compare.png
+      Next, use the MLflow UI to compare the models that you have produced. Run ``mlflow ui``
+      in the same current working directory as the one that contains the ``mlruns`` directory and
+      open http://localhost:5000 in your browser.
 
-You can see that the lower ``alpha`` is, the better the model. You can also
-use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
-returns all the models with root mean squared error less than 0.8. For more complex manipulations,
-you can download this table as a CSV and use your favorite data munging software to analyze it.
+      On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 
+      .. image:: _static/images/tutorial-compare.png
+
+      You can see that the lower ``alpha`` is, the better the model. You can also
+      use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
+      returns all the models with root mean squared error less than 0.8. For more complex manipulations,
+      you can download this table as a CSV and use your favorite data munging software to analyze it.
+
+    .. container:: R
+
+      Next, use the MLflow UI to compare the models that you have produced. Run ``mlflow_ui()``
+      in the same current working directory as the one that contains the ``mlruns``.
+
+      On this page, you can see a list of experiment runs with metrics you can use to compare the models.
+
+      .. image:: _static/images/tutorial-compare-R.png
+
+      You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
+      returns all the models with root mean squared error less than 0.8. For more complex manipulations,
+      you can download this table as a CSV and use your favorite data munging software to analyze it.
+      
 Packaging the Training Code
 ---------------------------
 Now that you have your training code, you can package it so that other data scientists can easily reuse the model, or so that you can run the training remotely, for example on Databricks. You do this by using :doc:`projects` conventions to specify the
