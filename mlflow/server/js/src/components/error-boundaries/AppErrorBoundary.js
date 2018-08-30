@@ -25,7 +25,7 @@ class AppErrorBoundary extends Component {
         <div>
           <h1 className={"center"}>Oops! Something went wrong.</h1>
           <h4 className={"center"}>
-            If this error persists, please report an issue on
+            If this error persists, please report an issue on {' '}
             <a href="https://github.com/mlflow/mlflow/issues">our GitHub page</a>.
           </h4>
           <img className="niagara" alt="The Niagara falls." src={niagara}/>

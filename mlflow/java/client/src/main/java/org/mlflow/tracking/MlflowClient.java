@@ -3,8 +3,7 @@ package org.mlflow.tracking;
 import org.apache.http.client.utils.URIBuilder;
 
 import org.mlflow.api.proto.Service.*;
-import org.mlflow.tracking.creds.BasicMlflowHostCreds;
-import org.mlflow.tracking.creds.MlflowHostCredsProvider;
+import org.mlflow.tracking.creds.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -16,10 +15,11 @@ import java.util.stream.Collectors;
  * Client to an MLflow Tracking Sever.
  */
 public class MlflowClient {
-  private static long DEFAULT_EXPERIMENT_ID = 0;
+  private static final long DEFAULT_EXPERIMENT_ID = 0;
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final MlflowHttpCaller httpCaller;
+  private final MlflowHostCredsProvider hostCredsProvider;
 
   /** Returns a default client based on the MLFLOW_TRACKING_URI environment variable. */
   public MlflowClient() {
@@ -36,7 +36,8 @@ public class MlflowClient {
    * {@link #MlflowClient()} ()} or {@link #MlflowClient(String)} if possible.
    */
   public MlflowClient(MlflowHostCredsProvider hostCredsProvider) {
-    httpCaller = new MlflowHttpCaller(hostCredsProvider);
+    this.hostCredsProvider = hostCredsProvider;
+    this.httpCaller = new MlflowHttpCaller(hostCredsProvider);
   }
 
   /** Returns the run associated with the id. */
@@ -167,6 +168,14 @@ public class MlflowClient {
     return httpCaller.post(path, json);
   }
 
+  /**
+   * Returns the HostCredsProvider backing this MlflowClient.
+   * Intended for internal usage, and may be removed in future versions.
+   */
+  public MlflowHostCredsProvider getInternalHostCredsProvider() {
+    return hostCredsProvider;
+  }
+
   private URIBuilder newURIBuilder(String base) {
     try {
       return new URIBuilder(base);
@@ -197,8 +206,20 @@ public class MlflowClient {
   private static MlflowHostCredsProvider getHostCredsProviderFromTrackingUri(String trackingUri) {
     URI uri = URI.create(trackingUri);
     MlflowHostCredsProvider provider;
+
     if ("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())) {
       provider = new BasicMlflowHostCreds(trackingUri);
+    } else if (trackingUri.equals("databricks")) {
+      MlflowHostCredsProvider profileProvider = new DatabricksConfigHostCredsProvider();
+      MlflowHostCredsProvider dynamicProvider =
+        DatabricksDynamicHostCredsProvider.createIfAvailable();
+      if (dynamicProvider != null) {
+        provider = new HostCredsProviderChain(dynamicProvider, profileProvider);
+      } else {
+        provider = profileProvider;
+      }
+    } else if ("databricks".equals(uri.getScheme())) {
+      provider = new DatabricksConfigHostCredsProvider(uri.getHost());
     } else if (uri.getScheme() == null || "file".equals(uri.getScheme())) {
       throw new IllegalArgumentException("Java Client currently does not support" +
         " local tracking URIs. Please point to a Tracking Server.");
