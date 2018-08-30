@@ -28,9 +28,7 @@ class Utils {
     return ret;
   }
 
-  static getRunTagName() {
-    return '_MLFLOW_RUN_NAME';
-  }
+  static runNameTag = '_MLFLOW_RUN_NAME';
 
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
@@ -178,7 +176,7 @@ class Utils {
   }
 
   static getRunName(runTags) {
-    const runNameTag = runTags[Utils.getRunTagName()];
+    const runNameTag = runTags[Utils.runNameTag];
     if (runNameTag) {
       return runNameTag.value;
     }

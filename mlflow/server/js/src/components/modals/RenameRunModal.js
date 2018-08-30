@@ -58,7 +58,7 @@ class RenameRunModal extends Component {
 
   updateRunName(obj) {
     const { newRunName } = obj;
-    const tagKey = Utils.getRunTagName();
+    const tagKey = Utils.runNameTag;
     const setTagRequestId = getUUID();
     const promise = this.props.dispatch(
       setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId));
