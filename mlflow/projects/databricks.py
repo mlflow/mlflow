@@ -11,7 +11,7 @@ from six.moves import shlex_quote, urllib
 from mlflow.entities import RunStatus
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
-from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.exceptions import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
@@ -50,7 +50,6 @@ class DatabricksJobRunner(object):
         return json.loads(response.text)
 
     def _jobs_runs_submit(self, json):
-        print 'here'
         return self.databricks_api_request(
             endpoint="/api/2.0/jobs/runs/submit", method="POST", json=json)
 
@@ -149,11 +148,7 @@ class DatabricksJobRunner(object):
             "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}],
         }
         run_submit_res = self._jobs_runs_submit(req_body_json)
-        try:
-            databricks_run_id = run_submit_res["run_id"]
-        except KeyError:
-            raise MlflowException("The Databricks run failed to start. Error: {}".format(
-                run_submit_res))
+        databricks_run_id = run_submit_res["run_id"]
         return databricks_run_id
 
     def _before_run_validations(self, tracking_uri, cluster_spec):
