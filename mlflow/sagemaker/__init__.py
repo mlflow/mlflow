@@ -23,7 +23,7 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, ENV_KEY_DEPLOYMENT_CONFIG
-from mlflow.sagemaker.container import get_serving_flavor
+from mlflow.sagemaker.container import get_preferred_serving_flavor 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
@@ -310,7 +310,7 @@ def _get_or_validate_deployment_flavor(model_config, flavor=None):
 
     :return: The name of the flavor to be used for deployment.
     """
-    default_flavor = get_serving_flavor(model_config)
+    default_flavor = get_preferred_serving_flavor(model_config)
     if default_flavor is None:
         raise ValueError("The specified model does not contain any of the supported flavors for"
                          " deployment. The model contains the following flavors: {model_flavors}."

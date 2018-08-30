@@ -37,7 +37,7 @@ SUPPORTED_FLAVORS = [
 ]
 
 
-def get_serving_flavor(model):
+def get_preferred_serving_flavor(model):
     """
     :param model: An MLflow Model object
 
