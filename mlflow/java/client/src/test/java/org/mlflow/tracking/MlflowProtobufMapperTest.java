@@ -14,7 +14,7 @@ import org.mlflow.api.proto.Service;
 
 public class MlflowProtobufMapperTest {
   @Test
-  public void testSerializeCamelCase() {
+  public void testSerializeSnakeCase() {
     MlflowProtobufMapper mapper = new MlflowProtobufMapper();
     String result = mapper.makeLogParam("my-id", "my-key", "my-value");
 
@@ -30,7 +30,7 @@ public class MlflowProtobufMapperTest {
   }
 
   @Test
-  public void testDeserializeCamelCaseAndUnknown() {
+  public void testDeserializeSnakeCaseAndUnknown() {
     MlflowProtobufMapper mapper = new MlflowProtobufMapper();
     Service.CreateExperiment.Response result = mapper.toCreateExperimentResponse(
       "{\"experiment_id\": 123, \"what is this field\": \"even\"}");
