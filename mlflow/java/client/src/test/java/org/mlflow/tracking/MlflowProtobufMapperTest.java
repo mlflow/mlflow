@@ -1,10 +1,9 @@
 package org.mlflow.tracking;
 
 import java.lang.reflect.Type;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
-import com.beust.jcommander.internal.Maps;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.testng.Assert;
@@ -22,7 +21,7 @@ public class MlflowProtobufMapperTest {
     Type type = new TypeToken<Map<String, Object>>(){}.getType();
     Map<String, String> serializedMessage = gson.fromJson(result, type);
 
-    Map<String, String> expectedMessage = Maps.newHashMap();
+    Map<String, String> expectedMessage = new HashMap<>();
     expectedMessage.put("run_uuid", "my-id");
     expectedMessage.put("key", "my-key");
     expectedMessage.put("value", "my-value");
