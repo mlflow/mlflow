@@ -168,7 +168,7 @@ mlflow_connection_url <- function(mc) {
 mlflow_connection_wait <- function(mc) {
   wait_for(
     function() mlflow_rest(mc = mc, "experiments", "list"),
-    getOption("mlflow.connect.wait", 5),
+    getOption("mlflow.connect.wait", 10),
     getOption("mlflow.connect.sleep", 1)
   )
 }
