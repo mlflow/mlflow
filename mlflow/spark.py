@@ -1,6 +1,7 @@
 """
 MLflow integration for Spark MLlib models.
 This module enables the exporting of Spark MLlib models with the following flavors (formats):
+
     1. Spark MLlib (native) format - Allows models to be loaded as Spark Transformers for scoring
                                      in a Spark session. Models with this flavor can be loaded
                                      back as PySpark PipelineModel objects in Python. This
