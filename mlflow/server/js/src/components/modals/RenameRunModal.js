@@ -73,9 +73,9 @@ class RenameRunModal extends Component {
 
   renderForm() {
     const { runUuid, runTags, onClose } = this.props;
-    const runName = Utils.getRunDisplayName(runTags, runUuid);
+    const runName = Utils.getRunName(runTags, runUuid);
     return <RenameRunFormView onSubmit={this.handleSubmit}
-      onClose={this.onRequestCloseHandler} initialValues={{ runName }}/>
+      onClose={this.onRequestCloseHandler} runName={runName}/>
   }
 
   onRequestCloseHandler(event) {

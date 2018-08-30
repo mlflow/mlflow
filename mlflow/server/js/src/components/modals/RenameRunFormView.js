@@ -15,6 +15,7 @@ class RenameRunFormView extends Component {
   static propTypes = {
     onSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
+    runName: PropTypes.string.isRequired,
   }
 
   handleSubmit = (
@@ -67,7 +68,7 @@ class RenameRunFormView extends Component {
   render() {
     return <div>
       <Formik
-        initialValues={{newRunName: ""}}
+        initialValues={{newRunName: this.props.runName}}
         validationSchema={validationSchema}
         onSubmit={this.handleSubmit}
         render={this.renderForm}/>

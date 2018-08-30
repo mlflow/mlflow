@@ -102,6 +102,13 @@ export const getUUID = () => {
   return new Date().getTime() + randomPart;
 };
 
+
+class MlflowError {
+  constructor(props) {
+    console.log("constructing MLflowError")
+  }
+}
+
 /**
  * Jquery's ajax promise is a bit weird so I chose to create a new Promise which resolves and
  * rejects using the ajax callbacks `success` and `error`.
@@ -113,6 +120,7 @@ const wrapDeferred = (deferred, data) => {
       success: response => resolve(response),
       error: xhr => {
         console.error("XHR failed", xhr);
+        debugger;
         reject(new Error("XHR failed"));
       }
     });
