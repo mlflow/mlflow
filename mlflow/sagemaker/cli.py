@@ -43,6 +43,11 @@ def commands():
               " configuration will be used when creating the new SageMaker model associated"
               " with this application. For more information, see"
               " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
+@click.option("--flavor", "-f", default=None, 
+              help=("The name of the flavor to use for local serving. Must be one of the following:" 
+                    " {supported_flavors}. If unspecified, a flavor will be automatically selected" 
+                    " from the model's available flavors.".format(
+                        supported_flavors=mlflow.sagemaker.container.SUPPORTED_FLAVORS)))
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
            archive, instance_type, instance_count, vpc_config):
     """
