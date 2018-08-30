@@ -37,9 +37,9 @@ class RenameRunFormView extends Component {
       isSubmitting,
     } = renderProps;
     return <form onSubmit={handleSubmit}>
-      <h2> Rename Run </h2>
-      <div> Please enter a new name for the run: </div>
-      <div style={{"marginTop":"8px", "width": "80%"}}>
+      <h2 style={{"marginTop": "0px"}}> Rename Run </h2>
+      <div style={{"marginTop": "16px", "marginBottom": "16px"}}> New run name: </div>
+      <div style={{"width": "100%", "marginBottom": "16px"}}>
         <Field
             type="newRunName"
             name="newRunName"
@@ -47,14 +47,14 @@ class RenameRunFormView extends Component {
             autoFocus
             style={{"width": "100%"}}
         />
-        <div style={{"margin-top": "8px"}}>
-        <Button bsStyle="primary" type="submit" disabled={isSubmitting}>
+      </div>
+      <div style={{"display": "flex", "justify-content": "flex-end"}}>
+        <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
           Save
         </Button>
-        <Button bsStyle="default" type="submit" disabled={isSubmitting} onClick={this.props.onCancel}>
+        <Button bsStyle="default" type="submit" className="cancel-button" disabled={isSubmitting} onClick={this.props.onCancel}>
           Cancel
         </Button>
-        </div>
       </div>
     </form>;
   }

@@ -61,8 +61,7 @@ class RenameRunModal extends Component {
     return (<Modal show={open} onHide={this.props.onClose}>
       <Modal.Body>
       {this.renderForm()}
-      <Button className="borderless-button" onClick={this.props.onClose}
-      style={{position:"absolute", top: "8px", right: "8px"}}><i class="fas fa-times"/> </Button>
+      <a className="exit-link" style={{}}><i onClick={this.props.onClose} className="fas fa-times"/></a>
       </Modal.Body>
     </Modal>);
   }
