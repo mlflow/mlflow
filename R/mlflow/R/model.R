@@ -11,7 +11,7 @@
 #' @export
 mlflow_save_model <- function(fn, path = "model") {
 
-  if (!"crate" %in% class(fn)) {
+  if (!inherits(fn, "crate")) {
     stop("Serving function must be crated using mlflow::crate().")
   }
 
@@ -95,7 +95,7 @@ mlflow_rfunc_predict <- function(
 
   model <- mlflow_load_model(model_dir)
 
-  if (!"crate" %in% class(model)) {
+  if (!inherits(model, "crate")) {
     stop("MLflow rfunc model expected to be crated using mlflow::crate().")
   }
 

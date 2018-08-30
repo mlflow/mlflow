@@ -148,7 +148,7 @@ mlflow_get_run <- function(run_uuid) {
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
 #' @export
 mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
-  if (!class(value)[[1]] %in% c("character", "numeric", "integer")) {
+  if (!rlang::inherits_any(value, c("character", "numeric", "integer"))) {
     stop("Metric ", key, " must be a character or numeric but ", class(value), " found.")
   }
 
