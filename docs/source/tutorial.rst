@@ -188,15 +188,15 @@ Training the Model
 
       You can run the example with default hyperparameters as follows:
 
-      .. code:: bash
+      .. code:: R
 
-          RScript tutorial/train.R
+          mlflow_run(uri = "tutorial", entry_point = "train.R", no_conda = TRUE)
 
       Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
-      .. code:: bash
+      .. code:: R
 
-          RScript tutorial/train.R --args <alpha> <lambda>
+          mlflow_run(uri = "", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5), no_conda = TRUE)
 
       Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
