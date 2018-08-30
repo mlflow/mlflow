@@ -152,11 +152,15 @@ def _serve_pyfunc(model):
 
 
 def _serve_mleap():
-    mleap = Popen(["java", "-cp", "/opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*"
+    serve_cmd = ["java", "-cp", "/opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*"
                    "-with-dependencies.jar".format(
                         mlflow_version=mlflow.version.VERSION),
                    "org.mlflow.sagemaker.ScoringServer",
-                   MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)])
+                   MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)]
+    # Invoke `Popen` with a single string command in the shell to support wildcard usage
+    # with the mlflow jar version.
+    serve_cmd = " ".join(serve_cmd)
+    mleap = Popen(serve_cmd, shell=True)
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[mleap.pid]))
     awaited_pids = _await_subprocess_exit_any(procs=[mleap])
     _sigterm_handler(awaited_pids)
