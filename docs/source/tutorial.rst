@@ -43,7 +43,7 @@ What You'll Need
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
-       - `setwd()` into the ``example/tutorial`` directory within your clone of MLflow - we'll use this working
+       - `setwd()` into the ``example`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
          so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
          MLflow.
@@ -129,7 +129,7 @@ Training the Model
       Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
       .. note::
-          If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``tutorial/train.py/train.ipynb``.
+          If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``tutorial/train.ipynb``.
 
     .. container:: R
 
@@ -164,7 +164,7 @@ Training the Model
 
           rmse <- sqrt(mean((predicted - test_y) ^ 2))
           mae <- mean(abs(predicted - test_y))
-          as.numeric(cor(predicted, test_y) ^ 2)
+          r2 <- as.numeric(cor(predicted, test_y) ^ 2)
 
           message("Elasticnet model (alpha=", alpha, ", lambda=", lambda, "):")
           message("  RMSE: ", rmse)
@@ -180,6 +180,28 @@ Training the Model
           mlflow_log_model(predictor, "model")
         })
 
+      This example uses the familiar `glmnet` package to create a simple machine learning
+      model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
+      training run, like the hyperparameters ``alpha`` and ``lambda``, used to train the model and metrics, like
+      the root mean square error, used to evaluate the model. The example also serializes the
+      model in a format that MLflow knows how to deploy.
+
+      You can run the example with default hyperparameters as follows:
+
+      .. code:: bash
+
+          RScript tutorial/train.R
+
+      Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
+
+      .. code:: bash
+
+          RScript tutorial/train.R --args <alpha> <lambda>
+
+      Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
+
+      .. note::
+          If you would like to use the R notebook version of ``train.R``, try out the tutorial notebook at ``tutorial/train.Rmd``.
 
 Comparing the Models
 --------------------
