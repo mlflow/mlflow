@@ -164,7 +164,7 @@ Training the Model
 
           rmse <- sqrt(mean((predicted - test_y) ^ 2))
           mae <- mean(abs(predicted - test_y))
-          r2 <- cor(predicted, test_y) ^ 2
+          as.numeric(cor(predicted, test_y) ^ 2)
 
           message("Elasticnet model (alpha=", alpha, ", lambda=", lambda, "):")
           message("  RMSE: ", rmse)
