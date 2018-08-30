@@ -58,12 +58,10 @@ class RenameRunModal extends Component {
 
   render() {
     const { open } = this.props;
-    return (<Modal show={open} onHide={this.props.onClose}>
-      <Modal.Body>
+    return (<ReactModal isOpen={open} onRequestClose={this.props.onClose} shouldCloseOnOverlayClick={false} style={{"width": "480px"}}>
       {this.renderForm()}
       <a className="exit-link" style={{}}><i onClick={this.props.onClose} className="fas fa-times"/></a>
-      </Modal.Body>
-    </Modal>);
+    </ReactModal>);
   }
 }
 
