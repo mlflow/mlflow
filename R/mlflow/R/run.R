@@ -36,9 +36,10 @@ mlflow_run <- function(uri = "", entry_point = NULL, version = NULL, param_list 
     mlflow_cli_param("--cluster_spec", cluster_spec) %>%
     mlflow_cli_param("--git-username", git_username) %>%
     mlflow_cli_param("--git-password", git_password) %>%
-    mlflow_cli_param("--no-conda", if (no_conda) "") %>%
     mlflow_cli_param("--storage-dir", storage_dir) %>%
     c(param_list)
+
+  args <- if (!no_conda) args else c(args, "--no-conda")
 
   do.call(mlflow_cli, c("run", args))
 
