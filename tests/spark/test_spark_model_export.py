@@ -322,6 +322,7 @@ def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
     assert [isinstance(entry, int) for entry in mleap_preds]
 
 
+@pytest.mark.large
 def test_container_scoring_responds_to_bad_inputs_using_error_message_with_mleap_flavor(
         spark_model_iris, model_path):
     mleap_model = Model()
