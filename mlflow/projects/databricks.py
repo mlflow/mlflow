@@ -11,7 +11,7 @@ from six.moves import shlex_quote, urllib
 from mlflow.entities import RunStatus
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
@@ -32,6 +32,14 @@ DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
+def _check_response_status_code(response):
+    """
+    Throws MlflowException if the response status code is not 200.
+    """
+    if response.status_code != 200:
+        raise MlflowException("The Databricks request failed. Error: {}".format(response.text))
+
+
 class DatabricksJobRunner(object):
     """
     Helper class for running an MLflow project as a Databricks Job.
@@ -41,17 +49,18 @@ class DatabricksJobRunner(object):
     def __init__(self, databricks_profile):
         self.databricks_profile = databricks_profile
 
-    def databricks_api_request(self, endpoint, method, **kwargs):
+    def _databricks_api_request(self, endpoint, method, **kwargs):
         request_params = rest_utils.get_databricks_http_request_kwargs_or_fail(
             self.databricks_profile)
         request_params.update(kwargs)
-        response = rest_utils.http_request(
+        return rest_utils.http_request(
             endpoint=endpoint, method=method, **request_params)
-        return json.loads(response.text)
 
-    def _jobs_runs_submit(self, json):
-        return self.databricks_api_request(
-            endpoint="/api/2.0/jobs/runs/submit", method="POST", json=json)
+    def _jobs_runs_submit(self, req_body):
+        response = self._databricks_api_request(
+            endpoint="/api/2.0/jobs/runs/submit", method="POST", json=req_body)
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
     def _check_auth_available(self):
         """
@@ -79,8 +88,9 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile.
         """
         dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
-        json_response_obj = self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": dbfs_path})
+        json_response_obj = json.loads(response.text)
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
         if error_code_field in json_response_obj:
@@ -205,12 +215,16 @@ class DatabricksJobRunner(object):
         return res["state"].get("result_state", None)
 
     def jobs_runs_cancel(self, databricks_run_id):
-        return self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
     def jobs_runs_get(self, databricks_run_id):
-        return self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
 
 def _get_tracking_uri_for_run():
