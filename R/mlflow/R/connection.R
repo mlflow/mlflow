@@ -91,6 +91,8 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
     mlflow_cli_param("--workers", workers) %>%
     mlflow_cli_param("--static-prefix", static_prefix)
 
+  mlflow_verbose_message("MLflow starting: http://", host, ":", port)
+
   handle <- do.call(
     "mlflow_cli",
     c(

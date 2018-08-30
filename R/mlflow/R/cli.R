@@ -25,7 +25,7 @@
 mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
   args <- list(...)
 
-  verbose <- getOption("mlflow.verbose", FALSE)
+  verbose <- mlflow_is_verbose()
 
   python <- dirname(python_bin())
   mlflow_bin <- file.path(python, "mlflow")

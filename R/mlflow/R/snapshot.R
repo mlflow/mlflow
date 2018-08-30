@@ -10,7 +10,7 @@ mlflow_snapshot <- function() {
     ignore.stale = getOption("mlflow.snapshot.stale", FALSE),
     prompt = getOption("mlflow.snapshot.prompt", FALSE),
     snapshot.sources = getOption("mlflow.snapshot.sources", FALSE),
-    verbose = getOption("mlflow.verbose", FALSE),
+    verbose = mlflow_is_verbose(),
     fallback.ok = getOption("mlflow.snapshot.fallback", FALSE)
   )
 
@@ -45,8 +45,7 @@ mlflow_restore_snapshot <- function() {
     Sys.setenv(R_PACKRAT_CACHE_DIR = Sys.getenv("MLFLOW_SNAPSHOT_CACHE"))
   }
 
-  options(packrat.verbose.cache = getOption("mlflow.verbose", FALSE),
-          packrat.connect.timeout = 10)
+  options(packrat.verbose.cache = mlflow_is_verbose(), packrat.connect.timeout = 10)
 
   packrat::set_opts(
     auto.snapshot = FALSE,
