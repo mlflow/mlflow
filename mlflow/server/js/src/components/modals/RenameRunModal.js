@@ -19,27 +19,29 @@ import { setTagApi, getUUID } from '../../Actions';
 
 import RequestStateWrapper from '../RequestStateWrapper';
 
-import onClickOutside from "react-onclickoutside";
+
+const customStyles = {
+  content : {
+    top                   : '50%',
+    left                  : '50%',
+    right                 : 'auto',
+    bottom                : 'auto',
+    marginRight           : '-50%',
+    transform             : 'translate(-50%, -50%)'
+  }
+};
 
 class RenameRunModal extends Component {
   constructor(props) {
     super(props);
     this.updateRunName = this.updateRunName.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
-    this.handleClickOutside = this.handleClickOutside.bind(this);
+    this.onRequestCloseHandler = this.onRequestCloseHandler.bind(this);
   }
 
   state = {
     isSubmittingState: false,
   }
-
-  handleClickOutside(event) {
-    console.log("RenameRunModal " + this.state.isSubmittingState);
-    if (this.state.isSubmittingState) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  };
 
   static propTypes = {
     modalParams: PropTypes.instanceOf(Immutable.Map),
@@ -53,32 +55,42 @@ class RenameRunModal extends Component {
     const { newRunName } = obj;
     const tagKey = Utils.getRunTagName();
     const setTagRequestId = getUUID();
-    const promise = this.props.dispatch(setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId));
+    const promise = this.props.dispatch(
+      setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId));
     return promise
   }
 
   handleSubmit = function(values) {
     const { runUuid, onClose } = this.props;
-    this.setState({isSubmitting: true});
-    const promise = this.updateRunName({...values, id: runUuid});
-    return promise.then(function() {
-      debugger;
-      this.setState({isSubmitting: false});
-      onClose();
-      }.bind(this));
+    this.setState({isSubmittingState: true});
+    // We don't close the modal here, instead delegating that logic to the the form view component,
+    // which is responsible for waiting on the promise & calling a callback to close the
+    // modal once submission completes
+    return this.updateRunName({...values, id: runUuid}).then(function() {
+      this.setState({isSubmittingState: false});
+    }.bind(this));
   }
 
   renderForm() {
     const { runUuid, runTags, onClose } = this.props;
     const runName = Utils.getRunDisplayName(runTags, runUuid);
-    return <RenameRunFormView onSubmit={this.handleSubmit} onCancel={onClose} initialValues={{ runName }}/>
+    return <RenameRunFormView onSubmit={this.handleSubmit}
+      onCancel={this.onRequestCloseHandler} initialValues={{ runName }}/>
+  }
+
+  onRequestCloseHandler(event) {
+    if (!this.state.isSubmittingState) {
+      this.props.onClose();
+    }
   }
 
   render() {
     const { open } = this.props;
-    return (<ReactModal isOpen={open} onRequestClose={this.props.onClose} shouldCloseOnOverlayClick=false style={{"width": "480px"}}>
+    return (
+    <ReactModal isOpen={open} onRequestClose={this.onRequestCloseHandler} style={customStyles}
+     appElement={document.body}>
       {this.renderForm()}
-      <a className="exit-link"><i onClick={this.props.onClose} className="fas fa-times"/></a>
+      <a className="exit-link"><i onClick={this.onRequestCloseHandler} className="fas fa-times"/></a>
     </ReactModal>);
   }
 }

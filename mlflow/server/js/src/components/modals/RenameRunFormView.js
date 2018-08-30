@@ -45,11 +45,13 @@ class RenameRunFormView extends Component {
     }) => {
       this.setState({isSubmittingState: true});
       return this.props.onSubmit(values).catch((err) => {
-        // TODO: Redirect to error page here once it's ready
+        // TODO: Handle errors here: on network failures, show failed form. If run was deleted,
+        // redirect to an error page.
         setErrors(err.errors)
       }).finally(function() {
         this.setState({isSubmittingState: false});
-        setSubmitting(false)
+        setSubmitting(false);
+        this.props.onCancel();
       }.bind(this))
     }
 
@@ -58,7 +60,7 @@ class RenameRunFormView extends Component {
       handleSubmit,
       isSubmitting,
     } = renderProps;
-    return <form onSubmit={handleSubmit}>
+    return <form onSubmit={handleSubmit} style={{"width": "480px"}}>
       <h2 style={{"marginTop": "0px"}}> Rename Run </h2>
       <div style={{"marginTop": "16px", "marginBottom": "16px"}}> New run name: </div>
       <div style={{"width": "100%", "marginBottom": "16px"}}>
@@ -74,7 +76,7 @@ class RenameRunFormView extends Component {
         <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
           Save
         </Button>
-        <Button bsStyle="default" type="submit" className="cancel-button" disabled={isSubmitting} onClick={this.props.onCancel}>
+        <Button bsStyle="default" className="cancel-button" disabled={isSubmitting} onClick={this.props.onCancel}>
           Cancel
         </Button>
       </div>
@@ -82,10 +84,9 @@ class RenameRunFormView extends Component {
   }
 
   render() {
-    const { initialValues } = this.props;
     return <div>
       <Formik
-        initialValues={initialValues}
+        initialValues={{newRunName: ""}}
         validationSchema={validationSchema}
         onSubmit={this.handleSubmit}
         render={this.renderForm}/>
