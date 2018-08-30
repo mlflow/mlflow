@@ -8,14 +8,14 @@ Installing MLflow
 
 You install MLflow by running:
 
-.. example-code::
+.. code-section::
     .. code-block:: bash
 
         pip install mlflow
 
     .. code-block:: R
 
-        install.packages(mlflow)
+        devtools::install_github("mlflow/mlflow", subdir = "R/mlflow")
         mlflow_install()
 
 .. note::
@@ -45,7 +45,7 @@ The :doc:`MLflow Tracking API<tracking/>` lets you log metrics and artifacts (fi
 science code and see a history of your runs. You can try it out by writing a simple Python script
 as follows (this example is also included in ``quickstart/test.py``):
 
-.. example-code::
+.. code-section::
     .. code-block:: python
 
         import os
@@ -86,7 +86,7 @@ Viewing the Tracking UI
 By default, wherever you run your program, the tracking API writes data into files into an ``mlruns`` directory.
 You can then run MLflow's Tracking UI:
 
-.. example-code::
+.. code-section::
     .. code-block:: bash
 
         mlflow ui

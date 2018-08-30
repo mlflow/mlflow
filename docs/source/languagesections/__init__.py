@@ -4,28 +4,31 @@ from docutils.parsers.rst import Directive
 from docutils import nodes
 from sphinx.util.osutil import copyfile
 
-JS_FILE = 'examplecode.js'
+JS_FILE = 'languagesections.js'
 
-class ExampleCodeDirective(Directive):
-    """
-    This directive is intended to be used to contain a group of 
-    code blocks which are beingused to show code examples in many different
-    languages. When rendered as HTML the the examples will all be rolled up
-    into a single display area with buttons to select between the different
-    languages.
-    """
-
+class CodeSectionDirective(Directive):
     has_content = True
 
     def run(self):
         self.assert_has_content()
         text = '\n'.join(self.content)
         node = nodes.container(text)
-        node['classes'].append('example-code')
+        node['classes'].append('code-section')
         self.add_name(node)
         self.state.nested_parse(self.content, self.content_offset, node)
         return [node]
 
+class PlainSectionDirective(Directive):
+    has_content = True
+
+    def run(self):
+        self.assert_has_content()
+        text = '\n'.join(self.content)
+        node = nodes.container(text)
+        node['classes'].append('plain-section')
+        self.add_name(node)
+        self.state.nested_parse(self.content, self.content_offset, node)
+        return [node]
 
 def add_assets(app):
     app.add_javascript(JS_FILE)
@@ -40,6 +43,7 @@ def copy_assets(app, exception):
     app.info('done')
 
 def setup(app):
-    app.add_directive('example-code',  ExampleCodeDirective)
+    app.add_directive('code-section', CodeSectionDirective)
+    app.add_directive('plain-section', PlainSectionDirective)
     app.connect('builder-inited', add_assets)
     app.connect('build-finished', copy_assets)

@@ -5,11 +5,11 @@ Tutorial
 
 This tutorial showcases how you can use MLflow end-to-end to:
 
-- Train a linear regression model 
-- Package the code that trains the model in a reusable and reproducible model format 
+- Train a linear regression model
+- Package the code that trains the model in a reusable and reproducible model format
 - Deploy the model into a simple HTTP server that will enable you to score predictions
 
-This tutorial uses a dataset to predict the quality of wine based on quantitative features 
+This tutorial uses a dataset to predict the quality of wine based on quantitative features
 like the wine's "fixed acidity", "pH", "residual sugar", and so on. The dataset
 is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datasets/Wine+Quality>`_.
 [1]_
@@ -20,94 +20,188 @@ is from UCI's `machine learning repository <http://archive.ics.uci.edu/ml/datase
 
 What You'll Need
 ----------------
-To run this tutorial, you'll need to:
 
- - Install MLflow (via ``pip install mlflow``)
- - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
- - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
- - `cd` into the ``examples`` directory within your clone of MLflow - we'll use this working
-   directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
-   so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
-   MLflow.
+.. plain-section::
 
+    .. container:: python
+
+      To run this tutorial, you'll need to:
+
+       - Install MLflow (via ``pip install mlflow``)
+       - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
+       - `cd` into the ``example`` directory within your clone of MLflow - we'll use this working
+         directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
+         so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
+         MLflow.
+
+    .. container:: R
+
+      To run this tutorial, you'll need to:
+
+       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "R/mlflow")``)
+       - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Install MLflow (via ``mlflow::mlflow_install()``)
+       - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
+       - `setwd()` into the ``example`` directory within your clone of MLflow - we'll use this working
+         directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
+         so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
+         MLflow.
 
 Training the Model
 ------------------
-First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``tutorial/train.py`` and is reproduced below.
 
-.. code:: python
+.. plain-section::
 
-    import os
-    import sys
+    .. container:: python
 
-    import pandas as pd
-    import numpy as np
-    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-    from sklearn.model_selection import train_test_split
-    from sklearn.linear_model import ElasticNet
+      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``tutorial/train.py`` and is reproduced below.
 
-    import mlflow
-    import mlflow.sklearn
-    # Run from the root of MLflow
-    # Read the wine-quality csv file 
-    wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
-    data = pd.read_csv(wine_path)
+      .. code:: python
 
-    # Split the data into training and test sets. (0.75, 0.25) split.
-    train, test = train_test_split(data)
+          import os
+          import sys
 
-    # The predicted column is "quality" which is a scalar from [3, 9]
-    train_x = train.drop(["quality"], axis=1)
-    test_x = test.drop(["quality"], axis=1)
-    train_y = train[["quality"]]
-    test_y = test[["quality"]]
+          import pandas as pd
+          import numpy as np
+          from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+          from sklearn.model_selection import train_test_split
+          from sklearn.linear_model import ElasticNet
 
-    alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.5
-    l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
+          import mlflow
+          import mlflow.sklearn
+          # Run from the root of MLflow
+          # Read the wine-quality csv file
+          wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
+          data = pd.read_csv(wine_path)
 
-    with mlflow.start_run():
-        lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
-        lr.fit(train_x, train_y)
+          # Split the data into training and test sets. (0.75, 0.25) split.
+          train, test = train_test_split(data)
 
-        predicted_qualities = lr.predict(test_x)
+          # The predicted column is "quality" which is a scalar from [3, 9]
+          train_x = train.drop(["quality"], axis=1)
+          test_x = test.drop(["quality"], axis=1)
+          train_y = train[["quality"]]
+          test_y = test[["quality"]]
 
-        (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+          alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.5
+          l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
 
-        print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
-        print("  RMSE: %s" % rmse)
-        print("  MAE: %s" % mae)
-        print("  R2: %s" % r2)
+          with mlflow.start_run():
+              lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
+              lr.fit(train_x, train_y)
 
-        mlflow.log_param("alpha", alpha)
-        mlflow.log_param("l1_ratio", l1_ratio)
-        mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("r2", r2)
-        mlflow.log_metric("mae", mae)
+              predicted_qualities = lr.predict(test_x)
 
-        mlflow.sklearn.log_model(lr, "model")
+              (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 
-This example uses the familiar pandas, numpy, and sklearn APIs to create a simple machine learning
-model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
-training run, like the hyperparameters ``alpha`` and ``l1_ratio``, used to train the model and metrics, like
-the root mean square error, used to evaluate the model. The example also serializes the
-model in a format that MLflow knows how to deploy.
+              print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
+              print("  RMSE: %s" % rmse)
+              print("  MAE: %s" % mae)
+              print("  R2: %s" % r2)
 
-You can run the example with default hyperparameters as follows:
+              mlflow.log_param("alpha", alpha)
+              mlflow.log_param("l1_ratio", l1_ratio)
+              mlflow.log_metric("rmse", rmse)
+              mlflow.log_metric("r2", r2)
+              mlflow.log_metric("mae", mae)
 
-.. code:: bash
+              mlflow.sklearn.log_model(lr, "model")
 
-    python tutorial/train.py
+      This example uses the familiar pandas, numpy, and sklearn APIs to create a simple machine learning
+      model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
+      training run, like the hyperparameters ``alpha`` and ``l1_ratio``, used to train the model and metrics, like
+      the root mean square error, used to evaluate the model. The example also serializes the
+      model in a format that MLflow knows how to deploy.
 
-Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
+      You can run the example with default hyperparameters as follows:
 
-.. code:: bash
+      .. code:: bash
 
-    python tutorial/train.py <alpha> <l1_ratio>
+          python tutorial/train.py
 
-Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
+      Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
-.. note::
-    If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``tutorial/train.py/train.ipynb``.
+      .. code:: bash
+
+          python tutorial/train.py <alpha> <l1_ratio>
+
+      Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
+
+      .. note::
+          If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``tutorial/train.ipynb``.
+
+    .. container:: R
+
+      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``lambda``. The code is located at ``tutorial/train.R`` and is reproduced below.
+
+      .. code:: R
+
+        library(mlflow)
+        library(glmnet)
+
+        # Read the wine-quality csv file
+        data <- read.csv("wine-quality.csv")
+
+        # Split the data into training and test sets. (0.75, 0.25) split.
+        sampled <- sample(1:nrow(data), 0.75 * nrow(data))
+        train <- data[sampled, ]
+        test <- data[-sampled, ]
+
+        # The predicted column is "quality" which is a scalar from [3, 9]
+        train_x <- as.matrix(train[, !(names(train) == "quality")])
+        test_x <- as.matrix(test[, !(names(train) == "quality")])
+        train_y <- train[, "quality"]
+        test_y <- test[, "quality"]
+
+        alpha <- mlflow_param("alpha", 0.5, "numeric")
+        lambda <- mlflow_param("lambda", 0.5, "numeric")
+
+        mlflow_start_run({
+          model <- glmnet(train_x, train_y, alpha=alpha, lambda=lambda, family="gaussian")
+          predictor <- crate(~ stats::predict(model, .x), model)
+          predicted <- predictor(test_x)
+
+          rmse <- sqrt(mean((predicted - test_y) ^ 2))
+          mae <- mean(abs(predicted - test_y))
+          r2 <- as.numeric(cor(predicted, test_y) ^ 2)
+
+          message("Elasticnet model (alpha=", alpha, ", lambda=", lambda, "):")
+          message("  RMSE: ", rmse)
+          message("  MAE: ", mae)
+          message("  R2: ", r2)
+
+          mlflow_log_param("alpha", alpha)
+          mlflow_log_param("lambda", lambda)
+          mlflow_log_metric("rmse", rmse)
+          mlflow_log_metric("r2", r2)
+          mlflow_log_metric("mae", mae)
+
+          mlflow_log_model(predictor, "model")
+        })
+
+      This example uses the familiar `glmnet` package to create a simple machine learning
+      model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
+      training run, like the hyperparameters ``alpha`` and ``lambda``, used to train the model and metrics, like
+      the root mean square error, used to evaluate the model. The example also serializes the
+      model in a format that MLflow knows how to deploy.
+
+      You can run the example with default hyperparameters as follows:
+
+      .. code:: bash
+
+          RScript tutorial/train.R
+
+      Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
+
+      .. code:: bash
+
+          RScript tutorial/train.R --args <alpha> <lambda>
+
+      Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
+
+      .. note::
+          If you would like to use the R notebook version of ``train.R``, try out the tutorial notebook at ``tutorial/train.Rmd``.
 
 Comparing the Models
 --------------------
@@ -146,8 +240,8 @@ called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha
           alpha: float
           l1_ratio: {type: float, default: 0.1}
         command: "python train.py {alpha} {l1_ratio}"
-        
-        
+
+
 The Conda file lists the dependencies:
 
 .. code:: yaml

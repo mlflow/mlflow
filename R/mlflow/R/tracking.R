@@ -173,13 +173,14 @@ mlflow_ensure_run <- function(run_uuid) {
 #' Log Model
 #'
 #' Logs a model in the given run. Similar to `mlflow_save_model()`
-#' but stores model only as an artifact within the active run.
+#' but stores model as an artifact within the active run.
 #'
-#' @param f The serving function that will perform a prediction.
+#' @param fn The serving function that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
 #'
 #' @export
-mlflow_log_model <- function(f, path = "model") {
-  stop("Not implemented.")
+mlflow_log_model <- function(fn, path = "model") {
+  mlflow_save_model(fn, path = path)
+  mlflow_log_artifact(path)
 }
