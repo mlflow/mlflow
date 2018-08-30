@@ -127,6 +127,10 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                               " mvn --batch-mode package -DskipTests \n"
                               "RUN pip install /opt/mlflow\n")
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
+        else:
+            eprint("`mlflow_home` was not specified. The image will install"
+                   " MLflow from pip instead. As a result, the container will"
+                   " not support the MLeap flavor.")
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
@@ -396,7 +400,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
 
     eprint("launching docker image with path {}".format(model_path))
     cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port,
-           "-e", "{config_var_name}={config_var_value}".format(
+           "-e", "\"{config_var_name}={config_var_value}\"".format(
                config_var_name=ENV_KEY_DEPLOYMENT_CONFIG,
                config_var_value=deployment_config),
            "--rm", image, "serve"]
