@@ -1,3 +1,4 @@
+from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.logging_utils import eprint
 from databricks_cli.configure import provider
