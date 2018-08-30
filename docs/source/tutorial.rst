@@ -133,7 +133,7 @@ Training the Model
 
     .. container:: R
 
-      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``lambda``. The code is located at ``tutorial/train.R`` and is reproduced below.
+      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``lambda``. The code is located at ``tutorial/R/train.R`` and is reproduced below.
 
       .. code:: R
 
@@ -141,7 +141,7 @@ Training the Model
         library(glmnet)
 
         # Read the wine-quality csv file
-        data <- read.csv("wine-quality.csv")
+        data <- read.csv("../wine-quality.csv")
 
         # Split the data into training and test sets. (0.75, 0.25) split.
         sampled <- sample(1:nrow(data), 0.75 * nrow(data))
@@ -190,13 +190,13 @@ Training the Model
 
       .. code:: R
 
-          mlflow_run(uri = "tutorial", entry_point = "train.R", no_conda = TRUE)
+          mlflow_run(uri = "tutorial", entry_point = "train.R")
 
       Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
       .. code:: R
 
-          mlflow_run(uri = "", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5), no_conda = TRUE)
+          mlflow_run(uri = "", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
 
       Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
