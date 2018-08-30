@@ -131,9 +131,9 @@ class RunView extends Component {
       <div className="RunView">
         <div className="header-container">
           <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]}/>
-          <Dropdown id="dropdown-custom-1">
+          <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
              <Dropdown.Toggle noCaret className="dropdown-button">
-               <i class="fas fa-chevron-down"/>
+               <i className="fas fa-chevron-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu>
                <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>

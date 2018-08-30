@@ -77,7 +77,27 @@ textarea.run-command {
   font-family: Menlo, Consolas, monospace;
 }
 
-.borderless-button, .dropdown-button {
+
+/*
+.dropdown-button, .dropdown-button:hover, .dropdown-button:active, .dropdown-button:focus .btn-group.open .dropdown-toggle {
   background-color: transparent;
   border-color: transparent;
+  border: none;
+  box-shadow: none;
 }
+*/
+
+.header-container .btn-group button.dropdown-toggle, .header-container .btn-group.open button.dropdown-toggle {
+  background-color: transparent;
+  border-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+/*
+.open>.dropdown-toggle.btn-default:focus {
+  background-color: transparent;
+  border-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+*/
