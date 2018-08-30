@@ -160,18 +160,14 @@ def read_yaml(root, file_name):
 
 
 class TempDir(object):
-    def __init__(self, chdr=False, remove_on_exit=True, prefix=None):
+    def __init__(self, chdr=False, remove_on_exit=True):
         self._dir = None
         self._path = None
-        self._prefix = prefix
         self._chdr = chdr
         self._remove = remove_on_exit
 
     def __enter__(self):
-        if self._prefix: 
-            self._path = os.path.abspath(tempfile.mkdtemp(prefix=self._prefix))
-        else:
-            self._path = os.path.abspath(tempfile.mkdtemp())
+        self._path = os.path.abspath(tempfile.mkdtemp())
         assert os.path.exists(self._path)
         if self._chdr:
             self._dir = os.path.abspath(os.getcwd())
