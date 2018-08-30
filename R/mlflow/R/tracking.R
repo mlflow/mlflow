@@ -180,11 +180,12 @@ mlflow_ensure_run <- function(run_uuid) {
 #' but stores model as an artifact within the active run.
 #'
 #' @param fn The serving function that will perform a prediction.
-#' @param path Destination path where this MLflow compatible model
+#' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
 #'
 #' @export
-mlflow_log_model <- function(fn, path = "model") {
-  mlflow_save_model(fn, path = path)
-  mlflow_log_artifact(path)
+mlflow_log_model <- function(fn, artifact_path = NULL) {
+  temp_path <- fs::path_temp(artifact_path)
+  mlflow_save_model(fn, path = temp_path)
+  mlflow_log_artifact(temp_path, artifact_path)
 }

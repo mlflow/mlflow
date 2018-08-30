@@ -17,7 +17,7 @@
 #' @param storage_dir Only valid when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
 #'  parameters of type 'path' to subdirectories of storage_dir.
 #' @export
-mlflow_run <- function(uri = "", entry_point = NULL, version = NULL, param_list = NULL,
+mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, param_list = NULL,
                        experiment_id = NULL, mode = NULL, cluster_spec = NULL,
                        git_username = NULL, git_password = NULL, no_conda = FALSE,
                        storage_dir = NULL) {
@@ -36,9 +36,10 @@ mlflow_run <- function(uri = "", entry_point = NULL, version = NULL, param_list 
     mlflow_cli_param("--cluster_spec", cluster_spec) %>%
     mlflow_cli_param("--git-username", git_username) %>%
     mlflow_cli_param("--git-password", git_password) %>%
-    mlflow_cli_param("--no-conda", if (no_conda) "") %>%
     mlflow_cli_param("--storage-dir", storage_dir) %>%
     c(param_list)
+
+  args <- if (!no_conda) args else c(args, "--no-conda")
 
   do.call(mlflow_cli, c("run", args))
 

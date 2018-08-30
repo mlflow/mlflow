@@ -24,8 +24,8 @@ test_y <- test[, "quality"]
 alpha <- mlflow_param("alpha", 0.5, "numeric")
 lambda <- mlflow_param("lambda", 0.5, "numeric")
 
-mlflow_start_run({
-    model <- glmnet(train_x, train_y, alpha=alpha, lambda=lambda, family="gaussian")
+with(mlflow_start_run(), {
+    model <- glmnet(train_x, train_y, alpha = alpha, lambda = lambda, family= "gaussian")
     predictor <- crate(~ stats::predict(model, .x), model)
     predicted <- predictor(test_x)
 
