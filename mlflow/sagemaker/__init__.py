@@ -280,7 +280,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         bucket = _get_default_s3_bucket(region_name)
 
     model_s3_path = _upload_s3(
-        local_model_path=model_path, flavor=flavor, bucket=bucket, prefix=s3_bucket_prefix)
+        local_model_path=model_path, flavor=deployment_flavor, bucket=bucket, prefix=s3_bucket_prefix)
     _deploy(role=execution_role_arn,
             image_url=image_url,
             app_name=app_name,
