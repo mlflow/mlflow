@@ -18,7 +18,7 @@ class DbfsArtifactRepository(ArtifactRepository):
     Stores artifacts on DBFS.
 
     This repository is used with URIs of the form ``dbfs:/<path>``. The repository can only be used
-    together with the DatabricksStore.
+    together with the RestStore.
     """
 
     def __init__(self, artifact_uri, get_host_creds):
@@ -33,15 +33,9 @@ class DbfsArtifactRepository(ArtifactRepository):
         return http_request(host_creds, **kwargs)
 
     def _dbfs_list_api(self, json):
-        """
-        Pulled out to make it easier to mock.
-        """
         return self._databricks_api_request(endpoint=LIST_API_ENDPOINT, method='GET', json=json)
 
     def _dbfs_download(self, output_path, endpoint):
-        """
-        Pulled out to make it easier to mock.
-        """
         with open(output_path, 'wb') as f:
             response = self._databricks_api_request(endpoint=endpoint, method='GET', stream=True)
             try:
@@ -57,7 +51,7 @@ class DbfsArtifactRepository(ArtifactRepository):
         try:
             return json_response['is_dir']
         except KeyError:
-            raise Exception('DBFS path %s does not exist' % dbfs_path)
+            raise MlflowException('DBFS path %s does not exist' % dbfs_path)
 
     def _get_dbfs_path(self, artifact_path):
         return '/%s/%s' % (strip_prefix(self.artifact_uri, 'dbfs:/'),

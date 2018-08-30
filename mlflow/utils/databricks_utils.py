@@ -52,9 +52,9 @@ def get_webapp_url():
 
 
 def _fail_malformed_databricks_auth(profile):
-    raise Exception("Got malformed Databricks CLI profile '%s'. Please make sure the Databricks "
-                    "CLI is properly configured as described at "
-                    "https://github.com/databricks/databricks-cli." % profile)
+    raise MlflowException("Got malformed Databricks CLI profile '%s'. Please make sure the "
+                          "Databricks CLI is properly configured as described at "
+                          "https://github.com/databricks/databricks-cli." % profile)
 
 
 def get_databricks_host_creds(profile=None):

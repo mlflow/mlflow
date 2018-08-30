@@ -22,8 +22,6 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
 
     :param host_creds: A :py:class:`mlflow.rest_utils.MlflowHostCreds` object containing
         hostname and optional authentication.
-    :param req_body_json: Dictionary containing the request body
-    :param params: Query parameters for the request
     :return: Parsed API response
     """
     hostname = host_creds.host
@@ -68,7 +66,7 @@ class NumpyEncoder(JSONEncoder):
         return JSONEncoder.default(self, o)
 
 
-class MlflowHostCreds:
+class MlflowHostCreds(object):
     """
     Provides a hostname and optional authentication for talking to an MLflow tracking server.
     :param host: Hostname (e.g., http://localhost:5000) to MLflow server. Required.
