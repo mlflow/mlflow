@@ -27,7 +27,6 @@ from mlflow.sagemaker.container import get_serving_flavor
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
-
 DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
 DEPLOYMENT_MODE_CREATE = "create"
