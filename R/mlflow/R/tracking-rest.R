@@ -241,14 +241,19 @@ mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
 #' @param metric_key Name of the metric.
 #' @export
 mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  mlflow_get_or_create_active_connection()
+  run_uuid <- run_uuid %||%
+    mlflow_active_run()$run_info$run_uuid %||%
+    stop("`run_uuid` must be specified when there is no active run.")
+
   response <- mlflow_rest("metrics", "get-history", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
   ))
-  metric_history <- response$metrics
-  metric_history$timestamp <- as.POSIXct(as.integer(metric_history$timestamp), origin = "1970-01-01")
-  metric_history
+
+  metrics <- response$metrics
+  metrics$timestamp <- as.POSIXct(as.double(metrics$timestamp) / 1000, origin = "1970-01-01")
+  as.data.frame(metrics, stringsAsFactors = FALSE)
 }
 
 #' Update Run

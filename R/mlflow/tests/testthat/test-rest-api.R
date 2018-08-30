@@ -100,3 +100,19 @@ test_that("mlflow_get_metric() requires `run_uuid` when there is no active run",
     "`run_uuid` must be specified when there is no active run\\."
   )
 })
+
+test_that("mlflow_get_metric_history() works properly", {
+  mlflow_disconnect()
+  log_time1 <- mlflow:::current_time()
+  some_metric1 <- mlflow_log_metric("some_metric", 42, timestamp = log_time1)
+  log_time2 <- mlflow:::current_time()
+  some_metric2 <- mlflow_log_metric("some_metric", 91, timestamp = log_time2)
+  metric_history <- mlflow_get_metric_history("some_metric")
+  expected <- data.frame(
+    key = c("some_metric", "some_metric"),
+    value = c(some_metric1, some_metric2),
+    timestamp = as.POSIXct(as.double(c(log_time1, log_time2)) / 1000, origin = "1970-01-01"),
+    stringsAsFactors = FALSE
+  )
+  expect_identical(metric_history, expected)
+})
