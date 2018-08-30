@@ -156,7 +156,7 @@ def test_run_databricks_validations(
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
     with mock.patch("mlflow.projects.databricks.DatabricksJobRunner._check_auth_available"),\
-        mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host'}),\
+        mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}),\
         mock.patch("mlflow.projects.databricks.DatabricksJobRunner.databricks_api_request")\
             as db_api_req_mock:
         # Test bad tracking URI
@@ -189,7 +189,7 @@ def test_run_databricks(
         tracking_uri_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
         runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock):
     """Test running on Databricks with mocks."""
-    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host'}):
+    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         # Test that MLflow gets the correct run status when performing a Databricks run
         for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
             runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
@@ -206,7 +206,7 @@ def test_run_databricks(
             assert set_tag_args[2] == '-1'
             set_tag_args, _ = set_tag_mock.call_args_list[2]
             assert set_tag_args[1] == MLFLOW_DATABRICKS_WEBAPP_URL
-            assert set_tag_args[2] is not None
+            assert set_tag_args[2] == 'test-host'
             set_tag_mock.reset_mock()
             runs_submit_mock.reset_mock()
             validate_exit_status(submitted_run.get_status(), expect_status)
@@ -219,7 +219,7 @@ def test_run_databricks_cancel(
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
     # waiting for run status.
-    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host'}):
+    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
         submitted_run = run_databricks_project(cluster_spec_mock)
         submitted_run.cancel()
