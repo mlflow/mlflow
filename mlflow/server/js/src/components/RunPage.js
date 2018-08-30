@@ -1,17 +1,12 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import RequestStateWrapper from './RequestStateWrapper';
-import { getExperimentApi, getRunApi, getUUID, listArtifactsApi, setTagApi } from '../Actions';
+import { getExperimentApi, getRunApi, getUUID, listArtifactsApi } from '../Actions';
 import { connect } from 'react-redux';
 import RunView from './RunView';
 import Routes from '../Routes';
 
 class RunPage extends Component {
-
-  constructor(props) {
-    super(props);
-  }
-
   static propTypes = {
     match: PropTypes.object.isRequired,
     runUuid: PropTypes.string.isRequired,
@@ -47,7 +42,6 @@ class RunPage extends Component {
               (key) => Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
             }
             experimentId={this.props.experimentId}
-            onSetTag={this.onSetTag}
           />
         </RequestStateWrapper>
       </div>
@@ -64,12 +58,4 @@ const mapStateToProps = (state, ownProps) => {
   };
 };
 
-
-// eslint-disable-next-line no-unused-vars
-const mapDispatchToProps = (dispatch, ownProps) => {
-  return {
-    dispatch,
-  };
-};
-
-export default connect(mapStateToProps, mapDispatchToProps)(RunPage);
+export default connect(mapStateToProps)(RunPage);

@@ -212,7 +212,7 @@ class FileStore(AbstractStore):
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         num_runs = len(self._list_run_uuids(experiment_id))
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
-                           name=run_name or "Run %s" % num_runs,
+                           name="",
                            artifact_uri=artifact_uri, source_type=source_type,
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
@@ -227,6 +227,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
+        self.set_tag(run_uuid, RunTag(
+            key=RunTag._RUN_NAME_TAG_NAME, value=run_name or "Run %s" % num_runs))
         return Run(run_info=run_info, run_data=None)
 
     def _make_run_info_dict(self, run_info):
