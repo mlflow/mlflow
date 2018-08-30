@@ -122,7 +122,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
             mlflow_dir = _copy_project(
                 src_path=mlflow_home, dst_path=tmp.path())
             install_mlflow = ("COPY {mlflow_dir} /opt/mlflow\n"
-                              "RUN cd /opt/mlflow/mlflow/java/scoring &&" 
+                              "RUN cd /opt/mlflow/mlflow/java/scoring &&"
                               " mvn --batch-mode package -DskipTests \n"
                               "RUN pip install /opt/mlflow\n")
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
@@ -248,8 +248,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                        >>> mfs.deploy(..., vpc_config=vpc_config)
 
     :param flavor: The name of the flavor of the model to use for deployment. If `None`, a flavor
-                   will be automatically selected from the model's available flavors. If the 
-                   specified flavor is not present or not supported for deployment, an exception 
+                   will be automatically selected from the model's available flavors. If the
+                   specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
     """
     if mode not in DEPLOYMENT_MODES:
@@ -308,30 +308,30 @@ def _get_or_validate_deployment_flavor(model_config, flavor=None):
                    If `None`, a flavor will be selected from the set of flavors contained in
                    the model and returned, if possible.
 
-    :return: The name of the flavor to be used for deployment. 
+    :return: The name of the flavor to be used for deployment.
     """
     default_flavor = get_serving_flavor(model_config)
     if default_flavor is None:
-        raise ValueError("The specified model does not contain any of the supported flavors for" 
-                         " deployment. The model contains the following flavors: {model_flavors}." 
+        raise ValueError("The specified model does not contain any of the supported flavors for"
+                         " deployment. The model contains the following flavors: {model_flavors}."
                          " Supported flavors: {supported_flavors}".format(
                              model_flavors=model_config.flavors.keys(),
                              supported_flavors=SUPPORTED_DEPLOYMENT_FLAVORS))
-    
+
     if flavor is None:
         print("No flavor was specified. Deploying model with the default flavor:"
               " `{default_flavor_name}`. To use a specific flavor for deployment, specify it"
               " using the `flavor` parameter.".format(default_flavor_name=default_flavor))
         return default_flavor
     elif flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
-        raise ValueError("The specified flavor: `{flavor_name}` is not supported for" 
-                         " deployment. Please use one of the supported flavors:" 
+        raise ValueError("The specified flavor: `{flavor_name}` is not supported for"
+                         " deployment. Please use one of the supported flavors:"
                          " {supported_flavor_names}".format(
                              flavor_name=flavor,
                              supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS))
     elif flavor not in model_config.flavors:
         raise ValueError("The specified model does not contain the specified deployment flavor:"
-                         " `{flavor_name}`. Please use one of the following deployment flavors that" 
+                         " `{flavor_name}`. Please use one of the following deployment flavors that"
                          " the model contains: {model_flavors}".format(
                              flavor_name=flavor, model_flavors=model_config.flavors.keys()))
     else:
@@ -384,8 +384,8 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
     :param port: Local port.
     :param image: Name of the Docker image to be used.
     :param flavor: The name of the flavor of the model to use for local serving. If `None`, a flavor
-                   will be automatically selected from the model's available flavors. If the 
-                   specified flavor is not present or not supported for deployment, an exception 
+                   will be automatically selected from the model's available flavors. If the
+                   specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
     """
     if run_id:
@@ -473,6 +473,7 @@ def _get_default_s3_bucket(region_name):
                bucket_name)
     return bucket_name
 
+
 def _make_tarfile(output_filename, source_dir):
     """
     create a tar.gz from a directory.
@@ -512,9 +513,9 @@ def _get_deployment_config(flavor_name):
     """
     :return: The deployment configuration as a yaml-formatted string
     """
-    deployment_flavor_config = { DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME : flavor_name }
-    return yaml.dump(deployment_flavor_config) 
-        
+    deployment_flavor_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
+    return yaml.dump(deployment_flavor_config)
+
 
 def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive,
             instance_type, instance_count, vpc_config, flavor):
@@ -614,7 +615,7 @@ def _get_sagemaker_config_name(endpoint_name):
     return "{en}-config-{uid}".format(en=endpoint_name, uid=unique_id)
 
 
-def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor, 
+def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
                                instance_type, vpc_config, instance_count, role, sage_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
@@ -672,7 +673,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 
 
 def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
-                               instance_type, instance_count, vpc_config, mode, archive, role, 
+                               instance_type, instance_count, vpc_config, mode, archive, role,
                                sage_client, s3_client):
     """
     :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
@@ -793,8 +794,8 @@ def _create_sagemaker_model(model_name, model_s3_path, flavor, vpc_config, run_i
             'ContainerHostname': 'mfs-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
-            'Environment': { DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME : 
-                _get_deployment_config(flavor_name=flavor) },
+            'Environment': {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME:
+                            _get_deployment_config(flavor_name=flavor)},
         },
         "ExecutionRoleArn": execution_role,
         "Tags": [{'Key': 'run_id', 'Value': str(run_id)}],

@@ -12,7 +12,8 @@ import mlflow.sagemaker as mfs
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 
-TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id"]) 
+TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id"])
+
 
 @pytest.fixture
 def pretrained_model():
@@ -34,7 +35,7 @@ def test_deployment_with_unsupported_flavor_throws_value_error(pretrained_model)
                    model_path=pretrained_model.model_path,
                    run_id=pretrained_model.run_id,
                    flavor=unsupported_flavor)
-    
+
 
 def test_deployment_with_missing_flavor_throws_value_error(pretrained_model):
     missing_flavor = "mleap"
