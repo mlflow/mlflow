@@ -345,53 +345,116 @@ Packaging the Training Code
 
 Serving the Model
 -----------------
-Now that you have packaged your model using the MLproject convention and have identified the best model,
-it is time to deploy the model using :doc:`models`. An MLflow Model is a standard format for
-packaging machine learning models that can be used in a variety of downstream tools — for example,
-real-time serving through a REST API or batch inference on Apache Spark.
 
-In the example training code, after training the linear regression model, a function
-in MLflow saved the model as an artifact within the run.
+.. plain-section::
 
-.. code::
+    .. container:: python
 
-    mlflow.sklearn.log_model(lr, "model")
+      Now that you have packaged your model using the MLproject convention and have identified the best model,
+      it is time to deploy the model using :doc:`models`. An MLflow Model is a standard format for
+      packaging machine learning models that can be used in a variety of downstream tools — for example,
+      real-time serving through a REST API or batch inference on Apache Spark.
 
-To view this artifact, you can use the UI again. When you click a date in the list of experiment
-runs you'll see this page.
+      In the example training code, after training the linear regression model, a function
+      in MLflow saved the model as an artifact within the run.
 
-.. image:: _static/images/tutorial-artifact.png
+      .. code::
 
-At the bottom, you can see that the call to ``mlflow.sklearn.log_model`` produced two files in
-``/Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model``.
-The first file, ``MLmodel``, is a metadata file that tells MLflow how to load the model. The
-second file, ``model.pkl``, is a serialized version of the linear regression model that you trained.
+          mlflow.sklearn.log_model(lr, "model")
 
-In this example, you can use this MLmodel format with MLflow to deploy a local REST server that can serve predictions.
+      To view this artifact, you can use the UI again. When you click a date in the list of experiment
+      runs you'll see this page.
 
-To deploy the server, run:
+      .. image:: _static/images/tutorial-artifact.png
 
-.. code::
+      At the bottom, you can see that the call to ``mlflow.sklearn.log_model`` produced two files in
+      ``/Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model``.
+      The first file, ``MLmodel``, is a metadata file that tells MLflow how to load the model. The
+      second file, ``model.pkl``, is a serialized version of the linear regression model that you trained.
 
-    mlflow sklearn serve /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
+      In this example, you can use this MLmodel format with MLflow to deploy a local REST server that can serve predictions.
 
-.. note::
+      To deploy the server, run:
 
-    The version of Python used to create the model must be the same as the one running ``mlflow sklearn``.
-    If this is not the case, you may see the error
-    ``UnicodeDecodeError: 'ascii' codec can't decode byte 0x9f in position 1: ordinal not in range(128)``
-    or ``raise ValueError, "unsupported pickle protocol: %d"``.
+      .. code::
 
-To serve a prediction, run:
+          mlflow sklearn serve /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
-.. code::
+      .. note::
 
-    curl -X POST -H "Content-Type:application/json" --data '[{"fixed acidity": 6.2, "volatile acidity": 0.66, "citric acid": 0.48, "residual sugar": 1.2, "chlorides": 0.029, "free sulfur dioxide": 29, "total sulfur dioxide": 75, "density": 0.98, "pH": 3.33, "sulphates": 0.39, "alcohol": 12.8}]' http://127.0.0.1:1234/invocations
+          The version of Python used to create the model must be the same as the one running ``mlflow sklearn``.
+          If this is not the case, you may see the error
+          ``UnicodeDecodeError: 'ascii' codec can't decode byte 0x9f in position 1: ordinal not in range(128)``
+          or ``raise ValueError, "unsupported pickle protocol: %d"``.
 
-which should return something like::
+      To serve a prediction, run:
 
-    {"predictions": [6.379428821398614]}
+      .. code::
 
+          curl -X POST -H "Content-Type:application/json" --data '[{"fixed acidity": 6.2, "volatile acidity": 0.66, "citric acid": 0.48, "residual sugar": 1.2, "chlorides": 0.029, "free sulfur dioxide": 29, "total sulfur dioxide": 75, "density": 0.98, "pH": 3.33, "sulphates": 0.39, "alcohol": 12.8}]' http://127.0.0.1:1234/invocations
+
+      which should return something like::
+
+          {"predictions": [6.379428821398614]}
+
+    .. container:: R
+
+      Now that you have packaged your model using the MLproject convention and have identified the best model,
+      it is time to deploy the model using :doc:`models`. An MLflow Model is a standard format for
+      packaging machine learning models that can be used in a variety of downstream tools — for example,
+      real-time serving through a REST API or batch inference on Apache Spark.
+
+      In the example training code, after training the linear regression model, a function
+      in MLflow saved the model as an artifact within the run.
+
+      .. code:: R
+
+          mlflow_log_model(predictor, "model")
+
+      To view this artifact, you can use the UI again. When you click a date in the list of experiment
+      runs you'll see this page.
+
+      .. image:: _static/images/tutorial-artifact-r.png
+
+      At the bottom, you can see that the call to ``mlflow_log_model()`` produced two files in
+      ``mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model/``.
+      The first file, ``MLmodel``, is a metadata file that tells MLflow how to load the model. The
+      second file, ``r_model.bin``, is a serialized version of the linear regression model that you trained.
+
+      In this example, you can use this MLmodel format with MLflow to deploy a local REST server that can serve predictions.
+
+      To deploy the server, run:
+
+      .. code:: R
+
+          mlflow_rfunc_serve("mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model")
+
+      This will initialize a REST server and open a `swagger <https://swagger.io/>`_ interface to perform predicitons against
+      the REST API:
+
+      .. image:: _static/images/tutorial-serving-r.png
+
+      .. note:: R
+
+          By default, a model is served using the R packages available. To ensure the environment serving
+          the prediction function matches the model, set ``restore = TRUE`` when calling
+          ``mlflow_rfunc_serve()``.
+
+      To serve a prediction, run:
+
+      .. code::
+
+          curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"fixed acidity\": 6.2, \"volatile acidity\": 0.66, \"citric acid\": 0.48, \"residual sugar\": 1.2, \"chlorides\": 0.029, \"free sulfur dioxide\": 29, \"total sulfur dioxide\": 75, \"density\": 0.98, \"pH\": 3.33, \"sulphates\": 0.39, \"alcohol\": 12.8}"
+
+      which should return something like::
+
+          {
+            "predicitons": [
+              [
+                6.1312
+              ]
+            ]
+          }
 
 More Resources
 --------------
