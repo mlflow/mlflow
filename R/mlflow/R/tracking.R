@@ -166,11 +166,18 @@ with.mlflow_active_run <- function(data, expr, ...) {
   invisible(NULL)
 }
 
-mlflow_ensure_run <- function(run_uuid) {
+mlflow_ensure_run_id <- function(run_uuid) {
   if (is.null(run_uuid)) {
-    mlflow_active_run()$run_info$run_uuid %||% mlflow_start_run()$run_info$run_uuid
+    run <- mlflow_active_run() %||% mlflow_start_run()
+    run$run_info$run_uuid
   } else {
-    mlflow_start_run(run_uuid)$run_info$run_uuid
+    mlflow_get_or_create_active_connection()
+    tryCatch(mlflow_get_run(run_uuid)$info$run_uuid, error = function(e) {
+      stop(
+        "Run \"", run_uuid, "\" cannot be found in current tracking server at ",
+        mlflow_tracking_uri(), "."
+      )
+    })
   }
 }
 
@@ -182,10 +189,11 @@ mlflow_ensure_run <- function(run_uuid) {
 #' @param fn The serving function that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param run_uuid The run associated with the model to be logged.
 #'
 #' @export
-mlflow_log_model <- function(fn, artifact_path = NULL) {
+mlflow_log_model <- function(fn, artifact_path, run_uuid = NULL) {
   temp_path <- fs::path_temp(artifact_path)
   mlflow_save_model(fn, path = temp_path)
-  mlflow_log_artifact(temp_path, artifact_path)
+  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path, run_uuid = run_uuid)
 }

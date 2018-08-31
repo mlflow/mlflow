@@ -4,15 +4,20 @@
 \alias{mlflow_rfunc_predict}
 \title{Predict using RFunc MLflow Model}
 \usage{
-mlflow_rfunc_predict(model_dir, data, output_file = NULL,
-  restore = FALSE)
+mlflow_rfunc_predict(model_path, run_uuid = NULL, input_path = NULL,
+  output_path = NULL, data = NULL, restore = FALSE)
 }
 \arguments{
-\item{model_dir}{The path to the MLflow model, as a string.}
+\item{model_path}{The path to the MLflow model, as a string.}
 
-\item{data}{Data frame, 'JSON' or 'CSV' file to be used for prediction.}
+\item{run_uuid}{Run ID of run to grab the model from.}
 
-\item{output_file}{'JSON' or 'CSV' file where the prediction will be written to.}
+\item{input_path}{Path to 'JSON' or 'CSV' file to be used for prediction.}
+
+\item{output_path}{'JSON' or 'CSV' file where the prediction will be written to.}
+
+\item{data}{Data frame to be scored. This can be utilized for testing purposes and can only
+be specified when `input_path` is not specified.}
 
 \item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
 }

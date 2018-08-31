@@ -4,12 +4,14 @@
 \alias{mlflow_log_artifact}
 \title{Log Artifact}
 \usage{
-mlflow_log_artifact(path, artifact_path = NULL)
+mlflow_log_artifact(path, artifact_path, run_uuid = NULL)
 }
 \arguments{
 \item{path}{The file or directory to log as an artifact.}
 
 \item{artifact_path}{Destination path within the run’s artifact URI.}
+
+\item{run_uuid}{The run associated with this artifact.}
 }
 \description{
 Logs an specific file or directory as an artifact.

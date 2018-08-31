@@ -25,27 +25,30 @@ mlflow_save_model <- function(fn, path = "model") {
     file.path(path, "r_model.bin")
   )
 
-  write_yaml(
-    list(
-      time_created = Sys.time(),
-      flavors = list(
-        r_function = list(
-          version = "0.1.0",
-          model = "r_model.bin"
-        )
+  ml_model_content <- list(
+    time_created = Sys.time(),
+    run_id = mlflow_active_run()$run_info$run_uuid,
+    flavors = list(
+      r_function = list(
+        version = "0.1.0",
+        model = "r_model.bin"
       )
-    ),
+    )
+  )
+
+  write_yaml(
+    purrr::compact(ml_model_content),
     file.path(path, "MLmodel")
   )
 }
 
-mlflow_load_model <- function(model_dir) {
-  spec <- yaml::read_yaml(fs::path(model_dir, "MLmodel"))
+mlflow_load_model <- function(model_path) {
+  spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
 
   if (!"r_function" %in% names(spec$flavors))
     stop("Model must define r_function to be used from R.")
 
-  unserialize(readRDS(fs::path(model_dir, spec$flavors$r_function$model)))
+  unserialize(readRDS(fs::path(model_path, spec$flavors$r_function$model)))
 }
 
 mlflow_rfunc_predict_impl <- function(model, data) {
@@ -63,9 +66,12 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #'
 #' Predict using an RFunc MLflow Model from a file or data frame.
 #'
-#' @param model_dir The path to the MLflow model, as a string.
-#' @param data Data frame, 'JSON' or 'CSV' file to be used for prediction.
-#' @param output_file 'JSON' or 'CSV' file where the prediction will be written to.
+#' @param model_path The path to the MLflow model, as a string.
+#' @param run_uuid Run ID of run to grab the model from.
+#' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
+#' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
+#' @param data Data frame to be scored. This can be utilized for testing purposes and can only
+#'   be specified when `input_path` is not specified.
 #' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
 #'
 #' @examples
@@ -86,36 +92,58 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #' @importFrom utils write.csv
 #' @export
 mlflow_rfunc_predict <- function(
-  model_dir,
-  data,
-  output_file = NULL,
+  model_path,
+  run_uuid = NULL,
+  input_path = NULL,
+  output_path = NULL,
+  data = NULL,
   restore = FALSE
 ) {
   mlflow_restore_or_warning(restore)
 
-  if (is.character(data)) {
-    data <- switch(
-      fs::path_ext(data),
-      json = jsonlite::read_json(data),
-      csv = read.csv(data)
+  model_path <- resolve_model_path(model_path, run_uuid)
+
+  if (!xor(is.null(input_path), is.null(data)))
+    stop("One and only one of `input_path` or `data` must be specified.")
+
+  data <- if (!is.null(input_path)) {
+    switch(
+      fs::path_ext(input_path),
+      json = jsonlite::read_json(input_path),
+      csv = read.csv(input_path)
     )
+  } else {
+    data
   }
 
-  model <- mlflow_load_model(model_dir)
+  model <- mlflow_load_model(model_path)
 
   prediction <- mlflow_rfunc_predict_impl(model, data)
 
-  if (is.null(output_file)) {
+  if (is.null(output_path)) {
     if (!interactive()) message(prediction)
 
     prediction
   }
   else {
     switch(
-      fs::path_ext(output_file),
-      json = jsonlite::write_json(prediction, output_file),
-      csv = write.csv(prediction, output_file, row.names = FALSE),
+      fs::path_ext(output_path),
+      json = jsonlite::write_json(prediction, output_path),
+      csv = write.csv(prediction, output_path, row.names = FALSE),
       stop("Unsupported output file format.")
     )
+  }
+}
+
+resolve_model_path <- function(model_path, run_uuid) {
+  if (!is.null(run_uuid)) {
+    mlflow_get_or_create_active_connection()
+    result <- withr::with_envvar(
+      list(MLFLOW_TRACKING_URI = mlflow_tracking_uri()),
+      mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path, echo = FALSE)
+    )
+      gsub("\n", "", result$stdout)
+  } else {
+    model_path
   }
 }

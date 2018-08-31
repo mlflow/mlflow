@@ -1,8 +1,3 @@
-mlflow_active_artifact_uri <- function() {
-  run_info <- mlflow_active_run()
-  run_info$run_info$artifact_uri
-}
-
 mlflow_artifact_type <- function(artifact_uri) {
   artifact_type <- NULL
   if (dir.exists(artifact_uri)) {
@@ -37,6 +32,7 @@ mlflow_artifact_type <- function(artifact_uri) {
 #'
 #' @param path The file or directory to log as an artifact.
 #' @param artifact_path Destination path within the run’s artifact URI.
+#' @param run_uuid The run associated with this artifact.
 #'
 #' @details
 #'
@@ -70,9 +66,9 @@ mlflow_artifact_type <- function(artifact_uri) {
 #' by Amazon IAM.
 #'
 #' @export
-mlflow_log_artifact <- function(path, artifact_path = NULL) {
-
-  artifact_uri <- mlflow_active_artifact_uri()
+mlflow_log_artifact <- function(path, artifact_path, run_uuid = NULL) {
+  run_uuid <- mlflow_ensure_run_id(run_uuid)
+  artifact_uri <- mlflow_get_run(run_uuid)$info$artifact_uri
   artifact_type <- mlflow_artifact_type(artifact_uri)
 
   artifact_uri <- ifelse(
@@ -104,7 +100,7 @@ mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path) {
     dir.create(artifact_uri, recursive = TRUE)
   }
 
-  file.copy(path, artifact_uri)
+  file.copy(path, artifact_uri, overwrite = TRUE)
   invisible(NULL)
 }
 
