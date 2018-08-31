@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -19,6 +20,7 @@ import org.apache.log4j.Logger;
 
 import org.mlflow.api.proto.Service;
 import org.mlflow.tracking.MlflowClientException;
+import org.mlflow.tracking.creds.MlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 /**
@@ -191,9 +193,9 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     String stdout;
     Process process = null;
     try {
+      MlflowHostCreds hostCreds = hostCredsProvider.getHostCreds();
       ProcessBuilder pb = new ProcessBuilder(command);
-      // TODO(aaron) Figure out a way to pass the other fields of the host-creds.
-      pb.environment().put("MLFLOW_TRACKING_URI", hostCredsProvider.getHostCreds().getHost());
+      setProcessEnvironment(pb.environment(), hostCreds);
       process = pb.start();
       stdout = IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
       int exitValue = process.waitFor();
@@ -206,6 +208,23 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
         ". Process stderr: " + getErrorBestEffort(process), e);
     }
     return stdout;
+  }
+
+  @VisibleForTesting
+  void setProcessEnvironment(Map<String, String> environment, MlflowHostCreds hostCreds) {
+    environment.put("MLFLOW_TRACKING_URI", hostCreds.getHost());
+    if (hostCreds.getUsername() != null) {
+      environment.put("MLFLOW_TRACKING_USERNAME", hostCreds.getUsername());
+    }
+    if (hostCreds.getPassword() != null) {
+      environment.put("MLFLOW_TRACKING_PASSWORD", hostCreds.getPassword());
+    }
+    if (hostCreds.getToken() != null) {
+      environment.put("MLFLOW_TRACKING_TOKEN", hostCreds.getToken());
+    }
+    if (hostCreds.shouldIgnoreTlsVerification()) {
+      environment.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
+    }
   }
 
   /** Does our best to get the process's stderr, or returns a dummy return value. */

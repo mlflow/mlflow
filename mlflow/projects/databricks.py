@@ -10,13 +10,12 @@ from six.moves import shlex_quote, urllib
 
 from mlflow.entities import RunStatus
 from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.utils import rest_utils, file_utils
-from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.utils import rest_utils, file_utils, databricks_utils
+from mlflow.exceptions import ExecutionException
 from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
-from mlflow.utils.rest_utils import get_databricks_http_request_kwargs_or_fail
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -37,7 +36,7 @@ def _check_response_status_code(response):
     Throws MlflowException if the response status code is not 200.
     """
     if response.status_code != 200:
-        raise MlflowException("The Databricks request failed. Error: {}".format(response.text))
+        raise ExecutionException("The Databricks request failed. Error: {}".format(response.text))
 
 
 class DatabricksJobRunner(object):
@@ -50,11 +49,9 @@ class DatabricksJobRunner(object):
         self.databricks_profile = databricks_profile
 
     def _databricks_api_request(self, endpoint, method, **kwargs):
-        request_params = rest_utils.get_databricks_http_request_kwargs_or_fail(
-            self.databricks_profile)
-        request_params.update(kwargs)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         return rest_utils.http_request(
-            endpoint=endpoint, method=method, **request_params)
+            host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
     def _jobs_runs_submit(self, req_body):
         response = self._databricks_api_request(
@@ -67,7 +64,7 @@ class DatabricksJobRunner(object):
         Verifies that information for making API requests to Databricks is available to MLflow,
         raising an exception if not.
         """
-        rest_utils.get_databricks_http_request_kwargs_or_fail(self.databricks_profile)
+        databricks_utils.get_databricks_host_creds(self.databricks_profile)
 
     def _upload_to_dbfs(self, src_path, dbfs_fuse_uri):
         """
@@ -76,11 +73,10 @@ class DatabricksJobRunner(object):
         """
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
-        http_request_kwargs = \
-            rest_utils.get_databricks_http_request_kwargs_or_fail(self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         with open(src_path, 'rb') as f:
             rest_utils.http_request(
-                endpoint=http_endpoint, method='POST', data=f, **http_request_kwargs)
+                host_creds=host_creds, endpoint=http_endpoint, method='POST', data=f)
 
     def _dbfs_path_exists(self, dbfs_uri):
         """
@@ -322,14 +318,13 @@ class DatabricksSubmittedRun(SubmittedRun):
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         eprint("=== Check the run's status at %s ===" % jobs_page_url)
+        host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
         tracking.get_service().set_tag(self._mlflow_run_id,
                                        MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
         tracking.get_service().set_tag(self._mlflow_run_id,
                                        MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
         tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_WEBAPP_URL,
-                                       get_databricks_http_request_kwargs_or_fail(
-                                           profile=self._job_runner.databricks_profile)['hostname'])
+                                       MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
         job_id = run_info.get('job_id')
         # In some releases of Databricks we do not return the job ID. We start including it in DB
         # releases 2.80 and above.
