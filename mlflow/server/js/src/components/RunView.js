@@ -132,8 +132,10 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experiment={this.props.experiment} runUuids={[this.props.runUuid]}
-            runName={this.props.runName}/>
+          <BreadcrumbTitle
+            experiment={this.props.experiment}
+            title={this.props.runName}
+          />
           <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
              <Dropdown.Toggle noCaret className="dropdown-button"
                style={{backgroundColor: "transparent", borderColor: "transparent",

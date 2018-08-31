@@ -38,7 +38,7 @@ export default class BreadcrumbTitle extends Component {
     }
     const chevron = <i className="fas fa-chevron-right breadcrumb-chevron" key="chevron"/>;
     return (
-      <h1>
+      <h1 style={styles.h1}>
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink, chevron] : [] }
@@ -46,4 +46,10 @@ export default class BreadcrumbTitle extends Component {
       </h1>
     );
   }
+}
+
+const styles = {
+  h1: {
+    display: "inline"
+  },
 }
