@@ -23,17 +23,14 @@ class CompareRunView extends Component {
 
   render() {
     const experiment = this.props.experiment;
-    const experimentId = this.props.experimentId;
-    const runUuids = this.props.runUuids;
+    const experimentId = experiment.getExperimentId();
 
     return (
       <div className="CompareRunView">
-        <div className="header-container">
-          <BreadcrumbTitle
-            experiment={experiment}
-            runUuids={runUuids}
-          />
-        </div>
+        <BreadcrumbTitle
+          experiment={experiment}
+          title={"Comparing " + this.props.runInfos.length + " Runs"}
+        />
         <div className="responsive-table-container">
           <table className="compare-table table">
             <thead>

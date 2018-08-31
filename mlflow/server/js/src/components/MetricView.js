@@ -26,16 +26,21 @@ class MetricView extends Component {
     // Object with keys from Metric json and also
     metrics: PropTypes.arrayOf(Object).isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
-    runName: PropTypes.string
+    runNames: PropTypes.arrayOf(String).isRequired,
   };
 
   render() {
-    const { experiment, runUuids, title, metrics, runName } = this.props;
+    const { experiment, runUuids, title, metrics, runNames } = this.props;
     if (metrics.length === 1) {
       return (
         <div className="MetricView">
           <div className="header-container">
-            <BreadcrumbTitle experiment={experiment} runUuids={runUuids} runName={runName} title={title}/>
+            <BreadcrumbTitle
+              experiment={experiment}
+              runNames={runNames}
+              runUuids={runUuids}
+              title={title}
+            />
           </div>
           <ResponsiveContainer width="100%" aspect={1.55}>
             <BarChart
@@ -61,7 +66,12 @@ class MetricView extends Component {
       return (
         <div className="MetricView">
           <div className="header-container">
-            <BreadcrumbTitle experiment={experiment} runUuids={runUuids} title={title}/>
+            <BreadcrumbTitle
+              experiment={experiment}
+              runNames={runNames}
+              runUuids={runUuids}
+              title={title}
+            />
           </div>
           <ResponsiveContainer width="100%" aspect={1.55}>
             <LineChart
@@ -112,12 +122,16 @@ const mapStateToProps = (state, ownProps) => {
     debugger;
     runName = Utils.getRunDisplayName(tags, runUuids[0]);
   }
+  const runNames = runUuids.map((runUuid) => {
+    const tags = getRunTags(runUuid, state);
+    return Utils.getRunDisplayName(tags, runUuid);
+  });
   return {
     experiment,
     metrics,
     title: <span>{metricKey}</span>,
     runUuids: runUuids,
-    runName: runName
+    runNames: runNames
   };
 };
 

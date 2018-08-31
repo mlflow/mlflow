@@ -12,11 +12,12 @@ export default class BreadcrumbTitle extends Component {
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     runUuids: PropTypes.arrayOf(String), // Optional because not all pages are nested under runs
-    title: PropTypes.string, // Optional. A title is inferred
+    runNames: PropTypes.arrayOf(String),
+    title: PropTypes.any.isRequired,
   };
 
   render() {
-    const {experiment, runUuids, title, runName} = this.props;
+    const {experiment, runUuids, runNames, title} = this.props;
     const experimentId = experiment.getExperimentId();
     const experimentLink = (
       <Link to={Routes.getExperimentPageRoute(experimentId)}>
@@ -27,7 +28,7 @@ export default class BreadcrumbTitle extends Component {
     if (runUuids) {
       runsLink = (runUuids.length === 1 ?
         <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
-          {runName}
+          {runNames[0]}
         </Link>
         :
         <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
@@ -37,11 +38,11 @@ export default class BreadcrumbTitle extends Component {
     }
     const chevron = <i className="fas fa-chevron-right breadcrumb-chevron" key="chevron"/>;
     return (
-      <h1 style={{display: "inline"}}>
+      <h1>
         {experimentLink}
         {chevron}
-        { runsLink ? [runsLink] : [] }
-        { title ? [chevron, title] : []}
+        { runsLink ? [runsLink, chevron] : [] }
+        {title}
       </h1>
     );
   }
