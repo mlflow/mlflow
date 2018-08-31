@@ -71,7 +71,7 @@ mlflow_artifact_type <- function(artifact_uri) {
 #'
 #' @export
 mlflow_log_artifact <- function(path, artifact_path = NULL) {
-
+  mlflow_get_or_create_active_connection()
   artifact_uri <- mlflow_active_artifact_uri()
   artifact_type <- mlflow_artifact_type(artifact_uri)
 
