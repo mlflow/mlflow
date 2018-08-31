@@ -65,6 +65,12 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
                             instance_count=instance_count, vpc_config=vpc_config, flavor=flavor)
 
 
+@commands.command("list-flavors")
+def list_flavors():
+    print("Supported model flavors for SageMaker deployment are: {supported_flavors}".format(
+        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS))
+
+
 @commands.command("delete")
 @click.option("--app-name", "-a", help="Application name", required=True)
 @click.option("--region-name", "-r", default="us-west-2",

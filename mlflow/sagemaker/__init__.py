@@ -246,7 +246,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                        ...              }
                        >>> mfs.deploy(..., vpc_config=vpc_config)
 
-    :param flavor: The name of the flavor of the model to use for deployment. If `None`, a flavor
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either `None`
+                   or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If `None`, a flavor
                    will be automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
@@ -266,7 +267,10 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             "Failed to find MLmodel configuration within the specified model's root directory.")
     model_config = Model.load(model_config_path)
 
-    deployment_flavor = _get_or_validate_deployment_flavor(model_config=model_config, flavor=flavor)
+    if flavor is None:
+        flavor = _get_preferred_deployment_flavor(model_config)
+    else:
+        _validate_deployment_flavor(model_config, flavor)
 
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
@@ -291,38 +295,40 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             instance_type=instance_type,
             instance_count=instance_count,
             vpc_config=vpc_config,
-            flavor=deployment_flavor)
+            flavor=flavor)
 
 
-def _get_or_validate_deployment_flavor(model_config, flavor=None):
+def _get_preferred_deployment_flavor(model_config):
     """
-    Validates and or obtains the name of a flavor that is compatible with the model
-    and will be used by the container for deployment. If the specified flavor is
-    unsupported, the specified flavor is not contained in the model, or the model does not
-    contain any supported flavors, an exception will be thrown.
+    Obtains the flavor that MLflow would prefer to use when deploying the model.
+    If the model does not contain any supported flavors for deployment, an exception
+    will be thrown.
 
-    :param model_config: An MLflow Model object
-    :param flavor: The name of the flavor to validate. If not `None`, this flavor will be
-                   validated; we will determine if it is supported and contained in the model.
-                   If `None`, a flavor will be selected from the set of flavors contained in
-                   the model and returned, if possible.
-
-    :return: The name of the flavor to be used for deployment.
+    :param model_config: An MLflow model object
+    :return: The name of the preferred deployment flavor for the specified model
     """
-    default_flavor = _get_preferred_serving_flavor(model_config)
-    if default_flavor is None:
+    if mleap.FLAVOR_NAME in model_config.flavors:
+        return mleap.FLAVOR_NAME
+    elif pyfunc.FLAVOR_NAME in model_config.flavors:
+        return pyfunc.FLAVOR_NAME
+    else:
         raise ValueError("The specified model does not contain any of the supported flavors for"
-                         " deployment. The model contains the following flavors: {model_flavors}."
-                         " Supported flavors: {supported_flavors}".format(
+                         " deployment. The model contains the following flavors:"
+                         " {model_flavors}. Supported flavors: {supported_flavors}".format(
                              model_flavors=model_config.flavors.keys(),
                              supported_flavors=SUPPORTED_DEPLOYMENT_FLAVORS))
 
-    if flavor is None:
-        print("No flavor was specified. Deploying model with the default flavor:"
-              " `{default_flavor_name}`. To use a specific flavor for deployment, specify it"
-              " using the `flavor` parameter.".format(default_flavor_name=default_flavor))
-        return default_flavor
-    elif flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
+
+def _validate_deployment_flavor(model_config, flavor):
+    """
+    Checks that the specified flavor is a supported deployment flavor
+    and is contained in the specified model. If one of these conditions
+    is not met, an exception is thrown.
+
+    :param model_config: An MLflow Model object
+    :param flavor: The deployment flavor to validate
+    """
+    if flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
         raise ValueError("The specified flavor: `{flavor_name}` is not supported for"
                          " deployment. Please use one of the supported flavors:"
                          " {supported_flavor_names}".format(
@@ -330,28 +336,9 @@ def _get_or_validate_deployment_flavor(model_config, flavor=None):
                              supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS))
     elif flavor not in model_config.flavors:
         raise ValueError("The specified model does not contain the specified deployment flavor:"
-                         " `{flavor_name}`. Please use one of the following deployment flavors that"
-                         " the model contains: {model_flavors}".format(
+                         " `{flavor_name}`. Please use one of the following deployment flavors"
+                         " that the model contains: {model_flavors}".format(
                              flavor_name=flavor, model_flavors=model_config.flavors.keys()))
-    else:
-        print("Deploying model with the specified flavor: {flavor_name}".format(
-          flavor_name=flavor))
-        return flavor
-
-
-def _get_preferred_serving_flavor(model):
-    """
-    :param model: An MLflow Model object
-
-    :return: The name of the flavor that will be used for serving, or None
-             if the model does not contain any supported flavors
-    """
-    if mleap.FLAVOR_NAME in model.flavors:
-        return mleap.FLAVOR_NAME
-    elif pyfunc.FLAVOR_NAME in model.flavors:
-        return pyfunc.FLAVOR_NAME
-    else:
-        return None
 
 
 def delete(app_name, region_name="us-west-2", archive=False):
@@ -406,10 +393,14 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
         model_path = _get_model_log_dir(model_path, run_id)
     model_path = os.path.abspath(model_path)
     model_config_path = os.path.join(model_path, "MLmodel")
-
     model_config = Model.load(model_config_path)
-    deployment_flavor = _get_or_validate_deployment_flavor(model_config=model_config, flavor=flavor)
-    deployment_config = _get_deployment_config(flavor_name=deployment_flavor)
+
+    if flavor is None:
+        flavor = _get_preferred_deployment_flavor(model_config)
+    else:
+        _validate_deployment_flavor(model_config, flavor)
+
+    deployment_config = _get_deployment_config(flavor_name=flavor)
 
     eprint("launching docker image with path {}".format(model_path))
     cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port,
