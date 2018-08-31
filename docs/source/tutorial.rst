@@ -159,10 +159,7 @@ Training the Model
 
         with(mlflow_start_run(), {
           model <- glmnet(train_x, train_y, alpha = alpha, lambda = lambda, family = "gaussian")
-          predictor <- crate(function(df) {
-              library(glmnet)
-              stats::predict(model, methods::as(as.matrix(df), "dgCMatrix"))
-          }, model)
+          predictor <- crate(~ glmnet::predict.glmnet(model, as.matrix(.x)), model)
           predicted <- predictor(test_x)
 
           rmse <- sqrt(mean((predicted - test_y) ^ 2))

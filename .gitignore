@@ -91,4 +91,4 @@ target/
 
 # R notebooks
 .Rproj.user
-example/tutorial/*.nb.html
+example/tutorial/R/*.nb.html
