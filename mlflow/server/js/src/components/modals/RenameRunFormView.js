@@ -23,10 +23,11 @@ class RenameRunFormView extends Component {
       handleSubmit,
       isSubmitting,
     } = renderProps;
-    return <form onSubmit={handleSubmit} style={{"width": "480px"}}>
+    const saveText = isSubmitting ? "Saving..." : "Save";
+    return <form onSubmit={handleSubmit} style={styles.form}>
       <div style={styles.formField}><h2 style={{"marginTop": "0px"}}>Rename Run</h2></div>
-      <div style={styles.formField}>New run name:</div>
-      <div style={{"width": "100%", "marginBottom": "16px"}}>
+      <div style={styles.label}>New run name:</div>
+      <div style={{...styles.formField, "width": "100%"}}>
         <Field
             type="newRunName"
             name="newRunName"
@@ -36,9 +37,6 @@ class RenameRunFormView extends Component {
         />
       </div>
       <div style={styles.buttonsDiv}>
-        <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
-          Save
-        </Button>
         <Button
           bsStyle="default"
           className="cancel-button"
@@ -46,6 +44,9 @@ class RenameRunFormView extends Component {
           onClick={this.props.onClose}
         >
           Cancel
+        </Button>
+        <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
+          {saveText}
         </Button>
       </div>
     </form>;
@@ -65,11 +66,17 @@ class RenameRunFormView extends Component {
 export default withRouter(RenameRunFormView);
 
 const styles = {
+  form: {
+    width: "480px",
+  },
   buttonsDiv: {
     display: "flex",
     justifyContent: "flex-end",
   },
   formField: {
     marginBottom: "16px",
-  }
+  },
+  label: {
+    marginBottom: "4px",
+  },
 };

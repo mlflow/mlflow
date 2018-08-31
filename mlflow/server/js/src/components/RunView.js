@@ -140,8 +140,8 @@ class RunView extends Component {
              <Dropdown.Toggle noCaret className="dropdown-button" style={styles.dropdownToggle}>
                <i className="fas fa-caret-down"/>
              </Dropdown.Toggle>
-             <Dropdown.Menu>
-               <MenuItem onClick={this.handleRenameRunClick}>Rename</MenuItem>
+             <Dropdown.Menu className="mlflow-menu">
+               <MenuItem className="mlflow-menu-item" onClick={this.handleRenameRunClick}>Rename</MenuItem>
              </Dropdown.Menu>
           </Dropdown>
           <RenameRunModal

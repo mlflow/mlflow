@@ -88,7 +88,7 @@ textarea.run-command {
   cursor: pointer
 }
 
-.cancel-button {
+.save-button {
   margin-left: 16px
 }
 
@@ -96,4 +96,15 @@ textarea.run-command {
   padding-left: 24px;
   padding-right: 24px;
   text-align: center;
+}
+
+.header-container .mlflow-menu > li.mlflow-menu-item:hover {
+  background-image: none;
+  background-color: rgb(1, 147, 225);
+  color: #ffffff;
+}
+
+.mlflow-menu .mlflow-menu-item > a:hover {
+  background-color: rgb(1, 147, 225);
+  color: #ffffff;
 }
