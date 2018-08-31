@@ -79,7 +79,7 @@ textarea.run-command {
 
 .exit-link, .exit-link:hover, .exit-link:visited {
   position: absolute;
-  top: 24px;
+  top: 18px;
   right: 24px;
   color: black;
 }
