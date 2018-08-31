@@ -25,20 +25,6 @@ $(function() {
     i = null;
   });
 
-  $('div.code-section ul.section-selector li').click(function(evt) {
-    evt.preventDefault();
-
-    var parent = $(evt.target).parent().parent();
-
-    $('ul.section-selector li', parent).removeClass('selected');
-    var sel_class = $(this).attr('class').replace('notranslate', '');
-    $('div.example', parent).hide();
-    $('div.' + sel_class, parent).show();
-    $('ul.section-selector li.' + sel_class, parent).addClass('selected');
-
-    sel_class = null;
-  });
-
   $('div.plain-section').each(function() {
     var example_sel = $('<ul />', { class: "section-selector" });
     var i = 0;
@@ -63,18 +49,28 @@ $(function() {
     i = null;
   });
 
-  $('div.plain-section ul.section-selector li').click(function(evt) {
+  $('div.code-section ul.section-selector li,div.plain-section ul.section-selector li').click(function(evt) {
     evt.preventDefault();
 
-    var parent = $(evt.target).parent().parent();
+    var sel_class = $(this).attr('class').replace(' docutils container', '').replace('notranslate', '');
 
-    $('ul.section-selector li', parent).removeClass('selected');
-    var sel_class = $(this).attr('class').replace(' docutils container', '');
-    $('div.example', parent).hide();
-    $('div.' + sel_class, parent).show();
-    $('ul.section-selector li.' + sel_class, parent).addClass('selected');
+    $('ul.section-selector li').each(function() {
+      var parent = $(this).parent().parent();
+      
+      // When the target language is not available, default to bash or python.
+      if (!$('div.' + sel_class, parent).length) {
+        if ($('div.' + "highlight-bash", parent).length)
+          sel_class = "highlight-bash";
+        else
+          sel_class = "highlight-python";
+      }
 
-    sel_class = null;
+      $('div.example', parent).hide();
+      $('div.' + sel_class, parent).show();
+
+      $('ul.section-selector li', parent).removeClass('selected');
+      $('ul.section-selector li.' + sel_class, parent).addClass('selected');
+    });
   });
 
 });
