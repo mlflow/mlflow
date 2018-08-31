@@ -4,11 +4,11 @@
 \alias{mlflow_rfunc_predict}
 \title{Predict using RFunc MLflow Model}
 \usage{
-mlflow_rfunc_predict(model_dir, data, output_file = NULL,
+mlflow_rfunc_predict(model_path, data, output_file = NULL,
   restore = FALSE)
 }
 \arguments{
-\item{model_dir}{The path to the MLflow model, as a string.}
+\item{model_path}{The path to the MLflow model, as a string.}
 
 \item{data}{Data frame, 'JSON' or 'CSV' file to be used for prediction.}
 

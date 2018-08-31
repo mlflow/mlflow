@@ -4,7 +4,7 @@
 #'
 #' Serve an RFunc MLflow Model as a local web api under \url{http://localhost:8090}.
 #'
-#' @param model_dir The path to the MLflow model, as a string.
+#' @param model_path The path to the MLflow model, as a string.
 #' @param host Address to use to serve model, as a string.
 #' @param port Port to use to serve model, as numeric.
 #' @param daemonized Makes 'httpuv' server daemonized so R interactive sessions
@@ -32,7 +32,7 @@
 #' @import swagger
 #' @export
 mlflow_rfunc_serve <- function(
-  model_dir,
+  model_path,
   host = "127.0.0.1",
   port = 8090,
   daemonized = FALSE,
@@ -42,7 +42,7 @@ mlflow_rfunc_serve <- function(
   mlflow_restore_or_warning(restore)
 
   httpuv_start <- if (daemonized) httpuv::startDaemonizedServer else httpuv::runServer
-  serve_run(model_dir, host, port, httpuv_start, browse && interactive())
+  serve_run(model_path, host, port, httpuv_start, browse && interactive())
 }
 
 serve_content_type <- function(file_path) {
@@ -181,8 +181,8 @@ message_serve_start <- function(host, port, model) {
 }
 
 #' @importFrom utils browseURL
-serve_run <- function(model_dir, host, port, start, browse) {
-  model <- mlflow_load_model(model_dir)
+serve_run <- function(model_path, host, port, start, browse) {
+  model <- mlflow_load_model(model_path)
 
   message_serve_start(host, port, model)
 

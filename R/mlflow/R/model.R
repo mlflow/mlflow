@@ -39,13 +39,13 @@ mlflow_save_model <- function(fn, path = "model") {
   )
 }
 
-mlflow_load_model <- function(model_dir) {
-  spec <- yaml::read_yaml(fs::path(model_dir, "MLmodel"))
+mlflow_load_model <- function(model_path) {
+  spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
 
   if (!"r_function" %in% names(spec$flavors))
     stop("Model must define r_function to be used from R.")
 
-  unserialize(readRDS(fs::path(model_dir, spec$flavors$r_function$model)))
+  unserialize(readRDS(fs::path(model_path, spec$flavors$r_function$model)))
 }
 
 mlflow_rfunc_predict_impl <- function(model, data) {
@@ -63,7 +63,7 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #'
 #' Predict using an RFunc MLflow Model from a file or data frame.
 #'
-#' @param model_dir The path to the MLflow model, as a string.
+#' @param model_path The path to the MLflow model, as a string.
 #' @param data Data frame, 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_file 'JSON' or 'CSV' file where the prediction will be written to.
 #' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
@@ -86,7 +86,7 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #' @importFrom utils write.csv
 #' @export
 mlflow_rfunc_predict <- function(
-  model_dir,
+  model_path,
   data,
   output_file = NULL,
   restore = FALSE
@@ -101,7 +101,7 @@ mlflow_rfunc_predict <- function(
     )
   }
 
-  model <- mlflow_load_model(model_dir)
+  model <- mlflow_load_model(model_path)
 
   prediction <- mlflow_rfunc_predict_impl(model, data)
 
