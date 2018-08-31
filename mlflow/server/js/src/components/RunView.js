@@ -263,7 +263,7 @@ class RunView extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { runUuid, metricPageRoute, getMetricPagePath, experimentId } = ownProps;
+  const { runUuid, experimentId } = ownProps;
   const run = getRunInfo(runUuid, state);
   const experiment = getExperiment(experimentId, state);
   const params = getParams(runUuid, state);

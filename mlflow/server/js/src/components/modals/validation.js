@@ -1,5 +1,5 @@
-import * as yup from 'yup';
+import { string, object } from 'yup';
 
-export const validationSchema = yup.object().shape({
-  newRunName: yup.string().required(),
+export const validationSchema = object().shape({
+  newRunName: string().required(),
 });

@@ -24,7 +24,7 @@ class RenameRunFormView extends Component {
       isSubmitting,
     } = renderProps;
     return <form onSubmit={handleSubmit} style={{"width": "480px"}}>
-      <div style={styles.formField}><h2 style={{"marginTop": "0px"}}>Rename</h2></div>
+      <div style={styles.formField}><h2 style={{"marginTop": "0px"}}>Rename Run</h2></div>
       <div style={styles.formField}>New run name:</div>
       <div style={{"width": "100%", "marginBottom": "16px"}}>
         <Field
@@ -52,13 +52,13 @@ class RenameRunFormView extends Component {
   }
 
   render() {
-    return <div>
+    return (<div>
       <Formik
         initialValues={{newRunName: this.props.runName}}
         validationSchema={validationSchema}
         onSubmit={this.props.onSubmit}
         render={this.renderForm}/>
-    </div>
+      </div>);
   }
 }
 

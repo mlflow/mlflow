@@ -55,9 +55,7 @@ class RenameRunModal extends Component {
   handleSubmit = (
     values,
     {
-      props,
       setSubmitting,
-      setErrors,
     }) => {
     const { newRunName } = values;
     this.setState({ isSubmittingState: true });
@@ -65,28 +63,29 @@ class RenameRunModal extends Component {
     const setTagRequestId = getUUID();
     return this.props.dispatch(
       setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).catch((err) => {
-      // TODO: remove alert, redirect to an error page on failed requests once one exists
-      alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
+        // TODO: remove alert, redirect to an error page on failed requests once one exists
+        // eslint-disable-next-line no-alert
+        alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
         "page.");
-      this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
-    }).finally(() => {
-      this.setState({ isSubmittingState: false });
-      setSubmitting(false);
-      this.onRequestCloseHandler();
-    })
+        this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
+      }).finally(() => {
+        this.setState({ isSubmittingState: false });
+        setSubmitting(false);
+        this.onRequestCloseHandler();
+      });
   }
 
 
   renderForm() {
     const { runName, experimentId } = this.props;
-    return <RenameRunFormView
+    return (<RenameRunFormView
       onSubmit={this.handleSubmit}
       onClose={this.onRequestCloseHandler}
       runName={runName}
-      experimentId={experimentId}/>
+      experimentId={experimentId}/>);
   }
 
-  onRequestCloseHandler(event) {
+  onRequestCloseHandler() {
     if (!this.state.isSubmittingState) {
       this.props.onClose();
     }
@@ -116,4 +115,4 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   };
 };
 
-export default connect(function() { return {} }, mapDispatchToProps)(withRouter(RenameRunModal))
+export default connect(null, mapDispatchToProps)(withRouter(RenameRunModal));
