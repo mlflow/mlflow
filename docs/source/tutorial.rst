@@ -319,7 +319,7 @@ Packaging the Training Code
 
       .. code:: R
 
-        mlflow_run("tutorial/R", "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("tutorial/R", entry_point = "train.R", param_list = list(alpha = 0.2))
 
       After running this command, MLflow will run your training code in a new R session.
 
@@ -327,7 +327,8 @@ Packaging the Training Code
 
       .. code:: R
 
-        mlflow_run("tutorial/R", "train.R", param_list = list(alpha = 0.2))
+        mlflow_restore_snapshot()
+        mlflow_run("tutorial/R", entry_point = "train.R", param_list = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
