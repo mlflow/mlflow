@@ -59,7 +59,7 @@ class RenameRunModal extends Component {
       setErrors /* setValues, setStatus, and other goodies */,
     }) => {
       const { newRunName } = values;
-      this.setState({isSubmittingState: true});
+      this.setState({ isSubmittingState: true });
       const tagKey = Utils.runNameTag;
       const setTagRequestId = getUUID();
       return this.props.dispatch(
@@ -69,7 +69,7 @@ class RenameRunModal extends Component {
           "page.");
         this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
       }).finally(() => {
-        this.setState({isSubmittingState: false});
+        this.setState({ isSubmittingState: false });
         setSubmitting(false);
         this.onRequestCloseHandler();
       })

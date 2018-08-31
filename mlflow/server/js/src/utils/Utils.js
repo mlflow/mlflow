@@ -182,7 +182,6 @@ class Utils {
     return "";
   }
 
-
   static renderVersion(run) {
     if (run.source_version) {
       const shortVersion = run.source_version.substring(0, 6);

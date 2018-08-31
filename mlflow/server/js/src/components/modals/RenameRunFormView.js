@@ -25,8 +25,8 @@ class RenameRunFormView extends Component {
       isSubmitting,
     } = renderProps;
     return <form onSubmit={handleSubmit} style={{"width": "480px"}}>
-      <div style={styles.formField}> <h2 style={{"marginTop": "0px"}}> Rename Run </h2> </div>
-      <div style={styles.formField}> New run name: </div>
+      <div style={styles.formField}><h2 style={{"marginTop": "0px"}}>Rename</h2></div>
+      <div style={styles.formField}>New run name:</div>
       <div style={{"width": "100%", "marginBottom": "16px"}}>
         <Field
             type="newRunName"
@@ -40,8 +40,12 @@ class RenameRunFormView extends Component {
         <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
           Save
         </Button>
-        <Button bsStyle="default" className="cancel-button" disabled={isSubmitting}
-          onClick={this.props.onClose}>
+        <Button
+          bsStyle="default"
+          className="cancel-button"
+          disabled={isSubmitting}
+          onClick={this.props.onClose}
+        >
           Cancel
         </Button>
       </div>
