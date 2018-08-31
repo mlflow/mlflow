@@ -12,6 +12,7 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
+import Truncate from 'react-truncate';
 
 
 const PARAMETERS_KEY = 'parameters';
@@ -162,6 +163,10 @@ class RunView extends Component {
             <span className="metadata-info">{startTime}</span>
           </div>
           <div className="run-info">
+            <span className="metadata-header">Run ID: </span>
+            <span className="metadata-info">{run.getRunUuid()}</span>
+          </div>
+          <div className="run-info">
             <span className="metadata-header">Source: </span>
             <span className="metadata-info">
               {Utils.renderSourceTypeIcon(run.source_type)}
@@ -171,7 +176,7 @@ class RunView extends Component {
           {run.source_version ?
             <div className="run-info">
               <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{Utils.renderVersion(run)}</span>
+              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
             </div>
             : null
           }
@@ -193,10 +198,6 @@ class RunView extends Component {
             </div>
             : null
           }
-          <div className="run-info">
-            <span className="metadata-header">Run ID: </span>
-            <span className="metadata-info">{run.getRunUuid()}</span>
-          </div>
           {tags['mlflow.databricks.runURL'] !== undefined ?
             <div className="run-info">
               <span className="metadata-header">Job Output: </span>

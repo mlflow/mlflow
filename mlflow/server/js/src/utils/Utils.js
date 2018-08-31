@@ -182,19 +182,20 @@ class Utils {
     return "";
   }
 
-  static renderVersion(run) {
+  static renderVersion(run, shortVersion = true) {
     if (run.source_version) {
-      const shortVersion = run.source_version.substring(0, 6);
+      const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
+      debugger;
       if (run.source_type === "PROJECT") {
         const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
           const url = ("https://github.com/" + match[1] + "/" + match[2] + "/tree/" +
             run.source_version);
-          return <a href={url}>{shortVersion}</a>;
+          return <a href={url}>{versionString}</a>;
         }
-        return shortVersion;
+        return versionString;
       } else {
-        return shortVersion;
+        return versionString;
       }
     }
     return null;
