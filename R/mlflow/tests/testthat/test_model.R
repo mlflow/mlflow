@@ -7,15 +7,20 @@ test_that("mlflow can save model function", {
 
   fn <- crate(~ stats::predict(model, .x), model)
 
-  mlflow_log_model(fn, "model")
+  mlflow_save_model(fn, "model")
 
   expect_true(dir.exists("model"))
 
-  prediction <- mlflow_rfunc_predict("model", data = iris)
+  temp_in <- tempfile(fileext = ".csv")
+  temp_out <- tempfile(fileext = ".csv")
+  write.csv(iris, temp_in, row.names = FALSE)
+  mlflow_rfunc_predict("model", input_path = temp_in, output_path = temp_out)
+  prediction <- read.csv(temp_out)[[1]]
+
   expect_true(!is.null(prediction))
 
   expect_equal(
     prediction,
-    predict(model, iris)
+    unname(predict(model, iris))
   )
 })
