@@ -25,7 +25,7 @@ class RunView extends Component {
     this.onClickExpander = this.onClickExpander.bind(this);
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
     this.handleRenameRunClick = this.handleRenameRunClick.bind(this);
-    this.hideModal = this.hideModal.bind(this)
+    this.hideRenameRunModal = this.hideRenameRunModal.bind(this)
     this.state.showTags = getTagValues(props.tags).length > 0;
   }
 
@@ -91,13 +91,12 @@ class RunView extends Component {
   }
 
   handleRenameRunClick() {
-    this.setState({showRunRenameModal: true});
+    this.setState({ showRunRenameModal: true });
   };
 
-  hideModal() {
-    this.setState({showRunRenameModal: false});
+  hideRenameRunModal() {
+    this.setState({ showRunRenameModal: false });
   }
-
 
   render() {
     const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
@@ -143,11 +142,15 @@ class RunView extends Component {
                <i className="fas fa-chevron-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu>
-               <MenuItem onClick={this.handleRenameRunClick}> Rename Run </MenuItem>
+               <MenuItem onClick={this.handleRenameRunClick}>Rename</MenuItem>
              </Dropdown.Menu>
           </Dropdown>
-          <RenameRunModal runUuid={this.props.runUuid} experimentId={this.props.experimentId}
-            onClose={this.hideModal} open={this.state.showRunRenameModal} />
+          <RenameRunModal
+            runUuid={this.props.runUuid}
+            experimentId={this.props.experimentId}
+            onClose={this.hideRenameRunModal}
+            runName={this.props.runName}
+            open={this.state.showRunRenameModal} />
         </div>
         <div className="run-info-container">
           <div className="run-info">
@@ -268,7 +271,6 @@ const mapStateToProps = (state, ownProps) => {
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
   const runName = Utils.getRunDisplayName(tags, runUuid);
-  debugger;
   return { run, experiment, params, tags, latestMetrics, metricPageRoute, getMetricPagePath, runName };
 };
 

@@ -23,9 +23,10 @@ class MetricPage extends Component {
       this.requestIds.push(experimentRequestId);
     }
     this.props.runUuids.forEach((runUuid) => {
-      const requestId = getUUID();
-      this.requestIds.push(requestId);
-      this.props.dispatch(getMetricHistoryApi(runUuid, this.props.metricKey, requestId));
+      const getMetricHistoryReqId = getUUID();
+      this.requestIds.push(getMetricHistoryReqId);
+      this.props.dispatch(getMetricHistoryApi(runUuid, this.props.metricKey,
+        getMetricHistoryReqId));
       // Fetch tags for each run. TODO: it'd be nice if we could just fetch the tags directly
       const getRunRequestId = getUUID();
       this.requestIds.push(getRunRequestId);

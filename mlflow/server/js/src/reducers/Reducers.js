@@ -173,7 +173,6 @@ const tagsByRunUuid = (state = {}, action) => {
       return newState;
     }
     case fulfilled(SET_TAG_API): {
-      //     meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
       const tag = {key: action.meta.key, value: action.meta.value}
       return amendTagsByRunUuid(state, [tag], action.meta.runUuid);
     }

@@ -116,12 +116,6 @@ const mapStateToProps = (state, ownProps) => {
       metrics[i][runUuid] = entries[i].value;
     }
   });
-  let runName
-  if (runUuids.length > 0) {
-    const tags = getRunTags(runUuids[0], state);
-    debugger;
-    runName = Utils.getRunDisplayName(tags, runUuids[0]);
-  }
   const runNames = runUuids.map((runUuid) => {
     const tags = getRunTags(runUuid, state);
     return Utils.getRunDisplayName(tags, runUuid);

@@ -1,10 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import {connect} from 'react-redux';
-
-//import Dialog from '@material-ui/core/Dialog';
-//import DialogContent from '@material-ui/core/DialogContent';
-//import DialogTitle from '@material-ui/core/DialogTitle';
+import { connect } from 'react-redux';
 
 import RenameRunFormView from './RenameRunFormView';
 
@@ -34,7 +30,6 @@ const modalStyles = {
 class RenameRunModal extends Component {
   constructor(props) {
     super(props);
-    this.updateRunName = this.updateRunName.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
     this.onRequestCloseHandler = this.onRequestCloseHandler.bind(this);
   }
@@ -47,14 +42,8 @@ class RenameRunModal extends Component {
     open: PropTypes.bool,
     experimentId: PropTypes.number.isRequired,
     runUuid: PropTypes.string.isRequired,
-    runTags: PropTypes.object.isRequired,
+    runName: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
-  }
-
-  updateRunName(newRunName) {
-    const tagKey = Utils.runNameTag;
-    const setTagRequestId = getUUID();
-    return
   }
 
   /**
@@ -73,24 +62,27 @@ class RenameRunModal extends Component {
       this.setState({isSubmittingState: true});
       const tagKey = Utils.runNameTag;
       const setTagRequestId = getUUID();
-      return this.props.dispatch(setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).catch(function(err) {
+      return this.props.dispatch(
+        setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).catch((err) => {
         // TODO: remove alert, redirect to an error page on failed requests once one exists
         alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
           "page.");
         this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
-      }.bind(this)).finally(function() {
+      }).finally(() => {
         this.setState({isSubmittingState: false});
         setSubmitting(false);
         this.onRequestCloseHandler();
-      }.bind(this))
+      })
     }
 
 
   renderForm() {
-    const { runUuid, runTags, experimentId } = this.props;
-    const runName = Utils.getRunName(runTags, runUuid);
-    return <RenameRunFormView onSubmit={this.handleSubmit}
-      onClose={this.onRequestCloseHandler} runName={runName} experimentId={experimentId}/>
+    const { runName, experimentId } = this.props;
+    return <RenameRunFormView
+      onSubmit={this.handleSubmit}
+      onClose={this.onRequestCloseHandler}
+      runName={runName}
+      experimentId={experimentId}/>
   }
 
   onRequestCloseHandler(event) {
@@ -102,20 +94,19 @@ class RenameRunModal extends Component {
   render() {
     const { open } = this.props;
     return (
-    <ReactModal isOpen={open} onRequestClose={this.onRequestCloseHandler} style={modalStyles}
-     appElement={document.body}>
+    <ReactModal
+      isOpen={open}
+      onRequestClose={this.onRequestCloseHandler}
+      style={modalStyles}
+      appElement={document.body}
+    >
       {this.renderForm()}
-      <a className="exit-link"><i onClick={this.onRequestCloseHandler} className="fas fa-times"/></a>
+      <a className="exit-link">
+        <i onClick={this.onRequestCloseHandler} className="fas fa-times"/>
+      </a>
     </ReactModal>);
   }
 }
-
-function mapStateToProps(state, ownProps) {
-  const { runUuid } = ownProps;
-  const runTags = getRunTags(runUuid, state);
-  return { runTags };
-}
-
 
 // eslint-disable-next-line no-unused-vars
 const mapDispatchToProps = (dispatch, ownProps) => {
@@ -124,4 +115,4 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   };
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(withRouter(RenameRunModal))
+export default connect(function() { return {} }, mapDispatchToProps)(withRouter(RenameRunModal))
