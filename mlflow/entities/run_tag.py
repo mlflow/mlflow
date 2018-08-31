@@ -4,8 +4,6 @@ from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 
 class RunTag(_MLflowObject):
     """RunTag object for Python client."""
-    _RUN_NAME_TAG_NAME = "_MLFLOW_RUN_NAME"
-
     def __init__(self, key, value):
         self._key = key
         self._value = value

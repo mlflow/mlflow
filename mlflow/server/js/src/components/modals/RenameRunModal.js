@@ -19,7 +19,6 @@ import { setTagApi, getUUID } from '../../Actions';
 
 import RequestStateWrapper from '../RequestStateWrapper';
 
-
 const modalStyles = {
   content : {
     top: '50%',
@@ -33,8 +32,6 @@ const modalStyles = {
     backgroundColor: 'rgba(33, 37, 41, .75)'
   }
 };
-
-
 
 class RenameRunModal extends Component {
   constructor(props) {
@@ -56,23 +53,21 @@ class RenameRunModal extends Component {
     onClose: PropTypes.func.isRequired,
   }
 
-  updateRunName(obj) {
-    const { newRunName } = obj;
+  updateRunName(newRunName) {
     const tagKey = Utils.runNameTag;
     const setTagRequestId = getUUID();
-    const promise = this.props.dispatch(
+    return this.props.dispatch(
       setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId));
-    return promise
   }
 
-  handleSubmit = function(values) {
+  handleSubmit = function(newRunName) {
     const { runUuid, onClose } = this.props;
     this.setState({isSubmittingState: true});
     // We don't close the modal here, instead delegating that logic to the the form view component,
     // which is responsible for waiting on the promise & calling a callback to close the
     // modal once submission completes. This allows us to avoid removing the form component from
     // underneath itself
-    return this.updateRunName({...values, id: runUuid}).finally(function() {
+    return this.updateRunName(newRunName).finally(function() {
       this.setState({isSubmittingState: false});
     }.bind(this));
   }

@@ -4,6 +4,7 @@ from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, ViewType
 
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request
 
@@ -148,7 +149,7 @@ class RestStore(AbstractStore):
             start_time=start_time, source_version=source_version, tags=tag_protos))
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
-        self.set_tag(run.info.run_uuid, RunTag(key=RunTag._RUN_NAME_TAG_NAME, value=run_name))
+        self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
     def log_metric(self, run_uuid, metric):

@@ -102,8 +102,6 @@ export const getUUID = () => {
   return new Date().getTime() + randomPart;
 };
 
-
-
 /**
  * Jquery's ajax promise is a bit weird so I chose to create a new Promise which resolves and
  * rejects using the ajax callbacks `success` and `error`.

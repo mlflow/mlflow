@@ -77,10 +77,6 @@ textarea.run-command {
   font-family: Menlo, Consolas, monospace;
 }
 
-.modal-content .modal-body {
-  padding: 24px;
-}
-
 .exit-link, .exit-link:hover, .exit-link:visited {
   position: absolute;
   top: 24px;

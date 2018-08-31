@@ -37,6 +37,7 @@ class RunView extends Component {
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
     getMetricPagePath: PropTypes.func.isRequired,
+    runName: PropTypes.string.isRequired
   };
 
   state = {
@@ -131,7 +132,8 @@ class RunView extends Component {
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experimentId={this.props.experimentId} runUuids={[this.props.runUuid]}/>
+          <BreadcrumbTitle experiment={this.props.experiment} runUuids={[this.props.runUuid]}
+            runName={this.props.runName}/>
           <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
              <Dropdown.Toggle noCaret className="dropdown-button"
                style={{backgroundColor: "transparent", borderColor: "transparent",
@@ -263,7 +265,9 @@ const mapStateToProps = (state, ownProps) => {
   const params = getParams(runUuid, state);
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
-  return { run, experiment, params, tags, latestMetrics, metricPageRoute, getMetricPagePath };
+  const runName = Utils.getRunDisplayName(tags, runUuid);
+  debugger;
+  return { run, experiment, params, tags, latestMetrics, metricPageRoute, getMetricPagePath, runName };
 };
 
 export default connect(mapStateToProps)(RunView);

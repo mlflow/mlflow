@@ -11,18 +11,18 @@ import { connect } from 'react-redux';
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
  * a run or a run comparison page.
  */
-class BreadcrumbTitle extends Component {
+export default class BreadcrumbTitle extends Component {
   constructor(props) {
     super(props);
   }
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     runUuids: PropTypes.arrayOf(String), // Optional because not all pages are nested under runs
-    tags: PropTypes.object, // Optional, only used when we're rendering a title for a single run
+    title: PropTypes.string, // Optional. A title is inferred
   };
 
   render() {
-    const {experiment, runUuids, title} = this.props;
+    const {experiment, runUuids, title, runName} = this.props;
     const experimentId = experiment.getExperimentId();
     const experimentLink = (
       <Link to={Routes.getExperimentPageRoute(experimentId)}>
@@ -33,7 +33,7 @@ class BreadcrumbTitle extends Component {
     if (runUuids) {
       runsLink = (runUuids.length === 1 ?
         <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
-          {Utils.getRunDisplayName(this.props.tags, runUuids[0])}
+          {runName}
         </Link>
         :
         <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
@@ -47,22 +47,8 @@ class BreadcrumbTitle extends Component {
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink] : [] }
-        {title}
+        { title ? [chevron, title] : []}
       </h1>
     );
   }
 }
-
-
-const mapStateToProps = (state, ownProps) => {
-  const { experimentId, runUuids } = ownProps;
-  const experiment = getExperiment(experimentId, state);
-  let tags;
-  if (runUuids && runUuids.length > 0) {
-    tags = getRunTags(runUuids[0], state);
-  }
-  return { experiment, tags };
-};
-
-
-export default connect(mapStateToProps)(BreadcrumbTitle);

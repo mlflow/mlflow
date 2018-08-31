@@ -7,7 +7,7 @@ import Utils from '../utils/Utils';
 import { getMetricsByKey } from '../reducers/MetricReducer';
 import './MetricView.css';
 import { Experiment } from "../sdk/MlflowMessages";
-import { getExperiment } from "../reducers/Reducers";
+import { getExperiment, getRunTags} from "../reducers/Reducers";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 
 const COLORS = [
@@ -26,14 +26,17 @@ class MetricView extends Component {
     // Object with keys from Metric json and also
     metrics: PropTypes.arrayOf(Object).isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
+    runName: PropTypes.string
   };
 
   render() {
-    const { experiment, runUuids, title, metrics } = this.props;
+    const { experiment, runUuids, title, metrics, runName } = this.props;
     if (metrics.length === 1) {
       return (
         <div className="MetricView">
-          <BreadcrumbTitle experiment={experiment} runUuids={runUuids} title={title}/>
+          <div className="header-container">
+            <BreadcrumbTitle experiment={experiment} runUuids={runUuids} runName={runName} title={title}/>
+          </div>
           <ResponsiveContainer width="100%" aspect={1.55}>
             <BarChart
               data={metrics}
@@ -57,7 +60,9 @@ class MetricView extends Component {
     } else {
       return (
         <div className="MetricView">
-          <BreadcrumbTitle experiment={experiment} runUuids={runUuids} title={title}/>
+          <div className="header-container">
+            <BreadcrumbTitle experiment={experiment} runUuids={runUuids} title={title}/>
+          </div>
           <ResponsiveContainer width="100%" aspect={1.55}>
             <LineChart
               data={Utils.convertTimestampToInt(metrics)}
@@ -101,11 +106,18 @@ const mapStateToProps = (state, ownProps) => {
       metrics[i][runUuid] = entries[i].value;
     }
   });
+  let runName
+  if (runUuids.length > 0) {
+    const tags = getRunTags(runUuids[0], state);
+    debugger;
+    runName = Utils.getRunDisplayName(tags, runUuids[0]);
+  }
   return {
     experiment,
     metrics,
     title: <span>{metricKey}</span>,
     runUuids: runUuids,
+    runName: runName
   };
 };
 

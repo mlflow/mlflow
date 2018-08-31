@@ -23,14 +23,14 @@ class CompareRunView extends Component {
 
   render() {
     const experiment = this.props.experiment;
-    const experimentId = experiment.getExperimentId();
+    const experimentId = this.props.experimentId;
     const runUuids = this.props.runUuids;
 
     return (
       <div className="CompareRunView">
         <div className="header-container">
           <BreadcrumbTitle
-            experimentId={experimentId}
+            experiment={experiment}
             runUuids={runUuids}
           />
         </div>

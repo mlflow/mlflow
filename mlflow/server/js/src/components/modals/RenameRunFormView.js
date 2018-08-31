@@ -7,6 +7,11 @@ import Routes from "../../Routes";
 import { Formik, Field } from 'formik';
 
 import { validationSchema } from './validation';
+
+/**
+ * Component that renders a form for updating a run's name. Expects to be 'closeable'
+ * (i.e. rendered within a closeable dialog) and so accepts an `onClose` callback.
+ */
 class RenameRunFormView extends Component {
 
   constructor(props) {
@@ -20,6 +25,11 @@ class RenameRunFormView extends Component {
     experimentId: PropTypes.number.isRequired
   }
 
+  /**
+   * Form-submission handler with method signature as prescribed by Formik.
+   * See https://github.com/jaredpalmer/formik#how-form-submission-works for an explanation
+   * of how / when this method is called.
+   */
   handleSubmit = (
     values,
     {
@@ -27,7 +37,8 @@ class RenameRunFormView extends Component {
       setSubmitting,
       setErrors /* setValues, setStatus, and other goodies */,
     }) => {
-      return this.props.onSubmit(values).catch(function(err) {
+      const { newRunName } = values;
+      return this.props.onSubmit(newRunName).catch(function(err) {
         // TODO: remove alert, redirect to an error page on failed requests once one exists
         alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
           "page.");
