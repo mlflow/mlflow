@@ -93,6 +93,21 @@ serve_invalid_request <- function(message = NULL) {
   )
 }
 
+serve_prediction <- function(json_raw, model) {
+  df <- data.frame()
+  if (length(json_raw) > 0) {
+    df <- jsonlite::fromJSON(
+      rawToChar(json_raw),
+      simplifyDataFrame = FALSE,
+      simplifyMatrix = FALSE
+    )
+  }
+
+  df <- as.data.frame(df)
+
+  mlflow_rfunc_predict_impl(model, df)
+}
+
 serve_empty_page <- function(req, sess, model) {
   list(
     status = 200L,
@@ -133,16 +148,7 @@ serve_handlers <- function(host, port) {
 
       json_raw <- req$rook.input$read()
 
-      df <- data.frame()
-      if (length(json_raw) > 0) {
-        df <- jsonlite::fromJSON(
-          rawToChar(json_raw),
-          simplifyDataFrame = FALSE,
-          simplifyMatrix = FALSE
-        )
-      }
-
-      result <- model(df)
+      results <- serve_prediction(json_raw, model)
 
       list(
         status = 200L,
@@ -150,7 +156,7 @@ serve_handlers <- function(host, port) {
           "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
         ),
         body = charToRaw(enc2utf8(
-          jsonlite::toJSON(result, auto_unbox = TRUE)
+          jsonlite::toJSON(list(predicitons = results), auto_unbox = TRUE)
         ))
       )
     },

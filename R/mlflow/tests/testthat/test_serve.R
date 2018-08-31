@@ -41,7 +41,7 @@ test_that("mlflow can serve a model function", {
   model_server$kill()
 
   expect_equal(
-    unlist(http_prediction),
+    unlist(http_prediction$predicitons),
     as.vector(predict(model, newdata)),
     tolerance = 1e-5
   )
