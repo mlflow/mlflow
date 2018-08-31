@@ -138,7 +138,7 @@ class RunView extends Component {
           />
           <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
              <Dropdown.Toggle noCaret className="dropdown-button" style={styles.dropdownToggle}>
-               <i className="fas fa-chevron-down"/>
+               <i className="fas fa-caret-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu>
                <MenuItem onClick={this.handleRenameRunClick}>Rename</MenuItem>
@@ -318,5 +318,6 @@ const styles = {
     borderColor: "transparent",
     border: "none",
     boxShadow: "none",
+    marginTop: "-6px",
   }
 };
