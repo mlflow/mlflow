@@ -1,7 +1,7 @@
 ## MLflow examples
 
 ### Quick Start example
-* `quick_start/mlflow_tracking.py` is a basic example to introduce MLflow concepts.
+* `quickstart/mlflow_tracking.py` is a basic example to introduce MLflow concepts.
 
 ## Tutorials
 Various example that depict MLflow tracking, projects, and serving use cases.
