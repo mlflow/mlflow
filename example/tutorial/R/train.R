@@ -26,7 +26,10 @@ lambda <- mlflow_param("lambda", 0.5, "numeric")
 
 with(mlflow_start_run(), {
     model <- glmnet(train_x, train_y, alpha = alpha, lambda = lambda, family= "gaussian", standardize = FALSE)
-    predictor <- crate(~ stats::predict(model, .x), model)
+    predictor <- crate(function(df) {
+        library(glmnet)
+        stats::predict(model, methods::as(as.matrix(df), "dgCMatrix"))
+    }, model)
     predicted <- predictor(test_x)
 
     rmse <- sqrt(mean((predicted - test_y) ^ 2))
