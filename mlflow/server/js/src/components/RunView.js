@@ -12,8 +12,6 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
-import Truncate from 'react-truncate';
-
 
 const PARAMETERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';

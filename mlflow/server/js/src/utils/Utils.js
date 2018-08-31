@@ -185,7 +185,6 @@ class Utils {
   static renderVersion(run, shortVersion = true) {
     if (run.source_version) {
       const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
-      debugger;
       if (run.source_type === "PROJECT") {
         const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
