@@ -10,7 +10,7 @@ test_that("mlflow can save model function", {
 
   expect_true(dir.exists("model"))
 
-  prediction <- mlflow_rfunc_predict("model", iris)
+  prediction <- mlflow_rfunc_predict("model", data = iris)
   expect_true(!is.null(prediction))
 
   expect_equal(
