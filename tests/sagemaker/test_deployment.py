@@ -60,23 +60,21 @@ def test_deployment_of_model_with_no_supported_flavors_throws_value_error(pretra
                    flavor=None)
 
 
-def test_get_or_validate_deployment_flavor_validates_python_function_flavor_successfully(
+def test_validate_deployment_flavor_validates_python_function_flavor_successfully(
         pretrained_model):
     model_config_path = os.path.join(_get_model_log_dir(
         pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
     model_config = Model.load(model_config_path)
-    selected_flavor = mfs._get_or_validate_deployment_flavor(
+    mfs._validate_deployment_flavor(
             model_config=model_config, flavor=mlflow.pyfunc.FLAVOR_NAME)
-    assert selected_flavor == mlflow.pyfunc.FLAVOR_NAME
 
 
-def test_get_or_validate_deployment_flavor_obtains_valid_flavor_from_model(pretrained_model):
+def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrained_model):
     model_config_path = os.path.join(_get_model_log_dir(
         pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
     model_config = Model.load(model_config_path)
 
-    selected_flavor = mfs._get_or_validate_deployment_flavor(
-            model_config=model_config, flavor=None)
+    selected_flavor = mfs._get_preferred_deployment_flavor(model_config=model_config)
 
     assert selected_flavor in mfs.SUPPORTED_DEPLOYMENT_FLAVORS
     assert selected_flavor in model_config.flavors
