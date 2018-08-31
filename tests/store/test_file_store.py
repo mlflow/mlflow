@@ -5,6 +5,8 @@ import uuid
 
 import time
 
+import pytest
+
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
@@ -30,6 +32,7 @@ class TestFileStore(unittest.TestCase):
             # create experiment
             exp_folder = os.path.join(self.test_root, str(exp))
             os.makedirs(exp_folder)
+            os.makedirs(os.path.join(exp_folder, FileStore.TRASH_FOLDER_NAME))
             d = {"experiment_id": exp, "name": random_str(), "artifact_location": exp_folder}
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
@@ -197,6 +200,19 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+
+    def test_delete_restore_run(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        # Should not throw.
+        fs.get_run(run_id)
+        fs.delete_run(run_id)
+        with pytest.raises(Exception):
+            fs.get_run(run_id)
+        fs.restore_run(run_id)
+        # Should not throw
+        fs.get_run(run_id)
 
     def test_get_run(self):
         fs = FileStore(self.test_root)

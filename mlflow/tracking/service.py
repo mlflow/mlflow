@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
                                     _validate_tag_name, _validate_run_id
-from mlflow.entities import Param, Metric, RunStatus, RunTag
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
@@ -59,9 +59,9 @@ class MLflowService(object):
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_run_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
         """:return: list of :py:class:`mlflow.entities.RunInfo`"""
-        return self.store.list_run_infos(experiment_id)
+        return self.store.list_run_infos(experiment_id, run_view_type)
 
     def list_experiments(self):
         """:return: list of :py:class:`mlflow.entities.Experiment`"""

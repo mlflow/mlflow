@@ -6,7 +6,8 @@ from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 class RunInfo(_MLflowObject):
     """ Class containing metadata for a run. """
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                 user_id, status, start_time, end_time, source_version, artifact_uri=None):
+                 user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                 artifact_uri=None):
         if run_uuid is None:
             raise Exception("run_uuid cannot be None")
         if experiment_id is None:
@@ -34,6 +35,7 @@ class RunInfo(_MLflowObject):
         self._start_time = start_time
         self._end_time = end_time
         self._source_version = source_version
+        self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
 
     def __eq__(self, other):
@@ -119,6 +121,10 @@ class RunInfo(_MLflowObject):
         """String: root artifact URI of the run."""
         return self._artifact_uri
 
+    @property
+    def lifecycle_stage(self):
+        return self._lifecycle_stage
+
     def to_proto(self):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_uuid
@@ -148,10 +154,15 @@ class RunInfo(_MLflowObject):
 
     @classmethod
     def from_dictionary(cls, the_dict):
+        raise NotImplementedError
+
+    @classmethod
+    def run_from_dictionary(cls, the_dict, lifecycle_stage):
         dict_copy = the_dict.copy()
         # 'tags' was moved from RunInfo to RunData, so we must remove it from the serialzed copy.
         if 'tags' in dict_copy:
             del dict_copy['tags']
+        dict_copy['lifecycle_stage'] = lifecycle_stage
         info = cls(**dict_copy)
         return info
 

@@ -310,3 +310,7 @@ def _copy_file_or_tree(src, dst, dst_dir):
     else:
         shutil.copytree(src=src, dst=os.path.join(dst, name))
     return name
+
+
+def get_parent_dir(path):
+    return os.path.abspath(os.path.join(path, os.pardir))
