@@ -3,18 +3,12 @@ import PropTypes from "prop-types";
 import { Experiment } from "../sdk/MlflowMessages";
 import { Link } from 'react-router-dom';
 import Routes from "../Routes";
-import Utils from '../utils/Utils';
-import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
-import { connect } from 'react-redux';
 
 /**
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
  * a run or a run comparison page.
  */
 export default class BreadcrumbTitle extends Component {
-  constructor(props) {
-    super(props);
-  }
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     runUuids: PropTypes.arrayOf(String), // Optional because not all pages are nested under runs

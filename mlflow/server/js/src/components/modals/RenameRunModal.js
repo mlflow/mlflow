@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import Immutable from 'immutable';
 import {connect} from 'react-redux';
 
 //import Dialog from '@material-ui/core/Dialog';
@@ -10,14 +9,10 @@ import {connect} from 'react-redux';
 import RenameRunFormView from './RenameRunFormView';
 
 import Utils from '../../utils/Utils';
-
-import { Button, Modal } from 'react-bootstrap';
 import ReactModal from 'react-modal';
-import { getRunTags, getApis } from '../../reducers/Reducers';
+import { getRunTags } from '../../reducers/Reducers';
 
 import { setTagApi, getUUID } from '../../Actions';
-
-import RequestStateWrapper from '../RequestStateWrapper';
 
 const modalStyles = {
   content : {
@@ -61,7 +56,6 @@ class RenameRunModal extends Component {
   }
 
   handleSubmit = function(newRunName) {
-    const { runUuid, onClose } = this.props;
     this.setState({isSubmittingState: true});
     // We don't close the modal here, instead delegating that logic to the the form view component,
     // which is responsible for waiting on the promise & calling a callback to close the
@@ -73,7 +67,7 @@ class RenameRunModal extends Component {
   }
 
   renderForm() {
-    const { runUuid, runTags, onClose, experimentId } = this.props;
+    const { runUuid, runTags, experimentId } = this.props;
     const runName = Utils.getRunName(runTags, runUuid);
     return <RenameRunFormView onSubmit={this.handleSubmit}
       onClose={this.onRequestCloseHandler} runName={runName} experimentId={experimentId}/>

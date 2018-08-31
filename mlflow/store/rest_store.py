@@ -142,7 +142,7 @@ class RestStore(AbstractStore):
         :return: The created Run object
         """
         tag_protos = [tag.to_proto() for tag in tags]
-        req_body = _message_to_json(CreateRun(
+        req_body = message_to_json(CreateRun(
             experiment_id=experiment_id, user_id=user_id, run_name="",
 
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,

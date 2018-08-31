@@ -5,7 +5,6 @@ import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
 
-
 class Utils {
   /**
    * Merge a runs parameters / metrics.
@@ -28,7 +27,7 @@ class Utils {
     return ret;
   }
 
-  static runNameTag = '_MLFLOW_RUN_NAME';
+  static runNameTag = 'mlflow.runName';
 
   static formatMetric(value) {
     if (Math.abs(value) < 10) {

@@ -1,7 +1,6 @@
 import React, { Component } from 'react'
 import PropTypes from 'prop-types';
-import { connect } from 'react-redux';
-import { Button, Modal, Form } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { withRouter } from 'react-router-dom';
 import Routes from "../../Routes";
 import { Formik, Field } from 'formik';
@@ -13,11 +12,6 @@ import { validationSchema } from './validation';
  * (i.e. rendered within a closeable dialog) and so accepts an `onClose` callback.
  */
 class RenameRunFormView extends Component {
-
-  constructor(props) {
-    super(props);
-  }
-
   static propTypes = {
     onSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
