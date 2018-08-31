@@ -48,6 +48,17 @@ mlflow_load_model <- function(model_dir) {
   unserialize(readRDS(fs::path(model_dir, spec$flavors$r_function$model)))
 }
 
+mlflow_rfunc_predict_impl <- function(model, data) {
+  if (!is.data.frame(data))
+    stop("Could not load data as a data frame.")
+
+  if (!inherits(model, "crate")) {
+    stop("MLflow rfunc model expected to be crated using mlflow::crate().")
+  }
+
+  model(data)
+}
+
 #' Predict using RFunc MLflow Model
 #'
 #' Predict using an RFunc MLflow Model from a file or data frame.
