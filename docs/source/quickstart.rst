@@ -25,8 +25,8 @@ can leverage MLflow in your daily workflow.
 Downloading the Quickstart
 --------------------------
 Download the quickstart code by cloning MLflow via ``git clone https://github.com/mlflow/mlflow``,
-and cd into the ``example`` subdirectory of the repository. We'll use this working directory for
-running the quickstart.
+and cd into the ``examples`` subdirectory of the repository. We'll use this working directory for
+running the ``quickstart``.
 
 We avoid running directly from our clone of MLflow as doing so would cause the tutorial to
 use MLflow from source, rather than your PyPi installation of MLflow.
@@ -37,7 +37,7 @@ Using the Tracking API
 
 The :doc:`MLflow Tracking API<tracking/>` lets you log metrics and artifacts (files) from your data
 science code and see a history of your runs. You can try it out by writing a simple Python script
-as follows (this example is also included in ``quickstart/test.py``):
+as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
 
 .. code:: python
 
@@ -117,11 +117,11 @@ containers or commercial serving platforms.
 
 To illustrate this functionality, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
-``quickstart/test_sklearn.py`` that you can run as follows:
+``sklearn_logistic_regression/train.py`` that you can run as follows:
 
 .. code:: bash
 
-    python quickstart/test_sklearn.py
+    python sklearn_logistic_regression/train.py
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at
 ``mlflow ui``, you will also see that the run saved a ``model`` folder containing an ``MLmodel``
@@ -151,7 +151,7 @@ which returns::
 
 .. note::
 
-    The ``quickstart/test_sklearn.py`` script must be run with the same Python version as
+    The ``sklearn_logistic_regression/train.py`` script must be run with the same Python version as
     the version of Python that runs ``mlflow sklearn serve``. If they are not the same version,
     the stacktrace below may appear::
 
