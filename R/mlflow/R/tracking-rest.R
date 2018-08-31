@@ -265,7 +265,11 @@ mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
 mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
                               end_time = NULL,
                               run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  mlflow_get_or_create_active_connection()
+  run_uuid <- run_uuid %||%
+    mlflow_active_run()$run_info$run_uuid %||%
+    stop("`run_uuid` must be specified when there is no active run.")
+
   status <- match.arg(status)
   end_time <- end_time %||% current_time()
 
@@ -274,6 +278,7 @@ mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KIL
     status = status,
     end_time = end_time
   ))
+
   as.data.frame(response$run_info, stringsAsFactors = FALSE)
 }
 

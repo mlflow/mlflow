@@ -116,3 +116,12 @@ test_that("mlflow_get_metric_history() works properly", {
   )
   expect_identical(metric_history, expected)
 })
+
+test_that("mlflow_update_run() works properly", {
+  mlflow_disconnect()
+  mlflow_start_run()
+  killed_time <- mlflow:::current_time()
+  run_info <- mlflow_update_run(status = "KILLED", end_time = killed_time)
+  expect_identical(run_info$status, "KILLED")
+  expect_identical(run_info$end_time, as.POSIXct(as.double(c(killed_time)) / 1000, origin = "1970-01-01"))
+})
