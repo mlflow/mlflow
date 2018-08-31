@@ -64,7 +64,7 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #' Predict using an RFunc MLflow Model from a file or data frame.
 #'
 #' @param model_path The path to the MLflow model, as a string.
-#' @param run_id Run ID of run to grab the model from.
+#' @param run_uuid Run ID of run to grab the model from.
 #' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
 #' @param data Data frame to be scored. This can be utilized for testing purposes and can only
@@ -90,7 +90,7 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #' @export
 mlflow_rfunc_predict <- function(
   model_path,
-  run_id = NULL,
+  run_uuid = NULL,
   input_path = NULL,
   output_path = NULL,
   data = NULL,
@@ -98,7 +98,7 @@ mlflow_rfunc_predict <- function(
 ) {
   mlflow_restore_or_warning(restore)
 
-  model_path <- resolve_model_path(model_path, run_id)
+  model_path <- resolve_model_path(model_path, run_uuid)
 
   if (!xor(is.null(input_path), is.null(data)))
     stop("One and only one of `input_path` or `data` must be specified.")
@@ -132,12 +132,12 @@ mlflow_rfunc_predict <- function(
   }
 }
 
-resolve_model_path <- function(model_path, run_id) {
-  if (!is.null(run_id)) {
+resolve_model_path <- function(model_path, run_uuid) {
+  if (!is.null(run_uuid)) {
     mlflow_get_or_create_active_connection()
     result <- withr::with_envvar(
       list(MLFLOW_TRACKING_URI = mlflow_tracking_uri()),
-      mlflow_cli("artifacts", "download", "--run-id", run_id, "-a", model_path, echo = FALSE)
+      mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path, echo = FALSE)
     )
       gsub("\n", "", result$stdout)
   } else {
