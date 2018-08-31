@@ -166,11 +166,18 @@ with.mlflow_active_run <- function(data, expr, ...) {
   invisible(NULL)
 }
 
-mlflow_ensure_run <- function(run_uuid) {
+mlflow_ensure_run_id <- function(run_uuid) {
   if (is.null(run_uuid)) {
-    mlflow_active_run()$run_info$run_uuid %||% mlflow_start_run()$run_info$run_uuid
+    run <- mlflow_active_run() %||% mlflow_start_run()
+    run$run_info$run_uuid
   } else {
-    mlflow_start_run(run_uuid)$run_info$run_uuid
+    mlflow_get_or_create_active_connection()
+    tryCatch(mlflow_get_run(run_uuid)$info$run_uuid, error = function(e) {
+      stop(
+        "Run \"", run_uuid, "\" cannot be found in current tracking server at ",
+        mlflow_tracking_uri(), "."
+      )
+    })
   }
 }
 

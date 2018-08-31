@@ -152,7 +152,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
     stop("Metric ", key, " must be a character or numeric but ", class(value), " found.")
   }
 
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  run_uuid <- mlflow_ensure_run_id(run_uuid)
   timestamp <- timestamp %||% current_time()
   response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
     run_uuid = run_uuid,
@@ -176,7 +176,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
 #' @param value String value of the parameter.
 #' @export
 mlflow_log_param <- function(key, value, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  run_uuid <- mlflow_ensure_run_id(run_uuid)
   response <- mlflow_rest("runs", "log-parameter", verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
