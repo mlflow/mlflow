@@ -1,8 +1,7 @@
-import React, { Component } from 'react'
+import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { Button } from 'react-bootstrap';
 import { withRouter } from 'react-router-dom';
-import Routes from "../../Routes";
 import { Formik, Field } from 'formik';
 
 import { validationSchema } from './validation';

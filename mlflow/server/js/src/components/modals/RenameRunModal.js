@@ -6,7 +6,6 @@ import RenameRunFormView from './RenameRunFormView';
 
 import Utils from '../../utils/Utils';
 import ReactModal from 'react-modal';
-import { getRunTags } from '../../reducers/Reducers';
 
 import { setTagApi, getUUID } from '../../Actions';
 import { withRouter } from 'react-router-dom';
@@ -14,7 +13,7 @@ import Routes from "../../Routes";
 
 
 const modalStyles = {
-  content : {
+  content: {
     top: '50%',
     left: '50%',
     right: 'auto',
@@ -44,6 +43,8 @@ class RenameRunModal extends Component {
     runUuid: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
   }
 
   /**
@@ -56,24 +57,24 @@ class RenameRunModal extends Component {
     {
       props,
       setSubmitting,
-      setErrors /* setValues, setStatus, and other goodies */,
+      setErrors,
     }) => {
-      const { newRunName } = values;
-      this.setState({ isSubmittingState: true });
-      const tagKey = Utils.runNameTag;
-      const setTagRequestId = getUUID();
-      return this.props.dispatch(
-        setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).catch((err) => {
-        // TODO: remove alert, redirect to an error page on failed requests once one exists
-        alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
-          "page.");
-        this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
-      }).finally(() => {
-        this.setState({ isSubmittingState: false });
-        setSubmitting(false);
-        this.onRequestCloseHandler();
-      })
-    }
+    const { newRunName } = values;
+    this.setState({ isSubmittingState: true });
+    const tagKey = Utils.runNameTag;
+    const setTagRequestId = getUUID();
+    return this.props.dispatch(
+      setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).catch((err) => {
+      // TODO: remove alert, redirect to an error page on failed requests once one exists
+      alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
+        "page.");
+      this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
+    }).finally(() => {
+      this.setState({ isSubmittingState: false });
+      setSubmitting(false);
+      this.onRequestCloseHandler();
+    })
+  }
 
 
   renderForm() {

@@ -52,4 +52,4 @@ const styles = {
   h1: {
     display: "inline"
   },
-}
+};

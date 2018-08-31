@@ -25,7 +25,7 @@ class RunView extends Component {
     this.onClickExpander = this.onClickExpander.bind(this);
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
     this.handleRenameRunClick = this.handleRenameRunClick.bind(this);
-    this.hideRenameRunModal = this.hideRenameRunModal.bind(this)
+    this.hideRenameRunModal = this.hideRenameRunModal.bind(this);
     this.state.showTags = getTagValues(props.tags).length > 0;
   }
 
@@ -33,6 +33,7 @@ class RunView extends Component {
     runUuid: PropTypes.string.isRequired,
     run: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
+    experimentId: PropTypes.number.isRequired,
     params: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
@@ -92,7 +93,7 @@ class RunView extends Component {
 
   handleRenameRunClick() {
     this.setState({ showRunRenameModal: true });
-  };
+  }
 
   hideRenameRunModal() {
     this.setState({ showRunRenameModal: false });
@@ -269,7 +270,7 @@ const mapStateToProps = (state, ownProps) => {
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
   const runName = Utils.getRunDisplayName(tags, runUuid);
-  return { run, experiment, params, tags, latestMetrics, metricPageRoute, getMetricPagePath, runName };
+  return { run, experiment, params, tags, latestMetrics, runName };
 };
 
 export default connect(mapStateToProps)(RunView);
