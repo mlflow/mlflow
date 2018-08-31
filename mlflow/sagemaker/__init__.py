@@ -16,14 +16,13 @@ import boto3
 import yaml
 import mlflow
 import mlflow.version
-from mlflow import pyfunc
+from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, ENV_KEY_DEPLOYMENT_CONFIG
-from mlflow.sagemaker.container import get_preferred_serving_flavor
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
@@ -310,7 +309,7 @@ def _get_or_validate_deployment_flavor(model_config, flavor=None):
 
     :return: The name of the flavor to be used for deployment.
     """
-    default_flavor = get_preferred_serving_flavor(model_config)
+    default_flavor = _get_preferred_serving_flavor(model_config)
     if default_flavor is None:
         raise ValueError("The specified model does not contain any of the supported flavors for"
                          " deployment. The model contains the following flavors: {model_flavors}."
@@ -338,6 +337,21 @@ def _get_or_validate_deployment_flavor(model_config, flavor=None):
         print("Deploying model with the specified flavor: {flavor_name}".format(
           flavor_name=flavor))
         return flavor
+
+
+def _get_preferred_serving_flavor(model):
+    """
+    :param model: An MLflow Model object
+
+    :return: The name of the flavor that will be used for serving, or None
+             if the model does not contain any supported flavors
+    """
+    if mleap.FLAVOR_NAME in model.flavors:
+        return mleap.FLAVOR_NAME
+    elif pyfunc.FLAVOR_NAME in model.flavors:
+        return pyfunc.FLAVOR_NAME
+    else:
+        return None
 
 
 def delete(app_name, region_name="us-west-2", archive=False):

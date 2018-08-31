@@ -37,21 +37,6 @@ SUPPORTED_FLAVORS = [
 ]
 
 
-def get_preferred_serving_flavor(model):
-    """
-    :param model: An MLflow Model object
-
-    :return: The name of the flavor that will be used for serving, or None
-             if the model does not contain any supported flavors
-    """
-    if mleap.FLAVOR_NAME in model.flavors:
-        return mleap.FLAVOR_NAME
-    elif pyfunc.FLAVOR_NAME in model.flavors:
-        return pyfunc.FLAVOR_NAME
-    else:
-        return None
-
-
 def _init(cmd):
     """
     Initialize the container and execute command.
@@ -94,7 +79,7 @@ def _serve():
         serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
     else:
         # Older versions of mlflow may not specify a deployment configuration
-        serving_flavor = get_preferred_serving_flavor(m)
+        serving_flavor = pyfunc.FLAVOR_NAME
 
     if serving_flavor == mleap.FLAVOR_NAME:
         # TODO(dbczumar): Host the scoring Java package on Maven Central so that we no
