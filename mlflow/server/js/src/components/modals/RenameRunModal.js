@@ -13,6 +13,9 @@ import ReactModal from 'react-modal';
 import { getRunTags } from '../../reducers/Reducers';
 
 import { setTagApi, getUUID } from '../../Actions';
+import { withRouter } from 'react-router-dom';
+import Routes from "../../Routes";
+
 
 const modalStyles = {
   content : {
@@ -51,20 +54,37 @@ class RenameRunModal extends Component {
   updateRunName(newRunName) {
     const tagKey = Utils.runNameTag;
     const setTagRequestId = getUUID();
-    return this.props.dispatch(
-      setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId));
+    return
   }
 
-  handleSubmit = function(newRunName) {
-    this.setState({isSubmittingState: true});
-    // We don't close the modal here, instead delegating that logic to the the form view component,
-    // which is responsible for waiting on the promise & calling a callback to close the
-    // modal once submission completes. This allows us to avoid removing the form component from
-    // underneath itself
-    return this.updateRunName(newRunName).finally(function() {
-      this.setState({isSubmittingState: false});
-    }.bind(this));
-  }
+  /**
+   * Form-submission handler with method signature as prescribed by Formik.
+   * See https://github.com/jaredpalmer/formik#how-form-submission-works for an explanation
+   * of how / when this method is called.
+   */
+  handleSubmit = (
+    values,
+    {
+      props,
+      setSubmitting,
+      setErrors /* setValues, setStatus, and other goodies */,
+    }) => {
+      const { newRunName } = values;
+      this.setState({isSubmittingState: true});
+      const tagKey = Utils.runNameTag;
+      const setTagRequestId = getUUID();
+      return this.props.dispatch(setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).catch(function(err) {
+        // TODO: remove alert, redirect to an error page on failed requests once one exists
+        alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
+          "page.");
+        this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
+      }.bind(this)).finally(function() {
+        this.setState({isSubmittingState: false});
+        setSubmitting(false);
+        this.onRequestCloseHandler();
+      }.bind(this))
+    }
+
 
   renderForm() {
     const { runUuid, runTags, experimentId } = this.props;
@@ -104,4 +124,4 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   };
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(RenameRunModal)
+export default connect(mapStateToProps, mapDispatchToProps)(withRouter(RenameRunModal))

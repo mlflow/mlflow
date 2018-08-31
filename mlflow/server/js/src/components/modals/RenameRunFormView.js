@@ -19,30 +19,6 @@ class RenameRunFormView extends Component {
     experimentId: PropTypes.number.isRequired
   }
 
-  /**
-   * Form-submission handler with method signature as prescribed by Formik.
-   * See https://github.com/jaredpalmer/formik#how-form-submission-works for an explanation
-   * of how / when this method is called.
-   */
-  handleSubmit = (
-    values,
-    {
-      props,
-      setSubmitting,
-      setErrors /* setValues, setStatus, and other goodies */,
-    }) => {
-      const { newRunName } = values;
-      return this.props.onSubmit(newRunName).catch(function(err) {
-        // TODO: remove alert, redirect to an error page on failed requests once one exists
-        alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
-          "page.");
-        this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
-      }.bind(this)).finally(function() {
-        setSubmitting(false);
-        this.props.onClose();
-      }.bind(this))
-    }
-
   renderForm = (renderProps) => {
     const {
       handleSubmit,
@@ -77,7 +53,7 @@ class RenameRunFormView extends Component {
       <Formik
         initialValues={{newRunName: this.props.runName}}
         validationSchema={validationSchema}
-        onSubmit={this.handleSubmit}
+        onSubmit={this.props.onSubmit}
         render={this.renderForm}/>
     </div>
   }
