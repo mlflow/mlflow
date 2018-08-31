@@ -2,7 +2,7 @@
 $(function() {
 
   $('div.code-section').each(function() {
-    var example_sel = $('<ul />', { class: "section-selector" });
+    var example_sel = $('<ul />', { class: 'section-selector' });
     var i = 0;
     $('div[class^="highlight-"]', this).each(function() {
       language_name = $(this).attr('class').substring(10).replace('notranslate', '');
@@ -26,7 +26,7 @@ $(function() {
   });
 
   $('div.plain-section').each(function() {
-    var example_sel = $('<ul />', { class: "section-selector" });
+    var example_sel = $('<ul />', { class: 'section-selector' });
     var i = 0;
     $('div.container', this).each(function() {
       var language_name = $(this).attr('class').replace(' docutils container', '').trim();
@@ -59,10 +59,10 @@ $(function() {
       
       // When the target language is not available, default to bash or python.
       if (!$('div.' + sel_class, parent).length) {
-        if ($('div.' + "highlight-bash", parent).length)
-          sel_class = "highlight-bash";
+        if ($('div.' + 'highlight-bash', parent).length)
+          sel_class = 'highlight-bash';
         else
-          sel_class = "highlight-python";
+          sel_class = 'highlight-python';
       }
 
       $('div.example', parent).hide();
