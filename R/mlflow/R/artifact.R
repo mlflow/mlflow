@@ -99,7 +99,7 @@ mlflow_log_artifact_impl.local_artifact <- function(artifact_uri, path) {
     dir.create(artifact_uri, recursive = TRUE)
   }
 
-  file.copy(path, artifact_uri)
+  file.copy(path, artifact_uri, overwrite = TRUE)
   invisible(NULL)
 }
 
