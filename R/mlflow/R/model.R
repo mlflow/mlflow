@@ -25,16 +25,19 @@ mlflow_save_model <- function(fn, path = "model") {
     file.path(path, "r_model.bin")
   )
 
-  write_yaml(
-    list(
-      time_created = Sys.time(),
-      flavors = list(
-        r_function = list(
-          version = "0.1.0",
-          model = "r_model.bin"
-        )
+  ml_model_content <- list(
+    time_created = Sys.time(),
+    run_id = mlflow_active_run()$run_info$run_uuid,
+    flavors = list(
+      r_function = list(
+        version = "0.1.0",
+        model = "r_model.bin"
       )
-    ),
+    )
+  )
+
+  write_yaml(
+    purrr::compact(ml_model_content),
     file.path(path, "MLmodel")
   )
 }
