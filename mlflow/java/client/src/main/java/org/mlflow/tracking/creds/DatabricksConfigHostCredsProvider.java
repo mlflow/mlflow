@@ -68,7 +68,7 @@ public class DatabricksConfigHostCredsProvider implements MlflowHostCredsProvide
     String username = section.get("username");
     String password = section.get("password");
     String token = section.get("token");
-    boolean insecure = section.get("insecure", "false").equals("true");
+    boolean insecure = section.get("insecure", "false").toLowerCase().equals("true");
 
     if (host == null) {
       throw new IllegalStateException("No 'host' configured within Databricks config file" +
