@@ -271,6 +271,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         flavor = _get_preferred_deployment_flavor(model_config)
     else:
         _validate_deployment_flavor(model_config, flavor)
+    print("Using the {selected_flavor} flavor for deployment!".format(selected_flavor=flavor))
 
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
@@ -399,6 +400,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
         flavor = _get_preferred_deployment_flavor(model_config)
     else:
         _validate_deployment_flavor(model_config, flavor)
+    print("Using the {selected_flavor} flavor for local serving!".format(selected_flavor=flavor))
 
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
