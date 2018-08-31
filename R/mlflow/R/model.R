@@ -90,16 +90,9 @@ mlflow_rfunc_predict <- function(
     )
   }
 
-  if (!is.data.frame(data))
-    stop("Could not load data as a data frame.")
-
   model <- mlflow_load_model(model_dir)
 
-  if (!inherits(model, "crate")) {
-    stop("MLflow rfunc model expected to be crated using mlflow::crate().")
-  }
-
-  prediction <- model(data)
+  prediction <- mlflow_rfunc_predict_impl(model, data)
 
   if (is.null(output_file)) {
     if (!interactive()) message(prediction)
