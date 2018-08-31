@@ -32,6 +32,7 @@ mlflow_artifact_type <- function(artifact_uri) {
 #'
 #' @param path The file or directory to log as an artifact.
 #' @param artifact_path Destination path within the run’s artifact URI.
+#' @param run_uuid The run associated with this artifact.
 #'
 #' @details
 #'
@@ -65,7 +66,7 @@ mlflow_artifact_type <- function(artifact_uri) {
 #' by Amazon IAM.
 #'
 #' @export
-mlflow_log_artifact <- function(path, artifact_path = NULL, run_uuid = NULL) {
+mlflow_log_artifact <- function(path, artifact_path, run_uuid = NULL) {
   run_uuid <- mlflow_ensure_run_id(run_uuid)
   artifact_uri <- mlflow_get_run(run_uuid)$info$artifact_uri
   artifact_type <- mlflow_artifact_type(artifact_uri)

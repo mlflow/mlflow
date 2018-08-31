@@ -4,7 +4,7 @@
 \alias{mlflow_log_model}
 \title{Log Model}
 \usage{
-mlflow_log_model(fn, artifact_path = NULL, run_uuid = NULL)
+mlflow_log_model(fn, artifact_path, run_uuid = NULL)
 }
 \arguments{
 \item{fn}{The serving function that will perform a prediction.}
