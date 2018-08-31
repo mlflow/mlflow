@@ -64,8 +64,11 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #' Predict using an RFunc MLflow Model from a file or data frame.
 #'
 #' @param model_path The path to the MLflow model, as a string.
-#' @param data Data frame, 'JSON' or 'CSV' file to be used for prediction.
-#' @param output_file 'JSON' or 'CSV' file where the prediction will be written to.
+#' @param run_id Run ID of run to grab the model from.
+#' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
+#' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
+#' @param data Data frame to be scored. This can be utilized for testing purposes and can only
+#'   be specified when `input_path` is not specified.
 #' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
 #'
 #' @examples
@@ -87,35 +90,57 @@ mlflow_rfunc_predict_impl <- function(model, data) {
 #' @export
 mlflow_rfunc_predict <- function(
   model_path,
-  data,
-  output_file = NULL,
+  run_id = NULL,
+  input_path = NULL,
+  output_path = NULL,
+  data = NULL,
   restore = FALSE
 ) {
   mlflow_restore_or_warning(restore)
 
-  if (is.character(data)) {
-    data <- switch(
-      fs::path_ext(data),
-      json = jsonlite::read_json(data),
-      csv = read.csv(data)
+  model_path <- resolve_model_path(model_path, run_id)
+
+  if (!xor(is.null(input_path), is.null(data)))
+    stop("One and only one of `input_path` or `data` must be specified.")
+
+  data <- if (!is.null(input_path)) {
+    switch(
+      fs::path_ext(input_path),
+      json = jsonlite::read_json(input_path),
+      csv = read.csv(input_path)
     )
+  } else {
+    data
   }
 
   model <- mlflow_load_model(model_path)
 
   prediction <- mlflow_rfunc_predict_impl(model, data)
 
-  if (is.null(output_file)) {
+  if (is.null(output_path)) {
     if (!interactive()) message(prediction)
 
     prediction
   }
   else {
     switch(
-      fs::path_ext(output_file),
-      json = jsonlite::write_json(prediction, output_file),
-      csv = write.csv(prediction, output_file, row.names = FALSE),
+      fs::path_ext(output_path),
+      json = jsonlite::write_json(prediction, output_path),
+      csv = write.csv(prediction, output_path, row.names = FALSE),
       stop("Unsupported output file format.")
     )
+  }
+}
+
+resolve_model_path <- function(model_path, run_id) {
+  if (!is.null(run_id)) {
+    mlflow_get_or_create_active_connection()
+    result <- withr::with_envvar(
+      list(MLFLOW_TRACKING_URI = mlflow_tracking_uri()),
+      mlflow_cli("artifacts", "download", "--run-id", run_id, "-a", model_path, echo = FALSE)
+    )
+      gsub("\n", "", result$stdout)
+  } else {
+    model_path
   }
 }

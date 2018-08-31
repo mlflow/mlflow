@@ -5,6 +5,7 @@
 #' Serve an RFunc MLflow Model as a local web api under \url{http://localhost:8090}.
 #'
 #' @param model_path The path to the MLflow model, as a string.
+#' @param run_id ID of run to grab the model from.
 #' @param host Address to use to serve model, as a string.
 #' @param port Port to use to serve model, as numeric.
 #' @param daemonized Makes 'httpuv' server daemonized so R interactive sessions
@@ -33,6 +34,7 @@
 #' @export
 mlflow_rfunc_serve <- function(
   model_path,
+  run_id = NULL,
   host = "127.0.0.1",
   port = 8090,
   daemonized = FALSE,
@@ -40,6 +42,8 @@ mlflow_rfunc_serve <- function(
   restore = FALSE
 ) {
   mlflow_restore_or_warning(restore)
+
+  model_path <- resolve_model_path(model_path, run_id)
 
   httpuv_start <- if (daemonized) httpuv::startDaemonizedServer else httpuv::runServer
   serve_run(model_path, host, port, httpuv_start, browse && interactive())
