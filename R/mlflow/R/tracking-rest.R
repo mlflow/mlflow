@@ -119,7 +119,7 @@ mlflow_create_run <- function(user_id = NULL,
     tags = tags
   ))
 
-  as.data.frame(response$run$info, stringsAsFactors = FALSE)
+  tidy_run_info(response$run$info)
 }
 
 #' Get Run
@@ -133,7 +133,7 @@ mlflow_get_run <- function(run_uuid) {
   response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
   run <- purrr::compact(response$run)
   run %>%
-    purrr::map_at("info", as.data.frame, stringsAsFactors = FALSE)
+    purrr::map_at("info", tidy_run_info)
 }
 
 #' Log Metric
@@ -241,14 +241,19 @@ mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
 #' @param metric_key Name of the metric.
 #' @export
 mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  mlflow_get_or_create_active_connection()
+  run_uuid <- run_uuid %||%
+    mlflow_active_run()$run_info$run_uuid %||%
+    stop("`run_uuid` must be specified when there is no active run.")
+
   response <- mlflow_rest("metrics", "get-history", query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
   ))
-  metric_history <- response$metrics
-  metric_history$timestamp <- as.POSIXct(as.integer(metric_history$timestamp), origin = "1970-01-01")
-  metric_history
+
+  metrics <- response$metrics
+  metrics$timestamp <- as.POSIXct(as.double(metrics$timestamp) / 1000, origin = "1970-01-01")
+  as.data.frame(metrics, stringsAsFactors = FALSE)
 }
 
 #' Update Run
@@ -260,7 +265,11 @@ mlflow_get_metric_history <- function(metric_key, run_uuid = NULL) {
 mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
                               end_time = NULL,
                               run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run(run_uuid)
+  mlflow_get_or_create_active_connection()
+  run_uuid <- run_uuid %||%
+    mlflow_active_run()$run_info$run_uuid %||%
+    stop("`run_uuid` must be specified when there is no active run.")
+
   status <- match.arg(status)
   end_time <- end_time %||% current_time()
 
@@ -269,9 +278,19 @@ mlflow_update_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KIL
     status = status,
     end_time = end_time
   ))
-  as.data.frame(response$run_info, stringsAsFactors = FALSE)
+
+  tidy_run_info(response$run_info)
 }
 
 current_time <- function() {
   round(as.numeric(Sys.time()) * 1000)
+}
+
+milliseconds_to_date <- function(x) as.POSIXct(as.double(x) / 1000, origin = "1970-01-01")
+
+tidy_run_info <- function(run_info) {
+  df <- as.data.frame(run_info, stringsAsFactors = FALSE)
+  df$start_time <- milliseconds_to_date(df$start_time %||% NA)
+  df$end_time <- milliseconds_to_date(df$end_time %||% NA)
+  df
 }
