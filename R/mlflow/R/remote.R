@@ -7,10 +7,11 @@
 #'
 #' @export
 mlflow_set_tracking_uri <- function(uri) {
-  if (!identical(.globals, uri)) {
-    .globals$tracking_uri <- uri
-    mlflow_set_active_experiment(NULL)
-  }
+  .globals$tracking_uri <- uri
+  .globals$active_connection <- NULL
+  .globals$active_experiment <- NULL
+  .globals$active_run <- NULL
+
   invisible(uri)
 }
 

@@ -20,7 +20,7 @@ mlflow_active_connection <- function() {
 mlflow_set_active_connection <- function(mc) {
   if (!identical(mc, .globals$active_connection)) {
     .globals$active_connection <- mc
-    mlflow_set_tracking_uri(mc$tracking_uri)
+    .globals$tracking_uri <- mc$tracking_uri
     mlflow_set_active_experiment(NULL)
   }
   invisible(mc)
@@ -84,7 +84,9 @@ mlflow_cli_param <- function(args, param, value) {
 mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
                           host = "127.0.0.1", port = 5000, workers = 4, static_prefix = NULL) {
 
-  file_store <- fs::path_abs(file_store)
+  if (is.null(default_artifact_root) || dir.exists(default_artifact_root)) {
+    file_store <- fs::path_abs(file_store)
+  }
 
   args <- mlflow_cli_param(list(), "--port", port) %>%
     mlflow_cli_param("--file-store", file_store) %>%

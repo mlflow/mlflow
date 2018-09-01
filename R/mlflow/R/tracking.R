@@ -84,7 +84,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     mlflow_get_run(existing_run_uuid)$info
   } else {
     experiment_id <- as.integer(
-      experiment_id %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
+      experiment_id %||% mlflow_active_experiment() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
     )
 
     mlflow_create_run(
