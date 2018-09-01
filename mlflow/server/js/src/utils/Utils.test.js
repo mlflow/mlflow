@@ -159,7 +159,7 @@ test("getGitHubRegex", () => {
   ];
   urlAndExpected.forEach((lst) => {
     const url = lst[0];
-    var match = url.match(gitHubRegex);
+    const match = url.match(gitHubRegex);
     if (match) {
       match[2] = match[2].replace(/.git/, '');
     }

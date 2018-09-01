@@ -108,7 +108,7 @@ class Utils {
     if (run.source_type === "PROJECT") {
       const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
-        var url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
+        let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
         if (match[3]) {
           url = url + "/tree/master/" + match[3];
         }
@@ -173,11 +173,8 @@ class Utils {
       if (run.source_type === "PROJECT") {
         const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
-          var url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
-                     "/tree/" + run.source_version);
-          if (match[3]) {
-            url = url + "/" + match[3];
-          }
+          const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
+                     "/tree/" + run.source_version) + "/" + match[3];
           return <a href={url}>{shortVersion}</a>;
         }
         return shortVersion;
