@@ -66,7 +66,7 @@ mlflow_artifact_type <- function(artifact_uri) {
 #' by Amazon IAM.
 #'
 #' @export
-mlflow_log_artifact <- function(path, artifact_path, run_uuid = NULL) {
+mlflow_log_artifact <- function(path, artifact_path = NULL, run_uuid = NULL) {
   run_uuid <- mlflow_ensure_run_id(run_uuid)
   artifact_uri <- mlflow_get_run(run_uuid)$info$artifact_uri
   artifact_type <- mlflow_artifact_type(artifact_uri)
@@ -74,7 +74,7 @@ mlflow_log_artifact <- function(path, artifact_path, run_uuid = NULL) {
   artifact_uri <- ifelse(
     is.null(artifact_path),
     artifact_uri,
-    fs::path(artifact_uri, artifact_path)
+    file.path(artifact_uri, artifact_path)
   )
 
   artifact_uri <- structure(
