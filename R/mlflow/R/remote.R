@@ -10,6 +10,7 @@ mlflow_set_tracking_uri <- function(uri) {
   .globals$tracking_uri <- uri
   .globals$active_connection <- NULL
   .globals$active_experiment <- NULL
+  .globals$active_run <- NULL
 
   invisible(uri)
 }
