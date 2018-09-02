@@ -111,6 +111,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
 
 
 def end_run(status="FINISHED"):
+    """End an active MLflow run (if there is one)."""
     global _active_run
     if _active_run:
         get_service().set_terminated(_active_run.info.run_uuid, status)
@@ -175,6 +176,13 @@ def log_artifacts(local_dir, artifact_path=None):
 
 
 def create_experiment(name, artifact_location=None):
+    """
+    Creates an experiment.
+
+    :param name: must be unique
+    :param artifact_location: If not provided, the server will pick an appropriate default.
+    :return: integer id of the created experiment
+    """
     return get_service().create_experiment(name, artifact_location)
 
 
