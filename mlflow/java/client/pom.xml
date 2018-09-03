@@ -41,6 +41,14 @@
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java-util</artifactId>
     </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.ini4j</groupId>
+      <artifactId>ini4j</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -72,8 +80,10 @@
               <include>com.google.guava:guava</include>
               <include>com.google.code.gson:gson</include>
               <include>commons-codec:commons-codec</include>
+              <include>commons-io:commons-io</include>
               <include>commons-logging:commons-logging</include>
               <include>org.apache.httpcomponents:httpcore</include>
+              <include>org.ini4j:ini4j</include>
             </includes>
           </artifactSet>
           <relocations>
@@ -93,6 +103,10 @@
               <!-- We have to move this package as it conflicts with other Databricks jars. -->
               <pattern>com.databricks.api.proto.databricks</pattern>
               <shadedPattern>${mlflow.shade.packageName}.databricks</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.ini4j</pattern>
+              <shadedPattern>${mlflow.shade.packageName}.ini4j</shadedPattern>
             </relocation>
           </relocations>
         </configuration>

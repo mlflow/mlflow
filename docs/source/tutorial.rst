@@ -55,7 +55,7 @@ Training the Model
 
     .. container:: python
 
-      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``tutorial/train.py`` and is reproduced below.
+      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. The code is located at ``examples/sklearn_elasticnet_wine/train.py`` and is reproduced below.
 
       .. code:: python
 
@@ -118,18 +118,18 @@ Training the Model
 
       .. code:: bash
 
-          python tutorial/train.py
+          python examples/sklearn_elasticnet_wine/train.py
 
       Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
       .. code:: bash
 
-          python tutorial/train.py <alpha> <l1_ratio>
+          python examples/sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
 
       Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
       .. note::
-          If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``tutorial/train.ipynb``.
+          If you would like to use the Jupyter notebook version of ``train.py``, try out the tutorial notebook at ``examples/sklearn_elasticnet_wine/train.ipynb``.
 
     .. container:: R
 
