@@ -411,7 +411,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
                config_var_value=deployment_config),
            "--rm", image, "serve"]
     eprint('executing', ' '.join(cmd))
-    proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
+    proc = Popen(" ".join(cmd), stdout=PIPE, stderr=STDOUT, universal_newlines=True, shell=True)
 
     def _sigterm_handler(*_):
         eprint("received termination signal => killing docker process")
