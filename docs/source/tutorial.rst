@@ -30,7 +30,7 @@ What You'll Need
        - Install MLflow (via ``pip install mlflow``)
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
-       - `cd` into the ``example`` directory within your clone of MLflow - we'll use this working
+       - `cd` into the ``examples`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
          so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
          MLflow.
@@ -133,7 +133,7 @@ Training the Model
 
     .. container:: R
 
-      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``lambda``. The code is located at ``tutorial/R/train.R`` and is reproduced below.
+      First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``lambda``. The code is located at ``examples/r_wine/train.R`` and is reproduced below.
 
       .. code:: R
 
@@ -201,7 +201,7 @@ Training the Model
       Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
       .. note::
-          If you would like to use the R notebook version of ``train.R``, try out the tutorial notebook at ``tutorial/train.Rmd``.
+          If you would like to use the R notebook version of ``train.R``, try out the tutorial notebook at ``examples/r_wine/train.Rmd``.
 
 Comparing the Models
 --------------------
@@ -295,7 +295,7 @@ Packaging the Training Code
 
       .. code::
 
-          # tutorial/R/r-dependencies.txt
+          # examples/r_wine/r-dependencies.txt
 
           PackratFormat: 1.4
           PackratVersion: 0.4.9.3
@@ -319,7 +319,7 @@ Packaging the Training Code
 
       .. code:: R
 
-        mlflow_run("tutorial/R", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
 
       After running this command, MLflow will run your training code in a new R session.
 
@@ -328,7 +328,7 @@ Packaging the Training Code
       .. code:: R
 
         mlflow_restore_snapshot()
-        mlflow_run("tutorial/R", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
