@@ -300,7 +300,7 @@ def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
     sparkml_model = Model()
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_conda_env, mlflow_model=sparkml_model)
-    assert SPARKML_FLAVOR_NAME in sparkml_model.flavors
+    assert sparkm.FLAVOR_NAME in sparkml_model.flavors
     assert mleap.FLAVOR_NAME not in sparkml_model.flavors
     sparkml_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                               data=spark_model_iris.inference_df)
