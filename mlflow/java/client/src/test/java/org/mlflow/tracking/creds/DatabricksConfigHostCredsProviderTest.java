@@ -39,7 +39,7 @@ public class DatabricksConfigHostCredsProviderTest {
     Assert.assertEquals(provider.getHostCreds().getHost(), "https://boop.com");
     Assert.assertEquals(provider.getHostCreds().getToken(), "dapi");
 
-    String contents2 = "[DEFAULT]\nhost = https://boop.com\ntoken=dapi2\ninsecure = true";
+    String contents2 = "[DEFAULT]\nhost = https://boop.com\ntoken=dapi2\ninsecure = TrUe";
     FileUtils.writeStringToFile(databrickscfg, contents2, StandardCharsets.UTF_8);
     Assert.assertEquals(provider.getHostCreds().getToken(), "dapi");
     Assert.assertFalse(provider.getHostCreds().shouldIgnoreTlsVerification());

@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.google.common.collect.Sets;
@@ -19,6 +21,8 @@ import org.mlflow.api.proto.Service.FileInfo;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mlflow.tracking.MlflowClient;
 import org.mlflow.tracking.TestClientProvider;
+import org.mlflow.tracking.creds.BasicMlflowHostCreds;
+import org.mlflow.tracking.creds.MlflowHostCreds;
 
 public class CliBasedArtifactRepositoryTest {
   private static final Logger logger = Logger.getLogger(CliBasedArtifactRepositoryTest.class);
@@ -127,6 +131,55 @@ public class CliBasedArtifactRepositoryTest {
     Path subberpathArtifacts = repo.downloadArtifacts("subpath/subberpath").toPath();
     Assert.assertEquals(grandchildContents, readFile(subberpathArtifacts.resolve("grandchild")));
     Assert.assertEquals(subberpathArtifacts.toFile().list(), new String[] {"grandchild"});
+  }
+
+  @Test
+  public void testSettingProcessEnvBasic() {
+    CliBasedArtifactRepository repo = newRepo();
+    MlflowHostCreds hostCreds = new BasicMlflowHostCreds("just-host");
+    Map<String, String> env = new HashMap<>();
+    repo.setProcessEnvironment(env, hostCreds);
+    Map<String, String> expectedEnv = new HashMap<>();
+    expectedEnv.put("MLFLOW_TRACKING_URI", "just-host");
+    Assert.assertEquals(env, expectedEnv);
+  }
+
+  @Test
+  public void testSettingProcessEnvUserPass() {
+    CliBasedArtifactRepository repo = newRepo();
+    MlflowHostCreds hostCreds = new BasicMlflowHostCreds("just-host", "user", "pass");
+    Map<String, String> env = new HashMap<>();
+    repo.setProcessEnvironment(env, hostCreds);
+    Map<String, String> expectedEnv = new HashMap<>();
+    expectedEnv.put("MLFLOW_TRACKING_URI", "just-host");
+    expectedEnv.put("MLFLOW_TRACKING_USERNAME", "user");
+    expectedEnv.put("MLFLOW_TRACKING_PASSWORD", "pass");
+    Assert.assertEquals(env, expectedEnv);
+  }
+
+  @Test
+  public void testSettingProcessEnvToken() {
+    CliBasedArtifactRepository repo = newRepo();
+    MlflowHostCreds hostCreds = new BasicMlflowHostCreds("just-host", "token");
+    Map<String, String> env = new HashMap<>();
+    repo.setProcessEnvironment(env, hostCreds);
+    Map<String, String> expectedEnv = new HashMap<>();
+    expectedEnv.put("MLFLOW_TRACKING_URI", "just-host");
+    expectedEnv.put("MLFLOW_TRACKING_TOKEN", "token");
+    Assert.assertEquals(env, expectedEnv);
+  }
+
+  @Test
+  public void testSettingProcessEnvInsecure() {
+    CliBasedArtifactRepository repo = newRepo();
+    MlflowHostCreds hostCreds = new BasicMlflowHostCreds("insecure-host", null, null, null,
+      true);
+    Map<String, String> env = new HashMap<>();
+    repo.setProcessEnvironment(env, hostCreds);
+    Map<String, String> expectedEnv = new HashMap<>();
+    expectedEnv.put("MLFLOW_TRACKING_URI", "insecure-host");
+    expectedEnv.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
+    Assert.assertEquals(env, expectedEnv);
   }
 
   private String readFile(Path path) throws IOException {

@@ -1,6 +1,5 @@
 package org.mlflow.artifacts;
 
-import javax.annotation.Nonnull;
 import java.io.File;
 import java.util.List;
 
@@ -34,7 +33,7 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  void logArtifact(File localFile, @Nonnull String artifactPath);
+  void logArtifact(File localFile, String artifactPath);
 
   /**
    * Uploads all files within the given local director the run's root artifact directory.
@@ -61,7 +60,7 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  void logArtifacts(File localDir, @Nonnull String artifactPath);
+  void logArtifacts(File localDir, String artifactPath);
 
   /**
    * Lists the artifacts immediately under the run's root artifact directory. This does not
@@ -77,7 +76,7 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  List<FileInfo> listArtifacts(@Nonnull String artifactPath);
+  List<FileInfo> listArtifacts(String artifactPath);
 
   /**
    * Returns a local directory containing *all* artifacts within the run's artifact directory.
@@ -100,5 +99,5 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  File downloadArtifacts(@Nonnull String artifactPath);
+  File downloadArtifacts(String artifactPath);
 }
