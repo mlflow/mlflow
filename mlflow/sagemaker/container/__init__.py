@@ -26,7 +26,6 @@ from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
-ENV_KEY_DEPLOYMENT_CONFIG = "deployment_config"
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "deployment_flavor_name"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
@@ -74,9 +73,8 @@ def _serve():
     model_config_path = os.path.join(MODEL_PATH, "MLmodel")
     m = Model.load(model_config_path)
 
-    if ENV_KEY_DEPLOYMENT_CONFIG in os.environ:
-        deployment_config = yaml.load(os.environ[ENV_KEY_DEPLOYMENT_CONFIG])
-        serving_flavor = deployment_config[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
+    if DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME in os.environ:
+        serving_flavor = os.environ[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
     else:
         # Older versions of mlflow may not specify a deployment configuration
         serving_flavor = pyfunc.FLAVOR_NAME

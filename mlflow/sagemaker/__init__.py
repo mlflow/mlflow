@@ -22,7 +22,7 @@ from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, ENV_KEY_DEPLOYMENT_CONFIG
+from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
@@ -405,13 +405,12 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
     eprint("launching docker image with path {}".format(model_path))
-    cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port,
-           "-e", "\"{config_var_name}={config_var_value}\"".format(
-               config_var_name=ENV_KEY_DEPLOYMENT_CONFIG,
-               config_var_value=deployment_config),
-           "--rm", image, "serve"]
+    cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port]
+    for key, value in deployment_config:
+        cmd += ["-e", "{key}=\"{value}\"".format(key=key, value=value)]
+    cmd += ["--rm", image, "serve"]
     eprint('executing', ' '.join(cmd))
-    proc = Popen(" ".join(cmd), stdout=PIPE, stderr=STDOUT, universal_newlines=True, shell=True)
+    proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
 
     def _sigterm_handler(*_):
         eprint("received termination signal => killing docker process")
@@ -520,8 +519,8 @@ def _get_deployment_config(flavor_name):
     """
     :return: The deployment configuration as a yaml-formatted string
     """
-    deployment_flavor_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
-    return yaml.dump(deployment_flavor_config)
+    deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
+    return deployment_config
 
 
 def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive,
@@ -801,8 +800,7 @@ def _create_sagemaker_model(model_name, model_s3_path, flavor, vpc_config, run_i
             'ContainerHostname': 'mfs-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
-            'Environment': {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME:
-                            _get_deployment_config(flavor_name=flavor)},
+            'Environment': _get_deployment_config(flavor_name=flavor),
         },
         "ExecutionRoleArn": execution_role,
         "Tags": [{'Key': 'run_id', 'Value': str(run_id)}],
