@@ -407,7 +407,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
     eprint("launching docker image with path {}".format(model_path))
     cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port]
     for key, value in deployment_config.items():
-        cmd += ["-e", "{key}=\"{value}\"".format(key=key, value=value)]
+        cmd += ["-e", "{key}={value}".format(key=key, value=value)]
     cmd += ["--rm", image, "serve"]
     eprint('executing', ' '.join(cmd))
     proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
@@ -517,7 +517,7 @@ def _upload_s3(local_model_path, bucket, prefix):
 
 def _get_deployment_config(flavor_name):
     """
-    :return: The deployment configuration as a yaml-formatted string
+    :return: The deployment configuration as a dictionary
     """
     deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
     return deployment_config
