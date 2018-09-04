@@ -202,6 +202,25 @@ class Utils {
     }
     return null;
   }
+
+  static getErrorMessageFromXhr(xhr) {
+    const { status } = xhr;
+    if (status === 0) {
+      return 'Request failed to send. Check your internet connection';
+    }
+    if (status >= 400 && status < 500) {
+      if (xhr.responseJSON && xhr.responseJSON.message) {
+        return xhr.responseJSON.message;
+      }
+      if (xhr.responseText) {
+        return xhr.responseText;
+      }
+    }
+    if (status >= 500) {
+      return `Request Failed: ${xhr.statusText}`;
+    }
+    return 'Unknown Error';
+  }
 }
 
 export default Utils;

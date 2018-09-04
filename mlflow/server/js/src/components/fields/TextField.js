@@ -12,12 +12,7 @@ class TextField extends Component {
   }
 
   render() {
-    const field = this.props.field;
-    const { touched, errors } = this.props.form;
-    const label = this.props.label;
-    const handleFocus = (event) => {
-      event.target.select();
-    };
+    const { form: {touched, errors}, label, field, ...props } = this.props;
     const error = errors && errors[field.name];
     return (<FormGroup
       controlId={field.name}
@@ -27,8 +22,7 @@ class TextField extends Component {
       <FormControl
         type="text"
         {...field}
-        onFocus={handleFocus}
-        autoFocus={this.props.autoFocus}
+        {...props}
       />
       { touched && touched[field.name] && error ? <HelpBlock>{error}</HelpBlock> : null }
     </FormGroup>);

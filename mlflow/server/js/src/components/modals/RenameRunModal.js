@@ -68,7 +68,7 @@ class RenameRunModal extends Component {
       }).catch((err) => {
         this.setState({ isSubmittingState: false });
         setSubmitting(false);
-        setStatus({errorMsg: "Failed to rename run. Error: '" + err.message + "'"});
+        setStatus({errorMsg: err.message});
       });
   }
 

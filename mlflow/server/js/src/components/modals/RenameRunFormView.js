@@ -5,7 +5,7 @@ import { withRouter } from 'react-router-dom';
 import { Formik, Field } from 'formik';
 
 import { validationSchema } from './validation';
-import TextField from './TextField';
+import TextField from '../fields/TextField';
 
 /**
  * Component that renders a form for updating a run's name. Expects to be 'closeable'
@@ -26,7 +26,9 @@ class RenameRunFormView extends Component {
       status,
     } = renderProps;
     const saveText = isSubmitting ? "Saving..." : "Save";
-
+    const handleFocus = (event) => {
+      event.target.select();
+    };
     return <form onSubmit={handleSubmit} className="rename-run-form">
       <Modal.Header><Modal.Title>Rename Run</Modal.Title></Modal.Header>
       <Modal.Body>
@@ -40,6 +42,7 @@ class RenameRunFormView extends Component {
             name="newRunName"
             label="New run name:"
             autoFocus
+            onFocus={handleFocus}
             component={TextField}
         />
       </Modal.Body>

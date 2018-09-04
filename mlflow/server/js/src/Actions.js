@@ -1,4 +1,5 @@
 import { MlflowService } from './sdk/MlflowService';
+import Utils from './utils/Utils';
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
@@ -113,7 +114,7 @@ const wrapDeferred = (deferred, data) => {
       success: response => resolve(response),
       error: xhr => {
         console.error("XHR failed", xhr);
-        reject(new Error("XHR failed"));
+        reject(new Error(Utils.getErrorMessageFromXhr(xhr)));
       }
     });
   });
