@@ -95,7 +95,7 @@ class Utils {
   }
 
   static getGitHubRegex() {
-    return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#{0,}(.*)/;
+    return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
   /**
