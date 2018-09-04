@@ -92,8 +92,6 @@ textarea.run-command {
 }
 
 .cancel-button, .save-button {
-  padding-left: 24px;
-  padding-right: 24px;
   text-align: center;
 }
 

@@ -8,8 +8,6 @@ import Utils from '../../utils/Utils';
 import ReactModal from 'react-modal';
 
 import { setTagApi, getUUID } from '../../Actions';
-import { withRouter } from 'react-router-dom';
-import Routes from "../../Routes";
 
 
 const modalStyles = {
@@ -19,7 +17,8 @@ const modalStyles = {
     right: 'auto',
     bottom: 'auto',
     marginRight: '-50%',
-    transform: 'translate(-50%, -50%)'
+    transform: 'translate(-50%, -50%)',
+    padding: 0,
   },
   overlay: {
     backgroundColor: 'rgba(33, 37, 41, .75)'
@@ -44,7 +43,6 @@ class RenameRunModal extends Component {
     runName: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
-    history: PropTypes.object.isRequired,
   }
 
   /**
@@ -56,22 +54,21 @@ class RenameRunModal extends Component {
     values,
     {
       setSubmitting,
+      setStatus,
     }) => {
     const { newRunName } = values;
     this.setState({ isSubmittingState: true });
     const tagKey = Utils.runNameTag;
     const setTagRequestId = getUUID();
     return this.props.dispatch(
-      setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).catch((err) => {
-        // TODO: remove alert, redirect to an error page on failed requests once one exists
-        // eslint-disable-next-line no-alert
-        alert("Unable to rename run, got error '" + err + "'. Redirecting to parent experiment " +
-        "page.");
-        this.props.history.push(Routes.getExperimentPageRoute(this.props.experimentId));
-      }).finally(() => {
+      setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).then(() => {
         this.setState({ isSubmittingState: false });
         setSubmitting(false);
         this.onRequestCloseHandler();
+      }).catch((err) => {
+        this.setState({ isSubmittingState: false });
+        setSubmitting(false);
+        setStatus({errorMsg: "Failed to rename run. Error: '" + err.message + "'"});
       });
   }
 
@@ -101,9 +98,6 @@ class RenameRunModal extends Component {
       appElement={document.body}
     >
       {this.renderForm()}
-      <a className="exit-link">
-        <i onClick={this.onRequestCloseHandler} className="fas fa-times"/>
-      </a>
     </ReactModal>);
   }
 }
@@ -115,4 +109,4 @@ const mapDispatchToProps = (dispatch, ownProps) => {
   };
 };
 
-export default connect(null, mapDispatchToProps)(withRouter(RenameRunModal));
+export default connect(null, mapDispatchToProps)(RenameRunModal);

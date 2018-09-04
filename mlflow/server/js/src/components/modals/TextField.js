@@ -1,13 +1,12 @@
-import React, { Component } from 'react';
+import React from 'react';
 import { FormGroup, ControlLabel, FormControl, HelpBlock } from 'react-bootstrap';
 
-export default function TextField({ field, form: { touched, errors }, label, ...props })  {
-
+export default function TextField({ field, form: { touched, errors }, label, ...props }) {
   const handleFocus = (event) => {
     event.target.select();
   };
   const error = errors[field.name];
-  return <FormGroup
+  return (<FormGroup
     controlId={field.name}
     validationState={touched[field.name] && error ? 'error' : null}
   >
@@ -16,8 +15,8 @@ export default function TextField({ field, form: { touched, errors }, label, ...
       type="text"
       {...field}
       onFocus={handleFocus}
+      autoFocus={props && props.autoFocus}
     />
     { touched[field.name] && error ? <HelpBlock>{error}</HelpBlock> : null }
-  </FormGroup>
-
+  </FormGroup>);
 }
