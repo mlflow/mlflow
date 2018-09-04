@@ -97,7 +97,7 @@ class Utils {
   }
 
   static getGitHubRegex() {
-    return /[@/]github.com[:/]([^/.]+)\/([^/.]+)/;
+    return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
   /**
@@ -110,7 +110,10 @@ class Utils {
     if (run.source_type === "PROJECT") {
       const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
-        const url = "https://github.com/" + match[1] + "/" + match[2];
+        let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
+        if (match[3]) {
+          url = url + "/tree/master/" + match[3];
+        }
         res = <a href={url}>{res}</a>;
       }
       return res;
@@ -188,8 +191,8 @@ class Utils {
       if (run.source_type === "PROJECT") {
         const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
-          const url = ("https://github.com/" + match[1] + "/" + match[2] + "/tree/" +
-            run.source_version);
+          const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
+                     "/tree/" + run.source_version) + "/" + match[3];
           return <a href={url}>{versionString}</a>;
         }
         return versionString;
