@@ -57,4 +57,3 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_uuid = NULL) {
 
   invisible(NULL)
 }
-
