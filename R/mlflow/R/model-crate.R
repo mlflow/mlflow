@@ -1,5 +1,5 @@
 #' @export
-mlflow_save_model.crate <- function(x, path = "model") {
+mlflow_save_flavor.crate <- function(x, path = "model") {
   serialized <- serialize(x, NULL)
 
   saveRDS(
@@ -21,6 +21,11 @@ mlflow_save_model.crate <- function(x, path = "model") {
 }
 
 #' @export
-mlflow_load_model.crate <- function(model_path) {
+mlflow_load_flavor.crate <- function(model_path) {
   unserialize(readRDS(model_path))
+}
+
+#' @export
+mlflow_predict_flavor.crate <- function(mode, data) {
+  mode(data)
 }

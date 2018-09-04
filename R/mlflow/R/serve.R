@@ -109,7 +109,7 @@ serve_prediction <- function(json_raw, model) {
 
   df <- as.data.frame(df)
 
-  mlflow_rfunc_predict_impl(model, df)
+  mlflow_predict_flavor(model, df)
 }
 
 serve_empty_page <- function(req, sess, model) {

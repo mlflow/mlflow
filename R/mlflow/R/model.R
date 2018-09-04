@@ -13,7 +13,7 @@ mlflow_save_model <- function(x, path = "model") {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
-  UseMethod("mlflow_save_model")
+  mlflow_save_flavor(x, path)
 }
 
 #' Write Model Specification
@@ -42,7 +42,7 @@ mlflow_load_model <- function(model_path) {
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
 
   supported <- gsub("^r_", "", names(spec$flavors)) %>%
-    Filter(function(e) paste("mlflow_save_model", e, sep = ".") %in% as.vector(methods(class = e)), .)
+    Filter(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(methods(class = e)), .)
 
   if (length(supported) == 0) {
     stop(
@@ -52,19 +52,11 @@ mlflow_load_model <- function(model_path) {
   }
 
   supported_class <- supported[[1]]
-  mlflow_subclass <- getS3method("mlflow_save_model", class = supported_class)
-  mlflow_subclass(fs::path(model_path, spec$flavors[[paste("r", supported_class, sep = "_")]]$model))
-}
 
-mlflow_rfunc_predict_impl <- function(model, data) {
-  if (!is.data.frame(data))
-    stop("Could not load data as a data frame.")
+  flavor_path <- fs::path(model_path, spec$flavors[[paste("r", supported_class, sep = "_")]]$model)
+  class(flavor_path) <- c(supported_class, class(flavor_path))
 
-  if (!inherits(model, "crate")) {
-    stop("MLflow rfunc model expected to be crated using mlflow::crate().")
-  }
-
-  model(data)
+  mlflow_load_flavor(flavor_path)
 }
 
 #' Predict using RFunc MLflow Model
@@ -123,7 +115,7 @@ mlflow_rfunc_predict <- function(
 
   model <- mlflow_load_model(model_path)
 
-  prediction <- mlflow_rfunc_predict_impl(model, data)
+  prediction <- mlflow_predict_flavor(model, data)
 
   if (is.null(output_path)) {
     if (!interactive()) message(prediction)
