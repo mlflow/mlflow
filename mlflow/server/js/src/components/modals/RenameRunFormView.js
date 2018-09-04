@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Button } from 'react-bootstrap';
+import { Button, Modal } from 'react-bootstrap';
 import { withRouter } from 'react-router-dom';
 import { Formik, Field } from 'formik';
 
 import { validationSchema } from './validation';
+import TextField from './TextField';
 
 /**
  * Component that renders a form for updating a run's name. Expects to be 'closeable'
@@ -24,19 +25,19 @@ class RenameRunFormView extends Component {
       isSubmitting,
     } = renderProps;
     const saveText = isSubmitting ? "Saving..." : "Save";
-    return <form onSubmit={handleSubmit} style={styles.form}>
-      <div style={styles.formField}><h2 style={{"marginTop": "0px"}}>Rename Run</h2></div>
-      <div style={styles.label}>New run name:</div>
-      <div style={{...styles.formField, "width": "100%"}}>
+    return       <Modal.Dialog>
+      <Modal.Title><h2 style={{"marginTop": 0}}>Rename Run</h2></Modal.Title>
+      <Modal.Body style={{...styles.formField, "width": "100%"}}>
+      <form onSubmit={handleSubmit} className="static-modal">
         <Field
-            type="newRunName"
             name="newRunName"
-            label="New Run Name"
+            label="New run name:"
+            component={TextField}
             autoFocus
-            style={{"width": "100%"}}
         />
-      </div>
-      <div style={styles.buttonsDiv}>
+      </form>;
+      </Modal.Body>
+      <Modal.Footer>
         <Button
           bsStyle="default"
           className="cancel-button"
@@ -48,8 +49,8 @@ class RenameRunFormView extends Component {
         <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
           {saveText}
         </Button>
-      </div>
-    </form>;
+      </Modal.Footer>
+      </Modal.Dialog>
   }
 
   render() {
@@ -67,16 +68,16 @@ export default withRouter(RenameRunFormView);
 
 const styles = {
   form: {
-    width: "480px",
+    width: 480,
   },
   buttonsDiv: {
     display: "flex",
     justifyContent: "flex-end",
   },
   formField: {
-    marginBottom: "16px",
+    marginBottom: 16,
   },
   label: {
-    marginBottom: "4px",
+    marginBottom: 4,
   },
 };

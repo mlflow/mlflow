@@ -314,9 +314,6 @@ const shellEscape = (str) => {
 };
 
 const styles = {
-  formField: {
-    marginBottom: "16px"
-  },
   dropdownToggle: {
     backgroundColor: "transparent",
     borderColor: "transparent",
