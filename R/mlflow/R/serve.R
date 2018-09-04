@@ -62,6 +62,8 @@ serve_content_type <- function(file_path) {
 }
 
 serve_static_file_response <- function(package, file_path, replace = NULL) {
+  mlflow_verbose_message("Serving static file: ", file_path)
+
   file_path <- system.file(file_path, package = package)
   file_contents <- if (file.exists(file_path)) readBin(file_path, "raw", n = file.info(file_path)$size) else NULL
 
@@ -98,6 +100,8 @@ serve_invalid_request <- function(message = NULL) {
 }
 
 serve_prediction <- function(json_raw, model) {
+  mlflow_verbose_message("Serving prediction: ", json_raw)
+
   df <- data.frame()
   if (length(json_raw) > 0) {
     df <- jsonlite::fromJSON(
