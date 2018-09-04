@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Modal } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { withRouter } from 'react-router-dom';
 import { Formik, Field } from 'formik';
 
@@ -25,19 +25,17 @@ class RenameRunFormView extends Component {
       isSubmitting,
     } = renderProps;
     const saveText = isSubmitting ? "Saving..." : "Save";
-    return       <Modal.Dialog>
-      <Modal.Title><h2 style={{"marginTop": 0}}>Rename Run</h2></Modal.Title>
-      <Modal.Body style={{...styles.formField, "width": "100%"}}>
-      <form onSubmit={handleSubmit} className="static-modal">
+    return <form onSubmit={handleSubmit} style={styles.form}>
+      <div><h2 style={{"marginTop": 0}}>Rename Run</h2></div>
+      <div style={{...styles.formField, "width": "100%"}}>
         <Field
             name="newRunName"
             label="New run name:"
             component={TextField}
             autoFocus
         />
-      </form>;
-      </Modal.Body>
-      <Modal.Footer>
+      </div>
+      <div style={styles.buttonsDiv}>
         <Button
           bsStyle="default"
           className="cancel-button"
@@ -49,8 +47,8 @@ class RenameRunFormView extends Component {
         <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
           {saveText}
         </Button>
-      </Modal.Footer>
-      </Modal.Dialog>
+      </div>
+    </form>;
   }
 
   render() {
