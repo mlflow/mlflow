@@ -12,15 +12,28 @@ import shutil
 import signal
 from subprocess import check_call, Popen
 import sys
+import yaml
 
 from pkg_resources import resource_filename
 
 import mlflow
 import mlflow.version
 
-from mlflow import pyfunc
+from mlflow import pyfunc, mleap
 from mlflow.models import Model
+from mlflow.utils.logging_utils import eprint
 from mlflow.version import VERSION as MLFLOW_VERSION
+
+MODEL_PATH = "/opt/ml/model"
+
+DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "deployment_flavor_name"
+
+DEFAULT_SAGEMAKER_SERVER_PORT = 8080
+
+SUPPORTED_FLAVORS = [
+    pyfunc.FLAVOR_NAME,
+    mleap.FLAVOR_NAME
+]
 
 
 def _init(cmd):
@@ -47,7 +60,7 @@ def _server_dependencies_cmds():
     """
     # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
     return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
-            "pip install /opt/mlflow/." if os.path.isdir("/opt/mlflow")
+            "pip install /opt/mlflow/." if _container_includes_mlflow_source()
             else "pip install mlflow=={}".format(MLFLOW_VERSION)]
 
 
@@ -57,10 +70,33 @@ def _serve():
 
     Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
-    m = Model.load("/opt/ml/model/MLmodel")
-    if pyfunc.FLAVOR_NAME not in m.flavors:
-        raise Exception("Only supports pyfunc models and this is not one.")
-    conf = m.flavors[pyfunc.FLAVOR_NAME]
+    model_config_path = os.path.join(MODEL_PATH, "MLmodel")
+    m = Model.load(model_config_path)
+
+    if DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME in os.environ:
+        serving_flavor = os.environ[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
+    else:
+        # Older versions of mlflow may not specify a deployment configuration
+        serving_flavor = pyfunc.FLAVOR_NAME
+
+    if serving_flavor == mleap.FLAVOR_NAME:
+        # TODO(dbczumar): Host the scoring Java package on Maven Central so that we no
+        # longer require the container source for this flavor.
+        if _container_includes_mlflow_source():
+            _serve_mleap()
+        else:
+            raise Exception("The container does not support the specified deployment flavor:"
+                            " `{mleap_flavor}`. Please build the container with the `mlflow_home`"
+                            " parameter specified to enable this feature.".format(
+                                mleap_flavor=mleap.FLAVOR_NAME))
+    elif pyfunc.FLAVOR_NAME in m.flavors:
+        _serve_pyfunc(m)
+    else:
+        raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
+
+
+def _serve_pyfunc(model):
+    conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
         print("activating custom environment")
@@ -71,7 +107,7 @@ def _serve():
             os.makedirs(env_path_dst_dir)
         # TODO: should we test that the environment does not include any of the server dependencies?
         # Those are gonna be reinstalled. should probably test this on the client side
-        shutil.copyfile(os.path.join("/opt/ml/model/", env), env_path_dst)
+        shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
         os.system("conda env create -n custom_env -f {}".format(env_path_dst))
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
@@ -87,21 +123,45 @@ def _serve():
            "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", "; ".join(bash_cmds)])
-    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(nginx.pid, gunicorn.pid))
+    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
     # If either subprocess exits, so do we.
-    pids = set([nginx.pid, gunicorn.pid])
-    while True:
-        pid, _ = os.wait()
-        if pid in pids:
-            break
-    _sigterm_handler(nginx.pid, gunicorn.pid)
+    awaited_pids = _await_subprocess_exit_any(procs=[nginx, gunicorn])
+    _sigterm_handler(awaited_pids)
+
+
+def _serve_mleap():
+    serve_cmd = ["java", "-cp", "/opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*"
+                 "-with-dependencies.jar".format(
+                    mlflow_version=mlflow.version.VERSION),
+                 "org.mlflow.sagemaker.ScoringServer",
+                 MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)]
+    # Invoke `Popen` with a single string command in the shell to support wildcard usage
+    # with the mlflow jar version.
+    serve_cmd = " ".join(serve_cmd)
+    mleap = Popen(serve_cmd, shell=True)
+    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[mleap.pid]))
+    awaited_pids = _await_subprocess_exit_any(procs=[mleap])
+    _sigterm_handler(awaited_pids)
+
+
+def _container_includes_mlflow_source():
+    return os.path.isdir("/opt/mlflow")
 
 
 def _train():
     raise Exception("Train is not implemented.")
 
 
-def _sigterm_handler(nginx_pid, gunicorn_pid):
+def _await_subprocess_exit_any(procs):
+    pids = [proc.pid for proc in procs]
+    while True:
+        pid, _ = os.wait()
+        if pid in pids:
+            break
+    return pids
+
+
+def _sigterm_handler(pids):
     """
     Cleanup when terminating.
 
@@ -109,13 +169,10 @@ def _sigterm_handler(nginx_pid, gunicorn_pid):
 
     """
     print("Got sigterm signal, exiting.")
-    try:
-        os.kill(nginx_pid, signal.SIGQUIT)
-    except OSError:
-        pass
-    try:
-        os.kill(gunicorn_pid, signal.SIGTERM)
-    except OSError:
-        pass
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
 
     sys.exit(0)
