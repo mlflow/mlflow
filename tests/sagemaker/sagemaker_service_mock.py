@@ -1,5 +1,6 @@
-import json
+from __future__ import absolute_import
 
+import json
 from collections import namedtuple
 
 from moto.core import BaseBackend, BaseModel
@@ -7,6 +8,7 @@ from moto.core.responses import BaseResponse
 from moto.ec2 import ec2_backends
 
 from moto.iam.models import ACCOUNT_ID
+from moto.core.models import base_decorator, deprecated_base_decorator
 
 BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
 
@@ -24,10 +26,11 @@ class SageMakerResponse(BaseResponse):
     
     def create_endpoint_config(self):
         config_name = self.request_params["EndpointConfigName"]
-        production_variants = self.request_params.get("ProductionVariants", [])
+        production_variants = self.request_params.get("ProductionVariants")
         tags = self.request_params.get("Tags", [])
         new_config = self.sagemaker_backend.create_endpoint_config(
-                config_name=config_name, production_variants=production_variants, tags=tags)
+                config_name=config_name, production_variants=production_variants, tags=tags,
+                region_name=self.region)
         return json.dumps({
             'EndpointConfigArn': new_config.arn 
         })
@@ -49,7 +52,7 @@ class SageMakerResponse(BaseResponse):
         new_endpoint = self.sagemaker_backend.create_endpoint(
                 endpoint_name=endpoint_name,
                 endpoint_config_name=endpoint_config_name,
-                tags=tags)
+                tags=tags, region_name=self.region)
         return json.dumps({
             'EndpointArn': new_endpoint.arn 
         })
@@ -88,7 +91,7 @@ class SageMakerResponse(BaseResponse):
         vpc_config = self.request_params.get("VpcConfig", None)
         new_model = self.sagemaker_backend.create_model(model_name=model_name, 
                 primary_container=primary_container, execution_role_arn=execution_role_arn,
-                tags=tags, vpc_config=vpc_config)
+                tags=tags, vpc_config=vpc_config, region_name=self.region)
         return json.dumps({
             'ModelArn' : new_model.arn
         })
@@ -101,17 +104,22 @@ class SageMakerResponse(BaseResponse):
 
 class SageMakerBackend(BaseBackend):
 
-    def __init__(self, region_name):
+    def __init__(self):
         self.models = {}
         self.endpoints = {}
         self.endpoint_configs = {}
-        self.region_name = region_name
 
     @property
-    def _base_arn(self):
-        return BASE_SAGEMAKER_ARN.format(region_name=self.region, account_id=ACCOUNT_ID)
+    def _url_module(self):
+        urls_module_name = "tests.sagemaker.sagemaker_urls"
+        urls_module = __import__(urls_module_name, fromlist=[
+                                         'url_bases', 'url_paths'])
+        return urls_module 
 
-    def create_endpoint_config(self, config_name, production_variants, tags):
+    def _get_base_arn(self, region_name):
+        return BASE_SAGEMAKER_ARN.format(region_name=region_name, account_id=ACCOUNT_ID)
+
+    def create_endpoint_config(self, config_name, production_variants, tags, region_name):
         if config_name in self.endpoint_configs:
             raise Exception("Attempted to create an endpoint configuration with name:" 
                             " {config_name}, but an endpoint configuration with this" 
@@ -119,7 +127,7 @@ class SageMakerBackend(BaseBackend):
         new_config = EndpointConfig(config_name=config_name, 
                                     production_variants=production_variants, 
                                     tags=tags)
-        new_config_arn = self._base_arn + new_config.arn_descriptor
+        new_config_arn = self._get_base_arn(region_name=region_name) + new_config.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_config, arn=new_config_arn)
         self.endpoint_configs[config_name] = new_resource
         return new_resource
@@ -139,7 +147,7 @@ class SageMakerBackend(BaseBackend):
 
         del self.endpoint_configs[config_name]
     
-    def create_endpoint(self, endpoint_name, endpoint_config_name, tags):
+    def create_endpoint(self, endpoint_name, endpoint_config_name, tags, region_name):
         if endpoint_name in self.endpoints:
             raise Exception("Attempted to create an endpoint with name: `{endpoint_name}`" 
                             " but an endpoint with this name already exists.".format(
@@ -152,7 +160,7 @@ class SageMakerBackend(BaseBackend):
         
         new_endpoint = Endpoint(endpoint_name=endpoint_name, config_name=endpoint_config_name, 
                                 tags=tags)
-        new_endpoint_arn = self._base_arn + new_endpoint.arn_descriptor
+        new_endpoint_arn = self._get_base_arn(region_name=region_name) + new_endpoint.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_endpoint, arn=new_endpoint_arn)
         self.endpoints[endpoint_name] = new_resource 
         return new_resource 
@@ -195,7 +203,8 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-    def create_model(self, model_name, container_config, execution_role_arn, tags, vpc_config=None):
+    def create_model(self, model_name, container_config, execution_role_arn, tags, region_name, 
+                     vpc_config=None):
         if model_name in self.models:
             raise Exception("Attempted to create a model with name: `{model_name}`" 
                             " but a mdoel with this name already exists.".format(
@@ -203,7 +212,7 @@ class SageMakerBackend(BaseBackend):
 
         new_model = Model(model_name=model_name, container_config=container_config, 
                           execution_role_arn=execution_role_arn, tags=tags, vpc_config=vpc_config)
-        new_model_arn = self._base_arn + new_model.arn_descriptor
+        new_model_arn = self._get_base_arn(region_name=region_name) + new_model.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_model, arn=new_model_arn)
         self.models[model_name] = new_resource
         return new_resource
@@ -282,6 +291,7 @@ class EndpointConfigDescription:
 
     def __init__(self, config, arn):
         self.config = config
+        self.arn = arn
 
     @property
     def response_object(self):
@@ -325,4 +335,8 @@ class ModelDescription:
 # Create a SageMaker backend for each EC2 region
 sagemaker_backends = {}
 for region, ec2_backend in ec2_backends.items():
-    sagemaker_backends[region] = SageMakerBackend(region)
+    new_backend = SageMakerBackend()
+    sagemaker_backends[region] = new_backend
+
+mock_sagemaker = base_decorator(sagemaker_backends)
+mock_sagemaker_deprecated = deprecated_base_decorator(sagemaker_backends)
