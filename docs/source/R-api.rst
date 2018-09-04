@@ -135,7 +135,8 @@ Creates an MLflow experiment.
 
 .. code:: r
 
-   mlflow_create_experiment(name, activate = TRUE)
+   mlflow_create_experiment(name, artifact_location = NULL,
+     activate = TRUE)
 
 .. _arguments-4:
 
@@ -147,6 +148,11 @@ Arguments
 +===============================+======================================+
 | ``name``                      | The name of the experiment to        |
 |                               | create.                              |
++-------------------------------+--------------------------------------+
+| ``artifact_location``         | Location where all artifacts for     |
+|                               | this experiment are stored. If not   |
+|                               | provided, the remote server will     |
+|                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
 | ``activate``                  | Whether to set the created           |
 |                               | experiment as the active experiment. |
@@ -174,8 +180,7 @@ execution of a machine learning or data ETL pipeline.
    mlflow_create_run(user_id = NULL, run_name = NULL,
      source_type = NULL, source_name = NULL, status = NULL,
      start_time = NULL, end_time = NULL, source_version = NULL,
-     artifact_uri = NULL, entry_point_name = NULL, run_tags = NULL,
-     experiment_id = NULL)
+     entry_point_name = NULL, tags = NULL, experiment_id = NULL)
 
 .. _arguments-5:
 
@@ -211,18 +216,9 @@ Arguments
 | ``source_version``            | Git version of the source code used  |
 |                               | to create run.                       |
 +-------------------------------+--------------------------------------+
-| ``artifact_uri``              | URI of the directory where artifacts |
-|                               | should be uploaded This can be a     |
-|                               | local path (starting with “/”), or a |
-|                               | distributed file system (DFS) path,  |
-|                               | like s3://bucket/directory or        |
-|                               | dbfs:/my/directory. If not set, the  |
-|                               | local ./mlruns directory will be     |
-|                               | chosen by default.                   |
-+-------------------------------+--------------------------------------+
 | ``entry_point_name``          | Name of the entry point for the run. |
 +-------------------------------+--------------------------------------+
-| ``run_tags``                  | Additional metadata for run in       |
+| ``tags``                      | Additional metadata for run in       |
 |                               | key-value pairs.                     |
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | Unique identifier for the associated |
@@ -242,18 +238,7 @@ Disconnects from a local MLflow instance.
 
 .. code:: r
 
-   mlflow_disconnect(mc)
-
-.. _arguments-6:
-
-Arguments
----------
-
-+----------+------------------------------------------------------------+
-| Argument | Description                                                |
-+==========+============================================================+
-| ``mc``   | The MLflow connection created using ``mlflow_connect()`` . |
-+----------+------------------------------------------------------------+
+   mlflow_disconnect()
 
 End Run
 =======
@@ -264,7 +249,7 @@ End the active run.
 
    mlflow_end_run(status = "FINISHED")
 
-.. _arguments-7:
+.. _arguments-6:
 
 Arguments
 ---------
@@ -284,7 +269,7 @@ Get meta data for experiment and a list of runs for this experiment.
 
    mlflow_get_experiment(experiment_id)
 
-.. _arguments-8:
+.. _arguments-7:
 
 Arguments
 ---------
@@ -305,7 +290,7 @@ can be used to retrieve all logged values for this metric.
 
    mlflow_get_metric_history(metric_key, run_uuid = NULL)
 
-.. _arguments-9:
+.. _arguments-8:
 
 Arguments
 ---------
@@ -329,7 +314,7 @@ latest value logged.
 
    mlflow_get_metric(metric_key, run_uuid = NULL)
 
-.. _arguments-10:
+.. _arguments-9:
 
 Arguments
 ---------
@@ -341,6 +326,35 @@ Arguments
 +----------------+-----------------------------------------------------+
 | ``run_uuid``   | Unique ID for the run for which metric is recorded. |
 +----------------+-----------------------------------------------------+
+
+Get Param
+=========
+
+Get a param value.
+
+.. code:: r
+
+   mlflow_get_param(param_name, run_uuid = NULL)
+
+.. _arguments-10:
+
+Arguments
+---------
+
++----------------+-------------------------------------------------------+
+| Argument       | Description                                           |
++================+=======================================================+
+| ``param_name`` | Name of the param. This field is required.            |
++----------------+-------------------------------------------------------+
+| ``run_uuid``   | ID of the run from which to retrieve the param value. |
++----------------+-------------------------------------------------------+
+
+.. _value-1:
+
+Value
+-----
+
+The param value as a named list.
 
 Get Run
 =======
@@ -410,6 +424,28 @@ Examples
     list("\n", "library(mlflow)\n", "mlflow_install()\n", "\n", "# list local experiments\n", "mlflow_list_experiments()\n", "\n", "# list experiments in remote MLflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_list_experiments()\n") 
     
 
+Load MLflow Model Flavor
+========================
+
+Loads an MLflow model flavor, to be used by package authors to extend
+the supported MLflow models.
+
+.. code:: r
+
+   mlflow_load_flavor(flavor_path)
+
+.. _arguments-12:
+
+Arguments
+---------
+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``flavor_path``                   | The path to the MLflow model      |
+|                                   | wrapped in the correct class.     |
++-----------------------------------+-----------------------------------+
+
 Log Artifact
 ============
 
@@ -417,9 +453,9 @@ Logs an specific file or directory as an artifact.
 
 .. code:: r
 
-   mlflow_log_artifact(path, artifact_path = NULL)
+   mlflow_log_artifact(path, artifact_path = NULL, run_uuid = NULL)
 
-.. _arguments-12:
+.. _arguments-13:
 
 Arguments
 ---------
@@ -430,6 +466,8 @@ Arguments
 | ``path``          | The file or directory to log as an artifact.    |
 +-------------------+-------------------------------------------------+
 | ``artifact_path`` | Destination path within the run’s artifact URI. |
++-------------------+-------------------------------------------------+
+| ``run_uuid``      | The run associated with this artifact.          |
 +-------------------+-------------------------------------------------+
 
 .. _details-2:
@@ -458,7 +496,7 @@ historical values along with timestamps.
 
    mlflow_log_metric(key, value, timestamp = NULL, run_uuid = NULL)
 
-.. _arguments-13:
+.. _arguments-14:
 
 Arguments
 ---------
@@ -481,27 +519,29 @@ Log Model
 =========
 
 Logs a model in the given run. Similar to ``mlflow_save_model()`` but
-stores model only as an artifact within the active run.
+stores model as an artifact within the active run.
 
 .. code:: r
 
-   mlflow_log_model(f, path = "model")
+   mlflow_log_model(fn, artifact_path, run_uuid = NULL)
 
-.. _arguments-14:
+.. _arguments-15:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``f``                             | The serving function that will    |
-|                                   | perform a prediction.             |
-+-----------------------------------+-----------------------------------+
-| ``path``                          | Destination path where this       |
-|                                   | MLflow compatible model will be   |
-|                                   | saved.                            |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``fn``                        | The serving function that will       |
+|                               | perform a prediction.                |
++-------------------------------+--------------------------------------+
+| ``artifact_path``             | Destination path where this MLflow   |
+|                               | compatible model will be saved.      |
++-------------------------------+--------------------------------------+
+| ``run_uuid``                  | The run associated with the model to |
+|                               | be logged.                           |
++-------------------------------+--------------------------------------+
 
 Log Parameter
 =============
@@ -515,7 +555,7 @@ single parameter is allowed to be logged only once.
 
    mlflow_log_param(key, value, run_uuid = NULL)
 
-.. _arguments-15:
+.. _arguments-16:
 
 Arguments
 ---------
@@ -539,7 +579,7 @@ Reads a command line parameter.
 
    mlflow_param(name, default = NULL, type = NULL, description = NULL)
 
-.. _arguments-16:
+.. _arguments-17:
 
 Arguments
 ---------
@@ -561,6 +601,29 @@ Arguments
 |                               | parameter.                           |
 +-------------------------------+--------------------------------------+
 
+Predict over MLflow Model Flavor
+================================
+
+Performs prediction over a model loaded using ``mlflow_load_model()`` ,
+to be used by package authors to extend the supported MLflow models.
+
+.. code:: r
+
+   mlflow_predict_flavor(model, data)
+
+.. _arguments-18:
+
+Arguments
+---------
+
++-----------+----------------------------------+
+| Argument  | Description                      |
++===========+==================================+
+| ``model`` | The loaded MLflow model flavor.  |
++-----------+----------------------------------+
+| ``data``  | A data frame to perform scoring. |
++-----------+----------------------------------+
+
 Restore Snapshot
 ================
 
@@ -578,30 +641,37 @@ Predict using an RFunc MLflow Model from a file or data frame.
 
 .. code:: r
 
-   mlflow_rfunc_predict(model_dir, data, output_file = NULL,
-     restore = FALSE)
+   mlflow_rfunc_predict(model_path, run_uuid = NULL, input_path = NULL,
+     output_path = NULL, data = NULL, restore = FALSE)
 
-.. _arguments-17:
+.. _arguments-19:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``model_dir``                     | The path to the MLflow model, as  |
-|                                   | a string.                         |
-+-----------------------------------+-----------------------------------+
-| ``data``                          | Data frame, ‘JSON’ or ‘CSV’ file  |
-|                                   | to be used for prediction.        |
-+-----------------------------------+-----------------------------------+
-| ``output_file``                   | ‘JSON’ or ‘CSV’ file where the    |
-|                                   | prediction will be written to.    |
-+-----------------------------------+-----------------------------------+
-| ``restore``                       | Should                            |
-|                                   | ``mlflow_restore_snapshot()`` be  |
-|                                   | called before serving?            |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``model_path``                | The path to the MLflow model, as a   |
+|                               | string.                              |
++-------------------------------+--------------------------------------+
+| ``run_uuid``                  | Run ID of run to grab the model      |
+|                               | from.                                |
++-------------------------------+--------------------------------------+
+| ``input_path``                | Path to ‘JSON’ or ‘CSV’ file to be   |
+|                               | used for prediction.                 |
++-------------------------------+--------------------------------------+
+| ``output_path``               | ‘JSON’ or ‘CSV’ file where the       |
+|                               | prediction will be written to.       |
++-------------------------------+--------------------------------------+
+| ``data``                      | Data frame to be scored. This can be |
+|                               | utilized for testing purposes and    |
+|                               | can only be specified when           |
+|                               | ``input_path`` is not specified.     |
++-------------------------------+--------------------------------------+
+| ``restore``                   | Should ``mlflow_restore_snapshot()`` |
+|                               | be called before serving?            |
++-------------------------------+--------------------------------------+
 
 .. _examples-4:
 
@@ -621,10 +691,11 @@ http://localhost:8090 .
 
 .. code:: r
 
-   mlflow_rfunc_serve(model_dir, host = "127.0.0.1", port = 8090,
-     daemonized = FALSE, browse = !daemonized, restore = FALSE)
+   mlflow_rfunc_serve(model_path, run_uuid = NULL, host = "127.0.0.1",
+     port = 8090, daemonized = FALSE, browse = !daemonized,
+     restore = FALSE)
 
-.. _arguments-18:
+.. _arguments-20:
 
 Arguments
 ---------
@@ -632,8 +703,10 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_dir``                 | The path to the MLflow model, as a   |
+| ``model_path``                | The path to the MLflow model, as a   |
 |                               | string.                              |
++-------------------------------+--------------------------------------+
+| ``run_uuid``                  | ID of run to grab the model from.    |
 +-------------------------------+--------------------------------------+
 | ``host``                      | Address to use to serve model, as a  |
 |                               | string.                              |
@@ -672,12 +745,12 @@ Wrapper for ``mlflow run``.
 
 .. code:: r
 
-   mlflow_run(uri, entry_point = NULL, version = NULL,
+   mlflow_run(uri = ".", entry_point = NULL, version = NULL,
      param_list = NULL, experiment_id = NULL, mode = NULL,
      cluster_spec = NULL, git_username = NULL, git_password = NULL,
      no_conda = FALSE, storage_dir = NULL)
 
-.. _arguments-19:
+.. _arguments-21:
 
 Arguments
 ---------
@@ -685,7 +758,9 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``uri``                       | A directory or an R script.          |
+| ``uri``                       | A directory containing modeling      |
+|                               | scripts, defaults to the current     |
+|                               | directory.                           |
 +-------------------------------+--------------------------------------+
 | ``entry_point``               | Entry point within project, defaults |
 |                               | to ``main`` if not specified.        |
@@ -726,6 +801,32 @@ Arguments
 |                               | subdirectories of storage_dir.       |
 +-------------------------------+--------------------------------------+
 
+Save MLflow Model Flavor
+========================
+
+Saves model in MLflow’s flavor, to be used by package authors to extend
+the supported MLflow models.
+
+.. code:: r
+
+   mlflow_save_flavor(x, path = "model")
+
+.. _arguments-22:
+
+Arguments
+---------
+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``x``                             | The serving function or model     |
+|                                   | that will perform a prediction.   |
++-----------------------------------+-----------------------------------+
+| ``path``                          | Destination path where this       |
+|                                   | MLflow compatible model will be   |
+|                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+
 Save Model for MLflow
 =====================
 
@@ -734,9 +835,9 @@ serving.
 
 .. code:: r
 
-   mlflow_save_model(f, path = "model")
+   mlflow_save_model(x, path = "model")
 
-.. _arguments-20:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -744,8 +845,8 @@ Arguments
 +-----------------------------------+-----------------------------------+
 | Argument                          | Description                       |
 +===================================+===================================+
-| ``f``                             | The serving function that will    |
-|                                   | perform a prediction.             |
+| ``x``                             | The serving function or model     |
+|                                   | that will perform a prediction.   |
 +-----------------------------------+-----------------------------------+
 | ``path``                          | Destination path where this       |
 |                                   | MLflow compatible model will be   |
@@ -763,7 +864,7 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1", port = 5000, workers = 4,
      static_prefix = NULL)
 
-.. _arguments-21:
+.. _arguments-24:
 
 Arguments
 ---------
@@ -800,7 +901,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-22:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -831,7 +932,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-23:
+.. _arguments-26:
 
 Arguments
 ---------
@@ -854,7 +955,7 @@ block.
      source_name = NULL, source_version = NULL, entry_point_name = NULL,
      source_type = "LOCAL")
 
-.. _arguments-24:
+.. _arguments-27:
 
 Arguments
 ---------
@@ -920,7 +1021,7 @@ Launches MLflow user interface.
 
    mlflow_ui(x, ...)
 
-.. _arguments-25:
+.. _arguments-28:
 
 Arguments
 ---------
@@ -949,6 +1050,25 @@ Examples
     list("\n", "library(mlflow)\n", "mlflow_install()\n", "\n", "# launch mlflow ui locally\n", "mlflow_ui()\n", "\n", "# launch mlflow ui for existing mlflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_ui()\n") 
     
 
+Uninstalls MLflow.
+==================
+
+Uninstalls MLflow by removing the Conda environment.
+
+.. code:: r
+
+   mlflow_uninstall()
+
+.. _examples-8:
+
+Examples
+--------
+
+.. code:: r
+
+    list("\n", "library(mlflow)\n", "mlflow_install()\n", "mlflow_uninstall()\n") 
+    
+
 Update Run
 ==========
 
@@ -959,7 +1079,7 @@ Update Run
    mlflow_update_run(status = c("FINISHED", "SCHEDULED", "FAILED",
      "KILLED"), end_time = NULL, run_uuid = NULL)
 
-.. _arguments-26:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -973,3 +1093,30 @@ Arguments
 +--------------+-------------------------------------------------------+
 | ``run_uuid`` | Unique identifier for the run.                        |
 +--------------+-------------------------------------------------------+
+
+Write Model Specification
+=========================
+
+Provides support to extend new model flavors, by subclassing
+``mlflow_save_model()`` and performing a call to this function to write
+the flavor specification.
+
+.. code:: r
+
+   mlflow_write_model_spec(path, content)
+
+.. _arguments-30:
+
+Arguments
+---------
+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``path``                          | Destination path where this       |
+|                                   | MLflow compatible model will be   |
+|                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+| ``content``                       | The content to be saved to the    |
+|                                   | MLmodel specification.            |
++-----------------------------------+-----------------------------------+
