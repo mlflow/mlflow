@@ -80,7 +80,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.run_info.run_uuid)
-    supported_modes = ["local", "databricks"]
+    supported_modes = ["local", "databricks", "qubole"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
 

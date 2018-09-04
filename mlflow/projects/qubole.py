@@ -29,9 +29,9 @@ from qds_sdk.qubole import Qubole
 # Name to use for project directory when archiving it for upload to S3; the TAR will contain
 # a single directory with this name
 QUBOLE_TARFILE_ARCHIVE_NAME = "mlflow-project"
+QUBOLE_CONDA_HOME = "/usr/lib/a-4.2.0-py-3.5.3/"
 
-
-def _get_qubole_run_script(run_id, entry_point, parameters):
+def _get_qubole_run_script(project_s3_path, run_id, entry_point, parameters, env_vars):
     """
     Generates MLflow CLI command to run on Qubole cluster
     """
@@ -39,30 +39,39 @@ def _get_qubole_run_script(run_id, entry_point, parameters):
     
     script_template = \
     """
-    # get nodeinfo
+    set -x
+    # Activate mlflow environment
+    source /usr/lib/envs/mlflow/bin/activate /usr/lib/envs/mlflow/
+    # Export environment variables
+    {}
+    # Untar project
+    tar -xf {}
+    # Configure boto creds
     source /usr/lib/hustler/bin/qubole-bash-lib.sh
-    # get env id
-    env_id=$(nodeinfo quboled_env_id)
-    # activate env
-    envprefix=$(ls -d /usr/lib/envs/*| grep env-$env_id-ver- | grep py)
-    source $envprefix/bin/activate $envprefix
-    # run mlflow
+    export AWS_ACCESS_KEY_ID=`nodeinfo s3_access_key_id`
+    export AWS_SECRET_ACCESS_KEY=`nodeinfo s3_secret_access_key`
+    export HOME=/home/yarn
+    # Run mlflow
     mlflow run {} \
     --entry-point {} \
     {} {}
     """
 
+    env_var_export = " && ".join(["export {}={}".format(k, v) for 
+                                  (k, v) in env_vars.items()])
 
-    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
-                                            "--entry-point", entry_point]))
+    project_tar = project_s3_path.rstrip("/").split("/")[-1]
+
     run_id_param = "--run-id {}".format(run_id) if run_id else ""
     
     program_params = ""
     if parameters:
-        program_params = " ".join(["-P {}={}".format(k, v) for (k, v) in parameters.items()])  
+        program_params = " ".join(["-P {}={}".format(k, v) for 
+                                   (k, v) in parameters.items()])  
     
-    mlflow_run_cmd = script_template.format(project_dir, entry_point, 
-                           run_id_param, program_params)
+    mlflow_run_cmd = script_template.format(env_var_export, project_tar,
+                                            project_dir, entry_point,
+                                            run_id_param, program_params)
     
     return mlflow_run_cmd
 
@@ -165,17 +174,16 @@ def _run_shell_command_job(project_s3_path, script_s3_path, cluster_spec):
 
     args_template = """
                     --script_location {} \\
-                    --archives {} \\
+                    --files {} \\
                     --cluster-label {} \\
-                    --notify {} \\
+                    {} \\
                     --tags {} \\
                     --name {} \\
                     """
-
+    notify = "--notify" if cluster_spec["command"]["notify"] else ""
     args = args_template.format(script_s3_path, project_s3_path, 
                                 cluster_spec["cluster"]["label"],
-                                cluster_spec["command"]["notify"],
-                                ",".join(cluster_spec["command"]["tags"]),
+                                notify, ",".join(cluster_spec["command"]["tags"]),
                                 cluster_spec["command"]["name"])
 
     eprint("=== Launched MLflow run as Qubole job ===")
@@ -234,9 +242,9 @@ def run_qubole(uri, entry_point, version, parameters, experiment_id, cluster_spe
                     "%s. " % cluster_spec)
             raise
 
-    # tracking_uri = tracking.get_tracking_uri()
+    tracking_uri = tracking.get_tracking_uri()
 
-    # _before_run_validations(tracking_uri, cluster_spec)
+    _before_run_validations(tracking_uri, cluster_spec)
 
     work_dir = _fetch_and_clean_project(
         uri=uri, version=version, git_username=git_username, git_password=git_password)
@@ -250,23 +258,17 @@ def run_qubole(uri, entry_point, version, parameters, experiment_id, cluster_spe
         source_version=tracking._get_git_commit(work_dir), entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
 
-    # env_vars = {
-    #      tracking._TRACKING_URI_ENV_VAR: tracking_uri,
-    #      tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
-    # }
-
-    env_vars = {}
-
-    # env_vars = " && ".join(["export {}={}" for 
-    #                         (x, y) in env_vars.items()])
-
-    # script = "{} && {}".format(env_vars, script)
+    env_vars = {
+        tracking._TRACKING_URI_ENV_VAR: tracking_uri,
+        tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
+        "MLFLOW_CONDA_HOME": QUBOLE_CONDA_HOME
+    }
 
     run_id = remote_run.run_info.run_uuid
     eprint("=== Running entry point %s of project %s on Qubole. ===" % (entry_point, uri))
     
     # Get the shell command to run
-    script = _get_qubole_run_script(run_id, entry_point, parameters)
+    script = _get_qubole_run_script(project_s3_path, run_id, entry_point, parameters, env_vars)
     
     script_s3_path = S3Utils(cluster_spec["aws"]).upload_script(script, experiment_id)
 
