@@ -7,7 +7,9 @@
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
 #'
-#' @importFrom yaml write_yaml
+#' @return This funciton must return a list of flavors that conform to
+#'   the MLmodel specification.
+#'
 #' @export
 mlflow_save_flavor <- function(x, path = "model") {
   UseMethod("mlflow_save_flavor")

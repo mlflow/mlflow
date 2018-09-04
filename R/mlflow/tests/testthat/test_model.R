@@ -24,3 +24,20 @@ test_that("mlflow can save model function", {
     unname(predict(model, iris))
   )
 })
+
+test_that("mlflow can write model with dependencies", {
+  mlflow_clear_test_dir("model")
+
+  model <- lm(Sepal.Width ~ Sepal.Length, iris)
+
+  fn <- crate(~ stats::predict(model, .x), model)
+
+  mlflow_save_model(fn, "model", dependencies = "conda.yaml")
+
+  mlmodel <- yaml::read_yaml("model/MLmodel")
+
+  expect_equal(
+    mlmodel$conda_env,
+    "conda.yaml"
+  )
+})

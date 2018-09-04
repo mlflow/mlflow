@@ -6,28 +6,37 @@
 #' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param dependencies Optional vector of paths to dependency files
+#'   to include in the model, as in \code{r-dependencies.txt}
+#'   or \code{conda.yaml}.
 #'
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(x, path = "model") {
+mlflow_save_model <- function(x, path = "model", dependencies = NULL) {
+  supported_deps <- list(
+    "r-dependencies.txt" = "r_dependencies",
+    "conda.yaml" = "conda_env"
+  )
+
+  if (!is.null(dependencies)) {
+    dep_file <- basename(dependencies)
+    if (!all(dep_file %in% names(supported_deps))) {
+      stop("Dependency ", dep_file, " is unsupported. Supported files: ", paste(names(supported_deps), collapse = ", "))
+    }
+  }
+
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
-  mlflow_save_flavor(x, path)
+  flavor_spec <- mlflow_save_flavor(x, path)
+
+  for (dependency in dependencies) {
+    flavor_spec[[supported_deps[[basename(dependency)]]]] <- dependency
+  }
+
+  mlflow_write_model_spec(path, flavor_spec)
 }
 
-#' Write Model Specification
-#'
-#' Provides support to extend new model flavors, by subclassing
-#' \code{mlflow_save_model()} and performing a call to this
-#' function to write the flavor specification.
-#'
-#' @param path Destination path where this MLflow compatible model
-#'   will be saved.
-#' @param content The content to be saved to the MLmodel
-#'   specification.
-#'
-#' @export
 mlflow_write_model_spec <- function(path, content) {
   content$time_created <- Sys.time()
   content$run_id <- mlflow_active_run()$run_info$run_uuid
