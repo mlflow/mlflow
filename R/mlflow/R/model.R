@@ -16,7 +16,7 @@ mlflow_save_model <- function(x, path = "model") {
   UseMethod("mlflow_save_model")
 }
 
-#' Save Model Specification
+#' Write Model Specification
 #'
 #' Provides support to extend new model flavors, by subclassing
 #' \code{mlflow_save_model()} and performing a call to this
@@ -41,10 +41,19 @@ mlflow_write_model_spec <- function(path, content) {
 mlflow_load_model <- function(model_path) {
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
 
-  if (!"r_function" %in% names(spec$flavors))
-    stop("Model must define r_function to be used from R.")
+  supported <- gsub("^r_", "", names(spec$flavors)) %>%
+    Filter(function(e) paste("mlflow_save_model", e, sep = ".") %in% as.vector(methods(class = e)), .)
 
-  unserialize(readRDS(fs::path(model_path, spec$flavors$r_function$model)))
+  if (length(supported) == 0) {
+    stop(
+      "Model must define r_crate flavor to be used from R, ",
+      "or a package that extends the MLflow flavor."
+    )
+  }
+
+  supported_class <- supported[[1]]
+  mlflow_subclass <- getS3method("mlflow_save_model", class = supported_class)
+  mlflow_subclass(fs::path(model_path, spec$flavors[[paste("r", supported_class, sep = "_")]]$model))
 }
 
 mlflow_rfunc_predict_impl <- function(model, data) {
