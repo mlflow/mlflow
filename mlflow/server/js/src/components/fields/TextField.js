@@ -8,7 +8,6 @@ class TextField extends Component {
     field: PropTypes.object.isRequired,
     form: PropTypes.object.isRequired,
     label: PropTypes.string.isRequired,
-    autoFocus: PropTypes.bool,
   }
 
   render() {
