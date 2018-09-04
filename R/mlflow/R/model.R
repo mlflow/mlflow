@@ -41,13 +41,25 @@ mlflow_write_model_spec <- function(path, content) {
 mlflow_load_model <- function(model_path) {
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
 
-  supported <- gsub("^r_", "", names(spec$flavors)) %>%
+  model_flavors <- gsub("^r_", "", names(spec$flavors))
+
+  supported <- model_flavors %>%
     Filter(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(methods(class = e)), .)
 
-  if (length(supported) == 0) {
+  if ("crate" %in% model_flavors) {
+    supported <- c("crate", supported)
+  }
+
+  if (length(supported) == 0 && !"crate" %in% model_flavors) {
     stop(
-      "Model must define r_crate flavor to be used from R, ",
-      "or a package that extends the MLflow flavor."
+      "Model must define r_crate flavor to be used from R. ",
+      "Model flavors: ",
+      paste(model_flavors, collapse = ", "),
+      ". Supported flavors: ",
+      paste(
+        purrr::map_chr(model_flavors, ~ as.vector(methods(class = .x))),
+        collapse = ", "
+      )
     )
   }
 
