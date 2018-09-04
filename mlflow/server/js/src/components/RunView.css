@@ -3,8 +3,7 @@
   display: inline-block;
 }
 .header-container {
-  margin-top: 32px;
-  margin-bottom: 8px;
+  display: flex;
 }
 
 .separator {
@@ -107,4 +106,8 @@ textarea.run-command {
 .mlflow-menu .mlflow-menu-item > a:hover {
   background-color: rgb(1, 147, 225);
   color: #ffffff;
+}
+
+.mlflow-dropdown {
+  margin-top: 28px;
 }

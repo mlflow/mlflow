@@ -322,6 +322,6 @@ const styles = {
     borderColor: "transparent",
     border: "none",
     boxShadow: "none",
-    marginTop: "-6px",
+    marginTop: "32",
   }
 };
