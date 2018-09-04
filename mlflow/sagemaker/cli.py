@@ -24,7 +24,7 @@ def commands():
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
 @cli_args.RUN_ID
 @click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
-@click.option("--region-name", "-r", default="us-west-2",
+@click.option("--region-name", "-rn", default="us-west-2",
               help="Name of the AWS region in which to deploy the application")
 @click.option("--mode", "-md", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
               help="The mode in which to deploy the application."
