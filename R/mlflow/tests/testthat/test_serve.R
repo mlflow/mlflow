@@ -23,7 +23,12 @@ test_that("mlflow can serve a model function", {
 
   Sys.sleep(5)
 
-  status_code <- httr::status_code(httr::GET("http://127.0.0.1:8090"))
+  tryCatch({
+    status_code <- httr::status_code(httr::GET("http://127.0.0.1:8090"))
+  }, error = function(e) {
+    stop(e$message, ": ", paste(model_server$read_all_error_lines(), collapse = "\n"))
+  })
+
   expect_equal(status_code, 200)
 
   newdata <- iris[1:2, c("Sepal.Length", "Petal.Width")]

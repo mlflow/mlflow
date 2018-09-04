@@ -4,7 +4,7 @@
 \alias{mlflow_log_artifact}
 \title{Log Artifact}
 \usage{
-mlflow_log_artifact(path, artifact_path, run_uuid = NULL)
+mlflow_log_artifact(path, artifact_path = NULL, run_uuid = NULL)
 }
 \arguments{
 \item{path}{The file or directory to log as an artifact.}

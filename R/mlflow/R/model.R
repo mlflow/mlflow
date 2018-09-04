@@ -3,41 +3,37 @@
 #' Saves model in MLflow's format that can later be used
 #' for prediction and serving.
 #'
-#' @param fn The serving function that will perform a prediction.
+#' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
 #'
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(fn, path = "model") {
-
-  if (!inherits(fn, "crate")) {
-    stop("Serving function must be crated using mlflow::crate().")
-  }
-
+mlflow_save_model <- function(x, path = "model") {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
-  serialized <- serialize(fn, NULL)
+  mlflow_save_flavor(x, path)
+}
 
-  saveRDS(
-    serialized,
-    file.path(path, "r_model.bin")
-  )
-
-  ml_model_content <- list(
-    time_created = Sys.time(),
-    run_id = mlflow_active_run()$run_info$run_uuid,
-    flavors = list(
-      r_function = list(
-        version = "0.1.0",
-        model = "r_model.bin"
-      )
-    )
-  )
+#' Write Model Specification
+#'
+#' Provides support to extend new model flavors, by subclassing
+#' \code{mlflow_save_model()} and performing a call to this
+#' function to write the flavor specification.
+#'
+#' @param path Destination path where this MLflow compatible model
+#'   will be saved.
+#' @param content The content to be saved to the MLmodel
+#'   specification.
+#'
+#' @export
+mlflow_write_model_spec <- function(path, content) {
+  content$time_created <- Sys.time()
+  content$run_id <- mlflow_active_run()$run_info$run_uuid
 
   write_yaml(
-    purrr::compact(ml_model_content),
+    purrr::compact(content),
     file.path(path, "MLmodel")
   )
 }
@@ -45,21 +41,34 @@ mlflow_save_model <- function(fn, path = "model") {
 mlflow_load_model <- function(model_path) {
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
 
-  if (!"r_function" %in% names(spec$flavors))
-    stop("Model must define r_function to be used from R.")
+  model_flavors <- gsub("^r_", "", names(spec$flavors))
 
-  unserialize(readRDS(fs::path(model_path, spec$flavors$r_function$model)))
-}
+  supported <- model_flavors %>%
+    Filter(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(methods(class = e)), .)
 
-mlflow_rfunc_predict_impl <- function(model, data) {
-  if (!is.data.frame(data))
-    stop("Could not load data as a data frame.")
-
-  if (!inherits(model, "crate")) {
-    stop("MLflow rfunc model expected to be crated using mlflow::crate().")
+  if ("crate" %in% model_flavors) {
+    supported <- c("crate", supported)
   }
 
-  model(data)
+  if (length(supported) == 0 && !"crate" %in% model_flavors) {
+    stop(
+      "Model must define r_crate flavor to be used from R. ",
+      "Model flavors: ",
+      paste(model_flavors, collapse = ", "),
+      ". Supported flavors: ",
+      paste(
+        purrr::map_chr(model_flavors, ~ as.vector(methods(class = .x))),
+        collapse = ", "
+      )
+    )
+  }
+
+  supported_class <- supported[[1]]
+
+  flavor_path <- fs::path(model_path, spec$flavors[[paste("r", supported_class, sep = "_")]]$model)
+  class(flavor_path) <- c(supported_class, class(flavor_path))
+
+  mlflow_load_flavor(flavor_path)
 }
 
 #' Predict using RFunc MLflow Model
@@ -118,7 +127,7 @@ mlflow_rfunc_predict <- function(
 
   model <- mlflow_load_model(model_path)
 
-  prediction <- mlflow_rfunc_predict_impl(model, data)
+  prediction <- mlflow_predict_flavor(model, data)
 
   if (is.null(output_path)) {
     if (!interactive()) message(prediction)
