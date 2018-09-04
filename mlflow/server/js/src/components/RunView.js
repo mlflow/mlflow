@@ -136,7 +136,7 @@ class RunView extends Component {
             title={this.props.runName}
           />
           <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
-             <Dropdown.Toggle noCaret className="dropdown-button" style={styles.dropdownToggle}>
+             <Dropdown.Toggle noCaret className="mlflow-dropdown-button">
                <i className="fas fa-caret-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu className="mlflow-menu">
@@ -311,14 +311,4 @@ const shellEscape = (str) => {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }
   return str;
-};
-
-const styles = {
-  dropdownToggle: {
-    backgroundColor: "transparent",
-    borderColor: "transparent",
-    border: "none",
-    boxShadow: "none",
-    marginTop: "32",
-  }
 };

@@ -27,7 +27,7 @@ class RenameRunFormView extends Component {
     } = renderProps;
     const saveText = isSubmitting ? "Saving..." : "Save";
 
-    return <form onSubmit={handleSubmit} style={styles.form}>
+    return <form onSubmit={handleSubmit} className="rename-run-form">
       <Modal.Header><Modal.Title>Rename Run</Modal.Title></Modal.Header>
       <Modal.Body>
         { status && status.errorMsg &&
@@ -71,9 +71,3 @@ class RenameRunFormView extends Component {
 }
 
 export default withRouter(RenameRunFormView);
-
-const styles = {
-  form: {
-    width: 480,
-  },
-};

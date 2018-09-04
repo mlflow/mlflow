@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { Experiment } from "../sdk/MlflowMessages";
 import { Link } from 'react-router-dom';
 import Routes from "../Routes";
+import './BreadcrumbTitle.css';
 
 /**
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
@@ -38,7 +39,7 @@ export default class BreadcrumbTitle extends Component {
     }
     const chevron = <i className="fas fa-chevron-right breadcrumb-chevron" key="chevron"/>;
     return (
-      <h1 style={styles.h1}>
+      <h1 className="breadcrumb-header">
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink, chevron] : [] }
@@ -48,8 +49,3 @@ export default class BreadcrumbTitle extends Component {
   }
 }
 
-const styles = {
-  h1: {
-    marginBottom: 0,
-  },
-};

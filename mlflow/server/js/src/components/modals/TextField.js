@@ -21,7 +21,7 @@ class TextField extends Component {
     const error = errors && errors[field.name];
     return (<FormGroup
       controlId={field.name}
-      validationState={ touched && touched[field.name] && error ? 'error' : null }
+      validationState={touched && touched[field.name] && error ? 'error' : null}
     >
       <ControlLabel>{label}</ControlLabel>
       <FormControl

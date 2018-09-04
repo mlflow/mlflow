@@ -109,3 +109,18 @@ textarea.run-command {
 .mlflow-dropdown {
   margin-top: 28px;
 }
+
+.rename-run-form {
+  width: 480px;
+}
+
+.header-container .mlflow-dropdown .mlflow-dropdown-button,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:hover,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:active,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:focus {
+    background-color: transparent;
+    border-color: transparent;
+    border: none;
+    box-shadow: none;
+    background-image: none;
+}
