@@ -12,7 +12,7 @@ import tempfile
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects import _project_spec
-from mlflow.utils.exception import ExecutionException
+from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus, SourceType, Param
 import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
@@ -44,7 +44,14 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     if run_id:
         active_run = tracking.get_service().get_run(run_id)
     else:
-        active_run = _create_run(uri, exp_id, work_dir, entry_point, parameters)
+        active_run = _create_run(uri, exp_id, work_dir, entry_point)
+
+    # Consolidate parameters for logging.
+    # `storage_dir` is `None` since we want to log actual path not downloaded local path
+    entry_point_obj = project.get_entry_point(entry_point)
+    final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
+    for key, value in (list(final_params.items()) + list(extra_params.items())):
+        tracking.get_service().log_param(active_run.info.run_uuid, key, value)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -362,7 +369,7 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
 
 
-def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
+def _create_run(uri, experiment_id, work_dir, entry_point):
     """
     Create a ``Run`` against the current MLflow tracking server, logging metadata (e.g. the URI,
     entry point, and parameters of the project) about the run. Return an ``ActiveRun`` that can be
@@ -378,9 +385,6 @@ def _create_run(uri, experiment_id, work_dir, entry_point, parameters):
         source_version=_get_git_commit(work_dir),
         entry_point_name=entry_point,
         source_type=SourceType.PROJECT)
-    if parameters is not None:
-        for key, value in parameters.items():
-            tracking.get_service().log_param(active_run.info.run_uuid, key, value)
     return active_run
 
 
