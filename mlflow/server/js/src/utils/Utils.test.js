@@ -145,17 +145,24 @@ test("dropExtension", () => {
 test("getGitHubRegex", () => {
   const gitHubRegex = Utils.getGitHubRegex();
   const urlAndExpected = [
-    ["http://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["https://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["http://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["https://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["git@github.com:mlflow/mlflow-apps.git", ["@github.com:mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["http://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps", ""]],
+    ["https://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps", ""]],
+    ["http://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps.git", "mlflow", "mlflow-apps", ""]],
+    ["https://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps.git", "mlflow", "mlflow-apps", ""]],
+    ["https://github.com/mlflow/mlflow#example/tutorial",
+      ["/github.com/mlflow/mlflow#example/tutorial", "mlflow", "mlflow", "example/tutorial"]],
+    ["https://github.com/username/repo.name#mlproject",
+      ["/github.com/username/repo.name#mlproject", "username", "repo.name", "mlproject"]],
+    ["git@github.com:mlflow/mlflow-apps.git", ["@github.com:mlflow/mlflow-apps.git", "mlflow", "mlflow-apps", ""]],
     ["https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git", [null]],
     ["ssh@some-server:mlflow/mlflow-apps.git", [null]],
   ];
   urlAndExpected.forEach((lst) => {
     const url = lst[0];
     const match = url.match(gitHubRegex);
+    if (match) {
+      match[2] = match[2].replace(/.git/, '');
+    }
     expect([].concat(match)).toEqual(lst[1]);
   });
 });
