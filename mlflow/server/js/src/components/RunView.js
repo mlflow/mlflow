@@ -37,7 +37,7 @@ class RunView extends Component {
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
     getMetricPagePath: PropTypes.func.isRequired,
-    runName: PropTypes.string.isRequired
+    runName: PropTypes.string.isRequired,
   };
 
   state = {
