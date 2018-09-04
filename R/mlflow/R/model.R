@@ -3,41 +3,37 @@
 #' Saves model in MLflow's format that can later be used
 #' for prediction and serving.
 #'
-#' @param fn The serving function that will perform a prediction.
+#' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
 #'
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(fn, path = "model") {
-
-  if (!inherits(fn, "crate")) {
-    stop("Serving function must be crated using mlflow::crate().")
-  }
-
+mlflow_save_model <- function(x, path = "model") {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
-  serialized <- serialize(fn, NULL)
+  UseMethod("mlflow_save_model")
+}
 
-  saveRDS(
-    serialized,
-    file.path(path, "r_model.bin")
-  )
-
-  ml_model_content <- list(
-    time_created = Sys.time(),
-    run_id = mlflow_active_run()$run_info$run_uuid,
-    flavors = list(
-      r_function = list(
-        version = "0.1.0",
-        model = "r_model.bin"
-      )
-    )
-  )
+#' Save Model Specification
+#'
+#' Provides support to extend new model flavors, by subclassing
+#' \code{mlflow_save_model()} and performing a call to this
+#' function to write the flavor specification.
+#'
+#' @param path Destination path where this MLflow compatible model
+#'   will be saved.
+#' @param content The content to be saved to the MLmodel
+#'   specification.
+#'
+#' @export
+mlflow_write_model_spec <- function(path, content) {
+  content$time_created <- Sys.time()
+  content$run_id <- mlflow_active_run()$run_info$run_uuid
 
   write_yaml(
-    purrr::compact(ml_model_content),
+    purrr::compact(content),
     file.path(path, "MLmodel")
   )
 }
