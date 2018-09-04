@@ -4,7 +4,7 @@ from random import random, randint
 from mlflow import log_metric, log_param, log_artifacts
 
 if __name__ == "__main__":
-    print("Running test.py")
+    print("Running mlflow_tracking.py")
 
     log_param("param1", randint(0, 100))
     

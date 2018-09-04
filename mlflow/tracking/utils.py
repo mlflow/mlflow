@@ -6,14 +6,23 @@ import sys
 from six.moves import urllib
 
 from mlflow.store.file_store import FileStore
-from mlflow.store.rest_store import RestStore, DatabricksStore
+from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
+
+# Extra environment variables which take precedence for setting the basic/bearer
+# auth on http requests.
+_TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
+_TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
+_TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
+_TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
+
 
 _tracking_uri = None
 
@@ -98,17 +107,31 @@ def _get_file_store(store_uri):
 
 
 def _get_rest_store(store_uri):
-    return RestStore({'hostname': store_uri})
+    def get_default_host_creds():
+        return rest_utils.MlflowHostCreds(
+            host=store_uri,
+            username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
+            password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
+            token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+            ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
+        )
+    return RestStore(get_default_host_creds)
+
+
+def get_db_profile_from_uri(uri):
+    """
+    Returns the Databricks profile specified by the passed-in tracking URI (if any), otherwise
+    returns None.
+    """
+    parsed_uri = urllib.parse.urlparse(uri)
+    if parsed_uri.scheme == "databricks":
+        return parsed_uri.hostname
+    return None
 
 
 def _get_databricks_rest_store(store_uri):
-    parsed_uri = urllib.parse.urlparse(store_uri)
-
-    profile = None
-    if parsed_uri.scheme == 'databricks':
-        profile = parsed_uri.hostname
-    http_request_kwargs = rest_utils.get_databricks_http_request_kwargs_or_fail(profile)
-    return DatabricksStore(http_request_kwargs)
+    profile = get_db_profile_from_uri(store_uri)
+    return RestStore(lambda: get_databricks_host_creds(profile))
 
 
 def _get_model_log_dir(model_name, run_id):

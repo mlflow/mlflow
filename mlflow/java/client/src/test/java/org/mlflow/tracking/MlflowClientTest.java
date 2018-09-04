@@ -42,7 +42,7 @@ public class MlflowClientTest {
     Assert.assertEquals(exp.getExperiment().getName(), expName);
   }
 
-  @Test(expectedExceptions = MlflowHttpServerException.class) // TODO: server should throw 406
+  @Test(expectedExceptions = MlflowClientException.class) // TODO: server should throw 406
   public void createExistingExperiment() {
     String expName = createExperimentName();
     client.createExperiment(expName);
@@ -86,7 +86,7 @@ public class MlflowClientTest {
 
     List<RunInfo> runInfos = client.listRunInfos(expId);
     Assert.assertEquals(runInfos.size(), 1);
-    Assert.assertEquals(runInfos.get(0).getName(), "Run 0"); // Weird, but the API returns this
+    Assert.assertEquals(runInfos.get(0).getSourceType(), SourceType.LOCAL);
     Assert.assertEquals(runInfos.get(0).getStatus(), RunStatus.RUNNING);
 
     // Log parameters
@@ -108,12 +108,11 @@ public class MlflowClientTest {
     GetExperiment.Response expResponse = client.getExperiment(expId);
     Experiment exp = expResponse.getExperiment();
     Assert.assertEquals(exp.getName(), expName);
-    assertRunInfo(expResponse.getRunsList().get(0), expId, user, sourceFile);
 
     // Assert run from getRun
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
-    assertRunInfo(runInfo, expId, user, sourceFile);
+    assertRunInfo(runInfo, expId, sourceFile);
   }
 
   @Test(dependsOnMethods = {"addGetRun"})
