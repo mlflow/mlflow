@@ -61,6 +61,8 @@ def cli():
               help="Username for HTTP(S) Git authentication.")
 @click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
               help="Password for HTTP(S) Git authentication.")
+@click.option("--git-branch", metavar="BRANCH", envvar="MLFLOW_GIT_BRANCH",
+              help="Branch of Git repository.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when `mode` is local."
@@ -71,7 +73,7 @@ def cli():
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
 def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, storage_dir, run_id):
+        git_password, git_branch, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -106,6 +108,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             cluster_spec=cluster_spec,
             git_username=git_username,
             git_password=git_password,
+            git_branch=git_branch,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
             block=mode == "local" or mode is None,
