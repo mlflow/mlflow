@@ -163,7 +163,7 @@ table th {
 /* Overrides for bootstrap modal */
 .modal-body {
   padding: 16px;
-  padding-bottom: 0px;
+  padding-bottom: 8px;
 }
 
 .modal-footer {
