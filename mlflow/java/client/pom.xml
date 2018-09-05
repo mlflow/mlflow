@@ -12,7 +12,7 @@
   <artifactId>mlflow-client</artifactId>
   <packaging>jar</packaging>
   <version>0.5.2</version>
-  <name>MLflow Client SDK</name>
+  <name>MLflow Tracking API</name>
   <url>http://mlflow.org</url>
   <properties>
     <mlflow.shade.packageName>org.mlflow_project</mlflow.shade.packageName>
@@ -60,6 +60,16 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <sourcepath>${project.basedir}/src/main/java</sourcepath>
+          <excludePackageNames>com.databricks.api.proto.databricks:org.mlflow.scalapb_interface:org.mlflow.tracking.samples</excludePackageNames>
+          <groups>
+            <group>
+              <title>Tracking API</title>
+              <packages>org.mlflow.tracking:org.mlflow.tracking.*</packages>
+            </group>
+          </groups>
+        </configuration>
       </plugin>
 
       <plugin>
