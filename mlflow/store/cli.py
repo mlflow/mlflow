@@ -17,6 +17,7 @@ BASE_ARTIFACT_URI_HELP = (
     " Exactly one of --base-artifact-uri and --run-id and is required."
 )
 
+
 @click.group("artifacts")
 def commands():
     """Upload, list, and download artifacts from an MLflow artifact repository."""
@@ -105,14 +106,15 @@ def download_artifacts(run_id, base_artifact_uri, artifact_path):
     artifact_location = artifact_repo.download_artifacts(artifact_path)
     print(artifact_location)
 
+
 def _get_artifact_uri_or_exit(store, run_id, base_artifact_uri):
     """Returns an appropriate artifact_uri by looking at the run_id or provided URI."""
     if run_id and base_artifact_uri:
-      eprint("Only one of --run-id and --base-artifact-uri may be provided")
-      sys.exit(1)
+        eprint("Only one of --run-id and --base-artifact-uri may be provided")
+        sys.exit(1)
     if not run_id and not base_artifact_uri:
-      eprint("One of --run-id and --base-artifact-uri must be provided")
-      sys.exit(1)
+        eprint("One of --run-id and --base-artifact-uri must be provided")
+        sys.exit(1)
     if base_artifact_uri:
-      return base_artifact_uri
+        return base_artifact_uri
     return store.get_run(run_id).info.artifact_uri
