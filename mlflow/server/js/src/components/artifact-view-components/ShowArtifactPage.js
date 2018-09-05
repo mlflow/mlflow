@@ -1,8 +1,10 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import ShowArtifactImageView from './ShowArtifactImageView';
-import { getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS } from '../../utils/FileUtils';
 import ShowArtifactTextView from './ShowArtifactTextView';
+import ShowArtifactCsvView from './ShowArtifactCsvView';
+import { getExtension, IMAGE_EXTENSIONS,
+  TEXT_EXTENSIONS, CSV_EXTENSIONS } from '../../utils/FileUtils';
 import previewIcon from '../../static/preview-icon.png';
 import './ShowArtifactPage.css';
 
@@ -19,6 +21,8 @@ class ShowArtifactPage extends Component {
         return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path}/>;
       } else if (TEXT_EXTENSIONS.has(getExtension(this.props.path))) {
         return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path}/>;
+      } else if (CSV_EXTENSIONS.has(getExtension(this.props.path))) {
+        return <ShowArtifactCsvView runUuid={this.props.runUuid} path={this.props.path}/>;
       }
     }
     return (
@@ -30,7 +34,7 @@ class ShowArtifactPage extends Component {
           <div className="select-preview-text">
             <span className="select-preview-header">Select a file to preview</span>
             <span className="select-preview-supported-formats">
-              Supported formats: image and text files
+              Supported formats: image, csv, and text files
             </span>
           </div>
         </div>
