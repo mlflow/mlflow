@@ -93,7 +93,7 @@ mlflow_get_experiment <- function(experiment_id) {
 #' @param entry_point_name Name of the entry point for the run.
 #' @param tags Additional metadata for run in key-value pairs.
 #' @export
-mlflow_create_run <- function(user_id = NULL,
+mlflow_create_run <- function(user_id = mlflow_user(),
                               run_name = NULL, source_type = NULL, source_name = NULL,
                               status = NULL, start_time = NULL, end_time = NULL,
                               source_version = NULL, entry_point_name = NULL,
