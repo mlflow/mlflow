@@ -19,24 +19,24 @@ public class HttpTest {
     testClientProvider.cleanupClientAndServer();
   }
 
-  @Test(expectedExceptions = MlflowHttpClientException.class)
+  @Test(expectedExceptions = MlflowHttpException.class)
   public void nonExistentPath() {
-    client.doGet("BAD_PATH");
+    client.sendGet("BAD_PATH");
   }
 
-  @Test(expectedExceptions = MlflowHttpServerException.class)   // TODO: server should throw 4xx
+  @Test(expectedExceptions = MlflowHttpException.class)   // TODO: server should throw 4xx
   public void getExperiment_NonExistentId() {
-    client.doGet("experiments/get?experiment_id=NON_EXISTENT_EXPERIMENT_ID");
+    client.sendGet("experiments/get?experiment_id=NON_EXISTENT_EXPERIMENT_ID");
   }
 
-  @Test(expectedExceptions = MlflowHttpServerException.class) // TODO: server should throw 4xx
+  @Test(expectedExceptions = MlflowHttpException.class) // TODO: server should throw 4xx
   public void createExperiment_IllegalJsonSyntax() {
-    client.doPost("experiments/create", "NOT_JSON");
+    client.sendPost("experiments/create", "NOT_JSON");
   }
 
-  @Test(expectedExceptions = MlflowHttpServerException.class) // TODO: server should throw 4xx
+  @Test(expectedExceptions = MlflowHttpException.class) // TODO: server should throw 4xx
   public void createExperiment_MissingJsonField() {
     String data = "{\"BAD_name\": \"EXPERIMENT_NAME\"}";
-    client.doPost("experiments/create", data);
+    client.sendPost("experiments/create", data);
   }
 }

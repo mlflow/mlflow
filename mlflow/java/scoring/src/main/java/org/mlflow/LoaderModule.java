@@ -15,7 +15,7 @@ public abstract class LoaderModule<T extends Flavor> {
   /**
    * Loads an MLFlow model as a generic predictor that can be used for inference
    *
-   * @throws {@link PredictorLoadingException} for any failure encountered while attempting to load
+   * Throws {@link PredictorLoadingException} for any failure encountered while attempting to load
    *     the model
    */
   public Predictor load(Model model) {
@@ -39,10 +39,10 @@ public abstract class LoaderModule<T extends Flavor> {
 
   /**
    * Loads an MLFlow model as a generic predictor that can be used for inference
+   * Throws {@link PredictorLoadingException} for any failure encountered while attempting to load
+   *     the model
    *
    * @param modelRootPath The path to the root directory of the MLFlow model
-   * @throws {@link PredictorLoadingException} for any failure encountered while attempting to load
-   *     the model
    */
   public Predictor load(String modelRootPath) throws PredictorLoadingException {
     Optional<Model> model = Optional.empty();

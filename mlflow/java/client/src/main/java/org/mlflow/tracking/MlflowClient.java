@@ -32,31 +32,40 @@ public class MlflowClient {
   }
 
   /**
-   * Creates a new MlflowClient. Users should prefer constructing ApiClients via
-   * {@link #MlflowClient()} ()} or {@link #MlflowClient(String)} if possible.
+   * Creates a new MlflowClient; users should prefer constructing ApiClients via
+   * {@link #MlflowClient()} or {@link #MlflowClient(String)} if possible.
    */
   public MlflowClient(MlflowHostCredsProvider hostCredsProvider) {
     this.hostCredsProvider = hostCredsProvider;
     this.httpCaller = new MlflowHttpCaller(hostCredsProvider);
   }
 
-  /** Returns the run associated with the id. */
+  /** @return run associated with the id. */
   public Run getRun(String runUuid) {
     URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runUuid);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
   }
 
-  /** Creates a new run under the default experiment with no application name. */
+  /**
+   * Creates a new run under the default experiment with no application name.
+   * @return RunInfo created by the server
+   */
   public RunInfo createRun() {
     return createRun(DEFAULT_EXPERIMENT_ID);
   }
 
-  /** Creates a new run under the given experiment with no application name. */
+  /**
+   * Creates a new run under the given experiment with no application name.
+   * @return RunInfo created by the server
+   */
   public RunInfo createRun(long experimentId) {
     return createRun(experimentId, "Java Application");
   }
 
-  /** Creates a new run under the given experiment with the given application name. */
+  /**
+   * Creates a new run under the given experiment with the given application name.
+   * @return RunInfo created by the server
+   */
   public RunInfo createRun(long experimentId, String appName) {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
@@ -70,42 +79,49 @@ public class MlflowClient {
     return createRun(request.build());
   }
 
-  /** Creates a new run. */
+  /**
+   * Creates a new run.
+   * @return RunInfo created by the server
+   */
   public RunInfo createRun(CreateRun request) {
     String ijson = mapper.toJson(request);
-    String ojson = doPost("runs/create", ijson);
+    String ojson = sendPost("runs/create", ijson);
     return mapper.toCreateRunResponse(ojson).getRun().getInfo();
   }
 
-  /** Returns a list of all RunInfos associated with the given experiment. */
+  /** @return  a list of all RunInfos associated with the given experiment. */
   public List<RunInfo> listRunInfos(long experimentId) {
     SearchRuns request = SearchRuns.newBuilder().addExperimentIds(experimentId).build();
     String ijson = mapper.toJson(request);
-    String ojson = doPost("runs/search", ijson);
+    String ojson = sendPost("runs/search", ijson);
     return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)
       .collect(Collectors.toList());
   }
 
-  /** Returns a list of all Experiments. */
+  /** @return  a list of all Experiments. */
   public List<Experiment> listExperiments() {
     return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
       .getExperimentsList();
   }
 
-  /** Returns an experiment with the given id. */
+  /** @return  an experiment with the given id. */
   public GetExperiment.Response getExperiment(long experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
       .setParameter("experiment_id", "" + experimentId);
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
   }
 
-  /** Returns the experiment associated with the given name or Optional.empty if none exists. */
+  /** @return  the experiment associated with the given name or Optional.empty if none exists. */
   public Optional<Experiment> getExperimentByName(String experimentName) {
     return listExperiments().stream().filter(e -> e.getName()
       .equals(experimentName)).findFirst();
   }
 
-  /** Creates a new experiment using the default artifact location provided by the server. */
+  /**
+   * Creates a new experiment using the default artifact location provided by the server.
+   * @param experimentName Name of the experiment. This must be unique across all experiments.
+   * @return experiment id of the newly created experiment.
+   */
   public long createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
     String ojson = httpCaller.post("experiments/create", ijson);
@@ -117,7 +133,7 @@ public class MlflowClient {
    * This cannot be called against the same parameter key more than once.
    */
   public void logParam(String runUuid, String key, String value) {
-    doPost("runs/log-parameter", mapper.makeLogParam(runUuid, key, value));
+    sendPost("runs/log-parameter", mapper.makeLogParam(runUuid, key, value));
   }
 
   /**
@@ -125,7 +141,7 @@ public class MlflowClient {
    * New values for the same metric may be recorded over time, and are marked with a timestamp.
    * */
   public void logMetric(String runUuid, String key, float value) {
-    doPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
+    sendPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
       System.currentTimeMillis()));
   }
 
@@ -141,10 +157,10 @@ public class MlflowClient {
 
   /** Sets the status of a run to be completed at the given endTime. */
   public void setTerminated(String runUuid, RunStatus status, long endTime) {
-    doPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
+    sendPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
   }
 
-  /** Returns a list of all artifacts under the given artifact path within the run. */
+  /** @return a list of all artifacts under the given artifact path within the run. */
   public ListArtifacts.Response listArtifacts(String runUuid, String path) {
     URIBuilder builder = newURIBuilder("artifacts/list")
       .setParameter("run_uuid", runUuid)
@@ -155,22 +171,24 @@ public class MlflowClient {
   /**
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
+   * @return JSON response from the server
    */
-  public String doGet(String path) {
+  public String sendGet(String path) {
     return httpCaller.get(path);
   }
 
   /**
    * Send a POST to the following path, with a String-encoded JSON body.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
+   * @return JSON response from the server
    */
-  public String doPost(String path, String json) {
+  public String sendPost(String path, String json) {
     return httpCaller.post(path, json);
   }
 
   /**
-   * Returns the HostCredsProvider backing this MlflowClient.
    * Intended for internal usage, and may be removed in future versions.
+   * @return HostCredsProvider backing this MlflowClient.
    */
   public MlflowHostCredsProvider getInternalHostCredsProvider() {
     return hostCredsProvider;
