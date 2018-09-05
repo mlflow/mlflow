@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import './TextField.css';
 
 import { FormGroup, ControlLabel, FormControl, HelpBlock } from 'react-bootstrap';
 
@@ -16,6 +17,7 @@ class TextField extends Component {
     return (<FormGroup
       controlId={field.name}
       validationState={touched && touched[field.name] && error ? 'error' : null}
+      className="mlflow-formgroup"
     >
       <ControlLabel>{label}</ControlLabel>
       <FormControl

@@ -97,6 +97,9 @@ class RenameRunModal extends Component {
       style={modalStyles}
       appElement={document.body}
     >
+      <a className="modal-close-link">
+        <i onClick={this.onRequestCloseHandler} className="fas fa-times"/>
+      </a>
       {this.renderForm()}
     </ReactModal>);
   }

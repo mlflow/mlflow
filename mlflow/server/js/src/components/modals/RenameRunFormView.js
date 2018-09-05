@@ -30,32 +30,41 @@ class RenameRunFormView extends Component {
       event.target.select();
     };
     return <form onSubmit={handleSubmit} className="rename-run-form">
-      <Modal.Header><Modal.Title>Rename Run</Modal.Title></Modal.Header>
+      <Modal.Header>
+        <Modal.Title>
+          Rename Run
+        </Modal.Title>
+      </Modal.Header>
       <Modal.Body>
-        { status && status.errorMsg &&
-          <div className="text-danger">
-            <i className="fas fa-exclamation-triangle"></i>
-            {status.errorMsg}
-          </div>
-        }
         <Field
             name="newRunName"
             label="New run name:"
             autoFocus
             onFocus={handleFocus}
+            autoComplete="off"
             component={TextField}
         />
+        { status && status.errorMsg &&
+          <div className="text-danger">
+            <i className="fas fa-exclamation-triangle"></i> {status.errorMsg}
+          </div>
+        }
       </Modal.Body>
       <Modal.Footer>
         <Button
           bsStyle="default"
-          className="cancel-button"
           disabled={isSubmitting}
           onClick={this.props.onClose}
+          className="mlflow-form-button"
         >
           Cancel
         </Button>
-        <Button bsStyle="primary" type="submit" className="save-button" disabled={isSubmitting}>
+        <Button
+          bsStyle="primary"
+          type="submit"
+          disabled={isSubmitting}
+          className="mlflow-save-button mlflow-form-button"
+        >
           {saveText}
         </Button>
       </Modal.Footer>
