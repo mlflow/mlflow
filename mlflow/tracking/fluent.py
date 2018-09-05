@@ -118,6 +118,8 @@ def end_run(status="FINISHED"):
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         _active_run = None
+
+
 atexit.register(end_run)
 
 

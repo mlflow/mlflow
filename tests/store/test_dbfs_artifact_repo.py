@@ -14,6 +14,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 def dbfs_artifact_repo():
     return DbfsArtifactRepository('dbfs:/test/', lambda: MlflowHostCreds('http://host'))
 
+
 TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
 TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
 TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
