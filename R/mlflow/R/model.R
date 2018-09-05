@@ -28,7 +28,9 @@ mlflow_save_model <- function(x, path = "model", dependencies = NULL) {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
-  flavor_spec <- mlflow_save_flavor(x, path)
+  flavor_spec <- list (
+    flavors = mlflow_save_flavor(x, path)
+  )
 
   for (dependency in dependencies) {
     flavor_spec[[supported_deps[[basename(dependency)]]]] <- dependency
