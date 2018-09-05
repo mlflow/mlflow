@@ -4,7 +4,7 @@
 \alias{mlflow_create_run}
 \title{Create Run}
 \usage{
-mlflow_create_run(user_id = NULL, run_name = NULL,
+mlflow_create_run(user_id = mlflow_user(), run_name = NULL,
   source_type = NULL, source_name = NULL, status = NULL,
   start_time = NULL, end_time = NULL, source_version = NULL,
   entry_point_name = NULL, tags = NULL, experiment_id = NULL)

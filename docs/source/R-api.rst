@@ -177,7 +177,7 @@ execution of a machine learning or data ETL pipeline.
 
 .. code:: r
 
-   mlflow_create_run(user_id = NULL, run_name = NULL,
+   mlflow_create_run(user_id = mlflow_user(), run_name = NULL,
      source_type = NULL, source_name = NULL, status = NULL,
      start_time = NULL, end_time = NULL, source_version = NULL,
      entry_point_name = NULL, tags = NULL, experiment_id = NULL)
@@ -801,6 +801,13 @@ Arguments
 |                               | subdirectories of storage_dir.       |
 +-------------------------------+--------------------------------------+
 
+.. _value-2:
+
+Value
+-----
+
+The run associated with this run.
+
 Save MLflow Model Flavor
 ========================
 
@@ -827,6 +834,14 @@ Arguments
 |                                   | saved.                            |
 +-----------------------------------+-----------------------------------+
 
+.. _value-3:
+
+Value
+-----
+
+This funciton must return a list of flavors that conform to the MLmodel
+specification.
+
 Save Model for MLflow
 =====================
 
@@ -835,23 +850,27 @@ serving.
 
 .. code:: r
 
-   mlflow_save_model(x, path = "model")
+   mlflow_save_model(x, path = "model", dependencies = NULL)
 
 .. _arguments-23:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``x``                             | The serving function or model     |
-|                                   | that will perform a prediction.   |
-+-----------------------------------+-----------------------------------+
-| ``path``                          | Destination path where this       |
-|                                   | MLflow compatible model will be   |
-|                                   | saved.                            |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``x``                         | The serving function or model that   |
+|                               | will perform a prediction.           |
++-------------------------------+--------------------------------------+
+| ``path``                      | Destination path where this MLflow   |
+|                               | compatible model will be saved.      |
++-------------------------------+--------------------------------------+
+| ``dependencies``              | Optional vector of paths to          |
+|                               | dependency files to include in the   |
+|                               | model, as in ``r-dependencies.txt``  |
+|                               | or ``conda.yaml`` .                  |
++-------------------------------+--------------------------------------+
 
 Run the MLflow Tracking Server
 ==============================
@@ -1093,30 +1112,3 @@ Arguments
 +--------------+-------------------------------------------------------+
 | ``run_uuid`` | Unique identifier for the run.                        |
 +--------------+-------------------------------------------------------+
-
-Write Model Specification
-=========================
-
-Provides support to extend new model flavors, by subclassing
-``mlflow_save_model()`` and performing a call to this function to write
-the flavor specification.
-
-.. code:: r
-
-   mlflow_write_model_spec(path, content)
-
-.. _arguments-30:
-
-Arguments
----------
-
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``path``                          | Destination path where this       |
-|                                   | MLflow compatible model will be   |
-|                                   | saved.                            |
-+-----------------------------------+-----------------------------------+
-| ``content``                       | The content to be saved to the    |
-|                                   | MLmodel specification.            |
-+-----------------------------------+-----------------------------------+

@@ -12,6 +12,10 @@ mlflow_save_flavor(x, path = "model")
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
 }
+\value{
+This funciton must return a list of flavors that conform to
+  the MLmodel specification.
+}
 \description{
 Saves model in MLflow's flavor, to be used by package authors
 to extend the supported MLflow models.

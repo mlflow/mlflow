@@ -4,13 +4,17 @@
 \alias{mlflow_save_model}
 \title{Save Model for MLflow}
 \usage{
-mlflow_save_model(x, path = "model")
+mlflow_save_model(x, path = "model", dependencies = NULL)
 }
 \arguments{
 \item{x}{The serving function or model that will perform a prediction.}
 
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
+
+\item{dependencies}{Optional vector of paths to dependency files
+to include in the model, as in \code{r-dependencies.txt}
+or \code{conda.yaml}.}
 }
 \description{
 Saves model in MLflow's format that can later be used

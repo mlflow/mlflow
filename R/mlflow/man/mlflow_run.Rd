@@ -35,6 +35,9 @@ valid if running locally.}
 \item{storage_dir}{Only valid when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
 parameters of type 'path' to subdirectories of storage_dir.}
 }
+\value{
+The run associated with this run.
+}
 \description{
 Wrapper for `mlflow run`.
 }
