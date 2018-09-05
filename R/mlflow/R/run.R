@@ -16,6 +16,9 @@
 #'   valid if running locally.
 #' @param storage_dir Only valid when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
 #'  parameters of type 'path' to subdirectories of storage_dir.
+#'
+#' @return The run associated with this run.
+#'
 #' @export
 mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, param_list = NULL,
                        experiment_id = NULL, mode = NULL, cluster_spec = NULL,
@@ -41,9 +44,12 @@ mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, param_list
 
   args <- if (!no_conda) args else c(args, "--no-conda")
 
-  do.call(mlflow_cli, c("run", args))
+  result <- do.call(mlflow_cli, c("run", args))
 
-  invisible(NULL)
+  matches <- regexec(".*Run \\(ID \\'([^\\']+).*", result$stderr)
+  run_uuid <- regmatches(result$stderr, matches)[[1]][[2]]
+
+  invisible(run_uuid)
 }
 
 clear_run <- function() {
