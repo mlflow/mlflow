@@ -3,8 +3,11 @@ package org.mlflow.tracking;
 import org.apache.http.client.utils.URIBuilder;
 
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.artifacts.ArtifactRepository;
+import org.mlflow.artifacts.ArtifactRepositoryFactory;
 import org.mlflow.tracking.creds.*;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -18,6 +21,7 @@ public class MlflowClient {
   private static final long DEFAULT_EXPERIMENT_ID = 0;
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
+  private final ArtifactRepositoryFactory artifactRepositoryFactory;
   private final MlflowHttpCaller httpCaller;
   private final MlflowHostCredsProvider hostCredsProvider;
 
@@ -38,6 +42,7 @@ public class MlflowClient {
   public MlflowClient(MlflowHostCredsProvider hostCredsProvider) {
     this.hostCredsProvider = hostCredsProvider;
     this.httpCaller = new MlflowHttpCaller(hostCredsProvider);
+    this. artifactRepositoryFactory = new ArtifactRepositoryFactory(hostCredsProvider);
   }
 
   /** @return run associated with the id. */
@@ -160,14 +165,6 @@ public class MlflowClient {
     sendPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
   }
 
-  /** @return a list of all artifacts under the given artifact path within the run. */
-  public ListArtifacts.Response listArtifacts(String runUuid, String path) {
-    URIBuilder builder = newURIBuilder("artifacts/list")
-      .setParameter("run_uuid", runUuid)
-      .setParameter("path", path);
-    return mapper.toListArtifactsResponse(httpCaller.get(builder.toString()));
-  }
-
   /**
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
@@ -187,10 +184,9 @@ public class MlflowClient {
   }
 
   /**
-   * Intended for internal usage, and may be removed in future versions.
-   * @return HostCredsProvider backing this MlflowClient.
+   * @return HostCredsProvider backing this MlflowClient. Visible for testing.
    */
-  public MlflowHostCredsProvider getInternalHostCredsProvider() {
+  MlflowHostCredsProvider getInternalHostCredsProvider() {
     return hostCredsProvider;
   }
 
@@ -245,5 +241,29 @@ public class MlflowClient {
       throw new IllegalArgumentException("Invalid tracking server uri: " + trackingUri);
     }
     return provider;
+  }
+
+  /**
+   * Returns an {@link ArtifactRepository} capable of uploading and downloading MLflow artifacts
+   * under the given base artifact URI.
+   *
+   * @param baseArtifactUri Artifact URI of an MLflow run (e.g., s3://bucket/0/12345/artifacts).
+   *                        This is part of {@link RunInfo#getArtifactUri()}.
+   * @return ArtifactRepository, capable of uploading and downloading MLflow artifacts.
+   */
+  public ArtifactRepository getArtifactRepository(URI baseArtifactUri) {
+    return artifactRepositoryFactory.getArtifactRepository(baseArtifactUri);
+  }
+
+  /**
+   * Returns an {@link ArtifactRepository} capable of uploading and downloading MLflow artifacts
+   * for the given MLflow Run.
+   *
+   * @param runId Run ID of an existing MLflow run.
+   * @return ArtifactRepository, capable of uploading and downloading MLflow artifacts.
+   */
+  public ArtifactRepository getArtifactRepositoryForRun(String runId) {
+    URI baseArtifactUri = URI.create(getRun(runId).getInfo().getArtifactUri());
+    return getArtifactRepository(baseArtifactUri);
   }
 }

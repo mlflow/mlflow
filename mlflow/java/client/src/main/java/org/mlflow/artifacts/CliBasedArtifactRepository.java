@@ -43,18 +43,13 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   // Base directory of the artifactory, used to let the user know why this repository was chosen.
   private final String artifactBaseDir;
 
-  // Run ID this repository is targeting.
-  private final String runId;
-
   // Used to pass the MLFLOW_TRACKING_URI on to the mlflow process.
   private final MlflowHostCredsProvider hostCredsProvider;
 
   public CliBasedArtifactRepository(
       String artifactBaseDir,
-      String runId,
       MlflowHostCredsProvider hostCredsProvider) {
     this.artifactBaseDir = artifactBaseDir;
-    this.runId = runId;
     this.hostCredsProvider = hostCredsProvider;
   }
 
@@ -71,7 +66,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
 
     List<String> baseCommand = Lists.newArrayList(
       mlflowExecutable, "artifacts", "log-artifact", "--local-file", localFile.toString());
-    List<String> command = appendRunIdArtifactPath(baseCommand, runId, artifactPath);
+    List<String> command = appendArtifactUri(baseCommand, artifactPath);
     String tag = "log file " + localFile + " to " + getTargetIdentifier(artifactPath);
     forkProcess(command, tag);
   }
@@ -94,7 +89,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
 
     List<String> baseCommand = Lists.newArrayList(
       mlflowExecutable, "artifacts", "log-artifacts", "--local-dir", localDir.toString());
-    List<String> command = appendRunIdArtifactPath(baseCommand, runId, artifactPath);
+    List<String> command = appendArtifactUri(baseCommand, artifactPath);
     String tag = "log dir " + localDir + " to " + getTargetIdentifier(artifactPath);
     forkProcess(command, tag);
   }
@@ -108,8 +103,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   public File downloadArtifacts(String artifactPath) {
     checkMlflowAccessible();
     String tag = "download artifacts for " + getTargetIdentifier(artifactPath);
-    List<String> command = appendRunIdArtifactPath(
-      Lists.newArrayList(mlflowExecutable, "artifacts", "download"), runId, artifactPath);
+    List<String> command = appendArtifactUri(
+      Lists.newArrayList(mlflowExecutable, "artifacts", "download"), artifactPath);
     String localPath = forkProcess(command, tag).trim();
     return new File(localPath);
   }
@@ -123,8 +118,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   public List<Service.FileInfo> listArtifacts(String artifactPath) {
     checkMlflowAccessible();
     String tag = "list artifacts in " + getTargetIdentifier(artifactPath);
-    List<String> command = appendRunIdArtifactPath(
-      Lists.newArrayList(mlflowExecutable, "artifacts", "list"), runId, artifactPath);
+    List<String> command = appendArtifactUri(
+      Lists.newArrayList(mlflowExecutable, "artifacts", "list"), artifactPath);
     String jsonOutput = forkProcess(command, tag);
     return parseFileInfos(jsonOutput);
   }
@@ -239,13 +234,12 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     }
   }
 
-  /** Appends --run-id $runId and --artifact-path $artifactPath, omitting artifactPath if null. */
-  private List<String> appendRunIdArtifactPath(
+  /** Appends --base-artifact-uri and --artifact-path, omitting artifactPath if null. */
+  private List<String> appendArtifactUri(
     List<String> baseCommand,
-    String runId,
     String artifactPath) {
-    baseCommand.add("--run-id");
-    baseCommand.add(runId);
+    baseCommand.add("--base-artifact-uri");
+    baseCommand.add(artifactBaseDir);
     if (artifactPath != null) {
       baseCommand.add("--artifact-path");
       baseCommand.add(artifactPath);
@@ -255,7 +249,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
 
   /** Returns user-facing identifier "runId=abc, artifactId=/foo", omitting artifactPath if null. */
   private String getTargetIdentifier(String artifactPath) {
-    String identifier = "runId=" + runId;
+    String identifier = "baseArtifactUri=" + artifactBaseDir;
     if (artifactPath != null) {
       return identifier + ", artifactPath=" + artifactPath;
     }
