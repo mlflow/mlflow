@@ -21,7 +21,7 @@ const modalStyles = {
     padding: 0,
   },
   overlay: {
-    backgroundColor: 'rgba(33, 37, 41, .75)'
+    backgroundColor: 'rgba(33, 37, 41, .75)',
   }
 };
 
@@ -95,6 +95,7 @@ class RenameRunModal extends Component {
       isOpen={open}
       onRequestClose={this.onRequestCloseHandler}
       style={modalStyles}
+      closeTimeoutMS={200}
       appElement={document.body}
     >
       <a className="modal-close-link">
