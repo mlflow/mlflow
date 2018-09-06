@@ -70,7 +70,7 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration>
           <sourcepath>${project.basedir}/src/main/java</sourcepath>
-          <excludePackageNames>com.databricks.api.proto.databricks:org.mlflow.scalapb_interface:org.mlflow.tracking.samples</excludePackageNames>
+          <excludePackageNames>com.databricks.api.proto.databricks:org.mlflow.scalapb_interface:org.mlflow.tracking.samples:org.mlflow.artifacts</excludePackageNames>
           <groups>
             <group>
               <title>Tracking API</title>

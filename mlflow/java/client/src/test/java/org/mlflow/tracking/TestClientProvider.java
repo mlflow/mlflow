@@ -12,6 +12,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import org.mlflow.tracking.creds.MlflowHostCreds;
+import org.mlflow.tracking.creds.MlflowHostCredsProvider;
+
 /**
  * Provides an MLflow API client for testing. This is a real client, pointed to a real server.
  * If the MLFLOW_TRACKING_URI environment variable is set, we will talk to the provided server;
@@ -59,6 +62,10 @@ public class TestClientProvider {
       }
       serverProcess = null;
     }
+  }
+
+  public MlflowHostCredsProvider getClientHostCredsProvider(MlflowClient client) {
+    return client.getInternalHostCredsProvider();
   }
 
   /**
