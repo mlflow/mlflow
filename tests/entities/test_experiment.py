@@ -6,6 +6,7 @@ from tests.helper_functions import random_int, random_file
 
 class TestExperiment(unittest.TestCase):
     def _check(self, exp, exp_id, name, location):
+        self.assertIsInstance(exp, Experiment)
         self.assertEqual(exp.experiment_id, exp_id)
         self.assertEqual(exp.name, name)
         self.assertEqual(exp.artifact_location, location)
