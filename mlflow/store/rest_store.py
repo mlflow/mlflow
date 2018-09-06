@@ -2,8 +2,9 @@ import json
 
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities import Experiment, Run, RunInfo, Param, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, ViewType
 
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request
 
@@ -142,11 +143,13 @@ class RestStore(AbstractStore):
         """
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
-            experiment_id=experiment_id, user_id=user_id, run_name=run_name,
+            experiment_id=experiment_id, user_id=user_id, run_name="",
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
             start_time=start_time, source_version=source_version, tags=tag_protos))
         response_proto = self._call_endpoint(CreateRun, req_body)
-        return Run.from_proto(response_proto.run)
+        run = Run.from_proto(response_proto.run)
+        self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
+        return run
 
     def log_metric(self, run_uuid, metric):
         """

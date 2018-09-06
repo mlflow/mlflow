@@ -42,7 +42,7 @@ public class Model {
   /**
    * Loads the configuration of an MLFlow model and parses it as a {@link Model} object.
    *
-   * @param modelRootPath The path to the `MLModel` configuration file
+   * @param configPath The path to the `MLModel` configuration file
    */
   public static Model fromConfigPath(String configPath) throws IOException {
     File configFile = new File(configPath);
