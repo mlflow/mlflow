@@ -61,7 +61,7 @@ mlflow_load_model <- function(model_path) {
     supported <- c("crate", supported)
   }
 
-  if (length(supported) == 0 && !"crate" %in% model_flavors) {
+  if (length(supported) == 0) {
     stop(
       "Model must define r_crate flavor to be used from R. ",
       "Model flavors: ",
