@@ -47,7 +47,7 @@ def _load_model(model_file):
 
 
 class _KerasModelWrapper:
-    def __init__(self, keras_model, graph, sess=None):
+    def __init__(self, keras_model, graph, sess):
         self.keras_model = keras_model
         self._graph = graph
         self._sess = sess
@@ -71,6 +71,9 @@ def load_pyfunc(model_file):
         import tensorflow as tf
         graph = tf.Graph()
         sess = tf.Session(graph=graph)
+        # By default tf backed models depend on the global graph and session.
+        # We create an use new Graph and Session and store them with the model
+        # This way the model is independent on the global state.
         with graph.as_default():
             with sess.as_default():  # pylint:disable=not-context-manager
                 K.set_learning_phase(0)

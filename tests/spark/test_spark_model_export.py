@@ -323,17 +323,15 @@ def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
 
 
 @pytest.mark.large
-def test_container_scoring_responds_to_bad_inputs_using_error_message_with_mleap_flavor(
-        spark_model_iris, model_path):
+def test_input_with_mleap_flavor(spark_model_iris, model_path):
+    """
+    Test that the mleap model deployed in Docker container throws an error when it gets bad input.
+    """
     mleap_model = Model()
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       sample_input=spark_model_iris.training_df,
                       mlflow_model=mleap_model)
     assert mleap.FLAVOR_NAME in mleap_model.flavors
-
-    try:
+    with pytest.raises(Exception):
         mleap_response = score_model_in_sagemaker_docker_container(model_path=model_path,
                                                                    data="invalid")
-        assert False, "should have thrown"
-    except Exception as ex:
-        print(ex)

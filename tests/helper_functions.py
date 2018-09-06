@@ -2,12 +2,6 @@ import os
 import random
 
 import re
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
-
 import requests
 import string
 from subprocess import Popen, PIPE, STDOUT
@@ -82,17 +76,16 @@ def _score_proc(proc, port, data, data_type):
         print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        x = StringIO()
         if data_type == "json":
             if type(data) == pd.DataFrame:
                 data = data.to_dict(orient="records")
             r = requests.post(url='http://localhost:%d/invocations' % port,
                               json=data)
         elif data_type == "csv":
-            data.to_csv(x, index=False, header=True)
-            r = requests.request(method="post", url='http://localhost:%d/invocations' % port,
-                                 data=x.getvalue(),
-                                 headers={"Content-Type": "text/csv"})
+            data = data.to_csv(index=False, header=True)
+            r = requests.post(url='http://localhost:%d/invocations' % port,
+                              data=data,
+                              headers={"Content-Type": "text/csv"})
         else:
             raise Exception("Unexpected data_type %s" % data_type)
         if r.status_code != 200:
