@@ -15,7 +15,7 @@ _BAD_CHARACTERS_MESSAGE = (
 )
 
 
-def _bad_path_message(name):
+def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
         " when treated as such. This name would resolve to '%s'"
@@ -32,7 +32,7 @@ def _validate_metric_name(name):
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise Exception("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
     if path_not_unique(name):
-        raise Exception("Invalid metric name: '%s'. %s" % (name, _bad_path_message(name)))
+        raise Exception("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)))
 
 
 def _validate_param_name(name):
@@ -40,7 +40,7 @@ def _validate_param_name(name):
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise Exception("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
     if path_not_unique(name):
-        raise Exception("Invalid parameter name: '%s'. %s" % (name, _bad_path_message(name)))
+        raise Exception("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)))
 
 
 def _validate_tag_name(name):
@@ -49,7 +49,7 @@ def _validate_tag_name(name):
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise Exception("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
     if path_not_unique(name):
-        raise Exception("Invalid tag name: '%s'. %s" % (name, _bad_path_message(name)))
+        raise Exception("Invalid tag name: '%s'. %s" % (name, bad_path_message(name)))
 
 
 def _validate_run_id(run_id):
