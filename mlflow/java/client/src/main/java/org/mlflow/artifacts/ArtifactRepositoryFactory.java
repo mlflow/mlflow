@@ -11,7 +11,7 @@ public class ArtifactRepositoryFactory {
     this.hostCredsProvider = hostCredsProvider;
   }
 
-  public ArtifactRepository getArtifactRepository(URI baseArtifactUri) {
-    return new CliBasedArtifactRepository(baseArtifactUri.toString(), hostCredsProvider);
+  public ArtifactRepository getArtifactRepository(URI baseArtifactUri, String runId) {
+    return new CliBasedArtifactRepository(baseArtifactUri.toString(), runId, hostCredsProvider);
   }
 }

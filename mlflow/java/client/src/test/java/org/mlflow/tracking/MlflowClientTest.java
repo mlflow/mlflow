@@ -140,16 +140,11 @@ public class MlflowClientTest {
   public void testUseArtifactRepository() throws IOException {
     String content = "Hello, Worldz!";
 
-    Run run = client.getRun(runId);
-    ArtifactRepository runRepo = client.getArtifactRepositoryForRun(runId);
-    ArtifactRepository uriRepo = client.getArtifactRepository(
-      URI.create(run.getInfo().getArtifactUri()));
-
     File tempFile = Files.createTempFile(getClass().getSimpleName(), ".txt").toFile();
     FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
-    runRepo.logArtifact(tempFile);
+    client.logArtifact(runId, tempFile);
 
-    File downloadedArtifact = uriRepo.downloadArtifacts(tempFile.getName());
+    File downloadedArtifact = client.downloadArtifacts(runId, tempFile.getName());
     String downloadedContent = FileUtils.readFileToString(downloadedArtifact,
       StandardCharsets.UTF_8);
     Assert.assertEquals(content, downloadedContent);
