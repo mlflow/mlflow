@@ -79,8 +79,9 @@ public class MlflowClientTest {
     String user = System.getenv("USER");
     long startTime = System.currentTimeMillis();
     String sourceFile = "MyFile.java";
+    String runName = "My run";
 
-    RunInfo runCreated = client.createRun(expId, sourceFile);
+    RunInfo runCreated = client.createRun(expId, sourceFile, runName);
     runId = runCreated.getRunUuid();
     logger.debug("runId=" + runId);
 
@@ -113,6 +114,11 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
+
+    // Assert run metadata saved in tags
+    List<RunTag> tags = run.getData().getTagsList();
+    Assert.assertEquals(tags.size(), 1);
+    assertTag(tags, "mlflow.runName", runName);
   }
 
   @Test(dependsOnMethods = {"addGetRun"})

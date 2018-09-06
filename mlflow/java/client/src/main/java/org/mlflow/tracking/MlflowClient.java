@@ -67,17 +67,29 @@ public class MlflowClient {
    * @return RunInfo created by the server
    */
   public RunInfo createRun(long experimentId, String appName) {
+    return createRun(experimentId, appName, null);
+  }
+
+  /**
+   * Creates a new run under the given experiment with the given application name and run name.
+   * @return RunInfo created by the server
+   */
+  public RunInfo createRun(long experimentId, String appName, String runName) {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
     request.setSourceName(appName);
     request.setSourceType(SourceType.LOCAL);
     request.setStartTime(System.currentTimeMillis());
-    RunInfo runInfo = createRun(request.build());
 
     String username = System.getProperty("user.name");
     if (username != null) {
-      setTag(runInfo.getRunUuid(), "mlflow.runName", System.getProperty("user.name"));
+      request.setUserId(System.getProperty("user.name"));
     }
+    RunInfo runInfo = createRun(request.build());
+    if (runName != null) {
+      setTag(runInfo.getRunUuid(), "mlflow.runName", runName);
+    }
+    return runInfo;
   }
 
   /**
@@ -147,7 +159,7 @@ public class MlflowClient {
   }
 
   public void setTag(String runUuid, String key, String value) {
-    doPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
+    sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */
