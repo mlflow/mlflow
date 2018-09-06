@@ -211,7 +211,6 @@ class FileStore(AbstractStore):
                             "exists." % experiment_id)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
-        num_runs = len(self._list_run_uuids(experiment_id))
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
                            name="",
                            artifact_uri=artifact_uri, source_type=source_type,
@@ -228,8 +227,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
-        self.set_tag(run_uuid, RunTag(
-            key=MLFLOW_RUN_NAME, value=run_name or "Run %s" % num_runs))
+        if run_name:
+            self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
 
     def _make_run_info_dict(self, run_info):
