@@ -31,6 +31,14 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeSetTag(String runUuid, String key, String value) {
+    SetTag.Builder builder = SetTag.newBuilder();
+    builder.setRunUuid(runUuid);
+    builder.setKey(key);
+    builder.setValue(value);
+    return print(builder);
+  }
+
   String makeUpdateRun(String runUuid, RunStatus status, long endTime) {
     UpdateRun.Builder builder = UpdateRun.newBuilder();
     builder.setRunUuid(runUuid);

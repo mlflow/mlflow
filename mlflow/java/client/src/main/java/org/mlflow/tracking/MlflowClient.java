@@ -63,11 +63,12 @@ public class MlflowClient {
     request.setSourceName(appName);
     request.setSourceType(SourceType.LOCAL);
     request.setStartTime(System.currentTimeMillis());
+    RunInfo runInfo = createRun(request.build());
+
     String username = System.getProperty("user.name");
     if (username != null) {
-      request.setUserId(System.getProperty("user.name"));
+      setTag(runInfo.getRunUuid(), "mlflow.runName", System.getProperty("user.name"));
     }
-    return createRun(request.build());
   }
 
   /** Creates a new run. */
@@ -127,6 +128,10 @@ public class MlflowClient {
   public void logMetric(String runUuid, String key, float value) {
     doPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
       System.currentTimeMillis()));
+  }
+
+  public void setTag(String runUuid, String key, String value) {
+    doPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */
