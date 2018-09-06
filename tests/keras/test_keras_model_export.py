@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 import os
-import tempfile
 import pytest
 from keras.models import Sequential
 from keras.layers import Dense
@@ -14,6 +13,7 @@ import numpy as np
 import mlflow.keras
 import mlflow
 from mlflow import pyfunc
+from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
@@ -24,7 +24,7 @@ def data():
                         columns=iris['feature_names'] + ['target'])
     y = data['target']
     x = data.drop('target', axis=1)
-    return (x, y)
+    return x, y
 
 
 @pytest.fixture(scope='module')
@@ -56,10 +56,13 @@ def test_model_save_load(tmpdir, model, data, predicted):
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(path)
     assert all(pyfunc_loaded.predict(x).values == predicted)
 
+    # pyfunc serve
+    preds = pyfunc_serve_and_score_model(model_path=os.path.abspath(path), data=pd.DataFrame(x))
+    assert all(preds.values.astype(np.float32) == predicted)
+
 
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
     x, y = data
-    old_uri = mlflow.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         try:
