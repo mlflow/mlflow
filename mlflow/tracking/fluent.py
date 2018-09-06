@@ -165,14 +165,14 @@ def log_metric(key, value):
 
 def log_artifact(local_path, artifact_path=None):
     """Log a local file or directory as an artifact of the currently active run."""
-    artifact_uri = _get_or_start_run().info.artifact_uri
-    get_service().log_artifact(artifact_uri, local_path, artifact_path)
+    run_id = _get_or_start_run().info.run_uuid
+    get_service().log_artifact(run_id, local_path, artifact_path)
 
 
 def log_artifacts(local_dir, artifact_path=None):
     """Log all the contents of a local directory as artifacts of the run."""
-    artifact_uri = _get_or_start_run().info.artifact_uri
-    get_service().log_artifacts(artifact_uri, local_dir, artifact_path)
+    run_id = _get_or_start_run().info.run_uuid
+    get_service().log_artifacts(run_id, local_dir, artifact_path)
 
 
 def create_experiment(name, artifact_location=None):
