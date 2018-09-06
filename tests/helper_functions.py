@@ -86,7 +86,7 @@ def _score_proc(proc, port, data, data_type):
         if data_type == "json":
             if type(data) == pd.DataFrame:
                 data = data.to_dict(orient="records")
-            requests.post(url='http://localhost:%d/invocations' % port,
+            r = requests.post(url='http://localhost:%d/invocations' % port,
                           json=data)
         elif data_type == "csv":
             data.to_csv(x, index=False, header=True)
