@@ -9,6 +9,7 @@ class TestRunInfo(unittest.TestCase):
     def _check(self, ri, run_uuid, experiment_id, name, source_type, source_name,
                entry_point_name, user_id, status, start_time, end_time, source_version,
                artifact_uri):
+        self.assertIsInstance(ri, RunInfo)
         self.assertEqual(ri.run_uuid, run_uuid)
         self.assertEqual(ri.experiment_id, experiment_id)
         self.assertEqual(ri.name, name)

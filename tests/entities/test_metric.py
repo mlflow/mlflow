@@ -7,6 +7,7 @@ from tests.helper_functions import random_str
 
 class TestMetric(unittest.TestCase):
     def _check(self, metric, key, value, timestamp):
+        self.assertIsInstance(metric, Metric)
         self.assertEqual(metric.key, key)
         self.assertEqual(metric.value, value)
         self.assertEqual(metric.timestamp, timestamp)
