@@ -46,7 +46,7 @@ public class CliBasedArtifactRepositoryTest {
     logger.info("Created run with id=" + runInfo.getRunUuid() + " and artifactUri=" +
       runInfo.getArtifactUri());
     return new CliBasedArtifactRepository(runInfo.getArtifactUri(), runInfo.getRunUuid(),
-      client.getInternalHostCredsProvider());
+      testClientProvider.getClientHostCredsProvider(client));
   }
 
   @Test
