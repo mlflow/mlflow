@@ -7,20 +7,27 @@ from tests.helper_functions import random_str, random_int
 
 class TestRunData(unittest.TestCase):
     def _check_metrics(self, metrics_1, metrics_2):
+        for metric in metrics_1:
+            self.assertIsInstance(metric, Metric)
         self.assertEqual(set([m.key for m in metrics_1]), set([m.key for m in metrics_2]))
         self.assertEqual(set([m.value for m in metrics_1]), set([m.value for m in metrics_2]))
         self.assertEqual(set([m.timestamp for m in metrics_1]),
                          set([m.timestamp for m in metrics_2]))
 
     def _check_params(self, params_1, params_2):
+        for param in params_1:
+            self.assertIsInstance(param, Param)
         self.assertEqual(set([p.key for p in params_1]), set([p.key for p in params_2]))
         self.assertEqual(set([p.value for p in params_1]), set([p.value for p in params_2]))
 
     def _check_tags(self, tags_1, tags_2):
+        for tag in tags_1:
+            self.assertIsInstance(tag, RunTag)
         self.assertEqual(set([t.key for t in tags_1]), set([t.key for t in tags_2]))
         self.assertEqual(set([t.value for t in tags_2]), set([t.value for t in tags_2]))
 
     def _check(self, rd, metrics, params, tags):
+        self.assertIsInstance(rd, RunData)
         self._check_metrics(rd.metrics, metrics)
         self._check_params(rd.params, params)
         self._check_tags(rd.tags, tags)
