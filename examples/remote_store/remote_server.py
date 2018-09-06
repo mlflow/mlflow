@@ -6,12 +6,13 @@ import sys
 import random
 import tempfile
 
-from mlflow.store.rest_store import RestStore
+import mlflow
 from mlflow import log_metric, log_param, log_artifacts, get_artifact_uri, active_run,\
-    get_tracking_uri, log_artifact
+    get_tracking_uri, log_artifact, start_run
 
 if __name__ == "__main__":
     print("Running {} with tracking URI {}".format(sys.argv[0], get_tracking_uri()))
+    start_run(run_name="My run name")
     log_param("param1", 5)
     log_metric("foo", 5)
     log_metric("foo", 6)
@@ -21,7 +22,7 @@ if __name__ == "__main__":
     print("In run with UUID: %s" % run.info.run_uuid)
     tracking_uri = get_tracking_uri()
     if tracking_uri.startswith("http://"):
-        store = RestStore(get_tracking_uri())
+        store = mlflow.tracking.get_service().store
         metric_obj = store.get_metric(run.info.run_uuid, "foo")
         metric_history = store.get_metric_history(run.info.run_uuid, "foo")
         param_obj = store.get_param(run.info.run_uuid, "param1")
