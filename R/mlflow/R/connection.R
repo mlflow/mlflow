@@ -124,15 +124,15 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
 #' @param ... Optional arguments passed to `mlflow_server()`.
 #' @export
 mlflow_connect <- function(x = NULL, activate = TRUE, ...) {
-  mc <- if (!is.null(x) && startsWith(x, "http")) {
-    new_mlflow_connection(x = x)
+  if (!is.null(x) && startsWith(x, "http")) {
+    mc <- new_mlflow_connection(tracking_uri = x)
   } else {
     dots <- list(...)
     dots[["port"]] <- dots[["port"]] %||% mlflow_connect_port()
     if (!is.null(dots[["file_store"]]) && !is.null(x))
       stop("`x` and `file_store` cannot both be specified.", call. = FALSE)
     dots[["file_store"]] <- dots[["file_store"]] %||% x
-    do.call(mlflow_server, dots)
+    mc <- do.call(mlflow_server, dots)
   }
 
   if (activate) mlflow_set_active_connection(mc)
