@@ -255,4 +255,21 @@ export class MlflowService {
       error: error,
     });
   }
+
+  /**
+   * @param {SetTag} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static setTag({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/set-tag', {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
 }

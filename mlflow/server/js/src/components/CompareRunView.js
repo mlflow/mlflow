@@ -27,10 +27,12 @@ class CompareRunView extends Component {
 
     return (
       <div className="CompareRunView">
-        <BreadcrumbTitle
-          experiment={experiment}
-          title={"Comparing " + this.props.runInfos.length + " Runs"}
-        />
+        <div className="header-container">
+          <BreadcrumbTitle
+            experiment={experiment}
+            title={"Comparing " + this.props.runInfos.length + " Runs"}
+          />
+        </div>
         <div className="responsive-table-container">
           <table className="compare-table table">
             <thead>

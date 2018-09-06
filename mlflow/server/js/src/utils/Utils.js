@@ -27,6 +27,8 @@ class Utils {
     return ret;
   }
 
+  static runNameTag = 'mlflow.runName';
+
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();
@@ -167,22 +169,57 @@ class Utils {
     }
   }
 
-  static renderVersion(run) {
+  /**
+   * Renders the run name into a string.
+   * @param runTags Object of tag name to MlflowMessages.RunTag instance
+   */
+  static getRunDisplayName(runTags, runUuid) {
+    return Utils.getRunName(runTags) || "Run " + runUuid;
+  }
+
+  static getRunName(runTags) {
+    const runNameTag = runTags[Utils.runNameTag];
+    if (runNameTag) {
+      return runNameTag.value;
+    }
+    return "";
+  }
+
+  static renderVersion(run, shortVersion = true) {
     if (run.source_version) {
-      const shortVersion = run.source_version.substring(0, 6);
+      const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
       if (run.source_type === "PROJECT") {
         const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
           const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
                      "/tree/" + run.source_version) + "/" + match[3];
-          return <a href={url}>{shortVersion}</a>;
+          return <a href={url}>{versionString}</a>;
         }
-        return shortVersion;
+        return versionString;
       } else {
-        return shortVersion;
+        return versionString;
       }
     }
     return null;
+  }
+
+  static getErrorMessageFromXhr(xhr) {
+    const { status } = xhr;
+    if (status === 0) {
+      return 'Request failed to send. Check your internet connection';
+    }
+    if (status >= 400 && status < 500) {
+      if (xhr.responseJSON && xhr.responseJSON.message) {
+        return xhr.responseJSON.message;
+      }
+      if (xhr.responseText) {
+        return xhr.responseText;
+      }
+    }
+    if (status >= 500) {
+      return `Request Failed: ${xhr.statusText}`;
+    }
+    return 'Unknown Error';
   }
 }
 
