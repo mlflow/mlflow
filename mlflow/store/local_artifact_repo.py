@@ -4,13 +4,14 @@ import shutil
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import (build_path, exists, mkdir, list_all, get_file_info,
                                      get_relative_path)
+from mlflow.utils.validation import path_not_unique
 
 
 class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
 
     def log_artifact(self, local_file, artifact_path=None):
-        if artifact_path and (artifact_path.startswith("/") or artifact_path.startswith(".")):
+        if artifact_path and path_not_unique(artifact_path):
             raise Exception("Artifact path should be relative to artifact_uri "
                             "and cannot start with '/' or '.'")
         artifact_dir = build_path(self.artifact_uri, artifact_path) \
@@ -20,7 +21,7 @@ class LocalArtifactRepository(ArtifactRepository):
         shutil.copy(local_file, artifact_dir)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        if artifact_path and (artifact_path.startswith("/") or artifact_path.startswith(".")):
+        if artifact_path and path_not_unique(artifact_path):
             raise Exception("Artifact path should be relative to artifact_uri "
                             "and cannot start with '/' or '.'")
         artifact_dir = build_path(self.artifact_uri, artifact_path) \

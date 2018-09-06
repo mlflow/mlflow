@@ -37,6 +37,14 @@ class TestLocalArtifactRepo(unittest.TestCase):
             text = open(repo.download_artifacts(os.path.join("aaa", artifact_name))).read()
             self.assertEqual(text, "Hello world!")
 
+            # log a hidden artifact
+            hidden_file = tmp.path(".mystery")
+            with open(hidden_file, 'w') as f:
+                f.write("42")
+            repo.log_artifact(hidden_file, "aaa")
+            hidden_text = open(repo.download_artifacts(os.path.join("aaa", hidden_file))).read()
+            self.assertEqual(hidden_text, "42")
+
             # log artifacts in deep nested subdirs
             nested_subdir = "bbb/ccc/ddd/eee/fghi"
             repo.log_artifact(local_file, nested_subdir)
@@ -75,7 +83,9 @@ class TestLocalArtifactRepo(unittest.TestCase):
 
             # Verify contents of subdirectories
             self.assertListEqual(self._get_contents(repo, "nested"), [("nested/c.txt", False, 1)])
-            self.assertListEqual(self._get_contents(repo, "aaa"), [("aaa/test.txt", False, 12)])
+
+            infos = self._get_contents(repo, "aaa")
+            self.assertListEqual(infos, [("aaa/.mystery", False, 2), ("aaa/test.txt", False, 12)])
             self.assertListEqual(self._get_contents(repo, "bbb"), [("bbb/ccc", True, None)])
             self.assertListEqual(self._get_contents(repo, "bbb/ccc"), [("bbb/ccc/ddd", True, None)])
 
