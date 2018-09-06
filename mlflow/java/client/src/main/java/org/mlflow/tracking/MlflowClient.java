@@ -246,8 +246,10 @@ public class MlflowClient {
   /**
    * Uploads the given local file to the run's root artifact directory. For example,
    *
-   *  logArtifact(runId, "/my/localModel")
-   *  listArtifacts(runId) // returns "localModel"
+   *   <pre>
+   *   logArtifact(runId, "/my/localModel")
+   *   listArtifacts(runId) // returns "localModel"
+   *   </pre>
    *
    * @param runId Run ID of an existing MLflow run.
    * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
@@ -259,8 +261,10 @@ public class MlflowClient {
   /**
    * Uploads the given local file to an artifactPath within the run's root directory. For example,
    *
+   *   <pre>
    *   logArtifact(runId, "/my/localModel", "model")
    *   listArtifacts(runId, "model") // returns "model/localModel"
+   *   </pre>
    *
    * (i.e., the localModel file is now available in model/localModel).
    *
@@ -274,11 +278,13 @@ public class MlflowClient {
   }
 
   /**
-   * Uploads all files within the given local director the run's root artifact directory.
+   * Uploads all files within the given local directory the run's root artifact directory.
    * For example, if /my/local/dir/ contains two files "file1" and "file2", then
    *
-   *  logArtifacts(runId, "/my/local/dir")
-   *  listArtifacts(runId) // returns "file1" and "file2"
+   *   <pre>
+   *   logArtifacts(runId, "/my/local/dir")
+   *   listArtifacts(runId) // returns "file1" and "file2"
+   *   </pre>
    *
    * @param runId Run ID of an existing MLflow run.
    * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
@@ -292,8 +298,10 @@ public class MlflowClient {
    * Uploads all files within the given local director an artifactPath within the run's root
    * artifact directory. For example, if /my/local/dir/ contains two files "file1" and "file2", then
    *
-   *  logArtifacts(runId, "/my/local/dir", "model")
-   *  listArtifacts(runId, "model") // returns "model/file1" and "model/file2"
+   *   <pre>
+   *   logArtifacts(runId, "/my/local/dir", "model")
+   *   listArtifacts(runId, "model") // returns "model/file1" and "model/file2"
+   *   </pre>
    *
    * (i.e., the contents of the local directory are now available in model/).
    *
@@ -318,7 +326,7 @@ public class MlflowClient {
 
   /**
    * Lists the artifacts immediately under the given artifactPath within the run's root artifact
-   * irectory. This does not recursively list; instead, it will return FileInfos with isDir=true
+   * directory. This does not recursively list; instead, it will return FileInfos with isDir=true
    * where further listing may be done.
    * @param runId Run ID of an existing MLflow run.
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
@@ -331,7 +339,7 @@ public class MlflowClient {
   /**
    * Returns a local directory containing *all* artifacts within the run's artifact directory.
    * Note that this will download the entire directory path, and so may be expensive if
-   * the directory a lot of data.
+   * the directory has a lot of data.
    * @param runId Run ID of an existing MLflow run.
    */
   public File downloadArtifacts(String runId) {
@@ -343,11 +351,13 @@ public class MlflowClient {
    * within the run's root artifactDirectory. For example, if "model/file1" and "model/file2"
    * exist within the artifact directory, then
    *
+   *   <pre>
    *   downloadArtifacts(runId, "model") // returns a local directory containing "file1" and "file2"
    *   downloadArtifacts(runId, "model/file1") // returns a local *file* with the contents of file1.
+   *   </pre>
    *
    * Note that this will download the entire subdirectory path, and so may be expensive if
-   * the subdirectory a lot of data.
+   * the subdirectory has a lot of data.
    *
    * @param runId Run ID of an existing MLflow run.
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
