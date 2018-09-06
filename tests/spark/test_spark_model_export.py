@@ -330,7 +330,10 @@ def test_container_scoring_responds_to_bad_inputs_using_error_message_with_mleap
                       sample_input=spark_model_iris.training_df,
                       mlflow_model=mleap_model)
     assert mleap.FLAVOR_NAME in mleap_model.flavors
-    mleap_response = score_model_in_sagemaker_docker_container(model_path=model_path,
-                                                               data="invalid")
-    assert "Error" in mleap_response.keys()
-    print(mleap_response["Error"])
+
+    try:
+        mleap_response = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                                   data="invalid")
+        assert False, "should have thrown"
+    except Exception as ex:
+        print(ex)

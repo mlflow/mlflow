@@ -87,7 +87,7 @@ def _score_proc(proc, port, data, data_type):
             if type(data) == pd.DataFrame:
                 data = data.to_dict(orient="records")
             r = requests.post(url='http://localhost:%d/invocations' % port,
-                          json=data)
+                              json=data)
         elif data_type == "csv":
             data.to_csv(x, index=False, header=True)
             r = requests.request(method="post", url='http://localhost:%d/invocations' % port,
@@ -96,7 +96,9 @@ def _score_proc(proc, port, data, data_type):
         else:
             raise Exception("Unexpected data_type %s" % data_type)
         if r.status_code != 200:
-            raise Exception("scoring failed, status code = {}".format(r.status_code))
+            raise Exception("scoring failed, status code = {}. Response = '{}' ".format(
+                r.status_code,
+                r))
         return r
     finally:
         if proc.poll() is None:
