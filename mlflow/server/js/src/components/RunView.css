@@ -3,7 +3,7 @@
   display: inline-block;
 }
 .header-container {
-  margin-bottom: 8px;
+  display: flex;
 }
 
 .separator {
@@ -26,7 +26,7 @@
 }
 
 .run-info {
-  min-width: 320px;
+  min-width: 440px;
   margin-bottom: 12px;
   margin-right: 12px;
 }
@@ -74,4 +74,67 @@ i.expander {
 textarea.run-command {
   width: 100%;
   font-family: Menlo, Consolas, monospace;
+}
+
+.header-container .mlflow-menu > li.mlflow-menu-item:hover {
+  background-image: none;
+  background-color: rgb(1, 147, 225);
+  color: #ffffff;
+}
+
+.mlflow-menu .mlflow-menu-item > a:hover {
+  background-color: rgb(1, 147, 225);
+  color: #ffffff;
+}
+
+.mlflow-dropdown {
+  margin-top: 28px;
+}
+
+.rename-run-form {
+  width: 480px;
+}
+
+.header-container .mlflow-dropdown .mlflow-dropdown-button,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:hover,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:active,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:focus {
+    background-color: transparent;
+    border-color: transparent;
+    border: none;
+    box-shadow: none;
+    background-image: none;
+}
+
+.modal-close-link, .modal-close-link:hover, .modal-close-link:visited {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  color: black;
+}
+
+.modal-close-link:hover {
+  cursor: pointer
+}
+
+.rename-run-form .mlflow-save-button {
+  margin-left: 16px;
+}
+
+.mlflow-form-button {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.ReactModal__Overlay {
+    opacity: 0;
+    transition: opacity 200ms ease-in-out;
+}
+
+.ReactModal__Overlay--after-open{
+    opacity: 1;
+}
+
+.ReactModal__Overlay--before-close{
+    opacity: 0;
 }
