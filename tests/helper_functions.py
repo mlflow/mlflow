@@ -39,7 +39,9 @@ def score_model_in_sagemaker_docker_container(model_path, data):
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True, env=env)
-    return _score_proc(proc, 5000, data)
+    r = _score_proc(proc, 5000, data, "json").content
+    import json
+    return json.loads(r)  # TODO: we should return pd.Dataframe the same as pyfunc serve
 
 
 def pyfunc_serve_and_score_model(model_path, data):
@@ -55,14 +57,13 @@ def pyfunc_serve_and_score_model(model_path, data):
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
         if m:
-            res = _score_proc(proc, int(m.group(1)), data)
-            print(res)
-            return res
+            return pd.read_json(_score_proc(proc, int(m.group(1)), data, data_type="csv").content,
+                                orient="records")
 
     raise Exception("Failed to start server")
 
 
-def _score_proc(proc, port, data):
+def _score_proc(proc, port, data, data_type):
     try:
         for i in range(0, 50):
             assert proc.poll() is None, "scoring process died"
@@ -82,13 +83,21 @@ def _score_proc(proc, port, data):
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         x = StringIO()
-        pd.DataFrame(data).to_csv(x, index=False, header=True)
-        r = requests.request(method="post", url='http://localhost:%d/invocations' % port,
-                             data=x.getvalue(),
-                             headers={"Content-Type": 'text/csv'})
+        if data_type == "json":
+            if type(data) == pd.DataFrame:
+                data = data.to_dict(orient="records")
+            requests.post(url='http://localhost:%d/invocations' % port,
+                          json=data)
+        elif data_type == "csv":
+            data.to_csv(x, index=False, header=True)
+            r = requests.request(method="post", url='http://localhost:%d/invocations' % port,
+                                 data=x.getvalue(),
+                                 headers={"Content-Type": "text/csv"})
+        else:
+            raise Exception("Unexpected data_type %s" % data_type)
         if r.status_code != 200:
             raise Exception("scoring failed, status code = {}".format(r.status_code))
-        return pd.read_json(r.content, orient="records")
+        return r
     finally:
         if proc.poll() is None:
             proc.terminate()
