@@ -5,6 +5,7 @@ import { CSRF_HEADER_NAME, getCsrfToken } from '../../setupCsrf';
 import Papa from 'papaparse';
 import ReactDataGrid from 'react-data-grid';
 import { Data, Toolbar } from 'react-data-grid-addons';
+import { Alert } from 'react-bootstrap';
 import './ShowArtifactCsvView.css';
 
 const DEFAULT_COLUMN_PROPS = {
@@ -22,11 +23,13 @@ class ShowArtifactCsvView extends Component {
     this.onClearFilters = this.onClearFilters.bind(this);
     this.handleGridSort = this.handleGridSort.bind(this);
     this.handleParseError = this.handleParseError.bind(this);
+    this.handlePreviewWarningDismissed = this.handlePreviewWarningDismissed.bind(this);
   }
 
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     path: PropTypes.string.isRequired,
+    previewRows: PropTypes.number,
   };
 
   state = {
@@ -36,6 +39,8 @@ class ShowArtifactCsvView extends Component {
     sortColumn: undefined,
     sortDirection: undefined,
     filters: {},
+    numRowsRead: 0,
+    previewWarningDismissed: false,
     firstChunkRead: false,
     readingFinished: false,
   };
@@ -54,6 +59,8 @@ class ShowArtifactCsvView extends Component {
         sortColumn: undefined,
         sortDirection: undefined,
         filters: {},
+        numRowsRead: 0,
+        previewWarningDismissed: false,
         firstChunkRead: false,
         readingFinished: false,
       });
@@ -128,6 +135,10 @@ class ShowArtifactCsvView extends Component {
     this.setState({error: error});
   }
 
+  handlePreviewWarningDismissed() {
+    this.setState({ previewWarningDismissed: true });
+  }
+
   render() {
     if (!this.state.firstChunkRead || this.state.renderedData === undefined) {
       return (
@@ -144,23 +155,42 @@ class ShowArtifactCsvView extends Component {
         </div>
       );
     } else {
+      let dataGridContainerHeight = `100%`;
+      const showPreviewWarning = (
+        this.state.data.length === this.props.previewRows && !this.state.previewWarningDismissed
+      );
+      if (showPreviewWarning) {
+        dataGridContainerHeight = `90%`;
+      }
       return (
-        <ReactDataGrid
-          columns={this.state.columns}
-          toolbar={<Toolbar enableFilter/>}
-          rowGetter={this.getRowAt}
-          rowsCount={this.state.renderedData.length}
-          onAddFilter={this.handleFilterChange}
-          onClearFilters={this.onClearFilters}
-          onGridSort={this.handleGridSort}
-          minHeight={452}
-          rowScrollTimeout={200} />
+        <div className="data-grid-outer-container">
+          {showPreviewWarning ?
+            <Alert className="data-grid-preview-warning"
+                   onDismiss={this.handlePreviewWarningDismissed}>
+                <h4>Only showing the first {this.state.data.length} rows.</h4>
+            </Alert>
+            :
+            null
+          }
+          <div className="data-grid-container" style={{height: dataGridContainerHeight}}>
+            <ReactDataGrid
+              columns={this.state.columns}
+              toolbar={<Toolbar enableFilter/>}
+              rowGetter={this.getRowAt}
+              rowsCount={this.state.renderedData.length}
+              onAddFilter={this.handleFilterChange}
+              onClearFilters={this.onClearFilters}
+              onGridSort={this.handleGridSort}
+              rowScrollTimeout={200}/>
+          </div>
+        </div>
       );
     }
   }
 
   fetchArtifacts() {
     Papa.parse(getSrc(this.props.path, this.props.runUuid), {
+      preview: this.props.previewRows ? this.props.previewRows : 0,
       download: true,
       downloadRequestHeaders: { [CSRF_HEADER_NAME]: getCsrfToken() },
       error: this.handleParseError,

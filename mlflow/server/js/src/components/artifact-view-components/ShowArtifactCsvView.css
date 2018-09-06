@@ -1,4 +1,29 @@
+.data-grid-outer-container {
+    height: 500px;
+    width: 100%;
+}
+
+.data-grid-preview-warning {
+    height: 10%;
+    margin-bottom: 0px;
+}
+
+.react-grid-Toolbar {
+    height: 10%;
+}
+
+.react-grid-Main {
+    height: 90%;
+}
+
 .react-grid-Container {
-  height: 500px;
-  width: 100%;
+    height: 100%;
+}
+
+.react-grid-Grid {
+    min-height: 100% !important;
+}
+
+.react-grid-Canvas {
+    height: 100% !important;
 }
