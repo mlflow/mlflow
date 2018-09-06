@@ -7,7 +7,7 @@ import Utils from '../utils/Utils';
 import { getMetricsByKey } from '../reducers/MetricReducer';
 import './MetricView.css';
 import { Experiment } from "../sdk/MlflowMessages";
-import { getExperiment } from "../reducers/Reducers";
+import { getExperiment, getRunTags} from "../reducers/Reducers";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 
 const COLORS = [
@@ -26,14 +26,22 @@ class MetricView extends Component {
     // Object with keys from Metric json and also
     metrics: PropTypes.arrayOf(Object).isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
+    runNames: PropTypes.arrayOf(String).isRequired,
   };
 
   render() {
-    const { experiment, runUuids, title, metrics } = this.props;
+    const { experiment, runUuids, title, metrics, runNames } = this.props;
     if (metrics.length === 1) {
       return (
         <div className="MetricView">
-          <BreadcrumbTitle experiment={experiment} runUuids={runUuids} title={title}/>
+          <div className="header-container">
+            <BreadcrumbTitle
+              experiment={experiment}
+              runNames={runNames}
+              runUuids={runUuids}
+              title={title}
+            />
+          </div>
           <ResponsiveContainer width="100%" aspect={1.55}>
             <BarChart
               data={metrics}
@@ -57,7 +65,14 @@ class MetricView extends Component {
     } else {
       return (
         <div className="MetricView">
-          <BreadcrumbTitle experiment={experiment} runUuids={runUuids} title={title}/>
+          <div className="header-container">
+            <BreadcrumbTitle
+              experiment={experiment}
+              runNames={runNames}
+              runUuids={runUuids}
+              title={title}
+            />
+          </div>
           <ResponsiveContainer width="100%" aspect={1.55}>
             <LineChart
               data={Utils.convertTimestampToInt(metrics)}
@@ -101,11 +116,16 @@ const mapStateToProps = (state, ownProps) => {
       metrics[i][runUuid] = entries[i].value;
     }
   });
+  const runNames = runUuids.map((runUuid) => {
+    const tags = getRunTags(runUuid, state);
+    return Utils.getRunDisplayName(tags, runUuid);
+  });
   return {
     experiment,
     metrics,
     title: <span>{metricKey}</span>,
     runUuids: runUuids,
+    runNames: runNames
   };
 };
 

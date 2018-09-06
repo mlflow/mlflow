@@ -35,8 +35,8 @@ public class MLeapPredictor extends Predictor {
    * Constructs an {@link MLeapPredictor}
    *
    * @param modelDataPath The path to the serialized MLeap model
-   * @param inputSchema The path to JSON-formatted file containing the input schema that the model
-   *     accepts
+   * @param inputSchemaPath The path to JSON-formatted file containing the input schema that the
+   *     model accepts
    */
   public MLeapPredictor(String modelDataPath, String inputSchemaPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
