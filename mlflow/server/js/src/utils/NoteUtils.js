@@ -18,6 +18,9 @@ export class NoteInfo {
       newAccumulated[key] = item[1];
       return newAccumulated;
     }, { });
+    if (obj.content === undefined) {
+      return undefined;
+    }
     return new NoteInfo(obj.content);
   };
 }

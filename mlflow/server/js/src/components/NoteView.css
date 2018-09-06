@@ -3,9 +3,15 @@
   height: 90%;
 }
 
-.note-view-outer-container div.submit-button {
+.note-view-outer-container div.btn-toolbar {
   width: 100%;
   height: 10%;
+  padding-top: 4px;
+}
+
+.note-view-outer-container .btn {
+  display: inline-block;
+  min-width: 72px;
 }
 
 .note-view-outer-container div.note-view-text-area {
@@ -22,6 +28,7 @@
   border: solid 1px #c8ccd0;
   border-radius: 2px;
 }
+
 .note-view-preview-content {
   width: 100%;
   min-height: 200px;

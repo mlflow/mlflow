@@ -14,7 +14,9 @@ import { MLFLOW_INTERNAL_PREFIX } from "../utils/TagUtils";
 import { NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
-import ShowNoteView from "./NoteView";
+import NoteEditorView from "./NoteEditorView";
+import NoteShowView from "./NoteShowView";
+
 
 const NOTES_KEY = 'notes';
 const PARAMETERS_KEY = 'parameters';
@@ -29,6 +31,9 @@ class RunView extends Component {
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
     this.handleRenameRunClick = this.handleRenameRunClick.bind(this);
     this.hideRenameRunModal = this.hideRenameRunModal.bind(this);
+    this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
+    this.handleSubmittedNote = this.handleSubmittedNote.bind(this);
+    this.handleNoteEditorViewCancel = this.handleNoteEditorViewCancel.bind(this);
     this.state.showTags = getVisibleTagValues(props.tags).length > 0;
   }
 
@@ -45,6 +50,7 @@ class RunView extends Component {
   };
 
   state = {
+    showNotesEditor: false,
     showNotes: true,
     showParameters: true,
     showMetrics: true,
@@ -100,6 +106,14 @@ class RunView extends Component {
         return null;
       }
     }
+  }
+
+  handleExposeNotesEditorClick() {
+    this.setState({ showNotesEditor: true, showNotes: true });
+  }
+
+  handleNoteEditorViewCancel() {
+    this.setState({ showNotesEditor: false });
   }
 
   handleRenameRunClick() {
@@ -227,16 +241,32 @@ class RunView extends Component {
           : null
         }
         <div className="RunView-info">
-          <h2 onClick={() => this.onClickExpander(NOTES_KEY)} className="table-name">
-            <span ><i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/></span>
-            {' '}Notes
+          <h2 className="table-name">
+            <span onClick={() => this.onClickExpander(NOTES_KEY)} className="RunView-notes-headline">
+              <span ><i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/></span>
+              {' '}Notes
+            </span>
+            { !this.state.showNotes || !this.state.showNotesEditor ?
+              <span>{' '}<a onClick={this.handleExposeNotesEditorClick} className={`fa fa-edit`}/></span>
+              :
+              null
+            }
           </h2>
           {this.state.showNotes ?
-            <ShowNoteView
-              runUuid={this.props.runUuid}
-              noteInfo={noteInfo}
-              submitCallback={this.handleSubmittedNote}
-            /> :
+            (this.state.showNotesEditor ?
+                <NoteEditorView
+                  runUuid={this.props.runUuid}
+                  noteInfo={noteInfo}
+                  submitCallback={this.handleSubmittedNote}
+                  cancelCallback={this.handleNoteEditorViewCancel}
+                />
+                :
+                (noteInfo !== undefined ?
+                    <NoteShowView content={noteInfo.content}/>
+                    :
+                    <em>None</em>
+                )
+            ) :
             null
           }
           <h2 onClick={() => this.onClickExpander(PARAMETERS_KEY)} className="table-name">
@@ -290,11 +320,15 @@ class RunView extends Component {
     );
   }
 
+  // eslint-disable-next-line no-unused-vars
   handleSubmittedNote(content, err) {
     if (err) {
-      // TODO
+      // TODO(adamson) figure out what to display on an error
+      const alertMessage = 'Failed to submit note content: ' + err.message;
+      alert(alertMessage);
     } else {
-      window.location.reload();
+      // Successfully submitted note, close the editor
+      this.setState({ showNotesEditor: false })
     }
   }
 }
