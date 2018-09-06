@@ -39,8 +39,18 @@ mlflow_save_model <- function(x, path = "model", dependencies = NULL) {
   mlflow_write_model_spec(path, flavor_spec)
 }
 
+mlflow_timestamp <- function() {
+  withr::with_options(
+    c(digits.secs = 2),
+    format(
+      as.POSIXlt(Sys.time(), tz = "GMT"),
+      "%y-%m-%dT%H:%M:%S.%OS"
+    )
+  )
+}
+
 mlflow_write_model_spec <- function(path, content) {
-  content$time_created <- Sys.time()
+  content$time_created <- mlflow_timestamp()
   content$run_id <- mlflow_active_run()$run_info$run_uuid
 
   write_yaml(
