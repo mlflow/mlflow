@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import { Button,
   ButtonGroup, ButtonToolbar,
   ToggleButtonGroup, ToggleButton } from 'react-bootstrap';
@@ -6,7 +7,7 @@ import ReactMde from 'react-mde';
 import Markdown from 'react-markdown';
 import { Converter } from "showdown";
 import PropTypes from 'prop-types';
-import { setTagApi } from '../Actions';
+import { setTagApi, getUUID } from '../Actions';
 import { NoteInfo, NOTE_TAG_PREFIX } from "../utils/NoteUtils";
 import 'react-mde/lib/styles/css/react-mde-all.css';
 import './NoteView.css';
@@ -20,17 +21,19 @@ class ShowNoteView extends Component {
   constructor(props) {
     super(props);
     this.converter = new Converter({tables: true, simplifiedAutoLink: true});
-    this.uneditedContent = this.getUneditedContent();
     this.handleMdeValueChange = this.handleMdeValueChange.bind(this);
-    this.renderNote = this.renderNote.bind(this);
     this.handleSubmitClick = this.handleSubmitClick.bind(this);
     this.handleEditPreviewChange = this.handleEditPreviewChange.bind(this);
     this.renderButtonToolbar = this.renderButtonToolbar.bind(this);
+    this.uneditedContent = this.getUneditedContent();
+    this.state.mdeState = { markdown: this.uneditedContent };
+    this.state.mdSource = this.uneditedContent;
   }
 
   state = {
     mdeState: undefined,
     mdSource: undefined,
+    isSubmitting: false,
     editPreviewToggle: EditPreviewToggle.preview,
   };
 
@@ -38,20 +41,11 @@ class ShowNoteView extends Component {
     runUuid: PropTypes.string.isRequired,
     noteInfo: PropTypes.instanceOf(NoteInfo).isRequired,
     submitCallback: PropTypes.func.isRequired,
+    dispatch: PropTypes.func.isRequired,
   };
 
   getUneditedContent() {
     return this.props.noteInfo.content === undefined ? '' : this.props.noteInfo.content;
-  }
-
-  componentWillMount() {
-    this.renderNote();
-  }
-
-  componentDidUpdate(prevProps) {
-    if (this.props.noteInfo !== prevProps.noteInfo) {
-      this.renderNote();
-    }
   }
 
   handleMdeValueChange(mdeState) {
@@ -59,21 +53,18 @@ class ShowNoteView extends Component {
   }
 
   handleSubmitClick() {
-    const self = this;
+    this.setState({ isSubmitting: true });
     const submittedContent = this.state.mdSource;
-
-    const action = setTagApi(this.props.runUuid, NOTE_TAG_PREFIX + 'content', submittedContent);
-    action.payload.then(
-      () => {
-        self.setState({
-          noteInfo: new NoteInfo(submittedContent),
-        });
-        self.props.submitCallback(submittedContent, undefined);
-      },
-      (error) => {
-        self.props.submitCallback(submittedContent, error);
-      }
-    );
+    const setTagRequestId = getUUID();
+    return this.props.dispatch(
+      setTagApi(this.props.runUuid, NOTE_TAG_PREFIX + 'content', submittedContent, setTagRequestId))
+      .then(() => {
+        this.setState({ isSubmitting: false });
+        this.props.submitCallback(submittedContent, undefined);
+      }).catch((err) => {
+        this.setState({ isSubmitting: false });
+        this.props.submitCallback(submittedContent, err);
+      });
   }
 
   handleEditPreviewChange(e) {
@@ -85,7 +76,8 @@ class ShowNoteView extends Component {
   }
 
   renderButtonToolbar() {
-    const canSubmit = this.contentHasChanged() && !this.state.loading;
+    const canSubmit = this.contentHasChanged() && !this.state.loading && !this.state.isSubmitting;
+    const submitText = this.state.isSubmitting ? "Submitting..." : "Submit";
     return (
       <ButtonToolbar>
         <ToggleButtonGroup
@@ -98,7 +90,7 @@ class ShowNoteView extends Component {
         <ButtonGroup>
           <Button bsStyle="primary" onClick={this.handleSubmitClick}
                   {...(canSubmit ? {active: true} : {disabled: true})}>
-            Submit
+            { submitText }
           </Button>
         </ButtonGroup>
       </ButtonToolbar>
@@ -113,7 +105,7 @@ class ShowNoteView extends Component {
         <div className="note-view-text-area">
           {inEditMode ?
             <ReactMde
-              layout="noPreview"
+              layout="tabbed"
               onChange={this.handleMdeValueChange}
               editorState={this.state.mdeState}
               generateMarkdownPreview={markdown =>
@@ -136,17 +128,13 @@ class ShowNoteView extends Component {
       </div>
     );
   }
-
-  renderNote() {
-    this.setState(
-      {
-        mdeState: {
-          markdown: this.uneditedContent
-        },
-        mdSource: this.uneditedContent
-      }
-    );
-  }
 }
 
-export default ShowNoteView;
+// eslint-disable-next-line no-unused-vars
+const mapDispatchToProps = (dispatch, ownProps) => {
+  return {
+    dispatch,
+  };
+};
+
+export default connect(null, mapDispatchToProps)(ShowNoteView);
