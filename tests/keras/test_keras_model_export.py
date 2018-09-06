@@ -57,7 +57,7 @@ def test_model_save_load(tmpdir, model, data, predicted):
     assert all(pyfunc_loaded.predict(x).values == predicted)
 
     # pyfunc serve
-    preds = pyfunc_serve_and_score_model(model_path=os.path.abspath(path), data=x, no_conda=False)
+    preds = pyfunc_serve_and_score_model(model_path=os.path.abspath(path), data=x)
     assert all(preds.values.astype(np.float32) == predicted)
 
 

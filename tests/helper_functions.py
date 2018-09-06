@@ -42,21 +42,18 @@ def score_model_in_sagemaker_docker_container(model_path, data):
     return _score_proc(proc, 5000, data)
 
 
-def pyfunc_serve_and_score_model(model_path, data, no_conda=False):
+def pyfunc_serve_and_score_model(model_path, data):
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"] \
-          + (["--no-conda"] if no_conda else [])
-    print("cmd", cmd)
+    cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"]
     proc = Popen(cmd,
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True,
                  env=env)
-
     for x in iter(proc.stdout.readline, ""):
         print(x)
-        m = re.match(pattern=".*Running on http://127.0.0.1:(\d+).*", string=x)
+        m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
         if m:
             res = _score_proc(proc, int(m.group(1)), data)
             print(res)

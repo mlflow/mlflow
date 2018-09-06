@@ -72,9 +72,10 @@ def load_pyfunc(model_file):
         graph = tf.Graph()
         sess = tf.Session(graph=graph)
         with graph.as_default():
-            with sess.as_default():
+            with sess.as_default():  # pylint:disable=not-context-manager
                 K.set_learning_phase(0)
-                return _KerasModelWrapper(_load_model(model_file), graph, sess)
+                m = _load_model(model_file)
+        return _KerasModelWrapper(m, graph, sess)
     else:
         raise Exception("Unsupported backend '%s'" % K._BACKEND)
 
