@@ -52,7 +52,7 @@ class TestModelExport(unittest.TestCase):
                 xpred = score_model_in_sagemaker_docker_container(input_path, self._iris_df)
                 print('expected', self._linear_lr_predict)
                 print('actual  ', xpred)
-                np.testing.assert_array_equal(self._linear_lr_predict, xpred.values.flatten())
+                np.testing.assert_array_equal(self._linear_lr_predict, xpred)
         finally:
             if path_to_remove:
                 try:
