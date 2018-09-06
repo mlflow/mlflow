@@ -148,7 +148,8 @@ class RestStore(AbstractStore):
             start_time=start_time, source_version=source_version, tags=tag_protos))
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
-        self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
+        if run_name:
+            self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
     def log_metric(self, run_uuid, metric):
