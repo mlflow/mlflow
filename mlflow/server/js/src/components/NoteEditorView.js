@@ -1,8 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Button,
-  ButtonGroup, ButtonToolbar,
-  ToggleButtonGroup, ToggleButton } from 'react-bootstrap';
+import { Button, ButtonGroup, ButtonToolbar} from 'react-bootstrap';
 import ReactMde from 'react-mde';
 import { Converter } from "showdown";
 import PropTypes from 'prop-types';

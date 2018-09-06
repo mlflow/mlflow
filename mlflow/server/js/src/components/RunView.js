@@ -34,6 +34,7 @@ class RunView extends Component {
     this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
     this.handleSubmittedNote = this.handleSubmittedNote.bind(this);
     this.handleNoteEditorViewCancel = this.handleNoteEditorViewCancel.bind(this);
+    this.renderNoteSection = this.renderNoteSection.bind(this);
     this.state.showTags = getVisibleTagValues(props.tags).length > 0;
   }
 
@@ -124,6 +125,42 @@ class RunView extends Component {
     this.setState({ showRunRenameModal: false });
   }
 
+  renderNoteSection(noteInfo) {
+    if (this.state.showNotes) {
+      if (this.state.showNotesEditor) {
+        return <NoteEditorView
+            runUuid={this.props.runUuid}
+            noteInfo={noteInfo}
+            submitCallback={this.handleSubmittedNote}
+            cancelCallback={this.handleNoteEditorViewCancel}
+          />;
+      } else if (noteInfo) {
+        return <NoteShowView content={noteInfo.content}/>;
+      } else {
+        return <em>None</em>;
+      }
+    }
+    return null;
+  }
+
+  getRunCommand() {
+    const { run, params } = this.props;
+    let runCommand = null;
+    if (run.source_type === "PROJECT") {
+      runCommand = 'mlflow run ' + shellEscape(run.source_name);
+      if (run.source_version && run.source_version !== "latest") {
+        runCommand += ' -v ' + shellEscape(run.source_version);
+      }
+      if (run.entry_point_name && run.entry_point_name !== "main") {
+        runCommand += ' -e ' + shellEscape(run.entry_point_name);
+      }
+      Object.values(params).sort().forEach(p => {
+        runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
+      });
+    }
+    return runCommand;
+  }
+
   render() {
     const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const noteInfo = NoteInfo.fromRunTags(tags);
@@ -141,20 +178,7 @@ class RunView extends Component {
         marginRight: '80px',
       }
     };
-
-    let runCommand = null;
-    if (run.source_type === "PROJECT") {
-      runCommand = 'mlflow run ' + shellEscape(run.source_name);
-      if (run.source_version && run.source_version !== "latest") {
-        runCommand += ' -v ' + shellEscape(run.source_version);
-      }
-      if (run.entry_point_name && run.entry_point_name !== "main") {
-        runCommand += ' -e ' + shellEscape(run.entry_point_name);
-      }
-      Object.values(params).sort().forEach(p => {
-        runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
-      });
-    }
+    const runCommand = this.getRunCommand();
     return (
       <div className="RunView">
         <div className="header-container">
@@ -242,33 +266,20 @@ class RunView extends Component {
         }
         <div className="RunView-info">
           <h2 className="table-name">
-            <span onClick={() => this.onClickExpander(NOTES_KEY)} className="RunView-notes-headline">
-              <span ><i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/></span>
+            <span onClick={() => this.onClickExpander(NOTES_KEY)}
+                  className="RunView-notes-headline">
+              <span><i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/></span>
               {' '}Notes
             </span>
-            { !this.state.showNotes || !this.state.showNotesEditor ?
-              <span>{' '}<a onClick={this.handleExposeNotesEditorClick} className={`fa fa-edit`}/></span>
+            {!this.state.showNotes || !this.state.showNotesEditor ?
+              <span>{' '}
+                <a onClick={this.handleExposeNotesEditorClick} className={`fa fa-edit`}/>
+              </span>
               :
               null
             }
           </h2>
-          {this.state.showNotes ?
-            (this.state.showNotesEditor ?
-                <NoteEditorView
-                  runUuid={this.props.runUuid}
-                  noteInfo={noteInfo}
-                  submitCallback={this.handleSubmittedNote}
-                  cancelCallback={this.handleNoteEditorViewCancel}
-                />
-                :
-                (noteInfo !== undefined ?
-                    <NoteShowView content={noteInfo.content}/>
-                    :
-                    <em>None</em>
-                )
-            ) :
-            null
-          }
+          {this.renderNoteSection(noteInfo)}
           <h2 onClick={() => this.onClickExpander(PARAMETERS_KEY)} className="table-name">
             <span ><i className={`fa ${this.getExpanderClassName(PARAMETERS_KEY)}`}/></span>
             {' '}Parameters
@@ -324,11 +335,10 @@ class RunView extends Component {
   handleSubmittedNote(content, err) {
     if (err) {
       // TODO(adamson) figure out what to display on an error
-      const alertMessage = 'Failed to submit note content: ' + err.message;
-      alert(alertMessage);
+      // const alertMessage = 'Failed to submit note content: ' + err.message;
     } else {
       // Successfully submitted note, close the editor
-      this.setState({ showNotesEditor: false })
+      this.setState({ showNotesEditor: false });
     }
   }
 }

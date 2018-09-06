@@ -1,7 +1,4 @@
 import React, { Component } from 'react';
-import { Button,
-  ButtonGroup, ButtonToolbar,
-  ToggleButtonGroup, ToggleButton } from 'react-bootstrap';
 import Markdown from 'react-markdown';
 import PropTypes from 'prop-types';
 import './NoteView.css';
