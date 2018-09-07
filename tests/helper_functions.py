@@ -9,6 +9,8 @@ import time
 
 import pandas as pd
 
+import mlflow
+
 
 def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
@@ -22,14 +24,16 @@ def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
 
 
-def score_model_in_sagemaker_docker_container(model_path, data):
+def score_model_in_sagemaker_docker_container(model_path, data, flavor=mlflow.pyfunc.FLAVOR_NAME):
     """
+    :param model_path: Path to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
                  Pandas dataframe or a JSON-formatted string.
+    :param flavor: Model flavor to be deployed.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000"],
+    proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True, env=env)
@@ -39,6 +43,10 @@ def score_model_in_sagemaker_docker_container(model_path, data):
 
 
 def pyfunc_serve_and_score_model(model_path, data):
+    """
+    :param model_path: Path to the model to be served.
+    :param data: Data in pandas.DataFrame format to send to the docker container for testing.
+    """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"]
