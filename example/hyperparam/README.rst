@@ -1,21 +1,15 @@
 Hyperparameter Tuning Example
 ------------------------------
 
-Example of how you can use hyperparameter tuning with MLflow and existing hyperparameter opimization
-libraries. In this example, we optimize rmse metric on a wine-quality dataset over two
-hyperparameters (learning rate and momentum) of a Keras DL model defined by the train entry point.
+Example of how you can do hyperparameter tuning with MLflow and some popular optimization libraries.
 
-We split the dataset into three parts - training, validation and test. The training dataset is used
-to fit the model, validation dataset is used to select the best hyperparameter values and the test
-set is used to evaluate expected performance on unseen data (we need to make sure hyperparameter
-search did not overfit on training + validation dataset combination). All three metrics are logged
-with MLflow and you can use MLflow ui to inspect how they vary between different hyperparameter
-values.
-
-All three hyperparameter targets take optional experiment id for training runs. If provided,
-training runs will be logged under this experiment id. This is a short term solution to organizing
-the runs so that it is easy to view individual training runs and the hyperparameter runs separately.
-In the future this will be achieved by MLflow tags.
+In this example, we try to optimize rmse metric on a wine-quality dataset over two hyperparameters
+(learning rate and momentum) of a Keras DL model defined by the train entry point. The input dataset
+is split into three parts - training, validation and test. The training dataset is used to fit the
+model, validation dataset is used to select the best hyperparameter values and the test set is used
+to evaluate expected performance and to verify that we did not overfit on the particular training
+and validation combination. All three metrics are logged with MLflow and you can use MLflow ui to
+inspect how they vary between different hyperparameter values.
 
 examples/hyperparam/MLproject has 4 targets:
   * main
@@ -29,6 +23,11 @@ examples/hyperparam/MLproject has 4 targets:
     GPyOpt can run multiple mlflow runs in parallel if run with batch-size > 1 and max_p > 1.
   * hyperOpt
     use `Hyperopt <https://github.com/hyperopt/hyperopt>`_ to optimize hyperparameters.
+
+All the hyperparameter targets take optional experiment id for training runs. If provided,
+training runs will be logged under this experiment id. This is a short term solution to organizing
+the runs so that it is easy to view individual training runs and the hyperparameter runs separately.
+In the future this will be achieved by MLflow tags.
 
 
 Running this Example
