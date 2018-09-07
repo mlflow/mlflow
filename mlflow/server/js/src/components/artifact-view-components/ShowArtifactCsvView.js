@@ -6,9 +6,12 @@ import Papa from 'papaparse';
 import ReactDataGrid from 'react-data-grid';
 import { Data, Toolbar } from 'react-data-grid-addons';
 import { Alert } from 'react-bootstrap';
+import bytes from 'bytes';
+import sizeof from 'object-sizeof';
 import './ShowArtifactCsvView.css';
 
-const MAX_DATA_READ = 1024 * 1024 * 10; // 10 MB
+const MAX_DATA_TO_DOWNLOAD = 1024 * 1024 * 1024; // 1 GB
+const MAX_DATA_TO_PARSE = 1024 * 100; // 100 KB
 
 const DEFAULT_COLUMN_PROPS = {
   filterable: true,
@@ -20,7 +23,8 @@ class ShowArtifactCsvView extends Component {
     super(props);
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
     this.getRowAt = this.getRowAt.bind(this);
-    this.handleNewChunk = this.handleNewChunk.bind(this);
+    this.handleParsingComplete = this.handleParsingComplete.bind(this);
+    this.handleStep = this.handleStep.bind(this);
     this.handleFilterChange = this.handleFilterChange.bind(this);
     this.onClearFilters = this.onClearFilters.bind(this);
     this.handleGridSort = this.handleGridSort.bind(this);
@@ -31,10 +35,12 @@ class ShowArtifactCsvView extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     path: PropTypes.string.isRequired,
+    fileSize: PropTypes.number.isRequired,
     previewRows: PropTypes.number,
   };
 
   state = {
+    fileTooLarge: false,
     error: undefined,
     data: [],
     renderedData: undefined,
@@ -42,19 +48,29 @@ class ShowArtifactCsvView extends Component {
     sortDirection: undefined,
     filters: {},
     numRowsRead: 0,
+    approximateSize: 0,
+    isPreview: false,
     previewWarningDismissed: false,
-    firstChunkRead: false,
     readingFinished: false,
   };
 
+  prepareNewFile() {
+    if (this.props.fileSize > MAX_DATA_TO_DOWNLOAD) {
+      this.setState({fileTooLarge: true});
+    } else {
+      this.fetchArtifacts();
+    }
+  }
+
   componentWillMount() {
-    this.fetchArtifacts();
+    this.prepareNewFile();
   }
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
       // eslint-disable-next-line react/no-did-update-set-state
       this.setState({
+        fileTooLarge: false,
         error: undefined,
         data: [],
         renderedData: undefined,
@@ -62,11 +78,12 @@ class ShowArtifactCsvView extends Component {
         sortDirection: undefined,
         filters: {},
         numRowsRead: 0,
+        approximateSize: 0,
+        isPreview: false,
         previewWarningDismissed: false,
-        firstChunkRead: false,
         readingFinished: false,
       });
-      this.fetchArtifacts();
+      this.prepareNewFile();
     }
   }
 
@@ -116,24 +133,30 @@ class ShowArtifactCsvView extends Component {
     return this.state.renderedData[index];
   }
 
-  handleNewChunk(results, parser) {
+  handleParsingComplete() {
+    this.setState({ readingFinished: true }, this.setRenderedData);
+  }
+
+  handleStep(results, parser) {
     const newNumRowsRead = this.state.numRowsRead + results.data.length;
-    if (!this.state.firstChunkRead) {
+    const newApproximateSize = this.state.approximateSize + sizeof(results.data);
+    if (this.state.numRowsRead === 0) {
       this.setState({
         columns: this.getColumnDefinitions(results.meta.fields),
-        firstChunkRead: true,
+        approximateSize: newApproximateSize,
         data: [...this.state.data, ...results.data],
         numRowsRead: newNumRowsRead,
-      }, this.setRenderedData);
+      });
     } else {
       this.setState({
+        approximateSize: newApproximateSize,
         data: [...this.state.data, ...results.data],
         numRowsRead: newNumRowsRead,
-      }, this.setRenderedData);
+      });
     }
-    if ((newNumRowsRead + 1) * Papa.RemoteChunkSize > MAX_DATA_READ) {
+    if (newApproximateSize >= MAX_DATA_TO_PARSE) {
       parser.abort();
-      this.setState({ isPreview: true });
+      this.setState({ isPreview: true }, this.setRenderedData);
     }
   }
 
@@ -146,7 +169,15 @@ class ShowArtifactCsvView extends Component {
   }
 
   render() {
-    if (!this.state.firstChunkRead || this.state.renderedData === undefined) {
+    if (this.state.fileTooLarge) {
+      return (
+        <div>
+          File too large to download: {bytes(this.props.fileSize)} exceeds file size
+          limit of {bytes(MAX_DATA_TO_DOWNLOAD)}.
+        </div>
+      );
+    }
+    if (this.state.numRowsRead === 0 || this.state.renderedData === undefined) {
       return (
         <div>
           Loading...
@@ -162,9 +193,7 @@ class ShowArtifactCsvView extends Component {
       );
     } else {
       let dataGridContainerHeight = `100%`;
-      const showPreviewWarning = (
-        this.state.data.length === this.props.previewRows && !this.state.previewWarningDismissed
-      );
+      const showPreviewWarning = this.state.isPreview && !this.state.previewWarningDismissed;
       if (showPreviewWarning) {
         dataGridContainerHeight = `90%`;
       }
@@ -196,14 +225,16 @@ class ShowArtifactCsvView extends Component {
 
   fetchArtifacts() {
     Papa.parse(getSrc(this.props.path, this.props.runUuid), {
-      preview: this.props.previewRows ? this.props.previewRows : 0,
+      complete: this.handleParsingComplete,
       download: true,
       downloadRequestHeaders: { [CSRF_HEADER_NAME]: getCsrfToken() },
       error: this.handleParseError,
       dynamicTyping: true,
       header: true,
       skipEmptyLines: 'greedy',
-      chunk: this.handleNewChunk,
+      // chunk: this.handleNewChunk,
+      step: this.handleStep,
+      // worker: true,
     });
   }
 }

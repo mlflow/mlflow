@@ -61,7 +61,10 @@ class ArtifactView extends Component {
                   null
                 }
               </div>
-              <ShowArtifactPage runUuid={this.props.runUuid} path={this.state.activeNodeId}/>
+              <ShowArtifactPage
+                runUuid={this.props.runUuid}
+                path={this.state.activeNodeId}
+                fileSize={this.getFileBytes()}/>
             </div>
             <div className="artifact-center">
             </div>
@@ -159,13 +162,18 @@ class ArtifactView extends Component {
     return this.props.artifactRootUri;
   }
 
-  getSize() {
+  getFileBytes() {
     if (this.state.activeNodeId) {
       const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
       const size = node.fileInfo.file_size || '0';
-      return bytes(parseInt(size, 10));
+      return parseInt(size, 10);
+    } else {
+      return 0;
     }
-    return bytes(0);
+  }
+
+  getSize() {
+    return bytes(this.getFileBytes());
   }
 }
 

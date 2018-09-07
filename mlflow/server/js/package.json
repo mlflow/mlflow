@@ -11,6 +11,7 @@
     "immutable": "3.8.1",
     "jquery": "3.0.0",
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
+    "object-sizeof": "^1.2.0",
     "papaparse": "^4.6.0",
     "prop-types": "15.6.1",
     "qs": "6.5.2",

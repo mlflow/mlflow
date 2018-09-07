@@ -8,13 +8,10 @@ import { getExtension, IMAGE_EXTENSIONS,
 import previewIcon from '../../static/preview-icon.png';
 import './ShowArtifactPage.css';
 
-// Only parse the first CSV_MAX_DISPLAY_ROWS out of a CSV to prevent using too much
-// browser memory
-const CSV_MAX_DISPLAY_ROWS = 10000;
-
 class ShowArtifactPage extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
+    fileSize: PropTypes.number.isRequired,
     // If path is not defined don't render anything
     path: PropTypes.string,
   };
@@ -27,9 +24,9 @@ class ShowArtifactPage extends Component {
         return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path}/>;
       } else if (CSV_EXTENSIONS.has(getExtension(this.props.path))) {
         return <ShowArtifactCsvView
-          runUuid={this.props.runUuid}
+          unUuid={this.props.runUuid}
           path={this.props.path}
-          previewRows={CSV_MAX_DISPLAY_ROWS}/>;
+          fileSize={this.props.fileSize}/>;
       }
     }
     return (
