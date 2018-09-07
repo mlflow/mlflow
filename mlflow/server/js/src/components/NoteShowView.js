@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import Markdown from 'react-markdown';
 import PropTypes from 'prop-types';
-import './NoteView.css';
+import './NoteShowView.css';
 
 class NoteShowView extends Component {
   static propTypes = {

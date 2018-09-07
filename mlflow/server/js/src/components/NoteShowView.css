@@ -1,0 +1,19 @@
+/*.note-view-outer-container {*/
+  /*width: 100%;*/
+  /*height: 90%;*/
+/*}*/
+
+/*div.note-view-text-area {*/
+  /*width: 100%;*/
+  /*height: 90%;*/
+/*}*/
+
+.note-view-preview {
+  border: solid 1px #c8ccd0;
+  border-radius: 2px;
+}
+
+.note-view-preview-content {
+  width: 100%;
+  padding: 10px;
+}

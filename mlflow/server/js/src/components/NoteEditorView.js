@@ -7,12 +7,15 @@ import PropTypes from 'prop-types';
 import { setTagApi, getUUID } from '../Actions';
 import { NoteInfo, NOTE_TAG_PREFIX } from "../utils/NoteUtils";
 import 'react-mde/lib/styles/css/react-mde-all.css';
-import './NoteView.css';
+import './NoteEditorView.css';
 
 class NoteEditorView extends Component {
   constructor(props) {
     super(props);
-    this.converter = new Converter({tables: true, simplifiedAutoLink: true});
+    this.converter = new Converter();
+    // Use Github-like Markdown (i.e. support for tasklists, strikethrough,
+    // simple line breaks, code blocks, emojis)
+    this.converter.setFlavor('github');
     this.handleMdeValueChange = this.handleMdeValueChange.bind(this);
     this.handleSubmitClick = this.handleSubmitClick.bind(this);
     this.handleCancelClick = this.handleCancelClick.bind(this);
@@ -72,7 +75,7 @@ class NoteEditorView extends Component {
     return (
       <ButtonToolbar>
         <ButtonGroup>
-          <Button bsStyle="primary" onClick={this.handleSubmitClick}
+          <Button className="submit-button" bsStyle="primary" onClick={this.handleSubmitClick}
                   {...(canSubmit ? {active: true} : {disabled: true})}>
             Save
           </Button>

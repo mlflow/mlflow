@@ -11,7 +11,22 @@
 
 .note-view-outer-container .btn {
   display: inline-block;
-  min-width: 72px;
+  height: 28px;
+  width: 100px;
+}
+
+.mde-text {
+  border: 2px solid #0092E1;
+}
+
+.note-view-outer-container .submit-button {
+  background-color: #0193e1;
+  border-color: #0193e1;
+}
+
+.note-view-outer-container .submit-button:hover {
+  background-color: #017fcb;
+  border-color: #017fcb;
 }
 
 .note-view-outer-container div.note-view-text-area {
@@ -31,6 +46,5 @@
 
 .note-view-preview-content {
   width: 100%;
-  min-height: 200px;
   padding: 10px;
 }
