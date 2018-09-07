@@ -56,9 +56,8 @@ class S3ArtifactRepository(ArtifactRepository):
             dest_path = build_path(dest_path, path)
         infos = []
         prefix = dest_path + "/"
-        s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
-        client = boto3.client('s3', endpoint_url=s3_endpoint_url)
-        paginator = client.get_paginator("list_objects_v2")
+        s3_client = self._get_s3_client()
+        paginator = s3_client.get_paginator("list_objects_v2")
         results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/')
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
