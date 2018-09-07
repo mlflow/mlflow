@@ -173,7 +173,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       logger.info("Found local mlflow executable");
       mlflowSuccessfullyLoaded.set(true);
     } catch (MlflowClientException e) {
-      String errorMessage = String.format("Failed to exec '%s -m mlflow.cli --version', needed to" +
+      String errorMessage = String.format("Failed to exec '%s -m mlflow.cli', needed to" +
           " access artifacts within the non-Java-native artifact store at '%s'. Please make" +
           " sure mlflow is available on your local system path (e.g., from 'pip install mlflow')",
         PYTHON_EXECUTABLE, artifactBaseDir);
