@@ -101,7 +101,7 @@ public interface ArtifactRepository {
    *   <pre>
    *   downloadArtifacts("model") // returns a local directory containing "file1" and "file2"
    *   downloadArtifacts("model/file1") // returns a local *file* with the contents of file1.
-   *   </pre>
+   *   </MlflowJavaClientIntegrationSuite.scala>
    *
    * Note that this will download the entire subdirectory path, and so may be expensive if
    * the subdirectory a lot of data.
