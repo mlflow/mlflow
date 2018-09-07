@@ -1,4 +1,12 @@
-"""MLflow integration for Keras."""
+"""
+The ``mlflow.keras`` module provides an API for logging and loading Keras models. This module
+supports exporting H20 models with the following flavors:
+
+Keras (native) format
+    This is the main flavor and is always produced.
+:py:mod:`mlflow.pyfunc`
+    Models with this flavor can be loaded as Python functions for performing inference.
+"""
 
 from __future__ import absolute_import
 
@@ -49,10 +57,9 @@ def log_model(keras_model, artifact_path, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
-    :param keras_model: Keras model type to be logged as an artifact
-    :param artifact_path: path or directory name under artifacts.
-    :param kwargs: Additional keyword arguments to pass to :py:meth:`save_model` when persisting
-                   the model.
+    :param keras_model: Keras model to be saved.
+    :param artifact_path: Run-relative artifact path.
+    :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
     >>> import mlflow
@@ -88,12 +95,13 @@ class _KerasModelWrapper:
         return predicted
 
 
-def load_pyfunc(model_file):
+def load_pyfunc(path):
     """
-    Load a Python Function model from a local file.
+    Load a persisted Keras model as a ``python_function`` model.
 
-    :param model_file: path from where to load
-    :return: The model as PyFunc.
+    :param path: Local filesystem path to the model saved by :py:func:`mlflow.keras.log_model`.
+    :rtype: Pyfunc format model with function
+            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
 
     >>> model_file = "/tmp/pyfunc-keras-model"
     >>> keras_model = mlflow.keras.load_pyfunc(model_file)
@@ -118,11 +126,11 @@ def load_pyfunc(model_file):
 
 def load_model(path, run_id=None):
     """
-    Load a Keras model from a local file (if run_id is None) or a run.
+    Load a Keras model from a local file (if ``run_id`` is None) or a run.
 
-    :param path: artifact path
-    :param run_id: run_id of a particular run
-    :return: Keras model
+    :param path: Local filesystem path or run-relative artifact path to the model saved
+                 by :py:func:`mlflow.keras.log_model`.
+    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
 
     >>> # Load persisted model as a Keras model or as a PyFunc, call predict() on a Pandas DataFrame
     >>> keras_model = mlflow.keras.load_model("models", run_id="96771d893a5e46159d9f3b49bf9013e2")

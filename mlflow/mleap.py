@@ -1,13 +1,8 @@
 """
-MLflow integration of the MLeap serialization tool for PySpark MLlib pipelines
-
-This module provides utilities for saving models using the MLeap
-using the MLeap library's persistence mechanism.
-
-A companion module for loading MLFlow models with the MLeap flavor format is available in the
-`mlflow/java` package.
-
-For more information about MLeap, see https://github.com/combust/mleap.
+The ``mlflow.mleap`` module provides an API for saving Spark MLLib models using the
+`MLeap <https://github.com/combust/mleap>`_ persistence mechanism.
+A companion module for loading MLflow models with the MLeap flavor format is available in the
+``mlflow/java`` package.
 """
 
 from __future__ import absolute_import
@@ -29,13 +24,16 @@ def log_model(spark_model, sample_input, artifact_path):
     Log a Spark MLLib model in MLeap format as an MLflow artifact
     for the current run. The logged model will have the MLeap flavor.
 
-    NOTE: The MLeap model flavor cannot be loaded in Python. It must be loaded using the
-    Java module within the `mlflow/java` package.
+    NOTE:
+
+        The MLeap model flavor cannot be loaded in Python; it must be loaded using the
+        Java module within the ``mlflow/java`` package.
 
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
-                  cannot contain any custom transformers.
-    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is
+                        cannot contain any custom transformers.
+    :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
+    :param artifact_path: Run-relative artifact path.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
                      spark_model=spark_model, sample_input=sample_input)
@@ -43,18 +41,20 @@ def log_model(spark_model, sample_input, artifact_path):
 
 def save_model(spark_model, sample_input, path, mlflow_model=Model()):
     """
-    Save a Spark MLlib PipelineModel in MLeap format at the given local path.
+    Save a Spark MLlib PipelineModel in MLeap format at a local path.
     The saved model will have the MLeap flavor.
 
-    NOTE: The MLeap model flavor cannot be loaded in Python. It must be loaded using the
-    Java module within the `mlflow/java` package.
+    NOTE:
 
-    :param path: Path of the MLFlow model to which this flavor is being added.
+        The MLeap model flavor cannot be loaded in Python; it must be loaded using the
+        Java module within the ``mlflow/java`` package.
+
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
                   cannot contain any custom transformers.
-    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is
+    :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
-    :param mlflow_model: MLFlow model config to which this flavor is being added.
+    :param path: Local path where the model is to be saved.
+    :param mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
     """
     add_to_model(mlflow_model, path, spark_model, sample_input)
     mlflow_model.save(os.path.join(path, "MLmodel"))
@@ -62,13 +62,13 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model()):
 
 def add_to_model(mlflow_model, path, spark_model, sample_input):
     """
-    Add the MLeap flavor to a pre-existing MLFlow model.
+    Add the MLeap flavor to an existing MLflow model.
 
-    :param mlflow_model: MLFlow model config to which this flavor is being added.
-    :param path: Path of the MLFlow model to which this flavor is being added.
+    :param mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
+    :param path: Path of the model to which this flavor is being added.
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
-                  cannot contain any custom transformers.
-    :param sample_input: A sample PySpark Dataframe input that the model can evaluate. This is
+                        cannot contain any custom transformers.
+    :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     """
     from pyspark.ml.pipeline import PipelineModel
@@ -79,7 +79,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
 
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel."
-                        " MLeap can currently only save PipelineModels.")
+                        " MLeap can save only PipelineModels.")
     if sample_input is None:
         raise Exception("A sample input must be specified in order to add the MLeap flavor.")
     if not isinstance(sample_input, DataFrame):
@@ -101,7 +101,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                                       dataset=dataset)
     except Py4JError as e:
         tb = sys.exc_info()[2]
-        error_str = ("MLeap encountered an error while serializing the model. Please ensure that"
+        error_str = ("MLeap encountered an error while serializing the model. Ensure that"
                      " the model is compatible with MLeap"
                      " (i.e does not contain any custom transformers). Error text: {err}".format(
                          err=str(e)))

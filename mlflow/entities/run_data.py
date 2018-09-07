@@ -7,7 +7,7 @@ from mlflow.protos.service_pb2 import RunData as ProtoRunData
 
 class RunData(_MLflowObject):
     """
-    Class exposing run data (metrics and parameters).
+    Run data (metrics and parameters).
     """
     def __init__(self, metrics=None, params=None, tags=None):
         self._metrics = []

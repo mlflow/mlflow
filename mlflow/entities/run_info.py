@@ -4,7 +4,9 @@ from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 
 
 class RunInfo(_MLflowObject):
-    """ Class containing metadata for a run. """
+    """
+    Metadata about a run.
+    """
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                  user_id, status, start_time, end_time, source_version, artifact_uri=None):
         if run_uuid is None:
@@ -43,7 +45,7 @@ class RunInfo(_MLflowObject):
         return False
 
     def copy_with_overrides(self, status, end_time):
-        """ Returns a copy the current RunInfo with certain attributes modified """
+        """A copy of the RunInfo with certain attributes modified."""
         proto = self.to_proto()
         proto.status = status
         if end_time:
@@ -68,8 +70,7 @@ class RunInfo(_MLflowObject):
     @property
     def source_type(self):
         """
-        Enum (one of the values in :py:class:`mlflow.entities.source_type.SourceType`)
-        describing the source of the run.
+        :py:class:`mlflow.entities.SourceType` describing the source of the run.
         """
         return self._source_type
 
@@ -94,7 +95,7 @@ class RunInfo(_MLflowObject):
     @property
     def status(self):
         """
-        Enum (one of the values in :py:class:`mlflow.entities.run_status.RunStatus`)
+        One of the values in :py:class:`mlflow.entities.RunStatus`
         describing the status of the run.
         """
         return self._status
@@ -111,12 +112,12 @@ class RunInfo(_MLflowObject):
 
     @property
     def source_version(self):
-        """String: git commit of the code used for the run, if available."""
+        """String Git commit hash of the code used for the run, if available."""
         return self._source_version
 
     @property
     def artifact_uri(self):
-        """String: root artifact URI of the run."""
+        """String root artifact URI of the run."""
         return self._artifact_uri
 
     def to_proto(self):
