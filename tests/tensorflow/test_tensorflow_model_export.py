@@ -33,7 +33,7 @@ class TestModelExport(unittest.TestCase):
         # Logging the TensorFlow model just saved.
         tensorflow.log_saved_model(saved_model_dir=saved_estimator_path,
                                    signature_def_key="predict",
-                                   artifact_path=tmp.path("hello"))
+                                   artifact_path="hello")
         # Loading the saved TensorFlow model as a pyfunc.
         x = pyfunc.load_pyfunc(saved_estimator_path)
         # Predicting on the dataset using the pyfunc.
