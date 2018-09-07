@@ -34,7 +34,7 @@ def deploy(app_name, model_path, run_id=None, mlflow_home=None):
     :param app_name: Name of the deployed application.
     :param model_path: Local or MLflow-run-relative path to the model to be deployed.
     :param run_id: MLflow run ID.
-    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or 
+    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
                         current directory if not specified.
     """
     if run_id:
@@ -66,7 +66,7 @@ def export(output, model_path, run_id=None, mlflow_home=None):
     :param output: Output folder where the model is going to be exported to.
     :param model_path: Local or MLflow run relative path to the model to be exported.
     :param run_id: MLflow run ID.
-    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or 
+    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
                         current directory if not specified.
     """
     output = os.path.abspath(output)

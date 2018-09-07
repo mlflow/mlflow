@@ -51,7 +51,7 @@ following parameters:
 .. rubric:: Example
 
 >>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
-  
+
 ::
 
   ├── MLmodel

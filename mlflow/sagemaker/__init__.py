@@ -112,7 +112,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
     The image is built locally and it requires Docker to run.
 
     :param name: Docker image name.
-    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or 
+    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
                         current directory if not specified.
     """
     with TempDir() as tmp:

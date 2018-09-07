@@ -169,7 +169,7 @@ def log_metric(key, value):
 def log_artifact(local_path, artifact_path=None):
     """
     Log a local file or directory as an artifact of the currently active run.
-    
+
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
@@ -180,7 +180,7 @@ def log_artifact(local_path, artifact_path=None):
 def log_artifacts(local_dir, artifact_path=None):
     """
     Log all the contents of a local directory as artifacts of the run.
-    
+
     :param local_dir: Path to the directory of files to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
