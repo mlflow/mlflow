@@ -50,7 +50,8 @@ def log_model(keras_model, artifact_path, **kwargs):
 
     :param keras_model: Keras model type to be logged as an artifact
     :param artifact_path: path or directory name under artifacts.
-    :param kwargs: Additional keyword arguments to pass to mlflow.keras.save_model
+    :param kwargs: Additional keyword arguments to pass to :py:meth:`save_model` when persisting
+                   the model.
 
     >>> from keras import Dense, layers
     >>> import mlflow
