@@ -1,20 +1,19 @@
 Hyperparameter Tuning Example
 ------------------------------
 
-Example of how you can use hyperparameter tuning with MLflow using external hyperparameter tuning
-libraries. We optimize rmse metric on a wine-quality dataset (the same as in the
-MLflow tutorial) over two hyperparameters of a Keras DL model defined by the train entry
-point. Notice that we split the dataset into three parts (training, validation and test). The model
-is fitted on the training set, validation dataset is used to pick the best hyperparameters and test
-set is used to evaluate expected performance on unseen data (we need to make sure hyperparameter
-search did not overfit on training + validation dataset combination). All three metrics are logged
-with mlflow and you can use MLflow ui to inspect how do results vary between train, validation and
-test.
+Example of how you can use hyperparameter tuning with MLflow with existing libraries. We optimize
+rmse metric on a wine-quality dataset (the same as in the MLflow tutorial) over two hyperparameters
+of a Keras DL model defined by the train entry point. We split the dataset into three parts -
+training, validation and test. The model is fitted on the training set, validation dataset is used
+to pick the best hyperparameter values and test set is used to evaluate expected performance on
+unseen data (we need to make sure hyperparameter search did not overfit on training + validation
+dataset combination). All three metrics are logged with mlflow and you can use MLflow ui to inspect
+how do results vary between train, validation and test for different hyperparameter values.
 
-All targets take optional experiment id for training runs. If provided, training runs will be logged
-under this experiment id. This is a short term solution to organizing the runs so that it is easy to
-view individual training runs and the hyperparameter runs separately. In the future this will be
-achieved by MLflow tags.
+The hyperparameter targets take optional experiment id for training runs. If provided, training runs
+will be logged under this experiment id. This is a short term solution to organizing the runs so
+that it is easy to view individual training runs and the hyperparameter runs separately. In the
+future this will be achieved by MLflow tags.
 
 examples/hyperparam/MLproject has 4 targets:
   * main
