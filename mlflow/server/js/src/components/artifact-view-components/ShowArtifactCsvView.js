@@ -36,7 +36,6 @@ class ShowArtifactCsvView extends Component {
     runUuid: PropTypes.string.isRequired,
     path: PropTypes.string.isRequired,
     fileSize: PropTypes.number.isRequired,
-    previewRows: PropTypes.number,
   };
 
   state = {
@@ -169,6 +168,14 @@ class ShowArtifactCsvView extends Component {
   }
 
   render() {
+    if (this.state.error) {
+      return (
+        <div>
+          <em>Oops we couldn't load your file because of an error parsing the CSV contents</em>:
+          {this.state.error.message} at row {this.state.error.row}
+        </div>
+      );
+    }
     if (this.state.fileTooLarge) {
       return (
         <div>
@@ -184,43 +191,34 @@ class ShowArtifactCsvView extends Component {
         </div>
       );
     }
-    if (this.state.error) {
-      return (
-        <div>
-          <em>Oops we couldn't load your file because of an error parsing the CSV contents</em>:
-          {this.state.error.message} at row {this.state.error.row}
-        </div>
-      );
-    } else {
-      let dataGridContainerHeight = `100%`;
-      const showPreviewWarning = this.state.isPreview && !this.state.previewWarningDismissed;
-      if (showPreviewWarning) {
-        dataGridContainerHeight = `90%`;
-      }
-      return (
-        <div className="data-grid-outer-container">
-          {showPreviewWarning ?
-            <Alert className="data-grid-preview-warning"
-                   onDismiss={this.handlePreviewWarningDismissed}>
-                <h4>Only showing the first {this.state.data.length} rows.</h4>
-            </Alert>
-            :
-            null
-          }
-          <div className="data-grid-container" style={{height: dataGridContainerHeight}}>
-            <ReactDataGrid
-              columns={this.state.columns}
-              toolbar={<Toolbar enableFilter/>}
-              rowGetter={this.getRowAt}
-              rowsCount={this.state.renderedData.length}
-              onAddFilter={this.handleFilterChange}
-              onClearFilters={this.onClearFilters}
-              onGridSort={this.handleGridSort}
-              rowScrollTimeout={200}/>
-          </div>
-        </div>
-      );
+    let dataGridContainerHeight = `100%`;
+    const showPreviewWarning = this.state.isPreview && !this.state.previewWarningDismissed;
+    if (showPreviewWarning) {
+      dataGridContainerHeight = `90%`;
     }
+    return (
+      <div className="data-grid-outer-container">
+        {showPreviewWarning ?
+          <Alert className="data-grid-preview-warning"
+                 onDismiss={this.handlePreviewWarningDismissed}>
+              <h4>Only showing the first {this.state.data.length} rows.</h4>
+          </Alert>
+          :
+          null
+        }
+        <div className="data-grid-container" style={{height: dataGridContainerHeight}}>
+          <ReactDataGrid
+            columns={this.state.columns}
+            toolbar={<Toolbar enableFilter/>}
+            rowGetter={this.getRowAt}
+            rowsCount={this.state.renderedData.length}
+            onAddFilter={this.handleFilterChange}
+            onClearFilters={this.onClearFilters}
+            onGridSort={this.handleGridSort}
+            rowScrollTimeout={200}/>
+        </div>
+      </div>
+    );
   }
 
   fetchArtifacts() {
@@ -232,9 +230,7 @@ class ShowArtifactCsvView extends Component {
       dynamicTyping: true,
       header: true,
       skipEmptyLines: 'greedy',
-      // chunk: this.handleNewChunk,
       step: this.handleStep,
-      // worker: true,
     });
   }
 }

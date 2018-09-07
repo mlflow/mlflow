@@ -24,7 +24,7 @@ class ShowArtifactPage extends Component {
         return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path}/>;
       } else if (CSV_EXTENSIONS.has(getExtension(this.props.path))) {
         return <ShowArtifactCsvView
-          unUuid={this.props.runUuid}
+          runUuid={this.props.runUuid}
           path={this.props.path}
           fileSize={this.props.fileSize}/>;
       }
