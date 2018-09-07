@@ -1,3 +1,14 @@
+"""
+Example of hyperparameter search in MLflow using simple random search.
+
+The run method will evaluate random combinations of parameters in a new mlflow run.
+
+The runs are evaluated based on validation set loss. Test set score is calculated to verify the
+results.
+
+Several runs can be run in parallel.
+"""
+
 import math
 
 import os
@@ -13,17 +24,6 @@ import mlflow
 import mlflow.sklearn
 import mlflow.tracking
 import mlflow.projects
-
-"""
-Example of hyper param search in MLflow using simple random search.
-
-The run method will evaluate random combinations of parameters in a new mlflow run.
-
-The runs are evaluated based on validation set loss. Test set score is calculated to verify the 
-results. 
-
-Several runs can be run in parallel.  
-"""
 
 
 @click.command(help="Perform grid search over train (main entry point).")
@@ -57,7 +57,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
             lr, momentum = parms
             p = mlflow.projects.run(
                 uri=".",
-                entry_point="main",
+                entry_point="train",
                 parameters={
                     "training_data": training_data,
                     "epochs": str(nepochs),
@@ -111,9 +111,9 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
                     best_val_loss = val_loss
                     best_test_loss = test_loss
                 f.write("{run_id} {train} {val} {test}\n".format(run_id=run_id,
-                                                                train=train_loss,
-                                                                val=val_loss,
-                                                                test=test_loss))
+                                                                 train=train_loss,
+                                                                 val=val_loss,
+                                                                 test=test_loss))
         mlflow.log_artifact(results_file_path, "training_runs.txt")
         # record which run produced the best results, store it as an artifact
         best_run_path = os.path.join(os.path.join(tmp, "best_run.txt"))

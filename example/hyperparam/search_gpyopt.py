@@ -1,3 +1,14 @@
+"""
+Example of hyperparameter search in MLflow using GPyOpt.
+
+The run method will instantiate and run gpyopt optimizer. Each parameter configuration is
+evaluated in a new mlflow run invoking main entry point with selected parameters.
+
+The runs are evaluated based on validation set loss. Test set score is calculated to verify the
+results.
+
+Several runs can be run in parallel.
+"""
 import math
 
 import os
@@ -12,20 +23,8 @@ import mlflow.sklearn
 import mlflow.tracking
 import mlflow.projects
 
-"""
-Example of hyper param search in MLflow using GPyOpt.
 
-The run method will instantiate and run gpyopt optimizer. Each parameter configuration is 
-evaluated in a new mlflow run invoking main entry point with selected parameters.
-
-The runs are evaluated based on validation set loss. Test set score is calculated to verify the 
-results.
-
-Several runs can be run in parallel.
-"""
-
-
-@click.command(help="Perform hyper parameter search with GPyOpt library."
+@click.command(help="Perform hyperparameter search with GPyOpt library."
                     "Optimize dl_train target.")
 @click.option("--max-runs", type=click.INT, default=20,
               help="Maximum number of runs to evaluate.")
@@ -92,7 +91,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
             lr, momentum = params[0]
             p = mlflow.projects.run(
                 uri=".",
-                entry_point="main",
+                entry_point="train",
                 parameters={
                     "training_data": training_data,
                     "epochs": str(nepochs),
@@ -154,6 +153,10 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                                                                  valid_null_loss,
                                                                  test_null_loss),
                                                         bounds,
+                                                        evaluator_type=
+                                                        "local_penalization" if min(batch_size,
+                                                                                    max_p) > 1
+                                                        else "sequential",
                                                         batch_size=batch_size,
                                                         num_cores=max_p,
                                                         model_type=gpy_model,

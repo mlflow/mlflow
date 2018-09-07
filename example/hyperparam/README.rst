@@ -1,26 +1,33 @@
 Hyperparameter Tuning Example
 ------------------------------
 
-Example of how you can use hyperparameter tuning with mlflow using external hyperparameter tuning
-libraries. All three examples are implemented as an MLflow run entry point which evaluates the model
-by in another MLflow run entry point. This way both the parent hyperparameter tuning run and the
-spawned training runs get logged. All targets take optional experiment id for training runs. If
-provided, training runs will be logged under this experiment id. This is a short term solution to
-organizing the runs so that it is easy to view individual training runs and the hyperparameter runs
-separately. In the future this will be achieved by MLflow tags.
+Example of how you can use hyperparameter tuning with MLflow using external hyperparameter tuning
+libraries. We optimize rmse metric on a wine-quality dataset (the same as in the
+MLflow tutorial) over two hyperparameters of a Keras DL model defined by the train entry
+point. Notice that we split the dataset into three parts (training, validation and test). The model
+is fitted on the training set, validation dataset is used to pick the best hyperparameters and test
+set is used to evaluate expected performance on unseen data (we need to make sure hyperparameter
+search did not overfit on training + validation dataset combination). All three metrics are logged
+with mlflow and you can use MLflow ui to inspect how do results vary between train, validation and
+test.
+
+All targets take optional experiment id for training runs. If provided, training runs will be logged
+under this experiment id. This is a short term solution to organizing the runs so that it is easy to
+view individual training runs and the hyperparameter runs separately. In the future this will be
+achieved by MLflow tags.
 
 examples/hyperparam/MLproject has 4 targets:
   * main
-    trains simple deep learning model on the wine-quality dataset from our tutorial.
+    train simple deep learning model on the wine-quality dataset from our tutorial.
     It has 3 tunable hyperparameters - learning_rate, beta1, beta2.
     Contains examples of how Keras callbacks can be used for mlflow integration.
   * random
-    performs simple random search over the parameter space.
+    perform simple random search over the parameter space.
   * gpyopt
-    uses `GPyOpt <https://github.com/SheffieldML/GPyOpt>`_ to optimize hyperparameters of train.
+    use `GPyOpt <https://github.com/SheffieldML/GPyOpt>`_ to optimize hyperparameters of train.
     GPyOpt can run multiple mlflow runs in parallel if run with batch-size > 1 and max_p > 1.
   * hyperOpt
-    uses `Hyperopt <https://github.com/hyperopt/hyperopt>`_ to optimize hyperparameters.
+    use `Hyperopt <https://github.com/hyperopt/hyperopt>`_ to optimize hyperparameters.
 
 
 Running this Example

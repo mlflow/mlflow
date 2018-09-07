@@ -1,3 +1,16 @@
+"""
+Example of hyperparameter search in MLflow using Hyperopt.
+
+The run method will instantiate and run hyperopt optimizer. Each parameter configuration is
+evaluated in a new mlflow run invoking main entry point with selected parameters.
+
+The runs are evaluated based on validation set loss. Test set score is calculated to verify the
+results.
+
+
+This example currently does not support parallel execution.
+"""
+
 import click
 import math
 
@@ -5,29 +18,12 @@ import os
 import shutil
 import tempfile
 
-import hyperopt
-
-print("hyperopt version =", hyperopt.__version__)
-
 from hyperopt import fmin, hp, tpe, rand
 
 import mlflow.projects
 
-"""
-Example of hyper param search in MLflow using Hyperopt.
 
-The run method will instantiate and run hyperopt optimizer. Each parameter configuration is 
-evaluated in a new mlflow run invoking main entry point with selected parameters.
-
-The runs are evaluated based on validation set loss. Test set score is calculated to verify the 
-results.
-   
-
-This example currently does not support parallel execution.
-"""
-
-
-@click.command(help="Perform hyper parameter search with Hyperopt library."
+@click.command(help="Perform hyperparameter search with Hyperopt library."
                     "Optimize dl_train target.")
 @click.option("--max-runs", type=click.INT, default=10,
               help="Maximum number of runs to evaluate.")
@@ -44,7 +40,7 @@ This example currently does not support parallel execution.
 @click.argument("training_data")
 def train(training_data, max_runs, epochs, metric, algo, seed, training_experiment_id):
     """
-    Run hyper param optimization.
+    Run hyperparameter optimization.
     """
     # create random file to store run ids of the training tasks
     tmp = tempfile.mkdtemp()
@@ -85,7 +81,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
             lr, momentum = params
             p = mlflow.projects.run(
                 uri=".",
-                entry_point="main",
+                entry_point="train",
                 parameters={
                     "training_data": training_data,
                     "epochs": str(nepochs),
@@ -149,6 +145,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
                     space=space,
                     algo=tpe.suggest if algo == "tpe.suggest" else rand.suggest,
                     max_evals=max_runs)
+        print("best", best)
         best_val_train = math.inf
         best_val_valid = math.inf
         best_val_test = math.inf

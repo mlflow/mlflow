@@ -9,11 +9,11 @@ dependencies:
   - matplotlib=2.2.2
   - pip:
     - mlflow>=0.5.2
-    - click
-    - Gpy
-    - GpyOpt
-    - tensorflow
-    - keras
-    - pyDOE
-    - hyperopt
+    - click==6.7
+    - Gpy==1.9.2
+    - GpyOpt==1.2.5
+    - tensorflow==1.10.1
+    - keras==2.2.2
+    - pyDOE==0.3.8
+    - hyperopt==0.1
 

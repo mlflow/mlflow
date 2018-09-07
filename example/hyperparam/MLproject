@@ -1,10 +1,10 @@
-name: tutorial
+name: HyperparameterSearch
 
 conda_env: conda.yaml
 
 entry_points:
   # train keras dl model
-  main:
+  train:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       epochs: {type: int, default: 32}
@@ -18,12 +18,12 @@ entry_points:
                                     --learning-rate {learning_rate}
                                     --momentum {momentum}"
 
-# Use grid search to optimize hyperparams of the dl_train entry_point.
+  # Use random search to optimize hyperparams of the train entry_point.
   random:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       max_runs: {type: int, default: 8}
-      max_p: {type: int, default: 8}
+      max_p: {type: int, default: 2}
       epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       seed: {type: int, default: 97531}
@@ -37,17 +37,17 @@ entry_points:
                                              --training-experiment-id {training_experiment_id}"
 
 
-  # Use GPyOpt to optimize hyperparams of the dl_train entry_point.
+  # Use GPyOpt to optimize hyperparams of the train entry_point.
   gpyopt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
       max_runs: {type: int, default: 8}
-      batch_size: {type: int, default: 1}
-      max_p: {type: int, default: 1}
+      batch_size: {type: int, default: 2}
+      max_p: {type: int, default: 2}
       epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
-      gpy_model: {type: string, default: "GP_MCMC"}
-      gpy_acquisition: {type: string, default: "EI_MCMC"}
+      gpy_model: {type: string, default: "GP"}
+      gpy_acquisition: {type: string, default: "EI"}
       initial_design: {type: string, default: "random"}
       seed: {type: int, default: 97531}
       training_experiment_id: {type: int, default: "-1"}
@@ -64,7 +64,7 @@ entry_points:
                                              --seed {seed}
                                              --training-experiment-id {training_experiment_id}"
 
-  # Use Hyperopt to optimize hyperparams of the dl_train entry_point.
+  # Use Hyperopt to optimize hyperparams of the train entry_point.
   hyperopt:
     parameters:
       training_data: {type: string, default: "../tutorial/wine-quality.csv"}
