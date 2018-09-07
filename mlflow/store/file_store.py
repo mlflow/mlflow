@@ -12,6 +12,7 @@ from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file, build_path, write_to, append_to,
                                      make_containing_dirs, mv)
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 from mlflow.utils.search_utils import does_run_match_clause
 
@@ -210,9 +211,8 @@ class FileStore(AbstractStore):
                             "exists." % experiment_id)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
-        num_runs = len(self._list_run_uuids(experiment_id))
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
-                           name=run_name or "Run %s" % num_runs,
+                           name="",
                            artifact_uri=artifact_uri, source_type=source_type,
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
@@ -227,6 +227,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
+        if run_name:
+            self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
 
     def _make_run_info_dict(self, run_info):

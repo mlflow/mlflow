@@ -7,15 +7,18 @@ from mock import Mock
 
 from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
+from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.fixture()
 def dbfs_artifact_repo():
-    return DbfsArtifactRepository('dbfs:/test/', {})
+    return DbfsArtifactRepository('dbfs:/test/', lambda: MlflowHostCreds('http://host'))
 
 TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
 TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
 TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
+
+DBFS_ARTIFACT_REPOSITORY_PACKAGE = 'mlflow.store.dbfs_artifact_repo.DbfsArtifactRepository'
 
 
 @pytest.fixture()
@@ -50,10 +53,10 @@ LIST_ARTIFACTS_RESPONSE = {
 
 class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
-        repo = DbfsArtifactRepository('dbfs:/test/', {})
+        repo = DbfsArtifactRepository('dbfs:/test/', lambda: MlflowHostCreds('http://host'))
         assert repo.artifact_uri == 'dbfs:/test'
         with pytest.raises(MlflowException):
-            DbfsArtifactRepository('s3://test', {})
+            DbfsArtifactRepository('s3://test', lambda: MlflowHostCreds('http://host'))
 
     @pytest.mark.parametrize("artifact_path,expected_endpoint", [
         (None, '/dbfs/test/test.txt'),
@@ -64,7 +67,7 @@ class TestDbfsArtifactRepository(object):
             endpoints = []
             data = []
 
-            def my_http_request(**kwargs):
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
                 data.append(kwargs['data'].read())
                 return Mock(status_code=200)
@@ -93,7 +96,7 @@ class TestDbfsArtifactRepository(object):
             endpoints = []
             data = []
 
-            def my_http_request(**kwargs):
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
                 data.append(kwargs['data'].read())
                 return Mock(status_code=200)
@@ -124,7 +127,7 @@ class TestDbfsArtifactRepository(object):
         with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
             endpoints = []
 
-            def my_http_request(**kwargs):
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
                 return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
@@ -144,9 +147,9 @@ class TestDbfsArtifactRepository(object):
             assert artifacts[1].file_size is None
 
     def test_download_artifacts(self, dbfs_artifact_repo):
-        with mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_is_dir') as is_dir_mock,\
-                mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_list_api') as list_mock, \
-                mock.patch('mlflow.store.dbfs_artifact_repo._dbfs_download') as download_mock:
+        with mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_is_dir') as is_dir_mock,\
+                mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_list_api') as list_mock, \
+                mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_download') as download_mock:
             is_dir_mock.side_effect = [
                 True,
                 False,

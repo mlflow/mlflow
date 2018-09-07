@@ -292,3 +292,46 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
         mleap.save_model(spark_model=unsupported_model,
                          path=model_path,
                          sample_input=spark_model_iris.training_df)
+
+
+@pytest.mark.large
+def test_container_scoring_with_sparkml_and_mleap_outputs_same_format(
+        spark_model_iris, model_path, spark_conda_env):
+    sparkml_model = Model()
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      conda_env=spark_conda_env, mlflow_model=sparkml_model)
+    assert sparkm.FLAVOR_NAME in sparkml_model.flavors
+    assert mleap.FLAVOR_NAME not in sparkml_model.flavors
+    sparkml_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                              data=spark_model_iris.inference_df)
+    shutil.rmtree(model_path)
+    assert not os.path.exists(model_path)
+    os.makedirs(model_path)
+    assert os.path.exists(model_path)
+    mleap_model = Model()
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      sample_input=spark_model_iris.training_df,
+                      mlflow_model=mleap_model)
+    assert mleap.FLAVOR_NAME in mleap_model.flavors
+    mleap_preds = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                            data=spark_model_iris.inference_df)
+    assert isinstance(sparkml_preds, list)
+    assert isinstance(mleap_preds, list)
+    assert len(mleap_preds) == len(sparkml_preds)
+    assert [isinstance(entry, int) for entry in sparkml_preds]
+    assert [isinstance(entry, int) for entry in mleap_preds]
+
+
+@pytest.mark.large
+def test_input_with_mleap_flavor(spark_model_iris, model_path):
+    """
+    Test that the mleap model deployed in Docker container throws an error when it gets bad input.
+    """
+    mleap_model = Model()
+    sparkm.save_model(spark_model_iris.model, path=model_path,
+                      sample_input=spark_model_iris.training_df,
+                      mlflow_model=mleap_model)
+    assert mleap.FLAVOR_NAME in mleap_model.flavors
+    with pytest.raises(Exception):
+        mleap_response = score_model_in_sagemaker_docker_container(model_path=model_path,
+                                                                   data="invalid")

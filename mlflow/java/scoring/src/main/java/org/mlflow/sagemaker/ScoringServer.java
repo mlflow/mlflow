@@ -253,7 +253,7 @@ public class ScoringServer {
     String modelPath = args[0];
     Optional<Integer> portNum = Optional.empty();
     if (args.length > 1) {
-      portNum = Optional.of(Integer.parseInt(args[2]));
+      portNum = Optional.of(Integer.parseInt(args[1]));
     }
     ScoringServer server = new ScoringServer(modelPath);
     try {

@@ -5,13 +5,15 @@ import { connect } from 'react-redux';
 import './RunView.css';
 import HtmlTableView from './HtmlTableView';
 import { Link } from 'react-router-dom';
+import { Dropdown, MenuItem } from 'react-bootstrap';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import BreadcrumbTitle from "./BreadcrumbTitle";
+import RenameRunModal from "./modals/RenameRunModal";
 
-const PARAMATERS_KEY = 'parameters';
+const PARAMETERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
 const ARTIFACTS_KEY = 'artifacts';
 const TAGS_KEY = 'tags';
@@ -21,6 +23,8 @@ class RunView extends Component {
     super(props);
     this.onClickExpander = this.onClickExpander.bind(this);
     this.getExpanderClassName = this.getExpanderClassName.bind(this);
+    this.handleRenameRunClick = this.handleRenameRunClick.bind(this);
+    this.hideRenameRunModal = this.hideRenameRunModal.bind(this);
     this.state.showTags = getTagValues(props.tags).length > 0;
   }
 
@@ -28,10 +32,12 @@ class RunView extends Component {
     runUuid: PropTypes.string.isRequired,
     run: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
+    experimentId: PropTypes.number.isRequired,
     params: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
     getMetricPagePath: PropTypes.func.isRequired,
+    runName: PropTypes.string.isRequired,
   };
 
   state = {
@@ -39,11 +45,12 @@ class RunView extends Component {
     showMetrics: true,
     showArtifacts: true,
     showTags: true,
+    showRunRenameModal: false,
   };
 
   onClickExpander(key) {
     switch (key) {
-      case PARAMATERS_KEY: {
+      case PARAMETERS_KEY: {
         this.setState({ showParameters: !this.state.showParameters });
         return;
       }
@@ -65,7 +72,7 @@ class RunView extends Component {
 
   getExpanderClassName(key) {
     switch (key) {
-      case PARAMATERS_KEY: {
+      case PARAMETERS_KEY: {
         return this.state.showParameters ? 'fa-caret-down' : 'fa-caret-right';
       }
       case METRICS_KEY: {
@@ -83,8 +90,16 @@ class RunView extends Component {
     }
   }
 
+  handleRenameRunClick() {
+    this.setState({ showRunRenameModal: true });
+  }
+
+  hideRenameRunModal() {
+    this.setState({ showRunRenameModal: false });
+  }
+
   render() {
-    const { run, experiment, params, tags, latestMetrics, getMetricPagePath } = this.props;
+    const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
@@ -113,16 +128,41 @@ class RunView extends Component {
         runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
       });
     }
-
     return (
       <div className="RunView">
         <div className="header-container">
-          <BreadcrumbTitle experiment={experiment} title={"Run " + run.getRunUuid()}/>
+          <BreadcrumbTitle
+            experiment={this.props.experiment}
+            title={this.props.runName}
+          />
+          <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
+             <Dropdown.Toggle noCaret className="mlflow-dropdown-button">
+               <i className="fas fa-caret-down"/>
+             </Dropdown.Toggle>
+             <Dropdown.Menu className="mlflow-menu">
+               <MenuItem
+                 className="mlflow-menu-item"
+                 onClick={this.handleRenameRunClick}
+               >
+                 Rename
+               </MenuItem>
+             </Dropdown.Menu>
+          </Dropdown>
+          <RenameRunModal
+            runUuid={this.props.runUuid}
+            experimentId={this.props.experimentId}
+            onClose={this.hideRenameRunModal}
+            runName={this.props.runName}
+            open={this.state.showRunRenameModal} />
         </div>
         <div className="run-info-container">
           <div className="run-info">
             <span className="metadata-header">Date: </span>
             <span className="metadata-info">{startTime}</span>
+          </div>
+          <div className="run-info">
+            <span className="metadata-header">Run ID: </span>
+            <span className="metadata-info">{run.getRunUuid()}</span>
           </div>
           <div className="run-info">
             <span className="metadata-header">Source: </span>
@@ -134,7 +174,7 @@ class RunView extends Component {
           {run.source_version ?
             <div className="run-info">
               <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{Utils.renderVersion(run)}</span>
+              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
             </div>
             : null
           }
@@ -174,8 +214,8 @@ class RunView extends Component {
           : null
         }
         <div className="RunView-info">
-          <h2 onClick={() => this.onClickExpander(PARAMATERS_KEY)} className="table-name">
-            <span ><i className={`fa ${this.getExpanderClassName(PARAMATERS_KEY)}`}/></span>
+          <h2 onClick={() => this.onClickExpander(PARAMETERS_KEY)} className="table-name">
+            <span ><i className={`fa ${this.getExpanderClassName(PARAMETERS_KEY)}`}/></span>
             {' '}Parameters
           </h2>
           {this.state.showParameters ?
@@ -227,13 +267,14 @@ class RunView extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { runUuid, metricPageRoute, getMetricPagePath, experimentId } = ownProps;
+  const { runUuid, experimentId } = ownProps;
   const run = getRunInfo(runUuid, state);
   const experiment = getExperiment(experimentId, state);
   const params = getParams(runUuid, state);
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
-  return { run, experiment, params, tags, latestMetrics, metricPageRoute, getMetricPagePath };
+  const runName = Utils.getRunDisplayName(tags, runUuid);
+  return { run, experiment, params, tags, latestMetrics, runName };
 };
 
 export default connect(mapStateToProps)(RunView);
@@ -271,4 +312,3 @@ const shellEscape = (str) => {
   }
   return str;
 };
-

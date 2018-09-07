@@ -39,9 +39,9 @@ class TestRun(TestRunInfo, TestRunData):
                             "tags": tags}}
         self.assertEqual(run1.to_dictionary(), as_dict)
 
-        # proto = run1.to_proto()
-        # run2 = Run.from_proto(proto)
-        # self._check_run(run2, run_info, run_data)
+        proto = run1.to_proto()
+        run2 = Run.from_proto(proto)
+        self._check_run(run2, run_info, run_data)
 
         run3 = Run.from_dictionary(as_dict)
         self._check_run(run3, run_info, run_data)

@@ -1,8 +1,12 @@
 package org.mlflow.tracking;
 
 import java.io.*;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.testng.Assert;
 import org.testng.annotations.*;
@@ -10,6 +14,7 @@ import org.testng.annotations.*;
 import static org.mlflow.tracking.TestUtils.*;
 
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.artifacts.ArtifactRepository;
 
 public class MlflowClientTest {
   private static final Logger logger = Logger.getLogger(MlflowClientTest.class);
@@ -42,7 +47,7 @@ public class MlflowClientTest {
     Assert.assertEquals(exp.getExperiment().getName(), expName);
   }
 
-  @Test(expectedExceptions = MlflowHttpServerException.class) // TODO: server should throw 406
+  @Test(expectedExceptions = MlflowClientException.class) // TODO: server should throw 406
   public void createExistingExperiment() {
     String expName = createExperimentName();
     client.createExperiment(expName);
@@ -86,7 +91,7 @@ public class MlflowClientTest {
 
     List<RunInfo> runInfos = client.listRunInfos(expId);
     Assert.assertEquals(runInfos.size(), 1);
-    Assert.assertEquals(runInfos.get(0).getName(), "Run 0"); // Weird, but the API returns this
+    Assert.assertEquals(runInfos.get(0).getSourceType(), SourceType.LOCAL);
     Assert.assertEquals(runInfos.get(0).getStatus(), RunStatus.RUNNING);
 
     // Log parameters
@@ -108,12 +113,11 @@ public class MlflowClientTest {
     GetExperiment.Response expResponse = client.getExperiment(expId);
     Experiment exp = expResponse.getExperiment();
     Assert.assertEquals(exp.getName(), expName);
-    assertRunInfo(expResponse.getRunsList().get(0), expId, user, sourceFile);
 
     // Assert run from getRun
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
-    assertRunInfo(runInfo, expId, user, sourceFile);
+    assertRunInfo(runInfo, expId, sourceFile);
   }
 
   @Test(dependsOnMethods = {"addGetRun"})
@@ -130,5 +134,19 @@ public class MlflowClientTest {
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
+  }
+
+  @Test
+  public void testUseArtifactRepository() throws IOException {
+    String content = "Hello, Worldz!";
+
+    File tempFile = Files.createTempFile(getClass().getSimpleName(), ".txt").toFile();
+    FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
+    client.logArtifact(runId, tempFile);
+
+    File downloadedArtifact = client.downloadArtifacts(runId, tempFile.getName());
+    String downloadedContent = FileUtils.readFileToString(downloadedArtifact,
+      StandardCharsets.UTF_8);
+    Assert.assertEquals(content, downloadedContent);
   }
 }

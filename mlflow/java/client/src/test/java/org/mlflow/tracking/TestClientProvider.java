@@ -12,13 +12,16 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import org.mlflow.tracking.creds.MlflowHostCreds;
+import org.mlflow.tracking.creds.MlflowHostCredsProvider;
+
 /**
  * Provides an MLflow API client for testing. This is a real client, pointed to a real server.
  * If the MLFLOW_TRACKING_URI environment variable is set, we will talk to the provided server;
  * this allows running tests against existing servers. Otherwise, we will launch a local
  * server on an ephemeral port, and manage its lifecycle.
  */
-class TestClientProvider {
+public class TestClientProvider {
   private static final Logger logger = Logger.getLogger(TestClientProvider.class);
 
   private static final long MAX_SERVER_WAIT_TIME_MILLIS = 60 * 1000;
@@ -29,7 +32,7 @@ class TestClientProvider {
    * Intializes an MLflow client and, if necessary, a local MLflow server process as well.
    * Callers should always call {@link #cleanupClientAndServer()}.
    */
-  MlflowClient initializeClientAndServer() throws IOException {
+  public MlflowClient initializeClientAndServer() throws IOException {
     if (serverProcess != null) {
       throw new IllegalStateException("Previous server process not cleaned up");
     }
@@ -48,7 +51,7 @@ class TestClientProvider {
    * {@link #initializeClientAndServer()}. This is safe to call even if the client/server were
    * not initialized successfully.
    */
-  void cleanupClientAndServer() throws InterruptedException {
+  public void cleanupClientAndServer() throws InterruptedException {
     if (serverProcess != null) {
       serverProcess.destroy();
       // Do our best to ensure that the
@@ -59,6 +62,10 @@ class TestClientProvider {
       }
       serverProcess = null;
     }
+  }
+
+  public MlflowHostCredsProvider getClientHostCredsProvider(MlflowClient client) {
+    return client.getInternalHostCredsProvider();
   }
 
   /**
@@ -77,7 +84,7 @@ class TestClientProvider {
     int freePort = getFreePort();
     String bindAddress = "127.0.0.1";
     pb.command("mlflow", "server", "--host", bindAddress, "--port", "" + freePort,
-      "--file-store", tempDir.toString());
+      "--file-store", tempDir.toString(), "--workers", "1");
     serverProcess = pb.start();
 
     // NB: We cannot use pb.inheritIO() because that interacts poorly with the Maven
