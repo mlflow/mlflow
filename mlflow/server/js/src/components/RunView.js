@@ -334,8 +334,7 @@ class RunView extends Component {
   // eslint-disable-next-line no-unused-vars
   handleSubmittedNote(content, err) {
     if (err) {
-      // TODO(adamson) figure out what to display on an error
-      // const alertMessage = 'Failed to submit note content: ' + err.message;
+      // Do nothing; error is handled by the note editor view
     } else {
       // Successfully submitted note, close the editor
       this.setState({ showNotesEditor: false });
