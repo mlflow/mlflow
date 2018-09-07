@@ -28,14 +28,15 @@ class S3ArtifactRepository(ArtifactRepository):
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
         dest_path = build_path(dest_path, os.path.basename(local_file))
-
-        boto3.client('s3').upload_file(local_file, bucket, dest_path)
+        s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+        boto3.client('s3', endpoint_url = s3_endpoint_url).upload_file(local_file, bucket, dest_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = build_path(dest_path, artifact_path)
-        s3 = boto3.client('s3')
+        s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+        s3 = boto3.client('s3', endpoint_url = s3_endpoint_url)
         local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
             upload_path = dest_path
@@ -52,7 +53,8 @@ class S3ArtifactRepository(ArtifactRepository):
             dest_path = build_path(dest_path, path)
         infos = []
         prefix = dest_path + "/"
-        paginator = boto3.client('s3').get_paginator("list_objects_v2")
+        s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+        paginator = boto3.client('s3', endpoint_url = s3_endpoint_url).get_paginator("list_objects_v2")
         results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/')
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
@@ -85,5 +87,6 @@ class S3ArtifactRepository(ArtifactRepository):
         else:
             (bucket, s3_path) = data.parse_s3_uri(self.artifact_uri)
             s3_path = build_path(s3_path, artifact_path)
-            boto3.client('s3').download_file(bucket, s3_path, local_path)
+            s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+            boto3.client('s3', endpoint_url = s3_endpoint_url).download_file(bucket, s3_path, local_path)
         return local_path
