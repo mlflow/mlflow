@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Button, ButtonGroup, ButtonToolbar} from 'react-bootstrap';
+import { Alert, Button, ButtonToolbar} from 'react-bootstrap';
 import ReactMde from 'react-mde';
 import { Converter } from "showdown";
 import PropTypes from 'prop-types';
@@ -19,6 +19,7 @@ class NoteEditorView extends Component {
     this.handleMdeValueChange = this.handleMdeValueChange.bind(this);
     this.handleSubmitClick = this.handleSubmitClick.bind(this);
     this.handleCancelClick = this.handleCancelClick.bind(this);
+    this.handleErrorAlertDismissed = this.handleErrorAlertDismissed.bind(this);
     this.renderButtonToolbar = this.renderButtonToolbar.bind(this);
     this.uneditedContent = this.getUneditedContent();
     this.state.mdeState = { markdown: this.uneditedContent };
@@ -28,6 +29,8 @@ class NoteEditorView extends Component {
   state = {
     mdeState: undefined,
     mdSource: undefined,
+    error: undefined,
+    errorAlertDismissed: false,
     isSubmitting: false,
   };
 
@@ -54,16 +57,20 @@ class NoteEditorView extends Component {
     return this.props.dispatch(
       setTagApi(this.props.runUuid, NOTE_TAG_PREFIX + 'content', submittedContent, setTagRequestId))
       .then(() => {
-        this.setState({ isSubmitting: false });
+        this.setState({ isSubmitting: false, error: undefined });
         this.props.submitCallback(submittedContent, undefined);
       }).catch((err) => {
-        this.setState({ isSubmitting: false });
+        this.setState({ isSubmitting: false, error: err, errorAlertDismissed: false });
         this.props.submitCallback(submittedContent, err);
       });
   }
 
   handleCancelClick() {
     this.props.cancelCallback();
+  }
+
+  handleErrorAlertDismissed() {
+    this.setState({ errorAlertDismissed: true });
   }
 
   contentHasChanged() {
@@ -73,19 +80,30 @@ class NoteEditorView extends Component {
   renderButtonToolbar() {
     const canSubmit = this.contentHasChanged() && !this.state.loading && !this.state.isSubmitting;
     return (
-      <ButtonToolbar>
-        <ButtonGroup>
-          <Button className="submit-button" bsStyle="primary" onClick={this.handleSubmitClick}
-                  {...(canSubmit ? {active: true} : {disabled: true})}>
+      <div className="note-editor-button-area">
+        {this.state.error && !this.state.errorAlertDismissed ?
+          <Alert bsStyle="danger" onDismiss={this.handleErrorAlertDismissed}>
+            <h4>Uh oh! There was an error submitting your note.</h4>
+            <p>
+              {this.state.error.message}
+            </p>
+          </Alert>
+          :
+          null
+        }
+        <ButtonToolbar>
+          <Button className="mlflow-form-button mlflow-save-button"
+                  bsStyle="primary"
+                  type="submit"
+                  onClick={this.handleSubmitClick}
+                  {...(canSubmit ? {} : {disabled: true})}>
             Save
           </Button>
-        </ButtonGroup>
-        <ButtonGroup>
-          <Button onClick={this.handleCancelClick}>
+          <Button className="mlflow-form-button" onClick={this.handleCancelClick}>
             Cancel
           </Button>
-        </ButtonGroup>
-      </ButtonToolbar>
+        </ButtonToolbar>
+      </div>
     );
   }
 
