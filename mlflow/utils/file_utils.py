@@ -201,6 +201,7 @@ def read_file_lines(parent_path, file_name):
     with open(file_path, 'r') as f:
         return f.readlines()
 
+
 def read_file(parent_path, file_name):
     """
     Return the contents of the file.
@@ -213,6 +214,7 @@ def read_file(parent_path, file_name):
     file_path = os.path.join(parent_path, file_name)
     with open(file_path, 'r') as f:
         return f.read()
+
 
 def get_file_info(path, rel_path):
     """
