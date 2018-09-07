@@ -8,6 +8,8 @@ import { Data, Toolbar } from 'react-data-grid-addons';
 import { Alert } from 'react-bootstrap';
 import './ShowArtifactCsvView.css';
 
+const MAX_DATA_READ = 1024 * 1024 * 10; // 10 MB
+
 const DEFAULT_COLUMN_PROPS = {
   filterable: true,
   sortable: true,
@@ -114,7 +116,7 @@ class ShowArtifactCsvView extends Component {
     return this.state.renderedData[index];
   }
 
-  handleNewChunk(results) {
+  handleNewChunk(results, parser) {
     const newNumRowsRead = this.state.numRowsRead + results.data.length;
     if (!this.state.firstChunkRead) {
       this.setState({
@@ -128,6 +130,10 @@ class ShowArtifactCsvView extends Component {
         data: [...this.state.data, ...results.data],
         numRowsRead: newNumRowsRead,
       }, this.setRenderedData);
+    }
+    if ((newNumRowsRead + 1) * Papa.RemoteChunkSize > MAX_DATA_READ) {
+      parser.abort();
+      this.setState({ isPreview: true });
     }
   }
 
