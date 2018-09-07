@@ -1,6 +1,5 @@
 package org.mlflow.artifacts;
 
-import javax.annotation.Nonnull;
 import java.io.File;
 import java.util.List;
 
@@ -15,8 +14,10 @@ public interface ArtifactRepository {
   /**
    * Uploads the given local file to the run's root artifact directory. For example,
    *
-   *  logArtifact("/my/localModel")
-   *  listArtifacts() // returns "localModel"
+   *   <pre>
+   *   logArtifact("/my/localModel")
+   *   listArtifacts() // returns "localModel"
+   *   </pre>
    *
    * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
    */
@@ -25,8 +26,10 @@ public interface ArtifactRepository {
   /**
    * Uploads the given local file to an artifactPath within the run's root directory. For example,
    *
+   *   <pre>
    *   logArtifact("/my/localModel", "model")
    *   listArtifacts("model") // returns "model/localModel"
+   *   </pre>
    *
    * (i.e., the localModel file is now available in model/localModel).
    *
@@ -34,14 +37,16 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  void logArtifact(File localFile, @Nonnull String artifactPath);
+  void logArtifact(File localFile, String artifactPath);
 
   /**
    * Uploads all files within the given local director the run's root artifact directory.
    * For example, if /my/local/dir/ contains two files "file1" and "file2", then
    *
-   *  logArtifacts("/my/local/dir")
-   *  listArtifacts() // returns "file1" and "file2"
+   *   <pre>
+   *   logArtifacts("/my/local/dir")
+   *   listArtifacts() // returns "file1" and "file2"
+   *   </pre>
    *
    * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
    */
@@ -52,8 +57,10 @@ public interface ArtifactRepository {
    * Uploads all files within the given local director an artifactPath within the run's root
    * artifact directory. For example, if /my/local/dir/ contains two files "file1" and "file2", then
    *
-   *  logArtifacts("/my/local/dir", "model")
-   *  listArtifacts("model") // returns "model/file1" and "model/file2"
+   *   <pre>
+   *   logArtifacts("/my/local/dir", "model")
+   *   listArtifacts("model") // returns "model/file1" and "model/file2"
+   *   </pre>
    *
    * (i.e., the contents of the local directory are now available in model/).
    *
@@ -61,7 +68,7 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  void logArtifacts(File localDir, @Nonnull String artifactPath);
+  void logArtifacts(File localDir, String artifactPath);
 
   /**
    * Lists the artifacts immediately under the run's root artifact directory. This does not
@@ -77,7 +84,7 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  List<FileInfo> listArtifacts(@Nonnull String artifactPath);
+  List<FileInfo> listArtifacts(String artifactPath);
 
   /**
    * Returns a local directory containing *all* artifacts within the run's artifact directory.
@@ -91,8 +98,10 @@ public interface ArtifactRepository {
    * within the run's root artifactDirectory. For example, if "model/file1" and "model/file2"
    * exist within the artifact directory, then
    *
+   *   <pre>
    *   downloadArtifacts("model") // returns a local directory containing "file1" and "file2"
    *   downloadArtifacts("model/file1") // returns a local *file* with the contents of file1.
+   *   </pre>
    *
    * Note that this will download the entire subdirectory path, and so may be expensive if
    * the subdirectory a lot of data.
@@ -100,5 +109,5 @@ public interface ArtifactRepository {
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
-  File downloadArtifacts(@Nonnull String artifactPath);
+  File downloadArtifacts(String artifactPath);
 }

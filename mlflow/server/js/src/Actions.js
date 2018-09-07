@@ -1,4 +1,5 @@
 import { MlflowService } from './sdk/MlflowService';
+import Utils from './utils/Utils';
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
@@ -84,6 +85,17 @@ export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
   };
 };
 
+export const SET_TAG_API = 'SET_TAG_API';
+export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
+  return {
+    type: SET_TAG_API,
+    payload: wrapDeferred(MlflowService.setTag, {
+      run_uuid: runUuid, key: tagName, value: tagValue
+    }),
+    meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
+  };
+};
+
 export const getUUID = () => {
   const randomPart = Math.random()
     .toString(36)
@@ -102,7 +114,7 @@ const wrapDeferred = (deferred, data) => {
       success: response => resolve(response),
       error: xhr => {
         console.error("XHR failed", xhr);
-        reject(new Error("XHR failed"));
+        reject(new Error(Utils.getErrorMessageFromXhr(xhr)));
       }
     });
   });

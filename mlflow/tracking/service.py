@@ -116,20 +116,24 @@ class MLflowService(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
-    def log_artifact(self, artifact_uri, local_path, artifact_path=None):
-        """Writes a local file to the remote artifact_uri.
+    def log_artifact(self, run_id, local_path, artifact_path=None):
+        """Writes a local file to the run's artifact directory.
 
         :param local_path: of the file to write
-        :param artifact_path: If provided, will be directory in artifact_uri to write to"""
-        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
+        :param artifact_path: If provided, will be directory in the run to write into
+        """
+        run = self.get_run(run_id)
+        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, self.store)
         artifact_repo.log_artifact(local_path, artifact_path)
 
-    def log_artifacts(self, artifact_uri, local_dir, artifact_path=None):
-        """Writes a directory of files to the remote artifact_uri.
+    def log_artifacts(self, run_id, local_dir, artifact_path=None):
+        """Writes a directory of files to the run's artifact directory.
 
-        :param local_dir: of the file to write
-        :param artifact_path: If provided, will be directory in artifact_uri to write to"""
-        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
+        :param local_dir: of the files to write
+        :param artifact_path: If provided, will be directory in the run to write into
+        """
+        run = self.get_run(run_id)
+        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, self.store)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):

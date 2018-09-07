@@ -34,7 +34,7 @@ class Run(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.info, proto.data)
+        return cls(RunInfo.from_proto(proto.info), RunData.from_proto(proto.data))
 
     @classmethod
     def from_dictionary(cls, the_dict):

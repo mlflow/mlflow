@@ -32,7 +32,7 @@ class MlflowHttpCaller {
   private HttpClient httpClient;
   private final MlflowHostCredsProvider hostCredsProvider;
 
-  public MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
+  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
     this.hostCredsProvider = hostCredsProvider;
   }
 
@@ -89,10 +89,10 @@ class MlflowHttpCaller {
     if (isError(statusCode)) {
       String bodyMessage = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
       if (statusCode >= 400 && statusCode <= 499) {
-        throw new MlflowHttpClientException(statusCode, reasonPhrase, bodyMessage);
+        throw new MlflowHttpException(statusCode, reasonPhrase, bodyMessage);
       }
       if (statusCode >= 500 && statusCode <= 599) {
-        throw new MlflowHttpServerException(statusCode, reasonPhrase, bodyMessage);
+        throw new MlflowHttpException(statusCode, reasonPhrase, bodyMessage);
       }
       throw new MlflowHttpException(statusCode, reasonPhrase, bodyMessage);
     }

@@ -7,8 +7,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -19,6 +21,7 @@ import org.apache.log4j.Logger;
 
 import org.mlflow.api.proto.Service;
 import org.mlflow.tracking.MlflowClientException;
+import org.mlflow.tracking.creds.MlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 /**
@@ -35,8 +38,9 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   // helpful error message if the executable is not in the path.
   private static final AtomicBoolean mlflowSuccessfullyLoaded = new AtomicBoolean(false);
 
-  // Name of the mlflow CLI utility which can be exec'd directly.
-  private final String mlflowExecutable = "mlflow";
+  // Name of the Python CLI utility which can be exec'd directly, with MLflow on its path
+  private final String PYTHON_EXECUTABLE =
+    Optional.ofNullable(System.getenv("MLFLOW_PYTHON_EXECUTABLE")).orElse("python");
 
   // Base directory of the artifactory, used to let the user know why this repository was chosen.
   private final String artifactBaseDir;
@@ -68,10 +72,10 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     }
 
     List<String> baseCommand = Lists.newArrayList(
-      mlflowExecutable, "artifacts", "log-artifact", "--local-file", localFile.toString());
+      "artifacts", "log-artifact", "--local-file", localFile.toString());
     List<String> command = appendRunIdArtifactPath(baseCommand, runId, artifactPath);
     String tag = "log file " + localFile + " to " + getTargetIdentifier(artifactPath);
-    forkProcess(command, tag);
+    forkMlflowProcess(command, tag);
   }
 
   @Override
@@ -91,10 +95,10 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     }
 
     List<String> baseCommand = Lists.newArrayList(
-      mlflowExecutable, "artifacts", "log-artifacts", "--local-dir", localDir.toString());
+      "artifacts", "log-artifacts", "--local-dir", localDir.toString());
     List<String> command = appendRunIdArtifactPath(baseCommand, runId, artifactPath);
     String tag = "log dir " + localDir + " to " + getTargetIdentifier(artifactPath);
-    forkProcess(command, tag);
+    forkMlflowProcess(command, tag);
   }
 
   @Override
@@ -107,8 +111,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     checkMlflowAccessible();
     String tag = "download artifacts for " + getTargetIdentifier(artifactPath);
     List<String> command = appendRunIdArtifactPath(
-      Lists.newArrayList(mlflowExecutable, "artifacts", "download"), runId, artifactPath);
-    String localPath = forkProcess(command, tag).trim();
+      Lists.newArrayList("artifacts", "download"), runId, artifactPath);
+    String localPath = forkMlflowProcess(command, tag).trim();
     return new File(localPath);
   }
 
@@ -122,8 +126,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     checkMlflowAccessible();
     String tag = "list artifacts in " + getTargetIdentifier(artifactPath);
     List<String> command = appendRunIdArtifactPath(
-      Lists.newArrayList(mlflowExecutable, "artifacts", "list"), runId, artifactPath);
-    String jsonOutput = forkProcess(command, tag);
+      Lists.newArrayList("artifacts", "list"), runId, artifactPath);
+    String jsonOutput = forkMlflowProcess(command, tag);
     return parseFileInfos(jsonOutput);
   }
 
@@ -165,14 +169,14 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
 
     try {
       String tag = "get mlflow version";
-      String mlflowVersion = forkProcess(Lists.newArrayList(mlflowExecutable, "--version"), tag);
-      logger.info("Found local mlflow executable with version=" + mlflowVersion);
+      forkMlflowProcess(Lists.newArrayList("--help"), tag);
+      logger.info("Found local mlflow executable");
       mlflowSuccessfullyLoaded.set(true);
     } catch (MlflowClientException e) {
-      String errorMessage = String.format("Failed to exec process %s, needed to access artifacts " +
-          "within the non-Java-native artifact store at '%s'. Please make sure mlflow is " +
-          "available on your local system path (e.g.," + "from 'pip install mlflow')",
-        mlflowExecutable, artifactBaseDir);
+      String errorMessage = String.format("Failed to exec '%s -m mlflow.cli', needed to" +
+          " access artifacts within the non-Java-native artifact store at '%s'. Please make" +
+          " sure mlflow is available on your local system path (e.g., from 'pip install mlflow')",
+        PYTHON_EXECUTABLE, artifactBaseDir);
       throw new MlflowClientException(errorMessage, e);
     }
   }
@@ -180,20 +184,22 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   /**
    * Forks the given mlflow command and awaits for its successful completion.
    *
-   * @param command Command used to fork the process.
+   * @param mlflowCommand List of arguments to invoke mlflow with.
    * @param tag User-facing tag which will be used to identify what we were trying to do
    *            in the case of a failure.
    * @return raw stdout of the process, decoded as a utf-8 string
    * @throws MlflowClientException if the process exits with a non-zero exit code, or anything
    *                               else goes wrong.
    */
-  private String forkProcess(List<String> command, String tag) {
+  private String forkMlflowProcess(List<String> mlflowCommand, String tag) {
     String stdout;
     Process process = null;
     try {
-      ProcessBuilder pb = new ProcessBuilder(command);
-      // TODO(aaron) Figure out a way to pass the other fields of the host-creds.
-      pb.environment().put("MLFLOW_TRACKING_URI", hostCredsProvider.getHostCreds().getHost());
+      MlflowHostCreds hostCreds = hostCredsProvider.getHostCreds();
+      List<String> fullCommand = Lists.newArrayList(PYTHON_EXECUTABLE, "-m", "mlflow.cli");
+      fullCommand.addAll(mlflowCommand);
+      ProcessBuilder pb = new ProcessBuilder(fullCommand);
+      setProcessEnvironment(pb.environment(), hostCreds);
       process = pb.start();
       stdout = IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
       int exitValue = process.waitFor();
@@ -206,6 +212,23 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
         ". Process stderr: " + getErrorBestEffort(process), e);
     }
     return stdout;
+  }
+
+  @VisibleForTesting
+  void setProcessEnvironment(Map<String, String> environment, MlflowHostCreds hostCreds) {
+    environment.put("MLFLOW_TRACKING_URI", hostCreds.getHost());
+    if (hostCreds.getUsername() != null) {
+      environment.put("MLFLOW_TRACKING_USERNAME", hostCreds.getUsername());
+    }
+    if (hostCreds.getPassword() != null) {
+      environment.put("MLFLOW_TRACKING_PASSWORD", hostCreds.getPassword());
+    }
+    if (hostCreds.getToken() != null) {
+      environment.put("MLFLOW_TRACKING_TOKEN", hostCreds.getToken());
+    }
+    if (hostCreds.shouldIgnoreTlsVerification()) {
+      environment.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
+    }
   }
 
   /** Does our best to get the process's stderr, or returns a dummy return value. */
@@ -222,9 +245,9 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
 
   /** Appends --run-id $runId and --artifact-path $artifactPath, omitting artifactPath if null. */
   private List<String> appendRunIdArtifactPath(
-    List<String> baseCommand,
-    String runId,
-    String artifactPath) {
+      List<String> baseCommand,
+      String runId,
+      String artifactPath) {
     baseCommand.add("--run-id");
     baseCommand.add(runId);
     if (artifactPath != null) {

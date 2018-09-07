@@ -95,7 +95,7 @@ def mkdir(root, name=None):  # noqa
     target = os.path.join(root, name) if name is not None else root
     try:
         if not exists(target):
-            os.mkdir(target)
+            os.makedirs(target)
             return target
     except OSError as e:
         raise e
