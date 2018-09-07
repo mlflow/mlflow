@@ -29,7 +29,6 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     ... # Save the model as an MLflow Model
     >>> mlflow.keras.save_model(keras_model, keras_model_path)
     """
-
     import keras
 
     path = os.path.abspath(path)
@@ -64,7 +63,6 @@ def log_model(keras_model, artifact_path, **kwargs):
     >>> with mlflow.start_run() as run:
     >>>   mlflow.keras.log_model(keras_model, "models")
     """
-
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, **kwargs)
 
@@ -111,7 +109,6 @@ def load_model(path, run_id=None):
     >>> keras_model = mlflow.keras.load_model("models", run_id="96771d893a5e46159d9f3b49bf9013e2")
     >>> predictions = keras_model.predict(x_test)
     """
-
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model(os.path.join(path, "model.h5"))
