@@ -9,6 +9,9 @@ from mlflow.utils.file_utils import TempDir
 
 
 class TestLocalArtifactRepo(unittest.TestCase):
+    def _get_contents(self, repo, dir_name):
+        return sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts(dir_name)])
+
     def test_basic_functions(self):
         with TempDir() as test_root, TempDir() as tmp:
             repo = ArtifactRepository.from_artifact_uri(test_root.path(), Mock())
@@ -18,14 +21,39 @@ class TestLocalArtifactRepo(unittest.TestCase):
                 open(repo.download_artifacts("test.txt")).read()
 
             # Create and log a test.txt file directly
-            with open(tmp.path("test.txt"), "w") as f:
+            artifact_name = "test.txt"
+            local_file = tmp.path(artifact_name)
+            with open(local_file, "w") as f:
                 f.write("Hello world!")
-            repo.log_artifact(tmp.path("test.txt"))
-            text = open(repo.download_artifacts("test.txt")).read()
+            repo.log_artifact(local_file)
+            text = open(repo.download_artifacts(artifact_name)).read()
             self.assertEqual(text, "Hello world!")
             # Check that it actually got written in the expected place
-            text = open(os.path.join(test_root.path(), "test.txt")).read()
+            text = open(os.path.join(test_root.path(), artifact_name)).read()
             self.assertEqual(text, "Hello world!")
+
+            # log artifact in subdir
+            repo.log_artifact(local_file, "aaa")
+            text = open(repo.download_artifacts(os.path.join("aaa", artifact_name))).read()
+            self.assertEqual(text, "Hello world!")
+
+            # log a hidden artifact
+            hidden_file = tmp.path(".mystery")
+            with open(hidden_file, 'w') as f:
+                f.write("42")
+            repo.log_artifact(hidden_file, "aaa")
+            hidden_text = open(repo.download_artifacts(os.path.join("aaa", hidden_file))).read()
+            self.assertEqual(hidden_text, "42")
+
+            # log artifacts in deep nested subdirs
+            nested_subdir = "bbb/ccc/ddd/eee/fghi"
+            repo.log_artifact(local_file, nested_subdir)
+            text = open(repo.download_artifacts(os.path.join(nested_subdir, artifact_name))).read()
+            self.assertEqual(text, "Hello world!")
+
+            for bad_path in ["/", "//", "/tmp", "/bad_path", ".", "../terrible_path"]:
+                with self.assertRaises(Exception):
+                    repo.log_artifact(local_file, bad_path)
 
             # Create a subdirectory for log_artifacts
             os.mkdir(tmp.path("subdir"))
@@ -43,15 +71,29 @@ class TestLocalArtifactRepo(unittest.TestCase):
             self.assertEqual(text, "B")
             text = open(repo.download_artifacts("nested/c.txt")).read()
             self.assertEqual(text, "C")
-            infos = sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts()])
+            infos = self._get_contents(repo, None)
             self.assertListEqual(infos, [
                 ("a.txt", False, 1),
+                ("aaa", True, None),
                 ("b.txt", False, 1),
+                ("bbb", True, None),
                 ("nested", True, None),
-                ("test.txt", False, 12)
+                ("test.txt", False, 12),
             ])
-            infos = sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts("nested")])
-            self.assertListEqual(infos, [("nested/c.txt", False, 1)])
+
+            # Verify contents of subdirectories
+            self.assertListEqual(self._get_contents(repo, "nested"), [("nested/c.txt", False, 1)])
+
+            infos = self._get_contents(repo, "aaa")
+            self.assertListEqual(infos, [("aaa/.mystery", False, 2), ("aaa/test.txt", False, 12)])
+            self.assertListEqual(self._get_contents(repo, "bbb"), [("bbb/ccc", True, None)])
+            self.assertListEqual(self._get_contents(repo, "bbb/ccc"), [("bbb/ccc/ddd", True, None)])
+
+            infos = self._get_contents(repo, "bbb/ccc/ddd/eee")
+            self.assertListEqual(infos, [("bbb/ccc/ddd/eee/fghi", True, None)])
+
+            infos = self._get_contents(repo, "bbb/ccc/ddd/eee/fghi")
+            self.assertListEqual(infos, [("bbb/ccc/ddd/eee/fghi/test.txt", False, 12)])
 
             # Download a subdirectory
             downloaded_dir = repo.download_artifacts("nested")
