@@ -3,13 +3,14 @@ Hyperparameter Tuning Example
 
 Example of how you can do hyperparameter tuning with MLflow and some popular optimization libraries.
 
-In this example, we try to optimize rmse metric on a wine-quality dataset over two hyperparameters
-(learning rate and momentum) of a Keras DL model defined by the train entry point. The input dataset
-is split into three parts - training, validation and test. The training dataset is used to fit the
-model, validation dataset is used to select the best hyperparameter values and the test set is used
-to evaluate expected performance and to verify that we did not overfit on the particular training
-and validation combination. All three metrics are logged with MLflow and you can use MLflow ui to
-inspect how they vary between different hyperparameter values.
+In this example, we try to optimize rmse metric of a Keras deep learning model on a wine quality
+dataset. The Keras model is fitted by the ``train`` entry point and has two hyperparameters that we
+try to optimize - learning rate and momentum. The input dataset is split into three parts - training
+validation and test. The training dataset is used to fit the model, validation dataset is used to
+select the best hyperparameter values and the test set is used to evaluate expected performance and
+to verify that we did not overfit on the particular training and validation combination. All three
+metrics are logged with MLflow and you can use MLflow ui to inspect how they vary between different
+hyperparameter values.
 
 examples/hyperparam/MLproject has 4 targets:
   * main
