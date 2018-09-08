@@ -101,15 +101,20 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                 experiment_id=experiment_id,
                 block=False
             )
-            store = mlflow.tracking._get_store()
+
             if p.wait():
+                training_run = tracking_service.get_run(p.run_id)
+
+                def get_metric(metric_name):
+                    return [m.value for m in training_run.data.metrics if m.key == metric_name][0]
+
                 # cap the loss at the loss of the null model
                 train_loss = min(null_valid_loss,
-                                 store.get_metric(p.run_id, "train_{}".format(metric)).value)
+                                 get_metric("train_{}".format(metric)))
                 valid_loss = min(null_valid_loss,
-                                 store.get_metric(p.run_id, "val_{}".format(metric)).value)
+                                 get_metric("val_{}".format(metric)))
                 test_loss = min(null_test_loss,
-                                store.get_metric(p.run_id, "test_{}".format(metric)).value)
+                                get_metric("test_{}".format(metric)))
 
             else:
                 # run failed => return null loss

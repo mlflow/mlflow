@@ -45,7 +45,6 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
     val_metric = "val_{}".format(metric)
     test_metric = "test_{}".format(metric)
     np.random.seed(seed)
-    store = mlflow.tracking._get_store()
     tracking_service = mlflow.tracking.get_service()
 
     def new_eval(nepochs,
@@ -67,10 +66,16 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
                 experiment_id=experiment_id,
                 block=False)
             if p.wait():
+                training_run = tracking_service.get_run(p.run_id)
+
+                def get_metric(metric_name):
+                    return [m.value for m in training_run.data.metrics if m.key == metric_name][0]
+
+
                 # cap the loss at the loss of the null model
-                train_loss = min(null_train_loss, store.get_metric(p.run_id, train_metric).value)
-                val_loss = min(null_val_loss, store.get_metric(p.run_id, val_metric).value)
-                test_loss = min(null_test_loss, store.get_metric(p.run_id, test_metric).value)
+                train_loss = min(null_train_loss, get_metric(train_metric))
+                val_loss = min(null_val_loss, get_metric(val_metric))
+                test_loss = min(null_test_loss, get_metric(test_metric))
             else:
                 # run failed => return null loss
                 tracking_service.set_terminated(p.run_id, "FAILED")
