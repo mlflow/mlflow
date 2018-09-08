@@ -8,6 +8,8 @@ import time
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType
+from mlflow.entities.run_info import DELETED_LIFECYCLE
+from mlflow.exceptions import MlflowException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from tests.helper_functions import random_int, random_str
@@ -206,13 +208,11 @@ class TestFileStore(unittest.TestCase):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run_id = self.exp_data[exp_id]['runs'][0]
         # Should not throw.
-        fs.get_run(run_id)
+        assert fs.get_run(run_id).info.lifecycle_stage == 'active'
         fs.delete_run(run_id)
-        with pytest.raises(Exception):
-            fs.get_run(run_id)
+        assert fs.get_run(run_id).info.lifecycle_stage == 'deleted'
         fs.restore_run(run_id)
-        # Should not throw
-        fs.get_run(run_id)
+        assert fs.get_run(run_id).info.lifecycle_stage == 'active'
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
@@ -229,7 +229,7 @@ class TestFileStore(unittest.TestCase):
     def test_list_run_infos(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
-            run_infos = fs.list_run_infos(exp_id)
+            run_infos = fs.list_run_infos(exp_id, run_view_type=ViewType.ALL)
             for run_info in run_infos:
                 run_uuid = run_info.run_uuid
                 dict_run_info = self.run_data[run_uuid]
@@ -299,7 +299,12 @@ class TestFileStore(unittest.TestCase):
         # replace with test with code is implemented
         fs = FileStore(self.test_root)
         # Expect 2 runs for each experiment
-        assert len(fs.search_runs([self.experiments[0]], [])) == 2
+        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ACTIVE_ONLY)) \
+               == 2
+        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ALL)) \
+               == 2
+        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.DELETED_ONLY)) \
+               == 0
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
@@ -347,3 +352,34 @@ class TestFileStore(unittest.TestCase):
             ("tag0", "value2"),
             ("tag1", "value1"),
         }
+
+    def test_get_deleted_run(self):
+        """
+        Getting metrics/tags/params/run info should be allowed on deleted runs.
+        """
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.delete_run(run_id)
+
+        run = fs.get_run(run_id)
+        assert fs.get_metric(run_id, run.data.metrics[0].key).value == run.data.metrics[0].value
+        assert fs.get_param(run_id, run.data.params[0].key).value == run.data.params[0].value
+
+    def test_set_deleted_run(self):
+        """
+        Setting metrics/tags/params/updating run info should not be allowed on deleted runs.
+        """
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.delete_run(run_id)
+
+        assert fs.get_run(run_id).info.lifecycle_stage == DELETED_LIFECYCLE
+        with pytest.raises(MlflowException):
+            fs.set_tag(run_id, RunTag('a', 'b'))
+        with pytest.raises(MlflowException):
+            fs.log_metric(run_id, Metric('a', 0.0, timestamp=0))
+        with pytest.raises(MlflowException):
+            fs.log_param(run_id, Param('a', 'b'))
+

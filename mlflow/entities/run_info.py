@@ -1,6 +1,16 @@
 from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.exceptions import MlflowException
 
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
+
+ACTIVE_LIFECYCLE = "active"
+DELETED_LIFECYCLE = "deleted"
+
+
+def check_run_is_active(run_info):
+    if run_info.lifecycle_stage != ACTIVE_LIFECYCLE:
+        raise MlflowException('The run {} must be in an active lifecycle_stage.'
+                              .format(run_info.run_uuid))
 
 
 class RunInfo(_MLflowObject):
@@ -143,6 +153,7 @@ class RunInfo(_MLflowObject):
             proto.source_version = self.source_version
         if self.artifact_uri:
             proto.artifact_uri = self.artifact_uri
+        proto.lifecycle_stage = self.lifecycle_stage
         return proto
 
     @classmethod

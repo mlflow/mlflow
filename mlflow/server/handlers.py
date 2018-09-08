@@ -8,6 +8,7 @@ from flask import Response, request, send_file
 from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities.run_info import check_run_is_active
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
@@ -75,6 +76,7 @@ def get_artifact_handler():
     query_string = request.query_string.decode('utf-8')
     request_dict = parser.parse(query_string, normalized=True)
     run = _get_store().get_run(request_dict['run_uuid'])
+    check_run_is_active(run.info)
     filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_dict['path']))
     extension = os.path.splitext(filename)[-1].replace(".", "")
     if extension in _TEXT_EXTENSIONS:
@@ -106,7 +108,7 @@ def _get_experiment():
     response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
                                           .to_proto())
     run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
-                                                    run_view_type=ViewType.ALL)
+                                                    run_view_type=ViewType.ACTIVE_ONLY)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -243,6 +245,7 @@ def _list_artifacts():
     else:
         path = None
     run = _get_store().get_run(request_message.run_uuid)
+    check_run_is_active(run.info)
     artifact_entities = _get_artifact_repo(run).list_artifacts(path)
     response_message.files.extend([a.to_proto() for a in artifact_entities])
     response_message.root_uri = _get_artifact_repo(run).artifact_uri
