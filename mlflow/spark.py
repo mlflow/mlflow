@@ -1,6 +1,6 @@
 """
 The ``mlflow.spark`` module provides an API for logging and loading Spark MLlib models. This module
-supports exporting Spark MLlib models with the following flavors:
+exports Spark MLlib models with the following flavors:
 
 Spark MLlib (native) format
     Allows models to be loaded as Spark Transformers for scoring in a Spark session.

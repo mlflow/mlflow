@@ -90,7 +90,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     You can run the project locally or remotely on a Databricks.
 
     For information on using this method in chained workflows, see `Building Multi-Step Workflows
-    <../../projects.html#building-multi-step-workflows>`_.
+    <../projects.html#building-multi-step-workflows>`_.
 
     :raises ``ExecutionException``: If a run launched in blocking mode is unsuccessful.
 
@@ -126,7 +126,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
-             about the launched run. The returned ``SubmittedRun`` is *not* thread-safe.
+             about the launched run.
     """
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,

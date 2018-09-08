@@ -33,7 +33,7 @@ Each individual command has a detailed help screen accessible via ``mlflow comma
 
 .. contents:: Table of Contents
   :local:
-  :depth: 1
+  :depth: 2
 
 
 Azure Machine Learning Models

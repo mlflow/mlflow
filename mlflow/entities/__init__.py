@@ -1,6 +1,6 @@
 """
 The ``mlflow.entities`` module defines entities returned by the MLflow
-`REST API <../../rest-api.html>`_.
+`REST API <../rest-api.html>`_.
 """
 
 from mlflow.entities.experiment import Experiment

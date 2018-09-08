@@ -12,7 +12,7 @@ The built-in flavors are:
 - :py:mod:`mlflow.spark`
 - :py:mod:`mlflow.tensorflow`
 
-For details, see `MLflow Models <../../models.html>`_.
+For details, see `MLflow Models <../models.html>`_.
 """
 
 from datetime import datetime

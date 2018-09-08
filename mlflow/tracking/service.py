@@ -135,24 +135,26 @@ class MLflowService(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
-    def log_artifact(self, artifact_uri, local_path, artifact_path=None):
+    def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file to the remote ``artifact_uri``.
 
         :param local_path: Path to the file to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
+        run = self.get_run(run_id)
+        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, self.store)
         artifact_repo.log_artifact(local_path, artifact_path)
 
-    def log_artifacts(self, artifact_uri, local_dir, artifact_path=None):
+    def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """
         Write a directory of files to the remote ``artifact_uri``.
 
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, self.store)
+        run = self.get_run(run_id)
+        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, self.store)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
@@ -201,7 +203,7 @@ def get_service(tracking_uri=None):
 
     :param tracking_uri: Address of local or remote tracking server. If not provided,
       this defaults to the service set by ``mlflow.tracking.set_tracking_uri``. See
-      `Where Runs Get Recorded <../../tracking.html#where-runs-get-recorded>`_ for more info.
+      `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_ for more info.
     :return: :py:class:`mlflow.tracking.MLflowService`
     """
     store = _get_store(tracking_uri)

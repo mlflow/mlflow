@@ -1,11 +1,11 @@
 """
 The ``mlflow.keras`` module provides an API for logging and loading Keras models. This module
-supports exporting H20 models with the following flavors:
+exports Keras models with the following flavors:
 
 Keras (native) format
-    This is the main flavor and is always produced.
+    This is the main flavor that can be loaded back into Keras.
 :py:mod:`mlflow.pyfunc`
-    Models with this flavor can be loaded as Python functions for performing inference.
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
 from __future__ import absolute_import
@@ -95,11 +95,11 @@ class _KerasModelWrapper:
         return predicted
 
 
-def load_pyfunc(path):
+def load_pyfunc(model_file):
     """
     Load a persisted Keras model as a ``python_function`` model.
 
-    :param path: Local filesystem path to the model saved by :py:func:`mlflow.keras.log_model`.
+    :param model_file: Local filesystem path to model saved by :py:func:`mlflow.keras.log_model`.
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
 

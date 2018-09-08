@@ -265,7 +265,7 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 Supported Artifact Stores
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 In addition to local file paths, MLflow supports the following storage systems as artifact stores: 
-Amazon S3, Azure Blob Storage, Google Cloud Storage, and SFTP server.
+Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Amazon S3
 ~~~~~~~~~
@@ -303,6 +303,13 @@ You should configure the client to be able to log in to the SFTP server without 
 The format ``sftp://pass:user@host/`` is supported for logging in. However, for safety reasons this is not recommended.
 
 When using this store, ``pysftp`` has to be installed on both client and server. Run ``pip install pysftp`` to install the required package.
+
+NFS
+~~~
+To store artifacts in an NFS mount, the artifact URI should be specified as a normal file system
+path, e..g, ``/mnt/nfs``. Critically, however, this path must the same on both the server and
+client -- you may need to use symlinks or remount the client in order to enforce this property.
+
 
 Networking
 ^^^^^^^^^^

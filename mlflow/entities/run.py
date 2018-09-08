@@ -18,7 +18,7 @@ class Run(_MLflowObject):
     @property
     def info(self):
         """
-        The run metadata.
+        The run metadata, such as the run id, start time, and status.
 
         :rtype: :py:class:`mlflow.entities.RunInfo`
         """
@@ -27,7 +27,7 @@ class Run(_MLflowObject):
     @property
     def data(self):
         """
-        The run data.
+        The run data, including metrics, parameters, and tags.
 
         :rtype: :py:class:`mlflow.entities.RunData`
         """

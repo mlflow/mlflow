@@ -24,7 +24,7 @@ class Metric(_MLflowObject):
 
     @property
     def timestamp(self):
-        """Metric timestamp as an integer (typically, milliseconds since the Unix epoch)."""
+        """Metric timestamp as an integer (milliseconds since the Unix epoch)."""
         return self._timestamp
 
     def to_proto(self):

@@ -1,11 +1,11 @@
 """
-The ``mlflow.h2o`` module provides an API for logging and loading H2O models. This module supports
-exporting H2O models with the following flavors:
+The ``mlflow.h2o`` module provides an API for logging and loading H2O models. This module exports
+H2O models with the following flavors:
 
 H20 (native) format
-    This is the main flavor and is always produced.
+    This is the main flavor that can be loaded back into H2O.
 :py:mod:`mlflow.pyfunc`
-    Models with this flavor can be loaded as Python functions for performing inference.
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
 from __future__ import absolute_import

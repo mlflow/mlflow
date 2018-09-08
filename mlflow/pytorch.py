@@ -1,11 +1,11 @@
 """
 The ``mlflow.pytorch`` module provides an API for logging and loading PyTorch models. This module
-supports exporting PyTorch models with the following flavors:
+exports PyTorch models with the following flavors:
 
 PyTorch (native) format
-    This is the main flavor and is always produced.
+    This is the main flavor that can be loaded back into PyTorch.
 :py:mod:`mlflow.pyfunc`
-    Models with this flavor can be loaded as Python functions for performing inference.
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
 from __future__ import absolute_import
