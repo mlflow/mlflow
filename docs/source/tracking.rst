@@ -262,6 +262,12 @@ the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` de
 these are available. See
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more information on how to set credentials.
 
+To store artifacts in a custom endpoint, please set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL. For example, if you have a Minio server at 1.2.3.4 on port 9000:
+
+.. code:: bash
+
+  export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
+
 Azure Blob Storage
 ~~~~~~~~~~~~~~~~~~
 Specify a URI of the form ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>`` to store
