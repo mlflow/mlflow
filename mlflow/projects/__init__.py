@@ -29,8 +29,8 @@ MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-         storage_dir=None, block=True, run_id=None):
+         mode=None, cluster_spec=None, git_username=None, git_password=None, git_branch=None,
+         use_conda=True, storage_dir=None, block=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in mode.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -38,7 +38,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
-                              git_username=git_username, git_password=git_password)
+                              git_username=git_username, git_password=git_password,
+                              git_branch=git_branch)
     project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     if run_id:
@@ -80,8 +81,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        storage_dir=None, block=True, run_id=None):
+        mode=None, cluster_spec=None, git_username=None, git_password=None, git_branch=None,
+        use_conda=True, storage_dir=None, block=True, run_id=None):
     """
     Run an MLflow project from the given URI.
 
@@ -103,6 +104,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                          Databricks.
     :param git_username: Username for HTTP(S) authentication with Git.
     :param git_password: Password for HTTP(S) authentication with Git.
+    :param git_branch: Branch of Git repository.
     :param use_conda: If True (the default), creates a new Conda environment for the run and
                       installs project dependencies within that environment. Otherwise, runs the
                       project in the current environment without installing any project
@@ -124,8 +126,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
         experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec,
-        git_username=git_username, git_password=git_password, use_conda=use_conda,
-        storage_dir=storage_dir, block=block, run_id=run_id)
+        git_username=git_username, git_password=git_password, git_branch=git_branch,
+        use_conda=use_conda, storage_dir=storage_dir, block=block, run_id=run_id)
     if block:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
@@ -182,7 +184,8 @@ def _is_local_uri(uri):
     return not _GIT_URI_REGEX.match(uri)
 
 
-def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
+def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None,
+                   git_branch=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
     :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
@@ -201,17 +204,18 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
         assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
-        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
+        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password, git_branch)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
     return res
 
 
-def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
+def _fetch_git_repo(uri, version, dst_dir, git_username, git_password, git_branch):
     """
-    Clone the git repo at ``uri`` into ``dst_dir``, checking out commit ``version`` (or defaulting
-    to the head commit of the repository's master branch if version is unspecified).
+    Clone the git repo at ``uri`` into ``dst_dir``, checking out commit ``version`` if specified,
+    or checking out branch ``branch`` if specified, otherwise, defaulting to the head commit of
+    the repository's master branch.
     If ``git_username`` and ``git_password`` are specified, uses them to authenticate while fetching
     the repo. Otherwise, assumes authentication parameters are specified by the environment,
     e.g. by a Git credential helper.
@@ -233,6 +237,8 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
     origin.fetch()
     if version is not None:
         repo.git.checkout(version)
+    elif git_branch is not None:
+        repo.git.checkout(git_branch)
     else:
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
