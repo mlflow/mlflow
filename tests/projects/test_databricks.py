@@ -93,7 +93,7 @@ def before_run_validations_mock():  # pylint: disable=unused-argument
 
 @pytest.fixture()
 def set_tag_mock():
-    with mock.patch("mlflow.projects.databricks.tracking.MLflowClient") as m:
+    with mock.patch("mlflow.projects.databricks.tracking.MlflowClient") as m:
         mlflow_service_mock = mock.Mock(wraps=MlflowClient())
         m.return_value = mlflow_service_mock
         yield mlflow_service_mock.set_tag
