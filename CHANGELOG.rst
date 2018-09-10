@@ -4,12 +4,14 @@ Changelog
 0.6.0 (2018-09-10)
 ------------------
 
-MLflow 0.6.0 introduces two major features:
+MLflow 0.6.0 introduces several major features:
 
-- A Java client API, published to Maven
-- Inherent support for saving and serving SparkML models as MLeap for low-latency serving
+- A Java client API, available on Maven
+- Support for saving and serving SparkML models as MLeap for low-latency serving
+- Support for tagging runs with metadata, during and after the run completion
+- Support for deleting (and restoring deleted) experiments
 
-In addition to these features, there are a host of improvements and bugfixes to the REST API, Python API, tracking UI, and documentation.
+In addition to these features, there are a host of improvements and bugfixes to the REST API, Python API, tracking UI, and documentation. The `examples/ <https://github.com/mlflow/mlflow/tree/master/examples>`_ subdirectory has also been revamped to make it easier to jump in.
 
 Breaking changes:
 
@@ -20,8 +22,8 @@ We fixed a few inconsistencies in the the ``mlflow.tracking.MlflowService`` intr
 
 Features:
 
-- Java client API added with support for the MLflow Tracking API (analogous to ``mlflow.tracking``), allowing users to create and manage experiments, runs, and artifacts. The release includes a `usage example <https://github.com/mlflow/mlflow/blob/master/mlflow/java/client/src/main/java/org/mlflow/tracking/samples/QuickStartDriver.java>`_ and `Javadocs <https://mlflow.org/docs/latest/java_api/index.html>`_. The client is published to Maven under `mlflow:mlflow <https://mvnrepository.com/artifact/mlflow/mlflow>`_ (#380, #394, #398, #409, #410, #430, #452, @aarondav)
-- SparkML models are now saved in MLeap format (https://github.com/combust/mleap), when applicable. Model serving platforms can choose to serve using this format instead to dramatically decrease prediction latency. SageMaker now does this by default (#324, #327, #331, #395, #428, #435, #438, @dbczumar)
+- Java client API added with support for the MLflow Tracking API (analogous to ``mlflow.tracking``), allowing users to create and manage experiments, runs, and artifacts. The release includes a `usage example <https://github.com/mlflow/mlflow/blob/master/mlflow/java/client/src/main/java/org/mlflow/tracking/samples/QuickStartDriver.java>`_ and `Javadocs <https://mlflow.org/docs/latest/java_api/index.html>`_. The client is published to Maven under ``mlflow:mlflow`` (#380, #394, #398, #409, #410, #430, #452, @aarondav)
+- SparkML models are now also saved in MLeap format (https://github.com/combust/mleap), when applicable. Model serving platforms can choose to serve using this format instead of the SparkML format to dramatically decrease prediction latency. SageMaker now does this by default (#324, #327, #331, #395, #428, #435, #438, @dbczumar)
 - [API] Experiments can now be deleted and restored via REST API, Python Tracking API, and MLflow CLI (#340, #344, #367, @mparkhe)
 - [API] Tags can now be set via a SetTag API, and they have been moved to ``RunData`` from ``RunInfo`` (#342, @aarondav)
 - [API] Added ``list_artifacts`` and ``download_artifacts`` to ``MlflowService`` to interact with a run's artifactory (#350, @andrewmchen)
@@ -31,8 +33,8 @@ Features:
 - [UI] Added icons to source names in MLflow Experiments UI (#381, @andrewmchen)
 - [UI] Added support to view ``.log`` and ``.tsv`` files from MLflow artifacts UI (#393, @Shenggan; #433, @whiletruelearn)
 - [UI] Run names can now be edited from within the MLflow UI (#382, @smurching)
-- [Serving] Added ``-host`` option to ``mlflow serve`` to allow listening on non-local addressess (#401, @hamroune)
-- [Serving/SageMaker] Elastic Container Registry boto client can now take an AWS region (#366, @dbczumar)
+- [Serving] Added ``--host`` option to ``mlflow serve`` to allow listening on non-local addressess (#401, @hamroune)
+- [Serving/SageMaker] SageMaker serving takes an AWS region argument (#366, @dbczumar)
 - [Python] Added environment variables to support providing HTTP auth (username, password, token) when talking to a remote MLflow tracking server (#402, @aarondav)
 - [Python] Added support to override S3 endpoint for S3 artifactory (#451, @hamroune)
 - MLflow nightly Python wheel and JAR snapshots are now available and linked from https://github.com/mlflow/mlflow (#352, @aarondav)
