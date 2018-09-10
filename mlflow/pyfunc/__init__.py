@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-"""Export and import of generic Python models.
-
-This module defines generic filesystem format for Python models and provides utilities
-for saving and loading to and from this format. The format is self contained in the sense
+"""
+The ``mlflow.pyfunc`` module defines a generic filesystem format for Python models and provides
+utilities for saving to and loading from this format. The format is self contained in the sense
 that it includes all necessary information for anyone to load it and use it. Dependencies
 are either stored directly with the model or referenced via a Conda environment.
 
@@ -15,18 +14,16 @@ signature::
 This convention is relied on by other MLflow components.
 
 Pyfunc model format is defined as a directory structure containing all required data, code, and
-configuration:
-
-.. code::
+configuration::
 
     ./dst-path/
-            ./MLmodel: configuration
-            <code>: code packaged with the model (specified in the MLmodel file)
-            <data>: data packaged with the model (specified in the MLmodel file)
-            <env>: Conda environment definition (specified in the MLmodel file)
+        ./MLmodel: configuration
+        <code>: code packaged with the model (specified in the MLmodel file)
+        <data>: data packaged with the model (specified in the MLmodel file)
+        <env>: Conda environment definition (specified in the MLmodel file)
 
-It must contain MLmodel file in its root with "python_function" format with the following
-parameters:
+A Python model contains an ``MLmodel`` file in "python_function" format in its root with the
+following parameters:
 
 - loader_module [required]:
          Python module that can load the model. Expected as module identifier
@@ -51,11 +48,12 @@ parameters:
          Relative path to an exported Conda environment. If present this environment
          should be activated prior to running the model.
 
-Example:
+.. rubric:: Example
 
-.. code:: shell
+>>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
 
-  >tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
+::
+
   ├── MLmodel
   ├── code
   │   ├── sklearn_iris.py
@@ -64,7 +62,10 @@ Example:
   │   └── model.pkl
   └── mlflow_env.yml
 
-  >cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+>>> cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+
+::
+
   python_function:
     code: code
     data: data/model.pkl
@@ -102,10 +103,12 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     out of an existing directory structure. For example, other model flavors can use this to specify
     how to use their output as a pyfunc.
 
-    NOTE: all paths are relative to the exported model root directory.
+    NOTE:
 
-    :param loader_module: The module to be used to load the model.
+        All paths are relative to the exported model root directory.
+
     :param model: Existing model.
+    :param loader_module: The module to be used to load the model.
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
@@ -147,6 +150,8 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
     """
     Load a model stored in Python function format.
 
+    :param path: Path to the model.
+    :param run_id: MLflow run ID.
     :param suppress_warnings: If True, non-fatal warning messages associated with the model
                               loading process will be suppressed. If False, these warning messages
                               will be emitted.
@@ -187,24 +192,19 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
 
 def spark_udf(spark, path, run_id=None, result_type="double"):
     """
-    Return a Spark UDF that can be used to invoke the Python function formatted model.
+    A Spark UDF that can be used to invoke the Python function formatted model.
 
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    simply ordinals (0, 1, ...).
+    ordinals (0, 1, ...).
 
-    Example:
-
-    .. code:: python
-
-        predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-        df.withColumn("prediction", predict("name", "age")).show()
+    >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
+    >>> df.withColumn("prediction", predict("name", "age")).show()
 
     :param spark: A SparkSession object.
-    :param path: A path containing a pyfunc model.
+    :param path: A path containing a :py:mod:`mlflow.pyfunc` model.
     :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
                    retrieve the model logged with MLflow.
-    :param result_type: Spark UDF type returned by the model's prediction method. Default double.
-
+    :return: Spark UDF type returned by the model's prediction method. Default double.
     """
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related

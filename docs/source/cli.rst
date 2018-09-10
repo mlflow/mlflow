@@ -4,10 +4,10 @@ Command-Line Interface
 ======================
 
 The MLflow command-line interface (CLI) provides a simple interface to various functionality in MLflow. You can use the CLI to
-start the tracking UI, run projects and runs, serve models to
-`Microsoft Azure ML <https://azure.microsoft.com/en-us/overview/machine-learning/>`_ or
-`Amazon SageMaker <https://aws.amazon.com/sagemaker/>`_, create
-and list experiments, and download artifacts.
+run projects, start the tracking UI, create and list experiments, download run artifacts,
+serve MLflow Python Function and scikit-learn models, and serve models on
+`Microsoft Azure Machine Learning <https://azure.microsoft.com/en-us/overview/machine-learning/>`_ and
+`Amazon SageMaker <https://aws.amazon.com/sagemaker/>`_.
 
 .. code::
 
@@ -19,7 +19,7 @@ and list experiments, and download artifacts.
       --help     Show this message and exit.
 
     Commands:
-      azureml      Serve models on Azure ML.
+      azureml      Serve models on Azure Machine Learning.
       download     Download the artifact at the specified DBFS or S3 URI. 
       experiments  Manage experiments.
       pyfunc       Serve Python models locally.
@@ -29,13 +29,17 @@ and list experiments, and download artifacts.
       ui           Run the MLflow tracking UI.
 
 
-Each individual command has a detailed help screen accessible via ``mlflow command_name --help``
+Each individual command has a detailed help screen accessible via ``mlflow command_name --help``.
+
+.. contents:: Table of Contents
+  :local:
+  :depth: 2
 
 
-Azure ML
---------
+Azure Machine Learning Models
+-----------------------------
 
-Subcommands to serve models on Azure ML.
+Subcommands to serve models on Azure Machine Learning.
 
 
 Download
@@ -52,11 +56,15 @@ Experiments
 Subcommands to manage experiments.
 
 
+.. contents:: In this section:
+  :local:
+  :depth: 1
+
 Create
 ~~~~~~
 
-Subcommand to create a new experiment. The command has required argument for experiment name.
-Additionally, users can provide an artifact location  using ``-l`` or ``--artifact-location``
+Create an experiment. The command has required argument for experiment name.
+Additionally, you can provide an artifact location  using ``-l`` or ``--artifact-location``
 option. If not provided, backend store will pick default location. Backend store will generate a
 unique ID for each experiment.
 
@@ -78,7 +86,7 @@ argument. Valid arguments are ``active_only`` (default), ``deleted_only``, or ``
 Delete
 ~~~~~~
 
-Marks an active experiment for deletion. This also applies to experiment's metadata, runs and
+Mark an active experiment for deletion. This also applies to experiment's metadata, runs and
 associated data, and artifacts if they are store in default location. Use ``list`` command to view
 artifact location. Command takes a required argument for experiment ID. Command will thrown
 an error if experiment is not found or already marked for deletion.
@@ -97,26 +105,14 @@ Restore
 ~~~~~~~
 
 Restore a deleted experiment. This also applies to experiment's metadata, runs and associated data.
-Command takes a required argument for experiment ID. Command will throw an error if experiment is
+The command has a required argument for experiment ID. The command throws an error if the experiment is
 already active, cannot be found, or permanently deleted.
 
 
-Python Function
----------------
+Python Function Models
+----------------------
 
 Subcommands to serve Python models and apply them for inference.
-
-
-SageMaker
----------
-
-Subcommands to serve models on SageMaker.
-
-
-scikit-learn Models
--------------------
-
-Subcommands to serve scikit-learn models and apply them for inference.
 
 
 Run
@@ -131,6 +127,18 @@ repository.
 By default, Git projects will run in a new working directory with the
 given parameters, while local projects will run from the project's root
 directory.
+
+
+SageMaker Models
+----------------
+
+Subcommands to serve models on SageMaker.
+
+
+scikit-learn Models
+-------------------
+
+Subcommands to serve scikit-learn models and apply them for inference.
 
 
 UI

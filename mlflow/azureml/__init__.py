@@ -1,5 +1,6 @@
 """
-Utilities for deploying MLflow models to Microsoft Azure Machine Learning.
+The ``mlflow.azureml`` module provides an API for deploying MLflow models to Azure
+Machine Learning.
 """
 from __future__ import print_function
 
@@ -16,22 +17,25 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.version import VERSION as mlflow_version
 
 
-def deploy(app_name, model_path, run_id, mlflow_home):
+def deploy(app_name, model_path, run_id=None, mlflow_home=None):
     """
-    Deploy MLflow model to Azure ML.
+    Deploy an MLflow model to Azure Machine Learning.
 
     NOTE:
 
-        - This command must be called from a console launched from Azure ML Workbench. Caller is
-          reponsible for setting up Azure ML environment and accounts.
+        - This command must be called from a console launched from Azure Machine Learning Workbench.
+          Caller is reponsible for setting up Azure Machine Learning environment and accounts.
 
-        - Azure ML can not handle any Conda environment. In particular the Python version is fixed.
-          If the model contains Conda environment and it has been trained outside of Azure ML, the
-          Conda environment might need to be edited to work with Azure ML.
+        - Azure Machine Learning cannot handle any Conda environment. In particular the Python
+          version is fixed. If the model contains Conda environment and it has been trained outside
+          of Azure Machine Learning, the Conda environment might need to be edited to work with
+          Azure Machine Learning.
 
     :param app_name: Name of the deployed application.
-    :param model_path: Local or MLflow-run-relative path to the model to be exported.
-    :param run_id: If provided, ``run_id`` is used to retrieve the model logged with MLflow.
+    :param model_path: Local or MLflow-run-relative path to the model to be deployed.
+    :param run_id: MLflow run ID.
+    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
+                        current directory if not specified.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
@@ -45,24 +49,25 @@ def deploy(app_name, model_path, run_id, mlflow_home):
         os.system(exec_str)
 
 
-def export(output, model_path, run_id, mlflow_home):
+def export(output, model_path, run_id=None, mlflow_home=None):
     """
-    Export MLflow model as Azure ML compatible model ready to be deployed.
-
-    Export MLflow model with everything needed to deploy on Azure ML.
-    Output includes sh script with command to deploy the generated model to Azure ML.
+    Export an MLflow model with everything needed to deploy on Azure Machine Learning.
+    Output includes sh script with command to deploy the generated model to Azure Machine Learning.
 
     NOTE:
 
-        - This command does not need an Azure ML environment to run.
+        - This command does not need an Azure Machine Learning environment to run.
 
-        - Azure ML can not handle any Conda environment. If the model contains Conda environment
-          and it has been trained outside of Azure ML, the Conda environment might need
-          to be edited.
+        - Azure Machine Learning cannot handle any Conda environment. In particular the Python
+          version is fixed. If the model contains Conda environment and it has been trained outside
+          of Azure Machine Learning, the Conda environment might need to be edited to work with
+          Azure Machine Learning.
 
     :param output: Output folder where the model is going to be exported to.
     :param model_path: Local or MLflow run relative path to the model to be exported.
-    :param run_id: If provided, ``run_id`` is used to retrieve model logged with MLflow.
+    :param run_id: MLflow run ID.
+    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
+                        current directory if not specified.
     """
     output = os.path.abspath(output)
     if os.path.exists(output):

@@ -1,4 +1,6 @@
-"""APIs for running MLflow projects locally or remotely."""
+"""
+The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.
+"""
 
 from __future__ import print_function
 
@@ -10,7 +12,7 @@ import re
 import subprocess
 import tempfile
 
-from mlflow.projects.submitted_run import LocalSubmittedRun
+from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus, SourceType, Param
@@ -83,43 +85,48 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
         storage_dir=None, block=True, run_id=None):
     """
-    Run an MLflow project from the given URI.
+    Run an MLflow project. The project can be local or stored at a Git URI.
 
-    Supports downloading projects from Git URIs with a specified version, or copying them from
-    the file system. For Git-based projects, a commit can be specified as the ``version``.
+    You can run the project locally or remotely on a Databricks.
+
+    For information on using this method in chained workflows, see `Building Multistep Workflows
+    <../projects.html#building-multistep-workflows>`_.
 
     :raises ``ExecutionException``: If a run launched in blocking mode is unsuccessful.
 
-    :param uri: URI of project to run. Expected to be either a relative/absolute local filesystem
-                path or a git repository URI (e.g. https://github.com/mlflow/mlflow-example)
+    :param uri: URI of project to run. A local filesystem path
+                or a Git repository URI (e.g. https://github.com/mlflow/mlflow-example)
                 pointing to a project directory containing an MLproject file.
     :param entry_point: Entry point to run within the project. If no entry point with the specified
-                        name is found, attempts to run the project file ``entry_point`` as a script,
-                        using "python" to run .py files and the default shell (specified by
-                        environment variable $SHELL) to run .sh files.
+                        name is found, runs the project file ``entry_point`` as a script,
+                        using "python" to run ``.py`` files and the default shell (specified by
+                        environment variable ``$SHELL``) to run ``.sh`` files.
+    :param version: For Git-based projects, a commit hash.
     :param experiment_id: ID of experiment under which to launch the run.
-    :param mode: Execution mode for the run. Can be set to "local" or "databricks".
-    :param cluster_spec: Path to JSON file describing the cluster to use when launching a run on
-                         Databricks.
+    :param mode: Execution mode of the run: "local" or "databricks".
+    :param cluster_spec: When ``mode`` is "databricks", path to a JSON file containing a
+                         `Databricks cluster specification
+                         <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
+                         to use when launching a run.
     :param git_username: Username for HTTP(S) authentication with Git.
     :param git_password: Password for HTTP(S) authentication with Git.
-    :param use_conda: If True (the default), creates a new Conda environment for the run and
-                      installs project dependencies within that environment. Otherwise, runs the
+    :param use_conda: If True (the default), create a new Conda environment for the run and
+                      install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project
                       dependencies.
-    :param storage_dir: Only used if ``mode`` is local. MLflow will download artifacts from
-                        distributed URIs passed to parameters of type 'path' to subdirectories of
+    :param storage_dir: Used only if ``mode`` is "local". MLflow downloads artifacts from
+                        distributed URIs passed to parameters of type ``path`` to subdirectories of
                         ``storage_dir``.
-    :param block: Whether or not to block while waiting for a run to complete. Defaults to True.
+    :param block: Whether to block while waiting for a run to complete. Defaults to True.
                   Note that if ``block`` is False and mode is "local", this method will return, but
                   the current process will block when exiting until the local run completes.
                   If the current process is interrupted, any asynchronous runs launched via this
                   method will be terminated.
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
-                   not be specified. If specified, the given run ID will be used instead of
+                   not be specified. If specified, the run ID will be used instead of
                    creating a new run.
-    :return: A ``SubmittedRun`` exposing information (e.g. run ID) about the launched run. The
-             returned ``SubmittedRun`` is not thread-safe.
+    :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
+             about the launched run.
     """
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
@@ -413,3 +420,8 @@ def _invoke_mlflow_run_subprocess(
     mlflow_run_subprocess = _run_mlflow_run_cmd(
         mlflow_run_arr, _get_run_env_vars(run_id, experiment_id))
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
+
+__all__ = [
+    "run",
+    "SubmittedRun"
+]

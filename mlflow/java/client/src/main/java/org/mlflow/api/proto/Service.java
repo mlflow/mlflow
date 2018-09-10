@@ -16,7 +16,7 @@ public final class Service {
   }
   /**
    * <pre>
-   * Qualifier view type for ListExperiment query.
+   * View type for ListExperiments query.
    * </pre>
    *
    * Protobuf enum {@code mlflow.ViewType}
@@ -25,7 +25,7 @@ public final class Service {
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
      * <pre>
-     * Default. Only return active experiments.
+     * Default. Return only active experiments.
      * </pre>
      *
      * <code>ACTIVE_ONLY = 1;</code>
@@ -33,7 +33,7 @@ public final class Service {
     ACTIVE_ONLY(1),
     /**
      * <pre>
-     * Only return deleted experiments.
+     * Return only deleted experiments.
      * </pre>
      *
      * <code>DELETED_ONLY = 2;</code>
@@ -41,7 +41,7 @@ public final class Service {
     DELETED_ONLY(2),
     /**
      * <pre>
-     * Get all active and deleted experiments.
+     * Get all experiments.
      * </pre>
      *
      * <code>ALL = 3;</code>
@@ -51,7 +51,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Default. Only return active experiments.
+     * Default. Return only active experiments.
      * </pre>
      *
      * <code>ACTIVE_ONLY = 1;</code>
@@ -59,7 +59,7 @@ public final class Service {
     public static final int ACTIVE_ONLY_VALUE = 1;
     /**
      * <pre>
-     * Only return deleted experiments.
+     * Return only deleted experiments.
      * </pre>
      *
      * <code>DELETED_ONLY = 2;</code>
@@ -67,7 +67,7 @@ public final class Service {
     public static final int DELETED_ONLY_VALUE = 2;
     /**
      * <pre>
-     * Get all active and deleted experiments.
+     * Get all experiments.
      * </pre>
      *
      * <code>ALL = 3;</code>
@@ -143,7 +143,7 @@ public final class Service {
 
   /**
    * <pre>
-   * Description of the source that generated a run.
+   * Source that generated a run.
    * </pre>
    *
    * Protobuf enum {@code mlflow.SourceType}
@@ -152,7 +152,7 @@ public final class Service {
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
      * <pre>
-     * Within Databricks Notebook environment.
+     * Databricks notebook environment.
      * </pre>
      *
      * <code>NOTEBOOK = 1;</code>
@@ -160,7 +160,7 @@ public final class Service {
     NOTEBOOK(1),
     /**
      * <pre>
-     * Scheduled or Run Now Job.
+     * Scheduled or Run Now job.
      * </pre>
      *
      * <code>JOB = 2;</code>
@@ -168,7 +168,7 @@ public final class Service {
     JOB(2),
     /**
      * <pre>
-     * As a prepackaged project: either a docker image or github source, ... etc.
+     * As a prepackaged project: either a Docker image or GitHub source, etc.
      * </pre>
      *
      * <code>PROJECT = 3;</code>
@@ -176,7 +176,7 @@ public final class Service {
     PROJECT(3),
     /**
      * <pre>
-     * Local run: Using CLI, IDE, or local notebook
+     * Local run: Using CLI, IDE, or local notebook.
      * </pre>
      *
      * <code>LOCAL = 4;</code>
@@ -184,7 +184,7 @@ public final class Service {
     LOCAL(4),
     /**
      * <pre>
-     * Unknown source type
+     * Unknown source type.
      * </pre>
      *
      * <code>UNKNOWN = 1000;</code>
@@ -194,7 +194,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Within Databricks Notebook environment.
+     * Databricks notebook environment.
      * </pre>
      *
      * <code>NOTEBOOK = 1;</code>
@@ -202,7 +202,7 @@ public final class Service {
     public static final int NOTEBOOK_VALUE = 1;
     /**
      * <pre>
-     * Scheduled or Run Now Job.
+     * Scheduled or Run Now job.
      * </pre>
      *
      * <code>JOB = 2;</code>
@@ -210,7 +210,7 @@ public final class Service {
     public static final int JOB_VALUE = 2;
     /**
      * <pre>
-     * As a prepackaged project: either a docker image or github source, ... etc.
+     * As a prepackaged project: either a Docker image or GitHub source, etc.
      * </pre>
      *
      * <code>PROJECT = 3;</code>
@@ -218,7 +218,7 @@ public final class Service {
     public static final int PROJECT_VALUE = 3;
     /**
      * <pre>
-     * Local run: Using CLI, IDE, or local notebook
+     * Local run: Using CLI, IDE, or local notebook.
      * </pre>
      *
      * <code>LOCAL = 4;</code>
@@ -226,7 +226,7 @@ public final class Service {
     public static final int LOCAL_VALUE = 4;
     /**
      * <pre>
-     * Unknown source type
+     * Unknown source type.
      * </pre>
      *
      * <code>UNKNOWN = 1000;</code>
@@ -313,7 +313,7 @@ public final class Service {
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
      * <pre>
-     * Has been initiated
+     * Run has been initiated.
      * </pre>
      *
      * <code>RUNNING = 1;</code>
@@ -321,7 +321,7 @@ public final class Service {
     RUNNING(1),
     /**
      * <pre>
-     * Scheduled to run at a later time
+     * Run is scheduled to run at a later time.
      * </pre>
      *
      * <code>SCHEDULED = 2;</code>
@@ -329,7 +329,7 @@ public final class Service {
     SCHEDULED(2),
     /**
      * <pre>
-     * Run has completed
+     * Run has completed.
      * </pre>
      *
      * <code>FINISHED = 3;</code>
@@ -337,7 +337,7 @@ public final class Service {
     FINISHED(3),
     /**
      * <pre>
-     * Execution failed
+     * Run execution failed.
      * </pre>
      *
      * <code>FAILED = 4;</code>
@@ -345,7 +345,7 @@ public final class Service {
     FAILED(4),
     /**
      * <pre>
-     * Run killed by user
+     * Run killed by user.
      * </pre>
      *
      * <code>KILLED = 5;</code>
@@ -355,7 +355,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Has been initiated
+     * Run has been initiated.
      * </pre>
      *
      * <code>RUNNING = 1;</code>
@@ -363,7 +363,7 @@ public final class Service {
     public static final int RUNNING_VALUE = 1;
     /**
      * <pre>
-     * Scheduled to run at a later time
+     * Run is scheduled to run at a later time.
      * </pre>
      *
      * <code>SCHEDULED = 2;</code>
@@ -371,7 +371,7 @@ public final class Service {
     public static final int SCHEDULED_VALUE = 2;
     /**
      * <pre>
-     * Run has completed
+     * Run has completed.
      * </pre>
      *
      * <code>FINISHED = 3;</code>
@@ -379,7 +379,7 @@ public final class Service {
     public static final int FINISHED_VALUE = 3;
     /**
      * <pre>
-     * Execution failed
+     * Run execution failed.
      * </pre>
      *
      * <code>FAILED = 4;</code>
@@ -387,7 +387,7 @@ public final class Service {
     public static final int FAILED_VALUE = 4;
     /**
      * <pre>
-     * Run killed by user
+     * Run killed by user.
      * </pre>
      *
      * <code>KILLED = 5;</code>
@@ -3145,48 +3145,88 @@ public final class Service {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     java.util.List<org.mlflow.api.proto.Service.Metric> 
         getMetricsList();
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     org.mlflow.api.proto.Service.Metric getMetrics(int index);
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     int getMetricsCount();
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     java.util.List<? extends org.mlflow.api.proto.Service.MetricOrBuilder> 
         getMetricsOrBuilderList();
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     org.mlflow.api.proto.Service.MetricOrBuilder getMetricsOrBuilder(
         int index);
 
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     java.util.List<org.mlflow.api.proto.Service.Param> 
         getParamsList();
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     org.mlflow.api.proto.Service.Param getParams(int index);
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     int getParamsCount();
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     java.util.List<? extends org.mlflow.api.proto.Service.ParamOrBuilder> 
         getParamsOrBuilderList();
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     org.mlflow.api.proto.Service.ParamOrBuilder getParamsOrBuilder(
@@ -3353,12 +3393,20 @@ public final class Service {
     public static final int METRICS_FIELD_NUMBER = 1;
     private java.util.List<org.mlflow.api.proto.Service.Metric> metrics_;
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     public java.util.List<org.mlflow.api.proto.Service.Metric> getMetricsList() {
       return metrics_;
     }
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     public java.util.List<? extends org.mlflow.api.proto.Service.MetricOrBuilder> 
@@ -3366,18 +3414,30 @@ public final class Service {
       return metrics_;
     }
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     public int getMetricsCount() {
       return metrics_.size();
     }
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     public org.mlflow.api.proto.Service.Metric getMetrics(int index) {
       return metrics_.get(index);
     }
     /**
+     * <pre>
+     * Run metrics.
+     * </pre>
+     *
      * <code>repeated .mlflow.Metric metrics = 1;</code>
      */
     public org.mlflow.api.proto.Service.MetricOrBuilder getMetricsOrBuilder(
@@ -3388,12 +3448,20 @@ public final class Service {
     public static final int PARAMS_FIELD_NUMBER = 2;
     private java.util.List<org.mlflow.api.proto.Service.Param> params_;
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     public java.util.List<org.mlflow.api.proto.Service.Param> getParamsList() {
       return params_;
     }
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     public java.util.List<? extends org.mlflow.api.proto.Service.ParamOrBuilder> 
@@ -3401,18 +3469,30 @@ public final class Service {
       return params_;
     }
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     public int getParamsCount() {
       return params_.size();
     }
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     public org.mlflow.api.proto.Service.Param getParams(int index) {
       return params_.get(index);
     }
     /**
+     * <pre>
+     * Run parameters.
+     * </pre>
+     *
      * <code>repeated .mlflow.Param params = 2;</code>
      */
     public org.mlflow.api.proto.Service.ParamOrBuilder getParamsOrBuilder(
@@ -3945,6 +4025,10 @@ public final class Service {
           org.mlflow.api.proto.Service.Metric, org.mlflow.api.proto.Service.Metric.Builder, org.mlflow.api.proto.Service.MetricOrBuilder> metricsBuilder_;
 
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public java.util.List<org.mlflow.api.proto.Service.Metric> getMetricsList() {
@@ -3955,6 +4039,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public int getMetricsCount() {
@@ -3965,6 +4053,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public org.mlflow.api.proto.Service.Metric getMetrics(int index) {
@@ -3975,6 +4067,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder setMetrics(
@@ -3992,6 +4088,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder setMetrics(
@@ -4006,6 +4106,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder addMetrics(org.mlflow.api.proto.Service.Metric value) {
@@ -4022,6 +4126,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder addMetrics(
@@ -4039,6 +4147,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder addMetrics(
@@ -4053,6 +4165,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder addMetrics(
@@ -4067,6 +4183,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder addAllMetrics(
@@ -4082,6 +4202,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder clearMetrics() {
@@ -4095,6 +4219,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public Builder removeMetrics(int index) {
@@ -4108,6 +4236,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public org.mlflow.api.proto.Service.Metric.Builder getMetricsBuilder(
@@ -4115,6 +4247,10 @@ public final class Service {
         return getMetricsFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public org.mlflow.api.proto.Service.MetricOrBuilder getMetricsOrBuilder(
@@ -4125,6 +4261,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public java.util.List<? extends org.mlflow.api.proto.Service.MetricOrBuilder> 
@@ -4136,6 +4276,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public org.mlflow.api.proto.Service.Metric.Builder addMetricsBuilder() {
@@ -4143,6 +4287,10 @@ public final class Service {
             org.mlflow.api.proto.Service.Metric.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public org.mlflow.api.proto.Service.Metric.Builder addMetricsBuilder(
@@ -4151,6 +4299,10 @@ public final class Service {
             index, org.mlflow.api.proto.Service.Metric.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Run metrics.
+       * </pre>
+       *
        * <code>repeated .mlflow.Metric metrics = 1;</code>
        */
       public java.util.List<org.mlflow.api.proto.Service.Metric.Builder> 
@@ -4185,6 +4337,10 @@ public final class Service {
           org.mlflow.api.proto.Service.Param, org.mlflow.api.proto.Service.Param.Builder, org.mlflow.api.proto.Service.ParamOrBuilder> paramsBuilder_;
 
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public java.util.List<org.mlflow.api.proto.Service.Param> getParamsList() {
@@ -4195,6 +4351,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public int getParamsCount() {
@@ -4205,6 +4365,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public org.mlflow.api.proto.Service.Param getParams(int index) {
@@ -4215,6 +4379,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder setParams(
@@ -4232,6 +4400,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder setParams(
@@ -4246,6 +4418,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder addParams(org.mlflow.api.proto.Service.Param value) {
@@ -4262,6 +4438,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder addParams(
@@ -4279,6 +4459,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder addParams(
@@ -4293,6 +4477,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder addParams(
@@ -4307,6 +4495,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder addAllParams(
@@ -4322,6 +4514,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder clearParams() {
@@ -4335,6 +4531,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public Builder removeParams(int index) {
@@ -4348,6 +4548,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public org.mlflow.api.proto.Service.Param.Builder getParamsBuilder(
@@ -4355,6 +4559,10 @@ public final class Service {
         return getParamsFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public org.mlflow.api.proto.Service.ParamOrBuilder getParamsOrBuilder(
@@ -4365,6 +4573,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public java.util.List<? extends org.mlflow.api.proto.Service.ParamOrBuilder> 
@@ -4376,6 +4588,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public org.mlflow.api.proto.Service.Param.Builder addParamsBuilder() {
@@ -4383,6 +4599,10 @@ public final class Service {
             org.mlflow.api.proto.Service.Param.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public org.mlflow.api.proto.Service.Param.Builder addParamsBuilder(
@@ -4391,6 +4611,10 @@ public final class Service {
             index, org.mlflow.api.proto.Service.Param.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Run parameters.
+       * </pre>
+       *
        * <code>repeated .mlflow.Param params = 2;</code>
        */
       public java.util.List<org.mlflow.api.proto.Service.Param.Builder> 
@@ -5727,7 +5951,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Git commit of the code used for the run.
+     * Git commit hash of the code used for the run.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -5735,7 +5959,7 @@ public final class Service {
     boolean hasSourceVersion();
     /**
      * <pre>
-     * Git commit of the code used for the run.
+     * Git commit hash of the code used for the run.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -5743,7 +5967,7 @@ public final class Service {
     java.lang.String getSourceVersion();
     /**
      * <pre>
-     * Git commit of the code used for the run.
+     * Git commit hash of the code used for the run.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6353,7 +6577,7 @@ public final class Service {
     private volatile java.lang.Object sourceVersion_;
     /**
      * <pre>
-     * Git commit of the code used for the run.
+     * Git commit hash of the code used for the run.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6363,7 +6587,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Git commit of the code used for the run.
+     * Git commit hash of the code used for the run.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6384,7 +6608,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Git commit of the code used for the run.
+     * Git commit hash of the code used for the run.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -7855,7 +8079,7 @@ public final class Service {
       private java.lang.Object sourceVersion_ = "";
       /**
        * <pre>
-       * Git commit of the code used for the run.
+       * Git commit hash of the code used for the run.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -7865,7 +8089,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git commit of the code used for the run.
+       * Git commit hash of the code used for the run.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -7886,7 +8110,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git commit of the code used for the run.
+       * Git commit hash of the code used for the run.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -7906,7 +8130,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git commit of the code used for the run.
+       * Git commit hash of the code used for the run.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -7923,7 +8147,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git commit of the code used for the run.
+       * Git commit hash of the code used for the run.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -7936,7 +8160,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git commit of the code used for the run.
+       * Git commit hash of the code used for the run.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -8345,7 +8569,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Human readable name that identifies this experiment.
+     * Human readable name that identifies the experiment.
      * </pre>
      *
      * <code>optional string name = 2;</code>
@@ -8353,7 +8577,7 @@ public final class Service {
     boolean hasName();
     /**
      * <pre>
-     * Human readable name that identifies this experiment.
+     * Human readable name that identifies the experiment.
      * </pre>
      *
      * <code>optional string name = 2;</code>
@@ -8361,7 +8585,7 @@ public final class Service {
     java.lang.String getName();
     /**
      * <pre>
-     * Human readable name that identifies this experiment.
+     * Human readable name that identifies the experiment.
      * </pre>
      *
      * <code>optional string name = 2;</code>
@@ -8371,7 +8595,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Location where artifacts for this experiment are stored.
+     * Location where artifacts for the experiment are stored.
      * </pre>
      *
      * <code>optional string artifact_location = 3;</code>
@@ -8379,7 +8603,7 @@ public final class Service {
     boolean hasArtifactLocation();
     /**
      * <pre>
-     * Location where artifacts for this experiment are stored.
+     * Location where artifacts for the experiment are stored.
      * </pre>
      *
      * <code>optional string artifact_location = 3;</code>
@@ -8387,7 +8611,7 @@ public final class Service {
     java.lang.String getArtifactLocation();
     /**
      * <pre>
-     * Location where artifacts for this experiment are stored.
+     * Location where artifacts for the experiment are stored.
      * </pre>
      *
      * <code>optional string artifact_location = 3;</code>
@@ -8397,8 +8621,8 @@ public final class Service {
 
     /**
      * <pre>
-     * Current life cycle stage of the experiment : OneOf("active", "deleted")
-     * Deleted experiments are not returned by APIs
+     * Current life cycle stage of the experiment: "active" or "deleted".
+     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8406,8 +8630,8 @@ public final class Service {
     boolean hasLifecycleStage();
     /**
      * <pre>
-     * Current life cycle stage of the experiment : OneOf("active", "deleted")
-     * Deleted experiments are not returned by APIs
+     * Current life cycle stage of the experiment: "active" or "deleted".
+     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8415,8 +8639,8 @@ public final class Service {
     java.lang.String getLifecycleStage();
     /**
      * <pre>
-     * Current life cycle stage of the experiment : OneOf("active", "deleted")
-     * Deleted experiments are not returned by APIs
+     * Current life cycle stage of the experiment: "active" or "deleted".
+     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8600,7 +8824,7 @@ public final class Service {
     private volatile java.lang.Object name_;
     /**
      * <pre>
-     * Human readable name that identifies this experiment.
+     * Human readable name that identifies the experiment.
      * </pre>
      *
      * <code>optional string name = 2;</code>
@@ -8610,7 +8834,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Human readable name that identifies this experiment.
+     * Human readable name that identifies the experiment.
      * </pre>
      *
      * <code>optional string name = 2;</code>
@@ -8631,7 +8855,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Human readable name that identifies this experiment.
+     * Human readable name that identifies the experiment.
      * </pre>
      *
      * <code>optional string name = 2;</code>
@@ -8654,7 +8878,7 @@ public final class Service {
     private volatile java.lang.Object artifactLocation_;
     /**
      * <pre>
-     * Location where artifacts for this experiment are stored.
+     * Location where artifacts for the experiment are stored.
      * </pre>
      *
      * <code>optional string artifact_location = 3;</code>
@@ -8664,7 +8888,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Location where artifacts for this experiment are stored.
+     * Location where artifacts for the experiment are stored.
      * </pre>
      *
      * <code>optional string artifact_location = 3;</code>
@@ -8685,7 +8909,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Location where artifacts for this experiment are stored.
+     * Location where artifacts for the experiment are stored.
      * </pre>
      *
      * <code>optional string artifact_location = 3;</code>
@@ -8708,8 +8932,8 @@ public final class Service {
     private volatile java.lang.Object lifecycleStage_;
     /**
      * <pre>
-     * Current life cycle stage of the experiment : OneOf("active", "deleted")
-     * Deleted experiments are not returned by APIs
+     * Current life cycle stage of the experiment: "active" or "deleted".
+     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8719,8 +8943,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Current life cycle stage of the experiment : OneOf("active", "deleted")
-     * Deleted experiments are not returned by APIs
+     * Current life cycle stage of the experiment: "active" or "deleted".
+     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8741,8 +8965,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Current life cycle stage of the experiment : OneOf("active", "deleted")
-     * Deleted experiments are not returned by APIs
+     * Current life cycle stage of the experiment: "active" or "deleted".
+     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -9308,7 +9532,7 @@ public final class Service {
       private java.lang.Object name_ = "";
       /**
        * <pre>
-       * Human readable name that identifies this experiment.
+       * Human readable name that identifies the experiment.
        * </pre>
        *
        * <code>optional string name = 2;</code>
@@ -9318,7 +9542,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Human readable name that identifies this experiment.
+       * Human readable name that identifies the experiment.
        * </pre>
        *
        * <code>optional string name = 2;</code>
@@ -9339,7 +9563,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Human readable name that identifies this experiment.
+       * Human readable name that identifies the experiment.
        * </pre>
        *
        * <code>optional string name = 2;</code>
@@ -9359,7 +9583,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Human readable name that identifies this experiment.
+       * Human readable name that identifies the experiment.
        * </pre>
        *
        * <code>optional string name = 2;</code>
@@ -9376,7 +9600,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Human readable name that identifies this experiment.
+       * Human readable name that identifies the experiment.
        * </pre>
        *
        * <code>optional string name = 2;</code>
@@ -9389,7 +9613,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Human readable name that identifies this experiment.
+       * Human readable name that identifies the experiment.
        * </pre>
        *
        * <code>optional string name = 2;</code>
@@ -9408,7 +9632,7 @@ public final class Service {
       private java.lang.Object artifactLocation_ = "";
       /**
        * <pre>
-       * Location where artifacts for this experiment are stored.
+       * Location where artifacts for the experiment are stored.
        * </pre>
        *
        * <code>optional string artifact_location = 3;</code>
@@ -9418,7 +9642,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where artifacts for this experiment are stored.
+       * Location where artifacts for the experiment are stored.
        * </pre>
        *
        * <code>optional string artifact_location = 3;</code>
@@ -9439,7 +9663,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where artifacts for this experiment are stored.
+       * Location where artifacts for the experiment are stored.
        * </pre>
        *
        * <code>optional string artifact_location = 3;</code>
@@ -9459,7 +9683,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where artifacts for this experiment are stored.
+       * Location where artifacts for the experiment are stored.
        * </pre>
        *
        * <code>optional string artifact_location = 3;</code>
@@ -9476,7 +9700,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where artifacts for this experiment are stored.
+       * Location where artifacts for the experiment are stored.
        * </pre>
        *
        * <code>optional string artifact_location = 3;</code>
@@ -9489,7 +9713,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where artifacts for this experiment are stored.
+       * Location where artifacts for the experiment are stored.
        * </pre>
        *
        * <code>optional string artifact_location = 3;</code>
@@ -9508,8 +9732,8 @@ public final class Service {
       private java.lang.Object lifecycleStage_ = "";
       /**
        * <pre>
-       * Current life cycle stage of the experiment : OneOf("active", "deleted")
-       * Deleted experiments are not returned by APIs
+       * Current life cycle stage of the experiment: "active" or "deleted".
+       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9519,8 +9743,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Current life cycle stage of the experiment : OneOf("active", "deleted")
-       * Deleted experiments are not returned by APIs
+       * Current life cycle stage of the experiment: "active" or "deleted".
+       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9541,8 +9765,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Current life cycle stage of the experiment : OneOf("active", "deleted")
-       * Deleted experiments are not returned by APIs
+       * Current life cycle stage of the experiment: "active" or "deleted".
+       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9562,8 +9786,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Current life cycle stage of the experiment : OneOf("active", "deleted")
-       * Deleted experiments are not returned by APIs
+       * Current life cycle stage of the experiment: "active" or "deleted".
+       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9580,8 +9804,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Current life cycle stage of the experiment : OneOf("active", "deleted")
-       * Deleted experiments are not returned by APIs
+       * Current life cycle stage of the experiment: "active" or "deleted".
+       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9594,8 +9818,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Current life cycle stage of the experiment : OneOf("active", "deleted")
-       * Deleted experiments are not returned by APIs
+       * Current life cycle stage of the experiment: "active" or "deleted".
+       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9791,7 +10015,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Location where all artifacts for this experiment are stored.
+     * Location where all artifacts for the experiment are stored.
      * If not provided, the remote server will select an appropriate default.
      * </pre>
      *
@@ -9800,7 +10024,7 @@ public final class Service {
     boolean hasArtifactLocation();
     /**
      * <pre>
-     * Location where all artifacts for this experiment are stored.
+     * Location where all artifacts for the experiment are stored.
      * If not provided, the remote server will select an appropriate default.
      * </pre>
      *
@@ -9809,7 +10033,7 @@ public final class Service {
     java.lang.String getArtifactLocation();
     /**
      * <pre>
-     * Location where all artifacts for this experiment are stored.
+     * Location where all artifacts for the experiment are stored.
      * If not provided, the remote server will select an appropriate default.
      * </pre>
      *
@@ -9909,7 +10133,7 @@ public final class Service {
 
       /**
        * <pre>
-       * Unique identifier for created experiment.
+       * Unique identifier for the experiment.
        * </pre>
        *
        * <code>optional int64 experiment_id = 1;</code>
@@ -9917,7 +10141,7 @@ public final class Service {
       boolean hasExperimentId();
       /**
        * <pre>
-       * Unique identifier for created experiment.
+       * Unique identifier for the experiment.
        * </pre>
        *
        * <code>optional int64 experiment_id = 1;</code>
@@ -10006,7 +10230,7 @@ public final class Service {
       private long experimentId_;
       /**
        * <pre>
-       * Unique identifier for created experiment.
+       * Unique identifier for the experiment.
        * </pre>
        *
        * <code>optional int64 experiment_id = 1;</code>
@@ -10016,7 +10240,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Unique identifier for created experiment.
+       * Unique identifier for the experiment.
        * </pre>
        *
        * <code>optional int64 experiment_id = 1;</code>
@@ -10344,7 +10568,7 @@ public final class Service {
         private long experimentId_ ;
         /**
          * <pre>
-         * Unique identifier for created experiment.
+         * Unique identifier for the experiment.
          * </pre>
          *
          * <code>optional int64 experiment_id = 1;</code>
@@ -10354,7 +10578,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Unique identifier for created experiment.
+         * Unique identifier for the experiment.
          * </pre>
          *
          * <code>optional int64 experiment_id = 1;</code>
@@ -10364,7 +10588,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Unique identifier for created experiment.
+         * Unique identifier for the experiment.
          * </pre>
          *
          * <code>optional int64 experiment_id = 1;</code>
@@ -10377,7 +10601,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Unique identifier for created experiment.
+         * Unique identifier for the experiment.
          * </pre>
          *
          * <code>optional int64 experiment_id = 1;</code>
@@ -10500,7 +10724,7 @@ public final class Service {
     private volatile java.lang.Object artifactLocation_;
     /**
      * <pre>
-     * Location where all artifacts for this experiment are stored.
+     * Location where all artifacts for the experiment are stored.
      * If not provided, the remote server will select an appropriate default.
      * </pre>
      *
@@ -10511,7 +10735,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Location where all artifacts for this experiment are stored.
+     * Location where all artifacts for the experiment are stored.
      * If not provided, the remote server will select an appropriate default.
      * </pre>
      *
@@ -10533,7 +10757,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Location where all artifacts for this experiment are stored.
+     * Location where all artifacts for the experiment are stored.
      * If not provided, the remote server will select an appropriate default.
      * </pre>
      *
@@ -10998,7 +11222,7 @@ public final class Service {
       private java.lang.Object artifactLocation_ = "";
       /**
        * <pre>
-       * Location where all artifacts for this experiment are stored.
+       * Location where all artifacts for the experiment are stored.
        * If not provided, the remote server will select an appropriate default.
        * </pre>
        *
@@ -11009,7 +11233,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where all artifacts for this experiment are stored.
+       * Location where all artifacts for the experiment are stored.
        * If not provided, the remote server will select an appropriate default.
        * </pre>
        *
@@ -11031,7 +11255,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where all artifacts for this experiment are stored.
+       * Location where all artifacts for the experiment are stored.
        * If not provided, the remote server will select an appropriate default.
        * </pre>
        *
@@ -11052,7 +11276,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where all artifacts for this experiment are stored.
+       * Location where all artifacts for the experiment are stored.
        * If not provided, the remote server will select an appropriate default.
        * </pre>
        *
@@ -11070,7 +11294,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where all artifacts for this experiment are stored.
+       * Location where all artifacts for the experiment are stored.
        * If not provided, the remote server will select an appropriate default.
        * </pre>
        *
@@ -11084,7 +11308,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Location where all artifacts for this experiment are stored.
+       * Location where all artifacts for the experiment are stored.
        * If not provided, the remote server will select an appropriate default.
        * </pre>
        *
@@ -11160,7 +11384,7 @@ public final class Service {
     /**
      * <pre>
      * Qualifier for type of experiments to be returned.
-     * If unspecified returns only active experiments.
+     * If unspecified, return only active experiments.
      * </pre>
      *
      * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -11169,7 +11393,7 @@ public final class Service {
     /**
      * <pre>
      * Qualifier for type of experiments to be returned.
-     * If unspecified returns only active experiments.
+     * If unspecified, return only active experiments.
      * </pre>
      *
      * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -12160,7 +12384,7 @@ public final class Service {
     /**
      * <pre>
      * Qualifier for type of experiments to be returned.
-     * If unspecified returns only active experiments.
+     * If unspecified, return only active experiments.
      * </pre>
      *
      * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -12171,7 +12395,7 @@ public final class Service {
     /**
      * <pre>
      * Qualifier for type of experiments to be returned.
-     * If unspecified returns only active experiments.
+     * If unspecified, return only active experiments.
      * </pre>
      *
      * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -12500,7 +12724,7 @@ public final class Service {
       /**
        * <pre>
        * Qualifier for type of experiments to be returned.
-       * If unspecified returns only active experiments.
+       * If unspecified, return only active experiments.
        * </pre>
        *
        * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -12511,7 +12735,7 @@ public final class Service {
       /**
        * <pre>
        * Qualifier for type of experiments to be returned.
-       * If unspecified returns only active experiments.
+       * If unspecified, return only active experiments.
        * </pre>
        *
        * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -12524,7 +12748,7 @@ public final class Service {
       /**
        * <pre>
        * Qualifier for type of experiments to be returned.
-       * If unspecified returns only active experiments.
+       * If unspecified, return only active experiments.
        * </pre>
        *
        * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -12541,7 +12765,7 @@ public final class Service {
       /**
        * <pre>
        * Qualifier for type of experiments to be returned.
-       * If unspecified returns only active experiments.
+       * If unspecified, return only active experiments.
        * </pre>
        *
        * <code>optional .mlflow.ViewType view_type = 1;</code>
@@ -16363,7 +16587,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Git version of the source code used to create run.
+     * Git commit hash of the source code used to create run.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -16371,7 +16595,7 @@ public final class Service {
     boolean hasSourceVersion();
     /**
      * <pre>
-     * Git version of the source code used to create run.
+     * Git commit hash of the source code used to create run.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -16379,7 +16603,7 @@ public final class Service {
     java.lang.String getSourceVersion();
     /**
      * <pre>
-     * Git version of the source code used to create run.
+     * Git commit hash of the source code used to create run.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -17547,7 +17771,7 @@ public final class Service {
     private volatile java.lang.Object sourceVersion_;
     /**
      * <pre>
-     * Git version of the source code used to create run.
+     * Git commit hash of the source code used to create run.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -17557,7 +17781,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Git version of the source code used to create run.
+     * Git commit hash of the source code used to create run.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -17578,7 +17802,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Git version of the source code used to create run.
+     * Git commit hash of the source code used to create run.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -18761,7 +18985,7 @@ public final class Service {
       private java.lang.Object sourceVersion_ = "";
       /**
        * <pre>
-       * Git version of the source code used to create run.
+       * Git commit hash of the source code used to create run.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -18771,7 +18995,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git version of the source code used to create run.
+       * Git commit hash of the source code used to create run.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -18792,7 +19016,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git version of the source code used to create run.
+       * Git commit hash of the source code used to create run.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -18812,7 +19036,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git version of the source code used to create run.
+       * Git commit hash of the source code used to create run.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -18829,7 +19053,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git version of the source code used to create run.
+       * Git commit hash of the source code used to create run.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -18842,7 +19066,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Git version of the source code used to create run.
+       * Git commit hash of the source code used to create run.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -31563,27 +31787,51 @@ public final class Service {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * A metric search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
      */
     boolean hasMetric();
     /**
+     * <pre>
+     * A metric search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
      */
     org.mlflow.api.proto.Service.MetricSearchExpression getMetric();
     /**
+     * <pre>
+     * A metric search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
      */
     org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder getMetricOrBuilder();
 
     /**
+     * <pre>
+     * A parameter search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
      */
     boolean hasParameter();
     /**
+     * <pre>
+     * A parameter search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
      */
     org.mlflow.api.proto.Service.ParameterSearchExpression getParameter();
     /**
+     * <pre>
+     * A parameter search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
      */
     org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder getParameterOrBuilder();
@@ -31730,12 +31978,20 @@ public final class Service {
 
     public static final int METRIC_FIELD_NUMBER = 1;
     /**
+     * <pre>
+     * A metric search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
      */
     public boolean hasMetric() {
       return expressionCase_ == 1;
     }
     /**
+     * <pre>
+     * A metric search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
      */
     public org.mlflow.api.proto.Service.MetricSearchExpression getMetric() {
@@ -31745,6 +32001,10 @@ public final class Service {
       return org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
     }
     /**
+     * <pre>
+     * A metric search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
      */
     public org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder getMetricOrBuilder() {
@@ -31756,12 +32016,20 @@ public final class Service {
 
     public static final int PARAMETER_FIELD_NUMBER = 2;
     /**
+     * <pre>
+     * A parameter search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
      */
     public boolean hasParameter() {
       return expressionCase_ == 2;
     }
     /**
+     * <pre>
+     * A parameter search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
      */
     public org.mlflow.api.proto.Service.ParameterSearchExpression getParameter() {
@@ -31771,6 +32039,10 @@ public final class Service {
       return org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
     }
     /**
+     * <pre>
+     * A parameter search expression.
+     * </pre>
+     *
      * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
      */
     public org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder getParameterOrBuilder() {
@@ -32159,12 +32431,20 @@ public final class Service {
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.Service.MetricSearchExpression, org.mlflow.api.proto.Service.MetricSearchExpression.Builder, org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder> metricBuilder_;
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public boolean hasMetric() {
         return expressionCase_ == 1;
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public org.mlflow.api.proto.Service.MetricSearchExpression getMetric() {
@@ -32181,6 +32461,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public Builder setMetric(org.mlflow.api.proto.Service.MetricSearchExpression value) {
@@ -32197,6 +32481,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public Builder setMetric(
@@ -32211,6 +32499,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public Builder mergeMetric(org.mlflow.api.proto.Service.MetricSearchExpression value) {
@@ -32233,6 +32525,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public Builder clearMetric() {
@@ -32252,12 +32548,20 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public org.mlflow.api.proto.Service.MetricSearchExpression.Builder getMetricBuilder() {
         return getMetricFieldBuilder().getBuilder();
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       public org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder getMetricOrBuilder() {
@@ -32271,6 +32575,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * A metric search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
@@ -32295,12 +32603,20 @@ public final class Service {
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.Service.ParameterSearchExpression, org.mlflow.api.proto.Service.ParameterSearchExpression.Builder, org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder> parameterBuilder_;
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public boolean hasParameter() {
         return expressionCase_ == 2;
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public org.mlflow.api.proto.Service.ParameterSearchExpression getParameter() {
@@ -32317,6 +32633,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public Builder setParameter(org.mlflow.api.proto.Service.ParameterSearchExpression value) {
@@ -32333,6 +32653,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public Builder setParameter(
@@ -32347,6 +32671,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public Builder mergeParameter(org.mlflow.api.proto.Service.ParameterSearchExpression value) {
@@ -32369,6 +32697,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public Builder clearParameter() {
@@ -32388,12 +32720,20 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public org.mlflow.api.proto.Service.ParameterSearchExpression.Builder getParameterBuilder() {
         return getParameterFieldBuilder().getBuilder();
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       public org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder getParameterOrBuilder() {
@@ -32407,6 +32747,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * A parameter search expression.
+       * </pre>
+       *
        * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<

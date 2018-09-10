@@ -1,14 +1,13 @@
-"""MLflow integration for TensorFlow.
+"""
+The ``mlflow.tensorflow`` module provides an API for logging and loading TensorFlow models
+as :py:mod:`mlflow.pyfunc` models.
 
-Manages logging and loading TensorFlow models as Python Functions. You are expected to save your own
-``saved_models`` and pass their paths to ``log_saved_model()`` so that MLflow can track the models.
+You must save your own ``saved_model`` and pass its
+path to ``log_saved_model(saved_model_dir)``. To load the model to predict on it, you call
+``model = load_pyfunc(saved_model_dir)`` followed by
+``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a pandas DataFrame.
 
-In order to load the model to predict on it again, you can call
-``model = mlflow.pyfunc.load_pyfunc(saved_model_dir)``,
-followed by ``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a
-pandas DataFrame.
-
-The loaded PyFunc model does not expose any APIs for model training.
+The loaded :py:mod:`mlflow.pyfunc` model *does not* expose any APIs for model training.
 """
 
 from __future__ import absolute_import
@@ -65,13 +64,12 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
     """
     Log a TensorFlow model as an MLflow artifact for the current run.
 
-    :param saved_model_dir: Directory where the exported TensorFlow model is saved.
+    :param saved_model_dir: Directory where the TensorFlow model is saved.
     :param signature_def_key: The signature definition to use when loading the model again.
                               See `SignatureDefs in SavedModel for TensorFlow Serving
                               <https://www.tensorflow.org/serving/signature_defs>`_ for details.
     :param artifact_path: Path (within the artifact directory for the current run) to which
-                          artifacts of the model will be saved.
-
+                          artifacts of the model are saved.
     """
     run_id = _get_or_start_run().info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -84,13 +82,14 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
 
 
 def load_pyfunc(saved_model_dir):
-    """Load model stored in Python Function format.
-    The loaded model object exposes a ``predict(pandas DataFrame)`` method that returns a Pandas
+    """
+    Load a persisted TensorFlow model as a PyFunc.
+    The loaded model object exposes a ``predict(pandas DataFrame)`` method that returns a pandas
     DataFrame containing the model's inference output on an input DataFrame.
 
-    :param saved_model_dir: Directory where the model is saved.
+    :param saved_model_dir: Directory where the TensorFlow model is saved.
     :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame)``.
+            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
 
     """
     return _TFWrapper(saved_model_dir)

@@ -26,7 +26,7 @@ def commands():
                    "If no location is provided, the tracking server will pick a default.")
 def create(experiment_name, artifact_location):
     """
-    Creates a new experiment in the configured tracking server.
+    Create an experiment in the configured tracking server.
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
@@ -53,13 +53,13 @@ def list_experiments(view):
 @click.argument("experiment_id")
 def delete_experiment(experiment_id):
     """
-    Marks experiment for deletion. This command will error out if experiment does not exist or
-    is already marked. Experiments marked this way can be restored with restore_experiment,
-    or permanently deleted based on the backend store (refer to docs for details).
+    Mark an experiment for deletion. Return an error if the experiment does not exist or
+    is already marked. You can restore a marked experiment with ``restore_experiment``,
+    or permanently delete an experiment in the backend store.
     """
     store = _get_store()
     store.delete_experiment(experiment_id)
-    print("Experiment with id %s has been deleted." % str(experiment_id))
+    print("Experiment with ID %s has been deleted." % str(experiment_id))
 
 
 @commands.command("restore")
@@ -67,7 +67,7 @@ def delete_experiment(experiment_id):
 def restore_experiment(experiment_id):
     """
     Restore a deleted experiment.
-    This command will error out if experiment is already active or has been permanently deleted.
+    Returns an error if the experiment is active or has been permanently deleted.
     """
     store = _get_store()
     store.restore_experiment(experiment_id)

@@ -72,7 +72,7 @@ def serve(model_path, run_id, port, host, no_conda):
 @cli_args.NO_CONDA
 def predict(model_path, run_id, input_path, output_path, no_conda):
     """
-    Load a pandas DataFrame and runs a PythonFunction model saved with MLflow against it.
+    Load a pandas DataFrame and runs a python_function model saved with MLflow against it.
     Return the prediction results as a CSV-formatted pandas DataFrame.
 
     If a ``run-id`` is specified, ``model-path`` is treated as an artifact path within that run;
