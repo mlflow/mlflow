@@ -1,7 +1,7 @@
 """
 Example of hyperparameter search in MLflow using simple random search.
 
-The run method will evaluate random combinations of parameters in a new mlflow run.
+The run method will evaluate random combinations of parameters in a new MLflow run.
 
 The runs are evaluated based on validation set loss. Test set score is calculated to verify the
 results.

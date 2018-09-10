@@ -22,7 +22,7 @@ examples/hyperparam/MLproject has 4 targets:
   * gpyopt
     use `GPyOpt <https://github.com/SheffieldML/GPyOpt>`_ to optimize hyperparameters of train.
     GPyOpt can run multiple mlflow runs in parallel if run with batch-size > 1 and max_p > 1.
-  * hyperOpt
+  * hyperopt
     use `Hyperopt <https://github.com/hyperopt/hyperopt>`_ to optimize hyperparameters.
 
 All the hyperparameter targets take optional experiment id for training runs. If provided,
