@@ -5,7 +5,6 @@ import uuid
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
 from mlflow.entities.run_info import DELETED_LIFECYCLE, ACTIVE_LIFECYCLE, check_run_is_active
-from mlflow.exceptions import MlflowException
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name
@@ -33,7 +32,6 @@ def _make_run_info_dict(run_info):
     if 'lifecycle_stage' in run_info_dict:
         del run_info_dict['lifecycle_stage']
     return run_info_dict
-
 
 
 class FileStore(AbstractStore):
@@ -414,11 +412,11 @@ class FileStore(AbstractStore):
         if run_view_type == ViewType.ACTIVE_ONLY:
             return list_all(experiment_dir,
                             lambda f: os.path.isdir(f) and
-                                      os.path.basename(f) != FileStore.TRASH_FOLDER_NAME,
+                            os.path.basename(f) != FileStore.TRASH_FOLDER_NAME,
                             full_path=False)
         elif run_view_type == ViewType.DELETED_ONLY:
             return list_all(os.path.join(experiment_dir, FileStore.TRASH_FOLDER_NAME),
-                            lambda f: os.path.isdir(f),
+                            os.path.isdir,
                             full_path=False)
         else:
             return self._list_run_uuids(experiment_id, ViewType.ACTIVE_ONLY) + \
@@ -469,4 +467,3 @@ class FileStore(AbstractStore):
         tag_path = self._get_tag_path(run.info.experiment_id, run_uuid, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, "%s\n" % tag.value)
-

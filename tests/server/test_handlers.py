@@ -72,4 +72,3 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_store):
     _search_runs()
     args, _ = mock_store.search_runs.call_args
     assert args[2] == ViewType.ACTIVE_ONLY
-

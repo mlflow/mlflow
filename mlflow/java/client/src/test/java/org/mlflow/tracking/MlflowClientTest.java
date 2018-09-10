@@ -137,6 +137,22 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void deleteAndRestoreRun() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+
+    String sourceFile = "MyFile.java";
+
+    RunInfo runCreated = client.createRun(expId, sourceFile);
+    Assert.assertEquals(runCreated.getLifecycleStage(), "active");
+    String deleteRunId = runCreated.getRunUuid();
+    client.deleteRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "deleted");
+    client.restoreRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "active");
+  }
+
+  @Test
   public void testUseArtifactRepository() throws IOException {
     String content = "Hello, Worldz!";
 

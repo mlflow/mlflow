@@ -181,6 +181,18 @@ class MLflowService(object):
         self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
                                    end_time=end_time)
 
+    def delete_run(self, run_id):
+        """
+        Deletes a run with the given ID.
+        """
+        self.store.delete_run(run_id)
+
+    def restore_run(self, run_id):
+        """
+        Restores a deleted run with the given ID.
+        """
+        self.store.restore_run(run_id)
+
 
 def get_service(tracking_uri=None):
     """

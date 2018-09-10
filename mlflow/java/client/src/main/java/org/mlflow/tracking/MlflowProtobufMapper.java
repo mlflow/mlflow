@@ -39,6 +39,18 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeDeleteRun(String runUuid) {
+    DeleteRun.Builder builder = DeleteRun.newBuilder();
+    builder.setRunId(runUuid);
+    return print(builder);
+  }
+
+  String makeRestoreRun(String runUuid) {
+    RestoreRun.Builder builder = RestoreRun.newBuilder();
+    builder.setRunId(runUuid);
+    return print(builder);
+  }
+
   String toJson(MessageOrBuilder mb) {
     return print(mb);
   }

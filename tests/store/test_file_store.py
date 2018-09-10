@@ -8,7 +8,7 @@ import time
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType
-from mlflow.entities.run_info import DELETED_LIFECYCLE, RunInfo, ACTIVE_LIFECYCLE
+from mlflow.entities.run_info import DELETED_LIFECYCLE, ACTIVE_LIFECYCLE
 from mlflow.exceptions import MlflowException
 from mlflow.store.file_store import FileStore, _make_run_info_dict
 from mlflow.utils.file_utils import write_yaml
@@ -307,11 +307,11 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         # Expect 2 runs for each experiment
         assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ACTIVE_ONLY)) \
-               == 2
+            == 2
         assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ALL)) \
-               == 2
+            == 2
         assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.DELETED_ONLY)) \
-               == 0
+            == 0
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
