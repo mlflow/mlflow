@@ -17,11 +17,17 @@ from mlflow.store.artifact_repo import ArtifactRepository
 _DEFAULT_USER_ID = "unknown"
 
 
-class MLflowClient(object):
+class MlflowClient(object):
     """Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
     def __init__(self, tracking_uri=None):
+        """
+        :param tracking_uri: Address of local or remote tracking server. If not provided, defaults
+                             to the service set by ``mlflow.tracking.set_tracking_uri``. See
+                             `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_
+                             for more info.
+        """
         self.tracking_uri = tracking_uri
         self.store = _get_store(tracking_uri)
 

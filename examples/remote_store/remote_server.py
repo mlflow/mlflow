@@ -19,7 +19,7 @@ if __name__ == "__main__":
     log_metric("random_int", random.randint(0, 100))
     run_uuid = active_run().info.run_uuid
     # Get run metadata & data from the tracking server
-    service = mlflow.tracking.MLflowClient()
+    service = mlflow.tracking.MlflowClient()
     run = service.get_run(run_uuid)
     print("Metadata & data for run with UUID %s: %s" % (run_uuid, run))
     local_dir = tempfile.mkdtemp()

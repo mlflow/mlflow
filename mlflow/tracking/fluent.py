@@ -19,7 +19,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
     MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.validation import _validate_run_id
-from mlflow.tracking.client import MLflowClient
+from mlflow.tracking.client import MlflowClient
 
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -77,7 +77,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
     if existing_run_uuid:
         _validate_run_id(existing_run_uuid)
-        active_run_obj = MLflowClient().get_run(existing_run_uuid)
+        active_run_obj = MlflowClient().get_run(existing_run_uuid)
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()
         if is_in_databricks_notebook():
@@ -91,7 +91,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
             if webapp_url is not None:
                 databricks_tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
-            active_run_obj = MLflowClient().create_run(
+            active_run_obj = MlflowClient().create_run(
                 experiment_id=exp_id_for_run,
                 run_name=run_name,
                 source_name=notebook_path,
@@ -100,7 +100,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 source_type=SourceType.NOTEBOOK,
                 tags=databricks_tags)
         else:
-            active_run_obj = MLflowClient().create_run(
+            active_run_obj = MlflowClient().create_run(
                 experiment_id=exp_id_for_run,
                 run_name=run_name,
                 source_name=source_name or _get_source_name(),
@@ -115,7 +115,7 @@ def end_run(status="FINISHED"):
     """End an active MLflow run (if there is one)."""
     global _active_run
     if _active_run:
-        MLflowClient().set_terminated(_active_run.info.run_uuid, status)
+        MlflowClient().set_terminated(_active_run.info.run_uuid, status)
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         _active_run = None
@@ -137,7 +137,7 @@ def log_param(key, value):
     :param value: Parameter value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_uuid
-    MLflowClient().log_param(run_id, key, value)
+    MlflowClient().log_param(run_id, key, value)
 
 
 def set_tag(key, value):
@@ -148,7 +148,7 @@ def set_tag(key, value):
     :param value: Tag value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_uuid
-    MLflowClient().set_tag(run_id, key, value)
+    MlflowClient().set_tag(run_id, key, value)
 
 
 def log_metric(key, value):
@@ -163,7 +163,7 @@ def log_metric(key, value):
             key, value), file=sys.stderr)
         return
     run_id = _get_or_start_run().info.run_uuid
-    MLflowClient().log_metric(run_id, key, value, int(time.time()))
+    MlflowClient().log_metric(run_id, key, value, int(time.time()))
 
 
 def log_artifact(local_path, artifact_path=None):
@@ -174,7 +174,7 @@ def log_artifact(local_path, artifact_path=None):
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
     run_id = _get_or_start_run().info.run_uuid
-    MLflowClient().log_artifact(run_id, local_path, artifact_path)
+    MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
 def log_artifacts(local_dir, artifact_path=None):
@@ -185,7 +185,7 @@ def log_artifacts(local_dir, artifact_path=None):
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
     run_id = _get_or_start_run().info.run_uuid
-    MLflowClient().log_artifacts(run_id, local_dir, artifact_path)
+    MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
 def create_experiment(name, artifact_location=None):
@@ -197,7 +197,7 @@ def create_experiment(name, artifact_location=None):
                               If not provided, the server picks an appropriate default.
     :return: Integer ID of the created experiment.
     """
-    return MLflowClient().create_experiment(name, artifact_location)
+    return MlflowClient().create_experiment(name, artifact_location)
 
 
 def get_artifact_uri():

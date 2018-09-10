@@ -28,7 +28,7 @@ def _already_ran(entry_point_name, parameters, source_version, experiment_id=Non
     successfully and have at least the parameters provided.
     """
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
-    client = mlflow.tracking.MLflowClient()
+    client = mlflow.tracking.MlflowClient()
     all_run_infos = reversed(client.list_run_infos(experiment_id))
     for run_info in all_run_infos:
         if run_info.entry_point_name != entry_point_name:
@@ -67,7 +67,7 @@ def _get_or_run(entrypoint, parameters, source_version, use_cache=True):
         return existing_run
     print("Launching new run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
     submitted_run = mlflow.run(".", entrypoint, parameters=parameters)
-    return mlflow.tracking.MLflowClient().get_run(submitted_run.run_id)
+    return mlflow.tracking.MlflowClient().get_run(submitted_run.run_id)
 
 
 @click.command()

@@ -310,17 +310,17 @@ class DatabricksSubmittedRun(SubmittedRun):
         jobs_page_url = run_info["run_page_url"]
         eprint("=== Check the run's status at %s ===" % jobs_page_url)
         host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
-        tracking.MLflowClient().set_tag(self._mlflow_run_id,
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
-        tracking.MLflowClient().set_tag(self._mlflow_run_id,
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
-        tracking.MLflowClient().set_tag(self._mlflow_run_id,
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
         job_id = run_info.get('job_id')
         # In some releases of Databricks we do not return the job ID. We start including it in DB
         # releases 2.80 and above.
         if job_id is not None:
-            tracking.MLflowClient().set_tag(self._mlflow_run_id,
+            tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                             MLFLOW_DATABRICKS_SHELL_JOB_ID, job_id)
 
     @property

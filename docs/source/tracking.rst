@@ -166,19 +166,19 @@ Managing Experiments and Runs with the Tracking Service API
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 MLflow provides a more detailed Tracking Service API for managing experiments and runs directly, 
-which is available in the :py:mod:`mlflow.tracking` module. 
+which is available through client SDK in the :py:mod:`mlflow.tracking` module.
 This makes it possible to query data about past runs, log additional information about them, create experiments and more.
 
 Example usage:
 
 .. code:: python
 
-    from  mlflow.tracking import get_service
-    service = get_service()
+    from  mlflow.tracking import MlflowClient
+    client = MlflowClient()
     experiments = service.list_experiments() # returns a list of mlflow.entities.Experiment
-    run = service.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
-    service.log_param(run.info.run_uuid, "hello", "world")
-    service.set_terminated(run.info.run_uuid)
+    run = client.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
+    client.log_param(run.info.run_uuid, "hello", "world")
+    client.set_terminated(run.info.run_uuid)
 
 .. _tracking_ui:
 
