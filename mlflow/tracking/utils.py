@@ -36,16 +36,18 @@ def is_tracking_uri_set():
 
 def set_tracking_uri(uri):
     """
-    Set the tracking server URI to the passed-in value. This does not affect the
-    currently active run (if one exists), but takes effect for any successive runs.
+    Set the tracking server URI. This does not affect the
+    currently active run (if one exists), but takes effect for successive runs.
 
-    The provided URI can be one of three types:
+    :param uri:
 
-    - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
-      locally at the provided file (or ``./mlruns`` if empty).
-    - An HTTP URI like ``https://my-tracking-server:5000``.
-    - A Databricks workspace, provided as just the string 'databricks' or, to use a specific
-      Databricks profile (per the Databricks CLI), 'databricks://profileName'.
+                - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
+                  locally at the provided file (or ``./mlruns`` if empty).
+                - An HTTP URI like ``https://my-tracking-server:5000``.
+                - A Databricks workspace, provided as the string "databricks" or, to use a
+                  Databricks CLI
+                  `profile <https://github.com/databricks/databricks-cli#installation>`_,
+                  "databricks://<profileName>".
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -53,10 +55,10 @@ def set_tracking_uri(uri):
 
 def get_tracking_uri():
     """
-    Return the current tracking URI. This may not correspond to the tracking URI of
+    Get the current tracking URI. This may not correspond to the tracking URI of
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
 
-    :return: the tracking URI.
+    :return: The tracking URI.
     """
     global _tracking_uri
     if _tracking_uri is not None:
@@ -120,7 +122,7 @@ def _get_rest_store(store_uri):
 
 def get_db_profile_from_uri(uri):
     """
-    Returns the Databricks profile specified by the passed-in tracking URI (if any), otherwise
+    Get the Databricks profile specified by the tracking URI (if any), otherwise
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)

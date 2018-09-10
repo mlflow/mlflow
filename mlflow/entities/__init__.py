@@ -1,4 +1,7 @@
-"""All entities returned by the MLflow REST API."""
+"""
+The ``mlflow.entities`` module defines entities returned by the MLflow
+`REST API <../rest-api.html>`_.
+"""
 
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.file_info import FileInfo
@@ -23,5 +26,5 @@ __all__ = [
     "RunStatus",
     "RunTag",
     "SourceType",
-    "ViewType",
+    "ViewType"
 ]

@@ -195,7 +195,7 @@ class FileStore(AbstractStore):
     def update_run_info(self, run_uuid, run_status, end_time):
         _validate_run_id(run_uuid)
         run_info = self.get_run(run_uuid).info
-        new_info = run_info.copy_with_overrides(run_status, end_time)
+        new_info = run_info._copy_with_overrides(run_status, end_time)
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         new_info_dict = self._make_run_info_dict(new_info)
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, new_info_dict, overwrite=True)

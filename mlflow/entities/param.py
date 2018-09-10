@@ -4,7 +4,7 @@ from mlflow.protos.service_pb2 import Param as ProtoParam
 
 class Param(_MLflowObject):
     """
-    Param object for python client.
+    Parameter object.
     """
 
     def __init__(self, key, value):
@@ -13,12 +13,12 @@ class Param(_MLflowObject):
 
     @property
     def key(self):
-        """String key corresponding to the param name."""
+        """String key corresponding to the parameter name."""
         return self._key
 
     @property
     def value(self):
-        """String value of the param."""
+        """String value of the parameter."""
         return self._value
 
     def to_proto(self):

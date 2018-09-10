@@ -1,7 +1,8 @@
 """
-The MLflow Tracking package provides a Python CRUD interface to MLflow Experiments
-and Runs. This is a lower level API that more directly translates to REST calls.
-For a more fluent API of managing an 'active run', see :mod:`mlflow`.
+The ``mlflow.tracking`` module provides a Python CRUD interface to MLflow experiments
+and runs. This is a lower level API that directly translates to MLflow
+`REST API <../rest-api.html>`_ calls.
+For a higher level API for managing an "active run", use the :py:mod:`mlflow` module.
 """
 
 from mlflow.tracking.service import MLflowService, get_service
