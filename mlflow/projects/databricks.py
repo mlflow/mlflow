@@ -74,7 +74,8 @@ class DatabricksJobRunner(object):
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
-            self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            response = self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            _check_response_status_code(response)
 
     def _dbfs_path_exists(self, dbfs_uri):
         """
