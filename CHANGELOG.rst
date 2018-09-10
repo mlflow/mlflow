@@ -11,12 +11,14 @@ MLflow 0.6.0 introduces several major features:
 - Support for tagging runs with metadata, during and after the run completion
 - Support for deleting (and restoring deleted) experiments
 
-In addition to these features, there are a host of improvements and bugfixes to the REST API, Python API, tracking UI, and documentation. The `examples/ <https://github.com/mlflow/mlflow/tree/master/examples>`_ subdirectory has also been revamped to make it easier to jump in.
+In addition to these features, there are a host of improvements and bugfixes to the REST API, Python API, tracking UI, and documentation. The `examples/ <https://github.com/mlflow/mlflow/tree/master/examples>`_ subdirectory has also been revamped to make it easier to jump in, and examples demonstrating multistep workflows and hyperparameter tuning have been added.
 
 Breaking changes:
 
-We fixed a few inconsistencies in the the ``mlflow.tracking.MlflowService`` introduced in 0.5.0:
+We fixed a few inconsistencies in the the ``mlflow.tracking`` API, as introduced in 0.5.0:
 
+- ``MLflowService`` has been renamed ``MlflowClient`` (#461, @mparkhe)
+- You get an ``MlflowClient`` by calling ``mlflow.tracking.MlflowClient()`` (previously, this was ``mlflow.tracking.get_service()``) (#461, @mparkhe)
 - ``MlflowService.list_runs`` was changed to ``MlflowService.list_run_infos`` to reflect the information actually returned by the call. It now returns a ``RunInfo`` instead of a ``Run`` (#334, @aarondav)
 - ``MlflowService.log_artifact`` and ``MlflowService.log_artifacts`` now take a ``run_id`` instead of ``artifact_uri``. This now matches ``list_artifacts`` and ``download_artifacts``  (#444, @aarondav)
 
@@ -51,10 +53,11 @@ Bug fixes and documentation updates:
 - [Python] uuid dependency removed (#351, @antonpaquin)
 - [Python] Fixed issues with remote execution on Databricks (#357, #361, @smurching; #383, #387, @aarondav)
 - [Docs] Added `comprehensive example <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_ of doing a multistep workflow, chaining MLflow runs together and reusing results (#338, @aarondav)
+- [Docs] Added `comprehensive example <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_ of doing hyperparameter tuning (#368, @tomasatdatabricks)
 - [Docs] Added code examples to ``mlflow.keras`` API (#341, @dmatrix)
 - [Docs] Significant improvements to Python API documentation (#454, @stbof)
 - [Docs] Examples folder refactored to improve readability. The examples now reside in ``examples/`` instead of ``example/``, too (#399, @mparkhe)
-- Small bug fixes and doc updates (#328, #363, @ToonKBC; #336, #411, @aarondav; #284, @smurching; #377, @mparkhe; #389, gioa; #408, @aadamson; #397, @vfdev-5; #420, @adrian555)
+- Small bug fixes and doc updates (#328, #363, @ToonKBC; #336, #411, @aarondav; #284, @smurching; #377, @mparkhe; #389, gioa; #408, @aadamson; #397, @vfdev-5; #420, @adrian555; #459, #463, @stbof)
 
 
 0.5.2 (2018-08-24)
