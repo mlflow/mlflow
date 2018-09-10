@@ -248,9 +248,9 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                        ...              }
                        >>> mfs.deploy(..., vpc_config=vpc_config)
 
-    :param flavor: The name of the flavor of the model to use for deployment. Must be either `None`
-                   or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If `None`, a flavor
-                   will be automatically selected from the model's available flavors. If the
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
     """
@@ -382,15 +382,16 @@ def delete(app_name, region_name="us-west-2", archive=False):
 def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     """
     Serve model locally in a SageMaker compatible Docker container.
+
     :param model_path: path to the model. Either local if no ``run_id`` or MLflow-relative if
                                           ``run_id`` is specified.
     :param run_id: MLflow run ID.
     :param port: Local port.
     :param image: Name of the Docker image to be used.
-    :param flavor: The name of the flavor of the model to use for local serving. If `None`, a flavor
-                   will be automatically selected from the model's available flavors. If the
+    :param flavor: The name of the flavor of the model to use for local serving. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
-                   will be thrown.
+                   is thrown.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
