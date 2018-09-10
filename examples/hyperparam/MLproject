@@ -3,7 +3,7 @@ name: HyperparameterSearch
 conda_env: conda.yaml
 
 entry_points:
-  # train keras dl model
+  # train Keras DL model
   train:
     parameters:
       training_data: {type: string, default: "../sklearn_elasticnet_wine/wine-quality.csv"}
