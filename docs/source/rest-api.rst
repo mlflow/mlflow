@@ -195,7 +195,7 @@ Response Structure
 
 .. _mlflowMlflowServicedeleteExperiment:
 
-Mlflow Experiments Delete
+Experiments Delete
 =========================
 
 
@@ -224,7 +224,7 @@ Request Structure
 +---------------+-----------+---------------------------------+
 |  Field Name   |   Type    |           Description           |
 +===============+===========+=================================+
-| experiment_id | ``INT64`` | Identifier to get an experiment |
+| experiment_id | ``INT64`` | ID of the associated experiment |
 |               |           | This field is required.         |
 |               |           |                                 |
 +---------------+-----------+---------------------------------+
@@ -235,7 +235,7 @@ Request Structure
 
 .. _mlflowMlflowServicerestoreExperiment:
 
-Mlflow Experiments Restore
+Experiments Restore
 ==========================
 
 
@@ -267,7 +267,7 @@ Request Structure
 +---------------+-----------+---------------------------------+
 |  Field Name   |   Type    |           Description           |
 +===============+===========+=================================+
-| experiment_id | ``INT64`` | Identifier to get an experiment |
+| experiment_id | ``INT64`` | ID of the associated experiment |
 |               |           | This field is required.         |
 |               |           |                                 |
 +---------------+-----------+---------------------------------+
