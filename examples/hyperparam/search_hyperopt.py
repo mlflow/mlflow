@@ -1,8 +1,8 @@
 """
 Example of hyperparameter search in MLflow using Hyperopt.
 
-The run method will instantiate and run hyperopt optimizer. Each parameter configuration is
-evaluated in a new mlflow run invoking main entry point with selected parameters.
+The run method will instantiate and run Hyperopt optimizer. Each parameter configuration is
+evaluated in a new MLflow run invoking main entry point with selected parameters.
 
 The runs are evaluated based on validation set loss. Test set score is calculated to verify the
 results.
@@ -67,7 +67,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
 
         def eval(params):
             """
-            Train keras model with given parameters by invoking mlflow run.
+            Train Keras model with given parameters by invoking MLflow run.
 
             Notice we store runUuid and resulting metric in a file. We will later use these to pick
             the best run and to log the runUuids of the child runs as an artifact. This is a
