@@ -71,7 +71,6 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
                 def get_metric(metric_name):
                     return [m.value for m in training_run.data.metrics if m.key == metric_name][0]
 
-
                 # cap the loss at the loss of the null model
                 train_loss = min(null_train_loss, get_metric(train_metric))
                 val_loss = min(null_val_loss, get_metric(val_metric))
