@@ -25,6 +25,17 @@ def _default_root_dir():
     return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath("mlruns")
 
 
+def _make_run_info_dict(run_info):
+    # 'tags' was moved from RunInfo to RunData, so we must keep storing it in the meta.yaml for
+    # old mlflow versions to read
+    run_info_dict = dict(run_info)
+    run_info_dict['tags'] = []
+    if 'lifecycle_stage' in run_info_dict:
+        del run_info_dict['lifecycle_stage']
+    return run_info_dict
+
+
+
 class FileStore(AbstractStore):
     TRASH_FOLDER_NAME = ".trash"
     ARTIFACTS_FOLDER_NAME = "artifacts"
@@ -232,7 +243,7 @@ class FileStore(AbstractStore):
         check_run_is_active(run_info)
         new_info = run_info.copy_with_overrides(run_status, end_time)
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
-        new_info_dict = self._make_run_info_dict(new_info)
+        new_info_dict = _make_run_info_dict(new_info)
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, new_info_dict, overwrite=True)
         return new_info
 
@@ -256,7 +267,7 @@ class FileStore(AbstractStore):
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
-        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, self._make_run_info_dict(run_info))
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, _make_run_info_dict(run_info))
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
@@ -265,14 +276,6 @@ class FileStore(AbstractStore):
         if run_name:
             self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
-
-    def _make_run_info_dict(self, run_info):
-        # 'tags' was moved from RunInfo to RunData, so we must keep storing it in the meta.yaml for
-        # old mlflow versions to read
-        run_info_dict = dict(run_info)
-        run_info_dict['tags'] = []
-        assert 'lifecycle_stage' not in run_info_dict
-        return run_info_dict
 
     def get_run(self, run_uuid):
         """

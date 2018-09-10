@@ -8,10 +8,11 @@ import time
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType
-from mlflow.entities.run_info import DELETED_LIFECYCLE
+from mlflow.entities.run_info import DELETED_LIFECYCLE, RunInfo, ACTIVE_LIFECYCLE
 from mlflow.exceptions import MlflowException
-from mlflow.store.file_store import FileStore
+from mlflow.store.file_store import FileStore, _make_run_info_dict
 from mlflow.utils.file_utils import write_yaml
+from tests.entities.test_run_info import TestRunInfo
 from tests.helper_functions import random_int, random_str
 
 
@@ -224,6 +225,9 @@ class TestFileStore(unittest.TestCase):
                 run_info.pop("metrics")
                 run_info.pop("params")
                 run_info.pop("tags")
+                # Add special case for lifecycle_stage since it doesn't belong in the serialized
+                # run info
+                run_info['lifecycle_stage'] = ACTIVE_LIFECYCLE
                 self.assertEqual(run_info, dict(run.info))
 
     def test_list_run_infos(self):
@@ -236,6 +240,9 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("metrics")
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
+                # Add special case for lifecycle_stage since it doesn't belong in the serialized
+                # run info
+                dict_run_info['lifecycle_stage'] = ACTIVE_LIFECYCLE
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_get_metric(self):
@@ -383,3 +390,8 @@ class TestFileStore(unittest.TestCase):
         with pytest.raises(MlflowException):
             fs.log_param(run_id, Param('a', 'b'))
 
+    def test_make_run_info_dict(self):
+        run_info = TestRunInfo._create()[0]
+        run_info_dict = dict(run_info)
+        assert 'lifecycle_stage' in run_info_dict
+        assert 'lifecycle_stage' not in _make_run_info_dict(run_info)

@@ -1,4 +1,5 @@
 from mlflow.entities import Run, Metric, RunData, SourceType, RunStatus, RunInfo
+from mlflow.entities.run_info import ACTIVE_LIFECYCLE
 from tests.entities.test_run_data import TestRunData
 from tests.entities.test_run_info import TestRunInfo
 
@@ -8,13 +9,14 @@ class TestRun(TestRunInfo, TestRunData):
         TestRunInfo._check(self, run.info, ri.run_uuid, ri.experiment_id, ri.name,
                            ri.source_type, ri.source_name, ri.entry_point_name,
                            ri.user_id, ri.status, ri.start_time, ri.end_time, ri.source_version,
-                           ri.artifact_uri)
+                           ri.lifecycle_stage, ri.artifact_uri)
         TestRunData._check(self, run.data, rd.metrics, rd.params, rd.tags)
 
     def test_creation_and_hydration(self):
+        self.maxDiff = None
         run_data, metrics, params, tags = TestRunData._create()
         (run_info, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-         user_id, status, start_time, end_time, source_version,
+         user_id, status, start_time, end_time, source_version, lifecycle_stage,
          artifact_uri) = TestRunInfo._create()
 
         run1 = Run(run_info, run_data)
@@ -32,6 +34,7 @@ class TestRun(TestRunInfo, TestRunData):
                             "start_time": start_time,
                             "end_time": end_time,
                             "source_version": source_version,
+                            "lifecycle_stage": lifecycle_stage,
                             "artifact_uri": artifact_uri,
                             },
                    "data": {"metrics": metrics,
@@ -51,7 +54,7 @@ class TestRun(TestRunInfo, TestRunData):
             run_uuid="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
             source_name="source-name", entry_point_name="entry-point-name",
             user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
-            source_version="version")
+            source_version="version", lifecycle_stage=ACTIVE_LIFECYCLE)
         metrics = [Metric("key", i, 0) for i in range(5)]
         run_data = RunData(metrics=metrics, params=[], tags=[])
         run1 = Run(run_info, run_data)

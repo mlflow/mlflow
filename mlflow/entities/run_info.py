@@ -182,4 +182,4 @@ class RunInfo(_MLflowObject):
         # TODO: Hard coding this list of props for now. There has to be a clearer way...
         return ["run_uuid", "experiment_id", "name", "source_type", "source_name",
                 "entry_point_name", "user_id", "status", "start_time", "end_time",
-                "source_version", "artifact_uri"]
+                "source_version", "lifecycle_stage", "artifact_uri"]

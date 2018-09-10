@@ -2,13 +2,14 @@ import unittest
 import uuid
 
 from mlflow.entities import RunInfo
+from mlflow.entities.run_info import ACTIVE_LIFECYCLE
 from tests.helper_functions import random_str, random_int
 
 
 class TestRunInfo(unittest.TestCase):
     def _check(self, ri, run_uuid, experiment_id, name, source_type, source_name,
                entry_point_name, user_id, status, start_time, end_time, source_version,
-               artifact_uri):
+               lifecycle_stage, artifact_uri):
         self.assertIsInstance(ri, RunInfo)
         self.assertEqual(ri.run_uuid, run_uuid)
         self.assertEqual(ri.experiment_id, experiment_id)
@@ -21,6 +22,7 @@ class TestRunInfo(unittest.TestCase):
         self.assertEqual(ri.start_time, start_time)
         self.assertEqual(ri.end_time, end_time)
         self.assertEqual(ri.source_version, source_version)
+        self.assertEqual(ri.lifecycle_stage, lifecycle_stage)
         self.assertEqual(ri.artifact_uri, artifact_uri)
 
     @staticmethod
@@ -36,20 +38,25 @@ class TestRunInfo(unittest.TestCase):
         start_time = random_int(1, 10)
         end_time = start_time + random_int(1, 10)
         source_version = random_str(random_int(10, 40))
+        lifecycle_stage = ACTIVE_LIFECYCLE
         artifact_uri = random_str(random_int(10, 40))
         ri = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id, name=name,
                      source_type=source_type, source_name=source_name,
                      entry_point_name=entry_point_name, user_id=user_id,
                      status=status, start_time=start_time, end_time=end_time,
-                     source_version=source_version, artifact_uri=artifact_uri)
+                     source_version=source_version, lifecycle_stage=lifecycle_stage,
+                     artifact_uri=artifact_uri)
         return (ri, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                user_id, status, start_time, end_time, source_version, artifact_uri)
+                user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                artifact_uri)
 
     def test_creation_and_hydration(self):
         (ri1, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-         user_id, status, start_time, end_time, source_version, artifact_uri) = self._create()
+         user_id, status, start_time, end_time, source_version, lifecycle_stage,
+         artifact_uri) = self._create()
         self._check(ri1, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                    user_id, status, start_time, end_time, source_version, artifact_uri)
+                    user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                    artifact_uri)
         as_dict = {
             "run_uuid": run_uuid,
             "experiment_id": experiment_id,
@@ -62,14 +69,17 @@ class TestRunInfo(unittest.TestCase):
             "start_time": start_time,
             "end_time": end_time,
             "source_version": source_version,
-            "artifact_uri": artifact_uri,
+            "lifecycle_stage": lifecycle_stage,
+            "artifact_uri": artifact_uri
         }
         self.assertEqual(dict(ri1), as_dict)
 
         proto = ri1.to_proto()
         ri2 = RunInfo.from_proto(proto)
         self._check(ri2, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                    user_id, status, start_time, end_time, source_version, artifact_uri)
-        ri3 = RunInfo.from_dictionary(as_dict)
+                    user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                    artifact_uri)
+        ri3 = RunInfo.run_from_dictionary(as_dict, lifecycle_stage)
         self._check(ri3, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                    user_id, status, start_time, end_time, source_version, artifact_uri)
+                    user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                    artifact_uri)
