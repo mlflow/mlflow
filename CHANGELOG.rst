@@ -4,7 +4,12 @@ Changelog
 0.6.0 (2018-09-10)
 ------------------
 
-MLflow 0.6.0 introduces two major features: a Java MLflow Client API published to Maven and inherent support for saving and serving SparkML models as MLeap for low-latency serving. In addition to these features, there are a host of improvements and bugfixes to the REST API, Python API, tracking UI, and documentation.
+MLflow 0.6.0 introduces two major features:
+
+- A Java client API, published to Maven
+- Inherent support for saving and serving SparkML models as MLeap for low-latency serving
+
+In addition to these features, there are a host of improvements and bugfixes to the REST API, Python API, tracking UI, and documentation.
 
 Breaking changes:
 
@@ -15,7 +20,7 @@ We fixed a few inconsistencies in the the ``mlflow.tracking.MlflowService`` intr
 
 Features:
 
-- Java MLflow Client API added with support for the MLflow Tracking API (analogous to ``mlflow.tracking``), allowing users to create and manage experiments, runs, and artifacts. This includes a `usage example <https://github.com/mlflow/mlflow/blob/master/mlflow/java/client/src/main/java/org/mlflow/tracking/samples/QuickStartDriver.java>`_ and `Javadocs <https://mlflow.org/docs/latest/java_api/index.html>`_. The client is published to Maven under `mlflow:mlflow <https://mvnrepository.com/artifact/mlflow/mlflow>`_ (#380, #394, #398, #409, #410, #430, #452, @aarondav)
+- Java client API added with support for the MLflow Tracking API (analogous to ``mlflow.tracking``), allowing users to create and manage experiments, runs, and artifacts. The release includes a `usage example <https://github.com/mlflow/mlflow/blob/master/mlflow/java/client/src/main/java/org/mlflow/tracking/samples/QuickStartDriver.java>`_ and `Javadocs <https://mlflow.org/docs/latest/java_api/index.html>`_. The client is published to Maven under `mlflow:mlflow <https://mvnrepository.com/artifact/mlflow/mlflow>`_ (#380, #394, #398, #409, #410, #430, #452, @aarondav)
 - SparkML models are now saved in MLeap format (https://github.com/combust/mleap), when applicable. Model serving platforms can choose to serve using this format instead to dramatically decrease prediction latency. SageMaker now does this by default (#324, #327, #331, #395, #428, #435, #438, @dbczumar)
 - [API] Experiments can now be deleted and restored via REST API, Python Tracking API, and MLflow CLI (#340, #344, #367, @mparkhe)
 - [API] Tags can now be set via a SetTag API, and they have been moved to ``RunData`` from ``RunInfo`` (#342, @aarondav)
@@ -34,7 +39,7 @@ Features:
 
 Bug fixes and documentation updates:
 
-- [Python] ``mlflow run`` will now log default parameters, in addition to explicitly provided ones (#392, @mparkhe)
+- [Python] ``mlflow run`` now logs default parameters, in addition to explicitly provided ones (#392, @mparkhe)
 - [Python] ``log_artifact`` in FileStore now requires a relative path as the artifact path (#439, @mparkhe)
 - [Python] Fixed string representation of Python entities, so they now display both their type and serialized fields (#371, @smurching)
 - [UI] Entry point name is now shown in MLflow UI (#345, @aarondav)
