@@ -89,8 +89,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
 
     You can run the project locally or remotely on a Databricks.
 
-    For information on using this method in chained workflows, see `Building Multi-Step Workflows
-    <../projects.html#building-multi-step-workflows>`_.
+    For information on using this method in chained workflows, see `Building Multistep Workflows
+    <../projects.html#building-multistep-workflows>`_.
 
     :raises ``ExecutionException``: If a run launched in blocking mode is unsuccessful.
 

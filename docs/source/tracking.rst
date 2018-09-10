@@ -272,11 +272,11 @@ Amazon S3
 To store artifacts in S3, specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
-these are available. See
-`Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ 
-for more information on how to set credentials.
+these are available. For more information on how to set credentials, see
+`Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
-To store artifacts in a custom endpoint, please set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL. For example, if you have a Minio server at 1.2.3.4 on port 9000:
+To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL. 
+For example, if you have a Minio server at 1.2.3.4 on port 9000:
 
 .. code:: bash
 
@@ -308,13 +308,13 @@ You should configure the client to be able to log in to the SFTP server without 
 
 The format ``sftp://pass:user@host/`` is supported for logging in. However, for safety reasons this is not recommended.
 
-When using this store, ``pysftp`` has to be installed on both client and server. Run ``pip install pysftp`` to install the required package.
+When using this store, ``pysftp`` must be installed on both the server and the client. Run ``pip install pysftp`` to install the required package.
 
 NFS
 ~~~
-To store artifacts in an NFS mount, the artifact URI should be specified as a normal file system
-path, e..g, ``/mnt/nfs``. Critically, however, this path must the same on both the server and
-client -- you may need to use symlinks or remount the client in order to enforce this property.
+To store artifacts in an NFS mount, specify a URI as a normal file system path, e.g., ``/mnt/nfs``.
+This path must the same on both the server and the client -- you may need to use symlinks or remount
+the client in order to enforce this property.
 
 
 Networking
