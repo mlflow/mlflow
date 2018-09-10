@@ -160,7 +160,7 @@ class RunInfo(_MLflowObject):
     def from_proto(cls, proto):
         return cls(proto.run_uuid, proto.experiment_id, proto.name, proto.source_type,
                    proto.source_name, proto.entry_point_name, proto.user_id, proto.status,
-                   proto.start_time, proto.end_time, proto.source_version,
+                   proto.start_time, proto.end_time, proto.source_version, proto.lifecycle_stage,
                    proto.artifact_uri)
 
     @classmethod
