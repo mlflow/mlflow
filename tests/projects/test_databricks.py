@@ -12,7 +12,7 @@ import mlflow
 from mlflow.projects.databricks import DatabricksJobRunner
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
-from mlflow.tracking import get_service
+from mlflow.tracking import MLflowClient
 from mlflow.utils import file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
@@ -93,8 +93,8 @@ def before_run_validations_mock():  # pylint: disable=unused-argument
 
 @pytest.fixture()
 def set_tag_mock():
-    with mock.patch("mlflow.projects.databricks.tracking.get_service") as m:
-        mlflow_service_mock = mock.Mock(wraps=get_service())
+    with mock.patch("mlflow.projects.databricks.tracking.MLflowClient") as m:
+        mlflow_service_mock = mock.Mock(wraps=MLflowClient())
         m.return_value = mlflow_service_mock
         yield mlflow_service_mock.set_tag
 
