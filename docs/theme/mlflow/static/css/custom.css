@@ -174,7 +174,7 @@ b, strong, mark,
 .rst-content dl:not(.docutils) code.descname,
 .rst-content dl:not(.docutils) .optional,
 .rst-content p.rubric {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 
