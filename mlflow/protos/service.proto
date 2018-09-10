@@ -59,10 +59,8 @@ service MlflowService {
     };
   }
 
-  // Delete experiment.
-  //
-  // This operation will mark experiment and associated runs, params, metrics, ... etc for deletion.
-  // If experiment uses FileStore, artifacts associated with experiment will also be deleted.
+  // Mark an experiment and associated runs, params, metrics, ... etc for deletion.
+  // If the experiment uses FileStore, artifacts associated with experiment are also deleted.
   //
   rpc deleteExperiment (DeleteExperiment) returns (DeleteExperiment.Response) {
     option (rpc) = {
@@ -75,11 +73,9 @@ service MlflowService {
     };
   }
 
-  // Restore a deleted experiment.
-  //
-  // This operation will restore an experiment marked for deletion. This will also restore
+  // Restore an experiment marked for deletion. This also restores
   // associated metadata, runs, metrics, and params. If experiment uses FileStore, underlying
-  // artifacts associated with experiment will also be restored.
+  // artifacts associated with experiment are also restored.
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
   //
@@ -97,6 +93,7 @@ service MlflowService {
   // Create a new run within an experiment. A run is usually a single execution of a
   // machine learning or data ETL pipeline. MLflow uses runs to track :ref:`mlflowParam`,
   // :ref:`mlflowMetric`, and :ref:`mlflowRunTag` associated with a single execution.
+  //
   rpc createRun(CreateRun) returns (CreateRun.Response) {
     option (rpc) = {
       endpoints: [{
@@ -110,6 +107,8 @@ service MlflowService {
     };
   }
 
+  // Update run metadata.
+  //
   rpc updateRun(UpdateRun) returns (UpdateRun.Response) {
     option (rpc) = {
       endpoints: [{
@@ -123,8 +122,10 @@ service MlflowService {
     };
   }
 
-  // Log a metric for a run (e.g. ML model accuracy). A metric is a key-value pair (string key,
-  // float value) with an associated timestamp. Within a run, a metric may be logged multiple times.
+  // Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
+  // associated timestamp. Examples include the various metrics that represent ML model accuracy. 
+  // A metric can be logged multiple times.
+  //
   rpc logMetric(LogMetric) returns (LogMetric.Response) {
     option (rpc) = {
       endpoints: [{
@@ -138,9 +139,10 @@ service MlflowService {
     };
   }
 
-  // Log a param used for this run. Examples are hyperparameters used for ML model training, or
-  // constant dates and values used in an ETL pipeline. A param is a key-value pair (string key,
-  // string value). A param may only be logged once for a given run.
+  // Log a param used for a run. A param is a key-value pair (string key,
+  // string value). Examples include hyperparameters used for ML model training and
+  // constant dates and values used in an ETL pipeline. A param can be logged only once for a run.
+  //
   rpc logParam(LogParam) returns (LogParam.Response) {
     option (rpc) = {
       endpoints: [{
@@ -154,8 +156,9 @@ service MlflowService {
     };
   }
 
-  // Sets a tag on this run. Tags are metadata of a run which can be updated during and after
+  // Set a tag on a run. Tags are run metadata that can be updated during and after
   // a run completes.
+  //
   rpc setTag(SetTag) returns (SetTag.Response) {
     option (rpc) = {
       endpoints: [{
@@ -169,8 +172,9 @@ service MlflowService {
     };
   }
 
-  // Get metadata, params, tags, and metrics for run. Only the last logged value for each metric is
-  // returned.
+  // Get metadata, params, tags, and metrics for a run. Only the last logged value for each metric
+  // is returned.
+  //
   rpc getRun (GetRun) returns (GetRun.Response) {
     option (rpc) = {
       endpoints: [{
@@ -184,8 +188,9 @@ service MlflowService {
     };
   }
 
-  // Retrieve the logged value for a metric during a run. For a run, if this metric is logged more
-  // than once, this API retrieves only the latest value logged.
+  // Get the value for a metric logged during a run. If the metric is logged more
+  // than once, returns the last logged value.
+  //
   rpc getMetric (GetMetric) returns (GetMetric.Response) {
     option (rpc) = {
       endpoints: [{
@@ -233,8 +238,8 @@ service MlflowService {
     };
   }
 
-  // List artifacts for a given run. Takes an optional ``artifact_path`` prefix - if specified,
-  // the response will contain only artifacts with the specified prefix.
+  // List artifacts for a run. Takes an optional ``artifact_path`` prefix which if specified,
+  // the response contains only artifacts with the specified prefix.
   //
   rpc listArtifacts (ListArtifacts) returns (ListArtifacts.Response) {
     option (rpc) = {
@@ -248,7 +253,7 @@ service MlflowService {
     };
   }
 
-  // Returns a list of all values for the specified metric for a given run.
+  // Get a list of all values for the specified metric for a given run.
   //
   rpc getMetricHistory (GetMetricHistory) returns (GetMetricHistory.Response) {
     option (rpc) = {
@@ -263,51 +268,51 @@ service MlflowService {
   }
 }
 
-// Qualifier view type for ListExperiment query.
+// View type for ListExperiments query.
 enum ViewType {
-  // Default. Only return active experiments.
+  // Default. Return only active experiments.
   ACTIVE_ONLY = 1;
 
-  // Only return deleted experiments.
+  // Return only deleted experiments.
   DELETED_ONLY = 2;
 
-  // Get all active and deleted experiments.
+  // Get all experiments.
   ALL = 3;
 }
 
-// Description of the source that generated a run.
+// Source that generated a run.
 enum SourceType {
-  // Within Databricks Notebook environment.
+  // Databricks notebook environment.
   NOTEBOOK = 1;
 
-  // Scheduled or Run Now Job.
+  // Scheduled or Run Now job.
   JOB = 2;
 
-  // As a prepackaged project: either a docker image or github source, ... etc.
+  // As a prepackaged project: either a Docker image or GitHub source, etc.
   PROJECT = 3;
 
-  // Local run: Using CLI, IDE, or local notebook
+  // Local run: Using CLI, IDE, or local notebook.
   LOCAL = 4;
 
-  // Unknown source type
+  // Unknown source type.
   UNKNOWN = 1000;
 }
 
 // Status of a run.
 enum RunStatus {
-  // Has been initiated
+  // Run has been initiated.
   RUNNING = 1;
 
-  // Scheduled to run at a later time
+  // Run is scheduled to run at a later time.
   SCHEDULED = 2;
 
-  // Run has completed
+  // Run has completed.
   FINISHED = 3;
 
-  // Execution failed
+  // Run execution failed.
   FAILED = 4;
 
-  // Run killed by user
+  // Run killed by user.
   KILLED = 5;
 }
 
@@ -342,8 +347,9 @@ message Run {
 
 // Run data (metrics, params, etc).
 message RunData {
+  // Run metrics.
   repeated Metric metrics = 1;
-
+  // Run parameters.
   repeated Param params = 2;
 
   // Additional metadata key-value pairs.
@@ -385,7 +391,7 @@ message RunInfo {
   // Unix timestamp of when the run ended in milliseconds.
   optional int64 end_time = 9;
 
-  // Git commit of the code used for the run.
+  // Git commit hash of the code used for the run.
   optional string source_version = 10;
 
   // Name of the entry point for the run.
@@ -403,14 +409,14 @@ message Experiment {
   // Unique identifier for the experiment.
   optional int64 experiment_id = 1;
 
-  // Human readable name that identifies this experiment.
+  // Human readable name that identifies the experiment.
   optional string name = 2;
 
-  // Location where artifacts for this experiment are stored.
+  // Location where artifacts for the experiment are stored.
   optional string artifact_location = 3;
 
-  // Current life cycle stage of the experiment : OneOf("active", "deleted")
-  // Deleted experiments are not returned by APIs
+  // Current life cycle stage of the experiment: "active" or "deleted".
+  // Deleted experiments are not returned by APIs.
   optional string lifecycle_stage = 4;
 
   // Last update time
@@ -426,12 +432,12 @@ message CreateExperiment {
   // Experiment name.
   optional string name = 1 [(validate_required) = true];
 
-  // Location where all artifacts for this experiment are stored.
+  // Location where all artifacts for the experiment are stored.
   // If not provided, the remote server will select an appropriate default.
   optional string artifact_location = 2;
 
   message Response {
-    // Unique identifier for created experiment.
+    // Unique identifier for the experiment.
     optional int64 experiment_id = 1;
   }
 }
@@ -440,7 +446,7 @@ message ListExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // Qualifier for type of experiments to be returned.
-  // If unspecified returns only active experiments.
+  // If unspecified, return only active experiments.
   optional ViewType view_type = 1;
 
   message Response {
@@ -509,7 +515,7 @@ message CreateRun {
   // Unix timestamp of when the run started in milliseconds.
   optional int64 start_time = 7;
 
-  // Git version of the source code used to create run.
+  // Git commit hash of the source code used to create run.
   optional string source_version = 8;
 
   // Additional metadata for run.
@@ -635,8 +641,9 @@ message GetParam {
 message SearchExpression {
   // A single search filter.
   oneof expression {
+    // A metric search expression.
     MetricSearchExpression metric = 1;
-
+    // A parameter search expression.
     ParameterSearchExpression parameter = 2;
   }
 }

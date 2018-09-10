@@ -1,5 +1,5 @@
 """
-Utilities for deploying MLflow models to Amazon SageMaker.
+The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
 from __future__ import print_function
 
@@ -108,10 +108,12 @@ def _docker_ignore(mlflow_root):
 
 def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
     """
-    This function builds an MLflow Docker image.
+    Build an MLflow Docker image.
     The image is built locally and it requires Docker to run.
 
-    :param name: image name
+    :param name: Docker image name.
+    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
+                        current directory if not specified.
     """
     with TempDir() as tmp:
         install_mlflow = "RUN pip install mlflow=={version}".format(
@@ -148,11 +150,11 @@ _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:{version}"
 
 def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     """
-    Push local Docker image to ECR.
+    Push local Docker image to AWS ECR.
 
-    The image is pushed under current active AWS account and to current active AWS region.
+    The image is pushed under currently active AWS account and to the currently active AWS region.
 
-    :param image: image name
+    :param image: Docker image name.
     """
     eprint("Pushing image to ECR")
     client = boto3.client("sts")
@@ -184,19 +186,19 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
            instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
            instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT, vpc_config=None, flavor=None):
     """
-    Deploy model on SageMaker.
-    Currently active AWS account needs to have correct permissions set up.
+    Deploy an MLflow model on AWS SageMaker.
+    The currently active AWS account must have correct permissions set up.
 
     :param app_name: Name of the deployed application.
     :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``
-        is specified.
+                 is specified.
     :param execution_role_arn: Amazon execution role with SageMaker rights.
-        Defaults to the currently-assumed role.
+                               Defaults to the currently-assumed role.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
-        SageMaker-compatible bucket name.
+                   SageMaker-compatible bucket name.
     :param run_id: MLflow run ID.
     :param image: Name of the Docker image to be used. if not specified, uses a
-        publicly-available pre-built image.
+                  publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
@@ -220,16 +222,16 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-        (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-        mode) are preserved. If False, these resources are deleted.
+                    (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                    mode) are preserved. If False, these resources are deleted.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
                           of supported instance types, see
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this application. The acceptable values
-                       for this parameter are identical to those of the `VpcConfig` parameter in the
-                       SageMaker boto3 client (https://boto3.readthedocs.io/en/latest/reference/
+                       for this parameter are identical to those of the ``VpcConfig`` parameter in
+                       the SageMaker boto3 client (https://boto3.readthedocs.io/en/latest/reference/
                        services/sagemaker.html#SageMaker.Client.create_model). For more information,
                        see https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
@@ -344,7 +346,7 @@ def _validate_deployment_flavor(model_config, flavor):
 
 def delete(app_name, region_name="us-west-2", archive=False):
     """
-    Delete the specified application.
+    Delete a SageMaker application.
 
     :param app_name: Name of the deployed application.
     :param region_name: Name of the AWS region in which the application is deployed.

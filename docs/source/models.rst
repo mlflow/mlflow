@@ -5,18 +5,18 @@ MLflow Models
 
 An MLflow Model is a standard format for packaging machine learning models that can be used in a
 variety of downstream tools---for example, real-time serving through a REST API or batch inference
-on Apache Spark. The format defines a convention that lets you save a model in different "flavors" that can be
-understood by different downstream tools.
+on Apache Spark. The format defines a convention that lets you save a model in different "flavors" 
+that can be understood by different downstream tools.
 
 .. contents:: Table of Contents
   :local:
-  :depth: 2
+  :depth: 1
 
 
 Storage Format
 --------------
 
-Each MLflow Model is simply a directory containing arbitrary files, together with an ``MLmodel``
+Each MLflow Model is a directory containing arbitrary files, together with an ``MLmodel``
 file in the root of the directory that can define multiple *flavors* that the model can be viewed
 in.
 
@@ -33,7 +33,7 @@ scikit-learn, or as a generic Python function for use in tools that just need to
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
 format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
 
-.. code:: bash
+::
 
     # Directory written by mlflow.sklearn.save_model(model, "my_model")
     my_model/
@@ -55,7 +55,7 @@ And its ``MLmodel`` file describes two flavors:
 
 This model can then be used with any tool that supports *either* the ``sklearn`` or
 ``python_function`` model flavor. For example, the ``mlflow sklearn`` command can serve a
-model with the ``sklearn`` flavor
+model with the ``sklearn`` flavor:
 
 .. code::
 
@@ -84,18 +84,18 @@ Model API
 
 You can save and load MLflow Models in multiple ways. First, MLflow includes integrations with
 several common libraries. For example, :py:mod:`mlflow.sklearn` contains
-:py:func:`save_model <mlflow.sklearn.save_model>`, :py:func:`log_model <mlflow.sklearn.log_model>`
+:py:func:`save_model <mlflow.sklearn.save_model>`, :py:func:`log_model <mlflow.sklearn.log_model>`,
 and :py:func:`load_model <mlflow.sklearn.load_model>` functions for scikit-learn models. Second,
-you can use the more general :py:class:`mlflow.models.Model` class to create and write models. This
+you can use the :py:class:`mlflow.models.Model` class to create and write models. This
 class has four key functions:
 
-* :py:func:`add_flavor <mlflow.sklearn.Model.add_flavor>` to add a flavor to the model. Each flavor
+* :py:func:`add_flavor <mlflow.models.Model.add_flavor>` to add a flavor to the model. Each flavor
   has a string name and a dictionary of key-value attributes, where the values can be any object
   that can be serialized to YAML.
-* :py:func:`save <mlflow.sklearn.Model.save>` saves the model to a local directory.
-* :py:func:`log_artifact <mlflow.sklearn.Model.log_artifact>` logs the model as an artifact in the
+* :py:func:`save <mlflow.models.Model.save>` to save the model to a local directory.
+* :py:func:`log <mlflow.models.Model.log>` to log the model as an artifact in the
   current run using MLflow Tracking.
-* :py:func:`Model.load <mlflow.sklearn.Model.load>` loads a model from a local directory or
+* :py:func:`load <mlflow.models.Model.load>` to load a model from a local directory or
   from an artifact in a previous run.
 
 Built-In Model Flavors
@@ -118,7 +118,7 @@ signature:
 
 .. code:: python
 
-    predict(data: pandas.DataFrame) -> pandas.DataFrame | numpy.array
+    predict(data: pandas.DataFrame) -> [pandas.DataFrame | numpy.array]
 
 Other MLflow components expect ``python_function`` models to follow this convention.
 
@@ -151,65 +151,72 @@ A ``python_function`` model directory must contain an ``MLmodel`` file in its ro
 
 - data [optional]:
      A relative path to a file or directory containing model data.
-     the path is passed to the model loader.
+     The path is passed to the model loader.
 
 - env [optional]:
      A relative path to an exported Conda environment. If present this environment
      is activated prior to running the model.
 
-Example:
+.. rubric:: Example
 
 .. code:: bash
 
-    >tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
-    ├── MLmodel
-    ├── code
-    │   ├── sklearn_iris.py
-    │  
-    ├── data
-    │   └── model.pkl
-    └── mlflow_env.yml
+   tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
+   
+::
+ 
+   ├── MLmodel
+   ├── code
+   │   ├── sklearn_iris.py
+   │  
+   ├── data
+   │   └── model.pkl
+   └── mlflow_env.yml
 
-    >cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
-    python_function:
-      code: code
-      data: data/model.pkl
-      loader_module: mlflow.sklearn
-      env: mlflow_env.yml
-      main: sklearn_iris
+.. code:: bash
 
+   cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+   
+::
+  
+   python_function:
+     code: code
+     data: data/model.pkl
+     loader_module: mlflow.sklearn
+     env: mlflow_env.yml
+     main: sklearn_iris
 
-For more details, see :py:mod:`mlflow.pyfunc`.
+For more information, see :py:mod:`mlflow.pyfunc`.
+
+H\ :sub:`2`\ O (``h2o``)
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The H2O model flavor enables logging and loading H2O models. These models will be saved by using the :py:mod:`mlflow.h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
+
+When loading a H2O model as a PyFunc model, :py:mod:`h2o.init(...)` will be called. Therefore, the right version of h2o(-py) has to be in the environment. The arguments given to :py:mod:`h2o.init(...)` can be customized in ``model.h2o/h2o.yaml`` under the key ``init``. For more information, see :py:mod:`mlflow.h2o`.
+
+Keras (``keras``)
+^^^^^^^^^^^^^^^^^
+
+The ``keras`` model flavor enables logging and loading Keras models. This model will be saved in a HDF5 file format, via the model_save functionality provided by Keras. Additionally, model can be loaded back as ``Python Function``. For more information, see :py:mod:`mlflow.keras`.
+
+MLeap (``mleap``)
+^^^^^^^^^^^^^^^^^
+
+The ``mleap`` model flavor supports saving models using the MLeap persistence mechanism. A companion module for loading MLflow models with the MLeap flavor format is available in the ``mlflow/java`` package. For more information, see :py:mod:`mlflow.mleap`.
+
+PyTorch (``pytorch``)
+^^^^^^^^^^^^^^^^^^^^^
+
+The ``pytorch`` model flavor enables logging and loading PyTorch models. Model is completely stored in `.pth` format using `torch.save(model)` method. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.pytorch`. 
 
 Scikit-learn (``sklearn``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``sklearn`` model flavor provides an easy to use interface for handling scikit-learn models with no
 external dependencies. It saves and loads models using Python's pickle module and also generates a valid
-``python_function`` flavor model. For more information, see :py:mod:`mlflow.sklearn`.
+``python_function`` flavor model. For more information, see :py:mod:`mlflow.sklearn`. 
 
-TensorFlow (``tensorflow``)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.tensorflow`. 
-
-PyTorch (``pytorch``)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``pytorch`` model flavor enables logging and loading PyTorch models. Model is completely stored in `.pth` format using `torch.save(model)` method. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.pytorch`. 
-
-
-H\ :sub:`2`\ O (``h2o``)
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-With the H2O model flavor H2O models can be handled by mlflow. These models will be saved by using the :py:mod:`h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
-
-When loading a H2O model as a pyfunc-model, :py:mod:`h2o.init(...)` will be called. Therefore, the right version of h2o(-py) has to be in the environment. The arguments given to :py:mod:`h2o.init(...)` can be customized in ``model.h2o/h2o.yaml`` under the key ``init``.
-
-Keras (``keras``)
-^^^^^^^^^^^^^^^^^
-
-The ``keras`` model flavor can be used to save a Keras model. This model will be saved in a HDF5 file format, via the model_save functionality provided by Keras. Additionally, model can be loaded back as ``Python Function``. For more information, see :py:mod:`mlflow.keras`.
 
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -222,12 +229,16 @@ the most efficient solution, especially for real-time scoring, it enables you to
 (as long as the PipelineModel has no external JAR dependencies) to any endpoint supported by
 MLflow. For more information, see :py:mod:`mlflow.spark`.
 
+TensorFlow (``tensorflow``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model`` and then load the saved model for inference using ``load_pyfunc``. For more information, see :py:mod:`mlflow.tensorflow`.
+
 Custom Flavors
 --------------
-
-In general, you can add any flavor you'd like in MLmodel files, either by writing them directly or
-building them with the :py:class:`mlflow.models.Model` class. Just choose an arbitrary string name
-for your flavor. MLflow's tools ignore flavors that they do not understand in the MLmodel file.
+You can add a flavor in MLmodel files, either by writing it directly or
+building it with the :py:class:`mlflow.models.Model` class. Choose an arbitrary string name
+for your flavor. MLflow tools ignore flavors in the MLmodel file that they do not understand.
 
 Built-In Deployment Tools
 -------------------------
@@ -238,10 +249,9 @@ methods are available for all model flavors. Deployment is supported for the Pyt
 
 Local
 ^^^^^
-MLflow can deploy models locally as a local REST API endpoint or to directly score CSV files.
+MLflow can deploy models locally as local REST API endpoints or to directly score CSV files.
 This functionality is a convenient way of testing models before uploading to a remote model server.
-
-The Python Function flavor can be deployed locally via the :py:mod:`mlflow.pyfunc` module using
+You deploy the Python Function flavor locally via the CLI interface to the :py:mod:`mlflow.pyfunc` module.
 
 * :py:func:`serve <mlflow.pyfunc.cli.serve>` deploys the model as a local REST API server.
 * :py:func:`predict <mlflow.pyfunc.cli.predict>` uses the model to generate a prediction for a local
@@ -257,14 +267,14 @@ For more info, see:
 
 Microsoft AzureML
 ^^^^^^^^^^^^^^^^^
-MLflow's :py:mod:`mlflow.azureml` module can export ``python_function`` models as Azure ML compatible models. It
+The :py:mod:`mlflow.azureml` module can export ``python_function`` models as Azure ML compatible models. It
 can also be used to directly deploy and serve models on Azure ML, provided the environment has
 been correctly set up.
 
-* :py:func:`export <mlflow.azureml.cli.export>` exports the model in Azure ML-compatible format.
-  MLFlow will output a directory with the dependencies necessary to deploy the model.
+* :py:func:`export <mlflow.azureml.export>` exports the model in Azure ML-compatible format.
+  MLflow will output a directory with the dependencies necessary to deploy the model.
 
-* :py:func:`deploy <mlflow.azureml.cli.deploy>` deploys the model directly to Azure ML.
+* :py:func:`deploy <mlflow.azureml.deploy>` deploys the model directly to Azure ML.
   You first need to set up your environment to work with the Azure ML CLI. You can do this by
   starting a shell from the Azure ML Workbench application. You also have to set up all accounts
   required to run and deploy on Azure ML. Where the model is deployed is dependent on your
@@ -277,12 +287,15 @@ Model export example:
 
     mlflow azureml export -m <path-to-model> -o test-output
     tree test-output
+
+::
+  
     test-output
     ├── create_service.sh  - use this script to upload the model to Azure ML
     ├── score.py - main module required by Azure ML
-    └── test-output - directory containing MLFlow model in Python Function flavor
+    └── test-output - directory containing MLflow model in Python Function flavor
 
-Example model workflow for deployment:
+.. rubric:: Example workflow using the MLflow CLI
 
 .. code:: bash
 
@@ -299,31 +312,30 @@ For more info, see:
     mlflow azureml export --help
     mlflow azureml deploy --help
 
-Amazon Sagemaker
+Amazon SageMaker
 ^^^^^^^^^^^^^^^^
-MLflow's :py:mod:`mlflow.sagemaker` module can deploy ``python_function`` models on Sagemaker
-or locally in a Docker container with Sagemaker compatible environment (Docker is required).
-Similarly to Azure ML, you have to set up your environment and user accounts first in order to
-deploy to Sagemaker with MLflow. Also, in order to export a custom model to Sagemaker, you need a
+The :py:mod:`mlflow.sagemaker` module can deploy ``python_function`` models on SageMaker
+or locally in a Docker container with SageMaker compatible environment.
+You have to set up your environment and user accounts first in order to
+deploy to SageMaker with MLflow. Also, in order to export a custom model to SageMaker, you need a
 MLflow-compatible Docker image to be available on Amazon ECR. MLflow provides a default Docker
-image definition; however, it is up to the user to build the actual image and upload it to ECR.
+image definition; however, it is up to you to build the actual image and upload it to ECR.
 MLflow includes a utility function to perform this step. Once built and uploaded, the MLflow
 container can be used for all MLflow models.
 
-* :py:func:`build-and-push-container <mlflow.sagemaker.cli.build_and_push_container>` builds an MLFLow
-  Docker image and uploads it to ECR. The calling user has to have the correct permissions set up. The image
+* The :py:func:`build-and-push-container <mlflow.sagemaker.cli.build_and_push_container>` CLI command builds an MLfLow
+  Docker image and uploads it to ECR. The caller must have the correct permissions set up. The image
   is built locally and requires Docker to be present on the machine that performs this step.
 
-
-* :py:func:`run_local <mlflow.sagemaker.cli.run_local>` deploys the model locally in a Docker
+* :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker
   container. The image and the environment should be identical to how the model would be run
   remotely and it is therefore useful for testing the model prior to deployment.
 
-* :py:func:`deploy <mlflow.sagemaker.cli.deploy>` deploys the model on Amazon Sagemaker. MLflow
-  will upload the Python Function model into S3 and start an Amazon Sagemaker endpoint serving
+* :py:func:`deploy <mlflow.sagemaker.deploy>` deploys the model on Amazon SageMaker. MLflow
+  uploads the Python Function model into S3 and starts an Amazon SageMaker endpoint serving
   the model.
 
-Example workflow:
+.. rubric:: Example workflow using the MLflow CLI
 
 .. code:: bash
 
@@ -344,10 +356,10 @@ For more info, see:
 
 Apache Spark
 ^^^^^^^^^^^^
-MLFLow can output a ``python_function`` model as an Apache Spark UDF, which can be uploaded to a Spark cluster and
+MLfLow can output a ``python_function`` model as an Apache Spark UDF, which can be uploaded to a Spark cluster and
 used to score the model.
 
-Example:
+.. rubric:: Example
 
 .. code:: python
 

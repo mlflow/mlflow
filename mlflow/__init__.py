@@ -1,5 +1,5 @@
 """
-Provides the MLflow fluent API, allowing management of an active MLflow run.
+The ``mlflow`` module provides an API for starting and managing MLflow runs.
 For example:
 
 .. code:: python
@@ -17,7 +17,9 @@ You can also use syntax like this:
     with mlflow.start_run() as run:
         ...
 
-which will automatically terminate the run at the end of the block.
+which automatically terminates the run at the end of the block.
+
+For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 
 from mlflow.version import VERSION as __version__
