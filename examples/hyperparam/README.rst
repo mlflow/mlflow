@@ -13,7 +13,7 @@ metrics are logged with MLflow and you can use MLflow ui to inspect how they var
 hyperparameter values.
 
 examples/hyperparam/MLproject has 4 targets:
-  * main
+  * train
     train simple deep learning model on the wine-quality dataset from our tutorial.
     It has 3 tunable hyperparameters - learning_rate, beta1, beta2.
     Contains examples of how Keras callbacks can be used for mlflow integration.
@@ -40,17 +40,17 @@ You can run any of the targets as a standard mlflow run.
 
     mlflow experiments create individual_runs
 
-This will create experiment for individual runs and return its experiment it.
+This will create experiment for individual runs and return its experiment id.
 
 .. code:: bash
 
     mlflow experiments create hyper_param_runs
 
-This will create experiment for hyperparam runs and return its experiment it.
+This will create experiment for hyperparam runs and return its experiment id.
 
 .. code:: bash
 
-    mlflow run --experiment-id <individual_runs_experiment_id> example/hyperparam
+    mlflow run -e train --experiment-id <individual_runs_experiment_id> example/hyperparam
 
 This will run the Keras deep learning training with default parameters and log it in experiment 1.
 
