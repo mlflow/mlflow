@@ -163,7 +163,7 @@ Project URI
     to the subdirectory containing the desired project.
 
 Project Version
-    Which commit in the Git repository to run, for Git-based projects.
+    Either the version number of the commit or the branch name in the Git repository to run, for Git-based projects.
 
 Entry Point
     The name of the entry point to use, which defaults to ``main``. You can use any

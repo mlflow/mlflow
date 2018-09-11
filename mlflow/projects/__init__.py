@@ -106,7 +106,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         name is found, runs the project file ``entry_point`` as a script,
                         using "python" to run ``.py`` files and the default shell (specified by
                         environment variable ``$SHELL``) to run ``.sh`` files.
-    :param version: For Git-based projects, a commit hash.
+    :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_id: ID of experiment under which to launch the run.
     :param mode: Execution mode of the run: "local" or "databricks".
     :param cluster_spec: When ``mode`` is "databricks", path to a JSON file containing a
