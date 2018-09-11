@@ -331,7 +331,7 @@ class FileStore(AbstractStore):
     def _get_tag_from_file(parent_path, tag_name):
         _validate_tag_name(tag_name)
         tag_data = read_file(parent_path, tag_name)
-        return RunTag(tag_name, str(tag_data.strip()))
+        return RunTag(tag_name, str(tag_data))
 
     def get_param(self, run_uuid, param_name):
         _validate_run_id(run_uuid)
