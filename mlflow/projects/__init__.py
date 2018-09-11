@@ -22,6 +22,7 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
 from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -54,6 +55,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
     for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.get_service().log_param(active_run.info.run_uuid, key, value)
+
+    # Add branch name tag if a branch is specified through -version
+    if _is_valid_branch_name(uri, version):
+        tracking.get_service().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -189,6 +194,29 @@ def _is_local_uri(uri):
     return not _GIT_URI_REGEX.match(uri)
 
 
+def _is_valid_version(repo, version):
+    """Verify the commit version of branch name is valid, raise exception if otherwise."""
+    from git.exc import GitCommandError
+    try:
+        return repo.git.rev_parse("--verify", version)
+    except GitCommandError:
+        # Second attempt to see if this is a branch
+        try:
+            return repo.git.rev_parse("--verify", "refs/remotes/origin/%s" % version)
+        except GitCommandError:
+            raise ExecutionException("'%s' is invalid or does not exist in the Git project." %
+                                     version)
+
+
+def _is_valid_branch_name(uri, branch):
+    """Returns True if the branch exists in the Git project."""
+    if branch is not None:
+        parsed_uri = _parse_subdirectory(uri)[0]
+        from git import cmd
+        return cmd.Git().ls_remote("--heads", parsed_uri, branch)
+    return False
+
+
 def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
@@ -238,7 +266,7 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
                          cmd_stdin=git_credentials)
     origin.fetch()
-    if version is not None:
+    if version is not None and _is_valid_version(repo, version):
         repo.git.checkout(version)
     else:
         repo.create_head("master", origin.refs.master)
