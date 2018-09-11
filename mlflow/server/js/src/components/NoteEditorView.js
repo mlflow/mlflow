@@ -6,7 +6,7 @@ import ReactMde from 'react-mde';
 import { getConverter } from "../utils/MarkdownUtils";
 import PropTypes from 'prop-types';
 import { setTagApi, getUUID } from '../Actions';
-import { NoteInfo, NOTE_TAG_PREFIX } from "../utils/NoteUtils";
+import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import 'react-mde/lib/styles/css/react-mde-all.css';
 import './NoteEditorView.css';
 
@@ -20,8 +20,12 @@ class NoteEditorView extends Component {
     this.handleErrorAlertDismissed = this.handleErrorAlertDismissed.bind(this);
     this.renderButtonToolbar = this.renderButtonToolbar.bind(this);
     this.uneditedContent = this.getUneditedContent();
-    this.state.mdeState = { markdown: this.uneditedContent };
-    this.state.mdSource = this.uneditedContent;
+    this.state = {
+      mdeState: {
+        markdown: this.uneditedContent,
+      },
+      mdSource: this.uneditedContent
+    };
   }
 
   state = {
@@ -34,10 +38,10 @@ class NoteEditorView extends Component {
 
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
-    noteInfo: PropTypes.instanceOf(NoteInfo).isRequired,
     submitCallback: PropTypes.func.isRequired,
     cancelCallback: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
+    noteInfo: PropTypes.instanceOf(NoteInfo),
   };
 
   getUneditedContent() {
@@ -53,13 +57,13 @@ class NoteEditorView extends Component {
     const submittedContent = this.state.mdSource;
     const setTagRequestId = getUUID();
     return this.props.dispatch(
-      setTagApi(this.props.runUuid, NOTE_TAG_PREFIX + 'content', submittedContent, setTagRequestId))
+      setTagApi(this.props.runUuid, NOTE_CONTENT_TAG, submittedContent, setTagRequestId))
       .then(() => {
         this.setState({ isSubmitting: false, error: undefined });
-        this.props.submitCallback(submittedContent, undefined);
+        this.props.submitCallback(undefined);
       }).catch((err) => {
         this.setState({ isSubmitting: false, error: err, errorAlertDismissed: false });
-        this.props.submitCallback(submittedContent, err);
+        this.props.submitCallback(err);
       });
   }
 

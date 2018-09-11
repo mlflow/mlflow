@@ -1,6 +1,6 @@
 import { MLFLOW_INTERNAL_PREFIX } from "./TagUtils";
 
-export const NOTE_TAG_PREFIX = MLFLOW_INTERNAL_PREFIX + 'note.';
+export const NOTE_CONTENT_TAG = MLFLOW_INTERNAL_PREFIX + 'note.content';
 
 export class NoteInfo {
   constructor(content) {
@@ -8,7 +8,7 @@ export class NoteInfo {
   }
 
   static fromRunTags = (tags) => {
-    const contentTag = Object.values(tags).find((t) => t.getKey() === 'mlflow.note.content');
+    const contentTag = Object.values(tags).find((t) => t.getKey() === NOTE_CONTENT_TAG);
     if (contentTag === undefined) {
       return undefined;
     }

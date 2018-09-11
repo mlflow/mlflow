@@ -333,8 +333,7 @@ class RunView extends Component {
     );
   }
 
-  // eslint-disable-next-line no-unused-vars
-  handleSubmittedNote(content, err) {
+  handleSubmittedNote(err) {
     if (err) {
       // Do nothing; error is handled by the note editor view
     } else {
