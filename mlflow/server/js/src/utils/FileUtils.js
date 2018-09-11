@@ -13,4 +13,4 @@ export const TEXT_EXTENSIONS = new Set(
   ['txt', 'log', 'py', 'js', 'yaml', 'yml', 'json',
     'md', 'rst', 'MLmodel', 'MLproject']);
 export const CSV_EXTENSIONS = new Set(['csv', 'tsv']);
->>>>>>> Add ability to visualize CSVs in data grid
+
