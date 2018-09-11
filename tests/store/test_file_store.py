@@ -34,7 +34,6 @@ class TestFileStore(unittest.TestCase):
             # create experiment
             exp_folder = os.path.join(self.test_root, str(exp))
             os.makedirs(exp_folder)
-            os.makedirs(os.path.join(exp_folder, FileStore.TRASH_FOLDER_NAME))
             d = {"experiment_id": exp, "name": random_str(), "artifact_location": exp_folder}
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
