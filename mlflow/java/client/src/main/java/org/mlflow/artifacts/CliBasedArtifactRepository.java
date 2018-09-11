@@ -201,8 +201,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       ProcessBuilder pb = new ProcessBuilder(fullCommand);
       setProcessEnvironment(pb.environment(), hostCreds);
       process = pb.start();
-      int exitValue = process.waitFor();
       stdout = IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
+      int exitValue = process.waitFor();
       if (exitValue != 0) {
         throw new MlflowClientException("Failed to " + tag + ". Error: " +
           getErrorBestEffort(process));
