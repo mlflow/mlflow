@@ -8,19 +8,10 @@ export class NoteInfo {
   }
 
   static fromRunTags = (tags) => {
-    const obj = Object.values(tags).map((t) =>
-      [t.getKey(), t.getValue()]
-    ).filter((item) =>
-      item[0].startsWith(NOTE_TAG_PREFIX)
-    ).reduce((accumulated, item) => {
-      const key = item[0].slice(NOTE_TAG_PREFIX.length);
-      const newAccumulated = Object.assign({key: item[1]}, accumulated);
-      newAccumulated[key] = item[1];
-      return newAccumulated;
-    }, { });
-    if (obj.content === undefined) {
+    const contentTag = Object.values(tags).find((t) => t.getKey() === 'mlflow.note.content');
+    if (contentTag === undefined) {
       return undefined;
     }
-    return new NoteInfo(obj.content);
+    return new NoteInfo(contentTag.getValue());
   };
 }

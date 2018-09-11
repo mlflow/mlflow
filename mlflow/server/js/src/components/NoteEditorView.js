@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Alert, Button, ButtonToolbar} from 'react-bootstrap';
+import { Prompt } from 'react-router';
 import ReactMde from 'react-mde';
 import { Converter } from "showdown";
 import PropTypes from 'prop-types';
@@ -115,11 +116,14 @@ class NoteEditorView extends Component {
             layout="tabbed"
             onChange={this.handleMdeValueChange}
             editorState={this.state.mdeState}
-            generateMarkdownPreview={markdown =>
-              Promise.resolve(this.converter.makeHtml(markdown))}
+            generateMarkdownPreview={markdown => Promise.resolve(this.converter.makeHtml(markdown))}
           />
         </div>
         <this.renderButtonToolbar/>
+        <Prompt
+          when={this.contentHasChanged()}
+          message={"Are you sure you want to navigate away? " +
+                   "Your changes to this run's note will be lost."}/>
       </div>
     );
   }
