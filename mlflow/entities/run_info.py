@@ -13,6 +13,12 @@ def check_run_is_active(run_info):
                               .format(run_info.run_uuid))
 
 
+def check_run_is_deleted(run_info):
+    if run_info.lifecycle_stage != DELETED_LIFECYCLE:
+        raise MlflowException('The run {} must be in an deleted lifecycle_stage.'
+                              .format(run_info.run_uuid))
+
+
 class RunInfo(_MLflowObject):
     """
     Metadata about a run.
@@ -56,12 +62,15 @@ class RunInfo(_MLflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    def _copy_with_overrides(self, status, end_time):
+    def _copy_with_overrides(self, status=None, end_time=None, lifecycle_stage=None):
         """A copy of the RunInfo with certain attributes modified."""
         proto = self.to_proto()
-        proto.status = status
+        if status:
+            proto.status = status
         if end_time:
             proto.end_time = end_time
+        if lifecycle_stage:
+            proto.lifecycle_stage = lifecycle_stage
         return RunInfo.from_proto(proto)
 
     @property
@@ -166,15 +175,10 @@ class RunInfo(_MLflowObject):
 
     @classmethod
     def from_dictionary(cls, the_dict):
-        raise NotImplementedError
-
-    @classmethod
-    def run_from_dictionary(cls, the_dict, lifecycle_stage):
         dict_copy = the_dict.copy()
         # 'tags' was moved from RunInfo to RunData, so we must remove it from the serialzed copy.
         if 'tags' in dict_copy:
             del dict_copy['tags']
-        dict_copy['lifecycle_stage'] = lifecycle_stage
         info = cls(**dict_copy)
         return info
 

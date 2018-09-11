@@ -79,7 +79,7 @@ class TestRunInfo(unittest.TestCase):
         self._check(ri2, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                     user_id, status, start_time, end_time, source_version, lifecycle_stage,
                     artifact_uri)
-        ri3 = RunInfo.run_from_dictionary(as_dict, lifecycle_stage)
+        ri3 = RunInfo.from_dictionary(as_dict)
         self._check(ri3, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                     user_id, status, start_time, end_time, source_version, lifecycle_stage,
                     artifact_uri)

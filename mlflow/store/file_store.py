@@ -4,7 +4,8 @@ import uuid
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
-from mlflow.entities.run_info import DELETED_LIFECYCLE, ACTIVE_LIFECYCLE, check_run_is_active
+from mlflow.entities.run_info import DELETED_LIFECYCLE, ACTIVE_LIFECYCLE, check_run_is_active, \
+    check_run_is_deleted
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name
@@ -24,14 +25,19 @@ def _default_root_dir():
     return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath("mlruns")
 
 
-def _make_run_info_dict(run_info):
+def _make_persisted_run_info_dict(run_info):
     # 'tags' was moved from RunInfo to RunData, so we must keep storing it in the meta.yaml for
     # old mlflow versions to read
     run_info_dict = dict(run_info)
     run_info_dict['tags'] = []
-    if 'lifecycle_stage' in run_info_dict:
-        del run_info_dict['lifecycle_stage']
     return run_info_dict
+
+
+def _read_persisted_run_info_dict(run_info_dict):
+    dict_copy = run_info_dict.copy()
+    if 'lifecycle_stage' not in dict_copy:
+        dict_copy['lifecycle_stage'] = ACTIVE_LIFECYCLE
+    return RunInfo.from_dictionary(dict_copy)
 
 
 class FileStore(AbstractStore):
@@ -131,7 +137,6 @@ class FileStore(AbstractStore):
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        mkdir(meta_dir, FileStore.TRASH_FOLDER_NAME)
         artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
@@ -194,19 +199,16 @@ class FileStore(AbstractStore):
         mv(experiment_dirs[0], self.root_directory)
 
     def delete_run(self, run_id):
-        run_path = self._find_run_root(run_id, run_view_type=ViewType.ACTIVE_ONLY)
-        if run_path is None:
-            raise Exception("Could not find run with ID %s" % run_id)
-        trash_dir = os.path.join(self._find_experiment_folder(run_path),
-                                 FileStore.TRASH_FOLDER_NAME)
-        mv(run_path, os.path.join(trash_dir, run_id))
+        run_info = self._get_run_info(run_id)
+        check_run_is_active(run_info)
+        new_info = run_info._copy_with_overrides(lifecycle_stage=DELETED_LIFECYCLE)
+        self._overwrite_run_info(new_info)
 
     def restore_run(self, run_id):
-        run_path = self._find_run_root(run_id, run_view_type=ViewType.DELETED_ONLY)
-        if run_path is None:
-            raise Exception("Could not find run with ID %s" % run_id)
-        experiment_dir = self._find_experiment_folder(run_path)
-        mv(run_path, os.path.join(experiment_dir, run_id))
+        run_info = self._get_run_info(run_id)
+        check_run_is_deleted(run_info)
+        new_info = run_info._copy_with_overrides(lifecycle_stage=ACTIVE_LIFECYCLE)
+        self._overwrite_run_info(new_info)
 
     def _find_experiment_folder(self, run_path):
         """
@@ -217,19 +219,12 @@ class FileStore(AbstractStore):
             return get_parent_dir(parent)
         return parent
 
-    def _find_run_root(self, run_uuid, run_view_type=ViewType.ACTIVE_ONLY):
+    def _find_run_root(self, run_uuid):
         _validate_run_id(run_uuid)
         self._check_root_dir()
         all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
         for experiment_dir in all_experiments:
-            trash_dir = os.path.join(experiment_dir, FileStore.TRASH_FOLDER_NAME)
-            if run_view_type == ViewType.ACTIVE_ONLY:
-                runs = find(experiment_dir, run_uuid, full_path=True)
-            elif run_view_type == ViewType.DELETED_ONLY:
-                runs = find(trash_dir, run_uuid, full_path=True)
-            else:
-                runs = find(experiment_dir, run_uuid, full_path=True) + \
-                       find(trash_dir, run_uuid, full_path=True)
+            runs = find(experiment_dir, run_uuid, full_path=True)
             if len(runs) == 0:
                 continue
             return runs[0]
@@ -240,9 +235,7 @@ class FileStore(AbstractStore):
         run_info = self.get_run(run_uuid).info
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(run_status, end_time)
-        run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
-        new_info_dict = _make_run_info_dict(new_info)
-        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, new_info_dict, overwrite=True)
+        self._overwrite_run_info(new_info)
         return new_info
 
     def create_run(self, experiment_id, user_id, run_name, source_type,
@@ -265,7 +258,7 @@ class FileStore(AbstractStore):
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
-        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, _make_run_info_dict(run_info))
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, _make_persisted_run_info_dict(run_info))
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
@@ -290,17 +283,13 @@ class FileStore(AbstractStore):
         """
         Will get both active and deleted runs.
         """
-        active_run_dir = self._find_run_root(run_uuid, run_view_type=ViewType.ACTIVE_ONLY)
-        if active_run_dir is not None:
-            meta = read_yaml(active_run_dir, FileStore.META_DATA_FILE_NAME)
-            return RunInfo.run_from_dictionary(meta, lifecycle_stage=ACTIVE_LIFECYCLE)
-        deleted_run_dir = self._find_run_root(run_uuid, run_view_type=ViewType.DELETED_ONLY)
-        if deleted_run_dir is not None:
-            meta = read_yaml(deleted_run_dir, FileStore.META_DATA_FILE_NAME)
-            return RunInfo.run_from_dictionary(meta, lifecycle_stage=DELETED_LIFECYCLE)
+        run_dir = self._find_run_root(run_uuid)
+        if run_dir is not None:
+            meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+            return _read_persisted_run_info_dict(meta)
         raise Exception("Run '%s' not found" % run_uuid)
 
-    def _get_run_files(self, run_uuid, resource_type, run_view_type=ViewType.ALL):
+    def _get_run_files(self, run_uuid, resource_type):
         _validate_run_id(run_uuid)
         if resource_type == "metric":
             subfolder_name = FileStore.METRICS_FOLDER_NAME
@@ -310,7 +299,7 @@ class FileStore(AbstractStore):
             subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
             raise Exception("Looking for unknown resource under run.")
-        run_dir = self._find_run_root(run_uuid, run_view_type)
+        run_dir = self._find_run_root(run_uuid)
         if run_dir is None:
             raise Exception("Run '%s' not found" % run_uuid)
         source_dirs = find(run_dir, subfolder_name, full_path=True)
@@ -409,18 +398,15 @@ class FileStore(AbstractStore):
     def _list_run_uuids(self, experiment_id, run_view_type):
         self._check_root_dir()
         experiment_dir = self._get_experiment_path(experiment_id)[0]
-        if run_view_type == ViewType.ACTIVE_ONLY:
-            return list_all(experiment_dir,
-                            lambda f: os.path.isdir(f) and
-                            os.path.basename(f) != FileStore.TRASH_FOLDER_NAME,
-                            full_path=False)
-        elif run_view_type == ViewType.DELETED_ONLY:
-            return list_all(os.path.join(experiment_dir, FileStore.TRASH_FOLDER_NAME),
-                            os.path.isdir,
-                            full_path=False)
+        run_uuids = list_all(experiment_dir, os.path.isdir, full_path=False)
+        if run_view_type == ViewType.ALL:
+            return run_uuids
+        elif run_view_type == ViewType.ACTIVE_ONLY:
+            return [r_id for r_id in run_uuids
+                    if self._get_run_info(r_id).lifecycle_stage == ACTIVE_LIFECYCLE]
         else:
-            return self._list_run_uuids(experiment_id, ViewType.ACTIVE_ONLY) + \
-                   self._list_run_uuids(experiment_id, ViewType.DELETED_ONLY)
+            return [r_id for r_id in run_uuids
+                    if self._get_run_info(r_id).lifecycle_stage == DELETED_LIFECYCLE]
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         run_uuids = []
@@ -467,3 +453,8 @@ class FileStore(AbstractStore):
         tag_path = self._get_tag_path(run.info.experiment_id, run_uuid, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, "%s\n" % tag.value)
+
+    def _overwrite_run_info(self, run_info):
+        run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
+        run_info_dict = _make_persisted_run_info_dict(run_info)
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
