@@ -13,7 +13,6 @@ class TestRun(TestRunInfo, TestRunData):
         TestRunData._check(self, run.data, rd.metrics, rd.params, rd.tags)
 
     def test_creation_and_hydration(self):
-        self.maxDiff = None
         run_data, metrics, params, tags = TestRunData._create()
         (run_info, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
          user_id, status, start_time, end_time, source_version, lifecycle_stage,

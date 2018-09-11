@@ -205,11 +205,11 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       stdout = IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
       if (exitValue != 0) {
         throw new MlflowClientException("Failed to " + tag + ". Error: " +
-          getErrorBestEffort(process) + "\n stdout: \n " + stdout);
+          getErrorBestEffort(process));
       }
     } catch (IOException | InterruptedException e) {
       throw new MlflowClientException("Failed to fork mlflow process to " + tag +
-        ". Process stderr: " + getErrorBestEffort(process) + "\n stdout: \n ", e);
+        ". Process stderr: " + getErrorBestEffort(process), e);
     }
     return stdout;
   }
