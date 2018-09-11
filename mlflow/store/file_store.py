@@ -401,4 +401,5 @@ class FileStore(AbstractStore):
         run = self.get_run(run_uuid)
         tag_path = self._get_tag_path(run.info.experiment_id, run_uuid, tag.key)
         make_containing_dirs(tag_path)
-        write_to(tag_path, "%s\n" % tag.value)
+        # Don't add trailing newline
+        write_to(tag_path, "%s" % tag.value)
