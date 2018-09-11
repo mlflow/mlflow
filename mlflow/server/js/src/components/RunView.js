@@ -266,13 +266,16 @@ class RunView extends Component {
         <div className="RunView-info">
           <h2 className="table-name">
             <span
-              onClick={this.state.showNotesEditor ? false : () => this.onClickExpander(NOTES_KEY)}
+              onClick={this.state.showNotesEditor ?
+                undefined : () => this.onClickExpander(NOTES_KEY)}
               className="RunView-notes-headline">
               <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Notes
             </span>
             {!this.state.showNotes || !this.state.showNotesEditor ?
               <span>{' '}
-                <a onClick={this.handleExposeNotesEditorClick} className={`fa fa-edit`}/>
+                <a onClick={this.handleExposeNotesEditorClick}>
+                  <i className={`fa fa-edit`}/>
+                </a>
               </span>
               :
               null
