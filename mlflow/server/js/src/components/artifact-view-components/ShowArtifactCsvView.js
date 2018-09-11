@@ -10,7 +10,7 @@ import bytes from 'bytes';
 import sizeof from 'object-sizeof';
 import './ShowArtifactCsvView.css';
 
-const MAX_DATA_TO_DOWNLOAD = 1024 * 1024 * 1024; // 1 GB
+const MAX_DATA_TO_DOWNLOAD = 1024 * 1024 * 10; // 10 MB
 const MAX_DATA_TO_PARSE = 1024 * 100; // 100 KB
 
 const DEFAULT_COLUMN_PROPS = {
