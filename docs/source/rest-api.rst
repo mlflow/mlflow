@@ -193,6 +193,89 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicedeleteExperiment:
+
+Experiments Delete
+=========================
+
+
++-------------------------------------------+-------------+
+|                 Endpoint                  | HTTP Method |
++===========================================+=============+
+| ``2.0/preview/mlflow/experiments/delete`` | ``POST``    |
++-------------------------------------------+-------------+
+
+Mark an experiment and associated runs, params, metrics, ... etc for deletion.
+If the experiment uses FileStore, artifacts associated with experiment are also deleted.
+
+
+
+
+.. _mlflowDeleteExperiment:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+-----------+---------------------------------+
+|  Field Name   |   Type    |           Description           |
++===============+===========+=================================+
+| experiment_id | ``INT64`` | ID of the associated experiment |
+|               |           | This field is required.         |
+|               |           |                                 |
++---------------+-----------+---------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicerestoreExperiment:
+
+Experiments Restore
+==========================
+
+
++--------------------------------------------+-------------+
+|                  Endpoint                  | HTTP Method |
++============================================+=============+
+| ``2.0/preview/mlflow/experiments/restore`` | ``POST``    |
++--------------------------------------------+-------------+
+
+Restore an experiment marked for deletion. This also restores
+associated metadata, runs, metrics, and params. If experiment uses FileStore, underlying
+artifacts associated with experiment are also restored.
+
+Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
+
+
+
+
+.. _mlflowRestoreExperiment:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+-----------+---------------------------------+
+|  Field Name   |   Type    |           Description           |
++===============+===========+=================================+
+| experiment_id | ``INT64`` | ID of the associated experiment |
+|               |           | This field is required.         |
+|               |           |                                 |
++---------------+-----------+---------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicecreateRun:
 
 Create Run
@@ -823,9 +906,6 @@ Response Structure
 Data Structures
 ===============
 
-.. contents:: Table of Contents
-    :local:
-    :depth: 1
 
 
 .. _mlflowExperiment:
@@ -838,22 +918,22 @@ Experiment
 Experiment
 
 
-+-------------------+------------+--------------------------------------------------------------------------+
-|    Field Name     |    Type    |                               Description                                |
-+===================+============+==========================================================================+
-| experiment_id     | ``INT64``  | Unique identifier for the experiment.                                    |
-+-------------------+------------+--------------------------------------------------------------------------+
-| name              | ``STRING`` | Human readable name that identifies the experiment.                      |
-+-------------------+------------+--------------------------------------------------------------------------+
-| artifact_location | ``STRING`` | Location where artifacts for the experiment are stored.                  |
-+-------------------+------------+--------------------------------------------------------------------------+
-| lifecycle_stage   | ``STRING`` | Current life cycle stage of the experiment: "active" or "deleted".       |
-|                   |            | Deleted experiments are not returned by APIs.                            |
-+-------------------+------------+--------------------------------------------------------------------------+
-| last_update_time  | ``INT64``  | Last update time.                                                        |
-+-------------------+------------+--------------------------------------------------------------------------+
-| creation_time     | ``INT64``  | Creation time.                                                           |
-+-------------------+------------+--------------------------------------------------------------------------+
++-------------------+------------+--------------------------------------------------------------------+
+|    Field Name     |    Type    |                            Description                             |
++===================+============+====================================================================+
+| experiment_id     | ``INT64``  | Unique identifier for the experiment.                              |
++-------------------+------------+--------------------------------------------------------------------+
+| name              | ``STRING`` | Human readable name that identifies the experiment.                |
++-------------------+------------+--------------------------------------------------------------------+
+| artifact_location | ``STRING`` | Location where artifacts for the experiment are stored.            |
++-------------------+------------+--------------------------------------------------------------------+
+| lifecycle_stage   | ``STRING`` | Current life cycle stage of the experiment: "active" or "deleted". |
+|                   |            | Deleted experiments are not returned by APIs.                      |
++-------------------+------------+--------------------------------------------------------------------+
+| last_update_time  | ``INT64``  | Last update time                                                   |
++-------------------+------------+--------------------------------------------------------------------+
+| creation_time     | ``INT64``  | Creation time                                                      |
++-------------------+------------+--------------------------------------------------------------------+
 
 .. _mlflowFileInfo:
 

@@ -70,6 +70,7 @@ service MlflowService {
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
+      rpc_doc_title: "Delete Experiment",
     };
   }
 
@@ -87,6 +88,7 @@ service MlflowService {
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
+      rpc_doc_title: "Restore Experiment",
     };
   }
 
@@ -500,7 +502,7 @@ message GetExperiment {
 message DeleteExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifier to get an experiment
+  // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
 
   message Response {
@@ -510,7 +512,7 @@ message DeleteExperiment {
 message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifier to get an experiment
+  // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
 
   message Response {

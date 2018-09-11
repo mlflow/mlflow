@@ -17,12 +17,19 @@ from mlflow.store.artifact_repo import ArtifactRepository
 _DEFAULT_USER_ID = "unknown"
 
 
-class MLflowService(object):
+class MlflowClient(object):
     """Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
-    def __init__(self, store):
-        self.store = store
+    def __init__(self, tracking_uri=None):
+        """
+        :param tracking_uri: Address of local or remote tracking server. If not provided, defaults
+                             to the service set by ``mlflow.tracking.set_tracking_uri``. See
+                             `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_
+                             for more info.
+        """
+        self.tracking_uri = tracking_uri
+        self.store = _get_store(tracking_uri)
 
     def get_run(self, run_id):
         """:return: :py:class:`mlflow.entities.Run` associated with the run ID."""
@@ -207,19 +214,6 @@ class MLflowService(object):
         Restores a deleted run with the given ID.
         """
         self.store.restore_run(run_id)
-
-
-def get_service(tracking_uri=None):
-    """
-    Get the tracking service.
-
-    :param tracking_uri: Address of local or remote tracking server. If not provided,
-      this defaults to the service set by ``mlflow.tracking.set_tracking_uri``. See
-      `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_ for more info.
-    :return: :py:class:`mlflow.tracking.MLflowService`
-    """
-    store = _get_store(tracking_uri)
-    return MLflowService(store)
 
 
 def _get_user_id():
