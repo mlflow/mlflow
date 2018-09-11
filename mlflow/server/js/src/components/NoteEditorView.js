@@ -3,7 +3,7 @@ import { connect } from 'react-redux';
 import { Alert, Button, ButtonToolbar} from 'react-bootstrap';
 import { Prompt } from 'react-router';
 import ReactMde from 'react-mde';
-import { Converter } from "showdown";
+import { getConverter } from "../utils/MarkdownUtils";
 import PropTypes from 'prop-types';
 import { setTagApi, getUUID } from '../Actions';
 import { NoteInfo, NOTE_TAG_PREFIX } from "../utils/NoteUtils";
@@ -13,10 +13,7 @@ import './NoteEditorView.css';
 class NoteEditorView extends Component {
   constructor(props) {
     super(props);
-    this.converter = new Converter();
-    // Use Github-like Markdown (i.e. support for tasklists, strikethrough,
-    // simple line breaks, code blocks, emojis)
-    this.converter.setFlavor('github');
+    this.converter = getConverter();
     this.handleMdeValueChange = this.handleMdeValueChange.bind(this);
     this.handleSubmitClick = this.handleSubmitClick.bind(this);
     this.handleCancelClick = this.handleCancelClick.bind(this);
