@@ -31,6 +31,14 @@ DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
+def _check_response_status_code(response):
+    """
+    Throws MlflowException if the response status code is not 200.
+    """
+    if response.status_code != 200:
+        raise ExecutionException("The Databricks request failed. Error: {}".format(response.text))
+
+
 class DatabricksJobRunner(object):
     """
     Helper class for running an MLflow project as a Databricks Job.
@@ -40,15 +48,16 @@ class DatabricksJobRunner(object):
     def __init__(self, databricks_profile):
         self.databricks_profile = databricks_profile
 
-    def databricks_api_request(self, endpoint, method, **kwargs):
+    def _databricks_api_request(self, endpoint, method, **kwargs):
         host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
-        response = rest_utils.http_request(
+        return rest_utils.http_request(
             host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
-        return json.loads(response.text)
 
-    def _jobs_runs_submit(self, json):
-        return self.databricks_api_request(
-            endpoint="/api/2.0/jobs/runs/submit", method="POST", json=json)
+    def _jobs_runs_submit(self, req_body):
+        response = self._databricks_api_request(
+            endpoint="/api/2.0/jobs/runs/submit", method="POST", json=req_body)
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
     def _check_auth_available(self):
         """
@@ -64,10 +73,9 @@ class DatabricksJobRunner(object):
         """
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
-        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         with open(src_path, 'rb') as f:
-            rest_utils.http_request(
-                host_creds=host_creds, endpoint=http_endpoint, method='POST', data=f)
+            response = self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            _check_response_status_code(response)
 
     def _dbfs_path_exists(self, dbfs_uri):
         """
@@ -75,8 +83,9 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile.
         """
         dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
-        json_response_obj = self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": dbfs_path})
+        json_response_obj = json.loads(response.text)
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
         if error_code_field in json_response_obj:
@@ -206,12 +215,16 @@ class DatabricksJobRunner(object):
         return res["state"].get("result_state", None)
 
     def jobs_runs_cancel(self, databricks_run_id):
-        return self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
     def jobs_runs_get(self, databricks_run_id):
-        return self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
 
 def _get_tracking_uri_for_run():
@@ -310,18 +323,18 @@ class DatabricksSubmittedRun(SubmittedRun):
         jobs_page_url = run_info["run_page_url"]
         eprint("=== Check the run's status at %s ===" % jobs_page_url)
         host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
-        tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
-        tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
-        tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                        MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                        MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                        MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
         job_id = run_info.get('job_id')
         # In some releases of Databricks we do not return the job ID. We start including it in DB
         # releases 2.80 and above.
         if job_id is not None:
-            tracking.get_service().set_tag(self._mlflow_run_id,
-                                           MLFLOW_DATABRICKS_SHELL_JOB_ID, job_id)
+            tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                            MLFLOW_DATABRICKS_SHELL_JOB_ID, job_id)
 
     @property
     def run_id(self):
