@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { getConverter, sanitizeHtml } from "../utils/MarkdownUtils";
+import { getConverter, sanitizeConvertedHtml } from "../utils/MarkdownUtils";
 import PropTypes from 'prop-types';
 import './NoteShowView.css';
 
@@ -14,7 +14,7 @@ class NoteShowView extends Component {
   };
 
   render() {
-    const htmlContent = sanitizeHtml(this.converter.makeHtml(this.props.content));
+    const htmlContent = sanitizeConvertedHtml(this.converter.makeHtml(this.props.content));
     return (
       <div className="note-view-outer-container">
         <div className="note-view-text-area">

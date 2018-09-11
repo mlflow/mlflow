@@ -3,7 +3,7 @@ import { connect } from 'react-redux';
 import { Alert, Button, ButtonToolbar} from 'react-bootstrap';
 import { Prompt } from 'react-router';
 import ReactMde from 'react-mde';
-import { getConverter, sanitizeHtml } from "../utils/MarkdownUtils";
+import { getConverter, sanitizeConvertedHtml } from "../utils/MarkdownUtils";
 import PropTypes from 'prop-types';
 import { setTagApi, getUUID } from '../Actions';
 import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
@@ -118,7 +118,7 @@ class NoteEditorView extends Component {
             onChange={this.handleMdeValueChange}
             editorState={this.state.mdeState}
             generateMarkdownPreview={markdown =>
-              Promise.resolve(sanitizeHtml(this.converter.makeHtml(markdown)))}
+              Promise.resolve(sanitizeConvertedHtml(this.converter.makeHtml(markdown)))}
           />
         </div>
         <this.renderButtonToolbar/>
