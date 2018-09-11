@@ -12,6 +12,11 @@
   margin-bottom: 0;
 }
 
+/*
+ * All of the below is adapted from react-mde-all.css in the react-mde package (v5.8.0)
+ * so that the note-editor-preview(-content) divs looks like the mde-preview(-content) divs
+ * in the editor
+ */
 .note-editor-preview .note-editor-preview-content {
   padding: 10px;
 }
