@@ -122,30 +122,30 @@ class _HadoopFileSystem:
         return cls._jvm().org.apache.hadoop.fs.Path(path)
 
     @classmethod
-    def copy_to_local_file(cls, src, dst, removeSrc):
-        cls._fs().copyToLocalFile(removeSrc, cls._remote_path(src), cls._local_path(dst))
+    def copy_to_local_file(cls, src, dst, remove_src):
+        cls._fs().copyToLocalFile(remove_src, cls._remote_path(src), cls._local_path(dst))
 
     @classmethod
-    def copy_from_local_file(cls, src, dst, removeSrc):
-        cls._fs().copyFromLocalFile(removeSrc, cls._local_path(src), cls._remote_path(dst))
+    def copy_from_local_file(cls, src, dst, remove_src):
+        cls._fs().copyFromLocalFile(remove_src, cls._local_path(src), cls._remote_path(dst))
 
     @classmethod
     def qualified_local_path(cls, path):
         return cls._fs().makeQualified(cls._local_path(path)).toString()
 
     @classmethod
-    def maybe_copy_from_local_file(cls, src, dst, removeSrc):
+    def maybe_copy_from_local_file(cls, src, dst):
         """
-        Conditionally copy the file to the Hadoop FS.
+        Conditionally copy the file to the Hadoop DFS.
         The file is copied iff the configuration has distributed filesystem.
 
-        :return: If copied, return new target location, return absolute source path.
+        :return: If copied, return new target location, otherwise return (absolute) source path.
         """
         local_path = cls._local_path(src)
         qualified_local_path = cls._fs().makeQualified(local_path).toString()
         if qualified_local_path == "file:" + local_path.toString():
             return local_path
-        cls._fs().copyFromLocalFile(removeSrc, local_path, cls._remote_path(dst))
+        cls.copy_from_local_file(src, dst)
         return dst
 
     @classmethod

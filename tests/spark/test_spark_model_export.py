@@ -93,6 +93,8 @@ def test_hadoop_filesystem(tmpdir):
     with open(test_file_1, "w") as f:
         f.write("test1")
     remote = "/tmp/mlflow/test0"
+    # File should not be copied in this case
+    assert "file:" + test_dir_0 == FS.maybe_copy_from_local_file(test_dir_0, remote)
     FS.copy_from_local_file(test_dir_0, remote, removeSrc=False)
     local = os.path.join(str(tmpdir), "actual")
     FS.copy_to_local_file(remote, local, removeSrc=True)
