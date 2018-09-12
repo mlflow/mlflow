@@ -87,6 +87,7 @@ class ExperimentView extends Component {
       runInfos,
       paramsList,
       metricsList,
+      tagsList,
       paramKeyFilter,
       metricKeyFilter
     } = this.props;
@@ -118,6 +119,8 @@ class ExperimentView extends Component {
         sortValue = Utils.formatUser(runInfo.user_id);
       } else if (sort.key === 'source') {
         sortValue = Utils.formatSource(runInfo, this.props.tagsList[idx]);
+      } else if (sort.key === 'run_name') {
+        sortValue = Utils.getRunDisplayName(tagsList, runInfo.run_uuid);
       } else {
         sortValue = runInfo[sort.key];
       }
@@ -236,12 +239,12 @@ class ExperimentView extends Component {
             </Button>
           </div>
           <Table hover>
-            <colgroup span="7"/>
+            <colgroup span="8"/>
             <colgroup span={paramKeyList.length}/>
             <colgroup span={metricKeyList.length}/>
             <tbody>
             <tr>
-              <th className="top-row" scope="colgroup" colSpan="5"></th>
+              <th className="top-row" scope="colgroup" colSpan="6"></th>
               <th className="top-row left-border" scope="colgroup"
                   colSpan={paramKeyList.length}>Parameters
               </th>
@@ -381,6 +384,7 @@ class ExperimentView extends Component {
         </Link>
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
+      <td key="meta-user">{Utils.getRunDisplayName(tags, runInfo.run_uuid)}</td>,
       <td key="meta-source" style={{
         "white-space": "nowrap",
         "max-width": "250px",
@@ -469,6 +473,7 @@ class ExperimentView extends Component {
       </th>,
       getHeaderCell("start_time", <span>{"Date"}</span>, true),
       getHeaderCell("user_id", <span>{"User"}</span>, true),
+      getHeaderCell("run_name", <span>{"Run Name"}</span>, true),
       getHeaderCell("source", <span>{"Source"}</span>, true),
       getHeaderCell("source_version", <span>{"Version"}</span>, true)
     ];

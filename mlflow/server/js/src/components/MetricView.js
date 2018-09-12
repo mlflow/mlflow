@@ -55,6 +55,8 @@ class MetricView extends Component {
               {runUuids.map((uuid, idx) => (
                 <Bar dataKey={uuid}
                      key={uuid}
+                     name={runNames[idx]}
+                     unit={ " (Run UUID " + uuid + ")"}
                      isAnimationActive={false}
                      fill={COLORS[idx % COLORS.length]}/>
               ))}

@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getExperiment, getParams, getRunInfo } from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
@@ -19,11 +19,13 @@ class CompareRunView extends Component {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
+    runNames: PropTypes.arrayOf(String).isRequired,
   };
 
   render() {
     const experiment = this.props.experiment;
     const experimentId = experiment.getExperimentId();
+    const { runInfos, runNames } = this.props;
 
     return (
       <div className="CompareRunView">
@@ -48,6 +50,13 @@ class CompareRunView extends Component {
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <th scope="row" className="data-value">Run Name:</th>
+                {runNames.map((runName, i) => {
+                  return <td className="meta-info" key={runInfos[i].run_uuid}>{runName}</td>;
+                }
+                )}
+              </tr>
               <tr>
                 <th scope="row" className="data-value">Start Time:</th>
                 {this.props.runInfos.map((run) => {
@@ -88,7 +97,7 @@ class CompareRunView extends Component {
           </table>
         </div>
 
-        <CompareRunScatter runUuids={this.props.runUuids}/>
+        <CompareRunScatter runUuids={this.props.runUuids} runNames={this.props.runNames}/>
       </div>
     );
   }
@@ -120,14 +129,17 @@ const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
   const metricLists = [];
   const paramLists = [];
+  const runNames = [];
   const { experimentId, runUuids } = ownProps;
   const experiment = getExperiment(experimentId, state);
   runUuids.forEach((runUuid) => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
+    const runTags = getRunTags(runUuid, state);
+    runNames.push(Utils.getRunDisplayName(runTags, runUuid));
   });
-  return { experiment, runInfos, metricLists, paramLists };
+  return { experiment, runInfos, metricLists, paramLists, runNames };
 };
 
 export default connect(mapStateToProps)(CompareRunView);
