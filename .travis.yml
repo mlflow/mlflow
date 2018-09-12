@@ -14,12 +14,12 @@ matrix:
       before_install:
         - export NOT_CRAN=true
         - export MLFLOW_TEST_REQUIREMENTS=false
-        - cd R/mlflow
+        - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
         - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
-        - cd ../..
+        - cd ../../..
       script:
-        - cd R/mlflow
+        - cd mlflow/R/mlflow
         - R CMD build .
         - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
         - cd tests
