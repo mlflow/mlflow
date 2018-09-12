@@ -13,8 +13,8 @@ from mlflow.tracking import _get_store
 @click.group("experiments")
 def commands():
     """
-    Manage experiments. To communicate with a tracking server, set the MLFLOW_TRACKING_URI
-    environment variable to the URL of the desired server.
+    Manage experiments. To manage experiments associated with a tracking server, set the
+    MLFLOW_TRACKING_URI environment variable to the URL of the desired server.
     """
     pass
 
