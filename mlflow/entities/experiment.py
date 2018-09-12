@@ -7,6 +7,8 @@ class Experiment(_MLflowObject):
     Experiment object.
     """
     DEFAULT_EXPERIMENT_ID = 0
+    ACTIVE_LIFECYCLE = 'active'
+    DELETED_LIFECYCLE = 'deleted'
 
     def __init__(self, experiment_id, name, artifact_location, lifecycle_stage):
         super(Experiment, self).__init__()
@@ -37,7 +39,7 @@ class Experiment(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.experiment_id, proto.name, proto.artifact_location)
+        return cls(proto.experiment_id, proto.name, proto.artifact_location, proto.lifecycle_stage)
 
     def to_proto(self):
         proto = ProtoExperiment()

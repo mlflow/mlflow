@@ -188,6 +188,8 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.DELETED_LIFECYCLE)
 
         # restore it
         fs.restore_experiment(exp_id)
@@ -200,6 +202,8 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.ACTIVE_LIFECYCLE)
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)

@@ -139,7 +139,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
-        experiment = Experiment(experiment_id, name, artifact_uri)
+        experiment = Experiment(experiment_id, name, artifact_uri, Experiment.ACTIVE_LIFECYCLE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
@@ -165,6 +165,10 @@ class FileStore(AbstractStore):
         if experiment_dir is None:
             raise Exception("Could not find experiment with ID %s" % experiment_id)
         meta = read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
+        if experiment_dir.startswith(self.trash_folder):
+            meta['lifecycle_stage'] = Experiment.DELETED_LIFECYCLE
+        else:
+            meta['lifecycle_stage'] = Experiment.ACTIVE_LIFECYCLE
         return Experiment.from_dictionary(meta)
 
     def get_experiment(self, experiment_id):
@@ -244,9 +248,13 @@ class FileStore(AbstractStore):
         """
         Creates a run with the specified attributes.
         """
-        if self.get_experiment(experiment_id) is None:
+        experiment = self.get_experiment(experiment_id)
+        if experiment is None:
             raise Exception("Could not create run under experiment with ID %s - no such experiment "
                             "exists." % experiment_id)
+        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+            raise Exception('Could not create run under non-active experiment with ID '
+                            '%s.' % experiment_id)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
