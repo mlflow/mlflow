@@ -10,8 +10,8 @@ from mlflow.utils.validation import _validate_metric_name, _validate_param_name,
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
-                                     read_yaml, find, read_file, build_path, write_to, append_to,
-                                     make_containing_dirs, mv)
+                                     read_yaml, find, read_file_lines, read_file, build_path,
+                                     write_to, append_to, make_containing_dirs, mv)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 from mlflow.utils.search_utils import does_run_match_clause
@@ -280,7 +280,7 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
         _validate_metric_name(metric_name)
-        metric_data = read_file(parent_path, metric_name)
+        metric_data = read_file_lines(parent_path, metric_name)
         if len(metric_data) == 0:
             raise Exception("Metric '%s' is malformed. No data found." % metric_name)
         last_line = metric_data[-1]
@@ -309,7 +309,7 @@ class FileStore(AbstractStore):
         parent_path, metric_files = self._get_run_files(run_uuid, "metric")
         if metric_key not in metric_files:
             raise Exception("Metric '%s' not found under run '%s'" % (metric_key, run_uuid))
-        metric_data = read_file(parent_path, metric_key)
+        metric_data = read_file_lines(parent_path, metric_key)
         rsl = []
         for pair in metric_data:
             ts, val = pair.strip().split(" ")
@@ -319,7 +319,7 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
         _validate_param_name(param_name)
-        param_data = read_file(parent_path, param_name)
+        param_data = read_file_lines(parent_path, param_name)
         if len(param_data) == 0:
             raise Exception("Param '%s' is malformed. No data found." % param_name)
         if len(param_data) > 1:
@@ -331,12 +331,7 @@ class FileStore(AbstractStore):
     def _get_tag_from_file(parent_path, tag_name):
         _validate_tag_name(tag_name)
         tag_data = read_file(parent_path, tag_name)
-        if len(tag_data) == 0:
-            raise Exception("Tag '%s' is malformed. No data found." % tag_name)
-        if len(tag_data) > 1:
-            raise Exception("Unexpected data for tag '%s'. Tag recorded more than once"
-                            % tag_name)
-        return RunTag(tag_name, str(tag_data[0].strip()))
+        return RunTag(tag_name, str(tag_data))
 
     def get_param(self, run_uuid, param_name):
         _validate_run_id(run_uuid)
@@ -406,4 +401,5 @@ class FileStore(AbstractStore):
         run = self.get_run(run_uuid)
         tag_path = self._get_tag_path(run.info.experiment_id, run_uuid, tag.key)
         make_containing_dirs(tag_path)
-        write_to(tag_path, "%s\n" % tag.value)
+        # Don't add trailing newline
+        write_to(tag_path, "%s" % tag.value)
