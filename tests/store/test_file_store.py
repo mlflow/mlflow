@@ -7,8 +7,7 @@ import time
 
 import pytest
 
-from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType
-from mlflow.entities.run_info import DELETED_LIFECYCLE, ACTIVE_LIFECYCLE
+from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
@@ -225,7 +224,7 @@ class TestFileStore(unittest.TestCase):
                 run_info.pop("tags")
                 # Add special case for lifecycle_stage since it doesn't belong in the serialized
                 # run info
-                run_info['lifecycle_stage'] = ACTIVE_LIFECYCLE
+                run_info['lifecycle_stage'] = RunInfo.ACTIVE_LIFECYCLE
                 self.assertEqual(run_info, dict(run.info))
 
     def test_list_run_infos(self):
@@ -240,7 +239,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("tags")
                 # Add special case for lifecycle_stage since it doesn't belong in the serialized
                 # run info
-                dict_run_info['lifecycle_stage'] = ACTIVE_LIFECYCLE
+                dict_run_info['lifecycle_stage'] = RunInfo.ACTIVE_LIFECYCLE
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_get_metric(self):
@@ -380,7 +379,7 @@ class TestFileStore(unittest.TestCase):
         run_id = self.exp_data[exp_id]['runs'][0]
         fs.delete_run(run_id)
 
-        assert fs.get_run(run_id).info.lifecycle_stage == DELETED_LIFECYCLE
+        assert fs.get_run(run_id).info.lifecycle_stage == RunInfo.DELETED_LIFECYCLE
         with pytest.raises(MlflowException):
             fs.set_tag(run_id, RunTag('a', 'b'))
         with pytest.raises(MlflowException):

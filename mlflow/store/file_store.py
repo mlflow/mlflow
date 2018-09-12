@@ -4,7 +4,7 @@ import uuid
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
-from mlflow.entities.run_info import DELETED_LIFECYCLE, ACTIVE_LIFECYCLE, check_run_is_active, \
+from mlflow.entities.run_info import check_run_is_active, \
     check_run_is_deleted
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
@@ -201,13 +201,13 @@ class FileStore(AbstractStore):
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(lifecycle_stage=DELETED_LIFECYCLE)
+        new_info = run_info._copy_with_overrides(lifecycle_stage=RunInfo.DELETED_LIFECYCLE)
         self._overwrite_run_info(new_info)
 
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)
         check_run_is_deleted(run_info)
-        new_info = run_info._copy_with_overrides(lifecycle_stage=ACTIVE_LIFECYCLE)
+        new_info = run_info._copy_with_overrides(lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
         self._overwrite_run_info(new_info)
 
     def _find_experiment_folder(self, run_path):
@@ -254,7 +254,7 @@ class FileStore(AbstractStore):
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
                            status=RunStatus.RUNNING, start_time=start_time, end_time=None,
-                           source_version=source_version, lifecycle_stage=ACTIVE_LIFECYCLE)
+                           source_version=source_version, lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
@@ -403,10 +403,10 @@ class FileStore(AbstractStore):
             return run_uuids
         elif run_view_type == ViewType.ACTIVE_ONLY:
             return [r_id for r_id in run_uuids
-                    if self._get_run_info(r_id).lifecycle_stage == ACTIVE_LIFECYCLE]
+                    if self._get_run_info(r_id).lifecycle_stage == RunInfo.ACTIVE_LIFECYCLE]
         else:
             return [r_id for r_id in run_uuids
-                    if self._get_run_info(r_id).lifecycle_stage == DELETED_LIFECYCLE]
+                    if self._get_run_info(r_id).lifecycle_stage == RunInfo.DELETED_LIFECYCLE]
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         run_uuids = []
