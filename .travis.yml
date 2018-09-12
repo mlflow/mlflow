@@ -27,7 +27,9 @@ matrix:
         - Rscript ../.travis.R
       after_success:
         - export COVR_RUNNING=true
-        - Rscript -e 'covr::codecov()'
+        - Rscript -e 'covr::codecov()
+    - language: java
+
 
 install:
   - sudo mkdir -p /travis-install
@@ -67,7 +69,7 @@ script:
   - pip list
   - which mlflow
   - echo $MLFLOW_HOME
-  - mlflow sagemaker build-and-push-container --no-push --mlflow-home .
+  - mlflow sagemaker build-and-push-container --no-push --mlflow-home . > /dev/null
   - ./lint.sh
   # Run tests that don't leverage specific ML frameworks
   - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
@@ -88,6 +90,6 @@ script:
   - ./lint.sh
   - npm test -- --coverage
   - cd ../../java
-  - mvn clean package
+  - mvn clean package -q
   - cd ../..
   - codecov -e TOXENV
