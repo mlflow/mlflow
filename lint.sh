@@ -7,5 +7,3 @@ cd "$FWDIR"
 
 pycodestyle --max-line-length=100 --exclude mlflow/protos,mlflow/server/js -- mlflow tests
 pylint --msg-template="{path} ({line},{column}): [{msg_id} {symbol}] {msg}" --rcfile="$FWDIR/pylintrc" -- mlflow tests
-
-rstcheck README.rst
