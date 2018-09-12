@@ -27,9 +27,10 @@ matrix:
         - Rscript ../.travis.R
       after_success:
         - export COVR_RUNNING=true
-        - Rscript -e 'covr::codecov()
+        - Rscript -e 'covr::codecov()'
     - language: java
-
+        - cd mlflow/java
+        - mvn clean package -q
 
 install:
   - sudo mkdir -p /travis-install
@@ -89,7 +90,4 @@ script:
   - npm i
   - ./lint.sh
   - npm test -- --coverage
-  - cd ../../java
-  - mvn clean package -q
-  - cd ../..
   - codecov -e TOXENV
