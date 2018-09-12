@@ -176,8 +176,11 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                                  dfs_tmpdir=dfs_tmp_dir)
                 run_id = active_run().info.run_uuid
                 # test reloaded model
-                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
-                                                   dfs_tmpdir=dfs_tmp_dir)
+                if dfs_tmp_dir:
+                    reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
+                                                       dfs_tmpdir=dfs_tmp_dir)
+                else:
+                    reloaded_model = sparkm.load_model(artifact_path, run_id=run_id)
                 preds_df = reloaded_model.transform(spark_model_iris.spark_df)
                 preds = [x.prediction for x in preds_df.select("prediction").collect()]
                 assert spark_model_iris.predictions == preds

@@ -130,6 +130,25 @@ class _HadoopFileSystem:
         cls._fs().copyFromLocalFile(removeSrc, cls._local_path(src), cls._remote_path(dst))
 
     @classmethod
+    def qualified_local_path(cls, path):
+        return cls._fs().makeQualified(cls._local_path(path)).toString()
+
+    @classmethod
+    def maybe_copy_from_local_file(cls, src, dst, removeSrc):
+        """
+        Conditionally copy the file to the Hadoop FS.
+        The file is copied iff the configuration has distributed filesystem.
+
+        :return: If copied, return new target location, return absolute source path.
+        """
+        local_path = cls._local_path(src)
+        qualified_local_path = cls._fs().makeQualified(local_path).toString()
+        if qualified_local_path == "file:" + local_path.toString():
+            return local_path
+        cls._fs().copyFromLocalFile(removeSrc, local_path, cls._remote_path(dst))
+        return dst
+
+    @classmethod
     def delete(cls, path):
         cls._fs().delete(cls._remote_path(path), True)
 
@@ -198,10 +217,8 @@ def _load_model(model_path, dfs_tmpdir=None):
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
-    _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
-    pipeline_model = PipelineModel.load(tmp_path)
-    eprint("Copied SparkML model to %s" % tmp_path)
-    return pipeline_model
+    model_path = _HadoopFileSystem.maybe_copy_from_local_file(model_path, tmp_path, removeSrc=False)
+    return PipelineModel.load(model_path)
 
 
 def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
