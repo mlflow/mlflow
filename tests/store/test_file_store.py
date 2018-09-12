@@ -219,11 +219,8 @@ class TestFileStore(unittest.TestCase):
     def test_create_run_in_deleted_experiment(self):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
-        exp_name = self.exp_data[exp_id]["name"]
-
         # delete it
         fs.delete_experiment(exp_id)
-
         with pytest.raises(Exception):
             fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name',
                           0, None, [])
