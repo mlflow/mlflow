@@ -94,10 +94,10 @@ def test_hadoop_filesystem(tmpdir):
         f.write("test1")
     remote = "/tmp/mlflow/test0"
     # File should not be copied in this case
-    assert "file:" + test_dir_0 == FS.maybe_copy_from_local_file(test_dir_0, remote)
-    FS.copy_from_local_file(test_dir_0, remote, removeSrc=False)
+    assert os.path.abspath(test_dir_0) == FS.maybe_copy_from_local_file(test_dir_0, remote)
+    FS.copy_from_local_file(test_dir_0, remote, remove_src=False)
     local = os.path.join(str(tmpdir), "actual")
-    FS.copy_to_local_file(remote, local, removeSrc=True)
+    FS.copy_to_local_file(remote, local, remove_src=True)
     assert sorted(os.listdir(os.path.join(local, "root"))) == sorted([
         "subdir", "file_0", ".file_0.crc"])
     assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted([
@@ -112,7 +112,7 @@ def test_hadoop_filesystem(tmpdir):
 
     # make sure we cleanup
     assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
-    FS.copy_from_local_file(test_dir_0, remote, removeSrc=False)
+    FS.copy_from_local_file(test_dir_0, remote, remove_src=False)
     assert os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
     FS.delete(remote)
     assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
@@ -124,7 +124,6 @@ def test_model_export(spark_model_iris, model_path, spark_conda_env):
     # 1. score and compare reloaded sparkml model
     reloaded_model = sparkm.load_model(path=model_path)
     preds_df = reloaded_model.transform(spark_model_iris.spark_df)
-
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_iris.predictions == preds1
     m = pyfunc.load_pyfunc(model_path)
@@ -135,9 +134,6 @@ def test_model_export(spark_model_iris, model_path, spark_conda_env):
     preds3 = score_model_as_udf(model_path, run_id=None, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(sparkm.DFS_TMP)
-    print(os.listdir(sparkm.DFS_TMP))
-    # We expect not to delete the DFS tempdir.
-    assert os.listdir(sparkm.DFS_TMP)
 
 
 @pytest.mark.large
@@ -178,11 +174,8 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                                  dfs_tmpdir=dfs_tmp_dir)
                 run_id = active_run().info.run_uuid
                 # test reloaded model
-                if dfs_tmp_dir:
-                    reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
-                                                       dfs_tmpdir=dfs_tmp_dir)
-                else:
-                    reloaded_model = sparkm.load_model(artifact_path, run_id=run_id)
+                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
+                                                   dfs_tmpdir=dfs_tmp_dir)
                 preds_df = reloaded_model.transform(spark_model_iris.spark_df)
                 preds = [x.prediction for x in preds_df.select("prediction").collect()]
                 assert spark_model_iris.predictions == preds

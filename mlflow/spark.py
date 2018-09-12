@@ -144,8 +144,9 @@ class _HadoopFileSystem:
         local_path = cls._local_path(src)
         qualified_local_path = cls._fs().makeQualified(local_path).toString()
         if qualified_local_path == "file:" + local_path.toString():
-            return local_path
-        cls.copy_from_local_file(src, dst)
+            return local_path.toString()
+        cls.copy_from_local_file(src, dst, remove_src=False)
+        eprint("Copied SparkML model to %s" % dst)
         return dst
 
     @classmethod
@@ -201,7 +202,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     spark_model.save(tmp_path)
     sparkml_data_path_sub = "sparkml"
     sparkml_data_path = os.path.abspath(os.path.join(path, sparkml_data_path_sub))
-    _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, removeSrc=True)
+    _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     pyspark_version = pyspark.version.__version__
     model_conda_env = None
     if conda_env:
@@ -221,7 +222,7 @@ def _load_model(model_path, dfs_tmpdir=None):
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
-    model_path = _HadoopFileSystem.maybe_copy_from_local_file(model_path, tmp_path, removeSrc=False)
+    model_path = _HadoopFileSystem.maybe_copy_from_local_file(model_path, tmp_path)
     return PipelineModel.load(model_path)
 
 
