@@ -29,6 +29,11 @@ matrix:
         - export COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
     - language: java
+      dist: trusty
+      cache: packages
+      before_install:
+        - export MLFLOW_TEST_REQUIREMENTS=false
+      script:
         - cd mlflow/java
         - mvn clean package -q
 
@@ -71,7 +76,7 @@ script:
   - which mlflow
   - echo $MLFLOW_HOME
   - SAGEMAKER_OUT=$(mktemp)
-  - if [[ mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1 ]]
+  - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
       echo "Sagemaker container build succeeded."
     else
       echo "Sagemaker container build failed, output:"
