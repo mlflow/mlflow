@@ -250,3 +250,18 @@ function setupSearch() {
         }]
     });
 }
+
+// Affix the sidebar to the side if we scroll past the header,
+// which is 55px. This ensures the sidebar is always visible,
+// but makes room for the header if and only if the header is
+// visible.
+$(window).scroll(function() {
+    var scrollTop = $(window).scrollTop();
+    if (scrollTop <= 55) {
+        $('.wy-nav-side').removeClass("fixed");
+        $('.wy-nav-side').addClass("relative");
+    } else {
+        $('.wy-nav-side').addClass("fixed");
+        $('.wy-nav-side').removeClass("relative");
+    }
+});

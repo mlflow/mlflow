@@ -261,12 +261,7 @@ table > colgroup:first-child {
   height: 55px;
 }
 
-page nav.wy-nav-side {
-  padding-bottom: 75px; /* Need to account for the header push. */
-}
-
 .wy-nav-top.header {
-  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -400,7 +395,6 @@ page nav.wy-nav-side {
  */
 
 .wy-nav-side {
-  top: 55px;
   background-color: #FFF;
   color: #000;
   border-right: 1px solid #C9C9C9;

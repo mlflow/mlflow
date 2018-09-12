@@ -40,7 +40,7 @@ setup(
         'protobuf>=3.6.0',
         'gitpython>=2.1.0',
         'pyyaml',
-        'boto3',
+        'boto3>=1.7.12',
         'querystring_parser',
         'simplejson',
         'mleap>=0.8.1',
