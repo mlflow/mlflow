@@ -94,8 +94,10 @@ class _HadoopFileSystem:
     Since MLflow works on local directories, we need this interface to copy the files between
     the current DFS and local dir.
     """
+
     def __init__(self):
         raise Exception("This class should not be instantiated")
+
     _filesystem = None
     _conf = None
 
@@ -133,7 +135,7 @@ class _HadoopFileSystem:
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
-               dfs_tmpdir=None, sample_input=None):
+               dfs_tmpdir=DFS_TMP, sample_input=None):
     """
     Save a Spark MLlib PipelineModel to a local path.
 
@@ -163,7 +165,6 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     >>> model = ...
     >>> mlflow.spark.save_model(model, "spark-model")
     """
-    dfs_tmpdir = dfs_tmpdir if dfs_tmpdir is not None else DFS_TMP
     if jars:
         raise Exception("jar dependencies are not implemented")
 
@@ -192,7 +193,18 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def load_model(path, run_id=None, dfs_tmpdir=None):
+def _load_model(model_path, dfs_tmpdir=None):
+    tmp_path = _tmp_path(dfs_tmpdir)
+    # Spark ML expects the model to be stored on DFS
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
+    _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
+    pipeline_model = PipelineModel.load(tmp_path)
+    eprint("Copied SparkML model to %s" % tmp_path)
+    return pipeline_model
+
+
+def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
     """
     Load the Spark MLlib model from the path.
 
@@ -214,7 +226,6 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
     >>>  # Make predictions on test documents.
     >>> prediction = model.transform(test)
     """
-    dfs_tmpdir = dfs_tmpdir if dfs_tmpdir is not None else DFS_TMP
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     m = Model.load(os.path.join(path, 'MLmodel'))
@@ -222,14 +233,7 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
     conf = m.flavors[FLAVOR_NAME]
     model_path = os.path.join(path, conf['model_data'])
-    tmp_path = _tmp_path(dfs_tmpdir)
-    # Spark ML expects the model to be stored on DFS
-    # Copy the model to a temp DFS location first. We cannot delete this file, as
-    # Spark may read from it at any point.
-    _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
-    pipeline_model = PipelineModel.load(tmp_path)
-    eprint("Copied SparkML model to %s" % tmp_path)
-    return pipeline_model
+    return _load_model(model_path=model_path, dfs_tmpdir=dfs_tmpdir)
 
 
 def load_pyfunc(path):
@@ -245,8 +249,7 @@ def load_pyfunc(path):
     """
     spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
         .master("local[1]").getOrCreate()
-    # We do not need any DFS here as pyfunc should create its own SparkContext with no executors
-    return _PyFuncModelWrapper(spark, PipelineModel.load("file:" + os.path.abspath(path)))
+    return _PyFuncModelWrapper(spark, _load_model(model_path=path))
 
 
 class _PyFuncModelWrapper(object):
