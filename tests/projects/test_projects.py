@@ -162,6 +162,46 @@ def test_run_local_git_repo(tmpdir, local_git_repo,
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+def test_run_local_git_repo_with_version(tmpdir,
+                                         local_git_repo_uri,
+                                         tracking_uri_mock,   # pylint: disable=unused-argument
+                                         use_start_run):
+    submitted_run = mlflow.projects.run(
+        local_git_repo_uri + "#" + TEST_PROJECT_NAME, entry_point="test_tracking",
+        parameters={"use_start_run": use_start_run}, version="master",
+        use_conda=False, experiment_id=0)
+
+    # Blocking runs should be finished when they return
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+    # Test that we can call wait() on a synchronous run & that the run has the correct
+    # status after calling wait().
+    submitted_run.wait()
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+    # Validate run contents in the FileStore
+    run_uuid = submitted_run.run_id
+    store = FileStore(tmpdir.strpath)
+    run_infos = store.list_run_infos(experiment_id=0)
+    assert "file:" in run_infos[0].source_name
+    assert len(run_infos) == 1
+    store_run_uuid = run_infos[0].run_uuid
+    assert run_uuid == store_run_uuid
+    run = store.get_run(run_uuid)
+    expected_params = {"use_start_run": use_start_run}
+    assert run.info.status == RunStatus.FINISHED
+    assert len(run.data.params) == len(expected_params)
+    for param in run.data.params:
+        assert param.value == expected_params[param.key]
+    expected_metrics = {"some_key": 3}
+    assert len(run.data.metrics) == len(expected_metrics)
+    for metric in run.data.metrics:
+        assert metric.value == expected_metrics[metric.key]
+    # Validate the branch name tag is logged
+    expected_tags = {"mlflow.gitBranchName": "master"}
+    for tag in run.data.tags:
+        assert tag.value == expected_tags[tag.key]
+
+
+@pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unused-argument
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="test_tracking",

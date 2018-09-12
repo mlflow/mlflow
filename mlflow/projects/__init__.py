@@ -57,8 +57,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
 
     # Add branch name tag if a branch is specified through -version
-    if _is_valid_branch_name(uri, version):
-        tracking.get_service().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
+    if _is_valid_branch_name(uri, work_dir, version):
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -203,17 +203,19 @@ def _is_valid_version(repo, version):
         # Second attempt to see if this is a branch
         try:
             return repo.git.rev_parse("--verify", "refs/remotes/origin/%s" % version)
-        except GitCommandError:
-            raise ExecutionException("'%s' is invalid or does not exist in the Git project." %
-                                     version)
+        except GitCommandError as e:
+            raise ExecutionException("Got exception when validating git version '%s' "
+                                     "- please ensure that the version exists in the repo. "
+                                     "Error: %s" % (version, e))
 
 
-def _is_valid_branch_name(uri, branch):
+def _is_valid_branch_name(uri, work_dir, branch):
     """Returns True if the branch exists in the Git project."""
     if branch is not None:
-        parsed_uri = _parse_subdirectory(uri)[0]
-        from git import cmd
-        return cmd.Git().ls_remote("--heads", parsed_uri, branch)
+        sub_directory = _parse_subdirectory(uri)[1]
+        from git import Repo
+        repo = Repo(work_dir.replace(sub_directory, ''), search_parent_directories=True)
+        return repo.git.rev_parse("--verify", "refs/heads/%s" % branch)
     return False
 
 
