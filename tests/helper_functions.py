@@ -9,7 +9,7 @@ import time
 
 import pandas as pd
 
-import mlflow
+import mlflow.pyfunc
 
 
 def random_int(lo=1, hi=1e10):

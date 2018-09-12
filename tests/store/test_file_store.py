@@ -331,3 +331,12 @@ class TestFileStore(unittest.TestCase):
             ("tag0", "value2"),
             ("tag1", "value1"),
         }
+
+        # Can set multiline tags.
+        fs.set_tag(run_uuid, RunTag("multiline_tag", "value2\nvalue2\nvalue2"))
+        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
+        assert set(tags) == {
+            ("tag0", "value2"),
+            ("tag1", "value1"),
+            ("multiline_tag", "value2\nvalue2\nvalue2"),
+        }
