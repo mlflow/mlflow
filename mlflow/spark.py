@@ -154,7 +154,7 @@ class _HadoopFileSystem:
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
-               dfs_tmpdir=DFS_TMP, sample_input=None):
+               dfs_tmpdir=None, sample_input=None):
     """
     Save a Spark MLlib PipelineModel to a local path.
 
@@ -195,6 +195,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
 
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
+    if dfs_tmpdir is None:
+        dfs_tmpdir = DFS_TMP
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path_sub = "sparkml"
@@ -213,6 +215,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
 
 
 def _load_model(model_path, dfs_tmpdir=None):
+    if dfs_tmpdir is None:
+        dfs_tmpdir = DFS_TMP
     tmp_path = _tmp_path(dfs_tmpdir)
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
@@ -221,7 +225,7 @@ def _load_model(model_path, dfs_tmpdir=None):
     return PipelineModel.load(model_path)
 
 
-def load_model(path, run_id=None, dfs_tmpdir=DFS_TMP):
+def load_model(path, run_id=None, dfs_tmpdir=None):
     """
     Load the Spark MLlib model from the path.
 
@@ -282,7 +286,7 @@ class _PyFuncModelWrapper(object):
         """
         Generate predictions given input data in a pandas DataFrame.
 
-        :param pandas_df: pandas Dataframe containing input data.
+        :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
         """
         spark_df = self.spark.createDataFrame(pandas_df)
