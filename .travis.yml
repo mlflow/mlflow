@@ -13,7 +13,6 @@ matrix:
       cache: packages
       before_install:
         - export NOT_CRAN=true
-        - export MLFLOW_TEST_REQUIREMENTS=false
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
         - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
@@ -31,8 +30,6 @@ matrix:
     - language: java
       dist: trusty
       cache: packages
-      before_install:
-        - export MLFLOW_TEST_REQUIREMENTS=false
       script:
         - cd mlflow/java
         - mvn clean package -q
@@ -59,8 +56,9 @@ install:
   - source activate test-environment
   - python --version
   - pip install --upgrade pip
-  - pip install -r dev-requirements.txt -q
-  - if [[ "$MLFLOW_TEST_REQUIREMENTS" != "false" ]]; then
+  # Install Python test dependencies only if we're running Python tests
+  - if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
+      pip install -r dev-requirements.txt -q
       pip install -r test-requirements.txt -q;
     fi
   - pip install .
