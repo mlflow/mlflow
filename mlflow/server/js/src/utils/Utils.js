@@ -28,6 +28,7 @@ class Utils {
   }
 
   static runNameTag = 'mlflow.runName';
+  static MAX_RUN_NAME_DISPLAY_LENGTH = 36;
 
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
@@ -170,11 +171,15 @@ class Utils {
   }
 
   /**
-   * Renders the run name into a string.
+   * Renders the run name into a string, truncating it if necessary.
    * @param runTags Object of tag name to MlflowMessages.RunTag instance
    */
   static getRunDisplayName(runTags, runUuid) {
-    return Utils.getRunName(runTags) || "Run " + runUuid;
+    const runName = Utils.getRunName(runTags) || "Run " + runUuid;
+    if (runName.length > Utils.MAX_RUN_NAME_DISPLAY_LENGTH) {
+      return runName.slice(0, Utils.MAX_RUN_NAME_DISPLAY_LENGTH - 3) + "...";
+    }
+    return runName;
   }
 
   static getRunName(runTags) {
