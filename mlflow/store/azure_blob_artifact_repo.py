@@ -116,7 +116,8 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         listing = self.list_artifacts(artifact_path)
         if len(listing) > 0:
             # Artifact_path is a directory, so make a directory for it and download everything
-            os.mkdir(local_path)
+            if not os.path.exists(local_path):
+                os.mkdir(local_path)
             for file_info in listing:
                 self._download_artifacts_into(file_info.path, local_path)
         else:
