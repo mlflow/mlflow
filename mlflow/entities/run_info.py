@@ -22,6 +22,7 @@ class RunInfo(_MLflowObject):
     """
     ACTIVE_LIFECYCLE = "active"
     DELETED_LIFECYCLE = "deleted"
+
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                  user_id, status, start_time, end_time, source_version, lifecycle_stage,
                  artifact_uri=None):
