@@ -43,7 +43,7 @@ export const metricsByRunUuid = (state = {}, action) => {
       const metrics = action.payload.run.data.metrics || [];
       return {
         ...state,
-         [runUuid]: metricsByKey(state[runUuid], action, metrics)
+        [runUuid]: metricsByKey(state[runUuid], action, metrics)
       };
     }
     case fulfilled(GET_METRIC_HISTORY_API): {
