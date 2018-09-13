@@ -170,6 +170,13 @@ def test_download_directory_artifact(mock_client, tmpdir):
     blob_2 = Blob(os.path.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
 
     def get_mock_listing(*args, **kwargs): 
+        """
+        Produces a mock listing that only contains content if the
+        specified prefix is the artifact root. This allows us to mock
+        `list_artifacts` during the `_download_artifacts_into` subroutine
+        without recursively listing the same artifacts at every level of the
+        directory traversal.
+        """
         # pylint: disable=unused-argument
         prefix = kwargs["prefix"]
         if os.path.abspath(prefix) == os.path.abspath(TEST_ROOT_PATH):

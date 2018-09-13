@@ -190,6 +190,13 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
     mock_empty_results.__iter__.return_value = []
 
     def get_mock_listing(prefix, **kwargs):
+        """
+        Produces a mock listing that only contains content if the
+        specified prefix is the artifact root. This allows us to mock
+        `list_artifacts` during the `_download_artifacts_into` subroutine
+        without recursively listing the same artifacts at every level of the
+        directory traversal
+        """
         # pylint: disable=unused-argument
         prefix = os.path.join("/", prefix)
         if os.path.abspath(prefix) == os.path.abspath(artifact_root_path):
