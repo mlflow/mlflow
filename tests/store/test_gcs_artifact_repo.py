@@ -153,7 +153,7 @@ def test_log_artifacts(gcs_mock, tmpdir):
         ], any_order=True)
 
 
-def test_download_artifacts(gcs_mock, tmpdir):
+def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
 
     def mkfile(fname):
@@ -171,3 +171,46 @@ def test_download_artifacts(gcs_mock, tmpdir):
         .assert_called_with('some/path/test.txt')
     gcs_mock.Client().get_bucket().get_blob()\
         .download_to_filename.assert_called_with(tmpdir + "/test.txt")
+
+
+def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, gcs_mock)
+
+    obj_mock_1 = mock.Mock()
+    file_path_1 = 'file1'
+    obj_mock_1.configure_mock(name=os.path.join(artifact_root_path, file_path_1), size=1)
+    obj_mock_2 = mock.Mock()
+    file_path_2 = 'file2'
+    obj_mock_2.configure_mock(name=os.path.join(artifact_root_path, file_path_2), size=1)
+    mock_populated_results = mock.MagicMock()
+    mock_populated_results.__iter__.return_value = [obj_mock_1, obj_mock_2]
+
+    mock_empty_results = mock.MagicMock()
+    mock_empty_results.__iter__.return_value = []
+
+    def get_mock_listing(prefix, **kwargs):
+        prefix = os.path.join("/", prefix)
+        if os.path.abspath(prefix) == os.path.abspath(artifact_root_path):
+            return mock_populated_results 
+        else:
+            return mock_empty_results 
+
+    def mkfile(fname):
+        fname = os.path.basename(fname)
+        f = tmpdir.join(fname)
+        f.write("hello world!")
+
+    gcs_mock.Client.return_value.get_bucket.return_value.get_blob.return_value\
+        .download_to_filename.side_effect = mkfile
+
+    gcs_mock.Client.return_value.get_bucket.return_value\
+        .list_blobs.side_effect = get_mock_listing
+
+
+    # Ensure that the root directory can be downloaded successfully
+    repo.download_artifacts("")
+    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
+    dir_contents = os.listdir(tmpdir.strpath)
+    assert file_path_1 in dir_contents
+    assert file_path_2 in dir_contents
