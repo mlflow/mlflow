@@ -222,8 +222,6 @@ class TestFileStore(unittest.TestCase):
                 run_info.pop("metrics")
                 run_info.pop("params")
                 run_info.pop("tags")
-                # Add special case for lifecycle_stage since it doesn't belong in the serialized
-                # run info
                 run_info['lifecycle_stage'] = RunInfo.ACTIVE_LIFECYCLE
                 self.assertEqual(run_info, dict(run.info))
 
@@ -237,8 +235,6 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("metrics")
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
-                # Add special case for lifecycle_stage since it doesn't belong in the serialized
-                # run info
                 dict_run_info['lifecycle_stage'] = RunInfo.ACTIVE_LIFECYCLE
                 self.assertEqual(dict_run_info, dict(run_info))
 
