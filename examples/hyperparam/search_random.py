@@ -45,7 +45,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
     val_metric = "val_{}".format(metric)
     test_metric = "test_{}".format(metric)
     np.random.seed(seed)
-    tracking_service = mlflow.tracking.get_service()
+    tracking_client = mlflow.tracking.MlflowClient()
 
     def new_eval(nepochs,
                  experiment_id,
@@ -66,7 +66,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
                 experiment_id=experiment_id,
                 block=False)
             if p.wait():
-                training_run = tracking_service.get_run(p.run_id)
+                training_run = tracking_client.get_run(p.run_id)
 
                 def get_metric(metric_name):
                     return [m.value for m in training_run.data.metrics if m.key == metric_name][0]
@@ -77,7 +77,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
                 test_loss = min(null_test_loss, get_metric(test_metric))
             else:
                 # run failed => return null loss
-                tracking_service.set_terminated(p.run_id, "FAILED")
+                tracking_client.set_terminated(p.run_id, "FAILED")
                 train_loss = null_train_loss
                 val_loss = null_val_loss
                 test_loss = null_test_loss
