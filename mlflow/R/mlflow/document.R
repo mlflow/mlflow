@@ -21,12 +21,12 @@ markdown_fixed <- markdown_fixed[1:last_section - 1]
 writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
 
 # Clear Sphinx docs and tree to correctly generate sections
-if (dir.exists("../../docs/build")) {
-  unlink("../../docs/build", recursive = TRUE)
+if (dir.exists("../../../docs/build")) {
+  unlink("../../../docs/build", recursive = TRUE)
 }
 
 # Generate reStructuredText documentation
-rmarkdown::pandoc_convert("Reference_Manual_mlflow.md", output = "../../docs/source/R-api.rst")
+rmarkdown::pandoc_convert("Reference_Manual_mlflow.md", output = "../../../docs/source/R-api.rst")
 
 # Add R API header to RST docs
 rst_header <- ".. _R-api:
@@ -43,9 +43,9 @@ For instance, you can use the R API to `install MLflow`_, start the `user interf
     :local:
     :depth: 1
 "
-rst_doc <- readLines("../../docs/source/R-api.rst")
+rst_doc <- readLines("../../../docs/source/R-api.rst")
 rst_doc <- c(rst_header, rst_doc)
-writeLines(rst_doc, "../../docs/source/R-api.rst")
+writeLines(rst_doc, "../../../docs/source/R-api.rst")
 
 # Generate docs by using an mlflow virtualenv and running `make` from `mlflow/docs`
 
