@@ -9,8 +9,8 @@ if __name__ == "__main__":
     log_param("param1", randint(0, 100))
     
     log_metric("foo", random())
-    log_metric("foo", random() + 1)
-    log_metric("foo", random() + 2)
+    # log_metric("foo", random() + 1)
+    # log_metric("foo", random() + 2)
 
     if not os.path.exists("outputs"):
         os.makedirs("outputs")
