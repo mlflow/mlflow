@@ -77,7 +77,7 @@ const metricsByKey = (state = {}, action, metrics) => {
     // Assumes the GET_RUN_API only returns 1 metric (the latest metric) for each key.
     case fulfilled(GET_RUN_API): {
       metrics.forEach((m) => {
-        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : []
+        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : [];
         newArr.push(Metric.fromJs(m));
         newState[m.key] = newArr;
       });
@@ -86,7 +86,7 @@ const metricsByKey = (state = {}, action, metrics) => {
     // Assumes the SEARCH_RUNS_API only returns 1 metric (the latest metric) per key.
     case fulfilled(SEARCH_RUNS_API): {
       metrics.forEach((m) => {
-        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : []
+        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : [];
         newArr.push(Metric.fromJs(m));
         newState[m.key] = newArr;
       });
