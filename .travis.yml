@@ -58,7 +58,7 @@ install:
   - pip install --upgrade pip
   # Install Python test dependencies only if we're running Python tests
   - if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
-      pip install -r dev-requirements.txt -q
+      pip install -r dev-requirements.txt -q;
       pip install -r test-requirements.txt -q;
     fi
   - pip install .
