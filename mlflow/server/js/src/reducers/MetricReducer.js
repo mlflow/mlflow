@@ -41,26 +41,18 @@ export const metricsByRunUuid = (state = {}, action) => {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
       const runUuid = runInfo.getRunUuid();
       const metrics = action.payload.run.data.metrics || [];
-      const newState = {
+      return {
         ...state,
          [runUuid]: metricsByKey(state[runUuid], action, metrics)
       };
-      console.log("GetRun meta: " + JSON.stringify(action.meta));
-      console.log("GetRun: metrics for run " + runUuid + ": " + JSON.stringify(newState[runUuid]));
-      return newState;
     }
     case fulfilled(GET_METRIC_HISTORY_API): {
       const runUuid = action.meta.runUuid;
       const metrics = action.payload.metrics || [];
-      const newState = {
+      return {
         ...state,
         [runUuid]: metricsByKey(state[runUuid], action, metrics)
       };
-      console.log("GetMetricHistory meta: " + JSON.stringify(action.meta));
-      const key = action.meta.key;
-      const length = newState[runUuid][key].size;
-      console.log("GetMetricHistory: metrics for run " + runUuid + ", metric key: " + key + ", length: " + length);
-      return newState;
     }
     case fulfilled(SEARCH_RUNS_API): {
       const newState = { ...state };
@@ -70,8 +62,6 @@ export const metricsByRunUuid = (state = {}, action) => {
           const runUuid = run.getInfo().getRunUuid();
           const metrics = rJson.data.metrics || [];
           newState[runUuid] = metricsByKey(newState[runUuid], action, metrics);
-          console.log("SearchRuns meta: " + JSON.stringify(action.meta));
-          console.log("SearchRuns: metrics for run " + runUuid + ": " + JSON.stringify(newState[runUuid]));
         });
       }
       return newState;

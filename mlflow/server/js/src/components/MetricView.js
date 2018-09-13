@@ -55,7 +55,6 @@ class MetricView extends Component {
               {runUuids.map((uuid, idx) => (
                 <Bar dataKey={uuid}
                      key={uuid}
-                     name={runNames[idx]}
                      isAnimationActive={false}
                      fill={COLORS[idx % COLORS.length]}/>
               ))}
@@ -113,11 +112,9 @@ const mapStateToProps = (state, ownProps) => {
   }
   runUuids.forEach(runUuid => {
     const entries = getMetricsByKey(runUuid, metricKey, state);
-    let i = 0;
-    entries.forEach((metric) => {
-      metrics[i][runUuid] = metric.value;
-      i++;
-    });
+    for (let i = 0; i < entries.length; i++) {
+      metrics[i][runUuid] = entries[i].value;
+    }
   });
   const runNames = runUuids.map((runUuid) => {
     const tags = getRunTags(runUuid, state);
