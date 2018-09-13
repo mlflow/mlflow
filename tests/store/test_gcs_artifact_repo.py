@@ -190,6 +190,7 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
     mock_empty_results.__iter__.return_value = []
 
     def get_mock_listing(prefix, **kwargs):
+        # pylint: disable=unused-argument
         prefix = os.path.join("/", prefix)
         if os.path.abspath(prefix) == os.path.abspath(artifact_root_path):
             return mock_populated_results 
@@ -201,11 +202,11 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.get_bucket.return_value.get_blob.return_value\
-        .download_to_filename.side_effect = mkfile
-
     gcs_mock.Client.return_value.get_bucket.return_value\
         .list_blobs.side_effect = get_mock_listing
+
+    gcs_mock.Client.return_value.get_bucket.return_value.get_blob.return_value\
+        .download_to_filename.side_effect = mkfile
 
 
     # Ensure that the root directory can be downloaded successfully

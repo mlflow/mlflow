@@ -136,7 +136,7 @@ def test_log_artifacts(mock_client, tmpdir):
     ], any_order=True)
 
 
-def test_download_artifacts(mock_client, tmpdir):
+def test_download_file_artifact(mock_client, tmpdir):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 
     mock_client.list_blobs.return_value = MockBlobList([])
@@ -153,3 +153,42 @@ def test_download_artifacts(mock_client, tmpdir):
     open(repo._download_artifacts_into("test.txt", tmpdir.strpath)).read()
     mock_client.get_blob_to_path.assert_called_with(
         "container", TEST_ROOT_PATH + "/test.txt", tmpdir.strpath + "/test.txt")
+
+
+def test_download_directory_artifact(mock_client, tmpdir):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    file_path_1 = "file_1"
+    file_path_2 = "file_2"
+
+    blob_props_1 = BlobProperties()
+    blob_props_1.content_length = 42
+    blob_1 = Blob(os.path.join(TEST_ROOT_PATH, file_path_1), props=blob_props_1)
+
+    blob_props_2 = BlobProperties()
+    blob_props_2.content_length = 42
+    blob_2 = Blob(os.path.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
+
+    def get_mock_listing(*args, **kwargs): 
+        # pylint: disable=unused-argument
+        prefix = kwargs["prefix"]
+        if os.path.abspath(prefix) == os.path.abspath(TEST_ROOT_PATH):
+            return MockBlobList([blob_1, blob_2])
+        else:
+            return MockBlobList([])
+
+    def create_file(container, cloud_path, local_path):
+        # pylint: disable=unused-argument
+        fname = os.path.basename(local_path)
+        f = tmpdir.join(fname)
+        f.write("hello world!")
+    
+    mock_client.list_blobs.side_effect = get_mock_listing
+    mock_client.get_blob_to_path.side_effect = create_file
+
+    # Ensure that the root directory can be downloaded successfully
+    repo.download_artifacts("")
+    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
+    dir_contents = os.listdir(tmpdir.strpath)
+    assert file_path_1 in dir_contents
+    assert file_path_2 in dir_contents
