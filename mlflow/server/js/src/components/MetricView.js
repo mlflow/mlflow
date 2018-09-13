@@ -31,9 +31,7 @@ class MetricView extends Component {
 
   render() {
     const { experiment, runUuids, title, metrics, runNames } = this.props;
-    debugger;
     if (metrics.length === 1) {
-      console.log("Yo")
       return (
         <div className="MetricView">
           <div className="header-container">
@@ -107,7 +105,7 @@ const mapStateToProps = (state, ownProps) => {
   const experiment = experimentId !== null ? getExperiment(experimentId, state) : null;
   let maxLength = 0;
   runUuids.forEach(runUuid => {
-    maxLength = Math.max(maxLength, getMetricsByKey(runUuid, metricKey, state).size);
+    maxLength = Math.max(maxLength, getMetricsByKey(runUuid, metricKey, state).length);
   });
   const metrics = new Array(maxLength);
   for (let i = 0; i < metrics.length; i++) {
