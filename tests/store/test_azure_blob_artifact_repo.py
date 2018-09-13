@@ -178,8 +178,7 @@ def test_download_directory_artifact(mock_client, tmpdir):
         directory traversal.
         """
         # pylint: disable=unused-argument
-        prefix = kwargs["prefix"]
-        if os.path.abspath(prefix) == os.path.abspath(TEST_ROOT_PATH):
+        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(TEST_ROOT_PATH):
             return MockBlobList([blob_1, blob_2])
         else:
             return MockBlobList([])
