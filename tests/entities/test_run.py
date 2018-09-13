@@ -59,7 +59,8 @@ class TestRun(TestRunInfo, TestRunData):
         expected = "<Run: info=<RunInfo: run_uuid='hi', experiment_id=0, name='name', " \
                    "source_type=3, source_name='source-name', " \
                    "entry_point_name='entry-point-name', user_id='user-id', status=4, " \
-                   "start_time=0, end_time=1, source_version='version', artifact_uri=None>, " \
+                   "start_time=0, end_time=1, source_version='version', " \
+                   "lifecycle_stage='active', artifact_uri=None>, " \
                    "data=<RunData: metrics=[<Metric: key='key', value=0, timestamp=0>, " \
                    "<Metric: key='key', value=1, timestamp=0>, ...], params=[], tags=[]>>"
         assert str(run1) == expected
