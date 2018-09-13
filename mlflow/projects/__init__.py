@@ -57,7 +57,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
 
     # Add branch name tag if a branch is specified through -version
-    if _is_valid_branch_name(uri, work_dir, version):
+    if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
 
     if mode == "databricks":
@@ -194,28 +194,19 @@ def _is_local_uri(uri):
     return not _GIT_URI_REGEX.match(uri)
 
 
-def _is_valid_version(repo, version):
-    """Verify the commit version of branch name is valid, raise exception if otherwise."""
-    from git.exc import GitCommandError
-    try:
-        return repo.git.rev_parse("--verify", version)
-    except GitCommandError:
-        # Second attempt to see if this is a branch
-        try:
-            return repo.git.rev_parse("--verify", "refs/remotes/origin/%s" % version)
-        except GitCommandError as e:
-            raise ExecutionException("Got exception when validating git version '%s' "
-                                     "- please ensure that the version exists in the repo. "
-                                     "Error: %s" % (version, e))
-
-
-def _is_valid_branch_name(uri, work_dir, branch):
-    """Returns True if the branch exists in the Git project."""
+def _is_valid_branch_name(work_dir, branch):
+    """
+    Returns True if the branch exists in the Git project.
+    ``work_dir`` must be the working directory in a git repo.
+    """
     if branch is not None:
-        sub_directory = _parse_subdirectory(uri)[1]
         from git import Repo
-        repo = Repo(work_dir.replace(sub_directory, ''), search_parent_directories=True)
-        return repo.git.rev_parse("--verify", "refs/heads/%s" % branch)
+        from git.exc import GitCommandError
+        repo = Repo(work_dir, search_parent_directories=True)
+        try:
+            return repo.git.rev_parse("--verify", "refs/heads/%s" % branch) is not ''
+        except GitCommandError as e:
+            raise ExecutionException("Could not find the branch '%s'. Error: %s" % (branch, e))
     return False
 
 
@@ -268,8 +259,13 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
                          cmd_stdin=git_credentials)
     origin.fetch()
-    if version is not None and _is_valid_version(repo, version):
-        repo.git.checkout(version)
+    if version is not None:
+        try:
+            repo.git.checkout(version)
+        except git.exc.GitCommandError as e:
+            raise ExecutionException("Got exception when validating git version '%s' "
+                                     "- please ensure that the version exists in the repo. "
+                                     "Error: %s" % (version, e))
     else:
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
