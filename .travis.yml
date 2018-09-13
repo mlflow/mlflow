@@ -28,11 +28,15 @@ matrix:
         - export COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
     - language: java
-      dist: trusty
-      cache: packages
       script:
         - cd mlflow/java
         - mvn clean package -q
+    - language: node_js
+      script:
+        - cd mlflow/server/js
+        - npm i
+        - ./lint.sh
+        - npm test -- --coverage
 
 install:
   - sudo mkdir -p /travis-install
@@ -69,6 +73,7 @@ install:
   - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
   - sudo unzip /travis-install/protoc.zip -d /usr
 script:
+  - ./lint.sh
   - sudo ./test-generate-protos.sh
   - pip list
   - which mlflow
@@ -80,7 +85,6 @@ script:
       echo "Sagemaker container build failed, output:";
       cat $SAGEMAKER_OUT;
     fi
-  - ./lint.sh
   # Run tests that don't leverage specific ML frameworks
   - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
     --ignore=tests/pytorch --ignore=tests/pyfunc--ignore=tests/sagemaker --ignore=tests/sklearn
@@ -95,8 +99,3 @@ script:
   - pytest --verbose tests/sklearn --large
   - pytest --verbose tests/spark --large
   - pytest --verbose tests/tensorflow --large
-  - cd mlflow/server/js
-  - npm i
-  - ./lint.sh
-  - npm test -- --coverage
-  - codecov -e TOXENV
