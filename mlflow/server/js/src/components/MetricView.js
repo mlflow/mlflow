@@ -88,6 +88,7 @@ class MetricView extends Component {
                 <Line type="linear"
                       dataKey={uuid}
                       key={uuid}
+                      name={runNames[idx]}
                       isAnimationActive={false}
                       connectNulls
                       stroke={COLORS[idx % COLORS.length]}/>
