@@ -194,19 +194,19 @@ def _is_local_uri(uri):
     return not _GIT_URI_REGEX.match(uri)
 
 
-def _is_valid_branch_name(work_dir, branch):
+def _is_valid_branch_name(work_dir, version):
     """
-    Returns True if the branch exists in the Git project.
+    Returns True if the ``version`` is the name of a branch in a Git project.
     ``work_dir`` must be the working directory in a git repo.
     """
-    if branch is not None:
+    if version is not None:
         from git import Repo
         from git.exc import GitCommandError
         repo = Repo(work_dir, search_parent_directories=True)
         try:
-            return repo.git.rev_parse("--verify", "refs/heads/%s" % branch) is not ''
-        except GitCommandError as e:
-            raise ExecutionException("Could not find the branch '%s'. Error: %s" % (branch, e))
+            return repo.git.rev_parse("--verify", "refs/heads/%s" % version) is not ''
+        except GitCommandError:
+            return False
     return False
 
 

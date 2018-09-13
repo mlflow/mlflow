@@ -24,6 +24,11 @@ def _build_uri(base_uri, subdirectory):
     return base_uri
 
 
+def _get_version_local_git_repo(local_git_repo):
+    repo = git.Repo(local_git_repo, search_parent_directories=True)
+    return repo.git.rev_parse("HEAD")
+
+
 @pytest.fixture()
 def local_git_repo(tmpdir):
     local_git = tmpdir.join('git_repo').strpath
@@ -128,12 +133,11 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
 
 def test_is_valid_branch_name(local_git_repo):
     assert mlflow.projects._is_valid_branch_name(local_git_repo, "master")
-    with pytest.raises(ExecutionException, match=r'Could not find the branch \'dev\'.'):
-        mlflow.projects._is_valid_branch_name(local_git_repo, "dev")
+    assert not mlflow.projects._is_valid_branch_name(local_git_repo, "dev")
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-@pytest.mark.parametrize("version", [None, "master"])
+@pytest.mark.parametrize("version", [None, "master", "git-commit"])
 def test_run_local_git_repo(tmpdir,
                             local_git_repo,
                             local_git_repo_uri,
@@ -144,6 +148,8 @@ def test_run_local_git_repo(tmpdir,
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
         uri = os.path.join("%s/" % local_git_repo, TEST_PROJECT_NAME)
+    if version == "git-commit":
+        version = _get_version_local_git_repo(local_git_repo)
     submitted_run = mlflow.projects.run(
         uri, entry_point="test_tracking", version=version,
         parameters={"use_start_run": use_start_run},
@@ -174,10 +180,20 @@ def test_run_local_git_repo(tmpdir,
     for metric in run.data.metrics:
         assert metric.value == expected_metrics[metric.key]
     # Validate the branch name tag is logged
-    if version is not None:
+    if version == "master":
         expected_tags = {"mlflow.gitBranchName": "master"}
         for tag in run.data.tags:
             assert tag.value == expected_tags[tag.key]
+
+
+def test_invalid_version_local_git_repo(local_git_repo_uri,
+                                        tracking_uri_mock):   # pylint: disable=unused-argument
+    # Run project with invalid commit hash
+    with pytest.raises(ExecutionException,
+                       match=r'Got exception when validating git version \'badc0de\''):
+        mlflow.projects.run(local_git_repo_uri + "#" + TEST_PROJECT_NAME,
+                            entry_point="test_tracking", version="badc0de",
+                            use_conda=False, experiment_id=0)
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
