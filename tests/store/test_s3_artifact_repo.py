@@ -77,5 +77,5 @@ class TestS3ArtifactRepo(unittest.TestCase):
             dir_contents = os.listdir(downloaded_dir)
             assert "nested" in dir_contents
             assert os.path.isdir(os.path.join(downloaded_dir, "nested"))
-            assert "a.txt" in dir_contents 
+            assert "a.txt" in dir_contents
             assert "b.txt" in dir_contents

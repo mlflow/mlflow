@@ -169,7 +169,7 @@ def test_download_directory_artifact(mock_client, tmpdir):
     blob_props_2.content_length = 42
     blob_2 = Blob(os.path.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
 
-    def get_mock_listing(*args, **kwargs): 
+    def get_mock_listing(*args, **kwargs):
         """
         Produces a mock listing that only contains content if the
         specified prefix is the artifact root. This allows us to mock
@@ -189,7 +189,7 @@ def test_download_directory_artifact(mock_client, tmpdir):
         fname = os.path.basename(local_path)
         f = tmpdir.join(fname)
         f.write("hello world!")
-    
+
     mock_client.list_blobs.side_effect = get_mock_listing
     mock_client.get_blob_to_path.side_effect = create_file
 

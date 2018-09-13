@@ -200,9 +200,9 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         # pylint: disable=unused-argument
         prefix = os.path.join("/", prefix)
         if os.path.abspath(prefix) == os.path.abspath(artifact_root_path):
-            return mock_populated_results 
+            return mock_populated_results
         else:
-            return mock_empty_results 
+            return mock_empty_results
 
     def mkfile(fname):
         fname = os.path.basename(fname)
@@ -214,7 +214,6 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
 
     gcs_mock.Client.return_value.get_bucket.return_value.get_blob.return_value\
         .download_to_filename.side_effect = mkfile
-
 
     # Ensure that the root directory can be downloaded successfully
     repo.download_artifacts("")
