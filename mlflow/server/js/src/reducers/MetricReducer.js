@@ -74,23 +74,27 @@ export const metricsByRunUuid = (state = {}, action) => {
 const metricsByKey = (state = {}, action, metrics) => {
   const newState = { ...state };
   switch (action.type) {
-    // Assumes the GET_RUN_API only returns 1 metric per key.
+    // Assumes the GET_RUN_API only returns 1 metric (the latest metric) for each key.
     case fulfilled(GET_RUN_API): {
       metrics.forEach((m) => {
-        newState[m.key] = [Metric.fromJs(m)];
+        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : [];
+        newArr.push(Metric.fromJs(m));
+        newState[m.key] = newArr;
       });
       return newState;
     }
-    // Assumes the SEARCH_RUNS_API only returns 1 metric per key.
+    // Assumes the SEARCH_RUNS_API only returns 1 metric (the latest metric) per key.
     case fulfilled(SEARCH_RUNS_API): {
       metrics.forEach((m) => {
-        newState[m.key] = [Metric.fromJs(m)];
+        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : [];
+        newArr.push(Metric.fromJs(m));
+        newState[m.key] = newArr;
       });
       return newState;
     }
     case fulfilled(GET_METRIC_HISTORY_API): {
       const key = action.meta.key;
-      newState[key] = metrics;
+      newState[key] = metrics.map((m) => Metric.fromJs(m));
       return newState;
     }
     default:

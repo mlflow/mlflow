@@ -56,7 +56,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
     # create random file to store run ids of the training tasks
     tmp = tempfile.mkdtemp()
     results_path = os.path.join(tmp, "results.txt")
-    tracking_service = mlflow.tracking.get_service()
+    tracking_client = mlflow.tracking.MlflowClient()
 
     def new_eval(nepochs,
                  experiment_id,
@@ -103,7 +103,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
             )
 
             if p.wait():
-                training_run = tracking_service.get_run(p.run_id)
+                training_run = tracking_client.get_run(p.run_id)
 
                 def get_metric(metric_name):
                     return [m.value for m in training_run.data.metrics if m.key == metric_name][0]
@@ -118,7 +118,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
 
             else:
                 # run failed => return null loss
-                tracking_service.set_terminated(p.run_id, "FAILED")
+                tracking_client.set_terminated(p.run_id, "FAILED")
                 train_loss = null_train_loss
                 valid_loss = null_valid_loss
                 test_loss = null_test_loss
