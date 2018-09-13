@@ -1,9 +1,5 @@
 FROM continuumio/miniconda
 
-WORKDIR /app
-
-ADD . /app
-
 RUN pip install -r dev-requirements.txt && \
     pip install -r test-requirements.txt && \
     pip install -e . && \
@@ -13,3 +9,8 @@ RUN pip install -r dev-requirements.txt && \
     cd mlflow/server/js && \
     npm install && \
     npm run build
+
+WORKDIR /app
+
+ADD . /app
+
