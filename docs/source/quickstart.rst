@@ -8,9 +8,15 @@ Installing MLflow
 
 You install MLflow by running:
 
-.. code:: bash
+.. code-section::
+    .. code-block:: bash
 
-    pip install mlflow
+        pip install mlflow
+
+    .. code-block:: R
+
+        devtools::install_github("mlflow/mlflow", subdir = "R/mlflow")
+        mlflow_install()
 
 .. note::
 
@@ -39,24 +45,40 @@ The :doc:`MLflow Tracking API<tracking/>` lets you log metrics and artifacts (fi
 science code and see a history of your runs. You can try it out by writing a simple Python script
 as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
 
-.. code:: python
+.. code-section::
+    .. code-block:: python
 
-    import os
-    from mlflow import log_metric, log_param, log_artifact
+        import os
+        from mlflow import log_metric, log_param, log_artifact
 
-    if __name__ == "__main__":
+        if __name__ == "__main__":
+            # Log a parameter (key-value pair)
+            log_param("param1", 5)
+
+            # Log a metric; metrics can be updated throughout the run
+            log_metric("foo", 1)
+            log_metric("foo", 2)
+            log_metric("foo", 3)
+
+            # Log an artifact (output file)
+            with open("output.txt", "w") as f:
+                f.write("Hello world!")
+            log_artifact("output.txt")
+    .. code-block:: R
+
+        library(mlflow)
+
         # Log a parameter (key-value pair)
-        log_param("param1", 5)
+        mlflow_log_param("param1", 5)
 
         # Log a metric; metrics can be updated throughout the run
-        log_metric("foo", 1)
-        log_metric("foo", 2)
-        log_metric("foo", 3)
+        mlflow_log_metric("foo", 1)
+        mlflow_log_metric("foo", 2)
+        mlflow_log_metric("foo", 3)
 
         # Log an artifact (output file)
-        with open("output.txt", "w") as f:
-            f.write("Hello world!")
-        log_artifact("output.txt")
+        writeLines("Hello world!", "output.txt")
+        mlflow_log_artifact("output.txt")
 
 Viewing the Tracking UI
 -----------------------
@@ -64,14 +86,18 @@ Viewing the Tracking UI
 By default, wherever you run your program, the tracking API writes data into files into an ``mlruns`` directory.
 You can then run MLflow's Tracking UI:
 
-.. code:: bash
+.. code-section::
+    .. code-block:: bash
 
-    mlflow ui
+        mlflow ui
+    .. code-block:: R
 
-and view it at `<http://localhost:5000>`_. 
+        mlflow_ui()
+
+and view it at `<http://localhost:5000>`_.
 
 .. note::
-    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.  
+    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.
 
 Alternatively, you can configure MLflow to :ref:`log runs to a remote server<tracking>` to manage
 your results centrally or share them across a team.
@@ -144,9 +170,9 @@ predictions:
 .. code:: bash
 
     curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
-         
+
 which returns::
-  
+
     {"predictions": [1, 0]}
 
 .. note::

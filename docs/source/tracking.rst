@@ -3,8 +3,8 @@
 MLflow Tracking
 ===============
 
-The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files 
-when running your machine learning code and for later visualizing the results. 
+The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
+when running your machine learning code and for later visualizing the results.
 MLflow Tracking lets you log and query experiments using both :ref:`Python <python-api>` and :ref:`REST <rest-api>` APIs.
 
 .. contents:: Table of Contents
@@ -66,8 +66,8 @@ There are a different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting :ref:`your own tracking server <tracking_server>`.
-- Databricks workspace (specified as ``databricks``, or a specific Databricks CLI profile as ``databricks://<profileName>``. 
-  For more information on configuring a Databricks CLI, see the `GitHub README <https://github.com/databricks/databricks-cli#installation>`_. 
+- Databricks workspace (specified as ``databricks``, or a specific Databricks CLI profile as ``databricks://<profileName>``.
+  For more information on configuring a Databricks CLI, see the `GitHub README <https://github.com/databricks/databricks-cli#installation>`_.
   This works only in workspaces for which the Databricks MLflow Tracking Server is enabled; contact Databricks if interested.
 
 Logging Data to Runs
@@ -165,7 +165,7 @@ environment variable.
 Managing Experiments and Runs with the Tracking Service API
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-MLflow provides a more detailed Tracking Service API for managing experiments and runs directly, 
+MLflow provides a more detailed Tracking Service API for managing experiments and runs directly,
 which is available through client SDK in the :py:mod:`mlflow.tracking` module.
 This makes it possible to query data about past runs, log additional information about them, create experiments and more.
 
@@ -175,7 +175,7 @@ Example usage:
 
     from  mlflow.tracking import MlflowClient
     client = MlflowClient()
-    experiments = service.list_experiments() # returns a list of mlflow.entities.Experiment
+    experiments = client.list_experiments() # returns a list of mlflow.entities.Experiment
     run = client.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
     client.log_param(run.info.run_uuid, "hello", "world")
     client.set_terminated(run.info.run_uuid)
@@ -212,7 +212,7 @@ common tasks:
 * Load artifacts from past runs as :ref:`models`.
 * Run automated parameter search algorithms, where you query the metrics from various runs to
   submit new ones.
-  
+
 For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
 
 .. _tracking_server:
@@ -246,25 +246,25 @@ running a server, make sure that this points to a persistent (that is, non-ephem
 The **Artifact Store** is a location suitable for large data (such as an S3 bucket or shared NFS file system)
 where *clients* log their artifact output (for example, models). The Artifact Store is a property
 of an experiment, but the ``--default-artifact-root`` flag sets the artifact root URI for
-newly-created experiments that do not specify one. 
+newly-created experiments that do not specify one.
 Once you create an experiment, the ``--default-artifact-root`` is no longer relevant to it.
 
 To allow the clients and server to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
-profile in ``~/.aws/credentials``. 
+profile in ``~/.aws/credentials``.
 See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
 .. important::
 
-  If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment 
-  (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root 
-  will be a path inside the File Store. Typically this is not an appropriate location, as the client and 
+  If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment
+  (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), then the artifact root
+  will be a path inside the File Store. Typically this is not an appropriate location, as the client and
   server will probably be referring to different physical locations (that is, the same path on different disks).
 
 Supported Artifact Stores
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-In addition to local file paths, MLflow supports the following storage systems as artifact stores: 
+In addition to local file paths, MLflow supports the following storage systems as artifact stores:
 Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Amazon S3
@@ -275,7 +275,7 @@ the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` de
 these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
-To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL. 
+To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL.
 For example, if you have a Minio server at 1.2.3.4 on port 9000:
 
 .. code:: bash
@@ -284,8 +284,8 @@ For example, if you have a Minio server at 1.2.3.4 on port 9000:
 
 Azure Blob Storage
 ~~~~~~~~~~~~~~~~~~
-To store artifacts in Azure Blob Storage, specify a URI of the form 
-``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``. 
+To store artifacts in Azure Blob Storage, specify a URI of the form
+``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
 a connection string if one is set), so you will need to set one of these variables on both your client
@@ -303,7 +303,7 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 
 SFTP Server
 ~~~~~~~~~~~
-To store artifacts in an SFTP server, specify a URI of the form ``sftp://user@host/path/to/directory``. 
+To store artifacts in an SFTP server, specify a URI of the form ``sftp://user@host/path/to/directory``.
 You should configure the client to be able to log in to the SFTP server without a password over SSH (e.g. public key, identity file in ssh_config, etc.).
 
 The format ``sftp://pass:user@host/`` is supported for logging in. However, for safety reasons this is not recommended.

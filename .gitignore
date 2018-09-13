@@ -88,3 +88,7 @@ venv.bak/
 
 # java targets
 target/
+
+# R notebooks
+.Rproj.user
+example/tutorial/R/*.nb.html
