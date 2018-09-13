@@ -195,7 +195,7 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         specified prefix is the artifact root. This allows us to mock
         `list_artifacts` during the `_download_artifacts_into` subroutine
         without recursively listing the same artifacts at every level of the
-        directory traversal
+        directory traversal.
         """
         # pylint: disable=unused-argument
         prefix = os.path.join("/", prefix)
