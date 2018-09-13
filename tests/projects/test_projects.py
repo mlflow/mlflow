@@ -190,7 +190,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri,
                                         tracking_uri_mock):   # pylint: disable=unused-argument
     # Run project with invalid commit hash
     with pytest.raises(ExecutionException,
-                       match=r'Got exception when validating git version \'badc0de\''):
+                       match=r'Unable to checkout version \'badc0de\''):
         mlflow.projects.run(local_git_repo_uri + "#" + TEST_PROJECT_NAME,
                             entry_point="test_tracking", version="badc0de",
                             use_conda=False, experiment_id=0)

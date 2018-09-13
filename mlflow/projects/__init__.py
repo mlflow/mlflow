@@ -263,9 +263,9 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         try:
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
-            raise ExecutionException("Got exception when validating git version '%s' "
+            raise ExecutionException("Unable to checkout version '%s' of git repo %s"
                                      "- please ensure that the version exists in the repo. "
-                                     "Error: %s" % (version, e))
+                                     "Error: %s" % (version, uri, e))
     else:
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
