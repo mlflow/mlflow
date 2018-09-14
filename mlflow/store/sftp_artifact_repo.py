@@ -2,7 +2,6 @@ import os
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import TempDir
 from six.moves import urllib
 
 
