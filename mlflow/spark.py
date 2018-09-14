@@ -27,6 +27,7 @@ import shutil
 import pyspark
 from pyspark import SparkContext
 from pyspark.ml.pipeline import PipelineModel
+from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -269,8 +270,9 @@ def load_pyfunc(path):
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
     """
-    spark = SparkContext._active_spark_context or \
-            pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
+
+    spark = pyspark.sql.SparkSession._instantiatedSession or \
+            pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
             .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, _load_model(model_path=path))
 
