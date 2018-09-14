@@ -27,7 +27,6 @@ import shutil
 import pyspark
 from pyspark import SparkContext
 from pyspark.ml.pipeline import PipelineModel
-from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -273,9 +272,10 @@ def load_pyfunc(path):
     # NOTE: The getOrCreate() call below may change settings of the active session which we do not
     # intend to do here. In particular, setting master to local[1] can break distributed clusters.
     # To avoid this problem, we explicitly check for an active session. This is not ideal but there
-    # is no good workaround at the moment.   
-    spark = pyspark.sql.SparkSession._instantiatedSession or \
-            pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
+    # is no good workaround at the moment.
+    spark = pyspark.sql.SparkSession._instantiatedSession
+    if spark is None:
+        pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
             .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, _load_model(model_path=path))
 
