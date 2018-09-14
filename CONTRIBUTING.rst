@@ -42,15 +42,13 @@ If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update
 Java API
 --------
 
-Prerequisites
-~~~~~~~~~~~~~
-
 The MLflow Java client depends on the Python client, so first install the Python client in a conda
 environment as described above. `Install <https://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
 the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>`_
 and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
 
 .. code:: bash
+
   mvn clean package
 
 
