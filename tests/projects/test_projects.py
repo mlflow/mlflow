@@ -8,7 +8,7 @@ import mock
 import pytest
 
 import mlflow
-from mlflow.entities import RunStatus
+from mlflow.entities import RunStatus, ViewType
 from mlflow.exceptions import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
@@ -22,6 +22,11 @@ def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
         return "%s#%s" % (base_uri, subdirectory)
     return base_uri
+
+
+def _get_version_local_git_repo(local_git_repo):
+    repo = git.Repo(local_git_repo, search_parent_directories=True)
+    return repo.git.rev_parse("HEAD")
 
 
 @pytest.fixture()
@@ -126,12 +131,27 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
         os.environ["PATH"] = old_path
 
 
+def test_is_valid_branch_name(local_git_repo):
+    assert mlflow.projects._is_valid_branch_name(local_git_repo, "master")
+    assert not mlflow.projects._is_valid_branch_name(local_git_repo, "dev")
+
+
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_run_local_git_repo(tmpdir, local_git_repo,
+@pytest.mark.parametrize("version", [None, "master", "git-commit"])
+def test_run_local_git_repo(tmpdir,
+                            local_git_repo,
+                            local_git_repo_uri,
                             tracking_uri_mock,   # pylint: disable=unused-argument
-                            use_start_run):
+                            use_start_run,
+                            version):
+    if version is not None:
+        uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
+    else:
+        uri = os.path.join("%s/" % local_git_repo, TEST_PROJECT_NAME)
+    if version == "git-commit":
+        version = _get_version_local_git_repo(local_git_repo)
     submitted_run = mlflow.projects.run(
-        os.path.join("%s/" % local_git_repo, TEST_PROJECT_NAME), entry_point="test_tracking",
+        uri, entry_point="test_tracking", version=version,
         parameters={"use_start_run": use_start_run},
         use_conda=False, experiment_id=0)
 
@@ -144,7 +164,7 @@ def test_run_local_git_repo(tmpdir, local_git_repo,
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
     store = FileStore(tmpdir.strpath)
-    run_infos = store.list_run_infos(experiment_id=0)
+    run_infos = store.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
@@ -159,6 +179,21 @@ def test_run_local_git_repo(tmpdir, local_git_repo,
     assert len(run.data.metrics) == len(expected_metrics)
     for metric in run.data.metrics:
         assert metric.value == expected_metrics[metric.key]
+    # Validate the branch name tag is logged
+    if version == "master":
+        expected_tags = {"mlflow.gitBranchName": "master"}
+        for tag in run.data.tags:
+            assert tag.value == expected_tags[tag.key]
+
+
+def test_invalid_version_local_git_repo(local_git_repo_uri,
+                                        tracking_uri_mock):   # pylint: disable=unused-argument
+    # Run project with invalid commit hash
+    with pytest.raises(ExecutionException,
+                       match=r'Unable to checkout version \'badc0de\''):
+        mlflow.projects.run(local_git_repo_uri + "#" + TEST_PROJECT_NAME,
+                            entry_point="test_tracking", version="badc0de",
+                            use_conda=False, experiment_id=0)
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
@@ -177,7 +212,7 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
     store = FileStore(tmpdir.strpath)
-    run_infos = store.list_run_infos(experiment_id=0)
+    run_infos = store.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
     assert run_uuid == store_run_uuid

@@ -1,4 +1,13 @@
-"""MLflow integration for scikit-learn."""
+"""
+The ``mlflow.sklearn`` module provides an API for logging and loading scikit-learn models. This
+module exports scikit-learn models with the following flavors:
+
+Python (native) `pickle <http://scikit-learn.org/stable/modules/model_persistence.html>`_ format
+    This is the main flavor that can be loaded back into scikit-learn.
+
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
+"""
 
 from __future__ import absolute_import
 
@@ -27,7 +36,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
            this model should be run in. At minimum, it should specify python, scikit-learn,
            and mlflow with appropriate versions.
-    :param mlflow_model: MLflow model config this flavor is being added to.
+    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -44,7 +53,12 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
 
 
 def log_model(sk_model, artifact_path):
-    """Log a scikit-learn model as an MLflow artifact for the current run."""
+    """
+    Log a scikit-learn model as an MLflow artifact for the current run.
+
+    :param sk_model: scikit-learn model to be saved.
+    :param artifact_path: Run-relative artifact path.
+    """
 
     with TempDir() as tmp:
         local_path = tmp.path("model")
@@ -66,14 +80,26 @@ def _load_model_from_local_file(path):
 
 
 def load_pyfunc(path):
-    """Load a Python Function model from a local file."""
+    """
+    Load a persisted scikit-learn model as a ``python_function`` model.
+
+    :param path: Local filesystem path to the model saved by :py:func:`mlflow.sklearn.save_model`.
+    :rtype: Pyfunc format model with function
+            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
+    """
 
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
 def load_model(path, run_id=None):
-    """Load a scikit-learn model from a local file (if ``run_id`` is None) or a run."""
+    """
+    Load a scikit-learn model from a local file (if ``run_id`` is None) or a run.
+
+    :param path: Local filesystem path or run-relative artifact path to the model saved
+                 by :py:func:`mlflow.sklearn.save_model`.
+    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model_from_local_file(path)

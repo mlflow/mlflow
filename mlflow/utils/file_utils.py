@@ -95,7 +95,7 @@ def mkdir(root, name=None):  # noqa
     target = os.path.join(root, name) if name is not None else root
     try:
         if not exists(target):
-            os.mkdir(target)
+            os.makedirs(target)
             return target
     except OSError as e:
         raise e
@@ -188,18 +188,32 @@ class TempDir(object):
         return os.path.join("./", *path) if self._chdr else os.path.join(self._path, *path)
 
 
-def read_file(parent_path, file_name):
+def read_file_lines(parent_path, file_name):
     """
-    Return the contents of the file
+    Return the contents of the file as an array where each element is a separate line.
 
-    :param parent_path: Full path to the directory that contains the file
-    :param file_name: Leaf file name
+    :param parent_path: Full path to the directory that contains the file.
+    :param file_name: Leaf file name.
 
-    :return: All lines in the file as an array
+    :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
     with open(file_path, 'r') as f:
         return f.readlines()
+
+
+def read_file(parent_path, file_name):
+    """
+    Return the contents of the file.
+
+    :param parent_path: Full path to the directory that contains the file.
+    :param file_name: Leaf file name.
+
+    :return: The contents of the file.
+    """
+    file_path = os.path.join(parent_path, file_name)
+    with open(file_path, 'r') as f:
+        return f.read()
 
 
 def get_file_info(path, rel_path):
@@ -310,3 +324,7 @@ def _copy_file_or_tree(src, dst, dst_dir):
     else:
         shutil.copytree(src=src, dst=os.path.join(dst, name))
     return name
+
+
+def get_parent_dir(path):
+    return os.path.abspath(os.path.join(path, os.pardir))

@@ -7,12 +7,12 @@ import six
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-from mlflow.entities import Metric, Param, RunTag
+from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
-    DeleteExperiment, RestoreExperiment
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -68,7 +68,7 @@ def get_handler(request_class):
 
 
 _TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
-                    'csv', 'md', 'rst', 'MLmodel', 'MLproject']
+                    'csv', 'tsv', 'md', 'rst', 'MLmodel', 'MLproject']
 
 
 def get_artifact_handler():
@@ -105,7 +105,8 @@ def _get_experiment():
     response_message = GetExperiment.Response()
     response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
                                           .to_proto())
-    run_info_entities = _get_store().list_run_infos(request_message.experiment_id)
+    run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
+                                                    run_view_type=ViewType.ACTIVE_ONLY)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -162,6 +163,24 @@ def _update_run():
     return response
 
 
+def _delete_run():
+    request_message = _get_request_message(DeleteRun())
+    _get_store().delete_run(request_message.run_id)
+    response_message = DeleteRun.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+def _restore_run():
+    request_message = _get_request_message(RestoreRun())
+    _get_store().restore_run(request_message.run_id)
+    response_message = RestoreRun.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _log_metric():
     request_message = _get_request_message(LogMetric())
     metric = Metric(request_message.key, request_message.value, request_message.timestamp)
@@ -204,8 +223,12 @@ def _get_run():
 def _search_runs():
     request_message = _get_request_message(SearchRuns())
     response_message = SearchRuns.Response()
+    run_view_type = ViewType.ACTIVE_ONLY
+    if request_message.HasField('run_view_type'):
+        run_view_type = ViewType.from_proto(request_message.run_view_type)
     run_entities = _get_store().search_runs(request_message.experiment_ids,
-                                            request_message.anded_expressions)
+                                            request_message.anded_expressions,
+                                            run_view_type)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -312,6 +335,8 @@ HANDLERS = {
     RestoreExperiment: _restore_experiment,
     CreateRun: _create_run,
     UpdateRun: _update_run,
+    DeleteRun: _delete_run,
+    RestoreRun: _restore_run,
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetTag: _set_tag,

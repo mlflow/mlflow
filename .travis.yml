@@ -8,6 +8,39 @@ matrix:
   include:
     - python: 2.7
     - python: 3.6
+    - language: r
+      dist: trusty
+      cache: packages
+      before_install:
+        - export NOT_CRAN=true
+        - cd mlflow/R/mlflow
+        - Rscript -e 'install.packages("devtools")'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
+        - cd ../../..
+      script:
+        - cd mlflow/R/mlflow
+        - R CMD build .
+        - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
+        - cd tests
+        - export LINTR_COMMENT_BOT=false
+        - Rscript ../.travis.R
+      after_success:
+        - export COVR_RUNNING=true
+        - Rscript -e 'covr::codecov()'
+    - language: java
+      script:
+        - cd mlflow/java
+        - mvn clean package -q
+    - language: node_js
+      node_js:
+        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
+      install:
+      script:
+        - cd mlflow/server/js
+        - npm i
+        - ./lint.sh
+        - npm test -- --coverage
+
 install:
   - sudo mkdir -p /travis-install
   - sudo chown travis /travis-install
@@ -30,8 +63,11 @@ install:
   - source activate test-environment
   - python --version
   - pip install --upgrade pip
-  - pip install -r dev-requirements.txt -q
-  - pip install -r test-requirements.txt -q
+  # Install Python test dependencies only if we're running Python tests
+  - if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
+      pip install -r dev-requirements.txt -q;
+      pip install -r test-requirements.txt -q;
+    fi
   - pip install .
   - export MLFLOW_HOME=$(pwd)
   # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
@@ -40,31 +76,29 @@ install:
   - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
   - sudo unzip /travis-install/protoc.zip -d /usr
 script:
+  - ./lint.sh
   - sudo ./test-generate-protos.sh
   - pip list
   - which mlflow
   - echo $MLFLOW_HOME
-  - mlflow sagemaker build-and-push-container --no-push --mlflow-home .
-  - ./lint.sh
+  - SAGEMAKER_OUT=$(mktemp)
+  - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+      echo "Sagemaker container build succeeded.";
+    else
+      echo "Sagemaker container build failed, output:";
+      cat $SAGEMAKER_OUT;
+    fi
   # Run tests that don't leverage specific ML frameworks
   - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
     --ignore=tests/pytorch --ignore=tests/pyfunc--ignore=tests/sagemaker --ignore=tests/sklearn
     --ignore=tests/spark --ignore=tests/tensorflow
   # Run ML framework tests in their own Python processes. TODO: find a better method of isolating
   # tests.
-  - pytest --cov=mlflow --verbose tests/h2o --large
-  - pytest --cov=mlflow --verbose tests/keras --large
-  - pytest --cov=mlflow --verbose tests/pytorch --large
-  - pytest --cov=mlflow --verbose tests/pyfunc --large
-  - pytest --cov=mlflow --verbose tests/sagemaker --large
-  - pytest --cov=mlflow --verbose tests/sklearn --large
-  - pytest --cov=mlflow --verbose tests/spark --large
-  - pytest --cov=mlflow --verbose tests/tensorflow --large
-  - cd mlflow/server/js
-  - npm i
-  - ./lint.sh
-  - npm test -- --coverage
-  - cd ../../java
-  - mvn clean package
-  - cd ../..
-  - codecov -e TOXENV
+  - pytest --verbose tests/h2o --large
+  - pytest --verbose tests/keras --large
+  - pytest --verbose tests/pytorch --large
+  - pytest --verbose tests/pyfunc --large
+  - pytest --verbose tests/sagemaker --large
+  - pytest --verbose tests/sklearn --large
+  - pytest --verbose tests/spark --large
+  - pytest --verbose tests/tensorflow --large

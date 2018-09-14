@@ -1,8 +1,11 @@
 """
-MLflow integration for PyTorch.
+The ``mlflow.pytorch`` module provides an API for logging and loading PyTorch models. This module
+exports PyTorch models with the following flavors:
 
-Manages logging and loading PyTorch models; logged models can be loaded back as PyTorch
-models or as Python Function models.
+PyTorch (native) format
+    This is the main flavor that can be loaded back into PyTorch.
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
 from __future__ import absolute_import
@@ -25,13 +28,13 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single torch.FloatTensor as input
-                          and produce a single output tensor.
+    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Path to a Conda environment file. If provided, this defines the environment
-           for the model. At minimum, it should specify Python, PyTorch and MLflow with appropriate
+           for the model. At minimum, it should specify python, pytorch, and mlflow with appropriate
            versions.
-    :param kwargs: kwargs to pass to ``torch.save`` method
+    :param kwargs: kwargs to pass to ``torch.save`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch,
               pytorch_model=pytorch_model, conda_env=conda_env, **kwargs)
@@ -41,14 +44,14 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     """
     Save a PyTorch model to a path on the local file system.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single torch.FloatTensor as input
-                          and produce a single output tensor.
+    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify Python, PyTorch
-                      and MLflow with appropriate versions.
-    :param mlflow_model: MLflow model config this flavor is being added to.
-    :param kwargs: kwargs to pass to ``torch.save`` method
+                      this model should be run in. At minimum, it should specify python, pytorch,
+                      and mlflow with appropriate versions.
+    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+    :param kwargs: kwargs to pass to ``torch.save`` method.
     """
 
     if not isinstance(pytorch_model, torch.nn.Module):
@@ -85,7 +88,7 @@ def _load_model(path, **kwargs):
     # This maybe replaced by a warning and then try/except torch.load
     flavor = mlflow_model.flavors[FLAVOR_NAME]
     if torch.__version__ != flavor["pytorch_version"]:
-        raise ValueError("Unfortunately stored model version '{}' does not match "
+        raise ValueError("Stored model version '{}' does not match "
                          "installed PyTorch version '{}'"
                          .format(flavor["pytorch_version"], torch.__version__))
 
@@ -96,12 +99,12 @@ def _load_model(path, **kwargs):
 
 def load_model(path, run_id=None, **kwargs):
     """
-    Load a PyTorch model from a local file (if run_id is None) or a run.
-    :param path: Local filesystem path or Run-relative artifact path to the model saved
-    by :py:func:`mlflow.pytorch.log_model`.
+    Load a PyTorch model from a local file (if ``run_id`` is ``None``) or a run.
 
-    :param run_id: Run ID. If provided it is combined with path to identify the model.
-    :param kwargs: kwargs to pass to `torch.load` method
+    :param path: Local filesystem path or run-relative artifact path to the model saved
+                 by :py:func:`mlflow.pytorch.log_model`.
+    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param kwargs: kwargs to pass to ``torch.load`` method.
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
@@ -111,13 +114,17 @@ def load_model(path, run_id=None, **kwargs):
 
 def load_pyfunc(path, **kwargs):
     """
-    Load the model as PyFunc. The loaded PyFunc exposes a `predict(pd.DataFrame) -> pd.DataFrame`
+    Load a persisted PyTorch model as a ``python_function`` model.
+    The loaded PyFunc exposes a ``predict(pd.DataFrame) -> pd.DataFrame``
     method that, given an input DataFrame of n rows and k float-valued columns, feeds a
-    corresponding (n x k) torch.FloatTensor (or torch.cuda.FloatTensor) as input to the PyTorch
-    model. ``predict`` returns the model's predictions (output tensor) in a single-column DataFrame.
+    corresponding (n x k) ``torch.FloatTensor`` (or ``torch.cuda.FloatTensor``) as input to the
+    PyTorch model. ``predict`` returns the model's predictions (output tensor) in a single column
+    DataFrame.
 
     :param path: Local filesystem path to the model saved by :py:func:`mlflow.pytorch.log_model`.
-    :param kwargs: kwargs to pass to `torch.load` method.
+    :param kwargs: kwargs to pass to ``torch.load`` method.
+    :rtype: Pyfunc format model with function
+            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
     """
     return _PyTorchWrapper(_load_model(os.path.dirname(path), **kwargs))
 

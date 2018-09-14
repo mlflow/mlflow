@@ -1,9 +1,9 @@
-.. _python_api:
+.. _python-api:
 
 Python API
 ==========
 
-MLflow's Python API is organized into the following packages. The most common functions are also
+The MLflow Python API is organized into the following modules. The most common functions are also
 exposed in the :py:mod:`mlflow` module, so we recommend starting there.
 
 .. toctree::

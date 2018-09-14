@@ -9,10 +9,11 @@ import databricks_cli
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
-from mlflow.tracking import get_service
+from mlflow.tracking import MlflowClient
 from mlflow.utils import file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
@@ -93,8 +94,8 @@ def before_run_validations_mock():  # pylint: disable=unused-argument
 
 @pytest.fixture()
 def set_tag_mock():
-    with mock.patch("mlflow.projects.databricks.tracking.get_service") as m:
-        mlflow_service_mock = mock.Mock(wraps=get_service())
+    with mock.patch("mlflow.projects.databricks.tracking.MlflowClient") as m:
+        mlflow_service_mock = mock.Mock(wraps=MlflowClient())
         m.return_value = mlflow_service_mock
         yield mlflow_service_mock.set_tag
 
@@ -157,7 +158,7 @@ def test_run_databricks_validations(
     """
     with mock.patch("mlflow.projects.databricks.DatabricksJobRunner._check_auth_available"),\
         mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}),\
-        mock.patch("mlflow.projects.databricks.DatabricksJobRunner.databricks_api_request")\
+        mock.patch("mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request")\
             as db_api_req_mock:
         # Test bad tracking URI
         tracking_uri_mock.return_value = tmpdir.strpath
@@ -276,11 +277,19 @@ def test_databricks_http_request_integration(get_config, request):
     get_config.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=False)
 
-    response = DatabricksJobRunner(databricks_profile=None).databricks_api_request(
+    response = DatabricksJobRunner(databricks_profile=None)._databricks_api_request(
         '/clusters/list', 'PUT', json={'a': 'b'})
-    assert response == {'OK': 'woo'}
+    assert json.loads(response.text) == {'OK': 'woo'}
     get_config.reset_mock()
-    response = DatabricksJobRunner(databricks_profile="my-profile").databricks_api_request(
+    response = DatabricksJobRunner(databricks_profile="my-profile")._databricks_api_request(
         '/clusters/list', 'PUT', json={'a': 'b'})
-    assert response == {'OK': 'woo'}
+    assert json.loads(response.text) == {'OK': 'woo'}
     assert get_config.call_count == 0
+
+
+def test_run_databricks_failed():
+    with mock.patch('mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request') as m:
+        m.return_value = mock.Mock(text="{'message': 'Node type not supported'}", status_code=400)
+        runner = DatabricksJobRunner('profile')
+        with pytest.raises(MlflowException):
+            runner._run_shell_command_job('/project', 'command', {}, {})

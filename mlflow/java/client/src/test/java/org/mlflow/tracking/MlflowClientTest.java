@@ -1,8 +1,12 @@
 package org.mlflow.tracking;
 
 import java.io.*;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.testng.Assert;
 import org.testng.annotations.*;
@@ -10,6 +14,7 @@ import org.testng.annotations.*;
 import static org.mlflow.tracking.TestUtils.*;
 
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.artifacts.ArtifactRepository;
 
 public class MlflowClientTest {
   private static final Logger logger = Logger.getLogger(MlflowClientTest.class);
@@ -135,5 +140,35 @@ public class MlflowClientTest {
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
+  }
+
+  @Test
+  public void deleteAndRestoreRun() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+
+    String sourceFile = "MyFile.java";
+
+    RunInfo runCreated = client.createRun(expId, sourceFile);
+    Assert.assertEquals(runCreated.getLifecycleStage(), "active");
+    String deleteRunId = runCreated.getRunUuid();
+    client.deleteRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "deleted");
+    client.restoreRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "active");
+  }
+
+  @Test
+  public void testUseArtifactRepository() throws IOException {
+    String content = "Hello, Worldz!";
+
+    File tempFile = Files.createTempFile(getClass().getSimpleName(), ".txt").toFile();
+    FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
+    client.logArtifact(runId, tempFile);
+
+    File downloadedArtifact = client.downloadArtifacts(runId, tempFile.getName());
+    String downloadedContent = FileUtils.readFileToString(downloadedArtifact,
+      StandardCharsets.UTF_8);
+    Assert.assertEquals(content, downloadedContent);
   }
 }

@@ -31,6 +31,14 @@ DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
+def _check_response_status_code(response):
+    """
+    Throws MlflowException if the response status code is not 200.
+    """
+    if response.status_code != 200:
+        raise ExecutionException("The Databricks request failed. Error: {}".format(response.text))
+
+
 class DatabricksJobRunner(object):
     """
     Helper class for running an MLflow project as a Databricks Job.
@@ -40,43 +48,44 @@ class DatabricksJobRunner(object):
     def __init__(self, databricks_profile):
         self.databricks_profile = databricks_profile
 
-    def databricks_api_request(self, endpoint, method, **kwargs):
+    def _databricks_api_request(self, endpoint, method, **kwargs):
         host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
-        response = rest_utils.http_request(
+        return rest_utils.http_request(
             host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
-        return json.loads(response.text)
 
-    def _jobs_runs_submit(self, json):
-        return self.databricks_api_request(
-            endpoint="/api/2.0/jobs/runs/submit", method="POST", json=json)
+    def _jobs_runs_submit(self, req_body):
+        response = self._databricks_api_request(
+            endpoint="/api/2.0/jobs/runs/submit", method="POST", json=req_body)
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
     def _check_auth_available(self):
         """
-        Verifies that information for making API requests to Databricks is available to MLflow,
+        Verify that information for making API requests to Databricks is available to MLflow,
         raising an exception if not.
         """
         databricks_utils.get_databricks_host_creds(self.databricks_profile)
 
     def _upload_to_dbfs(self, src_path, dbfs_fuse_uri):
         """
-        Uploads the file at `src_path` to the specified DBFS URI within the Databricks workspace
+        Upload the file at `src_path` to the specified DBFS URI within the Databricks workspace
         corresponding to the default Databricks CLI profile.
         """
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
-        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         with open(src_path, 'rb') as f:
-            rest_utils.http_request(
-                host_creds=host_creds, endpoint=http_endpoint, method='POST', data=f)
+            response = self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            _check_response_status_code(response)
 
     def _dbfs_path_exists(self, dbfs_uri):
         """
-        Returns True if the passed-in path exists in DBFS for the workspace corresponding to the
+        Return True if the passed-in path exists in DBFS for the workspace corresponding to the
         default Databricks CLI profile.
         """
         dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
-        json_response_obj = self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": dbfs_path})
+        json_response_obj = json.loads(response.text)
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
         if error_code_field in json_response_obj:
@@ -119,16 +128,18 @@ class DatabricksJobRunner(object):
 
     def _run_shell_command_job(self, project_uri, command, env_vars, cluster_spec):
         """
-        Runs the specified shell command on a Databricks cluster.
-        :param project_uri: URI of the project from which our shell command originates
-        :param command: Shell command to run
-        :param env_vars: Environment variables to set in the process running `command`
-        :param cluster_spec: Dictionary describing the cluster, expected to contain the fields for a
-                             NewCluster (see https://docs.databricks.com/api/latest/
-                             jobs.html#jobsclusterspecnewcluster)
-        :return: The ID of the Databricks Job Run. Can be used to query the run's status via the
-                 Databricks Runs Get API
-                 (https://docs.databricks.com/api/latest/jobs.html#runs-get).
+        Run the specified shell command on a Databricks cluster.
+
+        :param project_uri: URI of the project from which the shell command originates.
+        :param command: Shell command to run.
+        :param env_vars: Environment variables to set in the process running ``command``.
+        :param cluster_spec: Path to a JSON file containing a
+                             `Databricks cluster specification
+                             <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
+                             to use when launching a run.
+        :return: ID of the Databricks job run. Can be used to query the run's status via the
+                 Databricks
+                 `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         # Make jobs API request to launch run.
         req_body_json = {
@@ -193,20 +204,27 @@ class DatabricksJobRunner(object):
 
     def get_run_result_state(self, databricks_run_id):
         """
-        Returns the run result state (string) of the Databricks run with the passed-in ID, or None
-        if the run is still active. See possible values at
-        https://docs.databricks.com/api/latest/jobs.html#runresultstate.
+        Get the run result state (string) of a Databricks job run.
+
+        :param databricks_run_id: Integer Databricks job run ID.
+        :returns `RunResultState
+<https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
+        the run is still active.
         """
         res = self.jobs_runs_get(databricks_run_id)
         return res["state"].get("result_state", None)
 
     def jobs_runs_cancel(self, databricks_run_id):
-        return self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
     def jobs_runs_get(self, databricks_run_id):
-        return self.databricks_api_request(
+        response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
+        _check_response_status_code(response)
+        return json.loads(response.text)
 
 
 def _get_tracking_uri_for_run():
@@ -220,7 +238,7 @@ def _get_tracking_uri_for_run():
 
 def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     """
-    Generates MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks
+    Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
     """
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
     tar_hash = os.path.splitext(os.path.splitext(os.path.basename(dbfs_fuse_tar_uri))[0])[0]
@@ -258,15 +276,15 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
 
 def _parse_dbfs_uri_path(dbfs_uri):
     """
-    Parses and returns the absolute path within DBFS of the file with the specified URI. For
-    example, given an input of "dbfs:/my/dbfs/path", this method will return "/my/dbfs/path"
+    Parse and return the absolute path within DBFS of the file with the specified URI. For
+    example, given an input of "dbfs:/my/dbfs/path", this method will return "/my/dbfs/path".
     """
     return urllib.parse.urlparse(dbfs_uri).path
 
 
 def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
     """
-    Runs the project at the specified URI on Databricks, returning a `SubmittedRun` that can be
+    Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
     profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
@@ -305,18 +323,18 @@ class DatabricksSubmittedRun(SubmittedRun):
         jobs_page_url = run_info["run_page_url"]
         eprint("=== Check the run's status at %s ===" % jobs_page_url)
         host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
-        tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
-        tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
-        tracking.get_service().set_tag(self._mlflow_run_id,
-                                       MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                        MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                        MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                        MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
         job_id = run_info.get('job_id')
         # In some releases of Databricks we do not return the job ID. We start including it in DB
         # releases 2.80 and above.
         if job_id is not None:
-            tracking.get_service().set_tag(self._mlflow_run_id,
-                                           MLFLOW_DATABRICKS_SHELL_JOB_ID, job_id)
+            tracking.MlflowClient().set_tag(self._mlflow_run_id,
+                                            MLFLOW_DATABRICKS_SHELL_JOB_ID, job_id)
 
     @property
     def run_id(self):

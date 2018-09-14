@@ -4,7 +4,7 @@ from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 
 class Experiment(_MLflowObject):
     """
-    Experiment object for Python client.
+    Experiment object.
     """
     DEFAULT_EXPERIMENT_ID = 0
 

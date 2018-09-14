@@ -9,17 +9,19 @@ from mlflow.utils.logging_utils import eprint
 
 class SubmittedRun(object):
     """
-    Class wrapping a MLflow project run (e.g. a subprocess running an entry point
-    command or a Databricks Job run) and exposing methods for waiting on / cancelling the run.
+    Wrapper around an MLflow project run (e.g. a subprocess running an entry point
+    command or a Databricks job run) and exposing methods for waiting on and cancelling the run.
     This class defines the interface that the MLflow project runner uses to manage the lifecycle
-    of runs launched in different environments (e.g. runs launched locally / on Databricks).
+    of runs launched in different environments (e.g. runs launched locally or on Databricks).
 
     ``SubmittedRun`` is not thread-safe. That is, concurrent calls to wait() / cancel()
     from multiple threads may inadvertently kill resources (e.g. local processes) unrelated to the
     run.
 
-    Note: Subclasses of ``SubmittedRun`` are expected to expose a ``run_id`` member containing the
-    run's MLflow run ID.
+    NOTE:
+
+        Subclasses of ``SubmittedRun`` must expose a ``run_id`` member containing the
+        run's MLflow run ID.
     """
     @abstractmethod
     def wait(self):

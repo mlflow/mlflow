@@ -3,8 +3,11 @@ package org.mlflow.tracking;
 import org.apache.http.client.utils.URIBuilder;
 
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.artifacts.ArtifactRepository;
+import org.mlflow.artifacts.ArtifactRepositoryFactory;
 import org.mlflow.tracking.creds.*;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -18,6 +21,7 @@ public class MlflowClient {
   private static final long DEFAULT_EXPERIMENT_ID = 0;
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
+  private final ArtifactRepositoryFactory artifactRepositoryFactory;
   private final MlflowHttpCaller httpCaller;
   private final MlflowHostCredsProvider hostCredsProvider;
 
@@ -38,6 +42,7 @@ public class MlflowClient {
   public MlflowClient(MlflowHostCredsProvider hostCredsProvider) {
     this.hostCredsProvider = hostCredsProvider;
     this.httpCaller = new MlflowHttpCaller(hostCredsProvider);
+    this. artifactRepositoryFactory = new ArtifactRepositoryFactory(hostCredsProvider);
   }
 
   /** @return run associated with the id. */
@@ -142,6 +147,22 @@ public class MlflowClient {
   }
 
   /**
+   * Deletes a run with the given ID.
+   */
+  public void deleteRun(String runId) {
+    String ijson = mapper.makeDeleteRun(runId);
+    httpCaller.post("runs/delete", ijson);
+  }
+
+  /**
+   * Restores a deleted run with the given ID.
+   */
+  public void restoreRun(String runId) {
+    String ijson = mapper.makeRestoreRun(runId);
+    httpCaller.post("runs/restore", ijson);
+  }
+
+  /**
    * Logs a parameter against the given run, as a key-value pair.
    * This cannot be called against the same parameter key more than once.
    */
@@ -177,14 +198,6 @@ public class MlflowClient {
     sendPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
   }
 
-  /** @return a list of all artifacts under the given artifact path within the run. */
-  public ListArtifacts.Response listArtifacts(String runUuid, String path) {
-    URIBuilder builder = newURIBuilder("artifacts/list")
-      .setParameter("run_uuid", runUuid)
-      .setParameter("path", path);
-    return mapper.toListArtifactsResponse(httpCaller.get(builder.toString()));
-  }
-
   /**
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
@@ -204,10 +217,9 @@ public class MlflowClient {
   }
 
   /**
-   * Intended for internal usage, and may be removed in future versions.
-   * @return HostCredsProvider backing this MlflowClient.
+   * @return HostCredsProvider backing this MlflowClient. Visible for testing.
    */
-  public MlflowHostCredsProvider getInternalHostCredsProvider() {
+  MlflowHostCredsProvider getInternalHostCredsProvider() {
     return hostCredsProvider;
   }
 
@@ -262,5 +274,138 @@ public class MlflowClient {
       throw new IllegalArgumentException("Invalid tracking server uri: " + trackingUri);
     }
     return provider;
+  }
+
+  /**
+   * Uploads the given local file to the run's root artifact directory. For example,
+   *
+   *   <pre>
+   *   logArtifact(runId, "/my/localModel")
+   *   listArtifacts(runId) // returns "localModel"
+   *   </pre>
+   *
+   * @param runId Run ID of an existing MLflow run.
+   * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
+   */
+  public void logArtifact(String runId, File localFile) {
+    getArtifactRepository(runId).logArtifact(localFile);
+  }
+
+  /**
+   * Uploads the given local file to an artifactPath within the run's root directory. For example,
+   *
+   *   <pre>
+   *   logArtifact(runId, "/my/localModel", "model")
+   *   listArtifacts(runId, "model") // returns "model/localModel"
+   *   </pre>
+   *
+   * (i.e., the localModel file is now available in model/localModel).
+   *
+   * @param runId Run ID of an existing MLflow run.
+   * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
+   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   *                     start with a /.
+   */
+  public void logArtifact(String runId, File localFile, String artifactPath) {
+    getArtifactRepository(runId).logArtifact(localFile, artifactPath);
+  }
+
+  /**
+   * Uploads all files within the given local directory the run's root artifact directory.
+   * For example, if /my/local/dir/ contains two files "file1" and "file2", then
+   *
+   *   <pre>
+   *   logArtifacts(runId, "/my/local/dir")
+   *   listArtifacts(runId) // returns "file1" and "file2"
+   *   </pre>
+   *
+   * @param runId Run ID of an existing MLflow run.
+   * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
+   */
+  public void logArtifacts(String runId, File localDir) {
+    getArtifactRepository(runId).logArtifacts(localDir);
+  }
+
+
+  /**
+   * Uploads all files within the given local director an artifactPath within the run's root
+   * artifact directory. For example, if /my/local/dir/ contains two files "file1" and "file2", then
+   *
+   *   <pre>
+   *   logArtifacts(runId, "/my/local/dir", "model")
+   *   listArtifacts(runId, "model") // returns "model/file1" and "model/file2"
+   *   </pre>
+   *
+   * (i.e., the contents of the local directory are now available in model/).
+   *
+   * @param runId Run ID of an existing MLflow run.
+   * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
+   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   *                     start with a /.
+   */
+  public void logArtifacts(String runId, File localDir, String artifactPath) {
+    getArtifactRepository(runId).logArtifacts(localDir, artifactPath);
+  }
+
+  /**
+   * Lists the artifacts immediately under the run's root artifact directory. This does not
+   * recursively list; instead, it will return FileInfos with isDir=true where further
+   * listing may be done.
+   * @param runId Run ID of an existing MLflow run.
+   */
+  public List<FileInfo> listArtifacts(String runId) {
+    return getArtifactRepository(runId).listArtifacts();
+  }
+
+  /**
+   * Lists the artifacts immediately under the given artifactPath within the run's root artifact
+   * directory. This does not recursively list; instead, it will return FileInfos with isDir=true
+   * where further listing may be done.
+   * @param runId Run ID of an existing MLflow run.
+   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   *                     start with a /.
+   */
+  public List<FileInfo> listArtifacts(String runId, String artifactPath) {
+    return getArtifactRepository(runId).listArtifacts(artifactPath);
+  }
+
+  /**
+   * Returns a local directory containing *all* artifacts within the run's artifact directory.
+   * Note that this will download the entire directory path, and so may be expensive if
+   * the directory has a lot of data.
+   * @param runId Run ID of an existing MLflow run.
+   */
+  public File downloadArtifacts(String runId) {
+    return getArtifactRepository(runId).downloadArtifacts();
+  }
+
+  /**
+   * Returns a local file or directory containing all artifacts within the given artifactPath
+   * within the run's root artifactDirectory. For example, if "model/file1" and "model/file2"
+   * exist within the artifact directory, then
+   *
+   *   <pre>
+   *   downloadArtifacts(runId, "model") // returns a local directory containing "file1" and "file2"
+   *   downloadArtifacts(runId, "model/file1") // returns a local *file* with the contents of file1.
+   *   </pre>
+   *
+   * Note that this will download the entire subdirectory path, and so may be expensive if
+   * the subdirectory has a lot of data.
+   *
+   * @param runId Run ID of an existing MLflow run.
+   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   *                     start with a /.
+   */
+  public File downloadArtifacts(String runId, String artifactPath) {
+    return getArtifactRepository(runId).downloadArtifacts(artifactPath);
+  }
+
+  /**
+   * @param runId Run ID of an existing MLflow run.
+   * @return ArtifactRepository, capable of uploading and downloading MLflow artifacts.
+   */
+  private ArtifactRepository getArtifactRepository(String runId) {
+    URI baseArtifactUri = URI.create(getRun(runId).getInfo().getArtifactUri());
+    return artifactRepositoryFactory.getArtifactRepository(baseArtifactUri, runId);
   }
 }
