@@ -22,6 +22,7 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
 from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -54,6 +55,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
     for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
+
+    # Add branch name tag if a branch is specified through -version
+    if _is_valid_branch_name(work_dir, version):
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -101,7 +106,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         name is found, runs the project file ``entry_point`` as a script,
                         using "python" to run ``.py`` files and the default shell (specified by
                         environment variable ``$SHELL``) to run ``.sh`` files.
-    :param version: For Git-based projects, a commit hash.
+    :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_id: ID of experiment under which to launch the run.
     :param mode: Execution mode of the run: "local" or "databricks".
     :param cluster_spec: When ``mode`` is "databricks", path to a JSON file containing a
@@ -189,6 +194,22 @@ def _is_local_uri(uri):
     return not _GIT_URI_REGEX.match(uri)
 
 
+def _is_valid_branch_name(work_dir, version):
+    """
+    Returns True if the ``version`` is the name of a branch in a Git project.
+    ``work_dir`` must be the working directory in a git repo.
+    """
+    if version is not None:
+        from git import Repo
+        from git.exc import GitCommandError
+        repo = Repo(work_dir, search_parent_directories=True)
+        try:
+            return repo.git.rev_parse("--verify", "refs/heads/%s" % version) is not ''
+        except GitCommandError:
+            return False
+    return False
+
+
 def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
@@ -239,7 +260,12 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
                          cmd_stdin=git_credentials)
     origin.fetch()
     if version is not None:
-        repo.git.checkout(version)
+        try:
+            repo.git.checkout(version)
+        except git.exc.GitCommandError as e:
+            raise ExecutionException("Unable to checkout version '%s' of git repo %s"
+                                     "- please ensure that the version exists in the repo. "
+                                     "Error: %s" % (version, uri, e))
     else:
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
