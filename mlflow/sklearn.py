@@ -59,9 +59,9 @@ def log_model(sk_model, artifact_path, conda_env=None):
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
     """
-    return Model.log(artifact_path=artifact_path, 
-                     flavor=mlflow.sklearn, 
-                     sk_model=sk_model, 
+    return Model.log(artifact_path=artifact_path,
+                     flavor=mlflow.sklearn,
+                     sk_model=sk_model,
                      conda_env=conda_env)
 
 
