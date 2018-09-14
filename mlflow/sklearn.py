@@ -20,6 +20,7 @@ import flask
 import pandas
 import sklearn
 
+from mlflow.utils import cli_args
 from mlflow.utils.file_utils import TempDir
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -112,7 +113,7 @@ def commands():
 
 
 @commands.command("serve")
-@click.argument("model_path")
+@cli_args.MODEL_PATH
 @click.option("--run_id", "-r", metavar="RUN_ID", help="Run ID to look for the model in.")
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--host", default="127.0.0.1",
