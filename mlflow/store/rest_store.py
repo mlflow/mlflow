@@ -10,7 +10,7 @@ from mlflow.utils.rest_utils import http_request
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, GetMetric, GetParam
+    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun
 
 from mlflow.protos import databricks_pb2
 
@@ -219,7 +219,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric).value for metric in response_proto.metrics]
 
-    def search_runs(self, experiment_ids, search_expressions):
+    def search_runs(self, experiment_ids, search_expressions, run_view_type):
         """
         Returns runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
@@ -231,11 +231,12 @@ class RestStore(AbstractStore):
         """
         search_expressions_protos = [expr.to_proto() for expr in search_expressions]
         req_body = message_to_json(SearchRuns(experiment_ids=experiment_ids,
-                                              anded_expressions=search_expressions_protos))
+                                              anded_expressions=search_expressions_protos,
+                                              run_view_type=ViewType.to_proto(run_view_type)))
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 
-    def list_run_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id, run_view_type):
         """
         Returns run information for runs which belong to the experiment_id
 
@@ -243,5 +244,14 @@ class RestStore(AbstractStore):
 
         :return: A list of RunInfo objects that satisfy the search expressions
         """
-        runs = self.search_runs(experiment_ids=[experiment_id], search_expressions=[])
+        runs = self.search_runs(experiment_ids=[experiment_id], search_expressions=[],
+                                run_view_type=run_view_type)
         return [run.info for run in runs]
+
+    def delete_run(self, run_id):
+        req_body = message_to_json(DeleteRun(run_id=run_id))
+        self._call_endpoint(DeleteRun, req_body)
+
+    def restore_run(self, run_id):
+        req_body = message_to_json(RestoreRun(run_id=run_id))
+        self._call_endpoint(RestoreRun, req_body)

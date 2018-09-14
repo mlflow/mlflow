@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
                                     _validate_tag_name, _validate_run_id
-from mlflow.entities import Param, Metric, RunStatus, RunTag
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
@@ -65,9 +65,9 @@ class MlflowClient(object):
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_run_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-        return self.store.list_run_infos(experiment_id)
+        return self.store.list_run_infos(experiment_id, run_view_type)
 
     def list_experiments(self):
         """:return: List of :py:class:`mlflow.entities.Experiment`"""
@@ -202,6 +202,18 @@ class MlflowClient(object):
         status = status if status else "FINISHED"
         self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
                                    end_time=end_time)
+
+    def delete_run(self, run_id):
+        """
+        Deletes a run with the given ID.
+        """
+        self.store.delete_run(run_id)
+
+    def restore_run(self, run_id):
+        """
+        Restores a deleted run with the given ID.
+        """
+        self.store.restore_run(run_id)
 
 
 def _get_user_id():

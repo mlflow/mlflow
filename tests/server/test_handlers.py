@@ -1,7 +1,24 @@
 import mock
+import pytest
 
-from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message
-from mlflow.protos.service_pb2 import CreateExperiment
+from mlflow.entities import ViewType
+from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
+    _search_runs
+from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+
+
+@pytest.fixture()
+def mock_get_request_message():
+    with mock.patch('mlflow.server.handlers._get_request_message') as m:
+        yield m
+
+
+@pytest.fixture()
+def mock_store():
+    with mock.patch('mlflow.server.handlers._get_store') as m:
+        mock_store = mock.MagicMock()
+        m.return_value = mock_store
+        yield mock_store
 
 
 def test_get_endpoints():
@@ -45,3 +62,13 @@ def test_can_parse_json_string():
     request.get_json.return_value = '{"name": "hello2"}'
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello2"
+
+
+def test_search_runs_default_view_type(mock_get_request_message, mock_store):
+    """
+    Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
+    """
+    mock_get_request_message.return_value = SearchRuns(experiment_ids=[0], anded_expressions=[])
+    _search_runs()
+    args, _ = mock_store.search_runs.call_args
+    assert args[2] == ViewType.ACTIVE_ONLY
