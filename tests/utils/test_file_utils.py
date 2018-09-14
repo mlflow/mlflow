@@ -10,6 +10,7 @@ import six
 import tarfile
 
 from mlflow.utils import file_utils
+from mlflow.utils.file_utils import get_parent_dir
 from tests.projects.utils import TEST_PROJECT_DIR
 
 from tests.helper_functions import random_int, random_file
@@ -72,3 +73,8 @@ def test_make_tarfile(tmpdir):
     assert len(dir_comparison.right_only) == 0
     assert len(dir_comparison.diff_files) == 0
     assert len(dir_comparison.funny_files) == 0
+
+
+def test_get_parent_dir(tmpdir):
+    child_dir = tmpdir.join('dir').mkdir()
+    assert str(tmpdir) == get_parent_dir(str(child_dir))

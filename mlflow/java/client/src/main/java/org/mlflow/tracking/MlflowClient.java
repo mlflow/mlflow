@@ -134,6 +134,22 @@ public class MlflowClient {
   }
 
   /**
+   * Deletes a run with the given ID.
+   */
+  public void deleteRun(String runId) {
+    String ijson = mapper.makeDeleteRun(runId);
+    httpCaller.post("runs/delete", ijson);
+  }
+
+  /**
+   * Restores a deleted run with the given ID.
+   */
+  public void restoreRun(String runId) {
+    String ijson = mapper.makeRestoreRun(runId);
+    httpCaller.post("runs/restore", ijson);
+  }
+
+  /**
    * Logs a parameter against the given run, as a key-value pair.
    * This cannot be called against the same parameter key more than once.
    */
@@ -148,6 +164,13 @@ public class MlflowClient {
   public void logMetric(String runUuid, String key, float value) {
     sendPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
       System.currentTimeMillis()));
+  }
+
+  /**
+   * Logs a new tag against the given run, as a key-value pair.
+   */
+  public void setTag(String runUuid, String key, String value) {
+    sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */

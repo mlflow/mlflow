@@ -269,8 +269,14 @@ def load_pyfunc(path):
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
     """
-    spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
-        .master("local[1]").getOrCreate()
+    # NOTE: The getOrCreate() call below may change settings of the active session which we do not
+    # intend to do here. In particular, setting master to local[1] can break distributed clusters.
+    # To avoid this problem, we explicitly check for an active session. This is not ideal but there
+    # is no good workaround at the moment.
+    spark = pyspark.sql.SparkSession._instantiatedSession
+    if spark is None:
+        spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
+            .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, _load_model(model_path=path))
 
 

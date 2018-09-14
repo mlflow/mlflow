@@ -23,6 +23,7 @@ public class MlflowClientTest {
   private static float ZERO_ONE_LOSS = 0.026666666666666616F;
   private static String MIN_SAMPLES_LEAF = "2";
   private static String MAX_DEPTH = "3";
+  private static String USER_EMAIL = "some@email.com";
 
   private final TestClientProvider testClientProvider = new TestClientProvider();
   private String runId;
@@ -102,6 +103,9 @@ public class MlflowClientTest {
     client.logMetric(runId, "accuracy_score", ACCURACY_SCORE);
     client.logMetric(runId, "zero_one_loss", ZERO_ONE_LOSS);
 
+    // Log tag
+    client.setTag(runId, "user_email", USER_EMAIL);
+
     // Update finished run
     client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
 
@@ -134,6 +138,26 @@ public class MlflowClientTest {
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
+
+    List<RunTag> tags = run.getData().getTagsList();
+    Assert.assertEquals(tags.size(), 1);
+    assertTag(tags, "user_email", USER_EMAIL);
+  }
+
+  @Test
+  public void deleteAndRestoreRun() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+
+    String sourceFile = "MyFile.java";
+
+    RunInfo runCreated = client.createRun(expId, sourceFile);
+    Assert.assertEquals(runCreated.getLifecycleStage(), "active");
+    String deleteRunId = runCreated.getRunUuid();
+    client.deleteRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "deleted");
+    client.restoreRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "active");
   }
 
   @Test
