@@ -6,7 +6,7 @@ from six.moves import urllib
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import build_path, get_relative_path
+from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
 
 
 class S3ArtifactRepository(ArtifactRepository):
