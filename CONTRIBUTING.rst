@@ -61,10 +61,9 @@ building MLflow locally
 
 .. code:: bash
 
-  export NOT_CRAN=true
   cd mlflow/R/mlflow
-  Rscript -e 'install.packages("devtools")'
-  Rscript -e 'devtools::install_deps(dependencies = TRUE)'
+  NOT_CRAN=true Rscript -e 'install.packages("devtools", "https://cloud.r-project.org")'
+  NOT_CRAN=true Rscript -e 'devtools::install_deps(dependencies = TRUE)'
 
 Build the R client via:
 
@@ -78,8 +77,7 @@ Run tests:
 
   R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
   cd tests
-  export LINTR_COMMENT_BOT=false
-  Rscript ../.travis.R
+  LINTR_COMMENT_BOT=false Rscript ../.travis.R
 
 
 Launching the Development UI
