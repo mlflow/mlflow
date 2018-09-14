@@ -5,8 +5,8 @@
   <artifactId>mlflow-parent</artifactId>
   <version>0.7.0</version>
   <packaging>pom</packaging>
-  <name>mlflow-parent</name>
-  <url>http://maven.apache.org</url>
+  <name>MLflow Parent POM</name>
+  <url>http://mlflow.org</url>
   <properties>
     <mlflow-version>0.5.1</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -102,6 +102,11 @@
         <groupId>log4j</groupId>
         <artifactId>log4j</artifactId>
         <version>1.2.17</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>1.7.25</version>
       </dependency>
       <dependency>
         <groupId>org.apache.httpcomponents</groupId>

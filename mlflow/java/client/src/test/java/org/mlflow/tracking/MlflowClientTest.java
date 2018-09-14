@@ -1,23 +1,25 @@
 package org.mlflow.tracking;
 
-import java.io.*;
-import java.net.URI;
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.List;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.*;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.Test;
+
+import org.mlflow.api.proto.Service.*;
 
 import static org.mlflow.tracking.TestUtils.*;
 
-import org.mlflow.api.proto.Service.*;
-import org.mlflow.artifacts.ArtifactRepository;
-
 public class MlflowClientTest {
-  private static final Logger logger = Logger.getLogger(MlflowClientTest.class);
+  private static final Logger logger = LoggerFactory.getLogger(MlflowClientTest.class);
 
   private static float ACCURACY_SCORE = 0.9733333333333334F;
   private static float ZERO_ONE_LOSS = 0.026666666666666616F;
