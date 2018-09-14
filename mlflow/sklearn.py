@@ -63,6 +63,9 @@ def log_model(sk_model, artifact_path, conda_env=None):
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+           this model should be run in. At minimum, it should specify python, scikit-learn,
+           and mlflow with appropriate versions.
     """
     return Model.log(artifact_path=artifact_path,
                      flavor=mlflow.sklearn,
