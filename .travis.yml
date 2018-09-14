@@ -6,6 +6,15 @@ services:
 
 matrix:
   include:
+    - language: node_js
+      node_js:
+        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
+      install:
+      script:
+        - cd mlflow/server/js
+        - npm i
+        - ./lint.sh
+        - npm test -- --coverage
     - python: 2.7
     - python: 3.6
     - language: r
@@ -31,12 +40,6 @@ matrix:
       script:
         - cd mlflow/java
         - mvn clean package -q
-    - language: node_js
-      script:
-        - cd mlflow/server/js
-        - npm i
-        - ./lint.sh
-        - npm test -- --coverage
 
 install:
   - sudo mkdir -p /travis-install
