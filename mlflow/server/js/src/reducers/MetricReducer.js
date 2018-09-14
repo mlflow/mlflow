@@ -60,7 +60,6 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
           newState[runUuid] = {[key]: lastMetric};
         }
       }
-      console.log("New state: " + JSON.stringify(newState));
       return newState;
     }
     default:
