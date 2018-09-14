@@ -13,29 +13,18 @@ export const getMetricsByKey = (runUuid, key, state) => {
  * }, one per metricName
  */
 export const getLatestMetrics = (runUuid, state) => {
-  const metricsByKey = state.entities.metricsByRunUuid[runUuid];
-  if (!metricsByKey) {
-    return {};
-  }
-  let ret = {};
-  Object.values(metricsByKey).forEach((metricsForKey) => {
-    // metricsForKey should be an array with length always greater than 0.
-    let lastMetric;
-    metricsForKey.forEach((metric) => {
-      if (lastMetric === undefined || lastMetric.getTimestamp() <= metric.getTimestamp()) {
-        lastMetric = metric;
-      }
-    });
-    ret = {
-      ...ret,
-      [lastMetric.getKey()]: lastMetric
-    };
-  });
-  return ret;
+  return state.entities.latestMetricsByRunUuid[runUuid];
 };
 
-
-export const metricsByRunUuid = (state = {}, action) => {
+/**
+ * Return latest metrics by run UUID (object of run UUID -> object of metric key -> Metric object)
+ */
+export const latestMetricsByRunUuid = (state = {}, action) => {
+  const metricArrToObject = (metrics) => {
+    const metricObj = {};
+    metrics.forEach((m) => metricObj[m.key] = Metric.fromJs(m));
+    return metricObj;
+  };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
@@ -43,15 +32,7 @@ export const metricsByRunUuid = (state = {}, action) => {
       const metrics = action.payload.run.data.metrics || [];
       return {
         ...state,
-        [runUuid]: metricsByKey(state[runUuid], action, metrics)
-      };
-    }
-    case fulfilled(GET_METRIC_HISTORY_API): {
-      const runUuid = action.meta.runUuid;
-      const metrics = action.payload.metrics || [];
-      return {
-        ...state,
-        [runUuid]: metricsByKey(state[runUuid], action, metrics)
+        [runUuid]: metricArrToObject(metrics),
       };
     }
     case fulfilled(SEARCH_RUNS_API): {
@@ -61,10 +42,41 @@ export const metricsByRunUuid = (state = {}, action) => {
           const run = Run.fromJs(rJson);
           const runUuid = run.getInfo().getRunUuid();
           const metrics = rJson.data.metrics || [];
-          newState[runUuid] = metricsByKey(newState[runUuid], action, metrics);
+          newState[runUuid] = metricArrToObject(metrics);
         });
       }
       return newState;
+    }
+    case fulfilled(GET_METRIC_HISTORY_API): {
+      const newState = { ...state };
+      const runUuid = action.meta.runUuid;
+      const key = action.meta.key;
+      const metrics = action.payload.metrics;
+      if (metrics && metrics.length > 0) {
+        const lastMetric = Metric.fromJs(metrics[metrics.length - 1]);
+        if (newState[runUuid]) {
+          newState[runUuid][key] = lastMetric;
+        } else {
+          newState[runUuid] = {[key]: lastMetric};
+        }
+      }
+      console.log("New state: " + JSON.stringify(newState));
+      return newState;
+    }
+    default:
+      return state;
+  }
+};
+
+export const metricsByRunUuid = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(GET_METRIC_HISTORY_API): {
+      const runUuid = action.meta.runUuid;
+      const metrics = action.payload.metrics || [];
+      return {
+        ...state,
+        [runUuid]: metricsByKey(state[runUuid], action, metrics)
+      };
     }
     default:
       return state;
@@ -74,24 +86,6 @@ export const metricsByRunUuid = (state = {}, action) => {
 const metricsByKey = (state = {}, action, metrics) => {
   const newState = { ...state };
   switch (action.type) {
-    // Assumes the GET_RUN_API only returns 1 metric (the latest metric) for each key.
-    case fulfilled(GET_RUN_API): {
-      metrics.forEach((m) => {
-        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : [];
-        newArr.push(Metric.fromJs(m));
-        newState[m.key] = newArr;
-      });
-      return newState;
-    }
-    // Assumes the SEARCH_RUNS_API only returns 1 metric (the latest metric) per key.
-    case fulfilled(SEARCH_RUNS_API): {
-      metrics.forEach((m) => {
-        const newArr = newState[m.key] ? newState[m.key].slice(0, newState[m.key].length - 1) : [];
-        newArr.push(Metric.fromJs(m));
-        newState[m.key] = newArr;
-      });
-      return newState;
-    }
     case fulfilled(GET_METRIC_HISTORY_API): {
       const key = action.meta.key;
       newState[key] = metrics.map((m) => Metric.fromJs(m));

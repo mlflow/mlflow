@@ -7,7 +7,7 @@ import {
 } from '../Actions';
 import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import { metricsByRunUuid } from './MetricReducer';
+import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -260,6 +260,7 @@ const entities = combineReducers({
   experimentsById,
   runInfosByUuid,
   metricsByRunUuid,
+  latestMetricsByRunUuid,
   paramsByRunUuid,
   tagsByRunUuid,
   artifactsByRunUuid,
