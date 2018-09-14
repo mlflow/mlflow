@@ -269,8 +269,9 @@ def load_pyfunc(path):
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
     """
-    spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
-        .master("local[1]").getOrCreate()
+    spark = SparkContext._active_spark_context or \
+            pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
+            .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, _load_model(model_path=path))
 
 
