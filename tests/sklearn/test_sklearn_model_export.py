@@ -12,6 +12,7 @@ import sklearn.neighbors as knn
 from mlflow import sklearn, pyfunc
 import mlflow
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.environment import _mlflow_conda_env 
 
 
 def load_pyfunc(path):
@@ -51,13 +52,16 @@ class TestModelExport(unittest.TestCase):
     def test_model_log(self):
         old_uri = mlflow.get_tracking_uri()
         # should_start_run tests whether or not calling log_model() automatically starts a run.
+        conda_env = "conda_env.yaml"
+        conda_env = _mlflow_conda_env(conda_env, additional_pip_deps=["sklearn"])
         for should_start_run in [False, True]:
             with TempDir(chdr=True, remove_on_exit=True) as tmp:
                 try:
                     mlflow.set_tracking_uri("test")
                     if should_start_run:
                         mlflow.start_run()
-                    sklearn.log_model(sk_model=self._linear_lr, artifact_path="linear")
+                    sklearn.log_model(
+                            sk_model=self._linear_lr, artifact_path="linear", conda_env=conda_env)
                     x = sklearn.load_model("linear", run_id=mlflow.active_run().info.run_uuid)
                     xpred = x.predict(self._X)
                     np.testing.assert_array_equal(self._linear_lr_predict, xpred)

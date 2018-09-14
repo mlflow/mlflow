@@ -44,8 +44,11 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     model_file = os.path.join(path, "model.pkl")
     with open(model_file, "wb") as out:
         pickle.dump(sk_model, out)
+    if conda_env:
+        model_conda_env = os.path.basename(os.path.abspath(conda_env))
+        shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data="model.pkl",
-                        env=conda_env)
+                        env=model_conda_env)
     mlflow_model.add_flavor("sklearn",
                             pickled_model="model.pkl",
                             sklearn_version=sklearn.__version__)
