@@ -1,3 +1,4 @@
+import logging
 import os
 
 from flask import Flask, send_from_directory, make_response
@@ -13,6 +14,10 @@ STATIC_PREFIX_ENV_VAR = "MLFLOW_STATIC_PREFIX"
 REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
+
+gunicorn_logger = logging.getLogger('gunicorn.error')
+app.logger.handlers = gunicorn_logger.handlers
+app.logger.setLevel(gunicorn_logger.level)
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)

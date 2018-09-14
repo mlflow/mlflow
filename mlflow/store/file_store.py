@@ -1,3 +1,4 @@
+import logging
 import os
 
 import uuid
@@ -20,6 +21,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.search_utils import does_run_match_clause
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
+
+gunicorn_logger = logging.getLogger('gunicorn.error')
 
 
 def _default_root_dir():
@@ -357,10 +360,12 @@ class FileStore(AbstractStore):
         _validate_param_name(param_name)
         param_data = read_file_lines(parent_path, param_name)
         if len(param_data) == 0:
-            raise Exception("Param '%s' is malformed. No data found." % param_name)
+            gunicorn_logger.error("Param '%s' is malformed. No data found." % param_name)
+            return Param(param_name, "")
         if len(param_data) > 1:
-            raise Exception("Unexpected data for param '%s'. Param recorded more than once"
-                            % param_name)
+            gunicorn_logger.error("Unexpected data for param '%s'. Param recorded more than once"
+                                  % param_name)
+            return Param(param_name, "")
         return Param(param_name, str(param_data[0].strip()))
 
     @staticmethod
