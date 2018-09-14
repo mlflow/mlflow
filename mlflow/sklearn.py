@@ -14,6 +14,7 @@ from __future__ import absolute_import
 import json
 import os
 import pickle
+import shutil
 
 import click
 import flask
@@ -44,6 +45,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     model_file = os.path.join(path, "model.pkl")
     with open(model_file, "wb") as out:
         pickle.dump(sk_model, out)
+    model_conda_env = None
     if conda_env:
         model_conda_env = os.path.basename(os.path.abspath(conda_env))
         shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
