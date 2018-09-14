@@ -4,7 +4,7 @@ import os
 from mlflow.entities import FileInfo
 from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
+from mlflow.utils.file_utils import build_path, get_relative_path
 from mlflow.utils.rest_utils import http_request, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 
