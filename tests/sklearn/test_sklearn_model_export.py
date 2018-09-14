@@ -12,7 +12,7 @@ import sklearn.neighbors as knn
 from mlflow import sklearn, pyfunc
 import mlflow
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.utils.environment import _mlflow_conda_env
 
 
 def load_pyfunc(path):
