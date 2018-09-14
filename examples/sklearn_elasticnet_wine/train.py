@@ -25,15 +25,6 @@ def eval_metrics(actual, pred):
 
 
 if __name__ == "__main__":
-    pyv = sys.argv[1]
-    conda_env = """\
-    name: wine 
-    dependencies:
-      - python={pyv} 
-      - sklearn 
-    """
-    conda_env = conda_env.format(pyv=pyv)
-
     warnings.filterwarnings("ignore")
     np.random.seed(40)
 
