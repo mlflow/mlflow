@@ -48,8 +48,38 @@ the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>
 and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
 
 .. code:: bash
+
   cd mlflow/java
   mvn clean package
+
+R API
+-----
+
+The MLflow R client depends on the Python client, so first install the Python client in a conda
+environment as described above. Install R, then run the following to install dependencies for
+building MLflow locally
+
+.. code:: bash
+
+  export NOT_CRAN=true
+  cd mlflow/R/mlflow
+  Rscript -e 'install.packages("devtools")'
+  Rscript -e 'devtools::install_deps(dependencies = TRUE)'
+
+Build the R client via:
+
+.. code:: bash
+
+  R CMD build .
+
+Run tests:
+
+.. code:: bash
+
+  R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
+  cd tests
+  export LINTR_COMMENT_BOT=false
+  Rscript ../.travis.R
 
 
 Launching the Development UI
