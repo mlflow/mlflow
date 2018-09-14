@@ -39,7 +39,7 @@ class LocalArtifactRepository(ArtifactRepository):
             infos = [get_file_info(f, get_relative_path(artifact_dir, f)) for f in artifact_files]
             return sorted(infos, key=lambda f: f.path)
         else:
-            return [] 
+            return []
 
     def _download_file(self, remote_file_path, local_path):
         shutil.copyfile(os.path.join(self.artifact_uri, remote_file_path), local_path)
