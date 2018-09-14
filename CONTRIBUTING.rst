@@ -77,7 +77,7 @@ Run tests:
 
   R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
   cd tests
-  LINTR_COMMENT_BOT=false Rscript ../.travis.R
+  NOT_CRAN=true LINTR_COMMENT_BOT=false Rscript ../.travis.R
 
 
 Launching the Development UI
