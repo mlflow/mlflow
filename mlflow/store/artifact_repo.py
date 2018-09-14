@@ -59,7 +59,7 @@ class ArtifactRepository:
         """
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         # without downloading it, or to get a pre-signed URL for cloud storage.
-    
+
         def download_artifacts_into(artifact_path, dest_dir):
             basename = os.path.basename(artifact_path)
             local_path = build_path(dest_dir, basename)
@@ -85,7 +85,7 @@ class ArtifactRepository:
 
         :param remote_file_path: Source path to the remote file, relative to the root
                                  directory of the artifact repository.
-        :param local_path: The path to which to save the downloaded file. 
+        :param local_path: The path to which to save the downloaded file.
         """
         pass
 

@@ -170,7 +170,7 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
     gcs_mock.Client().get_bucket().get_blob\
         .assert_called_with('some/path/test.txt')
     download_calls = \
-            gcs_mock.Client().get_bucket().get_blob().download_to_filename.call_args_list
+        gcs_mock.Client().get_bucket().get_blob().download_to_filename.call_args_list
     assert len(download_calls) == 1
     download_path_arg = download_calls[0][0][0]
     assert "/test.txt" in download_path_arg

@@ -148,7 +148,7 @@ def test_download_file_artifact(mock_client, tmpdir):
         f.write("hello world!")
 
     mock_client.get_blob_to_path.side_effect = create_file
-    
+
     repo.download_artifacts("test.txt")
     assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
     mock_client.get_blob_to_path.assert_called_with(

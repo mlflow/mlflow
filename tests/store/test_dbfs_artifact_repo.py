@@ -158,8 +158,8 @@ class TestDbfsArtifactRepository(object):
             ]
             list_mock.side_effect = [
                 Mock(text=json.dumps(LIST_ARTIFACTS_RESPONSE)),
-                Mock(text='{}'), # this call is for listing `/dir`.
-                Mock(text='{}')  # this call is for listing `/dir/a.txt`.
+                Mock(text='{}'),  # this call is for listing `/dir`.
+                Mock(text='{}')   # this call is for listing `/dir/a.txt`.
             ]
             dbfs_artifact_repo.download_artifacts('/')
             assert list_mock.call_count == 3
