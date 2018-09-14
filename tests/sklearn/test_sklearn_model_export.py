@@ -64,10 +64,12 @@ class TestModelExport(unittest.TestCase):
                     artifact_path = "linear"
                     conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                     _mlflow_conda_env(conda_env, additional_pip_deps=["sklearn"])
-                    sklearn.log_model(
-                            sk_model=self._linear_lr, artifact_path=artifact_path, conda_env=conda_env)
+                    sklearn.log_model(sk_model=self._linear_lr,
+                                      artifact_path=artifact_path,
+                                      conda_env=conda_env)
                     x = sklearn.load_model(artifact_path, run_id=mlflow.active_run().info.run_uuid)
-                    model_path = _get_model_log_dir(artifact_path, mlflow.active_run().info.run_uuid)
+                    model_path = _get_model_log_dir(
+                            artifact_path, mlflow.active_run().info.run_uuid)
                     model_config = Model.load(os.path.join(model_path, "MLmodel"))
                     assert pyfunc.FLAVOR_NAME in model_config.flavors
                     assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
