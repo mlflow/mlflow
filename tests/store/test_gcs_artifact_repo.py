@@ -157,20 +157,23 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
 
     def mkfile(fname):
-        fname = fname.replace(tmpdir.strpath, '')
+        fname = os.path.basename(fname)
         f = tmpdir.join(fname)
         f.write("hello world!")
-        return f.strpath
 
     gcs_mock.Client.return_value.get_bucket.return_value.get_blob.return_value\
         .download_to_filename.side_effect = mkfile
 
-    open(repo._download_artifacts_into("test.txt", tmpdir.strpath)).read()
+    repo.download_artifacts("test.txt")
+    assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
     gcs_mock.Client().get_bucket.assert_called_with('test_bucket')
     gcs_mock.Client().get_bucket().get_blob\
         .assert_called_with('some/path/test.txt')
-    gcs_mock.Client().get_bucket().get_blob()\
-        .download_to_filename.assert_called_with(tmpdir + "/test.txt")
+    download_calls = \
+            gcs_mock.Client().get_bucket().get_blob().download_to_filename.call_args_list
+    assert len(download_calls) == 1
+    download_path_arg = download_calls[0][0][0]
+    assert "/test.txt" in download_path_arg
 
 
 def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):

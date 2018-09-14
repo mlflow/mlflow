@@ -143,16 +143,16 @@ def test_download_file_artifact(mock_client, tmpdir):
 
     def create_file(container, cloud_path, local_path):
         # pylint: disable=unused-argument
-        local_path = local_path.replace(tmpdir.strpath, '')
+        local_path = os.path.basename(local_path)
         f = tmpdir.join(local_path)
         f.write("hello world!")
-        return f.strpath
 
     mock_client.get_blob_to_path.side_effect = create_file
-
-    open(repo._download_artifacts_into("test.txt", tmpdir.strpath)).read()
+    
+    repo.download_artifacts("test.txt")
+    assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
     mock_client.get_blob_to_path.assert_called_with(
-        "container", TEST_ROOT_PATH + "/test.txt", tmpdir.strpath + "/test.txt")
+        "container", TEST_ROOT_PATH + "/test.txt", mock.ANY)
 
 
 def test_download_directory_artifact(mock_client, tmpdir):

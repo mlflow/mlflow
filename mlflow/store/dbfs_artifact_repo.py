@@ -120,22 +120,6 @@ class DbfsArtifactRepository(ArtifactRepository):
             infos.append(FileInfo(stripped_path, is_dir, artifact_size))
         return sorted(infos, key=lambda f: f.path)
 
-    def download_artifacts(self, artifact_path):
-        with TempDir(remove_on_exit=False) as tmp:
-            return self._download_artifacts_into(artifact_path, tmp.path())
-
-    def _download_artifacts_into(self, artifact_path, dest_dir):
-        """Private version of download_artifacts that takes a destination directory."""
-        basename = os.path.basename(artifact_path)
-        local_path = build_path(dest_dir, basename)
-        dbfs_path = self._get_dbfs_path(artifact_path)
-        if self._dbfs_is_dir(dbfs_path):
-            # Artifact_path is a directory, so make a directory for it and download everything
-            if not os.path.exists(local_path):
-                os.mkdir(local_path)
-            for file_info in self.list_artifacts(artifact_path):
-                self._download_artifacts_into(file_info.path, local_path)
-        else:
-            self._dbfs_download(output_path=local_path,
-                                endpoint=self._get_dbfs_endpoint(artifact_path))
-        return local_path
+    def _download_file(self, remote_file_path, local_path):
+        self._dbfs_download(output_path=local_path,
+                            endpoint=self._get_dbfs_endpoint(remote_file_path))

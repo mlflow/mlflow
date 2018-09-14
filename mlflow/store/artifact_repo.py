@@ -1,7 +1,9 @@
+import os
 from abc import abstractmethod, ABCMeta
 
 from mlflow.store.rest_store import RestStore
 from mlflow.exceptions import MlflowException
+from mlflow.utils.file_utils import build_path, TempDir
 
 
 class ArtifactRepository:
@@ -47,7 +49,6 @@ class ArtifactRepository:
         """
         pass
 
-    @abstractmethod
     def download_artifacts(self, artifact_path):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
@@ -58,6 +59,34 @@ class ArtifactRepository:
         """
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         # without downloading it, or to get a pre-signed URL for cloud storage.
+    
+        def download_artifacts_into(artifact_path, dest_dir):
+            basename = os.path.basename(artifact_path)
+            local_path = build_path(dest_dir, basename)
+            listing = self.list_artifacts(artifact_path)
+            if len(listing) > 0:
+                # Artifact_path is a directory, so make a directory for it and download everything
+                if not os.path.exists(local_path):
+                    os.mkdir(local_path)
+                for file_info in listing:
+                    download_artifacts_into(artifact_path=file_info.path, dest_dir=local_path)
+            else:
+                self._download_file(remote_file_path=artifact_path, local_path=local_path)
+            return local_path
+
+        with TempDir(remove_on_exit=False) as tmp:
+            return download_artifacts_into(artifact_path, tmp.path())
+
+    @abstractmethod
+    def _download_file(self, remote_file_path, local_path):
+        """
+        Downloads the file at the specified relative remote path and saves
+        it at the specified local path.
+
+        :param remote_file_path: Source path to the remote file, relative to the root
+                                 directory of the artifact repository.
+        :param local_path: The path to which to save the downloaded file. 
+        """
         pass
 
     @staticmethod
