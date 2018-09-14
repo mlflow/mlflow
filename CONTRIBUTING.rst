@@ -3,8 +3,11 @@ Contributing to MLflow
 We welcome community contributions to MLflow. This page describes how to develop/test your changes
 to MLflow locally.
 
+Python API
+----------
+
 Prerequisites
--------------
+~~~~~~~~~~~~~
 
 We recommend installing MLflow in its own conda environment for development, as follows:
 
@@ -34,6 +37,20 @@ dependencies via:
 
 If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update`` within
 ``mlflow/server/js`` to install the updated dependencies.
+
+
+Java API
+--------
+
+Prerequisites
+~~~~~~~~~~~~~
+
+The MLflow Java client depends on the Python client, so first install the Python client in a conda
+environment as described above. Install Java >= 8, and `download <https://maven.apache.org/download.cgi>`_
+and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
+
+.. code:: bash
+  mvn clean package
 
 
 Launching the Development UI
