@@ -21,10 +21,8 @@ import flask
 import pandas
 import sklearn
 
-from mlflow.utils.file_utils import TempDir
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 import mlflow.tracking
 
 
