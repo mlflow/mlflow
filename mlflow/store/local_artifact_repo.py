@@ -39,12 +39,7 @@ class LocalArtifactRepository(ArtifactRepository):
             infos = [get_file_info(f, get_relative_path(artifact_dir, f)) for f in artifact_files]
             return sorted(infos, key=lambda f: f.path)
         else:
-            return None
-
-    def download_artifacts(self, artifact_path):
-        """Since this is a local file store, just return the artifacts' local path."""
-        return build_path(self.artifact_uri, artifact_path)
+            return [] 
 
     def _download_file(self, remote_file_path, local_path):
-        """Since this is a local file store, no downloading work needs to be done."""
-        pass
+        shutil.copyfile(os.path.join(self.artifact_uri, remote_file_path), local_path)
