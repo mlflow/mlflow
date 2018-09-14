@@ -1,14 +1,31 @@
 from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.exceptions import MlflowException
 
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
+
+
+def check_run_is_active(run_info):
+    if run_info.lifecycle_stage != RunInfo.ACTIVE_LIFECYCLE:
+        raise MlflowException('The run {} must be in an active lifecycle_stage.'
+                              .format(run_info.run_uuid))
+
+
+def check_run_is_deleted(run_info):
+    if run_info.lifecycle_stage != RunInfo.DELETED_LIFECYCLE:
+        raise MlflowException('The run {} must be in an deleted lifecycle_stage.'
+                              .format(run_info.run_uuid))
 
 
 class RunInfo(_MLflowObject):
     """
     Metadata about a run.
     """
+    ACTIVE_LIFECYCLE = "active"
+    DELETED_LIFECYCLE = "deleted"
+
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                 user_id, status, start_time, end_time, source_version, artifact_uri=None):
+                 user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                 artifact_uri=None):
         if run_uuid is None:
             raise Exception("run_uuid cannot be None")
         if experiment_id is None:
@@ -36,6 +53,7 @@ class RunInfo(_MLflowObject):
         self._start_time = start_time
         self._end_time = end_time
         self._source_version = source_version
+        self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
 
     def __eq__(self, other):
@@ -44,12 +62,15 @@ class RunInfo(_MLflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    def _copy_with_overrides(self, status, end_time):
+    def _copy_with_overrides(self, status=None, end_time=None, lifecycle_stage=None):
         """A copy of the RunInfo with certain attributes modified."""
         proto = self.to_proto()
-        proto.status = status
+        if status:
+            proto.status = status
         if end_time:
             proto.end_time = end_time
+        if lifecycle_stage:
+            proto.lifecycle_stage = lifecycle_stage
         return RunInfo.from_proto(proto)
 
     @property
@@ -120,6 +141,10 @@ class RunInfo(_MLflowObject):
         """String root artifact URI of the run."""
         return self._artifact_uri
 
+    @property
+    def lifecycle_stage(self):
+        return self._lifecycle_stage
+
     def to_proto(self):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_uuid
@@ -138,13 +163,14 @@ class RunInfo(_MLflowObject):
             proto.source_version = self.source_version
         if self.artifact_uri:
             proto.artifact_uri = self.artifact_uri
+        proto.lifecycle_stage = self.lifecycle_stage
         return proto
 
     @classmethod
     def from_proto(cls, proto):
         return cls(proto.run_uuid, proto.experiment_id, proto.name, proto.source_type,
                    proto.source_name, proto.entry_point_name, proto.user_id, proto.status,
-                   proto.start_time, proto.end_time, proto.source_version,
+                   proto.start_time, proto.end_time, proto.source_version, proto.lifecycle_stage,
                    proto.artifact_uri)
 
     @classmethod
@@ -161,4 +187,4 @@ class RunInfo(_MLflowObject):
         # TODO: Hard coding this list of props for now. There has to be a clearer way...
         return ["run_uuid", "experiment_id", "name", "source_type", "source_name",
                 "entry_point_name", "user_id", "status", "start_time", "end_time",
-                "source_version", "artifact_uri"]
+                "source_version", "lifecycle_stage", "artifact_uri"]

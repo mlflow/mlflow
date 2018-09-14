@@ -4,7 +4,7 @@ from mlflow.entities import FileInfo
 from tests.helper_functions import random_str, random_int
 
 
-class TestRunInfo(unittest.TestCase):
+class TestFileInfo(unittest.TestCase):
     def _check(self, fi, path, is_dir, size_in_bytes):
         self.assertIsInstance(fi, FileInfo)
         self.assertEqual(fi.path, path)

@@ -8,7 +8,7 @@ import mock
 import pytest
 
 import mlflow
-from mlflow.entities import RunStatus
+from mlflow.entities import RunStatus, ViewType
 from mlflow.exceptions import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
@@ -144,7 +144,7 @@ def test_run_local_git_repo(tmpdir, local_git_repo,
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
     store = FileStore(tmpdir.strpath)
-    run_infos = store.list_run_infos(experiment_id=0)
+    run_infos = store.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
@@ -177,7 +177,7 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
     store = FileStore(tmpdir.strpath)
-    run_infos = store.list_run_infos(experiment_id=0)
+    run_infos = store.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
     assert run_uuid == store_run_uuid
