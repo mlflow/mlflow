@@ -275,7 +275,7 @@ def load_pyfunc(path):
     # is no good workaround at the moment.
     spark = pyspark.sql.SparkSession._instantiatedSession
     if spark is None:
-        pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
+        spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
             .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, _load_model(model_path=path))
 
