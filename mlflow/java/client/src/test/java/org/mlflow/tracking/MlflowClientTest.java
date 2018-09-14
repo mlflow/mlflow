@@ -23,6 +23,7 @@ public class MlflowClientTest {
   private static float ZERO_ONE_LOSS = 0.026666666666666616F;
   private static String MIN_SAMPLES_LEAF = "2";
   private static String MAX_DEPTH = "3";
+  private static String USER_EMAIL = "some@email.com";
 
   private final TestClientProvider testClientProvider = new TestClientProvider();
   private String runId;
@@ -84,9 +85,8 @@ public class MlflowClientTest {
     String user = System.getenv("USER");
     long startTime = System.currentTimeMillis();
     String sourceFile = "MyFile.java";
-    String runName = "My run";
 
-    RunInfo runCreated = client.createRun(expId, sourceFile, runName);
+    RunInfo runCreated = client.createRun(expId, sourceFile);
     runId = runCreated.getRunUuid();
     logger.debug("runId=" + runId);
 
@@ -102,6 +102,9 @@ public class MlflowClientTest {
     // Log metrics
     client.logMetric(runId, "accuracy_score", ACCURACY_SCORE);
     client.logMetric(runId, "zero_one_loss", ZERO_ONE_LOSS);
+
+    // Log tag
+    client.setTag(runId, "user_email", USER_EMAIL);
 
     // Update finished run
     client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
@@ -119,11 +122,6 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
-
-    // Assert run metadata saved in tags
-    List<RunTag> tags = run.getData().getTagsList();
-    Assert.assertEquals(tags.size(), 1);
-    assertTag(tags, "mlflow.runName", runName);
   }
 
   @Test(dependsOnMethods = {"addGetRun"})
@@ -140,6 +138,10 @@ public class MlflowClientTest {
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
+
+    List<RunTag> tags = run.getData().getTagsList();
+    Assert.assertEquals(tags.size(), 1);
+    assertTag(tags, "user_email", USER_EMAIL);
   }
 
   @Test
