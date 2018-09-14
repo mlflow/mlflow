@@ -48,7 +48,7 @@ the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>
 and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
 
 .. code:: bash
-
+  cd mlflow/java
   mvn clean package
 
 
