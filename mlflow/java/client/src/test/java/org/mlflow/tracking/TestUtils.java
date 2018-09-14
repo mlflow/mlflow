@@ -28,6 +28,9 @@ public class TestUtils {
     Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
   }
 
+  public static void assertTag(List<RunTag> tags, String key, String value) {
+    Assert.assertTrue(tags.stream().filter(e -> e.getKey().equals(key) && e.getValue().equals(value)).findFirst().isPresent());
+  }
   public static java.util.Optional<Experiment> getExperimentByName(List<Experiment> exps, String expName) {
     return exps.stream().filter(e -> e.getName().equals(expName)).findFirst();
   }
