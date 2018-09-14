@@ -29,9 +29,9 @@ To report bugs, please use GitHub issues.
 
 Running a Sample App With the Tracking API
 ------------------------------------------
-The programs in ``example`` use the MLflow Tracking API. For instance, run::
+The programs in ``examples`` use the MLflow Tracking API. For instance, run::
 
-    python example/quickstart/test.py
+    python examples/quickstart/mlflow_tracking.py
 
 This program will use `MLflow Tracking API <https://mlflow.org/docs/latest/tracking.html>`_,
 which logs tracking data in ``./mlruns``. This can then be viewed with the Tracking UI.
