@@ -5,7 +5,7 @@ from json import JSONEncoder
 import numpy
 import requests
 
-from mlflow.utils.logging_utils import eprint
+import mlflow.logging
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException
 
@@ -45,9 +45,9 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
         if response.status_code >= 200 and response.status_code < 500:
             return response
         else:
-            eprint("API request to %s failed with code %s != 200, retrying up to %s more times. "
-                   "API response body: %s" % (url, response.status_code, retries - i - 1,
-                                              response.text))
+            mlflow.logging.warn("API request to %s failed with code %s != 200, retrying up to %s "
+                                "more times. API response body: %s" %
+                                (url, response.status_code, retries - i - 1, response.text))
             time.sleep(retry_interval)
     raise MlflowException("API request to %s failed to return code 200 after %s tries" %
                           (url, retries))

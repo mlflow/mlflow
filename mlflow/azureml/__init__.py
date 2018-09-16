@@ -9,10 +9,10 @@ import os
 import shutil
 
 import mlflow
+import mlflow.logging
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir
 from mlflow.version import VERSION as mlflow_version
 
@@ -42,7 +42,7 @@ def deploy(app_name, model_path, run_id=None, mlflow_home=None):
     model_path = os.path.abspath(model_path)
     with TempDir(chdr=True, remove_on_exit=True):
         exec_str = _export(app_name, model_path, mlflow_home=mlflow_home)
-        eprint("executing", '"{}"'.format(exec_str))
+        mlflow.logging.info("executing", '"{}"'.format(exec_str))
         # Use os.system instead of subprocess due to the fact that currently all azureml commands
         # have to be called within the same shell (launched from azureml workbench app by the user).
         # We can change this once there is a python api (or general cli) available.
@@ -97,7 +97,7 @@ def _export(app_name, model_path, mlflow_home):
     mlflow_dep = "mlflow=={}".format(mlflow_version)
 
     if mlflow_home:
-        eprint("MLFLOW_HOME =", mlflow_home)
+        mlflow.logging.debug("MLFLOW_HOME =", mlflow_home)
         # copy current version of mlflow
         mlflow_dir = mlflow.utils.file_utils._copy_project(src_path=mlflow_home, dst_path="./")
         deps = "-d {}".format(mlflow_dir)

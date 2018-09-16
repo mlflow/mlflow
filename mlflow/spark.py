@@ -29,9 +29,9 @@ from pyspark import SparkContext
 from pyspark.ml.pipeline import PipelineModel
 
 import mlflow
+import mlflow.logging
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "spark"
 
@@ -146,7 +146,7 @@ class _HadoopFileSystem:
         if qualified_local_path == "file:" + local_path.toString():
             return local_path.toString()
         cls.copy_from_local_file(src, dst, remove_src=False)
-        eprint("Copied SparkML model to %s" % dst)
+        mlflow.logging.info("Copied SparkML model to %s" % dst)
         return dst
 
     @classmethod

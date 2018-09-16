@@ -12,16 +12,15 @@ import shutil
 import signal
 from subprocess import check_call, Popen
 import sys
-import yaml
 
 from pkg_resources import resource_filename
 
 import mlflow
+import mlflow.logging
 import mlflow.version
 
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.logging_utils import eprint
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"

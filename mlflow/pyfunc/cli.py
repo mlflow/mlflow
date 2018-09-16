@@ -12,7 +12,7 @@ import pandas
 from mlflow.pyfunc import load_pyfunc, scoring_server, _load_model_env
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
-from mlflow.utils.logging_utils import eprint
+import mlflow.logging
 from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env
 
 
@@ -25,7 +25,7 @@ def _rerun_in_conda(conda_env_path):
     safe_argv = [shlex_quote(arg) for arg in sys.argv]
     commands.append(" ".join(safe_argv) + " --no-conda")
     commandline = " && ".join(commands)
-    eprint("=== Running command '{}'".format(commandline))
+    mlflow.logging.info("=== Running command '{}'".format(commandline))
     child = subprocess.Popen(["bash", "-c", commandline], close_fds=True)
     exit_code = child.wait()
     return exit_code

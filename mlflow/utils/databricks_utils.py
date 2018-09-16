@@ -1,6 +1,6 @@
+import mlflow.logging
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.logging_utils import eprint
 from databricks_cli.configure import provider
 
 
@@ -69,8 +69,9 @@ def get_databricks_host_creds(profile=None):
         authentication information necessary to talk to the Databricks server.
     """
     if not hasattr(provider, 'get_config'):
-        eprint("Warning: support for databricks-cli<0.8.0 is deprecated and will be removed"
-               " in a future version.")
+        mlflow.logging.warn(
+            "Warning: support for databricks-cli<0.8.0 is deprecated and will be removed"
+            " in a future version.")
         config = provider.get_config_for_profile(profile)
     elif profile:
         config = provider.ProfileConfigProvider(profile).get_config()

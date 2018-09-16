@@ -1,7 +1,6 @@
-from mlflow.utils.logging_utils import eprint
-
 import click
 
+import mlflow.logging
 from mlflow.tracking import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.proto_json_utils import message_to_json
@@ -31,7 +30,8 @@ def log_artifact(local_file, run_id, artifact_path):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, store)
     artifact_repo.log_artifact(local_file, artifact_path)
-    eprint("Logged artifact from local file %s to artifact_path=%s" % (local_file, artifact_path))
+    mlflow.logging.info("Logged artifact from local file %s to artifact_path=%s"
+                        % (local_file, artifact_path))
 
 
 @commands.command("log-artifacts")
@@ -52,7 +52,8 @@ def log_artifacts(local_dir, run_id, artifact_path):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, store)
     artifact_repo.log_artifacts(local_dir, artifact_path)
-    eprint("Logged artifact from local dir %s to artifact_path=%s" % (local_dir, artifact_path))
+    mlflow.logging.info("Logged artifact from local dir %s to artifact_path=%s"
+                        % (local_dir, artifact_path))
 
 
 @commands.command("list")

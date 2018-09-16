@@ -6,7 +6,7 @@ import subprocess
 
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
-from mlflow.utils.logging_utils import eprint
+import mlflow.logging
 
 
 @click.group("rfunc")
@@ -16,7 +16,7 @@ def commands():
 
 
 def execute(command):
-    eprint("=== Rscript -e %s) ===" % command)
+    mlflow.logging.debug("=== Rscript -e %s ===" % command)
     env = os.environ.copy()
     process = subprocess.Popen(["Rscript", "-e", command], close_fds=True, env=env)
     process.wait()

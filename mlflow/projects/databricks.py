@@ -8,11 +8,11 @@ import time
 
 from six.moves import shlex_quote, urllib
 
+import mlflow.logging
 from mlflow.entities import RunStatus
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
-from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
@@ -71,7 +71,7 @@ class DatabricksJobRunner(object):
         Upload the file at `src_path` to the specified DBFS URI within the Databricks workspace
         corresponding to the default Databricks CLI profile.
         """
-        eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
+        mlflow.logging.info("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
             response = self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
@@ -119,9 +119,9 @@ class DatabricksJobRunner(object):
                                          "projects-code", "%s.tar.gz" % tarfile_hash)
             if not self._dbfs_path_exists(dbfs_fuse_uri):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
-                eprint("=== Finished uploading project to %s ===" % dbfs_fuse_uri)
+                mlflow.logging.info("=== Finished uploading project to %s ===" % dbfs_fuse_uri)
             else:
-                eprint("=== Project already exists in DBFS ===")
+                mlflow.logging.info("=== Project already exists in DBFS ===")
         finally:
             shutil.rmtree(temp_tarfile_dir)
         return dbfs_fuse_uri
@@ -179,14 +179,15 @@ class DatabricksJobRunner(object):
             tracking._TRACKING_URI_ENV_VAR: tracking_uri,
             tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
         }
-        eprint("=== Running entry point %s of project %s on Databricks ===" % (entry_point, uri))
+        mlflow.logging.info("=== Running entry point %s of project %s on Databricks ==="
+                            % (entry_point, uri))
         # Launch run on Databricks
         with open(cluster_spec, 'r') as handle:
             try:
                 cluster_spec = json.load(handle)
             except ValueError:
-                eprint("Error when attempting to load and parse JSON cluster spec from file "
-                       "%s. " % cluster_spec)
+                mlflow.logging.error("Error when attempting to load and parse JSON cluster spec "
+                                     "from file %s. " % cluster_spec)
                 raise
         command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
@@ -208,7 +209,7 @@ class DatabricksJobRunner(object):
 
         :param databricks_run_id: Integer Databricks job run ID.
         :returns `RunResultState
-<https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
+        <https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
         the run is still active.
         """
         res = self.jobs_runs_get(databricks_run_id)
@@ -317,11 +318,12 @@ class DatabricksSubmittedRun(SubmittedRun):
         self._job_runner = databricks_job_runner
 
     def _print_description_and_log_tags(self):
-        eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-               "page URL... ===" % self._databricks_run_id)
+        mlflow.logging.info(
+            "=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
+            "page URL... ===" % self._databricks_run_id)
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
-        eprint("=== Check the run's status at %s ===" % jobs_page_url)
+        mlflow.logging.info("=== Check the run's status at %s ===" % jobs_page_url)
         host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
