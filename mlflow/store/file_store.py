@@ -333,10 +333,7 @@ class FileStore(AbstractStore):
         tag_data = read_file(parent_path, tag_name)
         if len(tag_data) == 0:
             raise Exception("Tag '%s' is malformed. No data found." % tag_name)
-        if len(tag_data) > 1:
-            raise Exception("Unexpected data for tag '%s'. Tag recorded more than once"
-                            % tag_name)
-        return RunTag(tag_name, str(tag_data[0].strip()))
+        return RunTag(tag_name, str("\n".join([data.strip() for data in tag_data])))
 
     def get_param(self, run_uuid, param_name):
         _validate_run_id(run_uuid)

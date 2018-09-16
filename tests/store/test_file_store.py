@@ -331,3 +331,21 @@ class TestFileStore(unittest.TestCase):
             ("tag0", "value2"),
             ("tag1", "value1"),
         }
+
+    def test_large_tags(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        large_value = "abcd" * 10000
+        fs.set_tag(run_uuid, RunTag("tag0", large_value))
+        tag = fs.get_run(run_uuid).data.tags[0]
+        assert tag.key == "tag0"
+        assert tag.value == large_value
+
+    def test_multi_line_tags(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        multiline_value = "This\nis\na\n\nmulti line\ntest"
+        fs.set_tag(run_uuid, RunTag("tag0", multiline_value))
+        tag = fs.get_run(run_uuid).data.tags[0]
+        assert tag.key == "tag0"
+        assert tag.value == multiline_value
