@@ -46,12 +46,12 @@ def test_set_experiment():
     try:
         with TempDir() as tracking_uri:
             tracking.set_tracking_uri(tracking_uri.path())
-            name = "Some random experiment name %d" % random.randint(1, 1e6)
+            name = "random_exp"
             exp_id = mlflow.create_experiment(name)
             mlflow.set_experiment(name)
             assert mlflow.tracking.fluent._active_experiment_id == exp_id
 
-            another_name = "Another random name %d" % random.randint(1, 1e6)
+            another_name = "another_experiment"
             mlflow.set_experiment(another_name)
             assert mlflow.tracking.fluent._active_experiment_id != exp_id
     finally:

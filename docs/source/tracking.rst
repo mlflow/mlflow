@@ -91,9 +91,9 @@ directory. The URI defaults to ``mlruns``.
 :py:func:`mlflow.create_experiment` creates a new experiment and returns its ID. Runs can be
 launched under the experiment by passing the experiment ID to ``mlflow.start_run``.
 
-:py:func:`mlflow.set_experiment` sets the given experiment as active. If this experiment does not
-exist, creates a new experiment with given name. New runs are launched under this experiment if not
-specified in `mlflow.start_run`.
+:py:func:`mlflow.set_experiment` sets an experiment as active. If the experiment does not exist,
+creates a new experiment. If you do not specify an experiment in :py:func:`mlflow.start_run`, new
+runs are launched under this experiment.
 
 :py:func:`mlflow.start_run` returns the currently active run (if one exists), or starts a new run
 and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager for the
