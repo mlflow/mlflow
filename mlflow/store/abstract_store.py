@@ -99,6 +99,22 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
+    def delete_run(self, run_id):
+        """
+        Deletes a run.
+        :param run_id:
+        """
+        pass
+
+    @abstractmethod
+    def restore_run(self, run_id):
+        """
+        Restores a run.
+        :param run_id:
+        """
+        pass
+
     def log_metric(self, run_uuid, metric):
         """
         Logs a metric for the specified run
@@ -160,7 +176,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_runs(self, experiment_ids, search_expressions):
+    def search_runs(self, experiment_ids, search_expressions, run_view_type):
         """
         Returns runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
@@ -173,7 +189,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_run_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id, run_view_type):
         """
         Returns run information for runs which belong to the experiment_id
 

@@ -52,10 +52,10 @@ def test_start_run_context_manager():
         first_uuid = first_run.info.run_uuid
         with first_run:
             # Check that start_run() causes the run information to be persisted in the store
-            persisted_run = tracking.get_service().get_run(first_uuid)
+            persisted_run = tracking.MlflowClient().get_run(first_uuid)
             assert persisted_run is not None
             assert persisted_run.info == first_run.info
-        finished_run = tracking.get_service().get_run(first_uuid)
+        finished_run = tracking.MlflowClient().get_run(first_uuid)
         assert finished_run.info.status == RunStatus.FINISHED
         # Launch a separate run that fails, verify the run status is FAILED and the run UUID is
         # different
@@ -64,7 +64,7 @@ def test_start_run_context_manager():
         with pytest.raises(Exception):
             with second_run:
                 raise Exception("Failing run!")
-        finished_run2 = tracking.get_service().get_run(second_run.info.run_uuid)
+        finished_run2 = tracking.MlflowClient().get_run(second_run.info.run_uuid)
         assert finished_run2.info.status == RunStatus.FAILED
     finally:
         tracking.set_tracking_uri(None)
@@ -77,7 +77,7 @@ def test_start_and_end_run():
         active_run = start_run()
         mlflow.log_metric("name_1", 25)
         end_run()
-        finished_run = tracking.get_service().get_run(active_run.info.run_uuid)
+        finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
         # Validate metrics
         assert len(finished_run.data.metrics) == 1
         expected_pairs = {"name_1": 25}
@@ -97,7 +97,7 @@ def test_log_metric():
             mlflow.log_metric("name_2", -3)
             mlflow.log_metric("name_1", 30)
             mlflow.log_metric("nested/nested/name", 40)
-        finished_run = tracking.get_service().get_run(run_uuid)
+        finished_run = tracking.MlflowClient().get_run(run_uuid)
         # Validate metrics
         assert len(finished_run.data.metrics) == 3
         expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
@@ -114,7 +114,7 @@ def test_log_metric_validation():
         run_uuid = active_run.info.run_uuid
         with active_run:
             mlflow.log_metric("name_1", "apple")
-        finished_run = tracking.get_service().get_run(run_uuid)
+        finished_run = tracking.MlflowClient().get_run(run_uuid)
         assert len(finished_run.data.metrics) == 0
     finally:
         tracking.set_tracking_uri(None)
@@ -130,7 +130,7 @@ def test_log_param():
             mlflow.log_param("name_2", "b")
             mlflow.log_param("name_1", "c")
             mlflow.log_param("nested/nested/name", 5)
-        finished_run = tracking.get_service().get_run(run_uuid)
+        finished_run = tracking.MlflowClient().get_run(run_uuid)
         # Validate params
         assert len(finished_run.data.params) == 3
         expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}

@@ -10,19 +10,26 @@ from six import iteritems
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
                                     _validate_tag_name, _validate_run_id
-from mlflow.entities import Param, Metric, RunStatus, RunTag
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
 _DEFAULT_USER_ID = "unknown"
 
 
-class MLflowService(object):
+class MlflowClient(object):
     """Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
-    def __init__(self, store):
-        self.store = store
+    def __init__(self, tracking_uri=None):
+        """
+        :param tracking_uri: Address of local or remote tracking server. If not provided, defaults
+                             to the service set by ``mlflow.tracking.set_tracking_uri``. See
+                             `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_
+                             for more info.
+        """
+        self.tracking_uri = tracking_uri
+        self.store = _get_store(tracking_uri)
 
     def get_run(self, run_id):
         """:return: :py:class:`mlflow.entities.Run` associated with the run ID."""
@@ -58,9 +65,9 @@ class MLflowService(object):
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_run_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-        return self.store.list_run_infos(experiment_id)
+        return self.store.list_run_infos(experiment_id, run_view_type)
 
     def list_experiments(self):
         """:return: List of :py:class:`mlflow.entities.Experiment`"""
@@ -196,18 +203,17 @@ class MLflowService(object):
         self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
                                    end_time=end_time)
 
+    def delete_run(self, run_id):
+        """
+        Deletes a run with the given ID.
+        """
+        self.store.delete_run(run_id)
 
-def get_service(tracking_uri=None):
-    """
-    Get the tracking service.
-
-    :param tracking_uri: Address of local or remote tracking server. If not provided,
-      this defaults to the service set by ``mlflow.tracking.set_tracking_uri``. See
-      `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_ for more info.
-    :return: :py:class:`mlflow.tracking.MLflowService`
-    """
-    store = _get_store(tracking_uri)
-    return MLflowService(store)
+    def restore_run(self, run_id):
+        """
+        Restores a deleted run with the given ID.
+        """
+        self.store.restore_run(run_id)
 
 
 def _get_user_id():

@@ -48,8 +48,8 @@ def test_run_git_https(tracking_uri_mock):  # pylint: disable=unused-argument
     # Invoke command twice to ensure we set Git state in an isolated manner (e.g. don't attempt to
     # create a git repo in the same directory twice, etc)
     assert GIT_PROJECT_URI.startswith("https")
-    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
 
 
 @pytest.mark.large
@@ -59,5 +59,5 @@ def test_run_git_ssh(tracking_uri_mock):  # pylint: disable=unused-argument
     # keys are unavailable. However it should be run locally whenever logic related to running
     # Git projects is modified.
     assert SSH_PROJECT_URI.startswith("git@")
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])

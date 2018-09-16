@@ -124,6 +124,30 @@ service MlflowService {
     };
   }
 
+  // This operation will mark the run for deletion.
+  rpc deleteRun(DeleteRun) returns (DeleteRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/delete"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+    };
+  }
+
+  // Restore a deleted run.
+  rpc restoreRun(RestoreRun) returns (RestoreRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/restore"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+    };
+  }
+
   // Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
   // associated timestamp. Examples include the various metrics that represent ML model accuracy. 
   // A metric can be logged multiple times.
@@ -404,6 +428,9 @@ message RunInfo {
   // path, like ``s3://bucket/directory`` or ``dbfs:/my/directory``.
   // If not set, the local ``./mlruns`` directory is  chosen.
   optional string artifact_uri = 13;
+
+  // Current life cycle stage of the experiment : OneOf("active", "deleted")
+  optional string lifecycle_stage = 14;
 }
 
 // Experiment
@@ -467,7 +494,7 @@ message GetExperiment {
     // Returns experiment details.
     optional Experiment experiment = 1;
 
-    // All (max limit to be imposed) runs associated with this experiment.
+    // All (max limit to be imposed) active runs associated with this experiment.
     repeated RunInfo runs = 2;
   }
 }
@@ -545,6 +572,22 @@ message UpdateRun {
     // Updated metadata of the run.
     optional RunInfo run_info = 1;
   }
+}
+
+message DeleteRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string run_id = 1 [(validate_required) = true];
+
+  message Response {}
+}
+
+message RestoreRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string run_id = 1 [(validate_required) = true];
+
+  message Response {}
 }
 
 message LogMetric {
@@ -694,6 +737,8 @@ message SearchRuns {
 
   // Expressions describing runs (AND-ed together when filtering runs).
   repeated SearchExpression anded_expressions = 2;
+
+  optional ViewType run_view_type = 3;
 
   message Response {
     // Runs that match the search criteria.
