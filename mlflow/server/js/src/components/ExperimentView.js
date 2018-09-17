@@ -118,14 +118,12 @@ class ExperimentView extends Component {
       } else if (sort.key === 'user_id') {
         sortValue = Utils.formatUser(runInfo.user_id);
       } else if (sort.key === 'source') {
-        sortValue = Utils.formatSource(runInfo, this.props.tagsList[idx]);
+        sortValue = Utils.formatSource(runInfo, tagsList[idx]);
       } else if (sort.key === 'run_name') {
-        sortValue = Utils.getRunName(this.props.tagsList[idx]);
+        sortValue = Utils.getRunName(tagsList[idx]);
       } else {
         sortValue = runInfo[sort.key];
       }
-      console.log(this.props.tagsList[idx]);
-
       return {
         key: runInfo.run_uuid,
         sortValue: sortValue,

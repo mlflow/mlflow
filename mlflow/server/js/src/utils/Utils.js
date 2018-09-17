@@ -41,6 +41,17 @@ class Utils {
   }
 
   /**
+   * Helper method for that returns a truncated version of the passed-in string (with trailing
+   * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
+   */
+  static truncateString(string, maxLength) {
+    if (string.length > maxLength) {
+      return string.slice(0, maxLength - 3) + "...";
+    }
+    return string;
+  }
+
+  /**
    * We need to cast all of the timestamps back to numbers since keys of JS objects are auto casted
    * to strings.
    *
@@ -65,7 +76,7 @@ class Utils {
     const todaysDate = new Date();
     d.setUTCMilliseconds(timestamp);
     compareDate.setUTCMilliseconds(timestamp);
-    if (todaysDate.setHours(0, 0, 0, 0) == compareDate.setHours(0, 0, 0, 0)) {
+    if (todaysDate.setHours(0, 0, 0, 0) === compareDate.setHours(0, 0, 0, 0)) {
       return <span title={dateFormat(d, "yyyy-mm-dd HH:MM:ss")}>{dateFormat(d, 'HH:MM:ss')}</span>;
     }
     return <span title={dateFormat(d, "yyyy-mm-dd HH:MM:ss")}>{dateFormat(d, "yyyy-mm-dd")}</span>;
@@ -177,15 +188,11 @@ class Utils {
   }
 
   /**
-   * Renders the run name into a string, truncating it if necessary.
+   * Renders the run name into a string.
    * @param runTags Object of tag name to MlflowMessages.RunTag instance
    */
   static getRunDisplayName(runTags, runUuid) {
-    const runName = Utils.getRunName(runTags) || "Run " + runUuid;
-    if (runName.length > Utils.MAX_RUN_NAME_DISPLAY_LENGTH) {
-      return runName.slice(0, Utils.MAX_RUN_NAME_DISPLAY_LENGTH - 3) + "...";
-    }
-    return runName;
+    return Utils.getRunName(runTags) || "Run " + runUuid;
   }
 
   static getRunName(runTags) {

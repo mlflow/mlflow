@@ -4,6 +4,7 @@ import { Experiment } from "../sdk/MlflowMessages";
 import { Link } from 'react-router-dom';
 import Routes from "../Routes";
 import './BreadcrumbTitle.css';
+import Utils from '../utils/Utils';
 
 /**
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
@@ -17,19 +18,21 @@ export default class BreadcrumbTitle extends Component {
     title: PropTypes.any.isRequired,
   };
 
+  static MAX_NAME_DISPLAY_LENGTH = 32;
+
   render() {
     const {experiment, runUuids, runNames, title} = this.props;
     const experimentId = experiment.getExperimentId();
     const experimentLink = (
       <Link to={Routes.getExperimentPageRoute(experimentId)}>
-        {experiment.getName()}
+        {Utils.truncateString(experiment.getName(), BreadcrumbTitle.MAX_NAME_DISPLAY_LENGTH)}
       </Link>
     );
     let runsLink = null;
     if (runUuids) {
       runsLink = (runUuids.length === 1 ?
         <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
-          {runNames[0]}
+          {Utils.truncateString(runNames[0], BreadcrumbTitle.MAX_NAME_DISPLAY_LENGTH)}
         </Link>
         :
         <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
@@ -43,7 +46,7 @@ export default class BreadcrumbTitle extends Component {
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink, chevron] : [] }
-        {title}
+        {Utils.truncateString(title, BreadcrumbTitle.MAX_NAME_DISPLAY_LENGTH)}
       </h1>
     );
   }
