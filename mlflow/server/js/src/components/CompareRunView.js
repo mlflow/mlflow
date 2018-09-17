@@ -20,7 +20,10 @@ class CompareRunView extends Component {
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
     runNames: PropTypes.arrayOf(String).isRequired,
+    runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
+
+  static MAX_NAME_DISPLAY_LENGTH = 32;
 
   render() {
     const experiment = this.props.experiment;
@@ -53,7 +56,9 @@ class CompareRunView extends Component {
               <tr>
                 <th scope="row" className="data-value">Run Name:</th>
                 {runNames.map((runName, i) => {
-                  return <td className="meta-info" key={runInfos[i].run_uuid}>{runName}</td>;
+                  return (<td className="meta-info" key={runInfos[i].run_uuid}>
+                    {Utils.truncateString(runName, CompareRunView.MAX_NAME_DISPLAY_LENGTH)}
+                    </td>);
                 }
                 )}
               </tr>
@@ -97,7 +102,7 @@ class CompareRunView extends Component {
           </table>
         </div>
 
-        <CompareRunScatter runUuids={this.props.runUuids} runNames={this.props.runNames}/>
+        <CompareRunScatter runUuids={this.props.runUuids} runNames={this.props.runDisplayNames}/>
       </div>
     );
   }
@@ -130,6 +135,7 @@ const mapStateToProps = (state, ownProps) => {
   const metricLists = [];
   const paramLists = [];
   const runNames = [];
+  const runDisplayNames = [];
   const { experimentId, runUuids } = ownProps;
   const experiment = getExperiment(experimentId, state);
   runUuids.forEach((runUuid) => {
@@ -137,9 +143,10 @@ const mapStateToProps = (state, ownProps) => {
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
     const runTags = getRunTags(runUuid, state);
-    runNames.push(Utils.getRunDisplayName(runTags, runUuid));
+    runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
+    runNames.push(Utils.getRunName(runTags));
   });
-  return { experiment, runInfos, metricLists, paramLists, runNames };
+  return { experiment, runInfos, metricLists, paramLists, runNames, runDisplayNames };
 };
 
 export default connect(mapStateToProps)(CompareRunView);

@@ -60,6 +60,8 @@ class CompareRunScatter extends Component {
     }
   }
 
+  static MAX_NAME_DISPLAY_LENGTH = 32;
+
   /**
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
@@ -169,7 +171,10 @@ class CompareRunScatter extends Component {
       return (
         <div className="panel panel-default scatter-tooltip">
           <div className="panel-heading">
-            <h3 className="panel-title">{this.props.runNames[i]}</h3>
+            <h3 className="panel-title">
+              {Utils.truncateString(this.props.runNames[i],
+              CompareRunScatter.MAX_NAME_DISPLAY_LENGTH)}
+            </h3>
           </div>
           <div className="panel-body">
             <div className="row">
