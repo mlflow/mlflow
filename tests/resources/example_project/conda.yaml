@@ -7,5 +7,5 @@ channels:
 dependencies:
   - python=3.6
   - pip:
-    - mlflow
+    - -e ../../../
     - psutil
