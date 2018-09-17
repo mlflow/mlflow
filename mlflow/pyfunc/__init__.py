@@ -80,12 +80,12 @@ import shutil
 import sys
 import pandas
 
+import mlflow.logging
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
-from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -171,14 +171,15 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
 
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
     if model_py_version is None:
-        eprint("The specified model does not have a specified Python version. It may be"
-               " incompatible with the version of Python that is currently running:"
-               " Python {version}".format(
-                   version=PYTHON_VERSION))
+        mlflow.logging.warn(
+            "The specified model does not have a specified Python version. It may be incompatible "
+            "with the version of Python that is currently running: "
+            "Python {version}".format(version=PYTHON_VERSION))
     elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
-        eprint("The version of Python that the model was saved in, Python {model_version}, differs"
-               " from the version of Python that is currently running, Python {system_version},"
-               " and may be incompatible".format(
+        mlflow.logging.warn(
+            "The version of Python that the model was saved in, Python {model_version}, differs "
+            "from the version of Python that is currently running, Python {system_version}, and "
+            "may be incompatible".format(
                    model_version=model_py_version, system_version=PYTHON_VERSION))
 
 

@@ -14,9 +14,9 @@ import mlflow.pyfunc.cli
 import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
 
+import mlflow.logging
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
@@ -113,7 +113,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             run_id=run_id,
         )
     except projects.ExecutionException as e:
-        eprint("=== %s ===" % e)
+        mlflow.logging.error("=== %s ===" % e)
         sys.exit(1)
 
 
