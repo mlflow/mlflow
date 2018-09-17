@@ -9,13 +9,15 @@
   <url>http://mlflow.org</url>
 
   <description>Open source platform for the machine learning lifecycle</description>
+
+  <!-- The following sections (licenses, developers, scm, and distributionManagement) are needed to
+       publish pom-only packages to Maven -->
   <licenses>
     <license>
       <name>The Apache License, Version 2.0</name>
       <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
     </license>
   </licenses>
-
   <developers>
     <developer>
       <name>Matei Zaharia</name>
@@ -24,12 +26,18 @@
       <organizationUrl>http://www.databricks.com</organizationUrl>
     </developer>
   </developers>
-
   <scm>
     <connection>scm:git:git://github.com/mlflow/mlflow.git</connection>
     <developerConnection>scm:git:ssh://github.com:mlflow/mlflow.git</developerConnection>
     <url>http://github.com/mlflow/mlflow/tree/master</url>
   </scm>
+  <distributionManagement>
+    <repository>
+      <id>bintray</id>
+      <name>mlflow</name>
+      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-parent/;publish=1</url>
+    </repository>
+  </distributionManagement>
 
   <properties>
     <mlflow-version>0.5.1</mlflow-version>
@@ -50,14 +58,6 @@
     <module>scoring</module>
     <module>client</module>
   </modules>
-
-  <distributionManagement>
-    <repository>
-      <id>bintray</id>
-      <name>mlflow</name>
-      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-parent/;publish=1</url>
-    </repository>
-  </distributionManagement>
 
   <dependencyManagement>
     <dependencies>
@@ -240,12 +240,5 @@
         </plugin>
       </plugins>
     </pluginManagement>
-
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-source-plugin</artifactId>
-      </plugin>
-    </plugins>
   </build>
 </project>
