@@ -4,6 +4,7 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
+import moment from 'moment';
 
 class Utils {
   /**
@@ -75,7 +76,7 @@ class Utils {
     d.setUTCMilliseconds(timestamp);
     compareDate.setUTCMilliseconds(timestamp);
     if (todaysDate.setHours(0, 0, 0, 0) === compareDate.setHours(0, 0, 0, 0)) {
-      return <span title={dateFormat(d, "yyyy-mm-dd HH:MM:ss")}>{dateFormat(d, 'HH:MM:ss')}</span>;
+      return <span title={dateFormat(d, "yyyy-mm-dd HH:MM:ss")}>{moment(d).fromNow()}</span>;
     }
     return <span title={dateFormat(d, "yyyy-mm-dd HH:MM:ss")}>{dateFormat(d, "yyyy-mm-dd")}</span>;
   }

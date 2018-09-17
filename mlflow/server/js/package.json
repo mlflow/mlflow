@@ -12,6 +12,7 @@
     "immutable": "3.8.1",
     "jquery": "3.0.0",
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
+    "moment": "^2.22.2",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
     "react": "^16.3.2",
