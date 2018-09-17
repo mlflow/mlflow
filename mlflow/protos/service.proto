@@ -628,7 +628,7 @@ message LogParam {
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the param.
+  // ID of the run under which to set the tag.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Name of the tag. Maximum size is 255 bytes.

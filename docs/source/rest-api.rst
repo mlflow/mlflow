@@ -488,7 +488,7 @@ Request Structure
 +------------+------------+------------------------------------------------------------------+
 | Field Name |    Type    |                           Description                            |
 +============+============+==================================================================+
-| run_uuid   | ``STRING`` | ID of the run under which to log the param.                      |
+| run_uuid   | ``STRING`` | ID of the run under which to set the tag.                        |
 |            |            | This field is required.                                          |
 |            |            |                                                                  |
 +------------+------------+------------------------------------------------------------------+
