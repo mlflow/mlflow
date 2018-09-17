@@ -78,7 +78,7 @@ class FileStore(AbstractStore):
         if not is_directory(self.root_directory):
             raise Exception("'%s' is not a directory." % self.root_directory)
 
-    def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL):
+    def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL, assert_exists=False):
         parents = []
         if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
             parents.append(self.root_directory)
@@ -88,11 +88,13 @@ class FileStore(AbstractStore):
             exp_list = find(parent, str(experiment_id), full_path=True)
             if len(exp_list) > 0:
                 return exp_list[0]
+        if assert_exists:
+            raise Exception('Experiment {} does not exist.'.format(experiment_id))
         return None
 
     def _get_run_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
-        return build_path(self._get_experiment_path(experiment_id), run_uuid)
+        return build_path(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
@@ -407,7 +409,7 @@ class FileStore(AbstractStore):
 
     def _list_run_uuids(self, experiment_id, run_view_type):
         self._check_root_dir()
-        experiment_dir = self._get_experiment_path(experiment_id)
+        experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
         run_uuids = list_all(experiment_dir, os.path.isdir, full_path=False)
         if run_view_type == ViewType.ALL:
             return run_uuids
