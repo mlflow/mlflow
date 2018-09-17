@@ -29,7 +29,7 @@ class MetricView extends Component {
     runNames: PropTypes.arrayOf(String).isRequired,
   };
 
-  static MAX_RUN_NAME_DISPLAY_LENGTH = 32;
+  static MAX_RUN_NAME_DISPLAY_LENGTH = 36;
 
   // Returns Payload to use in rechart legend
   // Legend type must be one of the values in

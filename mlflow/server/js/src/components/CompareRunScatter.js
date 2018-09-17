@@ -60,7 +60,7 @@ class CompareRunScatter extends Component {
     }
   }
 
-  static MAX_NAME_DISPLAY_LENGTH = 32;
+  static MAX_NAME_DISPLAY_LENGTH = 36;
 
   /**
    * Get the value of the metric/param described by {key, isMetric}, in run i

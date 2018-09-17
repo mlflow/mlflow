@@ -23,7 +23,7 @@ class CompareRunView extends Component {
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
-  static MAX_NAME_DISPLAY_LENGTH = 32;
+  static MAX_NAME_DISPLAY_LENGTH = 36;
 
   render() {
     const experiment = this.props.experiment;

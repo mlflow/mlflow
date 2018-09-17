@@ -81,6 +81,8 @@ class ExperimentView extends Component {
     };
   }
 
+  static MAX_NAME_DISPLAY_LENGTH = 36;
+
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
     const {
@@ -382,7 +384,9 @@ class ExperimentView extends Component {
         </Link>
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td key="meta-user">{Utils.getRunName(tags)}</td>,
+      <td key="meta-user">
+        {Utils.truncateString(Utils.getRunName(tags), ExperimentView.MAX_NAME_DISPLAY_LENGTH)}
+      </td>,
       <td key="meta-source" style={{
         "white-space": "nowrap",
         "max-width": "250px",

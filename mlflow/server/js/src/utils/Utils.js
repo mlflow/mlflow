@@ -28,8 +28,6 @@ class Utils {
   }
 
   static runNameTag = 'mlflow.runName';
-  static MAX_RUN_NAME_DISPLAY_LENGTH = 36;
-
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();

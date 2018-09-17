@@ -18,7 +18,7 @@ export default class BreadcrumbTitle extends Component {
     title: PropTypes.any.isRequired,
   };
 
-  static MAX_NAME_DISPLAY_LENGTH = 32;
+  static MAX_NAME_DISPLAY_LENGTH = 36;
 
   render() {
     const {experiment, runUuids, runNames, title} = this.props;
