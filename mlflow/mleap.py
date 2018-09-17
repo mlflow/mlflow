@@ -34,6 +34,36 @@ def log_model(spark_model, sample_input, artifact_path):
     :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     :param artifact_path: Run-relative artifact path.
+
+    >>> import mlflow
+    >>> import mlflow.mleap
+    >>> import pyspark
+    >>> from pyspark.ml import Pipeline
+    >>> from pyspark.ml.classification import LogisticRegression
+    >>> from pyspark.ml.feature import HashingTF, Tokenizer
+    >>># training DataFrame
+    >>> training = spark.createDataFrame([
+    ...     (0, "a b c d e spark", 1.0),
+    ...     (1, "b d", 0.0),
+    ...     (2, "spark f g h", 1.0),
+    ...     (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+    >>># testing DataFrame
+    >>> test_df = spark.createDataFrame([
+    ...     (4, "spark i j k"),
+    ...     (5, "l m n"),
+    ...     (6, "spark hadoop spark"),
+    ...     (7, "apache hadoop")], ["id", "text"])
+    >>> #Create an MLlib pipeline
+    >>> tokenizer = Tokenizer(inputCol="text", outputCol="words")
+    >>> hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+    >>> lr = LogisticRegression(maxIter=10, regParam=0.001)
+    >>> pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+    >>> model = pipeline.fit(training)
+    >>> #log parameters
+    >>> mlflow.log_parameter("max_iter", 10)
+    >>> mlflow.log_parameter("reg_param", 0.001)
+    >>> #log the Spark MLlib model in MLeap format
+    >>> mlflow.mleap.log_model(model, test_df, "mleap-model")
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
                      spark_model=spark_model, sample_input=sample_input)
@@ -55,6 +85,15 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model()):
                          required by MLeap for data schema inference.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
+
+    >>> import mlflow
+    >>> import mlflow.mleap
+    >>> #set values as appropriate
+    >>> spark_model = ...
+    >>> model_save_dir = ...
+    >>> sample_input_df = ...
+    >>> #save the spark MLlib model in MLeap flavor
+    >>> mlflow.mleap.save_model(spark_model, sample_input_df, model_save_dir)
     """
     add_to_model(mlflow_model, path, spark_model, sample_input)
     mlflow_model.save(os.path.join(path, "MLmodel"))
@@ -70,6 +109,16 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                         cannot contain any custom transformers.
     :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
+
+    >>> import mlflow
+    >>> import mlflow.mleap
+    >>> #set values
+    >>> mlflow_model = ...
+    >>> spark_model = ...
+    >>> model_path_dir = ...
+    >>> sample_input_df =
+    >>> #add MLeap flavor to our MLflow model
+    >>> mlflow.mleap.add_to_model(mlflow_model,model_path_dir, sample_input_df)
     """
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.sql import DataFrame

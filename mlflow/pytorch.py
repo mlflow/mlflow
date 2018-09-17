@@ -75,6 +75,7 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     >>>     print("predict (after training)",  hv, model(hour_var ).data[0][0])
     >>> # log the model
     >>> with mlflow.start_run() as run:
+    >>>   mlflow.log_param("epochs", 500)
     >>>   mlflow.pytorch.log_model(pytorch_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch,
@@ -106,7 +107,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     >>>     ...
     >>> #save the model
     >>> with mlflow.start_run() as run:
-    >>>   mlflow.pytorch.log_param("epochs", 500)
+    >>>   mlflow.log_param("epochs", 500)
     >>>   mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
     """
     if not isinstance(pytorch_model, torch.nn.Module):
