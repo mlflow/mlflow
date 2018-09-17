@@ -1,3 +1,4 @@
+import codecs
 import gzip
 import os
 import shutil
@@ -198,7 +199,7 @@ def read_file_lines(parent_path, file_name):
     :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding="utf-8-sig") as f:
         return f.readlines()
 
 
@@ -212,7 +213,7 @@ def read_file(parent_path, file_name):
     :return: The contents of the file.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding="utf-8-sig") as f:
         return f.read()
 
 
@@ -250,7 +251,7 @@ def mv(target, new_parent):
 
 
 def write_to(filename, data):
-    with open(filename, "w") as handle:
+    with codecs.open(filename, mode="w", encoding="utf-8-sig") as handle:
         handle.write(data)
 
 
