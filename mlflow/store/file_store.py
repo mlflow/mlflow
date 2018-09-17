@@ -1,6 +1,7 @@
 import os
 
 import uuid
+import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
@@ -435,7 +436,7 @@ class FileStore(AbstractStore):
     def _writeable_value(self, tag_value):
         if tag_value is None:
             return ""
-        elif isinstance(tag_value, str) or isinstance(tag_value, unicode):
+        elif isinstance(tag_value, six.string_types):
             return tag_value
         else:
             return "%s" % tag_value
