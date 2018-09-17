@@ -367,8 +367,6 @@ class FileStore(AbstractStore):
     def _get_tag_from_file(parent_path, tag_name):
         _validate_tag_name(tag_name)
         tag_data = read_file(parent_path, tag_name)
-        if len(tag_data) == 0:
-            raise Exception("Tag '%s' is malformed. No data found." % tag_name)
         return RunTag(tag_name, tag_data)
 
     def get_param(self, run_uuid, param_name):
@@ -435,9 +433,9 @@ class FileStore(AbstractStore):
         append_to(metric_path, "%s %s\n" % (metric.timestamp, metric.value))
 
     def _writeable_value(self, tag_value):
-        if type(tag_value) is "string":
-            return tag_value
-        elif type(tag_value) is "unicode":
+        if tag_value is None:
+            return ""
+        elif isinstance(tag_value, str) or isinstance(tag_value, unicode):
             return tag_value
         else:
             return "%s" % tag_value
