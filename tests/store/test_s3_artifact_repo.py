@@ -71,3 +71,11 @@ class TestS3ArtifactRepo(unittest.TestCase):
             self.assertEqual(os.path.basename(downloaded_dir), "nested")
             text = open(os.path.join(downloaded_dir, "c.txt")).read()
             self.assertEqual(text, "C")
+
+            # Download the root directory
+            downloaded_dir = repo.download_artifacts("")
+            dir_contents = os.listdir(downloaded_dir)
+            assert "nested" in dir_contents
+            assert os.path.isdir(os.path.join(downloaded_dir, "nested"))
+            assert "a.txt" in dir_contents
+            assert "b.txt" in dir_contents
