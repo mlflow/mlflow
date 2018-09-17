@@ -469,7 +469,7 @@ Set Tag
 | ``2.0/preview/mlflow/runs/set-tag`` | ``POST``    |
 +-------------------------------------+-------------+
 
-Set a tag on a run. Tags are run metadata that can be updated during and after
+Set a tag on a run. Tags are run metadata that can be updated during a run and after
 a run completes.
 
 

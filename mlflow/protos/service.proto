@@ -182,7 +182,7 @@ service MlflowService {
     };
   }
 
-  // Set a tag on a run. Tags are run metadata that can be updated during and after
+  // Set a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
   rpc setTag(SetTag) returns (SetTag.Response) {
