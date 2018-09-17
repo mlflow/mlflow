@@ -384,7 +384,9 @@ message RunData {
 
 // Tag for a run.
 message RunTag {
+  // The tag key.
   optional string key = 1;
+  // The tag value.
   optional string value = 2;
 }
 
