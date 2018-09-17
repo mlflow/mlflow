@@ -116,16 +116,23 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                         current directory if not specified.
     """
     with TempDir() as tmp:
-        install_mlflow = "RUN pip install mlflow=={version}".format(
-            version=mlflow.version.VERSION)
+        install_mlflow = (
+            "RUN pip install mlflow=={version}"
+            "RUN mvn dependency:get -DgroupId=org.mlflow -DartifactId=mlflow-scoring"
+            " -Dversion={version} -Dtransitive=False"
+        ).format(version=mlflow.version.VERSION)
         cwd = tmp.path()
         if mlflow_home:
             mlflow_dir = _copy_project(
                 src_path=mlflow_home, dst_path=tmp.path())
-            install_mlflow = ("COPY {mlflow_dir} /opt/mlflow\n"
-                              "RUN cd /opt/mlflow/mlflow/java/scoring &&"
-                              " mvn --batch-mode package -DskipTests \n"
-                              "RUN pip install /opt/mlflow\n")
+            install_mlflow = (
+                    "COPY {mlflow_dir} /opt/mlflow\n"
+                    "RUN cd /opt/mlflow/mlflow/java/scoring &&"
+                    " mvn --batch-mode package -DskipTests &&"
+                    " mkdir /opt/java &&"
+                    " mv /opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-* /opt/java \n"
+                    " RUN pip install /opt/mlflow\n"
+            )
             install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
         else:
             eprint("`mlflow_home` was not specified. The image will install"
