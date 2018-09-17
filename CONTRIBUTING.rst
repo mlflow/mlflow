@@ -3,8 +3,12 @@ Contributing to MLflow
 We welcome community contributions to MLflow. This page describes how to develop/test your changes
 to MLflow locally.
 
-Python API
-----------
+Python
+------
+The majority of the MLflow codebase is in Python. This includes the CLI, Tracking Server,
+Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
+tracking, and model APIs.
+
 
 Prerequisites
 ~~~~~~~~~~~~~
@@ -39,25 +43,30 @@ If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update
 ``mlflow/server/js`` to install the updated dependencies.
 
 
-Java API
---------
+Java
+----
+Certain MLflow modules are implemented in Java, under the mlflow/java/ directory.
+These are the Java Tracking API client (``mlflow/java/client``) and the Model Scoring Server
+for Java-based models like MLeap (``mlflow/java/scoring``).
 
-The MLflow Java client depends on the Python client, so first install the Python client in a conda
-environment as described above. `Install <https://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
+Other Java functionality (like artifact storage) depends on the Python client, so first install
+the Python client in a conda environment as described above.
+`Install <https://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
 the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>`_
 and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
 
 .. code:: bash
 
   cd mlflow/java
-  mvn clean package
+  mvn compile test
 
-R API
------
+R
+-
 
-The MLflow R client depends on the Python client, so first install the Python client in a conda
-environment as described above. Install R, then run the following to install dependencies for
-building MLflow locally
+The ``mlflow/R/mlflow`` directory contains R wrappers for the Projects, Tracking and Models
+components. These wrappers depend on the Python client, so first install the Python client in a
+conda environment as described above. `Install R <https://cloud.r-project.org/>`_, then run the
+following to install dependencies for building MLflow locally:
 
 .. code:: bash
 
@@ -78,6 +87,22 @@ Run tests:
   R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
   cd tests
   NOT_CRAN=true LINTR_COMMENT_BOT=false Rscript ../.travis.R
+  cd -
+
+Run linter:
+
+.. code:: bash
+  Rscript -e 'lintr::lint_package()'
+
+
+When developing, you can make Python changes available in R by running:
+
+```{r eval=FALSE}
+reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
+```
+
+Please also follow the recommendations from the
+[Advanced R - Style Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling.
 
 
 Launching the Development UI
@@ -140,7 +165,7 @@ Build a pip-installable wheel in ``dist/``:
    python setup.py bdist_wheel
 
 Building Protobuf Files
-------------------------
+-----------------------
 To build protobuf files, simply run ``generate-protos.sh``. The required ``protoc`` version is ``3.6.0``.
 
 

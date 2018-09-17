@@ -21,7 +21,7 @@ knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
 You can install **mlflow** from GitHub as follows:
 
 ```{r, eval=FALSE}
-devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
+devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
 Then, install MLflow to manage models and experiments locally:
@@ -38,7 +38,7 @@ mlflow_install()
 To upgrade to the latest version of mlflow, run the following command and restart your r session:
 
 ```{r, eval=FALSE}
-devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
+devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
 ## Tracking
@@ -81,10 +81,10 @@ An MLflow Project is a format for packaging data science code in a reusable and 
 MLflow projects can be [explicitly created](https://www.mlflow.org/docs/latest/projects.html#specifying-projects) or implicitly used by running `R` with `mlflow` from the terminal as follows:
 
 ```{bash eval=FALSE}
-mlflow run examples/R/simple --entry-point train.R
+mlflow run examples/r_wine --entry-point train.R
 ```
 
-Notice that is equivalent to running from `examples/R/simple`,
+Notice that is equivalent to running from `examples/r_wine`,
 
 ```{bash eval=FALSE}
 Rscript -e "mlflow::mlflow_source('train.R')"
@@ -252,10 +252,4 @@ To enable fast iteration while tracking with MLflow improvements over a model, [
 
 ## Contributing
 
-In order to contribute, follow the [MLflow contribution guidelines](../../CONTRIBUTING.rst). After performing python changes, you can make them available in R by running:
-
-```{r eval=FALSE}
-reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
-```
-
-Please also follow the recommendations from the [Advanced R - Style Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling, run `lintr::lint_package()` to find styling issues.
+In order to contribute, follow the [MLflow contribution guidelines](../../CONTRIBUTING.rst).
