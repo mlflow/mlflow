@@ -11,7 +11,8 @@ import java.util.Set;
 
 import com.google.common.collect.Sets;
 import org.apache.commons.io.FileUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
@@ -25,7 +26,8 @@ import org.mlflow.tracking.creds.BasicMlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCreds;
 
 public class CliBasedArtifactRepositoryTest {
-  private static final Logger logger = Logger.getLogger(CliBasedArtifactRepositoryTest.class);
+  private static final Logger logger = LoggerFactory.getLogger(
+    CliBasedArtifactRepositoryTest.class);
 
   private final TestClientProvider testClientProvider = new TestClientProvider();
 

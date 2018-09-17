@@ -3,10 +3,12 @@ package org.mlflow.tracking.creds;
 import java.util.Map;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksDynamicHostCredsProvider implements MlflowHostCredsProvider {
-  private static final Logger logger = Logger.getLogger(DatabricksDynamicHostCredsProvider.class);
+  private static final Logger logger = LoggerFactory.getLogger(
+    DatabricksDynamicHostCredsProvider.class);
 
   private final Map<String, String> configProvider;
 

@@ -17,7 +17,8 @@ import com.google.gson.reflect.TypeToken;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.mlflow.api.proto.Service;
 import org.mlflow.tracking.MlflowClientException;
@@ -32,7 +33,7 @@ import org.mlflow.tracking.creds.MlflowHostCredsProvider;
  * We require that 'mlflow' is available in the system path.
  */
 public class CliBasedArtifactRepository implements ArtifactRepository {
-  private static final Logger logger = Logger.getLogger(CliBasedArtifactRepository.class);
+  private static final Logger logger = LoggerFactory.getLogger(CliBasedArtifactRepository.class);
 
   // Global check if we ever successfully loaded 'mlflow'. This allows us to print a more
   // helpful error message if the executable is not in the path.
