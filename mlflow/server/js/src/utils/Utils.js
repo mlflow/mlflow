@@ -61,8 +61,14 @@ class Utils {
    */
   static formatTimestamp(timestamp) {
     const d = new Date(0);
+    const compareDate = new Date(0);
+    const todaysDate = new Date();
     d.setUTCMilliseconds(timestamp);
-    return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
+    compareDate.setUTCMilliseconds(timestamp);
+    if (todaysDate.setHours(0, 0, 0, 0) == compareDate.setHours(0, 0, 0, 0)) {
+      return <span title={dateFormat(d, "yyyy-mm-dd HH:MM:ss")}>{dateFormat(d, 'HH:MM:ss')}</span>;
+    }
+    return <span title={dateFormat(d, "yyyy-mm-dd HH:MM:ss")}>{dateFormat(d, "yyyy-mm-dd")}</span>;
   }
 
   /**

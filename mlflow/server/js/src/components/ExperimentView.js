@@ -120,7 +120,7 @@ class ExperimentView extends Component {
       } else if (sort.key === 'source') {
         sortValue = Utils.formatSource(runInfo, this.props.tagsList[idx]);
       } else if (sort.key === 'run_name') {
-        sortValue = Utils.getRunDisplayName(tagsList, runInfo.run_uuid);
+        sortValue = Utils.getRunName(this.props.tagsList[idx]);
       } else {
         sortValue = runInfo[sort.key];
       }
@@ -384,7 +384,7 @@ class ExperimentView extends Component {
         </Link>
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td key="meta-user">{Utils.getRunDisplayName(tags, runInfo.run_uuid)}</td>,
+      <td key="meta-user">{Utils.getRunName(tags)}</td>,
       <td key="meta-source" style={{
         "white-space": "nowrap",
         "max-width": "250px",
