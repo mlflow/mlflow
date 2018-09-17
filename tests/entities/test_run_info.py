@@ -83,9 +83,17 @@ class TestRunInfo(unittest.TestCase):
                     user_id, status, start_time, end_time, source_version, lifecycle_stage,
                     artifact_uri)
         # Test that we can add a field to RunInfo and still deserialize it from a dictionary
-        dict_copy = as_dict.copy()
-        dict_copy["my_new_field"] = "new field value"
-        ri4 = RunInfo.from_dictionary(dict_copy)
+        dict_copy_0 = as_dict.copy()
+        dict_copy_0["my_new_field"] = "new field value"
+        ri4 = RunInfo.from_dictionary(dict_copy_0)
         self._check(ri4, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
+                    user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                    artifact_uri)
+        # Test that we can deserialize a RunInfo without lifecycle_stage set (i.e. a RunInfo
+        # persisted before the introduction of lifecycle_stage)
+        dict_copy_1 = as_dict.copy()
+        dict_copy_1.pop("lifecycle_stage")
+        ri5 = RunInfo.from_dictionary(dict_copy_0)
+        self._check(ri5, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                     user_id, status, start_time, end_time, source_version, lifecycle_stage,
                     artifact_uri)

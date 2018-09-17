@@ -24,7 +24,7 @@ class RunInfo(_MLflowObject):
     DELETED_LIFECYCLE = "deleted"
 
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                 user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                 user_id, status, start_time, end_time, source_version, lifecycle_stage=None,
                  artifact_uri=None):
         if run_uuid is None:
             raise Exception("run_uuid cannot be None")
@@ -53,7 +53,7 @@ class RunInfo(_MLflowObject):
         self._start_time = start_time
         self._end_time = end_time
         self._source_version = source_version
-        self._lifecycle_stage = lifecycle_stage
+        self._lifecycle_stage = lifecycle_stage or RunInfo.ACTIVE_LIFECYCLE
         self._artifact_uri = artifact_uri
 
     def __eq__(self, other):
