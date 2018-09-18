@@ -1,3 +1,10 @@
 .breadcrumb-header {
   margin-bottom: 0px;
 }
+
+.breadcrumb-title {
+  max-width: 470px;
+  padding-top: 3px;
+  vertical-align: bottom;
+  display: inline-block;
+}

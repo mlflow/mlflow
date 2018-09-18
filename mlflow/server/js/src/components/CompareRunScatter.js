@@ -171,7 +171,7 @@ class CompareRunScatter extends Component {
       return (
         <div className="panel panel-default scatter-tooltip">
           <div className="panel-heading">
-            <h3 className="panel-title" style={{"width": "200px", "overflow": "hidden", "textOverflow": "ellipsis"}}>
+            <h3 className="panel-title" style={{"maxHeight": "80px", "overflow": "hidden", "textOverflow": "ellipsis"}}>
               {this.props.runNames[i]}
             </h3>
           </div>

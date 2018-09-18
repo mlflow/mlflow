@@ -174,3 +174,10 @@ table th {
 .modal-footer .btn+.btn {
   margin-left: 16px;
 }
+
+.truncate-text {
+  height: 1.3em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

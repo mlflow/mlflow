@@ -23,7 +23,7 @@ export default class BreadcrumbTitle extends Component {
     const experimentId = experiment.getExperimentId();
     const experimentLink = (
       <Link to={Routes.getExperimentPageRoute(experimentId)}
-        style={{"width": "200px", "height": "1em", "overflow": "hidden", "textOverflow": "ellipsis"}}
+        className="truncate-text breadcrumb-title"
       >
         {experiment.getName()}
       </Link>
@@ -33,7 +33,7 @@ export default class BreadcrumbTitle extends Component {
       runsLink = (runUuids.length === 1 ?
         <Link
           to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link"
-          style={{"width": "200px", "overflow": "hidden", "textOverflow": "ellipsis"}}
+          className="truncate-text breadcrumb-title"
         >
           {runNames[0]}
         </Link>
@@ -49,7 +49,7 @@ export default class BreadcrumbTitle extends Component {
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink, chevron] : [] }
-        <span style={{"maxWidth": "300px", "height": "1em", "overflow": "hidden", "textOverflow": "ellipsis", "display": "inline-block"}}>
+        <span className="truncate-text breadcrumb-title">
           {title}
         </span>
       </h1>

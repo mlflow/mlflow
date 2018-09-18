@@ -67,11 +67,6 @@ class MetricView extends Component {
             >
               <XAxis dataKey="index">
               </XAxis>
-              <Tooltip isAnimationActive={false}
-                labelStyle={{display: "none"}}
-                itemStyle={{textOverflow: "ellipsis", maxWidth: 200, overflow: "hidden"}}
-                active
-              />
               <CartesianGrid strokeDasharray="3 3"/>
               <Legend payload={this.getLegendPayload('square')} />
               <YAxis/>
@@ -105,8 +100,7 @@ class MetricView extends Component {
               <XAxis dataKey="index" type="number"/>
               <Tooltip
                 isAnimationActive={false}
-                labelStyle={{display: "none"}}
-                itemStyle={{textOverflow: "ellipsis", maxWidth: 200, overflow: "hidden"}} />
+                labelStyle={{display: "none"}} />
               <CartesianGrid strokeDasharray="3 3"/>
               <Legend verticalAlign="bottom" payload={this.getLegendPayload('line')}/>
               <YAxis/>

@@ -4,7 +4,6 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
-import moment from 'moment';
 
 class Utils {
   /**
