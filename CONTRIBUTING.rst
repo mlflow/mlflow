@@ -112,7 +112,7 @@ When developing, you can make Python changes available in R by running (from mlf
   Rscript -e 'reticulate::conda_install("r-mlflow", "../../../.", pip = TRUE)'
 
 Please also follow the recommendations from the
-[Advanced R - Style Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling.
+`Advanced R - Style Guide <http://adv-r.had.co.nz/Style.html>`_ regarding naming and styling.
 
 
 Launching the Development UI
