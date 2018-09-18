@@ -114,10 +114,11 @@ class DbfsArtifactRepository(ArtifactRepository):
             return []
         dbfs_files = json_response.get('files', [])
         for dbfs_file in dbfs_files:
-            is_dir = dbfs_file['is_dir']
-            artifact_size = None if is_dir else dbfs_file['file_size']
             stripped_path = strip_prefix(dbfs_file['path'], artifact_prefix + '/')
-            infos.append(FileInfo(stripped_path, is_dir, artifact_size))
+            if stripped_path != artifact_prefix:
+                is_dir = dbfs_file['is_dir']
+                artifact_size = None if is_dir else dbfs_file['file_size']
+                infos.append(FileInfo(stripped_path, is_dir, artifact_size))
         return sorted(infos, key=lambda f: f.path)
 
     def _is_directory(self, artifact_path):
