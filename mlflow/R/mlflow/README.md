@@ -16,7 +16,7 @@ Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-
 You can install **mlflow** from GitHub as follows:
 
 ``` r
-devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
+devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
 Then, install MLflow to manage models and experiments locally:
@@ -30,7 +30,7 @@ To upgrade to the latest version of mlflow, run the following command
 and restart your r session:
 
 ``` r
-devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
+devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
 ## Tracking
@@ -336,14 +336,4 @@ follows:
 
 ## Contributing
 
-In order to contribute, follow the [MLflow contribution
-guidelines](../../CONTRIBUTING.rst). After performing python changes,
-you can make them available in R by running:
-
-``` r
-reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
-```
-
-Please also follow the recommendations from the [Advanced R - Style
-Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling,
-run `lintr::lint_package()` to find styling issues.
+See the [MLflow contribution guidelines](../../CONTRIBUTING.rst).
