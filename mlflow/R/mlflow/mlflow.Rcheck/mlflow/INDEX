@@ -1,0 +1,41 @@
+active_experiment       Active Experiment
+active_run              Active Run
+mlflow_cli              MLflow Command
+mlflow_connect          Connect to MLflow
+mlflow_create_experiment
+                        Create Experiment
+mlflow_create_run       Create Run
+mlflow_disconnect       Disconnect from MLflow
+mlflow_end_run          End Run
+mlflow_get_experiment   Get Experiment
+mlflow_get_metric       Get Metric
+mlflow_get_metric_history
+                        Get Metric History
+mlflow_get_param        Get Param
+mlflow_get_run          Get Run
+mlflow_install          Install MLflow
+mlflow_list_experiments
+                        List Experiments
+mlflow_load_flavor      Load MLflow Model Flavor
+mlflow_log_artifact     Log Artifact
+mlflow_log_metric       Log Metric
+mlflow_log_model        Log Model
+mlflow_log_param        Log Parameter
+mlflow_param            Read Command Line Parameter
+mlflow_predict_flavor   Predict over MLflow Model Flavor
+mlflow_restore_snapshot
+                        Restore Snapshot
+mlflow_rfunc_predict    Predict using RFunc MLflow Model
+mlflow_rfunc_serve      Serve an RFunc MLflow Model
+mlflow_run              Run in MLflow
+mlflow_save_flavor      Save MLflow Model Flavor
+mlflow_save_model       Save Model for MLflow
+mlflow_server           Run the MLflow Tracking Server
+mlflow_set_tracking_uri
+                        Set Remote Tracking URI
+mlflow_snapshot         Dependencies Snapshot
+mlflow_start_run        Start Run
+mlflow_tracking_uri     Get Remote Tracking URI
+mlflow_ui               MLflow User Interface
+mlflow_uninstall        Uninstalls MLflow.
+mlflow_update_run       Update Run

@@ -1,0 +1,68 @@
+* using log directory ‘/Users/sid/code/mlflow/mlflow/R/mlflow/mlflow.Rcheck’
+* using R version 3.5.1 (2018-07-02)
+* using platform: x86_64-apple-darwin15.6.0 (64-bit)
+* using session charset: UTF-8
+* using options ‘--no-tests --no-manual --no-build-vignettes’
+* checking for file ‘mlflow/DESCRIPTION’ ... OK
+* checking extension type ... Package
+* this is package ‘mlflow’ version ‘0.1.0’
+* package encoding: UTF-8
+* checking package namespace information ... OK
+* checking package dependencies ... OK
+* checking if this is a source package ... OK
+* checking if there is a namespace ... OK
+* checking for executable files ... OK
+* checking for hidden files and directories ... OK
+* checking for portable file names ... OK
+* checking for sufficient/correct file permissions ... OK
+* checking whether package ‘mlflow’ can be installed ... OK
+* checking installed package size ... OK
+* checking package directory ... OK
+* checking DESCRIPTION meta-information ... OK
+* checking top-level files ... OK
+* checking for left-over files ... OK
+* checking index information ... OK
+* checking package subdirectories ... OK
+* checking R files for non-ASCII characters ... OK
+* checking R files for syntax errors ... OK
+* checking whether the package can be loaded ... OK
+* checking whether the package can be loaded with stated dependencies ... OK
+* checking whether the package can be unloaded cleanly ... OK
+* checking whether the namespace can be loaded with stated dependencies ... OK
+* checking whether the namespace can be unloaded cleanly ... OK
+* checking loading without being on the library search path ... OK
+* checking dependencies in R code ... NOTE
+Namespace in Imports field not imported from: ‘aws.s3’
+  All declared Imports should be used.
+* checking S3 generic/method consistency ... WARNING
+mlflow_load_flavor:
+  function(flavor_path)
+mlflow_load_flavor.crate:
+  function(model_path)
+
+See section ‘Generic functions and methods’ in the ‘Writing R
+Extensions’ manual.
+* checking replacement functions ... OK
+* checking foreign function calls ... OK
+* checking R code for possible problems ... NOTE
+mlflow_load_model : <anonymous>: no visible global function definition
+  for ‘methods’
+mlflow_load_model: no visible binding for global variable ‘.’
+Undefined global functions or variables:
+  . methods
+Consider adding
+  importFrom("utils", "methods")
+to your NAMESPACE file.
+* checking Rd files ... OK
+* checking Rd metadata ... OK
+* checking Rd cross-references ... OK
+* checking for missing documentation entries ... OK
+* checking for code/documentation mismatches ... OK
+* checking Rd \usage sections ... OK
+* checking Rd contents ... OK
+* checking for unstated dependencies in examples ... OK
+* checking examples ... OK
+* checking for unstated dependencies in ‘tests’ ... OK
+* checking tests ... SKIPPED
+* DONE
+Status: 1 WARNING, 2 NOTEs

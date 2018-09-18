@@ -71,7 +71,7 @@ following to install dependencies for building MLflow locally:
 .. code:: bash
 
   cd mlflow/R/mlflow
-  NOT_CRAN=true Rscript -e 'install.packages("devtools", "https://cloud.r-project.org")'
+  NOT_CRAN=true Rscript -e 'install.packages("devtools", repos = "https://cloud.r-project.org")'
   NOT_CRAN=true Rscript -e 'devtools::install_deps(dependencies = TRUE)'
 
 Build the R client via:
@@ -92,6 +92,7 @@ Run tests:
 Run linter:
 
 .. code:: bash
+
   Rscript -e 'lintr::lint_package()'
 
 
