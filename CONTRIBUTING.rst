@@ -45,7 +45,7 @@ If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update
 
 Java
 ----
-Certain MLflow modules are implemented in Java, under the mlflow/java/ directory.
+Certain MLflow modules are implemented in Java, under the ``mlflow/java/`` directory.
 These are the Java Tracking API client (``mlflow/java/client``) and the Model Scoring Server
 for Java-based models like MLeap (``mlflow/java/scoring``).
 
@@ -74,7 +74,7 @@ the Python package in a conda environment:
   pip install .
 
 
-. `Install R <https://cloud.r-project.org/>`_, then run the following to install dependencies for
+`Install R <https://cloud.r-project.org/>`_, then run the following to install dependencies for
 building MLflow locally:
 
 .. code:: bash
