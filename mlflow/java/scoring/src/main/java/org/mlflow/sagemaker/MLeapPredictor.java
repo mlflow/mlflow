@@ -81,9 +81,7 @@ public class MLeapPredictor extends Predictor {
       logger.error(
           "Encountered an unknown error during conversion of Pandas dataframe to LeapFrame.", e);
       throw new PredictorEvaluationException(
-          "An unknown error occurred while converting the input dataframe to a LeapFrame."
-              + " Original exception text: %s",
-          e);
+          "An unknown error occurred while converting the input dataframe to a LeapFrame.", e);
     }
     // Create a single-element sequence of column names to select from the resulting dataframe.
     // This single-element is the `prediction` column; as is the case with the `pyfunc` wrapper
