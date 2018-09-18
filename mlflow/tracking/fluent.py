@@ -271,7 +271,7 @@ def _get_git_commit(path):
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
         eprint("Notice: failed to import Git (the Git executable is probably not on your PATH),"
-              " so Git SHA is not available. Error: %s" % e)
+               " so Git SHA is not available. Error: %s" % e)
         return None
     try:
         if os.path.isfile(path):
