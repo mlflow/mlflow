@@ -70,6 +70,16 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
                               <https://www.tensorflow.org/serving/signature_defs>`_ for details.
     :param artifact_path: Path (within the artifact directory for the current run) to which
                           artifacts of the model are saved.
+
+    >>> import mlflow
+    >>> import mlflow.tensorflow
+    >>> #Set the artifact location where models and artifacts are saved for your experiments.
+    >>> #The location could be local or remote, all accessible. Also, provide the SignatureDef as
+    >>> #specified and defined in the TensorFlow Docs for SavedModel.
+    >>> saved_model_dir = ...
+    >>> signature_def_key = ...
+    >>> artifact_path = ...
+    >>> mlflow.tensorflow.log_saved_model(saved_model_dir, signature_def_key, artifact_path)
     """
     run_id = _get_or_start_run().info.run_uuid
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -91,5 +101,12 @@ def load_pyfunc(saved_model_dir):
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
 
+    >>> import mlflow
+    >>> import mlflow.tensorflow
+    >>> #set the path to where the TensorFlow model is saved. It could be local or remote, accessible here
+    >>> saved_model_dir = ...
+    >>> pandas_df = ...
+    >>> tf_model = mlflow.tensorflow.load_pyfunc(saved_model_dir)
+    >>> tf_model.predict(pandas_df)
     """
     return _TFWrapper(saved_model_dir)
