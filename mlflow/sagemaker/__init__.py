@@ -132,17 +132,17 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
         else:
             install_mlflow = (
                 "RUN pip install mlflow=={version}\n"
-                "RUN mvn --batch-mode dependency:copy" 
+                "RUN mvn --batch-mode dependency:copy"
                 " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
                 " -DoutputDirectory=/opt/java\n"
-                "RUN mvn --batch-mode dependency:copy" 
-                " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar" 
+                "RUN mvn --batch-mode dependency:copy"
+                " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
                 " -DoutputDirectory=/opt/java/jars\n"
-                "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&" 
+                "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&"
                 " mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
                 "RUN rm /opt/java/pom.xml\n"
             ).format(version=mlflow.version.VERSION)
-        
+
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
         eprint("building docker image")
