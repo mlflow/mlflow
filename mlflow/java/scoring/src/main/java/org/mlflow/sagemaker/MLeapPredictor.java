@@ -73,6 +73,8 @@ public class MLeapPredictor extends Predictor {
     try {
       leapFrame = pandasFrame.toLeapFrame(this.inputSchema);
     } catch (InvalidSchemaException e) {
+      logger.error(
+          "Encountered a schema mismatch when converting the input dataframe to a LeapFrame.", e);
       throw new PredictorEvaluationException(
           "Encountered a schema mismatch when converting the input dataframe to a LeapFrame.");
     } catch (Exception e) {
