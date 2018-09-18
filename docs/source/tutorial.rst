@@ -446,7 +446,7 @@ Serving the Model
       which should return something like::
 
           {
-            "predicitons": [
+            "predictions": [
               [
                 6.1312
               ]

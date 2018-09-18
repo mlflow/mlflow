@@ -40,14 +40,14 @@ Artifacts
     (for example, a pickled scikit-learn model), or even data files (for example, a
     `Parquet <https://parquet.apache.org/>`_ file) as artifacts.
 
-Runs can be recorded from anywhere you run your code through MLflow's Python and REST APIs: for
+You can record runs using MLflow Python, R, Java, and REST APIs from anywhere you run your code. For
 example, you can record them in a standalone program, on a remote cloud machine, or in an
 interactive notebook. If you record runs in an :ref:`MLflow Project <projects>`, MLflow
 remembers the project URI and source version.
 
-Finally, runs can optionally be organized into *experiments*, which group together runs for a
-specific task. You can create an experiment via the ``mlflow experiments`` CLI, with
-:py:func:`mlflow.create_experiment`, or via the corresponding REST parameters. The MLflow API and
+You can optionally organize runs into *experiments*, which group together runs for a
+specific task. You can create an experiment using the ``mlflow experiments`` CLI, with
+:py:func:`mlflow.create_experiment`, or using the corresponding REST parameters. The MLflow API and
 UI let you create and search for experiments.
 
 Once your runs have been recorded, you can query them using the :ref:`tracking_ui` or the MLflow
@@ -56,11 +56,11 @@ API.
 Where Runs Get Recorded
 -----------------------
 
-MLflow runs can be recorded either locally in files or remotely to a tracking server.
+MLflow runs are recorded either locally in files or remotely to a tracking server.
 By default, the MLflow Python API logs runs to files in an ``mlruns`` directory wherever you
-ran your program. You can then run ``mlflow ui`` to see the logged runs. Set the
+ran your program. You can then run ``mlflow ui`` to see the logged runs. To log runs remotely, set the
 ``MLFLOW_TRACKING_URI`` environment variable to a server's URI or call
-:py:func:`mlflow.set_tracking_uri` to log runs remotely.
+:py:func:`mlflow.set_tracking_uri`.
 
 There are a different kinds of remote tracking URIs:
 
@@ -73,7 +73,7 @@ There are a different kinds of remote tracking URIs:
 Logging Data to Runs
 --------------------
 
-You can log data to runs using either the MLflow Python or REST API. This section
+You can log data to runs using either the MLflow Python, Java, R, or REST API. This section
 shows the Python API.
 
 .. _basic_logging_functions:
@@ -171,7 +171,8 @@ Managing Experiments and Runs with the Tracking Service API
 
 MLflow provides a more detailed Tracking Service API for managing experiments and runs directly,
 which is available through client SDK in the :py:mod:`mlflow.tracking` module.
-This makes it possible to query data about past runs, log additional information about them, create experiments and more.
+This makes it possible to query data about past runs, log additional information about them, create experiments, 
+add tags to a run, and more.
 
 Example usage:
 
@@ -185,6 +186,22 @@ Example usage:
     client.set_terminated(run.info.run_uuid)
 
 .. _tracking_ui:
+
+Adding Tags to Runs
+~~~~~~~~~~~~~~~~~~~
+
+The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. For example:
+
+.. code:: python
+
+  client.set_tag(run.info.run_uuid, "tag_key", "tag_value")
+  
+If you log a run from a Databricks notebook, the run has the default tags::
+  
+  mlflow.databricks.notebookID
+  mlflow.databricks.webappURL
+  mlflow.databricks.notebookPath
+
 
 Tracking UI
 -----------
