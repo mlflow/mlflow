@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import os
 import shutil
 import unittest
@@ -361,6 +363,15 @@ class TestFileStore(unittest.TestCase):
             ("tag1", "value1"),
             ("multiline_tag", "value2\nvalue2\nvalue2"),
         }
+
+    def test_unicode_tag(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
+        fs.set_tag(run_uuid, RunTag("message", value))
+        tag = fs.get_run(run_uuid).data.tags[0]
+        assert tag.key == "message"
+        assert tag.value == value
 
     def test_get_deleted_run(self):
         """
