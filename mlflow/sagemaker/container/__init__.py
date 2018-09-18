@@ -114,7 +114,7 @@ def _serve_pyfunc(model):
     cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
            "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
     bash_cmds.append(cmd)
-    gunicorn = Popen(["/bin/bash", "-c", "; ".join(bash_cmds)])
+    gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
     # If either subprocess exits, so do we.
     awaited_pids = _await_subprocess_exit_any(procs=[nginx, gunicorn])
