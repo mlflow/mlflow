@@ -18,21 +18,24 @@ export default class BreadcrumbTitle extends Component {
     title: PropTypes.any.isRequired,
   };
 
-  static MAX_NAME_DISPLAY_LENGTH = 36;
-
   render() {
     const {experiment, runUuids, runNames, title} = this.props;
     const experimentId = experiment.getExperimentId();
     const experimentLink = (
-      <Link to={Routes.getExperimentPageRoute(experimentId)}>
-        {Utils.truncateString(experiment.getName(), BreadcrumbTitle.MAX_NAME_DISPLAY_LENGTH)}
+      <Link to={Routes.getExperimentPageRoute(experimentId)}
+        style={{"width": "200px", "height": "1em", "overflow": "hidden", "textOverflow": "ellipsis"}}
+      >
+        {experiment.getName()}
       </Link>
     );
     let runsLink = null;
     if (runUuids) {
       runsLink = (runUuids.length === 1 ?
-        <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
-          {Utils.truncateString(runNames[0], BreadcrumbTitle.MAX_NAME_DISPLAY_LENGTH)}
+        <Link
+          to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link"
+          style={{"width": "200px", "overflow": "hidden", "textOverflow": "ellipsis"}}
+        >
+          {runNames[0]}
         </Link>
         :
         <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
@@ -46,7 +49,9 @@ export default class BreadcrumbTitle extends Component {
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink, chevron] : [] }
-        {Utils.truncateString(title, BreadcrumbTitle.MAX_NAME_DISPLAY_LENGTH)}
+        <span style={{"maxWidth": "300px", "height": "1em", "overflow": "hidden", "textOverflow": "ellipsis", "display": "inline-block"}}>
+          {title}
+        </span>
       </h1>
     );
   }

@@ -56,8 +56,11 @@ class CompareRunView extends Component {
               <tr>
                 <th scope="row" className="data-value">Run Name:</th>
                 {runNames.map((runName, i) => {
-                  return (<td className="meta-info" key={runInfos[i].run_uuid}>
-                    {Utils.truncateString(runName, CompareRunView.MAX_NAME_DISPLAY_LENGTH)}
+                  return (<td
+                    className="meta-info"
+                    key={runInfos[i].run_uuid}
+                    >
+                      <div style={{"width": "200px", "overflow": "hidden", "textOverflow": "ellipsis", "maxHeight": "100px"}}>{runName}</div>
                     </td>);
                 }
                 )}
@@ -121,8 +124,10 @@ class CompareRunView extends Component {
       return <tr key={k}>
         <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
         {data[k].map((value, i) =>
-          <td className="data-value" key={this.props.runInfos[i].run_uuid}>
-            {value === undefined ? "" : formatter(value)}
+          <td
+            className="data-value" key={this.props.runInfos[i].run_uuid}
+          >
+            <span style={{"width": "200px", "overflow": "hidden", "textOverflow": "ellipsis"}}> {value === undefined ? "" : formatter(value)}</span>
           </td>
         )}
       </tr>;
