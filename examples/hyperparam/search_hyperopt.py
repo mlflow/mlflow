@@ -130,6 +130,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
     space = [
         hp.uniform('lr', 1e-5, 1e-1),
         hp.uniform('momentum', .0, 1.0),
+
     ]
 
     with mlflow.start_run() as run:

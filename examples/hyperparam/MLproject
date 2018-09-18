@@ -18,6 +18,56 @@ entry_points:
                                     --learning-rate {learning_rate}
                                     --momentum {momentum}"
 
+  train-mnist:
+    parameters:
+      training_data: {type: string, default: "mnist_train.amat"}
+      test_data: {type: string, default: "mnist_test.amat"}
+      epochs: {type: int, default: 1}
+      batch_size: {type: int, default: 16}
+      optimizer: {stype: string, default: "SGD()"}
+      pooling: {type: string, default: "MaxPooling2D()"}
+      conv_kernel_size: {type: string, default: "(3, 3)"}
+      conv_layer_sizes: {stype: string, default: "(32, 64)"}
+      conv_l1: {stype: float, default: 1e-4}
+      conv_l2: {stype: float, default: 1e-5}
+      dense_layer_sizes: {type: string, default: "(1024, 128)"}
+      dense_l1: {stype: float, default: 1e-4}
+      dense_l2: {stype: float, default: 1e-5}
+      seed: {type: int, default: 97531}
+
+    command: "python train_mnist.py {training_data} {test_data}
+                                    --batch-size {batch_size}
+                                    --epochs {epochs}
+                                    --optimizer {optimizer}
+                                    --convolution-kernel-size {conv_kernel_size}
+                                    --convolution-layer-sizes {conv_layer_sizes}
+                                    --convolution-l1 {conv_l1}
+                                    --convolution-l2 {conv_l2}
+                                    --dense-layer-sizes {dense_layer_sizes}
+                                    --dense-l1 {dense_l1}
+                                    --dense-l2 {dense_l2}
+                                    --seed {seed}"
+
+  hyperopt-mnist:
+    parameters:
+      training_data: {type: string, default: "mnist_train.amat"}
+      test_data: {type: string, default: "mnist_test.amat"}
+      max_runs: {type: int, default: 12}
+      epochs: {type: int, default: 32}
+      metric: {type: string, default: "accuracy"}
+      algo: {type: string, default: "tpe.suggest"}
+      seed: {type: int, default: 97531}
+      training_experiment_id: {type: int, default: "-1"}
+    command: "python -O search_hyperopt_mnist.py {training_data}
+                                                 {test_data}
+                                                 --max-runs {max_runs}
+                                                 --epochs {epochs}
+                                                 --metric {metric}
+                                                 --algo {algo}
+                                                 --seed {seed}
+                                                 --training-experiment-id {training_experiment_id}"
+
+
   # Use random search to optimize hyperparams of the train entry_point.
   random:
     parameters:
@@ -81,6 +131,7 @@ entry_points:
                                                  --algo {algo}
                                                  --seed {seed}
                                                  --training-experiment-id {training_experiment_id}"
+
 
 
 

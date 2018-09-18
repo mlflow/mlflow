@@ -271,6 +271,11 @@ def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
         repo.heads.master.checkout()
 
 
+def _get_environments(conda_path):
+    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
+    return [os.path.basename(env) for env in json.loads(stdout)['envs']]
+
+
 def _get_conda_env_name(conda_env_path):
     conda_env_contents = open(conda_env_path).read() if conda_env_path else ""
     return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
@@ -307,8 +312,9 @@ def _get_or_create_conda_env(conda_env_path):
                                  "also configure MLflow to look for a specific Conda executable "
                                  "by setting the {1} environment variable to the path of the Conda "
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
-    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
-    env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
+
+
+    env_names = _get_environments(conda_path)
     project_env_name = _get_conda_env_name(conda_env_path)
     if project_env_name not in env_names:
         eprint('=== Creating conda environment %s ===' % project_env_name)
