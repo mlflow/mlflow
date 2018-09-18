@@ -139,7 +139,7 @@ class MlflowClient(object):
         Set a tag on the run ID. Value is converted to a string.
         """
         _validate_tag_name(key)
-        tag = RunTag(key, str(value))
+        tag = RunTag(key, value)
         self.store.set_tag(run_id, tag)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):

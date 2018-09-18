@@ -1,6 +1,7 @@
 import os
 
 import uuid
+import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
@@ -367,7 +368,7 @@ class FileStore(AbstractStore):
     def _get_tag_from_file(parent_path, tag_name):
         _validate_tag_name(tag_name)
         tag_data = read_file(parent_path, tag_name)
-        return RunTag(tag_name, str(tag_data))
+        return RunTag(tag_name, tag_data)
 
     def get_param(self, run_uuid, param_name):
         _validate_run_id(run_uuid)
@@ -432,6 +433,14 @@ class FileStore(AbstractStore):
         make_containing_dirs(metric_path)
         append_to(metric_path, "%s %s\n" % (metric.timestamp, metric.value))
 
+    def _writeable_value(self, tag_value):
+        if tag_value is None:
+            return ""
+        elif isinstance(tag_value, six.string_types):
+            return tag_value
+        else:
+            return "%s" % tag_value
+
     def log_param(self, run_uuid, param):
         _validate_run_id(run_uuid)
         _validate_param_name(param.key)
@@ -439,7 +448,7 @@ class FileStore(AbstractStore):
         check_run_is_active(run.info)
         param_path = self._get_param_path(run.info.experiment_id, run_uuid, param.key)
         make_containing_dirs(param_path)
-        write_to(param_path, "%s\n" % param.value)
+        write_to(param_path, self._writeable_value(param.value))
 
     def set_tag(self, run_uuid, tag):
         _validate_run_id(run_uuid)
@@ -449,7 +458,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_tag_path(run.info.experiment_id, run_uuid, tag.key)
         make_containing_dirs(tag_path)
         # Don't add trailing newline
-        write_to(tag_path, "%s" % tag.value)
+        write_to(tag_path, self._writeable_value(tag.value))
 
     def _overwrite_run_info(self, run_info):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)

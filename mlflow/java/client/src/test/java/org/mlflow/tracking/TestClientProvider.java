@@ -10,9 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import org.mlflow.tracking.creds.MlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 /**
@@ -22,7 +22,7 @@ import org.mlflow.tracking.creds.MlflowHostCredsProvider;
  * server on an ephemeral port, and manage its lifecycle.
  */
 public class TestClientProvider {
-  private static final Logger logger = Logger.getLogger(TestClientProvider.class);
+  private static final Logger logger = LoggerFactory.getLogger(TestClientProvider.class);
 
   private static final long MAX_SERVER_WAIT_TIME_MILLIS = 60 * 1000;
 
