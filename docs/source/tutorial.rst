@@ -426,13 +426,13 @@ Serving the Model
 
           mlflow_rfunc_serve(model_path = "model", run_uuid = "1bf3cca7f3814d8fac7be7874de1046d")
 
-      This will initialize a REST server and open a `swagger <https://swagger.io/>`_ interface to perform predicitons against
+      This will initialize a REST server and open a `swagger <https://swagger.io/>`_ interface to perform predictions against
       the REST API:
 
       .. image:: _static/images/tutorial-serving-r.png
 
-      .. note:: R
-
+      .. note::
+        
           By default, a model is served using the R packages available. To ensure the environment serving
           the prediction function matches the model, set ``restore = TRUE`` when calling
           ``mlflow_rfunc_serve()``.
