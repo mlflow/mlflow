@@ -4,7 +4,6 @@ import { Experiment } from "../sdk/MlflowMessages";
 import { Link } from 'react-router-dom';
 import Routes from "../Routes";
 import './BreadcrumbTitle.css';
-import Utils from '../utils/Utils';
 
 /**
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
@@ -22,7 +21,8 @@ export default class BreadcrumbTitle extends Component {
     const {experiment, runUuids, runNames, title} = this.props;
     const experimentId = experiment.getExperimentId();
     const experimentLink = (
-      <Link to={Routes.getExperimentPageRoute(experimentId)}
+      <Link
+        to={Routes.getExperimentPageRoute(experimentId)}
         className="truncate-text breadcrumb-title"
       >
         {experiment.getName()}
@@ -32,7 +32,8 @@ export default class BreadcrumbTitle extends Component {
     if (runUuids) {
       runsLink = (runUuids.length === 1 ?
         <Link
-          to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link"
+          to={Routes.getRunPageRoute(experimentId, runUuids[0])}
+          key="link"
           className="truncate-text breadcrumb-title"
         >
           {runNames[0]}

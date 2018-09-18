@@ -9,7 +9,7 @@ div.MetricView h1 {
 }
 
 
-.recharts-tooltip-item-name {
+div.MetricView .recharts-tooltip-item-name {
     max-width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -18,7 +18,7 @@ div.MetricView h1 {
 
 }
 
-.recharts-tooltip-item-value, .recharts-tooltip-item-separator {
+div.MetricView .recharts-tooltip-item-value, .recharts-tooltip-item-separator {
     display: inline-block;
     margin-left: 4px;
 }

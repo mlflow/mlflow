@@ -23,8 +23,6 @@ class CompareRunView extends Component {
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
-  static MAX_NAME_DISPLAY_LENGTH = 36;
-
   render() {
     const experiment = this.props.experiment;
     const experimentId = experiment.getExperimentId();
@@ -60,7 +58,9 @@ class CompareRunView extends Component {
                     className="meta-info"
                     key={runInfos[i].run_uuid}
                     >
-                      <div style={{"width": "200px", "overflow": "hidden", "textOverflow": "ellipsis", "maxHeight": "100px"}}>{runName}</div>
+                      <div className="truncate-text" style={{"width": "200px"}}>
+                        {runName}
+                      </div>
                     </td>);
                 }
                 )}
@@ -124,10 +124,10 @@ class CompareRunView extends Component {
       return <tr key={k}>
         <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
         {data[k].map((value, i) =>
-          <td
-            className="data-value" key={this.props.runInfos[i].run_uuid}
-          >
-            <span style={{"width": "200px", "overflow": "hidden", "textOverflow": "ellipsis"}}> {value === undefined ? "" : formatter(value)}</span>
+          <td className="data-value" key={this.props.runInfos[i].run_uuid}>
+            <span className="truncate-text" style={{"width": "200px"}}>
+              {value === undefined ? "" : formatter(value)}
+            </span>
           </td>
         )}
       </tr>;

@@ -382,9 +382,7 @@ class ExperimentView extends Component {
         </Link>
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td key="meta-user" className="truncate-text"
-        style={{"maxWidth": "200px"}}
-      >
+      <td key="meta-user" className="truncate-text" style={{"maxWidth": "200px"}}>
         {Utils.getRunName(tags)}
       </td>,
       <td key="meta-source" style={{

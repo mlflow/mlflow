@@ -31,7 +31,7 @@ class MetricView extends Component {
 
   static MAX_RUN_NAME_DISPLAY_LENGTH = 36;
 
-  // Returns Payload to use in rechart legend
+  // Returns payload to use in recharts Legend component
   // Legend type must be one of the values in
   // https://github.com/recharts/recharts/blob/1b523c1/src/util/ReactUtils.js#L139
   getLegendPayload(legendType) {
@@ -65,10 +65,10 @@ class MetricView extends Component {
               data={metrics}
               margin={{top: 10, right: 10, left: 10, bottom: 10}}
             >
-              <XAxis dataKey="index">
-              </XAxis>
+              <Tooltip isAnimationActive={false} labelStyle={{display: "none"}}/>
+              <XAxis dataKey="index"/>
               <CartesianGrid strokeDasharray="3 3"/>
-              <Legend payload={this.getLegendPayload('square')} />
+              <Legend verticalAlign="bottom" payload={this.getLegendPayload('square')} />
               <YAxis/>
               {runUuids.map((uuid, idx) => (
                 <Bar dataKey={uuid}
@@ -98,9 +98,7 @@ class MetricView extends Component {
               margin={{top: 10, right: 10, left: 10, bottom: 10}}
             >
               <XAxis dataKey="index" type="number"/>
-              <Tooltip
-                isAnimationActive={false}
-                labelStyle={{display: "none"}} />
+              <Tooltip isAnimationActive={false} labelStyle={{display: "none"}} />
               <CartesianGrid strokeDasharray="3 3"/>
               <Legend verticalAlign="bottom" payload={this.getLegendPayload('line')}/>
               <YAxis/>
