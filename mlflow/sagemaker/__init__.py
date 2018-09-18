@@ -469,7 +469,7 @@ def _get_default_s3_bucket(region_name):
     buckets = [b['Name'] for b in response["Buckets"]]
     if bucket_name not in buckets:
         eprint("Default bucket `%s` not found. Creating..." % bucket_name)
-        bucket_creation_args = {
+        bucket_creation_kwargs = {
             'ACL' : 'bucket-owner-full-control',
             'Bucket' : bucket_name,
         }
@@ -479,10 +479,10 @@ def _get_default_s3_bucket(region_name):
             # specifying it in this region results in a failure, so we will only
             # add it if we are deploying outside of us-east-1.
             # See https://docs.aws.amazon.com/cli/latest/reference/s3api/create-bucket.html#examples
-            bucket_creation_args['CreateBucketConfiguration'] = {
+            bucket_creation_kwargs['CreateBucketConfiguration'] = {
                 'LocationConstraint' : region_name
             }
-        response = s3.create_bucket(**bucket_creation_args)
+        response = s3.create_bucket(**bucket_creation_kwargs)
         eprint(response)
     else:
         eprint("Default bucket `%s` already exists. Skipping creation." %
