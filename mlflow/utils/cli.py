@@ -44,18 +44,13 @@ def remove_cached_environments(project_path, force):
 @commands.command("list-cached-environments")
 def list_cached_environments():
     """
-    Remove cached Conda environments.
+    List cached Conda environments.
 
     When MLflow executes a project with associated conda environment file it will create a new conda
     environment defined by this file. This environment is cached based on the content of the conda
     environment yaml file. This means it is only recreated if the project dependencies change.
 
-    There are two reasons why you might need to rmove these files:
-
-    1. To save disk space. The environments are never removed and can consume significant amount of
-       disk space.
-    2. To force recreation of the environment in cases when the caching mechanism failed. This
-       happens e.g. when the conda file includes a dependency without specified version.
+    This command lists the Conda environments created by MLflow.
     """
     mlflow.utils.logging_utils.eprint(
         "\n".join(mlflow.utils.environment._get_mlflow_environments()))
