@@ -49,10 +49,6 @@ class ArtifactRepository:
         """
         pass
 
-    def _is_directory(self, artifact_path):
-        """Returns true if the passed-in artifact path is a directory."""
-        return len(self.list_artifacts(artifact_path)) > 0
-
     def download_artifacts(self, artifact_path):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
@@ -67,8 +63,8 @@ class ArtifactRepository:
         def download_artifacts_into(artifact_path, dest_dir):
             basename = os.path.basename(artifact_path)
             local_path = build_path(dest_dir, basename)
-            if self._is_directory(artifact_path):
-                listing = self.list_artifacts(artifact_path)
+            listing = self.list_artifacts(artifact_path)
+            if len(listing) > 0:
                 # Artifact_path is a directory, so make a directory for it and download everything
                 if not os.path.exists(local_path):
                     os.mkdir(local_path)
