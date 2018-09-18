@@ -49,8 +49,8 @@ Certain MLflow modules are implemented in Java, under the mlflow/java/ directory
 These are the Java Tracking API client (``mlflow/java/client``) and the Model Scoring Server
 for Java-based models like MLeap (``mlflow/java/scoring``).
 
-Other Java functionality (like artifact storage) depends on the Python client, so first install
-the Python client in a conda environment as described above.
+Other Java functionality (like artifact storage) depends on the Python package, so first install
+the Python package in a conda environment as described above.
 `Install <https://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
 the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>`_
 and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
@@ -64,9 +64,18 @@ R
 -
 
 The ``mlflow/R/mlflow`` directory contains R wrappers for the Projects, Tracking and Models
-components. These wrappers depend on the Python client, so first install the Python client in a
-conda environment as described above. `Install R <https://cloud.r-project.org/>`_, then run the
-following to install dependencies for building MLflow locally:
+components. These wrappers depend on the Python package, so first install
+the Python package in a conda environment:
+
+.. code:: bash
+
+  # Note that we don't pass the -e flag to pip, as the R tests attempt to run the MLflow UI
+  # via the CLI, which will not work if we run against the development tracking server
+  pip install .
+
+
+. `Install R <https://cloud.r-project.org/>`_, then run the following to install dependencies for
+building MLflow locally:
 
 .. code:: bash
 
@@ -96,11 +105,11 @@ Run linter:
   Rscript -e 'lintr::lint_package()'
 
 
-When developing, you can make Python changes available in R by running:
+When developing, you can make Python changes available in R by running (from mlflow/R/mlflow):
 
-```{r eval=FALSE}
-reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
-```
+.. code:: bash
+
+  Rscript -e 'reticulate::conda_install("r-mlflow", "../../../.", pip = TRUE)'
 
 Please also follow the recommendations from the
 [Advanced R - Style Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling.
