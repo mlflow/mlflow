@@ -77,14 +77,14 @@ class DatabricksJobRunner(object):
             response = self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
             _check_response_status_code(response)
 
-    def _dbfs_path_exists(self, dbfs_uri):
+    def _dbfs_path_exists(self, dbfs_path):
         """
         Return True if the passed-in path exists in DBFS for the workspace corresponding to the
-        default Databricks CLI profile.
+        default Databricks CLI profile. The path is expected to be a relative path to the DBFS root
+        directory, e.g. 'path/to/file'.
         """
-        dbfs_path = _parse_dbfs_uri_path(dbfs_uri)
         response = self._databricks_api_request(
-            endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": dbfs_path})
+            endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": "/%s" % dbfs_path})
         json_response_obj = json.loads(response.text)
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
@@ -92,7 +92,7 @@ class DatabricksJobRunner(object):
             if json_response_obj[error_code_field] == "RESOURCE_DOES_NOT_EXIST":
                 return False
             raise ExecutionException("Got unexpected error response when checking whether file %s "
-                                     "exists in DBFS: %s" % json_response_obj)
+                                     "exists in DBFS: %s" % (dbfs_path, json_response_obj))
         return True
 
     def _upload_project_to_dbfs(self, project_dir, experiment_id):
@@ -115,9 +115,10 @@ class DatabricksJobRunner(object):
             with open(temp_tar_filename, "rb") as tarred_project:
                 tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
             # TODO: Get subdirectory for experiment from the tracking server
-            dbfs_fuse_uri = os.path.join("/dbfs", DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
-                                         "projects-code", "%s.tar.gz" % tarfile_hash)
-            if not self._dbfs_path_exists(dbfs_fuse_uri):
+            dbfs_path = os.path.join(DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
+                "projects-code", "%s.tar.gz" % tarfile_hash)
+            dbfs_fuse_uri = os.path.join("/dbfs", dbfs_path)
+            if not self._dbfs_path_exists(dbfs_path):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
                 eprint("=== Finished uploading project to %s ===" % dbfs_fuse_uri)
             else:
@@ -208,7 +209,7 @@ class DatabricksJobRunner(object):
 
         :param databricks_run_id: Integer Databricks job run ID.
         :returns `RunResultState
-<https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
+        <https://docs.databricks.com/api/latest/jobs.html#runresultstate>`_ or None if
         the run is still active.
         """
         res = self.jobs_runs_get(databricks_run_id)
@@ -272,14 +273,6 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
                tarfile_archive_name=DB_TARFILE_ARCHIVE_NAME, work_dir=project_dir,
                mlflow_run=mlflow_run_cmd))
     return ["bash", "-c", shell_command]
-
-
-def _parse_dbfs_uri_path(dbfs_uri):
-    """
-    Parse and return the absolute path within DBFS of the file with the specified URI. For
-    example, given an input of "dbfs:/my/dbfs/path", this method will return "/my/dbfs/path".
-    """
-    return urllib.parse.urlparse(dbfs_uri).path
 
 
 def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
