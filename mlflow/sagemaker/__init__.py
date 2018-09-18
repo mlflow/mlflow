@@ -140,6 +140,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                 " -DoutputDirectory=/opt/java/jars\n"
                 "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&" 
                 " mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
+                "RUN rm /opt/java/pom.xml\n"
             ).format(version=mlflow.version.VERSION)
         
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
