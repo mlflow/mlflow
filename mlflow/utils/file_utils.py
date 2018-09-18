@@ -1,3 +1,4 @@
+import codecs
 import gzip
 import os
 import shutil
@@ -7,6 +8,8 @@ import tempfile
 import yaml
 
 from mlflow.entities import FileInfo
+
+ENCODING = "utf-8"
 
 
 def is_directory(name):
@@ -198,7 +201,7 @@ def read_file_lines(parent_path, file_name):
     :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
         return f.readlines()
 
 
@@ -212,7 +215,7 @@ def read_file(parent_path, file_name):
     :return: The contents of the file.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
         return f.read()
 
 
@@ -250,7 +253,7 @@ def mv(target, new_parent):
 
 
 def write_to(filename, data):
-    with open(filename, "w") as handle:
+    with codecs.open(filename, mode="w", encoding=ENCODING) as handle:
         handle.write(data)
 
 
