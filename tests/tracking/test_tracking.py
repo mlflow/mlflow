@@ -41,20 +41,24 @@ def test_set_experiment():
     with pytest.raises(Exception):
         mlflow.set_experiment("")
 
-    assert not tracking.fluent._active_experiment_id
-
     try:
         with TempDir() as tracking_uri:
             tracking.set_tracking_uri(tracking_uri.path())
             name = "random_exp"
             exp_id = mlflow.create_experiment(name)
             mlflow.set_experiment(name)
-            assert mlflow.tracking.fluent._active_experiment_id == exp_id
+            run = start_run()
+            assert run.info.experiment_id == exp_id
+            end_run()
 
             another_name = "another_experiment"
             mlflow.set_experiment(another_name)
-            assert mlflow.tracking.fluent._active_experiment_id != exp_id
+            exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+            another_run = start_run()
+            assert another_run.info.experiment_id == exp_id2.experiment_id
+            end_run()
     finally:
+        # Need to do this to clear active experiment to restore state
         mlflow.tracking.fluent._active_experiment_id = None
 
 
