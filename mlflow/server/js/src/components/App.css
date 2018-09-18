@@ -154,12 +154,6 @@ table th {
   font-weight: 500;
 }
 
-.breadcrumb-chevron {
-  font-size: 75%;
-  margin-left: 10px;
-  margin-right: 8px;
-}
-
 /* Overrides for bootstrap modal */
 .modal-body {
   padding: 16px;
