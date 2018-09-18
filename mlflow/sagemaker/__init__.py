@@ -125,18 +125,21 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                 "RUN pip install /opt/mlflow\n"
                 "RUN cd /opt/mlflow/mlflow/java/scoring &&"
                 " mvn --batch-mode package -DskipTests &&"
-                " mkdir /opt/java &&"
-                " mv /opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*.jar /opt/java/jars\n"
+                " mkdir -p /opt/java/jars &&"
+                " mv /opt/mlflow/mlflow/java/scoring/target/"
+                "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
             ).format(mlflow_dir=mlflow_dir)
         else:
             install_mlflow = (
                 "RUN pip install mlflow=={version}\n"
-                "RUN mvn dependency:copy -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
+                "RUN mvn --batch-mode dependency:copy" 
+                " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
                 " -DoutputDirectory=/opt/java\n"
-                "RUN mvn dependency:copy -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+                "RUN mvn --batch-mode dependency:copy" 
+                " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar" 
                 " -DoutputDirectory=/opt/java/jars\n"
                 "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&" 
-                " mvn dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
+                " mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
             ).format(version=mlflow.version.VERSION)
         
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
