@@ -80,15 +80,7 @@ def _serve():
         serving_flavor = pyfunc.FLAVOR_NAME
 
     if serving_flavor == mleap.FLAVOR_NAME:
-        # TODO(dbczumar): Host the scoring Java package on Maven Central so that we no
-        # longer require the container source for this flavor.
-        if _container_includes_mlflow_source():
-            _serve_mleap()
-        else:
-            raise Exception("The container does not support the specified deployment flavor:"
-                            " `{mleap_flavor}`. Please build the container with the `mlflow_home`"
-                            " parameter specified to enable this feature.".format(
-                                mleap_flavor=mleap.FLAVOR_NAME))
+        _serve_mleap()
     elif pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m)
     else:
