@@ -39,7 +39,11 @@ export default class BreadcrumbTitle extends Component {
           {runNames[0]}
         </Link>
         :
-        <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
+        <Link
+          to={Routes.getCompareRunPageRoute(runUuids, experimentId)}
+          key="link"
+          className="truncate-text breadcrumb-title"
+        >
           Comparing {runUuids.length} Runs
         </Link>
       );
