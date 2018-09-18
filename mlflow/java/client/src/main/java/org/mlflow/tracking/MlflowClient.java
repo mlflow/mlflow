@@ -166,6 +166,13 @@ public class MlflowClient {
       System.currentTimeMillis()));
   }
 
+  /**
+   * Logs a new tag against the given run, as a key-value pair.
+   */
+  public void setTag(String runUuid, String key, String value) {
+    sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
+  }
+
   /** Sets the status of a run to be FINISHED at the current time. */
   public void setTerminated(String runUuid) {
     setTerminated(runUuid, RunStatus.FINISHED);

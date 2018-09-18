@@ -14,16 +14,16 @@ from __future__ import absolute_import
 import json
 import os
 import pickle
+import shutil
 
 import click
 import flask
 import pandas
 import sklearn
 
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils import cli_args
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 import mlflow.tracking
 
 
@@ -44,29 +44,32 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     model_file = os.path.join(path, "model.pkl")
     with open(model_file, "wb") as out:
         pickle.dump(sk_model, out)
+    model_conda_env = None
+    if conda_env:
+        model_conda_env = os.path.basename(os.path.abspath(conda_env))
+        shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data="model.pkl",
-                        env=conda_env)
+                        env=model_conda_env)
     mlflow_model.add_flavor("sklearn",
                             pickled_model="model.pkl",
                             sklearn_version=sklearn.__version__)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(sk_model, artifact_path):
+def log_model(sk_model, artifact_path, conda_env=None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+           this model should be run in. At minimum, it should specify python, scikit-learn,
+           and mlflow with appropriate versions.
     """
-
-    with TempDir() as tmp:
-        local_path = tmp.path("model")
-        # TODO: I get active_run_id here but mlflow.tracking.log_output_files has its own way
-        run_id = _get_or_start_run().info.run_uuid
-        mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
-        save_model(sk_model, local_path, mlflow_model=mlflow_model)
-        log_artifacts(local_path, artifact_path)
+    return Model.log(artifact_path=artifact_path,
+                     flavor=mlflow.sklearn,
+                     sk_model=sk_model,
+                     conda_env=conda_env)
 
 
 def _load_model_from_local_file(path):
@@ -112,7 +115,7 @@ def commands():
 
 
 @commands.command("serve")
-@click.argument("model_path")
+@cli_args.MODEL_PATH
 @click.option("--run_id", "-r", metavar="RUN_ID", help="Run ID to look for the model in.")
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--host", default="127.0.0.1",

@@ -6,7 +6,7 @@ from six.moves import urllib
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import build_path, get_relative_path, TempDir
+from mlflow.utils.file_utils import build_path, get_relative_path
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -73,23 +73,8 @@ class S3ArtifactRepository(ArtifactRepository):
                 infos.append(FileInfo(name, False, size))
         return sorted(infos, key=lambda f: f.path)
 
-    def download_artifacts(self, artifact_path):
-        with TempDir(remove_on_exit=False) as tmp:
-            return self._download_artifacts_into(artifact_path, tmp.path())
-
-    def _download_artifacts_into(self, artifact_path, dest_dir):
-        """Private version of download_artifacts that takes a destination directory."""
-        basename = os.path.basename(artifact_path)
-        local_path = build_path(dest_dir, basename)
-        listing = self.list_artifacts(artifact_path)
-        if len(listing) > 0:
-            # Artifact_path is a directory, so make a directory for it and download everything
-            os.mkdir(local_path)
-            for file_info in listing:
-                self._download_artifacts_into(file_info.path, local_path)
-        else:
-            (bucket, s3_path) = data.parse_s3_uri(self.artifact_uri)
-            s3_path = build_path(s3_path, artifact_path)
-            s3_client = self._get_s3_client()
-            s3_client.download_file(bucket, s3_path, local_path)
-        return local_path
+    def _download_file(self, remote_file_path, local_path):
+        (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
+        s3_full_path = build_path(s3_root_path, remote_file_path)
+        s3_client = self._get_s3_client()
+        s3_client.download_file(bucket, s3_full_path, local_path)

@@ -5,8 +5,8 @@
   <artifactId>mlflow-parent</artifactId>
   <version>0.7.0</version>
   <packaging>pom</packaging>
-  <name>mlflow-parent</name>
-  <url>http://maven.apache.org</url>
+  <name>MLflow Parent POM</name>
+  <url>http://mlflow.org</url>
   <properties>
     <mlflow-version>0.5.1</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -17,6 +17,7 @@
     <protobuf.version>3.6.0</protobuf.version>
     <scalapb.version>0.6.7</scalapb.version>
     <testng.version>6.14.3</testng.version>
+    <slf4j.version>1.7.25</slf4j.version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
@@ -89,19 +90,19 @@
         <version>9.4.11.v20180605</version>
       </dependency>
       <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-jdk14</artifactId>
-        <version>1.7.25</version>
-      </dependency>
-      <dependency>
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
         <version>2.5</version>
       </dependency>
       <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>1.2.17</version>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-jdk14</artifactId>
+        <version>${slf4j.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.httpcomponents</groupId>

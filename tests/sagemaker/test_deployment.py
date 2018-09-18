@@ -40,23 +40,22 @@ def test_deployment_with_unsupported_flavor_throws_value_error(pretrained_model)
 def test_deployment_with_missing_flavor_throws_value_error(pretrained_model):
     missing_flavor = "mleap"
     with pytest.raises(ValueError):
-        mfs.deploy(app_name="missing_flavor",
+        mfs.deploy(app_name="missing-flavor",
                    model_path=pretrained_model.model_path,
                    run_id=pretrained_model.run_id,
                    flavor=missing_flavor)
 
 
 def test_deployment_of_model_with_no_supported_flavors_throws_value_error(pretrained_model):
-    model_config_path = os.path.join(_get_model_log_dir(
-        pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
+    logged_model_path = _get_model_log_dir(pretrained_model.model_path, pretrained_model.run_id)
+    model_config_path = os.path.join(logged_model_path, "MLmodel")
     model_config = Model.load(model_config_path)
     del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     model_config.save(path=model_config_path)
 
     with pytest.raises(ValueError):
-        mfs.deploy(app_name="missing_flavor",
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+        mfs.deploy(app_name="missing-flavor",
+                   model_path=logged_model_path,
                    flavor=None)
 
 
