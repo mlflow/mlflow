@@ -120,6 +120,9 @@ class DbfsArtifactRepository(ArtifactRepository):
             infos.append(FileInfo(stripped_path, is_dir, artifact_size))
         return sorted(infos, key=lambda f: f.path)
 
+    def _is_directory(self, artifact_path):
+        return self._dbfs_is_dir(artifact_path)
+
     def _download_file(self, remote_file_path, local_path):
         self._dbfs_download(output_path=local_path,
                             endpoint=self._get_dbfs_endpoint(remote_file_path))
