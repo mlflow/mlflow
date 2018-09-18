@@ -12,10 +12,11 @@ import re
 import subprocess
 import tempfile
 
+from mlflow.projects import databricks
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException
-from mlflow.entities import RunStatus, SourceType, Param
+from mlflow.entities import RunStatus, SourceType
 import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
@@ -44,25 +45,28 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
                               git_username=git_username, git_password=git_password)
     project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
+    tracking_uri = None
+    if mode == "databricks":
+        tracking_uri = databricks._get_tracking_uri_for_run()
     if run_id:
-        active_run = tracking.MlflowClient().get_run(run_id)
+        active_run = tracking.MlflowClient(tracking_uri).get_run(run_id)
     else:
-        active_run = _create_run(uri, exp_id, work_dir, entry_point)
+        active_run = _create_run(uri, exp_id, work_dir, entry_point, tracking_uri)
 
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
     for key, value in (list(final_params.items()) + list(extra_params.items())):
-        tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
+        tracking.MlflowClient(tracking_uri).log_param(active_run.info.run_uuid, key, value)
 
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
-        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
+        tracking.MlflowClient(tracking_uri).set_tag(
+            active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
 
     if mode == "databricks":
-        from mlflow.projects.databricks import run_databricks
-        return run_databricks(
+        return databricks.run_databricks(
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
@@ -402,9 +406,9 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
 
 
-def _create_run(uri, experiment_id, work_dir, entry_point):
+def _create_run(uri, experiment_id, work_dir, entry_point, tracking_uri):
     """
-    Create a ``Run`` against the current MLflow tracking server, logging metadata (e.g. the URI,
+    Create a ``Run`` against the specified MLflow tracking server, logging metadata (e.g. the URI,
     entry point, and parameters of the project) about the run. Return an ``ActiveRun`` that can be
     used to report additional data about the run (metrics/params) to the tracking server.
     """
@@ -412,7 +416,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
         source_name = tracking.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
-    active_run = tracking.MlflowClient().create_run(
+    active_run = tracking.MlflowClient(tracking_uri).create_run(
         experiment_id=experiment_id,
         source_name=source_name,
         source_version=_get_git_commit(work_dir),
