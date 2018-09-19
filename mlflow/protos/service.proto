@@ -46,7 +46,7 @@ service MlflowService {
   }
 
   // Get metadata for an experiment and a list of runs for the experiment.
-  //
+  // This RPC will work on deleted experiments.
   rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
       endpoints: [{
@@ -445,7 +445,6 @@ message Experiment {
   optional string artifact_location = 3;
 
   // Current life cycle stage of the experiment: "active" or "deleted".
-  // Deleted experiments are not returned by APIs.
   optional string lifecycle_stage = 4;
 
   // Last update time
