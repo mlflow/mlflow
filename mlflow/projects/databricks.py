@@ -6,7 +6,7 @@ import tempfile
 import textwrap
 import time
 
-from six.moves import shlex_quote, urllib
+from six.moves import shlex_quote
 
 from mlflow.entities import RunStatus
 from mlflow.projects.submitted_run import SubmittedRun
