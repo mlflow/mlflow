@@ -19,8 +19,8 @@ def commands():
 @click.option("--force", default=False,
               help="Remove the matching environments without asking if this option is set.")
 
-@click.option("--project-path", "-p", metavar="PATH", default=None,
-              help="Remove cached conda environment for the given project if set.")
+@click.option("--env-file", "-e", metavar="PATH", default=None,
+              help="Remove cached conda environment only for the given conda yaml file if set.")
 @commands.command("remove-cached-environments")
 def remove_cached_environments(project_path, force):
     """
@@ -30,7 +30,7 @@ def remove_cached_environments(project_path, force):
     environment defined by this file. This environment is cached based on the content of the conda
     environment yaml file. This means it is only recreated if the project dependencies change.
 
-    There are two reasons why you might need to rmove these files:
+    There are two reasons why you might need to remove these files:
 
     1. To save disk space. The environments are never removed and can consume significant amount of
        disk space.
