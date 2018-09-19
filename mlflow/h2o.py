@@ -74,29 +74,16 @@ def log_model(h2o_model, artifact_path, **kwargs):
     >>> import mlflow.h2o
     >>> import h2o
     >>> from h2o.estimators.glm import H2OGeneralizedLinearEstimator
-    >>> h2o.init()
-    >>> #Partial example code used from H20 documentation <http://docs.h2o.ai/h2o/latest-stable/h2o-docs/data-science/algo-params/early_stopping.html>
-    >>> # import the cars dataset:
-    >>> # this dataset is used to classify whether or not a car is economical based on
-    >>> # the car's displacement, power, weight, and acceleration, and the year it was made
-    >>> cars = h2o.import_file("https://s3.amazonaws.com/h2o-public-test-data/smalldata/junit/cars_20mpg.csv")
-    >>> # convert response column to a factor
-    >>> cars["economy_20mpg"] = cars["economy_20mpg"].asfactor()
-    >>> # set the predictor names and the response column name
-    >>> predictors = ["displacement","power","weight","acceleration","year"]
-    >>> response = "economy_20mpg"
-    >>> # split into train and validation sets
-    >>> train, valid = cars.split_frame(ratios = [.8])
-    >>> # try using the `early_stopping` parameter:
+    >>> #Partial example code used from h2o documentation <http://docs.h2o.ai/h2o/latest-stable/h2o-docs/data-science/algo-params/early_stopping.html>
     >>> # Initialize and train a GLM
+    >>> h2o.init()
     >>> h2o_model = H2OGeneralizedLinearEstimator(family = 'binomial', early_stopping = True)
-    >>> h2o_model.train(x = predictors, y = response, training_frame = train, validation_frame = valid)
+    >>> h2o_model.train(...)
     >>> #log parameters
     >>> mlflow.log_param("early_stopping", "True")
-    >>> mlflow.log_param("response", response)
     >>> mlflow.log_param("family", "binomial")
     >>> #log the model
-    >>> mlflow.h2o.log_model(h20_model, "h2o_models")
+    >>> mlflow.h2o.log_model(h2o_model, "h2o_models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
               h2o_model=h2o_model, **kwargs)
@@ -138,12 +125,13 @@ def load_pyfunc(path):
     >>> import mlflow
     >>> import mlflow.h2o
     >>> import h2o
-    >>> # set the path to where the h20 model is saved: local or remote, accessible
+    >>> # set the path to where the h2o model is saved: local or remote, accessible
     >>> # from code here
+    >>> h2o.init()
     >>> h2o_model_dir = ...
     >>> # set the test Pandas DataFrame
     >>> pandas_df = ...
-    >>> h2o_model = mlflow.h2o.load_pyfunc(h20_model_dir)
+    >>> h2o_model = mlflow.h2o.load_pyfunc(h2o_model_dir)
     >>> predictions = h2o_model.predict(pandas_df)
     """
     return _H2OModelWrapper(_load_model(path, init=True))
@@ -163,6 +151,7 @@ def load_model(path, run_id=None):
     >>> import h2o
     >>> # set the path to where the h2o model is saved: local or remote, accessible
     >>> # from code here
+    >>> h2o.init()
     >>> h2o_model_dir = ...
     >>> run_id="96771d893a5e46159d9f3b49bf9013e2"
     >>> h2o_model = mlflow.h2o.load_model(h2o_model_dir, run_id)
