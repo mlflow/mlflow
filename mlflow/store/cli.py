@@ -9,7 +9,12 @@ from mlflow.utils.proto_json_utils import message_to_json
 
 @click.group("artifacts")
 def commands():
-    """Upload, list, and download artifacts from an MLflow artifact repository."""
+    """
+    Upload, list, and download artifacts from an MLflow artifact repository.
+
+    To manage artifacts for a run associated with a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 
