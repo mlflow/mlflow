@@ -88,7 +88,7 @@ def dbfs_mocks(dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=u
 
 @pytest.fixture()
 def before_run_validations_mock():  # pylint: disable=unused-argument
-    with mock.patch("mlflow.projects.databricks.DatabricksJobRunner._before_run_validations"):
+    with mock.patch("mlflow.projects.databricks.before_run_validations"):
         yield
 
 
@@ -156,7 +156,7 @@ def test_run_databricks_validations(
     """
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
-    with mock.patch("mlflow.projects.databricks.DatabricksJobRunner._check_auth_available"),\
+    with mock.patch("mlflow.projects.databricks._check_auth_available"),\
         mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}),\
         mock.patch("mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request")\
             as db_api_req_mock:
@@ -180,9 +180,8 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         # Test that validations pass with good tracking URIs
-        runner = DatabricksJobRunner(databricks_profile="DEFAULT")
-        runner._before_run_validations("http://", cluster_spec_mock)
-        runner._before_run_validations("databricks", cluster_spec_mock)
+        databricks.before_run_validations("http://", cluster_spec_mock)
+        databricks.before_run_validations("databricks", cluster_spec_mock)
 
 
 def test_run_databricks(

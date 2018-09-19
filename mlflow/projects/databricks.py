@@ -39,6 +39,29 @@ def _check_response_status_code(response):
         raise ExecutionException("The Databricks request failed. Error: {}".format(response.text))
 
 
+def before_run_validations(tracking_uri, cluster_spec):
+    """Validations to perform before running a project on Databricks."""
+    profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
+    _check_auth_available(profile)
+    if cluster_spec is None:
+        raise ExecutionException("Cluster spec must be provided when launching MLflow project "
+                                 "runs on Databricks.")
+    if tracking.utils._is_local_uri(tracking_uri):
+        raise ExecutionException(
+            "When running on Databricks, the MLflow tracking URI must be of the form "
+            "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "
+            "current client and code running on Databricks. Got local tracking URI %s."
+            % tracking_uri)
+
+
+def _check_auth_available(databricks_profile):
+    """
+    Verify that information for making API requests to Databricks is available to MLflow,
+    raising an exception if not.
+    """
+    databricks_utils.get_databricks_host_creds(databricks_profile)
+
+
 class DatabricksJobRunner(object):
     """
     Helper class for running an MLflow project as a Databricks Job.
@@ -58,13 +81,6 @@ class DatabricksJobRunner(object):
             endpoint="/api/2.0/jobs/runs/submit", method="POST", json=req_body)
         _check_response_status_code(response)
         return json.loads(response.text)
-
-    def _check_auth_available(self):
-        """
-        Verify that information for making API requests to Databricks is available to MLflow,
-        raising an exception if not.
-        """
-        databricks_utils.get_databricks_host_creds(self.databricks_profile)
 
     def _upload_to_dbfs(self, src_path, dbfs_fuse_uri):
         """
@@ -159,22 +175,9 @@ class DatabricksJobRunner(object):
         databricks_run_id = run_submit_res["run_id"]
         return databricks_run_id
 
-    def _before_run_validations(self, tracking_uri, cluster_spec):
-        """Validations to perform before running a project on Databricks."""
-        self._check_auth_available()
-        if cluster_spec is None:
-            raise ExecutionException("Cluster spec must be provided when launching MLflow project "
-                                     "runs on Databricks.")
-        if tracking.utils._is_local_uri(tracking_uri):
-            raise ExecutionException(
-                "When running on Databricks, the MLflow tracking URI must be set to a remote URI "
-                "accessible to both the current client and code running on Databricks. Got local "
-                "tracking URI %s." % tracking_uri)
-
     def run_databricks(self, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec,
                        run_id):
         tracking_uri = _get_tracking_uri_for_run()
-        self._before_run_validations(tracking_uri, cluster_spec)
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
         env_vars = {
             tracking._TRACKING_URI_ENV_VAR: tracking_uri,
