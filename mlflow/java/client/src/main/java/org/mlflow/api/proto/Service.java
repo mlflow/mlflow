@@ -8622,7 +8622,6 @@ public final class Service {
     /**
      * <pre>
      * Current life cycle stage of the experiment: "active" or "deleted".
-     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8631,7 +8630,6 @@ public final class Service {
     /**
      * <pre>
      * Current life cycle stage of the experiment: "active" or "deleted".
-     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8640,7 +8638,6 @@ public final class Service {
     /**
      * <pre>
      * Current life cycle stage of the experiment: "active" or "deleted".
-     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8933,7 +8930,6 @@ public final class Service {
     /**
      * <pre>
      * Current life cycle stage of the experiment: "active" or "deleted".
-     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8944,7 +8940,6 @@ public final class Service {
     /**
      * <pre>
      * Current life cycle stage of the experiment: "active" or "deleted".
-     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -8966,7 +8961,6 @@ public final class Service {
     /**
      * <pre>
      * Current life cycle stage of the experiment: "active" or "deleted".
-     * Deleted experiments are not returned by APIs.
      * </pre>
      *
      * <code>optional string lifecycle_stage = 4;</code>
@@ -9733,7 +9727,6 @@ public final class Service {
       /**
        * <pre>
        * Current life cycle stage of the experiment: "active" or "deleted".
-       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9744,7 +9737,6 @@ public final class Service {
       /**
        * <pre>
        * Current life cycle stage of the experiment: "active" or "deleted".
-       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9766,7 +9758,6 @@ public final class Service {
       /**
        * <pre>
        * Current life cycle stage of the experiment: "active" or "deleted".
-       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9787,7 +9778,6 @@ public final class Service {
       /**
        * <pre>
        * Current life cycle stage of the experiment: "active" or "deleted".
-       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9805,7 +9795,6 @@ public final class Service {
       /**
        * <pre>
        * Current life cycle stage of the experiment: "active" or "deleted".
-       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
@@ -9819,7 +9808,6 @@ public final class Service {
       /**
        * <pre>
        * Current life cycle stage of the experiment: "active" or "deleted".
-       * Deleted experiments are not returned by APIs.
        * </pre>
        *
        * <code>optional string lifecycle_stage = 4;</code>
