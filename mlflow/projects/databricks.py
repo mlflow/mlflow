@@ -165,7 +165,7 @@ class DatabricksJobRunner(object):
         if cluster_spec is None:
             raise ExecutionException("Cluster spec must be provided when launching MLflow project "
                                      "runs on Databricks.")
-        if tracking.utils._is_local_uri(tracking_uri) and tracking.utils.is_tracking_uri_set():
+        if tracking.utils._is_local_uri(tracking_uri):
             raise ExecutionException(
                 "When running on Databricks, the MLflow tracking URI must be set to a remote URI "
                 "accessible to both the current client and code running on Databricks. Got local "
