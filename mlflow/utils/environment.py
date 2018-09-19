@@ -1,4 +1,3 @@
-import json
 import os
 
 from mlflow.projects import _get_conda_bin_executable, _get_conda_env_name, _get_environments
@@ -17,8 +16,10 @@ def _get_mlflow_environments(conda_path=_get_conda_bin_executable("conda")):
     return [x for x in _get_environments(conda_path) if len(x) == 47 and x.startswith("mlflow-")]
 
 
-def _clear_conda_env_cache(remove_envs=[], force = False):
+def _clear_conda_env_cache(remove_envs=None, force=False):
     conda_path = _get_conda_bin_executable("conda")
+    if remove_envs is None:
+        remove_envs = []
     for x in remove_envs:
         if not os.path.exists(x):
             raise Exception("File  not found: '{}'".format(os.path.abspath(x)))
@@ -57,7 +58,6 @@ def _clear_conda_env_cache(remove_envs=[], force = False):
             raise Exception(msg)
         else:
             eprint("removed cached env '{}'".format(x))
-
 
 
 def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None):

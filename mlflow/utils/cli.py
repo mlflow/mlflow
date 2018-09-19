@@ -1,12 +1,8 @@
 from __future__ import print_function
 
-import os
-import json
-
 import click
 
 import mlflow
-from mlflow.utils import cli_args
 import mlflow.utils.environment
 
 
@@ -18,7 +14,6 @@ def commands():
 
 @click.option("--force", default=False,
               help="Remove the matching environments without asking if this option is set.")
-
 @click.option("--env-file", "-e", metavar="PATH", default=None,
               help="Remove cached conda environment only for the given conda yaml file if set.")
 @commands.command("remove-cached-environments")
@@ -38,7 +33,6 @@ def remove_cached_environments(project_path, force):
        happens e.g. when the conda file includes a dependency without specified version.
     """
     mlflow.utils.environment._clear_conda_env_cache(remove_envs=[project_path], force=force)
-
 
 
 @commands.command("list-cached-environments")
