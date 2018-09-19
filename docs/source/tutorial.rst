@@ -41,7 +41,7 @@ To run this tutorial, you'll need to:
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
-       - ``setwd()``` into the ``example`` directory within your clone of MLflow - we'll use this working
+       - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
          so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
          MLflow.
