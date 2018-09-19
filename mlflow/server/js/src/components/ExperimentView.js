@@ -135,7 +135,8 @@ class ExperimentView extends Component {
           metricsMap,
           tags: this.props.tagsList[idx],
           metricRanges,
-          selected: !!this.state.runsSelected[runInfo.run_uuid]})
+          selected: !!this.state.runsSelected[runInfo.run_uuid]
+        })
       };
     });
     rows.sort((a, b) => {
@@ -163,15 +164,17 @@ class ExperimentView extends Component {
     return (
       <div className="ExperimentView">
         <h1>{name}</h1>
-        <div className="metadata">
-          <span className="metadata">
-            <span className="metadata-header">Experiment ID:</span>
-            {experiment_id}
-          </span>
-          <span className="metadata">
-            <span className="metadata-header">Artifact Location:</span>
-            {artifact_location}
-          </span>
+        <div className="metadata-flex-container">
+          <div className="metadata container-row">
+            <div className="metadata-header">Experiment ID:</div>
+            <div className="metadata-value">{experiment_id}</div>
+          </div>
+        </div>
+        <div className="metadata-flex-container">
+          <div className="metadata container-row">
+            <div className="metadata-header">Artifact Location:</div>
+            <div className="metadata-value">{artifact_location}</div>
+          </div>
         </div>
         <div className="ExperimentView-runs">
           {this.state.searchErrorMessage !== undefined ?
@@ -183,9 +186,9 @@ class ExperimentView extends Component {
           <form className="ExperimentView-search-controls" onSubmit={this.onSearch}>
             <div className="ExperimentView-search-buttons">
               <input type="submit"
-                     className="search-button btn btn-primary"
-                     onClick={this.onSearch}
-                     value="Search"
+                className="search-button btn btn-primary"
+                onClick={this.onSearch}
+                value="Search"
               />
               <Button className="clear-button" onClick={this.onClear}>Clear</Button>
             </div>
@@ -194,9 +197,9 @@ class ExperimentView extends Component {
                 <label className="filter-label">Search Runs:</label>
                 <div className="filter-wrapper">
                   <input type="text"
-                         placeholder={'metrics.rmse < 1 and params.model = "tree"'}
-                         value={this.state.searchInput}
-                         onChange={this.onSearchInput}
+                    placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                    value={this.state.searchInput}
+                    onChange={this.onSearchInput}
                   />
                 </div>
               </div>
@@ -205,9 +208,9 @@ class ExperimentView extends Component {
                   <label className="filter-label">Filter Params:</label>
                   <div className="filter-wrapper">
                     <input type="text"
-                           placeholder="alpha, lr"
-                           value={this.state.paramKeyFilterInput}
-                           onChange={this.onParamKeyFilterInput}
+                      placeholder="alpha, lr"
+                      value={this.state.paramKeyFilterInput}
+                      onChange={this.onParamKeyFilterInput}
                     />
                   </div>
                 </div>
@@ -215,9 +218,9 @@ class ExperimentView extends Component {
                   <label className="filter-label">Filter Metrics:</label>
                   <div className="filter-wrapper">
                     <input type="text"
-                           placeholder="rmse, r2"
-                           value={this.state.metricKeyFilterInput}
-                           onChange={this.onMetricKeyFilterInput}
+                      placeholder="rmse, r2"
+                      value={this.state.metricKeyFilterInput}
+                      onChange={this.onMetricKeyFilterInput}
                     />
                   </div>
                 </div>
@@ -232,27 +235,27 @@ class ExperimentView extends Component {
               Compare Selected
             </Button>
             <Button onClick={this.onDownloadCsv}>
-              Download CSV <i className="fas fa-download"/>
+              Download CSV <i className="fas fa-download" />
             </Button>
           </div>
           <Table hover>
-            <colgroup span="7"/>
-            <colgroup span={paramKeyList.length}/>
-            <colgroup span={metricKeyList.length}/>
+            <colgroup span="7" />
+            <colgroup span={paramKeyList.length} />
+            <colgroup span={metricKeyList.length} />
             <tbody>
-            <tr>
-              <th className="top-row" scope="colgroup" colSpan="5"></th>
-              <th className="top-row left-border" scope="colgroup"
+              <tr>
+                <th className="top-row" scope="colgroup" colSpan="5"></th>
+                <th className="top-row left-border" scope="colgroup"
                   colSpan={paramKeyList.length}>Parameters
               </th>
-              <th className="top-row left-border" scope="colgroup"
+                <th className="top-row left-border" scope="colgroup"
                   colSpan={metricKeyList.length}>Metrics
               </th>
-            </tr>
-            <tr>
-              {columns}
-            </tr>
-            { rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
+              </tr>
+              <tr>
+                {columns}
+              </tr>
+              {rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
             </tbody>
           </Table>
         </div>
@@ -263,17 +266,21 @@ class ExperimentView extends Component {
   onSortBy(isMetric, isParam, key) {
     const sort = this.state.sort;
     if (sort.key === key && sort.isMetric === isMetric && sort.isParam === isParam) {
-      this.setState({sort: {
-        ...sort,
-        ascending: !sort.ascending
-      }});
+      this.setState({
+        sort: {
+          ...sort,
+          ascending: !sort.ascending
+        }
+      });
     } else {
-      this.setState({sort: {
-        ascending: true,
-        key: key,
-        isMetric: isMetric,
-        isParam: isParam
-      }});
+      this.setState({
+        sort: {
+          ascending: true,
+          key: key,
+          isMetric: isMetric,
+          isParam: isParam
+        }
+      });
     }
   }
 
@@ -298,13 +305,13 @@ class ExperimentView extends Component {
 
   onCheckAll() {
     if (this.isAllChecked()) {
-      this.setState({runsSelected: {}});
+      this.setState({ runsSelected: {} });
     } else {
       const runsSelected = {};
-      this.props.runInfos.forEach(({run_uuid}) => {
+      this.props.runInfos.forEach(({ run_uuid }) => {
         runsSelected[run_uuid] = true;
       });
-      this.setState({runsSelected: runsSelected});
+      this.setState({ runsSelected: runsSelected });
     }
   }
 
@@ -369,12 +376,12 @@ class ExperimentView extends Component {
     metricsMap,
     tags,
     metricRanges,
-    selected}) {
+    selected }) {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const row = [
       <td key="meta-check"><input type="checkbox" checked={selected}
-        onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
+        onClick={() => onCheckbox(runInfo.run_uuid)} /></td>,
       <td key="meta-link">
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
@@ -401,11 +408,11 @@ class ExperimentView extends Component {
           {paramsMap[paramKey].getValue()}
         </td>);
       } else {
-        row.push(<td className={className} key={keyname}/>);
+        row.push(<td className={className} key={keyname} />);
       }
     });
     if (numParams === 0) {
-      row.push(<td className="left-border" key={"meta-param-empty"}/>);
+      row.push(<td className="left-border" key={"meta-param-empty"} />);
     }
 
     metricKeyList.forEach((metricKey, i) => {
@@ -422,7 +429,7 @@ class ExperimentView extends Component {
         row.push(
           <td className={className} key={keyname}>
             <div className="metric-filler-bg">
-              <div className="metric-filler-fg" style={{width: percent}}/>
+              <div className="metric-filler-fg" style={{ width: percent }} />
               <div className="metric-text">
                 {Utils.formatMetric(metric)}
               </div>
@@ -430,7 +437,7 @@ class ExperimentView extends Component {
           </td>
         );
       } else {
-        row.push(<td className={className} key={keyname}/>);
+        row.push(<td className={className} key={keyname} />);
       }
     });
     if (numMetrics === 0) {
@@ -453,7 +460,7 @@ class ExperimentView extends Component {
       return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
     };
     const getHeaderCell = (key, text, sortable) => {
-      let onClick = () => {};
+      let onClick = () => { };
       if (sortable) {
         onClick = () => onSortBy(false, false, key);
       }
@@ -504,7 +511,7 @@ class ExperimentView extends Component {
     metricsByRun.forEach(metrics => {
       metrics.forEach(metric => {
         if (!ret.hasOwnProperty(metric.key)) {
-          ret[metric.key] = {min: Math.min(metric.value, metric.value * 0.7), max: metric.value};
+          ret[metric.key] = { min: Math.min(metric.value, metric.value * 0.7), max: metric.value };
         } else {
           if (metric.value < ret[metric.key].min) {
             ret[metric.key].min = Math.min(metric.value, metric.value * 0.7);

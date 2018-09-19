@@ -2,11 +2,11 @@
   display: flex;
 }
 .HomePage-experiment-list-container {
-  width: 10%;
-  min-width: 333px;
+  width: 30%;
+  min-width: 300px;
 }
 .experiment-view-container {
-  width: 80%;
+  width: 65%;
 }
 .experiment-view-right {
   width: 10%;

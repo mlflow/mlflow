@@ -134,6 +134,15 @@ div.metadata {
   margin-top: 32px;
 }
 
+div.metadata-flex-container{
+  display: flex;
+}
+
+div.container-row{
+  display: flex;
+  min-width: 0; 
+}
+
 span.metadata {
   font-size: 16px;
   font-weight: normal;
@@ -146,6 +155,21 @@ span.metadata-header {
   font-weight: normal;
   color: #888;
   margin-right: 4px;
+}
+div.metadata-header {
+  order: 1;
+  
+  flex: 1 0 auto;
+}
+div.metadata-value{
+  white-space: nowrap;
+  margin-left: 16px;
+  direction: rtl;
+  order: 2;
+  flex: 0 1 auto;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  min-width: 0px;
 }
 
 table th {
