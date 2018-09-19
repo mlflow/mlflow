@@ -166,6 +166,8 @@ def test_run_databricks_validations(
             run_databricks_project(cluster_spec_mock, block=True)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
+        mlflow_service = mlflow.tracking.MlflowClient()
+        assert len(mlflow_service.list_run_infos(experiment_id=0)) == 0
         tracking_uri_mock.return_value = "http://"
         # Test misspecified parameters
         with pytest.raises(ExecutionException):
@@ -232,9 +234,6 @@ def test_run_databricks_cancel(
 
 
 def test_get_tracking_uri_for_run():
-    with mock.patch.dict(os.environ, {}):
-        mlflow.set_tracking_uri(None)
-    assert databricks._get_tracking_uri_for_run() == "databricks"
     mlflow.set_tracking_uri("http://some-uri")
     assert databricks._get_tracking_uri_for_run() == "http://some-uri"
     mlflow.set_tracking_uri("databricks://profile")

@@ -232,8 +232,6 @@ class DatabricksJobRunner(object):
 
 
 def _get_tracking_uri_for_run():
-    if not tracking.utils.is_tracking_uri_set():
-        return "databricks"
     uri = tracking.get_tracking_uri()
     if uri.startswith("databricks"):
         return "databricks"
