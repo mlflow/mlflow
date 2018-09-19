@@ -52,12 +52,36 @@ export const getRunApi = (runUuid, id = getUUID()) => {
   };
 };
 
+export const DELETE_RUN_API = 'DELETE_RUN_API';
+export const deleteRunApi = (runUuid, id = getUUID()) => {
+  return (dispatch) => {
+    const deleteResponse = dispatch({
+      type: DELETE_RUN_API,
+      payload: wrapDeferred(MlflowService.deleteRun, { run_id: runUuid }),
+      meta: { id: getUUID() },
+    });
+    return deleteResponse.then(dispatch(getRunApi(runUuid, id)));
+  };
+};
+
+export const RESTORE_RUN_API = 'RESTORE_RUN_API';
+export const restoreRunApi = (runUuid, id = getUUID()) => {
+  return (dispatch) => {
+    const restoreResponse = dispatch({
+      type: RESTORE_RUN_API,
+      payload: wrapDeferred(MlflowService.restoreRun, { run_id: runUuid }),
+      meta: { id: getUUID() },
+    });
+    return restoreResponse.then(dispatch(getRunApi(runUuid, id)));
+  };
+};
+
 export const SEARCH_RUNS_API = 'SEARCH_RUNS_API';
-export const searchRunsApi = (experimentIds, andedExpressions, id = getUUID()) => {
+export const searchRunsApi = (experimentIds, andedExpressions, runViewType, id = getUUID()) => {
   return {
     type: SEARCH_RUNS_API,
     payload: wrapDeferred(MlflowService.searchRuns, {
-      experiment_ids: experimentIds, anded_expressions: andedExpressions
+      experiment_ids: experimentIds, anded_expressions: andedExpressions, run_view_type: runViewType
     }),
     meta: { id: id },
   };
@@ -94,6 +118,21 @@ export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
     }),
     meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
   };
+};
+
+export const CLOSE_ERROR_MODAL = 'CLOSE_ERROR_MODAL';
+export const closeErrorModal = () => {
+  return {
+    type: CLOSE_ERROR_MODAL,
+  }
+};
+
+export const OPEN_ERROR_MODAL = 'OPEN_ERROR_MODAL';
+export const openErrorModal = (text) => {
+  return {
+    type: OPEN_ERROR_MODAL,
+    text,
+  }
 };
 
 export const getUUID = () => {
