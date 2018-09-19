@@ -1,18 +1,15 @@
-import random
-from contextlib import contextmanager
 import filecmp
 import os
+import random
 import tempfile
-import shutil
 
-import mock
 import pytest
 
-from mlflow.store.file_store import FileStore
-from mlflow.entities import RunStatus
-from mlflow import tracking
-from mlflow.tracking.fluent import start_run, end_run
 import mlflow
+from mlflow import tracking
+from mlflow.entities import RunStatus
+from mlflow.tracking.fluent import start_run, end_run
+from mlflow.utils.file_utils import TempDir
 
 
 def test_create_experiment():
@@ -32,6 +29,37 @@ def test_create_experiment():
         assert exp_id is not None
     finally:
         tracking.set_tracking_uri(None)
+
+
+def test_set_experiment():
+    with pytest.raises(TypeError):
+        mlflow.set_experiment()
+
+    with pytest.raises(Exception):
+        mlflow.set_experiment(None)
+
+    with pytest.raises(Exception):
+        mlflow.set_experiment("")
+
+    try:
+        with TempDir() as tracking_uri:
+            tracking.set_tracking_uri(tracking_uri.path())
+            name = "random_exp"
+            exp_id = mlflow.create_experiment(name)
+            mlflow.set_experiment(name)
+            run = start_run()
+            assert run.info.experiment_id == exp_id
+            end_run()
+
+            another_name = "another_experiment"
+            mlflow.set_experiment(another_name)
+            exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+            another_run = start_run()
+            assert another_run.info.experiment_id == exp_id2.experiment_id
+            end_run()
+    finally:
+        # Need to do this to clear active experiment to restore state
+        mlflow.tracking.fluent._active_experiment_id = None
 
 
 def test_no_nested_run():
