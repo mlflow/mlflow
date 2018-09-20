@@ -13,24 +13,43 @@ Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-
 
 ## Installation
 
-You can install **mlflow** from GitHub as follows:
+Currently, the `mlflow` R package is not on CRAN; therefore, it is
+required to install the development version. Once released to CRAN,
+installation will look as follows:
+
+``` r
+install.packages("mlflow")
+mlflow::mlflow_install()
+```
+
+### Developemnt
+
+Install the `mlflow` package as follows:
 
 ``` r
 devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
-Then, install MLflow to manage models and experiments locally:
+Then install the latest released `mlflow` runtime.
 
 ``` r
-library(mlflow)
-mlflow_install()
+# Install latest released version
+mlflow::mlflow_install()
 ```
 
-To upgrade to the latest version of mlflow, run the following command
-and restart your r session:
+However, currently, the development runtime of `mlflow` is also
+required; which means you also need to download or clone the `mlflow`
+GitHub repo:
+
+``` bash
+git clone https://github.com/mlflow/mlflow
+```
+
+And upgrade the runtime to the development version as follows:
 
 ``` r
-devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
+# Upgrade to the latest development version
+reticulate::conda_install("r-mlflow", "<local github repo>", pip = TRUE)
 ```
 
 ## Tracking
@@ -90,10 +109,10 @@ or implicitly used by running `R` with `mlflow` from the terminal as
 follows:
 
 ``` bash
-mlflow run examples/R/simple --entry-point train.R
+mlflow run examples/r_wine --entry-point train.R
 ```
 
-Notice that is equivalent to running from `examples/R/simple`,
+Notice that is equivalent to running from `examples/r_wine`,
 
 ``` bash
 Rscript -e "mlflow::mlflow_source('train.R')"
@@ -185,9 +204,7 @@ following lines to the previous `train.R` script:
 # train model (...)
 
 # save model
-mlflow_save_model(function(df, model) {
-  predict(model, df)
-})
+mlflow_save_model(crate(~ stats::predict(model, .x), model, column))
 ```
 
 And trigger a run with that will also save your model as follows:
@@ -206,7 +223,7 @@ The directory containing the model looks as follows:
 dir("model")
 ```
 
-    ## [1] "MLmodel"     "r_model.bin"
+    ## [1] "MLmodel"     "r_crate.bin"
 
 and the model definition `model/MLmodel` like:
 
@@ -214,18 +231,19 @@ and the model definition `model/MLmodel` like:
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
-    ## time_created: 1.535526e+09
     ## flavors:
-    ##   r_function:
+    ##   r_crate:
     ##     version: 0.1.0
-    ##     model: r_model.bin
+    ##     model: r_crate.bin
+    ## time_created: 18-09-20T18:23:32.32.80
+    ## run_id: d7632c5fa61e442ca6f65e78b1c1d297
 
 Later on, the R model can be deployed which will perform predictions
 using
     `mlflow_rfunc_predict()`:
 
 ``` r
-mlflow_rfunc_predict("model", iris)
+mlflow_rfunc_predict("model", data = iris)
 ```
 
     ## Warning in mlflow_snapshot_warning(): Running without restoring the
@@ -336,4 +354,4 @@ follows:
 
 ## Contributing
 
-See the [MLflow contribution guidelines](../../CONTRIBUTING.rst).
+See the [MLflow contribution guidelines](../../../CONTRIBUTING.rst).
