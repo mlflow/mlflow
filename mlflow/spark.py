@@ -103,7 +103,8 @@ class _HadoopFileSystem:
 
     @classmethod
     def _jvm(cls):
-        return SparkContext._gateway.jvm
+        sc = SparkContext.getOrCreate()
+        return sc._gateway.jvm
 
     @classmethod
     def _fs(cls):
