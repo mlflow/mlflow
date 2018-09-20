@@ -148,8 +148,9 @@ service MlflowService {
     };
   }
 
-  // Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
-  // associated timestamp. Examples include the various metrics that represent ML model accuracy. 
+
+  // Log a metric for a run. A metric is a key-value pair (string key, float value) with an
+  // associated timestamp. Examples include the various metrics that represent ML model accuracy.
   // A metric can be logged multiple times.
   //
   rpc logMetric(LogMetric) returns (LogMetric.Response) {
@@ -486,7 +487,7 @@ message ListExperiments {
 message GetExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifier to get an experiment.
+  // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
 
   message Response {
@@ -589,6 +590,7 @@ message RestoreRun {
   message Response {}
 }
 
+
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -617,7 +619,7 @@ message LogParam {
   // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the param being logged. Maximum size if 500 bytes.
+  // String value of the param being logged. Maximum size is 500 bytes.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
@@ -633,7 +635,7 @@ message SetTag {
   // Name of the tag. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the tag being logged. Maximum size if 500 bytes.
+  // String value of the tag being logged. Maximum size is 5000 bytes.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
@@ -737,7 +739,7 @@ message SearchRuns {
   // Expressions describing runs (AND-ed together when filtering runs).
   repeated SearchExpression anded_expressions = 2;
 
-  optional ViewType run_view_type = 3;
+  optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
   message Response {
     // Runs that match the search criteria.
@@ -773,6 +775,21 @@ message FileInfo {
 
   // Size in bytes. Unset for directories.
   optional int64 file_size = 3;
+}
+
+message GetArtifact {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run from which to fetch the artifact.
+  optional string run_uuid = 1;
+
+  // Path of the artifact to fetch (relative to the root artifact directory for the run).
+  optional string path = 2;
+
+  message Response {
+    // Empty because the data of the file will be streamed back in the HTTP response.
+    // The response will have an HTTP status code of 404 if the artifact path is not found.
+  }
 }
 
 message GetMetricHistory {
