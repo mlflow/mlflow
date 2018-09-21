@@ -258,16 +258,9 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
     return _load_model(model_path=model_path, dfs_tmpdir=dfs_tmpdir)
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     """
-    Load a persisted Spark MLlib PipelineModel as a ``python_function`` model.
-
-    >>> pyfunc_model = load_pyfunc("/tmp/pyfunc-spark-model")
-    >>> predictions = pyfunc_model.predict(test_pandas_df)
-
-    :param path: Local filesystem path to the model saved by :py:func:`mlflow.spark.log_model`.
-    :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
     # NOTE: The getOrCreate() call below may change settings of the active session which we do not
     # intend to do here. In particular, setting master to local[1] can break distributed clusters.

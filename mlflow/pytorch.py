@@ -177,28 +177,9 @@ def load_model(path, run_id=None, **kwargs):
     return _load_model(path, **kwargs)
 
 
-def load_pyfunc(path, **kwargs):
+def _load_pyfunc(path, **kwargs):
     """
-    Load a persisted PyTorch model as a ``python_function`` model.
-    The loaded PyFunc exposes a ``predict(pd.DataFrame) -> pd.DataFrame``
-    method that, given an input DataFrame of n rows and k float-valued columns, feeds a
-    corresponding (n x k) ``torch.FloatTensor`` (or ``torch.cuda.FloatTensor``) as input to the
-    PyTorch model. ``predict`` returns the model's predictions (output tensor) in a single column
-    DataFrame.
-
-    :param path: Local filesystem path to the model saved by :py:func:`mlflow.pytorch.log_model`.
-    :param kwargs: kwargs to pass to ``torch.load`` method.
-    :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
-
-    >>> import torch
-    >>> import mlflow
-    >>> import mlflow.pytorch
-    >>> # set values
-    >>> model_path_dir = ...
-    >>> new_pandas_df = ...
-    >>> pytorch_model = mlfow.pytorch.load_pyfunc(model_path_dir)
-    >>> predictions = pytorch_model.predict(new_pandas_df)
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
     return _PyTorchWrapper(_load_model(os.path.dirname(path), **kwargs))
 

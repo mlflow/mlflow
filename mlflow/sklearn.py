@@ -82,15 +82,10 @@ def _load_model_from_local_file(path):
         return pickle.load(f)
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     """
-    Load a persisted scikit-learn model as a ``python_function`` model.
-
-    :param path: Local filesystem path to the model saved by :py:func:`mlflow.sklearn.save_model`.
-    :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
-
     with open(path, "rb") as f:
         return pickle.load(f)
 
