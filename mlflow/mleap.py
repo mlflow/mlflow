@@ -157,7 +157,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
         traceback.print_exc()
         reraise(Exception, error_str, tb)
 
-    input_schema = json.loads(sample_input.schema.json())
+    input_schema = _get_mleap_schema(sample_input)
     mleap_schemapath_sub = os.path.join("mleap", "schema.json")
     mleap_schemapath_full = os.path.join(path, mleap_schemapath_sub)
     with open(mleap_schemapath_full, "w") as out:
@@ -167,3 +167,23 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                             mleap_version=mleap.version.__version__,
                             model_data=mleap_datapath_sub,
                             input_schema=mleap_schemapath_sub)
+
+
+def _get_mleap_schema(dataframe):
+    """
+    :param dataframe: A PySpark dataframe object
+
+    :return: The schema of the supplied dataframe, in MLeap format. This serialized object of type 
+    `ml.combust.mleap.core.types.StructType`, represented as a JSON dictionary.
+    """
+    from pyspark.ml.util import _jvm
+    ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
+
+    tc_clazz = ReflectionUtil.classForName("org.apache.spark.sql.mleap.TypeConverters$")
+    tc_inst = tc_clazz.getField("MODULE$").get(tc_clazz)
+    mleap_schema_struct = tc_inst.sparkSchemaToMleapSchema(dataframe._jdf)
+
+    js_clazz = ReflectionUtil.classForName("ml.combust.mleap.json.JsonSupport$")
+    js_inst = js_clazz.getField("MODULE$").get(js_clazz)
+    mleap_schema_json = js_inst.MleapStructTypeFormat().write(mleap_schema_struct)
+    return json.loads(mleap_schema_json.toString()) 
