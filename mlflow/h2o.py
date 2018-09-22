@@ -26,12 +26,10 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     :param path: Local path where the model is to be saved.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    >>> import mlflow
     >>> import mlflow.h2o
-    >>> import h2o
     >>> #create, train, and evaluate your h2o model
     >>> h2o_model = ...
-    >>> #set path where to save, local or remote, accessible from code
+    >>> #set path where to save
     >>> h2o_model_dir = ...
     >>> mlflow.h2o.save_model(h2o_model, h2o_model_dir)
     """
@@ -70,7 +68,6 @@ def log_model(h2o_model, artifact_path, **kwargs):
     :param artifact_path: Run-relative artifact path.
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
 
-    >>> import mlflow
     >>> import mlflow.h2o
     >>> import h2o
     >>> from h2o.estimators.glm import H2OGeneralizedLinearEstimator
@@ -79,9 +76,6 @@ def log_model(h2o_model, artifact_path, **kwargs):
     >>> h2o.init()
     >>> h2o_model = H2OGeneralizedLinearEstimator(family = 'binomial', early_stopping = True)
     >>> h2o_model.train(...)
-    >>> #log parameters
-    >>> mlflow.log_param("early_stopping", "True")
-    >>> mlflow.log_param("family", "binomial")
     >>> #log the model
     >>> mlflow.h2o.log_model(h2o_model, "h2o_models")
     """
@@ -121,18 +115,6 @@ def load_pyfunc(path):
     :param path: Local filesystem path to the model saved by :py:func:`mlflow.h2o.save_model`.
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
-
-    >>> import mlflow
-    >>> import mlflow.h2o
-    >>> import h2o
-    >>> # set the path to where the h2o model is saved: local or remote, accessible
-    >>> # from code here
-    >>> h2o.init()
-    >>> h2o_model_dir = ...
-    >>> # set the test Pandas DataFrame
-    >>> pandas_df = ...
-    >>> h2o_model = mlflow.h2o.load_pyfunc(h2o_model_dir)
-    >>> predictions = h2o_model.predict(pandas_df)
     """
     return _H2OModelWrapper(_load_model(path, init=True))
 
@@ -146,10 +128,9 @@ def load_model(path, run_id=None):
                  by :py:func:`mlflow.h2o.save_model`.
     :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
 
-    >>> import mlflow
     >>> import mlflow.h2o
     >>> import h2o
-    >>> # set the path to where the h2o model is saved: local or remote, accessible
+    >>> # set the path to where the h2o model is saved
     >>> # from code here
     >>> h2o.init()
     >>> h2o_model_dir = ...
