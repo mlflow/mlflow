@@ -35,34 +35,6 @@ mlflow_get_experiment <- function(experiment_id) {
   response
 }
 
-#' Log Metric
-#'
-#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
-#'   During a single execution of a run, a particular metric can be logged several times.
-#'   Backend will keep track of historical values along with timestamps.
-#'
-#' @param run_uuid Unique ID for the run.
-#' @param key Name of the metric.
-#' @param value Float value for the metric being logged.
-#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
-#' @export
-mlflow_log_metric <- function(key, value, timestamp = NULL, run_uuid = NULL) {
-  if (!rlang::inherits_any(value, c("character", "numeric", "integer"))) {
-    stop("Metric ", key, " must be a character or numeric but ", class(value), " found.")
-  }
-
-  run_uuid <- mlflow_ensure_run_id(run_uuid)
-  timestamp <- timestamp %||% current_time()
-  response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
-    run_uuid = run_uuid,
-    key = key,
-    value = value,
-    timestamp = timestamp
-  ))
-
-  invisible(value)
-}
-
 #' Log Parameter
 #'
 #' API to log a parameter used for this run. Examples are params and hyperparams

@@ -113,3 +113,32 @@ mlflow_get_run.mlflow_client <- function(run_uuid, client = NULL) {
   run %>%
     purrr::map_at("info", tidy_run_info)
 }
+
+#' Log Metric
+#'
+#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
+#'   During a single execution of a run, a particular metric can be logged several times.
+#'   Backend will keep track of historical values along with timestamps.
+#'
+#' @param run_uuid Unique ID for the run.
+#' @param key Name of the metric.
+#' @param value Float value for the metric being logged.
+#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
+#' @export
+mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, ...) {
+  UseMethod("mlflow_log_metric", client)
+}
+
+#' @rdname mlflow_log_metric
+#' @param run_id Run ID.
+#' @export
+mlflow_log_metric.mlflow_client <- function(
+  key, value, timestamp = NULL, client = NULL, run_id, ...
+) {
+  if (!rlang::inherits_any(value, c("character", "numeric", "integer"))) {
+    stop("Metric ", key, " must be a character or numeric but ", class(value), " found.")
+  }
+  mlflow_client_log_metric(
+    client, run_uuid = run_id, key = key, value = value, timestamp = timestamp
+  )
+}

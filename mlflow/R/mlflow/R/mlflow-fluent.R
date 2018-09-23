@@ -65,3 +65,15 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 
   new_mlflow_active_run(run_info)
 }
+
+#' @export
+mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL) {
+  client <- mlflow_client()
+  active_run <- mlflow_active_run()
+  run_id <- as.character(active_run$run_info$run_uuid)
+  mlflow_log_metric.mlflow_client(
+    client = client, key = key, value = value, timestamp = timestamp,
+    run_id = run_id
+  )
+  invisible(value)
+}
