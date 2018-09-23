@@ -49,7 +49,7 @@ mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", ve
   tracking_url <- if (inherits(client, "mlflow_connection")) {
     client$tracking_uri
   } else {
-    mlflow_local_server(client$tracking_uri)$tracking_uri
+    client$server_url
   }
 
   api_url <- file.path(

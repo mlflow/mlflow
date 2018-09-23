@@ -1,7 +1,8 @@
-new_mlflow_client <- function(tracking_uri) {
+new_mlflow_client <- function(tracking_uri, server_url = NULL) {
   structure(
     list(
-      tracking_uri = tracking_uri
+      tracking_uri = tracking_uri,
+      server_url = server_url %||% tracking_uri
     ),
     class = "mlflow_client"
   )
@@ -14,11 +15,11 @@ new_mlflow_client <- function(tracking_uri) {
 #' @export
 mlflow_client <- function(tracking_uri = NULL) {
   tracking_uri <- tracking_uri %||% mlflow_tracking_uri()
-  if (!startsWith(tracking_uri, "http")) {
+  if (!startsWith(tracking_uri, "http") && is.null(mlflow_local_server(tracking_uri))) {
     local_server <- mlflow_server(file_store = tracking_uri, port = mlflow_connect_port())
     mlflow_register_local_server(tracking_uri = tracking_uri, local_server = local_server)
   }
-  new_mlflow_client(tracking_uri)
+  new_mlflow_client(tracking_uri, server_url = mlflow_local_server(tracking_uri)$tracking_uri)
 }
 
 mlflow_client_create_experiment <- function(client, name, artifact_location) {
