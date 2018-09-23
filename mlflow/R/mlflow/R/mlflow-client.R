@@ -53,3 +53,19 @@ mlflow_client_create_run <- function(
   )
   response
 }
+
+mlflow_client_delete_experiment <- function(client, experimend_id) {
+  response <- mlflow_rest(
+    "experiments", "delete", client = client, verb = "POST",
+    data = list(experiment_id = experiment_id),
+  )
+  response
+}
+
+mlflow_client_restore_experiment <- function(client, experiment_id) {
+  response <- mlflow_rest(
+    "experiments", "restore", client = client, verb = "POST",
+    data = list(experiment_id = experiment_id),
+  )
+  response
+}

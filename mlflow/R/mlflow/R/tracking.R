@@ -59,3 +59,38 @@ mlflow_create_run.mlflow_client <- function(
     source_name, entry_point_name, start_time, source_version, tags
   )
 }
+
+#' Delete Experiment
+#'
+#' Mark an experiment and associated runs, params, metrics, … etc for deletion. If the
+#'   experiment uses FileStore, artifacts associated with experiment are also deleted.
+#'
+#' @param experiment_id ID of the associated experiment This field is required.
+#' @export
+mlflow_delete_experiment <- function(experiment_id, client = NULL) {
+  UseMethod("mlflow_delete_experiment", client)
+}
+
+#' @export
+mlflow_delete_experiment.mlflow_client <- function(experiment_id, client = NULL) {
+  mlflow_client_delete_experiment(client, experiment_id)
+}
+
+#' Restore Experiment
+#'
+#' Restore an experiment marked for deletion. This also restores associated metadata,
+#'   runs, metrics, and params. If experiment uses FileStore, underlying artifacts
+#'   associated with experiment are also restored.
+#'
+#' Throws RESOURCE_DOES_NOT_EXIST if experiment was never created or was permanently deleted.
+#'
+#' @param experiment_id ID of the associated experiment This field is required.
+#' @export
+mlflow_restore_experiment <- function(experiment_id, client = NULL) {
+  UseMethod("mlflow_restore_experiment", client)
+}
+
+#' @export
+mlflow_restore_experiment.mlflow_client <- function(experiment_id, client = NULL) {
+  mlflow_client_restore_experiment(client, experiment_id)
+}
