@@ -38,7 +38,6 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
            and mlflow with appropriate versions.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    >>> import mlflow
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
     >>> from sklearn import tree
@@ -115,14 +114,13 @@ def load_pyfunc(path):
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
 
-    >>> import mlflow
     >>> import mlflow.sklearn
     >>> #set the path to directory used in save_model(...)
     >>> sk_path_dir = ...
-    >>> sk_model = mlflow.sklearn.load_pyfunc(sk_model_dir)
+    >>> sk_model = mlflow.sklearn.load_pyfunc(sk_path_dir)
     >>> #use Pandas DataFrame to make predictions
     >>> pandas_df = ...
-    >>> pred = sk_mode.predict(pandas_df)
+    >>> pred = sk_model.predict(pandas_df)
     """
 
     with open(path, "rb") as f:
@@ -137,7 +135,6 @@ def load_model(path, run_id=None):
                  by :py:func:`mlflow.sklearn.save_model`.
     :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
 
-    >>> import mlflow
     >>> import mlflow.sklearn
     >>> sk_model = mlflow.sklearn.load_model("sk_models", run_id="96771d893a5e46159d9f3b49bf9013e2")
     >>> #use Pandas DataFrame to make predictions
