@@ -8,8 +8,7 @@ new_mlflow_client <- function(tracking_uri) {
 }
 
 mlflow_client <- function(tracking_uri = NULL) {
-  tracking_uri <- tracking_uri %||% Sys.getenv("MLFLOW_TRACKING_URI") %||%
-    stop("`tracking_uri` must be specified when `MLFLOW_TRACKING_URI` is not set.")
+  tracking_uri <- tracking_uri %||% mlflow_tracking_uri()
   new_mlflow_client(tracking_uri)
 }
 
