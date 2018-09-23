@@ -24,46 +24,6 @@ mlflow_list_experiments <- function() {
   exps
 }
 
-#' Create Experiment
-#'
-#' Creates an MLflow experiment.
-#'
-#' @param name The name of the experiment to create.
-#' @param activate Whether to set the created experiment as the active experiment. Defaults to `TRUE`.
-#' @param artifact_location Location where all artifacts for this experiment are stored. If
-#'   not provided, the remote server will select an appropriate default.
-#'
-#' @examples
-#' \dontrun{
-#' library(mlflow)
-#' mlflow_install()
-#'
-#' # create local experiment
-#' mlflow_create_experiment("My Experiment")
-#'
-#' # create experiment in remote MLflow server
-#' mlflow_set_tracking_uri("http://tracking-server:5000")
-#' mlflow_create_experiment("My Experiment")
-#' }
-#'
-#' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL, activate = TRUE) {
-  experiments <- mlflow_list_experiments()
-  experiment_id <- if (name %in% experiments$name) {
-    message("Experiment with name \"", name, "\" already exists.")
-    experiments[experiments$name == name, ]$experiment_id
-  } else {
-    response <- mlflow_rest(
-      "experiments", "create", verb = "POST",
-      data = list(name = name, artifact_location = artifact_location)
-    )
-    response$experiment_id
-  }
-
-  if (activate) mlflow_set_active_experiment(experiment_id)
-  invisible(experiment_id)
-}
-
 #' Get Experiment
 #'
 #' Get meta data for experiment and a list of runs for this experiment.
