@@ -46,9 +46,17 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_uuid = NULL) {
   artifact_param <- NULL
   if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
 
+  if (as.logical(fs::is_file(path))) {
+    command <- "log-artifact"
+    local_param <- "--local-file"
+  } else {
+    command <- "log-artifacts"
+    local_param <- "--local-dir"
+  }
+
   mlflow_cli("artifacts",
-             "log-artifact",
-             "--local-file",
+             command,
+             local_param,
              path,
              artifact_param,
              artifact_path,
