@@ -83,10 +83,7 @@ mlflow_cli_param <- function(args, param, value) {
 #' @export
 mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
                           host = "127.0.0.1", port = 5000, workers = 4, static_prefix = NULL) {
-
-  if (is.null(default_artifact_root) || dir.exists(default_artifact_root)) {
-    file_store <- fs::path_abs(file_store)
-  }
+  file_store <- fs::path_abs(file_store)
 
   args <- mlflow_cli_param(list(), "--port", port) %>%
     mlflow_cli_param("--file-store", file_store) %>%
@@ -178,8 +175,16 @@ mlflow_connection_url <- function(mc) {
 
 mlflow_connection_wait <- function(mc) {
   wait_for(
-    function() mlflow_rest(mc = mc, "experiments", "list"),
+    function() mlflow_rest(client = mc, "experiments", "list"),
     getOption("mlflow.connect.wait", 10),
     getOption("mlflow.connect.sleep", 1)
   )
+}
+
+mlflow_register_local_server <- function(tracking_uri, local_server) {
+  .globals$url_mapping[[tracking_uri]] <- local_server
+}
+
+mlflow_local_server <- function(tracking_uri) {
+  .globals$url_mapping[[tracking_uri]]
 }
