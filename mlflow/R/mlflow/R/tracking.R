@@ -120,7 +120,6 @@ mlflow_get_run.mlflow_client <- function(run_uuid, client = NULL) {
 #'   During a single execution of a run, a particular metric can be logged several times.
 #'   Backend will keep track of historical values along with timestamps.
 #'
-#' @param run_uuid Unique ID for the run.
 #' @param key Name of the metric.
 #' @param value Float value for the metric being logged.
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
