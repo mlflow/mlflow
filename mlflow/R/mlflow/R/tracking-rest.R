@@ -35,20 +35,6 @@ mlflow_get_experiment <- function(experiment_id) {
   response
 }
 
-#' Get Run
-#'
-#' Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.
-#'
-#' @param run_uuid Unique ID for the run.
-#'
-#' @export
-mlflow_get_run <- function(run_uuid) {
-  response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
-  run <- purrr::compact(response$run)
-  run %>%
-    purrr::map_at("info", tidy_run_info)
-}
-
 #' Log Metric
 #'
 #' API to log a metric for a run. Metrics key-value pair that record a single float measure.

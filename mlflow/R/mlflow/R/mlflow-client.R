@@ -69,3 +69,11 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
   )
   response
 }
+
+mlflow_client_get_run <- function(client, run_uuid) {
+  response <- mlflow_rest(
+    "runs", "get", client = client, verb = "GET",
+    data = list(run_uuid = run_uuid),
+  )
+  response
+}

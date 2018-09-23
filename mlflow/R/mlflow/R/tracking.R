@@ -94,3 +94,22 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
 mlflow_restore_experiment.mlflow_client <- function(experiment_id, client = NULL) {
   mlflow_client_restore_experiment(client, experiment_id)
 }
+
+#' Get Run
+#'
+#' Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.
+#'
+#' @param run_uuid Unique ID for the run.
+#'
+#' @export
+mlflow_get_run <- function(run_uuid, client = NULL) {
+  UseMethod("mlflow_get_run")
+}
+
+#' @export
+mlflow_get_run.mlflow_client <- function(run_uuid, client = NULL) {
+  response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
+  run <- purrr::compact(response$run)
+  run %>%
+    purrr::map_at("info", tidy_run_info)
+}
