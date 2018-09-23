@@ -35,19 +35,19 @@ mlflow_rest_timeout <- function() {
 #' @importFrom httr POST
 #' @importFrom jsonlite fromJSON
 #' @importFrom xml2 as_list
-mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = "2.0") {
+mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
 
-  if (is.null(args$mc)) {
-    mc <- mlflow_get_or_create_active_connection()
-  }
-  else {
-    mc <- args$mc
-    args$mc <- NULL
-  }
+  # if (is.null(args$mc)) {
+  #   mc <- mlflow_get_or_create_active_connection()
+  # }
+  # else {
+  #   mc <- args$mc
+  #   args$mc <- NULL
+  # }
 
   api_url <- file.path(
-    mc$tracking_uri,
+    tracking_uri,
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
