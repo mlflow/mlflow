@@ -50,6 +50,10 @@ mlflow_create_run.mlflow_client <- function(
   source_name = NULL, entry_point_name = NULL, start_time = NULL, source_version = NULL,
   tags = NULL, client = NULL
 ) {
+  tags <- if (!is.null(tags)) tags %>%
+    purrr::imap(~ list(key = .y, value = .x)) %>%
+    unname()
+
   mlflow_client_create_run(
     client, experiment_id, user_id, run_name, source_type,
     source_name, entry_point_name, start_time, source_version, tags

@@ -35,53 +35,6 @@ mlflow_get_experiment <- function(experiment_id) {
   response
 }
 
-#' Create Run
-#'
-#' reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
-#'
-#' MLflow uses runs to track Param, Metric, and RunTag, associated with a single execution.
-#'
-#' @param experiment_id Unique identifier for the associated experiment.
-#' @param user_id User ID or LDAP for the user executing the run.
-#' @param run_name Human readable name for run.
-#' @param source_type Originating source for this run. One of Notebook, Job, Project, Local or Unknown.
-#' @param source_name String descriptor for source. For example, name or description of the notebook, or job name.
-#' @param status Current status of the run. One of RUNNING, SCHEDULE, FINISHED, FAILED, KILLED.
-#' @param start_time Unix timestamp of when the run started in milliseconds.
-#' @param end_time Unix timestamp of when the run ended in milliseconds.
-#' @param source_version Git version of the source code used to create run.
-#' @param entry_point_name Name of the entry point for the run.
-#' @param tags Additional metadata for run in key-value pairs.
-#' @export
-mlflow_create_run <- function(user_id = mlflow_user(),
-                              run_name = NULL, source_type = NULL, source_name = NULL,
-                              status = NULL, start_time = NULL, end_time = NULL,
-                              source_version = NULL, entry_point_name = NULL,
-                              tags = NULL, experiment_id = NULL) {
-  experiment_id <- experiment_id %||% mlflow_active_experiment()
-  start_time <- start_time %||% current_time()
-
-  tags <- if (!is.null(tags)) tags %>%
-    purrr::imap(~ list(key = .y, value = .x)) %>%
-    unname()
-
-  response <- mlflow_rest("runs", "create", verb = "POST", data = list(
-    experiment_id = experiment_id,
-    user_id = user_id,
-    run_name = run_name,
-    source_type = source_type,
-    source_name = source_name,
-    status = status,
-    start_time = start_time,
-    end_time = end_time,
-    source_version = source_version,
-    entry_point_name = entry_point_name,
-    tags = tags
-  ))
-
-  tidy_run_info(response$run$info)
-}
-
 #' Get Run
 #'
 #' Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.

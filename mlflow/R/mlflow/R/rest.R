@@ -46,8 +46,14 @@ mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", ve
   #   args$mc <- NULL
   # }
 
+  tracking_url <- if (inherits(client, "mlflow_connection")) {
+    client$tracking_uri
+  } else {
+    mlflow_local_server(client$tracking_uri)$tracking_uri
+  }
+
   api_url <- file.path(
-    tracking_uri,
+    tracking_url,
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )

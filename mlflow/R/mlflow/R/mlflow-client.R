@@ -7,8 +7,17 @@ new_mlflow_client <- function(tracking_uri) {
   )
 }
 
+#' Initialize an MLflow client
+#'
+#' @param tracking_uri The tracking URI
+#'
+#' @export
 mlflow_client <- function(tracking_uri = NULL) {
   tracking_uri <- tracking_uri %||% mlflow_tracking_uri()
+  if (!startsWith(tracking_uri, "http")) {
+    local_server <- mlflow_server(file_store = tracking_uri, port = mlflow_connect_port())
+    mlflow_register_local_server(tracking_uri = tracking_uri, local_server = local_server)
+  }
   new_mlflow_client(tracking_uri)
 }
 
@@ -20,7 +29,7 @@ mlflow_client_create_experiment <- function(client, name, artifact_location) {
       artifact_location = artifact_location
     )
   )
-  cast_scalar_integer(response$experiment_id)
+  response$experiment_id
 }
 
 mlflow_client_create_run <- function(
