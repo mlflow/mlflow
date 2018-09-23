@@ -55,20 +55,20 @@ Running a Project from a URI
 The ``mlflow run`` command lets you run a project packaged with a MLproject file from a local path
 or a Git URI::
 
-    mlflow run example/tutorial -P alpha=0.4
+    mlflow run examples/sklearn_elasticnet_wine -P alpha=0.4
 
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.4
 
-See ``example/tutorial`` for a sample project with an MLproject file.
+See ``examples/sklearn_elasticnet_wine`` for a sample project with an MLproject file.
 
 
 Saving and Serving Models
 -------------------------
 To illustrate managing models, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
-``example/quickstart/test_sklearn.py`` that you can run as follows::
+``examples/sklearn_logisitic_regression/train.py`` that you can run as follows::
 
-    $ python example/quickstart/test_sklearn.py
+    $ python examples/sklearn_logisitic_regression/train.py
     Score: 0.666
     Model saved in run <run-id>
 

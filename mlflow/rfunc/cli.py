@@ -11,7 +11,12 @@ from mlflow.utils.logging_utils import eprint
 
 @click.group("rfunc")
 def commands():
-    """Serve R models locally."""
+    """
+    Serve R models locally.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 

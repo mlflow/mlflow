@@ -174,15 +174,6 @@ class RunInfo(_MLflowObject):
                    proto.artifact_uri)
 
     @classmethod
-    def from_dictionary(cls, the_dict):
-        dict_copy = the_dict.copy()
-        # 'tags' was moved from RunInfo to RunData, so we must remove it from the serialzed copy.
-        if 'tags' in dict_copy:
-            del dict_copy['tags']
-        info = cls(**dict_copy)
-        return info
-
-    @classmethod
     def _properties(cls):
         # TODO: Hard coding this list of props for now. There has to be a clearer way...
         return ["run_uuid", "experiment_id", "name", "source_type", "source_name",

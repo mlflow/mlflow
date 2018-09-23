@@ -3,9 +3,6 @@ package org.mlflow.tracking.samples;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
-
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.MlflowClient;
 
@@ -24,11 +21,6 @@ public class QuickStartDriver {
       client = new MlflowClient();
     } else {
       client = new MlflowClient(args[0]);
-    }
-
-    boolean verbose = args.length >= 2 && "true".equals(args[1]);
-    if (verbose) {
-      LogManager.getLogger("org.mlflow.client").setLevel(Level.DEBUG);
     }
 
     System.out.println("====== createExperiment");

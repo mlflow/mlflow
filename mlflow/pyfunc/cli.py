@@ -33,7 +33,12 @@ def _rerun_in_conda(conda_env_path):
 
 @click.group("pyfunc")
 def commands():
-    """Serve Python models locally."""
+    """
+    Serve Python models locally.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 

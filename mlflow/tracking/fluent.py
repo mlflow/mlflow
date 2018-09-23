@@ -5,30 +5,50 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 
 from __future__ import print_function
 
-import atexit
 import numbers
 import os
+
+import atexit
 import sys
 import time
 
 from mlflow.entities import Experiment, Run, SourceType
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
     MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.validation import _validate_run_id
-from mlflow.tracking.client import MlflowClient
-
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run = None
+_active_experiment_id = None
+
+
+def set_experiment(experiment_name):
+    """
+    Set given experiment as active experiment. If experiment does not exist, create an experiment
+    with provided name.
+
+    :param experiment_name: Name of experiment to be activated.
+    """
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name(experiment_name)
+    exp_id = experiment.experiment_id if experiment else None
+    if not exp_id:
+        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+        exp_id = client.create_experiment(experiment_name)
+    global _active_experiment_id
+    _active_experiment_id = exp_id
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
+
     def __init__(self, run):
         Run.__init__(self, run.info, run.data)
 
@@ -56,9 +76,11 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                      and metrics under that run. The run's end time is unset and its status
                      is set to running, but the run's other attributes (``source_version``,
                      ``source_type``, etc.) are not changed.
-    :param experiment_id: ID of the experiment under which to create the current run.
-                          Used only when ``run_uuid`` is unspecified. If unspecified,
-                          the run is created under the default experiment.
+    :param experiment_id: ID of the experiment under which to create the current run (applicable
+                          only when ``run_uuid`` is not specified). If ``experiment_id`` argument
+                          is unspecified, will look for valid experiment in the following order:
+                          activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_ID`` env variable,
+                          or the default experiment.
     :param source_name: Name of the source file or URI of the project to be associated with the run.
                         If none provided defaults to the current file.
     :param source_version: Optional Git commit hash to associate with the run.
@@ -159,8 +181,8 @@ def log_metric(key, value):
     :param value: Metric value (float).
     """
     if not isinstance(value, numbers.Number):
-        print("WARNING: The metric {}={} was not logged because the value is not a number.".format(
-            key, value), file=sys.stderr)
+        eprint("WARNING: The metric {}={} was not logged because the value is not a number.".format(
+            key, value))
         return
     run_id = _get_or_start_run().info.run_uuid
     MlflowClient().log_metric(run_id, key, value, int(time.time()))
@@ -239,15 +261,17 @@ def _get_source_type():
 
 
 def _get_experiment_id():
-    return int(env.get_env(_EXPERIMENT_ID_ENV_VAR) or Experiment.DEFAULT_EXPERIMENT_ID)
+    return int(_active_experiment_id or
+               env.get_env(_EXPERIMENT_ID_ENV_VAR) or
+               Experiment.DEFAULT_EXPERIMENT_ID)
 
 
 def _get_git_commit(path):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
-        print("Notice: failed to import Git (the Git executable is probably not on your PATH),"
-              " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
+        eprint("Notice: failed to import Git (the Git executable is probably not on your PATH),"
+               " so Git SHA is not available. Error: %s" % e)
         return None
     try:
         if os.path.isfile(path):

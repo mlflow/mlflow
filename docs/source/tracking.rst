@@ -91,6 +91,10 @@ directory. The URI defaults to ``mlruns``.
 :py:func:`mlflow.create_experiment` creates a new experiment and returns its ID. Runs can be
 launched under the experiment by passing the experiment ID to ``mlflow.start_run``.
 
+:py:func:`mlflow.set_experiment` sets an experiment as active. If the experiment does not exist,
+creates a new experiment. If you do not specify an experiment in :py:func:`mlflow.start_run`, new
+runs are launched under this experiment.
+
 :py:func:`mlflow.start_run` returns the currently active run (if one exists), or starts a new run
 and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager for the
 current run. You do not need to call ``start_run`` explicitly: calling one of the logging functions
@@ -206,14 +210,14 @@ All of the functions in the Tracking UI can be accessed programmatically through
 :py:mod:`mlflow.tracking` module and the :ref:`rest-api`. This makes it easy to do several
 common tasks:
 
-* Query and compare runs using any data analysis tool of your choice, for example, **pandas**.
+* Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing
-  a workflow.
-* Load artifacts from past runs as :ref:`models`.
+  a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
+* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using
+the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to
-  submit new ones.
+  submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
-For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
 
 .. _tracking_server:
 

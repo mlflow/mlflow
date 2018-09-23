@@ -13,7 +13,12 @@ from mlflow.utils import cli_args
 
 @click.group("sagemaker")
 def commands():
-    """Serve models on SageMaker."""
+    """
+    Serve models on SageMaker.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 
