@@ -8,6 +8,8 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
 from pyspark.version import __version__ as pyspark_version
+from pyspark.sql import SQLContext
+from pyspark.sql.types import DateType 
 import pytest
 from sklearn import datasets
 import shutil
@@ -24,6 +26,8 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 from tests.pyfunc.test_spark import score_model_as_udf
 
+import logging
+logging.getLogger("py4j").setLevel(logging.ERROR)
 
 @pytest.fixture
 def spark_conda_env(tmpdir):
@@ -270,3 +274,13 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
         mleap.save_model(spark_model=unsupported_model,
                          path=model_path,
                          sample_input=spark_model_iris.spark_df)
+
+
+def test_mleap_serialization_fails_with_unsupported_data_type(spark_context, model_path):
+    sql_context = SQLContext(spark_context)
+    unsupported_df = sql_context.createDataFrame([(1, "2016-09-30"), (2, "2017-02-27")])
+    unsupported_df = unsupported_df.withColumn("_2", unsupported_df._2.cast(DateType()))
+    pipeline = Pipeline(stages=[])
+    model = pipeline.fit(unsupported_df)
+    with pytest.raises(Exception):
+        sparkm.save_model(spark_model=model, path=model_path, sample_input=unsupported_df)
