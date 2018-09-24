@@ -164,7 +164,7 @@ mlflow_client_get_run <- function(client, run_uuid) {
 }
 
 mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp) {
-  response <- mlflow_rest("runs", "log-metric", verb = "POST", data = list(
+  response <- mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
     value = value,
@@ -174,7 +174,7 @@ mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp) {
 }
 
 mlflow_client_set_tag <- function(client, run_uuid, key, value) {
-  response <- mlflow_rest("runs", "set-tag", verb = "POST", data = list(
+  response <- mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
     value = value
@@ -183,7 +183,7 @@ mlflow_client_set_tag <- function(client, run_uuid, key, value) {
 }
 
 mlflow_client_log_param <- function(client, run_uuid, key, value) {
-  response <- mlflow_rest("runs", "log-parameter", verb = "POST", data = list(
+  response <- mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,
     value = cast_string(value)
@@ -192,7 +192,7 @@ mlflow_client_log_param <- function(client, run_uuid, key, value) {
 }
 
 mlflow_client_get_param <- function(client, run_uuid, param_name) {
-  response <- mlflow_rest("params", "get", query = list(
+  response <- mlflow_rest("params", "get", client = client, query = list(
     run_uuid = run_uuid,
     param_name = param_name
   ))
@@ -200,7 +200,7 @@ mlflow_client_get_param <- function(client, run_uuid, param_name) {
 }
 
 mlflow_client_get_metric <- function(client, run_uuid, metric_key) {
-  response <- mlflow_rest("metrics", "get", query = list(
+  response <- mlflow_rest("metrics", "get", client = client, query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
   ))
@@ -208,7 +208,7 @@ mlflow_client_get_metric <- function(client, run_uuid, metric_key) {
 }
 
 mlflow_client_get_metric_history <- function(client, run_uuid, metric_key) {
-  response <- mlflow_rest("metrics", "get-history", query = list(
+  response <- mlflow_rest("metrics", "get-history", client = client, query = list(
     run_uuid = run_uuid,
     metric_key = metric_key
   ))
