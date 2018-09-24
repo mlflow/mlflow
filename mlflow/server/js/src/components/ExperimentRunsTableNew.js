@@ -16,28 +16,26 @@ class ExperimentRunsTableNew extends Component {
 
     render() {
         const { paramKeyList, metricKeyList, rows, onCheckAll, isAllChecked, onSortBy, sortState } = this.props;
-        const columns = ExperimentRunsTableNew.getColumnHeaders(paramKeyList, metricKeyList,
-            onCheckAll, isAllChecked(), onSortBy, sortState);
 
         return (
             <div>
                 NEW TABLE VIEW
             <Table hover>
             <colgroup span="7"/>
-            <colgroup span={paramKeyList.length}/>
-            <colgroup span={metricKeyList.length}/>
+            <colgroup span="1"/>
+            <colgroup span="1"/>
             <tbody>
             <tr>
                 <th className="top-row" scope="colgroup" colSpan="5"></th>
                 <th className="top-row left-border" scope="colgroup"
-                    colSpan={paramKeyList.length}>Parameters
+                    colSpan="1">Parameters
                 </th>
                 <th className="top-row left-border" scope="colgroup"
-                    colSpan={metricKeyList.length}>Metrics
+                    colSpan="1">Metrics
                 </th>
-            </tr>
-            <tr>
-                {columns}
+                <tr>
+
+                </tr>
             </tr>
             {rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
             </tbody>

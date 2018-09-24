@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { connect } from 'react-redux';
 import Table from 'react-bootstrap/es/Table';
 
 class ExperimentRunsTableOld extends Component {
