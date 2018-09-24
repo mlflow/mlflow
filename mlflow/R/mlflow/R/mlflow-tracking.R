@@ -127,7 +127,7 @@ mlflow_restore_experiment.mlflow_client <- function(experiment_id, client = NULL
 #'
 #' @export
 mlflow_get_run <- function(run_uuid, client = NULL) {
-  UseMethod("mlflow_get_run")
+  UseMethod("mlflow_get_run", client)
 }
 
 #' @export
