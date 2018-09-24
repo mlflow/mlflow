@@ -30,7 +30,7 @@ following parameters:
          e.g. ``mlflow.sklearn``, it will be imported via ``importlib.import_module``.
          The imported module must contain function with the following signature::
 
-          load_pyfunc(path: string) -> <pyfunc model>
+          _load_pyfunc(path: string) -> <pyfunc model>
 
          The path argument is specified by the ``data`` parameter and may refer to a file or
          directory.
@@ -166,7 +166,7 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
         code_path = os.path.join(path, conf[CODE])
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
-    return importlib.import_module(conf[MAIN]).load_pyfunc(data_path)
+    return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 
 
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
@@ -327,6 +327,6 @@ import os
 import sys
 
 def load_pyfunc():
-    {update_path}return importlib.import_module('{main}').load_pyfunc('{data_path}')
+    {update_path}return importlib.import_module('{main}')._load_pyfunc('{data_path}')
 
 """
