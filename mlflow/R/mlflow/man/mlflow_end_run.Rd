@@ -4,17 +4,11 @@
 \alias{mlflow_end_run}
 \title{End a Run}
 \usage{
-mlflow_end_run(status = "FINISHED")
-
-mlflow_end_run(status = "FINISHED")
+mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"))
 }
 \arguments{
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
-
-\item{status}{Ending status of the run, defaults to `FINISHED`.}
 }
 \description{
 End an active MLflow run (if there is one).
-
-End the active run.
 }
