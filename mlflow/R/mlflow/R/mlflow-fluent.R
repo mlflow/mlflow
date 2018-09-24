@@ -90,6 +90,37 @@ mlflow_set_tag.NULL <- function(key, value, client = NULL, ...) {
   )
 }
 
+#' End a Run
+#'
+#' End an active MLflow run (if there is one).
+#'
+#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @export
+mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED")) {
+  active_run <- mlflow_active_run()
+  if (!is.null(active_run)) {
+    client <- mlflow_client()
+    run_id <- as.character(active_run$run_info$run_uuid)
+    mlflow_set_terminated(run_id, status, client = client)
+    mlflow_set_active_run(NULL)
+  }
+  invisible(NULL)
+}
+
+#' End Run
+#'
+#' End the active run.
+#'
+#' @param status Ending status of the run, defaults to `FINISHED`.
+#' @export
+mlflow_end_run <- function(status = "FINISHED") {
+  if (!is.null(mlflow_active_run())) {
+    mlflow_update_run(status = status)
+    mlflow_set_active_run(NULL)
+  }
+  invisible(NULL)
+}
+
 #' @rdname mlflow_log_param
 #' @export
 mlflow_log_param.NULL <- function(key, value, client = NULL, ...) {

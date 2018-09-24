@@ -65,20 +65,6 @@ get_source_version <- function() {
   )
 }
 
-#' End Run
-#'
-#' End the active run.
-#'
-#' @param status Ending status of the run, defaults to `FINISHED`.
-#' @export
-mlflow_end_run <- function(status = "FINISHED") {
-  if (!is.null(mlflow_active_run())) {
-    mlflow_update_run(status = status)
-    mlflow_set_active_run(NULL)
-  }
-  invisible(NULL)
-}
-
 new_mlflow_active_run <- function(run_info) {
   run <- structure(
     list(run_info = run_info),
