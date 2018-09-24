@@ -17,12 +17,12 @@ mlflow_client <- function(tracking_uri = NULL) {
   tracking_uri <- tracking_uri %||% mlflow_get_tracking_uri()
   server_url <- if (startsWith(tracking_uri, "http")) {
     tracking_uri
-  } else if (!is.null(mlflow_local_server(tracking_uri)$tracking_uri)) {
-    mlflow_local_server(tracking_uri)$tracking_uri
+  } else if (!is.null(mlflow_local_server(tracking_uri)$server_url)) {
+    mlflow_local_server(tracking_uri)$server_url
   } else {
     local_server <- mlflow_server(file_store = tracking_uri, port = mlflow_connect_port())
     mlflow_register_local_server(tracking_uri = tracking_uri, local_server = local_server)
-    local_server$tracking_uri
+    local_server$server_url
   }
 
   new_mlflow_client(tracking_uri, server_url = server_url)

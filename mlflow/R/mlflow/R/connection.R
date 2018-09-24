@@ -88,17 +88,17 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
   )
 
   tracking_uri <- getOption("mlflow.ui", paste(host, port, sep = ":"))
-  new_mlflow_connection(tracking_uri, handle, file_store = file_store)
+  new_mlflow_server(tracking_uri, handle, file_store = file_store)
 }
 
-new_mlflow_connection <- function(tracking_uri, handle, ...) {
+new_mlflow_server <- function(server_url, handle, ...) {
   mc <- structure(
     list(
-      tracking_uri = if (startsWith(tracking_uri, "http")) tracking_uri else paste0("http://", tracking_uri),
+      server_url = if (startsWith(server_url, "http")) server_url else paste0("http://", server_url),
       handle = handle,
       ...
     ),
-    class = "mlflow_connection"
+    class = "mlflow_server"
   )
 
   mlflow_connection_wait(mc)
