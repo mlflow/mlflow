@@ -14,7 +14,7 @@ new_mlflow_client <- function(tracking_uri, server_url = NULL) {
 #'
 #' @export
 mlflow_client <- function(tracking_uri = NULL) {
-  tracking_uri <- tracking_uri %||% mlflow_tracking_uri()
+  tracking_uri <- tracking_uri %||% mlflow_get_tracking_uri()
   server_url <- if (startsWith(tracking_uri, "http")) {
     tracking_uri
   } else if (!is.null(mlflow_local_server(tracking_uri)$tracking_uri)) {
@@ -411,7 +411,6 @@ mlflow_log_artifact.mlflow_client <- function(path, artifact_path = NULL, client
 #' @export
 mlflow_set_tracking_uri <- function(uri) {
   .globals$tracking_uri <- uri
-  .globals$active_connection <- NULL
   .globals$active_experiment <- NULL
   .globals$active_run <- NULL
 
@@ -421,7 +420,7 @@ mlflow_set_tracking_uri <- function(uri) {
 #' Get Remote Tracking URI
 #'
 #' @export
-mlflow_tracking_uri <- function() {
+mlflow_get_tracking_uri <- function() {
   .globals$tracking_uri %||% {
     env_uri <- Sys.getenv("MLFLOW_TRACKING_URI")
     if (nchar(env_uri)) env_uri else fs::path_abs("mlruns")
