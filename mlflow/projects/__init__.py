@@ -23,8 +23,12 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_DOCKER
+from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
+from mlflow.utils.logging_utils import eprint
+from mlflow.tracking.utils import _TRACKING_URI_ENV_VAR, _REMOTE_URI_PREFIX, _is_local_uri
+import docker
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -33,7 +37,6 @@ _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
-
 
 _logger = logging.getLogger(__name__)
 
@@ -53,6 +56,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
                               git_username=git_username, git_password=git_password)
     project = _project_spec.load_project(work_dir)
+    _validate_execution_environments(project)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
@@ -82,15 +86,30 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             experiment_id=exp_id, cluster_spec=cluster_spec)
 
     elif mode == "local" or mode is None:
-        # Synchronously create a conda environment (even though this may take some time) to avoid
-        # failures due to multiple concurrent attempts to create the same conda env.
-        conda_env_name = _get_or_create_conda_env(project.conda_env_path) if use_conda else None
+        command = []
+        command_separator = " "
+        # If a docker_env attribute is defined in MLProject then it takes precedence over conda yaml
+        # environments, so the project will be executed inside a docker container.
+        if project.docker_env:
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_DOCKER, "true")
+            _validate_docker_env(project.docker_env)
+            _validate_docker_installation()
+            image = _build_docker_image(work_dir=work_dir,
+                                        project=project,
+                                        active_run=active_run)
+            command += _get_docker_command(image=image, active_run=active_run)
+        # Synchronously create a conda environment (even though this may take some time)
+        # to avoid failures due to multiple concurrent attempts to create the same conda env.
+        elif use_conda:
+            command_separator = " && "
+            conda_env_name = _get_or_create_conda_env(project.conda_env_path)
+            command += _get_conda_command(conda_env_name)
         # In blocking mode, run the entry point command in blocking fashion, sending status updates
         # to the tracking server when finished. Note that the run state may not be persisted to the
         # tracking server if interrupted
         if block:
-            command = _get_entry_point_command(
-                project, entry_point, parameters, conda_env_name, storage_dir)
+            command += _get_entry_point_command(project, entry_point, parameters, storage_dir)
+            command = command_separator.join(command)
             return _run_entry_point(command, work_dir, exp_id, run_id=active_run.info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
@@ -421,14 +440,12 @@ def _maybe_set_run_terminated(active_run, status):
     tracking.MlflowClient().set_terminated(run_id, status)
 
 
-def _get_entry_point_command(project, entry_point, parameters, conda_env_name, storage_dir):
+def _get_entry_point_command(project, entry_point, parameters, storage_dir):
     """
     Returns the shell command to execute in order to run the specified entry point.
     :param project: Project containing the target entry point
     :param entry_point: Entry point to run
     :param parameters: Parameters (dictionary) for the entry point command
-    :param conda_env_name: Name of conda environment to use for command execution, or None if no
-                           conda environment should be used.
     :param storage_dir: Base local directory to use for downloading remote artifacts passed to
                         arguments of type 'path'. If None, a temporary base directory is used.
     """
@@ -438,12 +455,9 @@ def _get_entry_point_command(project, entry_point, parameters, conda_env_name, s
         " type 'path' ===",
         storage_dir_for_run)
     commands = []
-    if conda_env_name:
-        activate_path = _get_conda_bin_executable("activate")
-        commands.append("source %s %s" % (activate_path, conda_env_name))
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
-    return " && ".join(commands)
+    return commands
 
 
 def _run_entry_point(command, work_dir, experiment_id, run_id):
@@ -457,7 +471,12 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     env = os.environ.copy()
     env.update(_get_run_env_vars(run_id, experiment_id))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
-    process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
+    # in case os name is not 'nt', we are not running on windows. It introduces
+    # bash command otherwise.
+    if os.name != "nt":
+        process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
+    else:
+        process = subprocess.Popen(command, close_fds=True, cwd=work_dir, env=env)
     return LocalSubmittedRun(run_id, process)
 
 
@@ -541,6 +560,90 @@ def _invoke_mlflow_run_subprocess(
         mlflow_run_arr, _get_run_env_vars(run_id, experiment_id))
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
+
+def _get_conda_command(conda_env_name):
+    activate_path = _get_conda_bin_executable("activate")
+    # in case os name is not 'nt', we are not running on windows. It introduces
+    # bash command otherwise.
+    if os.name != "nt":
+        return ["source %s %s" % (activate_path, conda_env_name)]
+    else:
+        return ["conda %s %s" % (activate_path, conda_env_name)]
+
+
+def _validate_execution_environments(project):
+    if project.conda_env_path and project.docker_env:
+        raise ExecutionException("Both conda and docker specification found. "
+                                 "Please specify just one execution environment in MLProject.")
+
+
+def _get_docker_command(image, active_run):
+    docker_path = "docker"
+    cmd = [docker_path, "run", "--rm"]
+    env_vars = _get_run_env_vars(run_id=active_run.info.run_uuid,
+                                 experiment_id=active_run.info.experiment_id)
+    for key, value in env_vars.items():
+        cmd += ["-e", "{key}={value}".format(key=key, value=value)]
+    cmd += [image]
+    return cmd
+
+
+def _validate_docker_installation():
+    """
+    Verify if Docker is installed on host machine.
+    """
+    try:
+        docker_path = "docker"
+        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
+    except EnvironmentError:
+        raise ExecutionException("Could not find Docker executable. "
+                                 "Ensure Docker is installed as per the instructions "
+                                 "at https://docs.docker.com/install/overview/.")
+
+
+def _validate_docker_env(docker_env):
+    if not docker_env.get('image'):
+        raise ExecutionException("Project with docker environment must specify the docker image "
+                                 "to use via an 'image' field under the 'docker_env' field")
+    if mlflow.tracking.utils._is_local_uri(tracking.get_tracking_uri()):
+        raise ExecutionException("Currently, MLflow projects with docker environments must be run "
+                                 "against a remote tracking server. Please specify a remote "
+                                 "tracking URI of the form '%s...' via mlflow.set_tracking_uri "
+                                 "or by setting the '%s' environment variable."
+                                 % (_REMOTE_URI_PREFIX, _TRACKING_URI_ENV_VAR))
+
+
+def _build_docker_image(work_dir, project, active_run, project_mount_path="/mlflow/projects/code"):
+    if not project.name:
+        raise ExecutionException("Project name in MLProject must be specified when using docker "
+                                 "for image tagging.")
+    os.chdir(work_dir)
+    built_image = "mlflow-{name}-{version}".format(
+        name=(project.name if project.name else "built-image"),
+        version=_get_git_commit(work_dir)[:7],)
+
+    dockerfile_template = (
+        "FROM {imagename}\n"
+        "LABEL Name={built_image}\n"
+        "COPY {work_dir} {project_mount_path}\n"
+        "WORKDIR {project_mount_path}\n"
+    ).format(imagename=project.docker_env.get('image'), built_image=built_image,
+             work_dir=".", project_mount_path=project_mount_path)
+    dockerfile = os.path.abspath(os.path.join(work_dir, "Dockerfile"))
+    with open(dockerfile, "w") as f:
+        f.writelines(dockerfile_template)
+    _logger.info("=== Building docker image %s ===", built_image)
+    client = docker.from_env()
+    image = client.images.build(path=work_dir, tag=built_image,
+                                forcerm=True, dockerfile=dockerfile)
+    tracking.MlflowClient().set_tag(active_run.info.run_uuid,
+                                    MLFLOW_DOCKER_IMAGE_NAME,
+                                    built_image)
+    tracking.MlflowClient().set_tag(active_run.info.run_uuid,
+                                    MLFLOW_DOCKER_IMAGE_ID,
+                                    image[0].short_id)
+
+    return built_image
 
 __all__ = [
     "run",
