@@ -44,7 +44,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     >>> iris = load_iris()
     >>> sk_model = tree.DecisionTreeClassifier()
     >>> sk_model = sk_model.fit(iris.data, iris.target)
-    >> #set path to location for persistence
+    >>> #set path to location for persistence
     >>> sk_path_dir = ...
     >>> mlflow.sklearn.save_model(sk_model, sk_path_dir)
     """
@@ -113,14 +113,6 @@ def load_pyfunc(path):
     :param path: Local filesystem path to the model saved by :py:func:`mlflow.sklearn.save_model`.
     :rtype: Pyfunc format model with function
             ``model.predict(pandas DataFrame) -> pandas DataFrame``.
-
-    >>> import mlflow.sklearn
-    >>> #set the path to directory used in save_model(...)
-    >>> sk_path_dir = ...
-    >>> sk_model = mlflow.sklearn.load_pyfunc(sk_path_dir)
-    >>> #use Pandas DataFrame to make predictions
-    >>> pandas_df = ...
-    >>> pred = sk_model.predict(pandas_df)
     """
 
     with open(path, "rb") as f:
