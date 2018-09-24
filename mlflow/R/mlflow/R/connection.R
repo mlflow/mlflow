@@ -1,17 +1,17 @@
-mlflow_get_or_create_active_connection <- function() {
-  if (is.null(mlflow_active_connection())) {
-    tracking_uri <- mlflow_tracking_uri()
-    if (startsWith(tracking_uri, "http")) {
-      mc <- new_mlflow_connection(tracking_uri = tracking_uri, handle = NULL)
-    } else {
-      mc <- mlflow_connect(tracking_uri)
-    }
-
-    mlflow_set_active_connection(mc)
-  }
-
-  mlflow_active_connection()
-}
+# mlflow_get_or_create_active_connection <- function() {
+#   if (is.null(mlflow_active_connection())) {
+#     tracking_uri <- mlflow_tracking_uri()
+#     if (startsWith(tracking_uri, "http")) {
+#       mc <- new_mlflow_connection(tracking_uri = tracking_uri, handle = NULL)
+#     } else {
+#       mc <- mlflow_connect(tracking_uri)
+#     }
+#
+#     mlflow_set_active_connection(mc)
+#   }
+#
+#   mlflow_active_connection()
+# }
 
 mlflow_active_connection <- function() {
   .globals$active_connection
@@ -108,33 +108,6 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
 
   tracking_uri <- getOption("mlflow.ui", paste(host, port, sep = ":"))
   new_mlflow_connection(tracking_uri, handle, file_store = file_store)
-}
-
-#' Connect to MLflow
-#'
-#' Connect to local or remote MLflow instance.
-#'
-#' @param x (Optional) Either a URL to the remote MLflow server or the file store,
-#'   i.e. the root of the backing file store for experiment and run data. If not
-#'   specified, will launch and connect to a local instance listening on a random port.
-#' @param activate Whether to set the connction as the active connection, defaults to `TRUE`.
-#' @param ... Optional arguments passed to `mlflow_server()`.
-#' @export
-mlflow_connect <- function(x = NULL, activate = TRUE, ...) {
-  if (!is.null(x) && startsWith(x, "http")) {
-    mc <- new_mlflow_connection(tracking_uri = x)
-  } else {
-    dots <- list(...)
-    dots[["port"]] <- dots[["port"]] %||% mlflow_connect_port()
-    if (!is.null(dots[["file_store"]]) && !is.null(x))
-      stop("`x` and `file_store` cannot both be specified.", call. = FALSE)
-    dots[["file_store"]] <- dots[["file_store"]] %||% x
-    mc <- do.call(mlflow_server, dots)
-  }
-
-  if (activate) mlflow_set_active_connection(mc)
-
-  mc
 }
 
 new_mlflow_connection <- function(tracking_uri, handle, ...) {

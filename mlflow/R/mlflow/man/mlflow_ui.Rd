@@ -7,9 +7,7 @@
 mlflow_ui(x, ...)
 }
 \arguments{
-\item{x}{If specified, can be either an `mlflow_connection` object or a string
-specifying the file store, i.e. the root of the backing file store for experiment
-and run data.}
+\item{x}{An `mlflow_client` object.}
 
 \item{...}{Optional arguments passed to `mlflow_server()` when `x` is a path to a file store.}
 }

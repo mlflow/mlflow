@@ -22,9 +22,7 @@ mlflow_view_url <- function(url) {
 #' mlflow_ui()
 #' }
 #'
-#' @param x If specified, can be either an `mlflow_connection` object or a string
-#'   specifying the file store, i.e. the root of the backing file store for experiment
-#'   and run data.
+#' @param x An `mlflow_client` object.
 #' @param ... Optional arguments passed to `mlflow_server()` when `x` is a path to a file store.
 #' @export
 mlflow_ui <- function(x, ...) {
@@ -32,29 +30,17 @@ mlflow_ui <- function(x, ...) {
 }
 
 #' @export
-mlflow_ui.character <- function(x, ...) {
-  file_store <- fs::path_abs(x)
-  active_mc <- mlflow_active_connection()
-  tracking_uri <- if (!is.null(active_mc) && identical(active_mc$file_store, file_store)) {
-    active_mc$tracking_uri
-  } else {
-    mc <- mlflow_connect(file_store = file_store, ...)
-    mc$tracking_uri
-  }
-
-  mlflow_view_url(tracking_uri)
-}
-
-#' @export
-mlflow_ui.mlflow_connection <- function(x, ...) {
-  mlflow_view_url(x$tracking_uri)
+mlflow_ui.mlflow_client <- function(x, ...) {
+  mlflow_view_url(x$server_url)
 }
 
 #' @export
 mlflow_ui.NULL <- function(x, ...) {
-  tracking_uri <- mlflow_tracking_uri()
-  if (startsWith(tracking_uri, "http"))
-    mlflow_view_url(tracking_uri)
-  else
-    mlflow_ui(tracking_uri)
+  client <- mlflow_client()
+  mlflow_ui(client)
+  # tracking_uri <- mlflow_tracking_uri()
+  # if (startsWith(tracking_uri, "http"))
+  #   mlflow_view_url(tracking_uri)
+  # else
+  #   mlflow_ui(tracking_uri)
 }
