@@ -84,7 +84,7 @@ mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL) 
 #' @rdname mlflow_set_tag
 #' @export
 mlflow_set_tag.NULL <- function(key, value, client = NULL, ...) {
-  cactive_run <- mlflow_get_or_start_run()
+  active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
   run_id <- as.character(active_run$run_info$run_uuid)
   mlflow_set_tag.mlflow_client(

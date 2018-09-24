@@ -119,7 +119,7 @@ test_that("mlflow_get_metric_history() works properly", {
   expect_identical(metric_history, expected)
 })
 
-test_that("mlflow_update_run() works properly", {
+test_that("mlflow_set_teminated() works properly", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   killed_time <- mlflow:::current_time()
