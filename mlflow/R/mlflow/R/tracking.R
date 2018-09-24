@@ -183,3 +183,23 @@ mlflow_log_param.mlflow_client <- function(
 ) {
   mlflow_client_log_param(client, run_uuid = run_id, key, value)
 }
+
+#' Get Param
+#'
+#' Get a param value.
+#'
+#' @return The param value as a named list.
+#' @param param_name Name of the param. This field is required.
+#' @export
+mlflow_get_param <- function(param_name, client = NULL, ...) {
+  UseMethod("mlflow_get_param")
+}
+
+#' @rdname mlflow_get_param
+#' @export
+mlflow_get_param.mlflow_client <- function(
+  param_name, client = NULL, run_id, ...
+) {
+  response <- mlflow_client_get_param(client, run_id, param_name)
+  as.data.frame(response$parameter, stringsAsFactors = FALSE)
+}

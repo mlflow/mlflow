@@ -105,3 +105,11 @@ mlflow_client_log_param <- function(client, run_uuid, key, value) {
   ))
   response
 }
+
+mlflow_client_get_param <- function(client, run_uuid, param_name) {
+  response <- mlflow_rest("params", "get", query = list(
+    run_uuid = run_uuid,
+    param_name = param_name
+  ))
+  response
+}
