@@ -25,7 +25,7 @@ from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
-_active_run = None
+_active_run_stack = []
 _active_experiment_id = None
 
 
@@ -62,7 +62,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
 
 
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
-              entry_point_name=None, source_type=None, run_name=None):
+              entry_point_name=None, source_type=None, run_name=None, nested=False):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -92,10 +92,10 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
-    global _active_run
-    if _active_run:
-        raise Exception("Run with UUID %s is already active, unable to start nested "
-                        "run" % _active_run.info.run_uuid)
+    global _active_run_stack
+    if len(_active_run_stack) > 0:
+        raise Exception(("Run with UUID {} is already active. To start a nested " +
+                        "run call start_run with nested=True").format(_active_run_stack[0].info.run_uuid))
     existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
     if existing_run_uuid:
         _validate_run_id(existing_run_uuid)
@@ -129,18 +129,18 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 source_version=source_version or _get_source_version(),
                 entry_point_name=entry_point_name,
                 source_type=source_type or _get_source_type())
-    _active_run = ActiveRun(active_run_obj)
-    return _active_run
+    _active_run_stack.append(ActiveRun(active_run_obj))
+    return _active_run_stack[-1]
 
 
 def end_run(status="FINISHED"):
     """End an active MLflow run (if there is one)."""
-    global _active_run
-    if _active_run:
-        MlflowClient().set_terminated(_active_run.info.run_uuid, status)
+    global _active_run_stack
+    if len(_active_run_stack) > 0:
+        MlflowClient().set_terminated(_active_run_stack[-1].info.run_uuid, status)
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
-        _active_run = None
+        _active_run_stack.pop()
 
 
 atexit.register(end_run)
@@ -148,7 +148,7 @@ atexit.register(end_run)
 
 def active_run():
     """Get the currently active ``Run``, or None if no such run exists."""
-    return _active_run
+    return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
 
 def log_param(key, value):
@@ -231,8 +231,8 @@ def get_artifact_uri():
 
 
 def _get_or_start_run():
-    if _active_run:
-        return _active_run
+    if len(_active_run_stack) > 0:
+        return _active_run_stack[-1]
     return start_run()
 
 
