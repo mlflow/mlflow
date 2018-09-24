@@ -37,15 +37,6 @@ mlflow_rest_timeout <- function() {
 #' @importFrom xml2 as_list
 mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
-
-  # if (is.null(args$mc)) {
-  #   mc <- mlflow_get_or_create_active_connection()
-  # }
-  # else {
-  #   mc <- args$mc
-  #   args$mc <- NULL
-  # }
-
   tracking_url <- client$server_url
 
   api_url <- file.path(

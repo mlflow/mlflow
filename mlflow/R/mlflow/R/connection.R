@@ -1,12 +1,3 @@
-# mlflow_set_active_connection <- function(mc) {
-#   if (!identical(mc, .globals$active_connection)) {
-#     .globals$active_connection <- mc
-#     .globals$tracking_uri <- mc$tracking_uri
-#     mlflow_set_active_experiment(NULL)
-#   }
-#   invisible(mc)
-# }
-
 #' @importFrom httpuv startDaemonizedServer
 #' @importFrom httpuv stopServer
 mlflow_port_available <- function(port) {
@@ -101,11 +92,11 @@ new_mlflow_server <- function(server_url, handle, ...) {
     class = "mlflow_server"
   )
 
-  mlflow_connection_wait(mc)
+  mlflow_test_server(mc)
   mc
 }
 
-mlflow_connection_wait <- function(mc) {
+mlflow_test_server <- function(mc) {
   wait_for(
     function() mlflow_rest(client = mc, "experiments", "list"),
     getOption("mlflow.connect.wait", 10),

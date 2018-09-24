@@ -183,7 +183,6 @@ mlflow_rfunc_predict <- function(
 
 resolve_model_path <- function(model_path, run_uuid) {
   if (!is.null(run_uuid)) {
-    mlflow_get_or_create_active_connection()
     result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path, echo = FALSE)
 
     gsub("\n", "", result$stdout)
