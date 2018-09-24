@@ -11,6 +11,7 @@ import mlflow.sklearn
 import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
+import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
@@ -19,6 +20,7 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
+import mlflow.store.cli
 
 
 @click.group()
@@ -191,9 +193,11 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
 cli.add_command(mlflow.sklearn.commands)
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
+cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.experiments.commands)
+cli.add_command(mlflow.store.cli.commands)
 
 if __name__ == '__main__':
     cli()

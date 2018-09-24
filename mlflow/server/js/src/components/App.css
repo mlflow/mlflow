@@ -159,3 +159,18 @@ table th {
   margin-left: 10px;
   margin-right: 8px;
 }
+
+/* Overrides for bootstrap modal */
+.modal-body {
+  padding: 16px;
+  padding-bottom: 8px;
+}
+
+.modal-footer {
+  border-top: 0px;
+  padding-top: 0px;
+}
+
+.modal-footer .btn+.btn {
+  margin-left: 16px;
+}

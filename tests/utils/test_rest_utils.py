@@ -1,104 +1,85 @@
 #!/usr/bin/env python
+
 import mock
 import numpy
 import pytest
 
-from databricks_cli.configure.provider import DatabricksConfig
-from mlflow.utils import rest_utils
-from mlflow.utils.rest_utils import NumpyEncoder
-
-
-@mock.patch('databricks_cli.configure.provider.get_config')
-def test_databricks_params_token(get_config):
-    get_config.return_value = \
-        DatabricksConfig("host", None, None, "mytoken", insecure=False)
-    params = rest_utils.get_databricks_http_request_kwargs_or_fail()
-    assert params == {
-        'hostname': 'host',
-        'headers': {
-            'Authorization': 'Bearer mytoken'
-        },
-        'verify': True,
-    }
-
-
-@mock.patch('databricks_cli.configure.provider.get_config')
-def test_databricks_params_user_password(get_config):
-    get_config.return_value = \
-        DatabricksConfig("host", "user", "pass", None, insecure=False)
-    params = rest_utils.get_databricks_http_request_kwargs_or_fail()
-    assert params == {
-        'hostname': 'host',
-        'headers': {
-            'Authorization': 'Basic dXNlcjpwYXNz'
-        },
-        'verify': True,
-    }
-
-
-@mock.patch('databricks_cli.configure.provider.get_config')
-def test_databricks_params_no_verify(get_config):
-    get_config.return_value = \
-        DatabricksConfig("host", "user", "pass", None, insecure=True)
-    params = rest_utils.get_databricks_http_request_kwargs_or_fail()
-    assert params['verify'] is False
-
-
-@mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
-def test_databricks_params_custom_profile(ProfileConfigProvider):
-    mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = \
-        DatabricksConfig("host", "user", "pass", None, insecure=True)
-    ProfileConfigProvider.return_value = mock_provider
-    params = rest_utils.get_databricks_http_request_kwargs_or_fail("profile")
-    assert params['verify'] is False
-    ProfileConfigProvider.assert_called_with("profile")
-
-
-@mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
-def test_databricks_params_throws_errors(ProfileConfigProvider):
-    # No hostname
-    mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = \
-        DatabricksConfig(None, "user", "pass", None, insecure=True)
-    ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception):
-        rest_utils.get_databricks_http_request_kwargs_or_fail()
-
-    # No authentication
-    mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = \
-        DatabricksConfig("host", None, None, None, insecure=True)
-    ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception):
-        rest_utils.get_databricks_http_request_kwargs_or_fail()
+from mlflow.utils.rest_utils import NumpyEncoder, http_request, MlflowHostCreds
 
 
 @mock.patch('requests.request')
-@mock.patch('databricks_cli.configure.provider.get_config')
-def test_databricks_http_request_integration(get_config, request):
-    """Confirms that the databricks http request params can in fact be used as an HTTP request"""
-    def confirm_request_params(**kwargs):
-        assert kwargs == {
-            'method': 'PUT',
-            'url': 'host/api/2.0/clusters/list',
-            'headers': {
-                'Authorization': 'Basic dXNlcjpwYXNz'
-            },
-            'verify': True,
-            'json': {'a': 'b'}
-        }
-        http_response = mock.MagicMock()
-        http_response.status_code = 200
-        http_response.text = '{"OK": "woo"}'
-        return http_response
-    request.side_effect = confirm_request_params
-    get_config.return_value = \
-        DatabricksConfig("host", "user", "pass", None, insecure=False)
+def test_http_request_hostonly(request):
+    host_only = MlflowHostCreds("http://my-host")
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, '/my/endpoint')
+    request.assert_called_with(
+        url='http://my-host/my/endpoint',
+        verify=True,
+        headers={},
+    )
 
-    response = rest_utils.databricks_api_request('clusters/list', 'PUT',
-                                                 json={'a': 'b'})
-    assert response == {'OK': 'woo'}
+
+@mock.patch('requests.request')
+def test_http_request_cleans_hostname(request):
+    # Add a trailing slash, should be removed.
+    host_only = MlflowHostCreds("http://my-host/")
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, '/my/endpoint')
+    request.assert_called_with(
+        url='http://my-host/my/endpoint',
+        verify=True,
+        headers={},
+    )
+
+
+@mock.patch('requests.request')
+def test_http_request_with_basic_auth(request):
+    host_only = MlflowHostCreds("http://my-host", username='user', password='pass')
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, '/my/endpoint')
+    request.assert_called_with(
+        url='http://my-host/my/endpoint',
+        verify=True,
+        headers={
+            'Authorization': 'Basic dXNlcjpwYXNz'
+        },
+    )
+
+
+@mock.patch('requests.request')
+def test_http_request_with_token(request):
+    host_only = MlflowHostCreds("http://my-host", token='my-token')
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, '/my/endpoint')
+    request.assert_called_with(
+        url='http://my-host/my/endpoint',
+        verify=True,
+        headers={
+            'Authorization': 'Bearer my-token'
+        },
+    )
+
+
+@mock.patch('requests.request')
+def test_http_request_with_insecure(request):
+    host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, '/my/endpoint')
+    request.assert_called_with(
+        url='http://my-host/my/endpoint',
+        verify=False,
+        headers={},
+    )
 
 
 def test_numpy_encoder():

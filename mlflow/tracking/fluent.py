@@ -5,30 +5,50 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 
 from __future__ import print_function
 
-import atexit
 import numbers
 import os
+
+import atexit
 import sys
 import time
 
 from mlflow.entities import Experiment, Run, SourceType
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
+from mlflow.utils.logging_utils import eprint
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
+    MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
+    MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.validation import _validate_run_id
-from mlflow.tracking.service import get_service
-
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run = None
-_TAG_MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
-_TAG_MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
-_TAG_MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"
+_active_experiment_id = None
+
+
+def set_experiment(experiment_name):
+    """
+    Set given experiment as active experiment. If experiment does not exist, create an experiment
+    with provided name.
+
+    :param experiment_name: Name of experiment to be activated.
+    """
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name(experiment_name)
+    exp_id = experiment.experiment_id if experiment else None
+    if not exp_id:
+        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+        exp_id = client.create_experiment(experiment_name)
+    global _active_experiment_id
+    _active_experiment_id = exp_id
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
-    """Wrapper around :py:class:`mlflow.entities.Run` to allow using python `with` syntax."""
+    """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
+
     def __init__(self, run):
         Run.__init__(self, run.info, run.data)
 
@@ -44,28 +64,31 @@ class ActiveRun(Run):  # pylint: disable=W0223
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
               entry_point_name=None, source_type=None, run_name=None):
     """
-    Start a new MLflow run, setting it as the active run under which metrics and params
+    Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
-    otherwise, ``end_run()`` must be called to terminate the current run. If ``run_uuid``
-    is passed or the ``MLFLOW_RUN_ID`` environment variable is set, ``start_run`` attempts to
-    resume a run with the specified run ID (with ``run_uuid`` taking precedence over
-    ``MLFLOW_RUN_ID``), and other parameters are ignored.
+    otherwise, you must call ``end_run()`` to terminate the current run.
 
-    :param run_uuid: If specified, get the run with the specified UUID and log metrics
-                     and params under that run. The run's end time is unset and its status
-                     is set to running, but the run's other attributes remain unchanged
-                     (the run's ``source_version``, ``source_type``, etc. are not changed).
-    :param experiment_id: Used only when ``run_uuid`` is unspecified. ID of the experiment under
-                          which to create the current run. If unspecified, the run is created under
-                          default experiment.
+    If you pass a ``run_uuid`` or the ``MLFLOW_RUN_ID`` environment variable is set,
+    ``start_run`` attempts to resume a run with the specified run ID and
+    other parameters are ignored. ``run_uuid`` takes precedence over ``MLFLOW_RUN_ID``.
+
+    :param run_uuid: If specified, get the run with the specified UUID and log parameters
+                     and metrics under that run. The run's end time is unset and its status
+                     is set to running, but the run's other attributes (``source_version``,
+                     ``source_type``, etc.) are not changed.
+    :param experiment_id: ID of the experiment under which to create the current run (applicable
+                          only when ``run_uuid`` is not specified). If ``experiment_id`` argument
+                          is unspecified, will look for valid experiment in the following order:
+                          activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_ID`` env variable,
+                          or the default experiment.
     :param source_name: Name of the source file or URI of the project to be associated with the run.
-                        Defaults to the current file if none provided.
+                        If none provided defaults to the current file.
     :param source_version: Optional Git commit hash to associate with the run.
-    :param entry_point_name: Optional name of the entry point for to the current run.
-    :param source_type: Integer enum value describing the type of the run
-                        ("local", "project", etc.). Defaults to
-                        ``mlflow.entities.SourceType.LOCAL``.
-    :param run_name: Used only when ``run_uuid`` is unspecified. Desired name of new run created.
+    :param entry_point_name: Optional name of the entry point for the current run.
+    :param source_type: Integer :py:class:`mlflow.entities.SourceType` describing the type
+                        of the run ("local", "project", etc.). Defaults to
+                        :py:class:`mlflow.entities.SourceType.LOCAL` ("local").
+    :param run_name: Name of new run. Used only when ``run_uuid`` is unspecified.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
@@ -76,7 +99,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
     if existing_run_uuid:
         _validate_run_id(existing_run_uuid)
-        active_run_obj = get_service().get_run(existing_run_uuid)
+        active_run_obj = MlflowClient().get_run(existing_run_uuid)
     else:
         exp_id_for_run = experiment_id or _get_experiment_id()
         if is_in_databricks_notebook():
@@ -85,12 +108,12 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
             notebook_path = get_notebook_path()
             webapp_url = get_webapp_url()
             if notebook_id is not None:
-                databricks_tags[_TAG_MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
+                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
             if notebook_path is not None:
-                databricks_tags[_TAG_MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
+                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
             if webapp_url is not None:
-                databricks_tags[_TAG_MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
-            active_run_obj = get_service().create_run(
+                databricks_tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
+            active_run_obj = MlflowClient().create_run(
                 experiment_id=exp_id_for_run,
                 run_name=run_name,
                 source_name=notebook_path,
@@ -99,7 +122,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 source_type=SourceType.NOTEBOOK,
                 tags=databricks_tags)
         else:
-            active_run_obj = get_service().create_run(
+            active_run_obj = MlflowClient().create_run(
                 experiment_id=exp_id_for_run,
                 run_name=run_name,
                 source_name=source_name or _get_source_name(),
@@ -111,76 +134,97 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
 
 
 def end_run(status="FINISHED"):
+    """End an active MLflow run (if there is one)."""
     global _active_run
     if _active_run:
-        get_service().set_terminated(_active_run.info.run_uuid, status)
+        MlflowClient().set_terminated(_active_run.info.run_uuid, status)
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         _active_run = None
+
+
 atexit.register(end_run)
 
 
 def active_run():
-    """Return the currently active ``Run``, or None if no such run exists."""
+    """Get the currently active ``Run``, or None if no such run exists."""
     return _active_run
 
 
 def log_param(key, value):
     """
-    Log the passed-in parameter under the current run, creating a run if necessary.
+    Log a parameter under the current run, creating a run if necessary.
 
     :param key: Parameter name (string)
     :param value: Parameter value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_uuid
-    get_service().log_param(run_id, key, value)
+    MlflowClient().log_param(run_id, key, value)
 
 
 def set_tag(key, value):
     """
-    Sets the passed-in tag under the current run, creating a run if necessary.
+    Set a tag under the current run, creating a run if necessary.
 
     :param key: Tag name (string)
     :param value: Tag value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_uuid
-    get_service().set_tag(run_id, key, value)
+    MlflowClient().set_tag(run_id, key, value)
 
 
 def log_metric(key, value):
     """
-    Log the passed-in metric under the current run, creating a run if necessary.
+    Log a metric under the current run, creating a run if necessary.
 
     :param key: Metric name (string).
     :param value: Metric value (float).
     """
     if not isinstance(value, numbers.Number):
-        print("WARNING: The metric {}={} was not logged because the value is not a number.".format(
-            key, value), file=sys.stderr)
+        eprint("WARNING: The metric {}={} was not logged because the value is not a number.".format(
+            key, value))
         return
     run_id = _get_or_start_run().info.run_uuid
-    get_service().log_metric(run_id, key, value, int(time.time()))
+    MlflowClient().log_metric(run_id, key, value, int(time.time()))
 
 
 def log_artifact(local_path, artifact_path=None):
-    """Log a local file or directory as an artifact of the currently active run."""
-    artifact_uri = _get_or_start_run().info.artifact_uri
-    get_service().log_artifact(artifact_uri, local_path, artifact_path)
+    """
+    Log a local file or directory as an artifact of the currently active run.
+
+    :param local_path: Path to the file to write.
+    :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
 def log_artifacts(local_dir, artifact_path=None):
-    """Log all the contents of a local directory as artifacts of the run."""
-    artifact_uri = _get_or_start_run().info.artifact_uri
-    get_service().log_artifacts(artifact_uri, local_dir, artifact_path)
+    """
+    Log all the contents of a local directory as artifacts of the run.
+
+    :param local_dir: Path to the directory of files to write.
+    :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
 def create_experiment(name, artifact_location=None):
-    return get_service().create_experiment(name, artifact_location)
+    """
+    Create an experiment.
+
+    :param name: The experiment name. Must be unique.
+    :param artifact_location: The location to store run artifacts.
+                              If not provided, the server picks an appropriate default.
+    :return: Integer ID of the created experiment.
+    """
+    return MlflowClient().create_experiment(name, artifact_location)
 
 
 def get_artifact_uri():
     """
-    Return the artifact URI of the currently active run. Calls to ``log_artifact`` and
+    Get the artifact URI of the currently active run. Calls to ``log_artifact`` and
     ``log_artifacts`` write artifact(s) to subdirectories of the returned URI.
     """
     return _get_or_start_run().info.artifact_uri
@@ -217,15 +261,17 @@ def _get_source_type():
 
 
 def _get_experiment_id():
-    return int(env.get_env(_EXPERIMENT_ID_ENV_VAR) or Experiment.DEFAULT_EXPERIMENT_ID)
+    return int(_active_experiment_id or
+               env.get_env(_EXPERIMENT_ID_ENV_VAR) or
+               Experiment.DEFAULT_EXPERIMENT_ID)
 
 
 def _get_git_commit(path):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
-        print("Notice: failed to import Git (the git executable is probably not on your PATH),"
-              " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
+        eprint("Notice: failed to import Git (the Git executable is probably not on your PATH),"
+               " so Git SHA is not available. Error: %s" % e)
         return None
     try:
         if os.path.isfile(path):

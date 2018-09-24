@@ -5,12 +5,20 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>0.5.2</version>
+    <version>0.7.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
+  <distributionManagement>
+    <repository>
+      <id>bintray</id>
+      <name>mlflow</name>
+      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-scoring/;publish=1</url>
+    </repository>
+  </distributionManagement>
+
   <artifactId>mlflow-scoring</artifactId>
-  <version>0.5.2</version>
+  <version>0.7.0</version>
   <packaging>jar</packaging>
   <name>MLflow scoring server</name>
   <url>http://mlflow.org</url>
@@ -59,21 +67,15 @@
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-nop</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
       <artifactId>slf4j-jdk14</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
-      <version>4.5.6</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
-      <version>2.5</version>
     </dependency>
   </dependencies>
   <build>
@@ -108,6 +110,17 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <sourcepath>${project.basedir}/src/main/java</sourcepath>
+        </configuration>
       </plugin>
     </plugins>
   </build>

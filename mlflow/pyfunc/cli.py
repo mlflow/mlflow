@@ -33,7 +33,12 @@ def _rerun_in_conda(conda_env_path):
 
 @click.group("pyfunc")
 def commands():
-    """Serve Python models locally."""
+    """
+    Serve Python models locally.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 
@@ -41,8 +46,9 @@ def commands():
 @cli_args.MODEL_PATH
 @cli_args.RUN_ID
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
+@click.option("--host", "-h", default="127.0.0.1", help="Server host. [default: 127.0.0.1]")
 @cli_args.NO_CONDA
-def serve(model_path, run_id, port, no_conda):
+def serve(model_path, run_id, port, host, no_conda):
     """
     Serve a PythonFunction model saved with MLflow.
 
@@ -58,7 +64,7 @@ def serve(model_path, run_id, port, no_conda):
         return _rerun_in_conda(conda_env_path)
 
     app = scoring_server.init(load_pyfunc(model_path))
-    app.run(port=port)
+    app.run(port=port, host=host)
 
 
 @commands.command("predict")
@@ -71,7 +77,7 @@ def serve(model_path, run_id, port, no_conda):
 @cli_args.NO_CONDA
 def predict(model_path, run_id, input_path, output_path, no_conda):
     """
-    Load a pandas DataFrame and runs a PythonFunction model saved with MLflow against it.
+    Load a pandas DataFrame and runs a python_function model saved with MLflow against it.
     Return the prediction results as a CSV-formatted pandas DataFrame.
 
     If a ``run-id`` is specified, ``model-path`` is treated as an artifact path within that run;

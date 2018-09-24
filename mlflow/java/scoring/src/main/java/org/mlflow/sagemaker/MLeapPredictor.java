@@ -35,8 +35,8 @@ public class MLeapPredictor extends Predictor {
    * Constructs an {@link MLeapPredictor}
    *
    * @param modelDataPath The path to the serialized MLeap model
-   * @param inputSchema The path to JSON-formatted file containing the input schema that the model
-   *     accepts
+   * @param inputSchemaPath The path to JSON-formatted file containing the input schema that the
+   *     model accepts
    */
   public MLeapPredictor(String modelDataPath, String inputSchemaPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
@@ -73,15 +73,15 @@ public class MLeapPredictor extends Predictor {
     try {
       leapFrame = pandasFrame.toLeapFrame(this.inputSchema);
     } catch (InvalidSchemaException e) {
+      logger.error(
+          "Encountered a schema mismatch when converting the input dataframe to a LeapFrame.", e);
       throw new PredictorEvaluationException(
           "Encountered a schema mismatch when converting the input dataframe to a LeapFrame.");
     } catch (Exception e) {
       logger.error(
           "Encountered an unknown error during conversion of Pandas dataframe to LeapFrame.", e);
       throw new PredictorEvaluationException(
-          "An unknown error occurred while converting the input dataframe to a LeapFrame."
-              + " Original exception text: %s",
-          e);
+          "An unknown error occurred while converting the input dataframe to a LeapFrame.", e);
     }
     // Create a single-element sequence of column names to select from the resulting dataframe.
     // This single-element is the `prediction` column; as is the case with the `pyfunc` wrapper

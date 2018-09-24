@@ -1,20 +1,29 @@
-"""MLflow integration for scikit-learn."""
+"""
+The ``mlflow.sklearn`` module provides an API for logging and loading scikit-learn models. This
+module exports scikit-learn models with the following flavors:
+
+Python (native) `pickle <http://scikit-learn.org/stable/modules/model_persistence.html>`_ format
+    This is the main flavor that can be loaded back into scikit-learn.
+
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
+"""
 
 from __future__ import absolute_import
 
 import json
 import os
 import pickle
+import shutil
 
 import click
 import flask
 import pandas
 import sklearn
 
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils import cli_args
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 import mlflow.tracking
 
 
@@ -27,7 +36,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
            this model should be run in. At minimum, it should specify python, scikit-learn,
            and mlflow with appropriate versions.
-    :param mlflow_model: MLflow model config this flavor is being added to.
+    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -35,24 +44,32 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     model_file = os.path.join(path, "model.pkl")
     with open(model_file, "wb") as out:
         pickle.dump(sk_model, out)
+    model_conda_env = None
+    if conda_env:
+        model_conda_env = os.path.basename(os.path.abspath(conda_env))
+        shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data="model.pkl",
-                        env=conda_env)
+                        env=model_conda_env)
     mlflow_model.add_flavor("sklearn",
                             pickled_model="model.pkl",
                             sklearn_version=sklearn.__version__)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(sk_model, artifact_path):
-    """Log a scikit-learn model as an MLflow artifact for the current run."""
+def log_model(sk_model, artifact_path, conda_env=None):
+    """
+    Log a scikit-learn model as an MLflow artifact for the current run.
 
-    with TempDir() as tmp:
-        local_path = tmp.path("model")
-        # TODO: I get active_run_id here but mlflow.tracking.log_output_files has its own way
-        run_id = _get_or_start_run().info.run_uuid
-        mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
-        save_model(sk_model, local_path, mlflow_model=mlflow_model)
-        log_artifacts(local_path, artifact_path)
+    :param sk_model: scikit-learn model to be saved.
+    :param artifact_path: Run-relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+           this model should be run in. At minimum, it should specify python, scikit-learn,
+           and mlflow with appropriate versions.
+    """
+    return Model.log(artifact_path=artifact_path,
+                     flavor=mlflow.sklearn,
+                     sk_model=sk_model,
+                     conda_env=conda_env)
 
 
 def _load_model_from_local_file(path):
@@ -66,14 +83,26 @@ def _load_model_from_local_file(path):
 
 
 def load_pyfunc(path):
-    """Load a Python Function model from a local file."""
+    """
+    Load a persisted scikit-learn model as a ``python_function`` model.
+
+    :param path: Local filesystem path to the model saved by :py:func:`mlflow.sklearn.save_model`.
+    :rtype: Pyfunc format model with function
+            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
+    """
 
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
 def load_model(path, run_id=None):
-    """Load a scikit-learn model from a local file (if ``run_id`` is None) or a run."""
+    """
+    Load a scikit-learn model from a local file (if ``run_id`` is None) or a run.
+
+    :param path: Local filesystem path or run-relative artifact path to the model saved
+                 by :py:func:`mlflow.sklearn.save_model`.
+    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model_from_local_file(path)
@@ -81,12 +110,17 @@ def load_model(path, run_id=None):
 
 @click.group("sklearn")
 def commands():
-    """Serve scikit-learn models."""
+    """
+    Serve scikit-learn models locally.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 
 @commands.command("serve")
-@click.argument("model_path")
+@cli_args.MODEL_PATH
 @click.option("--run_id", "-r", metavar="RUN_ID", help="Run ID to look for the model in.")
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--host", default="127.0.0.1",

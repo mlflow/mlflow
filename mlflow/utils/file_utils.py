@@ -1,3 +1,4 @@
+import codecs
 import gzip
 import os
 import shutil
@@ -7,6 +8,8 @@ import tempfile
 import yaml
 
 from mlflow.entities import FileInfo
+
+ENCODING = "utf-8"
 
 
 def is_directory(name):
@@ -95,7 +98,7 @@ def mkdir(root, name=None):  # noqa
     target = os.path.join(root, name) if name is not None else root
     try:
         if not exists(target):
-            os.mkdir(target)
+            os.makedirs(target)
             return target
     except OSError as e:
         raise e
@@ -188,18 +191,32 @@ class TempDir(object):
         return os.path.join("./", *path) if self._chdr else os.path.join(self._path, *path)
 
 
-def read_file(parent_path, file_name):
+def read_file_lines(parent_path, file_name):
     """
-    Return the contents of the file
+    Return the contents of the file as an array where each element is a separate line.
 
-    :param parent_path: Full path to the directory that contains the file
-    :param file_name: Leaf file name
+    :param parent_path: Full path to the directory that contains the file.
+    :param file_name: Leaf file name.
 
-    :return: All lines in the file as an array
+    :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
         return f.readlines()
+
+
+def read_file(parent_path, file_name):
+    """
+    Return the contents of the file.
+
+    :param parent_path: Full path to the directory that contains the file.
+    :param file_name: Leaf file name.
+
+    :return: The contents of the file.
+    """
+    file_path = os.path.join(parent_path, file_name)
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
+        return f.read()
 
 
 def get_file_info(path, rel_path):
@@ -236,7 +253,7 @@ def mv(target, new_parent):
 
 
 def write_to(filename, data):
-    with open(filename, "w") as handle:
+    with codecs.open(filename, mode="w", encoding=ENCODING) as handle:
         handle.write(data)
 
 
@@ -299,3 +316,18 @@ def _copy_project(src_path, dst_path=""):
     shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
                     ignore=_docker_ignore(src_path))
     return mlflow_dir
+
+
+def _copy_file_or_tree(src, dst, dst_dir):
+    name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
+    if dst_dir:
+        os.mkdir(os.path.join(dst, dst_dir))
+    if os.path.isfile(src):
+        shutil.copy(src=src, dst=os.path.join(dst, name))
+    else:
+        shutil.copytree(src=src, dst=os.path.join(dst, name))
+    return name
+
+
+def get_parent_dir(path):
+    return os.path.abspath(os.path.join(path, os.pardir))

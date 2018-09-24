@@ -1,4 +1,12 @@
-"""MLflow integration for H2O."""
+"""
+The ``mlflow.h2o`` module provides an API for logging and loading H2O models. This module exports
+H2O models with the following flavors:
+
+H20 (native) format
+    This is the main flavor that can be loaded back into H2O.
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
+"""
 
 from __future__ import absolute_import
 
@@ -12,11 +20,11 @@ import mlflow.tracking
 
 def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=None):
     """
-    Save a H2O model to a path on the local file system.
+    Save an H2O model to a path on the local file system.
 
     :param h2o_model: H2O model to be saved.
     :param path: Local path where the model is to be saved.
-    :param mlflow_model: MLflow model config this flavor is being added to.
+    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     import h2o
 
@@ -46,7 +54,13 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
 
 
 def log_model(h2o_model, artifact_path, **kwargs):
-    """Log a H2O model as an MLflow artifact for the current run."""
+    """
+    Log an H2O model as an MLflow artifact for the current run.
+
+    :param h2o_model: H2O model to be saved.
+    :param artifact_path: Run-relative artifact path.
+    :param kwargs: kwargs to pass to ``h2o.save_model`` method.
+    """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
               h2o_model=h2o_model, **kwargs)
 
@@ -75,20 +89,26 @@ class _H2OModelWrapper:
 
 def load_pyfunc(path):
     """
-    Loads an H2O model from the directory at ``path`` as a Python Function model.
-    Note that this method calls ``h2o.init(...)``, so the right version of h2o(-py) must be in the
-    environment. The arguments given to ``h2o.init(...)`` can be customized in ``path/h2o.yaml``
+    Load a persisted H2O model as a ``python_function`` model.
+    This method calls ``h2o.init``, so the right version of h2o(-py) must be in the
+    environment. The arguments given to ``h2o.init`` can be customized in ``path/h2o.yaml``
     under the key ``init``.
+
+    :param path: Local filesystem path to the model saved by :py:func:`mlflow.h2o.save_model`.
+    :rtype: Pyfunc format model with function
+            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
     """
     return _H2OModelWrapper(_load_model(path, init=True))
 
 
 def load_model(path, run_id=None):
     """
-    Load a H2O model from a local file (if run_id is None) or a run.
+    Load an H2O model from a local file (if ``run_id`` is ``None``) or a run.
+    This function expects there is an H2O instance initialised with ``h2o.init``.
 
-    This function expects there is a h2o instance initialised with
-    `h2o.init()`.
+    :param path: Local filesystem path or run-relative artifact path to the model saved
+                 by :py:func:`mlflow.h2o.save_model`.
+    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)

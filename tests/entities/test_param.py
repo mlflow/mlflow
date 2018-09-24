@@ -5,9 +5,10 @@ from tests.helper_functions import random_str, random_int
 
 
 class TestParam(unittest.TestCase):
-    def _check(self, metric, key, value):
-        self.assertEqual(metric.key, key)
-        self.assertEqual(metric.value, value)
+    def _check(self, param, key, value):
+        self.assertIsInstance(param, Param)
+        self.assertEqual(param.key, key)
+        self.assertEqual(param.value, value)
 
     def test_creation_and_hydration(self):
         key = random_str(random_int(10, 25))  # random string on size in range [10, 25]

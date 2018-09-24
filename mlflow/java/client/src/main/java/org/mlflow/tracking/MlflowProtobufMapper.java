@@ -31,11 +31,31 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeSetTag(String runUuid, String key, String value) {
+    SetTag.Builder builder = SetTag.newBuilder();
+    builder.setRunUuid(runUuid);
+    builder.setKey(key);
+    builder.setValue(value);
+    return print(builder);
+  }
+
   String makeUpdateRun(String runUuid, RunStatus status, long endTime) {
     UpdateRun.Builder builder = UpdateRun.newBuilder();
     builder.setRunUuid(runUuid);
     builder.setStatus(status);
     builder.setEndTime(endTime);
+    return print(builder);
+  }
+
+  String makeDeleteRun(String runUuid) {
+    DeleteRun.Builder builder = DeleteRun.newBuilder();
+    builder.setRunId(runUuid);
+    return print(builder);
+  }
+
+  String makeRestoreRun(String runUuid) {
+    RestoreRun.Builder builder = RestoreRun.newBuilder();
+    builder.setRunId(runUuid);
     return print(builder);
   }
 
@@ -105,7 +125,7 @@ class MlflowProtobufMapper {
 
   private String print(MessageOrBuilder message) {
     try {
-      return JsonFormat.printer().print(message);
+      return JsonFormat.printer().preservingProtoFieldNames().print(message);
     } catch (InvalidProtocolBufferException e) {
       throw new MlflowClientException("Failed to serialize message " + message, e);
     }
@@ -113,7 +133,7 @@ class MlflowProtobufMapper {
 
   private void merge(String json, com.google.protobuf.Message.Builder builder) {
     try {
-      JsonFormat.parser().merge(json, builder);
+      JsonFormat.parser().ignoringUnknownFields().merge(json, builder);
     } catch (InvalidProtocolBufferException e) {
       throw new MlflowClientException("Failed to serialize json " + json + " into " + builder, e);
     }

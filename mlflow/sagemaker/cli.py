@@ -13,7 +13,12 @@ from mlflow.utils import cli_args
 
 @click.group("sagemaker")
 def commands():
-    """Serve models on SageMaker."""
+    """
+    Serve models on SageMaker.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 
@@ -24,9 +29,9 @@ def commands():
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
 @cli_args.RUN_ID
 @click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
-@click.option("--region-name", "-r", default="us-west-2",
+@click.option("--region-name", default="us-west-2",
               help="Name of the AWS region in which to deploy the application")
-@click.option("--mode", "-md", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
+@click.option("--mode", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
               help="The mode in which to deploy the application."
               " Must be one of the following: {mds}".format(
                   mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
@@ -43,8 +48,13 @@ def commands():
               " configuration will be used when creating the new SageMaker model associated"
               " with this application. For more information, see"
               " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
+@click.option("--flavor", "-f", default=None,
+              help=("The name of the flavor to use for deployment. Must be one of the following:"
+                    " {supported_flavors}. If unspecified, a flavor will be automatically selected"
+                    " from the model's available flavors.".format(
+                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
-           archive, instance_type, instance_count, vpc_config):
+           archive, instance_type, instance_count, vpc_config, flavor):
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
@@ -57,7 +67,13 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
                             execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
                             image_url=image_url, region_name=region_name, mode=mode,
                             archive=archive, instance_type=instance_type,
-                            instance_count=instance_count, vpc_config=vpc_config)
+                            instance_count=instance_count, vpc_config=vpc_config, flavor=flavor)
+
+
+@commands.command("list-flavors")
+def list_flavors():
+    print("Supported model flavors for SageMaker deployment are: {supported_flavors}".format(
+        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS))
 
 
 @commands.command("delete")
@@ -80,12 +96,17 @@ def delete(app_name, region_name, archive):
 @cli_args.RUN_ID
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--image", "-i", default=IMAGE, help="Docker image name")
-def run_local(model_path, run_id, port, image):
+@click.option("--flavor", "-f", default=None,
+              help=("The name of the flavor to use for local serving. Must be one of the following:"
+                    " {supported_flavors}. If unspecified, a flavor will be automatically selected"
+                    " from the model's available flavors.".format(
+                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
+def run_local(model_path, run_id, port, image, flavor):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
     """
     mlflow.sagemaker.run_local(
-        model_path=model_path, run_id=run_id, port=port, image=image)
+        model_path=model_path, run_id=run_id, port=port, image=image, flavor=flavor)
 
 
 @commands.command("build-and-push-container")
@@ -102,7 +123,7 @@ def build_and_push_container(build, push, container, mlflow_home):
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
     if not (build or push):
-        print("skipping both build nad push, have nothing to do!")
+        print("skipping both build and push, have nothing to do!")
     if build:
         mlflow.sagemaker.build_image(container,
                                      mlflow_home=os.path.abspath(mlflow_home) if mlflow_home

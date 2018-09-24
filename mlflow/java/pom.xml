@@ -3,10 +3,42 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mlflow</groupId>
   <artifactId>mlflow-parent</artifactId>
-  <version>0.5.2</version>
+  <version>0.7.0</version>
   <packaging>pom</packaging>
-  <name>mlflow-parent</name>
-  <url>http://maven.apache.org</url>
+  <name>MLflow Parent POM</name>
+  <url>http://mlflow.org</url>
+
+  <description>Open source platform for the machine learning lifecycle</description>
+
+  <!-- The following sections (licenses, developers, scm, and distributionManagement) are needed to
+       publish pom-only packages to Maven -->
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Matei Zaharia</name>
+      <email>matei@databricks.com</email>
+      <organization>Databricks</organization>
+      <organizationUrl>http://www.databricks.com</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/mlflow/mlflow.git</connection>
+    <developerConnection>scm:git:ssh://github.com:mlflow/mlflow.git</developerConnection>
+    <url>http://github.com/mlflow/mlflow/tree/master</url>
+  </scm>
+  <distributionManagement>
+    <repository>
+      <id>bintray</id>
+      <name>mlflow</name>
+      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-parent/;publish=1</url>
+    </repository>
+  </distributionManagement>
+
   <properties>
     <mlflow-version>0.5.1</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -17,13 +49,16 @@
     <protobuf.version>3.6.0</protobuf.version>
     <scalapb.version>0.6.7</scalapb.version>
     <testng.version>6.14.3</testng.version>
+    <slf4j.version>1.7.25</slf4j.version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
+
   <modules>
     <module>scoring</module>
     <module>client</module>
   </modules>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -62,6 +97,16 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.22.0</version>
         <scope>test</scope>
+        <exclusions>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
       <dependency>
         <groupId>org.eclipse.jetty</groupId>
@@ -79,24 +124,19 @@
         <version>9.4.11.v20180605</version>
       </dependency>
       <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-nop</artifactId>
-        <version>1.6.6</version>
-      </dependency>
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-jdk14</artifactId>
-        <version>1.7.25</version>
-      </dependency>
-      <dependency>
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
         <version>2.5</version>
       </dependency>
       <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>1.2.17</version>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-jdk14</artifactId>
+        <version>${slf4j.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.httpcomponents</groupId>
@@ -123,6 +163,16 @@
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-java-util</artifactId>
         <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>javax.annotation</groupId>
+        <artifactId>javax.annotation-api</artifactId>
+        <version>1.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.ini4j</groupId>
+        <artifactId>ini4j</artifactId>
+        <version>0.5.4</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -157,7 +207,6 @@
             </execution>
           </executions>
         </plugin>
-
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
@@ -167,8 +216,27 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>3.0.1</version>
-          <configuration>
-          </configuration>
+          <executions>
+            <execution>
+              <id>attach-javadocs</id>
+              <goals>
+                <goal>jar</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.0.1</version>
+          <executions>
+            <execution>
+              <id>attach-sources</id>
+              <goals>
+                <goal>jar</goal>
+              </goals>
+            </execution>
+          </executions>
         </plugin>
       </plugins>
     </pluginManagement>

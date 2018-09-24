@@ -6,7 +6,9 @@
     "bytes": "3.0.0",
     "cookie": "0.3.1",
     "dateformat": "3.0.3",
+    "draft-js": "^0.10.5",
     "file-saver": "1.3.8",
+    "formik": "^1.1.1",
     "immutable": "3.8.1",
     "jquery": "3.0.0",
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
@@ -15,7 +17,8 @@
     "react": "^16.3.2",
     "react-bootstrap": "0.32.1",
     "react-dom": "^16.3.2",
-    "react-modal": "3.4.4",
+    "react-mde": "5.8.0",
+    "react-modal": "^3.4.4",
     "react-redux": "5.0.7",
     "react-router": "4.2.0",
     "react-router-dom": "4.2.2",
@@ -27,7 +30,10 @@
     "recharts": "1.0.0-beta.10",
     "redux": "3.7.2",
     "redux-promise-middleware": "5.0.0",
-    "url-parse": "1.4.3"
+    "sanitize-html": "^1.18.5",
+    "showdown": "^1.8.6",
+    "url-parse": "1.4.3",
+    "yup": "^0.26.3"
   },
   "devDependencies": {
     "babel-eslint": "8.2.2",

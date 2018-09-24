@@ -7,7 +7,7 @@ import six
 from six.moves import shlex_quote
 
 from mlflow import data
-from mlflow.utils.exception import ExecutionException
+from mlflow.exceptions import ExecutionException
 
 
 MLPROJECT_FILE_NAME = "MLproject"
@@ -56,6 +56,9 @@ class Project(object):
             if type(command) not in six.string_types:
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
+        elif file_extension == ".R":
+            command = "Rscript -e \"mlflow::mlflow_source('%s')\" --args" % shlex_quote(entry_point)
+            return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
                                  "runnable script. Supported script file extensions: "
                                  "{2}".format(entry_point, list(self._entry_points.keys()),
@@ -68,7 +71,6 @@ class EntryPoint(object):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
         self.command = command
-        assert isinstance(self.command, str)
 
     def _validate_parameters(self, user_parameters):
         missing_params = []
@@ -94,6 +96,8 @@ class EntryPoint(object):
         Note that resolving parameter values can be a heavy operation, e.g. if a remote URI is
         passed for a parameter of type `path`, we download the URI to a local path within
         `storage_dir` and substitute in the local path as the parameter value.
+
+        If `storage_dir` is `None`, report path will be return as parameter.
         """
         if user_parameters is None:
             user_parameters = {}
@@ -102,14 +106,12 @@ class EntryPoint(object):
         final_params = {}
         extra_params = {}
 
-        for name, param_obj in self.parameters.items():
-            if name in user_parameters:
-                final_params[name] = param_obj.compute_value(user_parameters[name], storage_dir)
-            else:
-                final_params[name] = self.parameters[name].default
-        for name in user_parameters:
-            if name not in final_params:
-                extra_params[name] = user_parameters[name]
+        for key, param_obj in self.parameters.items():
+            value = user_parameters[key] if key in user_parameters else self.parameters[key].default
+            final_params[key] = param_obj.compute_value(value, storage_dir)
+        for key in user_parameters:
+            if key not in final_params:
+                extra_params[key] = user_parameters[key]
         return self._sanitize_param_dict(final_params), self._sanitize_param_dict(extra_params)
 
     def compute_command(self, user_parameters, storage_dir):
@@ -153,9 +155,10 @@ class Parameter(object):
             data.download_uri(uri=user_param_value, output_path=dest_path)
         return os.path.abspath(dest_path)
 
-    def compute_value(self, user_param_value, storage_dir):
-        if self.type != "path" and self.type != "uri":
-            return user_param_value
-        if self.type == "uri":
-            return self._compute_uri_value(user_param_value)
-        return self._compute_path_value(user_param_value, storage_dir)
+    def compute_value(self, param_value, storage_dir):
+        if storage_dir and self.type == "path":
+            return self._compute_path_value(param_value, storage_dir)
+        elif self.type == "uri":
+            return self._compute_uri_value(param_value)
+        else:
+            return param_value

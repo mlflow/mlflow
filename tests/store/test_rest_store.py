@@ -4,6 +4,7 @@ import six
 import unittest
 
 from mlflow.store.rest_store import RestStore, RestException
+from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 class TestRestStore(unittest.TestCase):
@@ -16,6 +17,8 @@ class TestRestStore(unittest.TestCase):
                 'method': 'GET',
                 'json': {'view_type': 'ACTIVE_ONLY'},
                 'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
+                'headers': {},
+                'verify': True,
             }
             response = mock.MagicMock
             response.status_code = 200
@@ -23,7 +26,7 @@ class TestRestStore(unittest.TestCase):
             return response
         request.side_effect = mock_request
 
-        store = RestStore({'hostname': 'https://hello'})
+        store = RestStore(lambda: MlflowHostCreds('https://hello'))
         experiments = store.list_experiments()
         assert experiments[0].name == "Exp!"
 
@@ -34,7 +37,7 @@ class TestRestStore(unittest.TestCase):
         response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
         request.return_value = response
 
-        store = RestStore({'hostname': 'https://hello'})
+        store = RestStore(lambda: MlflowHostCreds('https://hello'))
         with self.assertRaises(RestException) as cm:
             store.list_experiments()
         self.assertIn("RESOURCE_DOES_NOT_EXIST: No experiment", str(cm.exception))
@@ -54,7 +57,7 @@ class TestRestStore(unittest.TestCase):
         response.text = json.dumps(experiments)
         request.return_value = response
 
-        store = RestStore({'hostname': 'https://hello'})
+        store = RestStore(lambda: MlflowHostCreds('https://hello'))
         experiments = store.list_experiments()
         assert len(experiments) == 1
         assert experiments[0].name == 'My experiment'
