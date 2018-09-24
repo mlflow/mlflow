@@ -1,6 +1,7 @@
 context("REST wrappers")
 
 test_that("mlflow_create_experiment() works properly", {
+  mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
   experiment_id <- mlflow_create_experiment(client = client, "exp_name", "art_loc")
   experiment <- mlflow_get_experiment(client = client, experiment_id)
@@ -21,21 +22,25 @@ test_that("mlflow_list_experiments() works properly", {
 
 test_that("mlflow_get_experiment() works properly", {
   mlflow_clear_test_dir("mlruns")
-  experiment_id <- mlflow_create_experiment("foo1", "art_loc1")
-  experiment <- mlflow_get_experiment(experiment_id)
+  client <- mlflow_client()
+  experiment_id <- mlflow_create_experiment(client = client, "foo1", "art_loc1")
+  experiment <- mlflow_get_experiment(client = client, experiment_id)
   expect_identical(experiment$experiment$experiment_id, experiment_id)
   expect_identical(experiment$experiment$name, "foo1")
   expect_identical(experiment$experiment$artifact_location, "art_loc1")
 })
 
 test_that("mlflow_create_run()/mlflow_get_run() work properly", {
+  client <- mlflow_client()
   create_run_response <- mlflow_create_run(
+    client = client,
+    experiment_id = "0",
     user_id = "user1",
     run_name = "run1",
     tags = list(foo = "bar", foz = "baz")
   )
 
-  run <- mlflow_get_run(create_run_response$run_uuid)
+  run <- mlflow_get_run(client = client, create_run_response$run_uuid)
   run_info <- run$info
 
   expect_identical(run_info$user_id, "user1")
