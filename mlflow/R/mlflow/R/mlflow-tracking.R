@@ -420,8 +420,6 @@ mlflow_log_artifact.mlflow_client <- function(path, artifact_path = NULL, client
 #' @export
 mlflow_set_tracking_uri <- function(uri) {
   .globals$tracking_uri <- uri
-  .globals$active_experiment <- NULL
-  .globals$active_run <- NULL
 
   invisible(uri)
 }
