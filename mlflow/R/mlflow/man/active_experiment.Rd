@@ -2,13 +2,13 @@
 % Please edit documentation in R/tracking-utils.R
 \name{active_experiment}
 \alias{active_experiment}
-\alias{mlflow_active_experiment}
-\alias{mlflow_set_active_experiment}
+\alias{mlflow_get_active_experiment_id}
+\alias{mlflow_set_active_experiment_id}
 \title{Active Experiment}
 \usage{
-mlflow_active_experiment()
+mlflow_get_active_experiment_id()
 
-mlflow_set_active_experiment(experiment_id)
+mlflow_set_active_experiment_id(experiment_id)
 }
 \arguments{
 \item{experiment_id}{Identifer to get an experiment.}

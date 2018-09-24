@@ -2,7 +2,7 @@
 mlflow_create_experiment.NULL <- function(name, artifact_location = NULL, client = NULL) {
   client <- mlflow_client()
   experiment_id <- mlflow_create_experiment.mlflow_client(name, artifact_location, client)
-  mlflow_set_active_experiment(experiment_id)
+  mlflow_set_active_experiment_id(experiment_id)
   invisible(experiment_id)
 }
 
@@ -49,7 +49,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     mlflow_get_run(client = client, existing_run_uuid)$info
   } else {
     experiment_id <- as.integer(
-      experiment_id %||% mlflow_active_experiment() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
+      experiment_id %||% mlflow_get_active_experiment_id() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
     )
 
     client <- mlflow_client()

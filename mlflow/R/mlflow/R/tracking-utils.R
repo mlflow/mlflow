@@ -4,16 +4,16 @@
 #'
 #' @name active_experiment
 #' @export
-mlflow_active_experiment <- function() {
-  .globals$active_experiment
+mlflow_get_active_experiment_id <- function() {
+  .globals$active_experiment_id
 }
 
 #' @rdname active_experiment
 #' @param experiment_id Identifer to get an experiment.
 #' @export
-mlflow_set_active_experiment <- function(experiment_id) {
-  if (!identical(experiment_id, .globals$active_experiment)) {
-    .globals$active_experiment <- experiment_id
+mlflow_set_active_experiment_id <- function(experiment_id) {
+  if (!identical(experiment_id, .globals$active_experiment_id)) {
+    .globals$active_experiment_id <- experiment_id
     mlflow_set_active_run(NULL)
   }
 
