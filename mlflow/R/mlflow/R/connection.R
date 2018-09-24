@@ -1,30 +1,11 @@
-# mlflow_get_or_create_active_connection <- function() {
-#   if (is.null(mlflow_active_connection())) {
-#     tracking_uri <- mlflow_tracking_uri()
-#     if (startsWith(tracking_uri, "http")) {
-#       mc <- new_mlflow_connection(tracking_uri = tracking_uri, handle = NULL)
-#     } else {
-#       mc <- mlflow_connect(tracking_uri)
-#     }
-#
-#     mlflow_set_active_connection(mc)
+# mlflow_set_active_connection <- function(mc) {
+#   if (!identical(mc, .globals$active_connection)) {
+#     .globals$active_connection <- mc
+#     .globals$tracking_uri <- mc$tracking_uri
+#     mlflow_set_active_experiment(NULL)
 #   }
-#
-#   mlflow_active_connection()
+#   invisible(mc)
 # }
-
-mlflow_active_connection <- function() {
-  .globals$active_connection
-}
-
-mlflow_set_active_connection <- function(mc) {
-  if (!identical(mc, .globals$active_connection)) {
-    .globals$active_connection <- mc
-    .globals$tracking_uri <- mc$tracking_uri
-    mlflow_set_active_experiment(NULL)
-  }
-  invisible(mc)
-}
 
 #' @importFrom httpuv startDaemonizedServer
 #' @importFrom httpuv stopServer
