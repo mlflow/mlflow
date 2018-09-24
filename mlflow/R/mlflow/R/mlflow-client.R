@@ -74,6 +74,16 @@ mlflow_client_create_run <- function(
   response
 }
 
+mlflow_client_update_run <- function(client, run_uuid, status, end_time) {
+  response <- mlflow_rest("runs", "update", client = client, verb = "POST", data = list(
+    run_uuid = run_uuid,
+    status = status,
+    end_time = end_time
+  ))
+
+  response
+}
+
 mlflow_client_delete_experiment <- function(client, experimend_id) {
   response <- mlflow_rest(
     "experiments", "delete", client = client, verb = "POST",

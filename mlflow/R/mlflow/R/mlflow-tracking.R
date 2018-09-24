@@ -280,3 +280,32 @@ mlflow_get_experiment <- function(experiment_id, client = NULL, ...) {
 mlflow_get_experiment.mlflow_connection <- function(experiment_id, client = NULL, ...) {
   mlflow_client_get_experiment(client, experiment_id)
 }
+
+#' Terminate a Run
+#'
+#' @param run_id Unique identifier for the run.
+#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param end_time Unix timestamp of when the run ended in milliseconds.
+#' @export
+mlflow_set_terminated <- function(
+  run_id, status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+  end_time = NULL, client
+) {
+  status <- match.arg(status)
+  # end_time <- end_time %||% current_time()
+  response <- mlflow_client_update_run(client, run_id, status, end_time)
+  tidy_run_info(response$run_info)
+}
+
+current_time <- function() {
+  round(as.numeric(Sys.time()) * 1000)
+}
+
+milliseconds_to_date <- function(x) as.POSIXct(as.double(x) / 1000, origin = "1970-01-01")
+
+tidy_run_info <- function(run_info) {
+  df <- as.data.frame(run_info, stringsAsFactors = FALSE)
+  df$start_time <- milliseconds_to_date(df$start_time %||% NA)
+  df$end_time <- milliseconds_to_date(df$end_time %||% NA)
+  df
+}
