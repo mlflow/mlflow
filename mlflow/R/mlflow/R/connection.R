@@ -124,24 +124,6 @@ new_mlflow_connection <- function(tracking_uri, handle, ...) {
   mc
 }
 
-#' Disconnect from MLflow
-#'
-#' Disconnects from a local MLflow instance.
-#'
-#' @export
-mlflow_disconnect <- function() {
-  mc <- mlflow_active_connection()
-  if (is.null(mc)) {
-    message("Not connected to an MLflow service.")
-  } else {
-    if (mc$handle$is_alive()) invisible(mc$handle$kill())
-    mlflow_set_active_connection(NULL)
-    mlflow_set_active_experiment(NULL)
-    mlflow_set_active_run(NULL)
-  }
-  invisible(NULL)
-}
-
 mlflow_connection_url <- function(mc) {
   mc$url
 }
