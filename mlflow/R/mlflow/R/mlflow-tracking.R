@@ -301,7 +301,7 @@ mlflow_get_experiment <- function(experiment_id, client = NULL, ...) {
 
 #' @rdname mlflow_get_experiment
 #' @export
-mlflow_get_experiment.mlflow_connection <- function(experiment_id, client = NULL, ...) {
+mlflow_get_experiment.mlflow_client <- function(experiment_id, client = NULL, ...) {
   mlflow_client_get_experiment(client, experiment_id)
 }
 

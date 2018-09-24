@@ -2,12 +2,12 @@
 % Please edit documentation in R/mlflow-tracking.R
 \name{mlflow_get_experiment}
 \alias{mlflow_get_experiment}
-\alias{mlflow_get_experiment.mlflow_connection}
+\alias{mlflow_get_experiment.mlflow_client}
 \title{Get Experiment}
 \usage{
 mlflow_get_experiment(experiment_id, client = NULL, ...)
 
-\method{mlflow_get_experiment}{mlflow_connection}(experiment_id,
+\method{mlflow_get_experiment}{mlflow_client}(experiment_id,
   client = NULL, ...)
 }
 \arguments{
