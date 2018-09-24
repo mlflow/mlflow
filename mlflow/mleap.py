@@ -148,16 +148,18 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     try:
         spark_model.serializeToBundle(path=model_path,
                                       dataset=dataset)
-    except Py4JError as e:
-        tb = sys.exc_info()[2]
-        error_str = ("MLeap encountered an error while serializing the model. Ensure that"
-                     " the model is compatible with MLeap"
-                     " (i.e does not contain any custom transformers). Error text: {err}".format(
-                         err=str(e)))
-        traceback.print_exc()
-        reraise(Exception, error_str, tb)
+    except Py4JError:
+        _handle_py4j_error(
+                "MLeap encountered an error while serializing the model. Ensure that the model is" 
+                " compatible with MLeap (i.e does not contain any custom transformers).")
 
-    input_schema = _get_mleap_schema(sample_input)
+    try:
+        input_schema = _get_mleap_schema(sample_input)
+    except Py4JError:
+        _handle_py4j_error(
+                "Encountered an error while converting the schema of the sample input dataframe to" 
+                " MLeap format. Please ensure that this dataframe is compatible with MLeap.")
+        
     mleap_schemapath_sub = os.path.join("mleap", "schema.json")
     mleap_schemapath_full = os.path.join(path, mleap_schemapath_sub)
     with open(mleap_schemapath_full, "w") as out:
@@ -186,4 +188,10 @@ def _get_mleap_schema(dataframe):
     js_clazz = ReflectionUtil.classForName("ml.combust.mleap.json.JsonSupport$")
     js_inst = js_clazz.getField("MODULE$").get(js_clazz)
     mleap_schema_json = js_inst.MleapStructTypeFormat().write(mleap_schema_struct)
-    return json.loads(mleap_schema_json.toString()) 
+    return json.loads(mleap_schema_json.toString())
+
+
+def _handle_py4j_error(readable_error_text):
+    tb = sys.exc_info()[2]
+    traceback.print_exc()
+    reraise(Exception, readable_error_text, tb)

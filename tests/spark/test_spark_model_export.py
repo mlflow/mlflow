@@ -7,6 +7,7 @@ from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
+from pyspark.ml.util import _jvm
 from pyspark.version import __version__ as pyspark_version
 from pyspark.sql import SQLContext
 from pyspark.sql.types import DateType 
@@ -221,6 +222,20 @@ def test_mleap_output_json_format(spark_model_iris, model_path):
     assert type(json_schema["fields"][0]) == dict
     assert "name" in json_schema["fields"][0]
 
+    ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
+    # Parse the json schema as a Spray JSON `JsValue` object that MLeap's
+    # schema parser can process
+    input_creator_clazz = ReflectionUtil.classForName("spray.json.ParserInput$")
+    input_creator_inst = input_creator_clazz.getField("MODULE$").get(input_creator_clazz)
+    input_item = input_creator_inst.apply(json_schema_str)
+    input_item_js_value = _jvm().spray.json.JsonParser(input_item).parseJsValue()
+
+    # Parse the `JsValue` representation of the JSON schema. If the schema is a valid
+    # MLeap schema, we expect this method to succeed.
+    mleap_parser_clazz = ReflectionUtil.classForName("ml.combust.mleap.json.JsonSupport$")
+    mleap_parser_inst = mleap_parser_clazz.getField("MODULE$").get(mleap_parser_clazz)
+    mleap_parsed_schema = mleap_parser_inst.MleapStructTypeFormat().read(input_item_js_value)
+
 
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
         spark_model_iris, model_path):
@@ -276,7 +291,7 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
                          sample_input=spark_model_iris.spark_df)
 
 
-def test_mleap_serialization_fails_with_unsupported_data_type(spark_context, model_path):
+def test_save_fails_with_sample_input_containing_unsupported_data_type(spark_context, model_path):
     sql_context = SQLContext(spark_context)
     unsupported_df = sql_context.createDataFrame([(1, "2016-09-30"), (2, "2017-02-27")])
     unsupported_df = unsupported_df.withColumn("_2", unsupported_df._2.cast(DateType()))
