@@ -16,6 +16,7 @@ import Utils from '../utils/Utils';
 import ExperimentRunsTableOld from "./ExperimentRunsTableOld"
 import ExperimentRunsTableNew from "./ExperimentRunsTableNew";
 import ExperimentViewUtil from "./ExperimentViewUtil";
+import { Dropdown, MenuItem } from 'react-bootstrap';
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -29,6 +30,7 @@ class ExperimentView extends Component {
     this.onSearch = this.onSearch.bind(this);
     this.onClear = this.onClear.bind(this);
     this.onSortBy = this.onSortBy.bind(this);
+    this.setSortBy = this.setSortBy.bind(this);
     this.runInfoToRowNew = this.runInfoToRowNew.bind(this);
   }
 
@@ -137,7 +139,6 @@ class ExperimentView extends Component {
           selected: !!this.state.runsSelected[runInfo.run_uuid]})
       };
     });
-    console.log("In ExperimentView.render(), sorting, sort state: " + JSON.stringify(this.state.sort));
     rows.sort((a, b) => {
       if (a.sortValue === undefined) {
         return 1;
@@ -267,22 +268,19 @@ class ExperimentView extends Component {
   }
 
   onSortBy(isMetric, isParam, key) {
-    console.log("In onSortBy! isParam: " + isParam + ", isMetric: " + isMetric + ", key: "+ key);
     const sort = this.state.sort;
-    if (sort.key === key && sort.isMetric === isMetric && sort.isParam === isParam) {
-      this.setState({sort: {
-        ...sort,
-        ascending: !sort.ascending
-      }});
-    } else {
-      this.setState({sort: {
-        ascending: true,
-        key: key,
-        isMetric: isMetric,
-        isParam: isParam
-      }});
-    }
+    this.setSortBy(isMetric, isParam, key, !sort.ascending);
   }
+
+  setSortBy(isMetric, isParam, key, ascending) {
+    this.setState({sort: {
+      ascending: ascending,
+      key: key,
+      isMetric: isMetric,
+      isParam: isParam
+    }});
+  }
+
 
   onCheckbox(runUuid) {
     const newState = Object.assign({}, this.state);
@@ -446,19 +444,37 @@ class ExperimentView extends Component {
     paramKeyList.forEach((paramKey, i) => {
       const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
-        paramsCellContents.push(<div
-          key={keyname}
-          onClick={() => sortBy(false, true, paramKey)}
-          className="metric-param-cell"
-        >
-          {paramKey}: {paramsMap[paramKey].getValue()}
-        </div>);
+        paramsCellContents.push(
+          <div key={keyname} className="metric-param-cell">
+          <Dropdown id="dropdown-custom-1">
+            <CustomToggle noCaret bsRole="toggle">
+              <div>
+                {paramKey}: {paramsMap[paramKey].getValue()}
+              </div>
+            </CustomToggle>
+            <Dropdown.Menu className="mlflow-menu">
+              <MenuItem
+                className="mlflow-menu-item"
+                onClick={() => setSortBy(false, true, paramKey, true)}
+              >
+                Sort ascending ({paramKey})
+              </MenuItem>
+              <MenuItem
+                className="mlflow-menu-item"
+                onClick={() => setSortBy(false, true, paramKey, false)}
+              >
+                Sort descending ({paramKey})
+              </MenuItem>
+            </Dropdown.Menu>
+          </Dropdown>
+          </div>
+        );
       }
     });
     row.push(<td className="left-border">{paramsCellContents}</td>);
 
     const metricsCellContents = [];
-    const sortBy = this.onSortBy;
+    const setSortBy = this.setSortBy;
     metricKeyList.forEach((metricKey, i) => {
       const keyname = "metric-" + metricKey;
       if (metricsMap[metricKey]) {
@@ -471,17 +487,33 @@ class ExperimentView extends Component {
         const percent = (fraction * 100) + "%";
         metricsCellContents.push(
           <div key={keyname} className="metric-param-cell">
-            <span
-              onClick={() => sortBy(true, false, metricKey)}
-            >
-              {metricKey}:
-            </span>
-            <span className="metric-filler-bg">
-              <span className="metric-filler-fg" style={{width: percent}}/>
-              <span className="metric-text">
-                {Utils.formatMetric(metric)}
-              </span>
-            </span>
+            <Dropdown id="dropdown-custom-1">
+              <CustomToggle noCaret bsRole="toggle">
+                <span>
+                  {metricKey}:
+                </span>
+                <span className="metric-filler-bg">
+                  <span className="metric-filler-fg" style={{width: percent}}/>
+                  <span className="metric-text">
+                    {Utils.formatMetric(metric)}
+                  </span>
+                </span>
+              </CustomToggle>
+              <Dropdown.Menu className="mlflow-menu">
+                <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={() => setSortBy(true, false, metricKey, true)}
+                >
+                  Sort ascending ({metricKey})
+                </MenuItem>
+                <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={() => setSortBy(true, false, metricKey, false)}
+                >
+                  Sort descending ({metricKey})
+                </MenuItem>
+              </Dropdown.Menu>
+            </Dropdown>
           </div>
         );
       }
@@ -674,5 +706,28 @@ const mapStateToProps = (state, ownProps) => {
     tagsList,
   };
 };
+
+
+class CustomToggle extends React.Component {
+  constructor(props, context) {
+    super(props, context);
+
+    this.handleClick = this.handleClick.bind(this);
+  }
+
+  handleClick(e) {
+    e.preventDefault();
+
+    this.props.onClick(e);
+  }
+
+  render() {
+    return (
+      <span onClick={this.handleClick}>
+        {this.props.children}
+      </span>
+    );
+  }
+}
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));

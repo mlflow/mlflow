@@ -111,10 +111,5 @@ class ExperimentRunsTableNew extends Component {
     }
 }
 
-// const mapStateToProps = () => {
-//
-// };
-
-// export default connect(mapStateToProps)(ExperimentRunsTableNew);
 export default ExperimentRunsTableNew;
 
