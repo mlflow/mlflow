@@ -116,7 +116,10 @@ span.error-message {
 
 .metric-filler-bg {
   position: relative;
-  background-color: gray;
+  background-color: #f7f7f7;
+  width: 100px;
+  display: inline-block;
+  margin-left: 4px;
 }
 
 .metric-filler-fg {
@@ -124,6 +127,7 @@ span.error-message {
   position: absolute;
   top: -1px;
   height: 22px;
+  display: inline-block;
 }
 
 .metric-text {

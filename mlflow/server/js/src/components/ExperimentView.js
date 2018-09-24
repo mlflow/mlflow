@@ -28,6 +28,8 @@ class ExperimentView extends Component {
     this.onSearchInput = this.onSearchInput.bind(this);
     this.onSearch = this.onSearch.bind(this);
     this.onClear = this.onClear.bind(this);
+    this.onSortBy = this.onSortBy.bind(this);
+    this.runInfoToRowNew = this.runInfoToRowNew.bind(this);
   }
 
   static propTypes = {
@@ -102,7 +104,7 @@ class ExperimentView extends Component {
     // of parameter and metric names around later
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
-    const rowBuilder = this.state.showMultiColumns ? ExperimentView.runInfoToRow : ExperimentView.runInfoToRowNew;
+    const rowBuilder = this.state.showMultiColumns ? ExperimentView.runInfoToRow : this.runInfoToRowNew;
     const sort = this.state.sort;
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => {
@@ -135,6 +137,7 @@ class ExperimentView extends Component {
           selected: !!this.state.runsSelected[runInfo.run_uuid]})
       };
     });
+    console.log("In ExperimentView.render(), sorting, sort state: " + JSON.stringify(this.state.sort));
     rows.sort((a, b) => {
       if (a.sortValue === undefined) {
         return 1;
@@ -264,6 +267,7 @@ class ExperimentView extends Component {
   }
 
   onSortBy(isMetric, isParam, key) {
+    console.log("In onSortBy! isParam: " + isParam + ", isMetric: " + isMetric + ", key: "+ key);
     const sort = this.state.sort;
     if (sort.key === key && sort.isMetric === isMetric && sort.isParam === isParam) {
       this.setState({sort: {
@@ -425,7 +429,7 @@ class ExperimentView extends Component {
   /**
    * Generate a row for a specific run, extracting the params and metrics in the given lists.
    */
-  static runInfoToRowNew({
+  runInfoToRowNew({
                         runInfo,
                         onCheckbox,
                         paramKeyList,
@@ -435,7 +439,6 @@ class ExperimentView extends Component {
                         tags,
                         metricRanges,
                         selected}) {
-    const numMetrics = metricKeyList.length;
     const row = ExperimentViewUtil.runInfoToSharedColumns(runInfo, tags, selected, onCheckbox);
 
     const paramsCellContents = [];
@@ -443,7 +446,11 @@ class ExperimentView extends Component {
     paramKeyList.forEach((paramKey, i) => {
       const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
-        paramsCellContents.push(<div key={keyname}>
+        paramsCellContents.push(<div
+          key={keyname}
+          onClick={() => sortBy(false, true, paramKey)}
+          className="metric-param-cell"
+        >
           {paramKey}: {paramsMap[paramKey].getValue()}
         </div>);
       }
@@ -451,6 +458,7 @@ class ExperimentView extends Component {
     row.push(<td className="left-border">{paramsCellContents}</td>);
 
     const metricsCellContents = [];
+    const sortBy = this.onSortBy;
     metricKeyList.forEach((metricKey, i) => {
       const keyname = "metric-" + metricKey;
       if (metricsMap[metricKey]) {
@@ -462,10 +470,14 @@ class ExperimentView extends Component {
         }
         const percent = (fraction * 100) + "%";
         metricsCellContents.push(
-          <div key={keyname} style={{paddingTop: 4, paddingBottom: 4}}>
-            <span style={{marginRight: "8px", color: "blue", cursor: "pointer"}}>{metricKey}:</span>
-            <span className="metric-filler-bg" style={{width: 100, display: "inline-block"}}>
-              <span className="metric-filler-fg" style={{width: percent, display: "inline-block"}}/>
+          <div key={keyname} className="metric-param-cell">
+            <span
+              onClick={() => sortBy(true, false, metricKey)}
+            >
+              {metricKey}:
+            </span>
+            <span className="metric-filler-bg">
+              <span className="metric-filler-fg" style={{width: percent}}/>
               <span className="metric-text">
                 {Utils.formatMetric(metric)}
               </span>
