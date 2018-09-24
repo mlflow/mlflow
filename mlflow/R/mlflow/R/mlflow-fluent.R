@@ -99,3 +99,13 @@ mlflow_log_param.NULL <- function(key, value, client = NULL, ...) {
   mlflow_log_param.mlflow_client(key, value, client, run_id)
   invisible(value)
 }
+
+
+#' @rdname mlflow_log_artifact
+#' @export
+mlflow_log_artifact.NULL <- function(path, artifact_path = NULL, client = NULL, ...) {
+  client <- mlflow_client()
+  active_run <- mlflow_active_run()
+  run_id <- as.character(active_run$run_info$run_uuid)
+  mlflow_log_artifact.mlflow_client(path, artifact_path, client, run_id)
+}

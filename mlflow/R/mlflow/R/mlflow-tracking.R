@@ -327,7 +327,6 @@ mlflow_set_terminated <- function(
 #'
 #' @param path The file or directory to log as an artifact.
 #' @param artifact_path Destination path within the run’s artifact URI.
-#' @param run_uuid The run associated with this artifact.
 #'
 #' @details
 #'
@@ -361,11 +360,14 @@ mlflow_set_terminated <- function(
 #' by Amazon IAM.
 #'
 #' @export
-mlflow_log_artifact <- function(path, artifact_path = NULL, run_uuid = NULL) {
-  run_uuid <- run_uuid %||%
-    mlflow_active_run()$run_info$run_uuid %||%
-    stop("`run_uuid` must be specified when there is no active run.")
+mlflow_log_artifact <- function(path, artifact_path = NULL, client = NULL, ...) {
+  UseMethod("mlflow_log_artifact")
+}
 
+#' @rdname mlflow_log_artifact
+#' @param run_id The run associated with this artifact.
+#' @export
+mlflow_log_artifact.mlflow_client <- function(path, artifact_path = NULL, client = NULL, run_id = NULL, ...) {
   artifact_param <- NULL
   if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
 
@@ -384,7 +386,8 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_uuid = NULL) {
              artifact_param,
              artifact_path,
              "--run-id",
-             run_uuid)
+             run_id)
 
   invisible(NULL)
 }
+
