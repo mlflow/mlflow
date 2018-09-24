@@ -71,7 +71,7 @@ def log_model(h2o_model, artifact_path, **kwargs):
     >>> import mlflow.h2o
     >>> import h2o
     >>> from h2o.estimators.glm import H2OGeneralizedLinearEstimator
-    >>> #Partial example code used from h2o documentation <http://docs.h2o.ai/h2o/latest-stable/h2o-docs/data-science/algo-params/early_stopping.html>
+    >>> #Partial example code used from h2o documentation
     >>> # Initialize and train a GLM
     >>> h2o.init()
     >>> h2o_model = H2OGeneralizedLinearEstimator(family = 'binomial', early_stopping = True)
