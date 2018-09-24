@@ -276,16 +276,20 @@ mlflow_get_metric_history.mlflow_client <- function(
 #'
 #' Get a list of all experiments.
 #'
-#' @param view_type Qualifier for type of experiments to be returned. If unspecified, return only active experiments.
+#' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
 #' @export
-mlflow_list_experiments <- function(view_type, client = NULL, ...) {
+mlflow_list_experiments <- function(
+  view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL, ...
+) {
   UseMethod("mlflow_list_experiments", client)
-
 }
 
 #' @rdname mlflow_list_experiments
 #' @export
-mlflow_list_experiments.mlflow_client <- function(view_type, client = NULL, ...) {
+mlflow_list_experiments.mlflow_client <- function(
+  view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL, ...
+) {
+  view_type <- match.arg(view_type)
   mlflow_client_list_experiments(client, view_type)
 }
 

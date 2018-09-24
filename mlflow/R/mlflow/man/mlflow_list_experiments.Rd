@@ -5,13 +5,15 @@
 \alias{mlflow_list_experiments.mlflow_client}
 \title{List Experiments}
 \usage{
-mlflow_list_experiments(view_type, client = NULL, ...)
+mlflow_list_experiments(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
+  "ALL"), client = NULL, ...)
 
-\method{mlflow_list_experiments}{mlflow_client}(view_type, client = NULL,
-  ...)
+
+  \method{mlflow_list_experiments}{mlflow_client}(view_type = c("ACTIVE_ONLY",
+  "DELETED_ONLY", "ALL"), client = NULL, ...)
 }
 \arguments{
-\item{view_type}{Qualifier for type of experiments to be returned. If unspecified, return only active experiments.}
+\item{view_type}{Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.}
 }
 \description{
 Get a list of all experiments.
