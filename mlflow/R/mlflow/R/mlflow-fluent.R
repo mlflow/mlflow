@@ -53,7 +53,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 
     client <- mlflow_client()
 
-    mlflow_create_run(
+    create_run_response <- mlflow_create_run(
       client = client,
       experiment_id = experiment_id,
       source_name = source_name %||% get_source_name(),
@@ -61,6 +61,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
       entry_point_name = entry_point_name,
       source_type = source_type
     )
+    create_run_response$run$info
   }
 
   new_mlflow_active_run(run_info)
@@ -110,8 +111,8 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
 #' @rdname mlflow_log_param
 #' @export
 mlflow_log_param.NULL <- function(key, value, client = NULL, ...) {
+  active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  active_run <- mlflow_active_run()
   run_id <- as.character(active_run$run_info$run_uuid)
   mlflow_log_param.mlflow_client(key, value, client, run_id)
   invisible(value)

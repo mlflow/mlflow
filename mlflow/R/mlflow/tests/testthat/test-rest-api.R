@@ -31,6 +31,7 @@ test_that("mlflow_get_experiment() works properly", {
 })
 
 test_that("mlflow_create_run()/mlflow_get_run() work properly", {
+  mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
   create_run_response <- mlflow_create_run(
     client = client,
@@ -40,7 +41,7 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
     tags = list(foo = "bar", foz = "baz")
   )
 
-  run <- mlflow_get_run(client = client, create_run_response$run_uuid)
+  run <- mlflow_get_run(client = client, create_run_response$run$info$run_uuid)
   run_info <- run$info
 
   expect_identical(run_info$user_id, "user1")
@@ -55,11 +56,12 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
 })
 
 test_that("mlflow_log_param()/mlflow_get_param() work properly", {
-  mlflow_disconnect()
+  mlflow_clear_test_dir("mlruns")
   some_param <- mlflow_log_param("some_param", 42)
   expect_identical(some_param, 42)
+  client <- mlflow_client()
   expect_identical(
-    mlflow_get_param("some_param"),
+    mlflow_get_param(client = client, "some_param", run_id = mlflow_active_run()$run_info$run_uuid),
     data.frame(key = "some_param", value = "42", stringsAsFactors = FALSE)
   )
 })

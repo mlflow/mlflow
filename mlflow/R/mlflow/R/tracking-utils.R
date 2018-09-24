@@ -74,6 +74,10 @@ new_mlflow_active_run <- function(run_info) {
   run
 }
 
+mlflow_get_or_start_run <- function() {
+  mlflow_active_run() %||% mlflow_start_run()
+}
+
 #' @export
 with.mlflow_active_run <- function(data, expr, ...) {
   runid <- as.character(data$run_info$run_uuid)

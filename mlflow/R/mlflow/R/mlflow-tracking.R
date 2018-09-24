@@ -15,11 +15,17 @@ new_mlflow_client <- function(tracking_uri, server_url = NULL) {
 #' @export
 mlflow_client <- function(tracking_uri = NULL) {
   tracking_uri <- tracking_uri %||% mlflow_tracking_uri()
-  if (!startsWith(tracking_uri, "http") && is.null(mlflow_local_server(tracking_uri))) {
+  server_url <- if (startsWith(tracking_uri, "http")) {
+    tracking_uri
+  } else if (!is.null(mlflow_local_server(tracking_uri)$tracking_uri)) {
+    mlflow_local_server(tracking_uri)$tracking_uri
+  } else {
     local_server <- mlflow_server(file_store = tracking_uri, port = mlflow_connect_port())
     mlflow_register_local_server(tracking_uri = tracking_uri, local_server = local_server)
+    local_server$tracking_uri
   }
-  new_mlflow_client(tracking_uri, server_url = mlflow_local_server(tracking_uri)$tracking_uri)
+
+  new_mlflow_client(tracking_uri, server_url = server_url)
 }
 
 #' Create Experiment
@@ -132,7 +138,7 @@ mlflow_get_run <- function(run_uuid, client = NULL) {
 
 #' @export
 mlflow_get_run.mlflow_client <- function(run_uuid, client = NULL) {
-  response <- mlflow_rest("runs", "get", query = list(run_uuid = run_uuid))
+  response <- mlflow_rest("runs", "get", client = client, query = list(run_uuid = run_uuid))
   run <- purrr::compact(response$run)
   run %>%
     purrr::map_at("info", tidy_run_info)
