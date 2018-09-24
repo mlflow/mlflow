@@ -113,3 +113,11 @@ mlflow_client_get_param <- function(client, run_uuid, param_name) {
   ))
   response
 }
+
+mlflow_client_get_metric <- function(client, run_uuid, metric_key) {
+  response <- mlflow_rest("metrics", "get", query = list(
+    run_uuid = run_uuid,
+    metric_key = metric_key
+  ))
+  response
+}

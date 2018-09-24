@@ -192,7 +192,7 @@ mlflow_log_param.mlflow_client <- function(
 #' @param param_name Name of the param. This field is required.
 #' @export
 mlflow_get_param <- function(param_name, client = NULL, ...) {
-  UseMethod("mlflow_get_param")
+  UseMethod("mlflow_get_param", client)
 }
 
 #' @rdname mlflow_get_param
@@ -202,4 +202,25 @@ mlflow_get_param.mlflow_client <- function(
 ) {
   response <- mlflow_client_get_param(client, run_id, param_name)
   as.data.frame(response$parameter, stringsAsFactors = FALSE)
+}
+
+#' Get Metric
+#'
+#' API to retrieve the logged value for a metric during a run. For a run, if this
+#'   metric is logged more than once, this API will retrieve only the latest value logged.
+#'
+#' @param metric_key Name of the metric.
+#' @export
+mlflow_get_metric <- function(metric_key, client = NULL, ...) {
+  UseMethod("mlflow_get_metric", client)
+}
+
+#' @rdname mlflow_get_metric
+#' @param run_id Run ID.
+#' @export
+mlflow_get_metric.mlflow_client <- function(metric_key, client = NULL, run_id) {
+  response <- mlflow_client_get_metric(client, run_id, metric_key)
+  metric <- response$metric
+  metric$timestamp <- as.POSIXct(as.double(metric$timestamp) / 1000, origin = "1970-01-01")
+  as.data.frame(metric, stringsAsFactors = FALSE)
 }

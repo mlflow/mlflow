@@ -35,30 +35,6 @@ mlflow_get_experiment <- function(experiment_id) {
   response
 }
 
-#' Get Metric
-#'
-#' API to retrieve the logged value for a metric during a run. For a run, if this
-#'   metric is logged more than once, this API will retrieve only the latest value logged.
-#'
-#' @param run_uuid Unique ID for the run for which metric is recorded.
-#' @param metric_key Name of the metric.
-#' @export
-mlflow_get_metric <- function(metric_key, run_uuid = NULL) {
-  mlflow_get_or_create_active_connection()
-  run_uuid <- run_uuid %||%
-    mlflow_active_run()$run_info$run_uuid %||%
-    stop("`run_uuid` must be specified when there is no active run.")
-
-  response <- mlflow_rest("metrics", "get", query = list(
-    run_uuid = run_uuid,
-    metric_key = metric_key
-  ))
-
-  metric <- response$metric
-  metric$timestamp <- as.POSIXct(as.double(metric$timestamp) / 1000, origin = "1970-01-01")
-  as.data.frame(metric, stringsAsFactors = FALSE)
-}
-
 #' Get Metric History
 #'
 #' For cases that a metric is logged more than once during a run, this API can be used
