@@ -7,13 +7,14 @@ import 'react-virtualized/styles.css';
 import { Link, withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button } from 'react-bootstrap';
-import Table from 'react-bootstrap/es/Table';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 import Utils from '../utils/Utils';
+import ExperimentRunsTableOld from "./ExperimentRunsTableOld"
+import ExperimentRunsTableNew from "./ExperimentRunsTableNew";
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -66,7 +67,8 @@ class ExperimentView extends Component {
       isMetric: false,
       isParam: false,
       key: "start_time"
-    }
+    },
+    showNewTable: false,
   };
 
   static getDerivedStateFromProps(nextProps, prevState) {
@@ -79,6 +81,10 @@ class ExperimentView extends Component {
       paramKeyFilterInput,
       metricKeyFilterInput,
     };
+  }
+
+  toggleTableView() {
+    this.setState({ showNewTable: !this.state.showNewTable });
   }
 
   render() {
@@ -97,14 +103,6 @@ class ExperimentView extends Component {
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
 
     const sort = this.state.sort;
-    const columns = ExperimentView.getColumnHeaders(
-      paramKeyList,
-      metricKeyList,
-      this.onCheckAll.bind(this),
-      this.isAllChecked(),
-      this.onSortBy.bind(this),
-      sort);
-
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => {
       const runInfo = runInfos[idx];
@@ -234,27 +232,33 @@ class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
+              <span style={{float: "right"}} className="form-check">
+                <input type="checkbox" onClick={() => this.toggleTableView()}/>
+                <span style={{marginLeft: 4}}>Display multi-columns</span>
+              </span>
           </div>
-          <Table hover>
-            <colgroup span="7"/>
-            <colgroup span={paramKeyList.length}/>
-            <colgroup span={metricKeyList.length}/>
-            <tbody>
-            <tr>
-              <th className="top-row" scope="colgroup" colSpan="5"></th>
-              <th className="top-row left-border" scope="colgroup"
-                  colSpan={paramKeyList.length}>Parameters
-              </th>
-              <th className="top-row left-border" scope="colgroup"
-                  colSpan={metricKeyList.length}>Metrics
-              </th>
-            </tr>
-            <tr>
-              {columns}
-            </tr>
-            { rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
-            </tbody>
-          </Table>
+            {this.state.showNewTable ?
+                <ExperimentRunsTableNew
+                    rows={rows}
+                    onSortBy={this.onSortBy.bind(this)}
+                    onCheckbox={this.onCheckbox.bind(this)}
+                    onCheckAll={this.onCheckAll.bind(this)}
+                    paramKeyList={paramKeyList}
+                    metricKeyList={metricKeyList}
+                    isAllChecked={this.isAllChecked.bind(this)}
+                    sortState={this.state.sort}
+                /> :
+                <ExperimentRunsTableOld
+                    rows={rows}
+                    onSortBy={this.onSortBy.bind(this)}
+                    onCheckbox={this.onCheckbox.bind(this)}
+                    onCheckAll={this.onCheckAll.bind(this)}
+                    paramKeyList={paramKeyList}
+                    metricKeyList={metricKeyList}
+                    isAllChecked={this.isAllChecked.bind(this)}
+                    sortState={this.state.sort}
+                />
+            }
         </div>
       </div>
     );
@@ -437,66 +441,6 @@ class ExperimentView extends Component {
       row.push(<td className="left-border" key="meta-metric-empty" />);
     }
     return row;
-  }
-
-  static getColumnHeaders(paramKeyList, metricKeyList,
-    onCheckAll,
-    isAllChecked,
-    onSortBy,
-    sortState) {
-    const sortedClassName = (isMetric, isParam, key) => {
-      if (sortState.isMetric !== isMetric
-        || sortState.isParam !== isParam
-        || sortState.key !== key) {
-        return "sortable";
-      }
-      return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
-    };
-    const getHeaderCell = (key, text, sortable) => {
-      let onClick = () => {};
-      if (sortable) {
-        onClick = () => onSortBy(false, false, key);
-      }
-      return <th key={"meta-" + key} className={"bottom-row " + sortedClassName(false, false, key)}
-        onClick={onClick}>{text}</th>;
-    };
-
-    const numParams = paramKeyList.length;
-    const numMetrics = metricKeyList.length;
-    const columns = [
-      <th key="meta-check" className="bottom-row">
-        <input type="checkbox" onChange={onCheckAll} checked={isAllChecked} />
-      </th>,
-      getHeaderCell("start_time", <span>{"Date"}</span>, true),
-      getHeaderCell("user_id", <span>{"User"}</span>, true),
-      getHeaderCell("source", <span>{"Source"}</span>, true),
-      getHeaderCell("source_version", <span>{"Version"}</span>, true)
-    ];
-    paramKeyList.forEach((paramKey, i) => {
-      const className = "bottom-row "
-        + (i === 0 ? "left-border " : "")
-        + sortedClassName(false, true, paramKey);
-      columns.push(<th key={'param-' + paramKey} className={className}
-        onClick={() => onSortBy(false, true, paramKey)}>{paramKey}</th>);
-    });
-    if (numParams === 0) {
-      columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
-    }
-
-    let firstMetric = true;
-    metricKeyList.forEach((metricKey) => {
-      const className = "bottom-row "
-        + (firstMetric ? "left-border " : "")
-        + sortedClassName(true, false, metricKey);
-      firstMetric = false;
-      columns.push(<th key={'metric-' + metricKey} className={className}
-        onClick={() => onSortBy(true, false, metricKey)}>{metricKey}</th>);
-    });
-    if (numMetrics === 0) {
-      columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
-    }
-
-    return columns;
   }
 
   static computeMetricRanges(metricsByRun) {
