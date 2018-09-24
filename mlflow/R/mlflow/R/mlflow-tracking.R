@@ -225,6 +225,11 @@ mlflow_get_param <- function(param_name, client = NULL, ...) {
   UseMethod("mlflow_get_param", client)
 }
 
+#' @export
+mlflow_get_param.default <- function(param_name, client = NULL, ...) {
+  stop("`mlflow_get_param()` requires `client` to be specified.")
+}
+
 #' @rdname mlflow_get_param
 #' @export
 mlflow_get_param.mlflow_client <- function(
@@ -243,6 +248,11 @@ mlflow_get_param.mlflow_client <- function(
 #' @export
 mlflow_get_metric <- function(metric_key, client = NULL, ...) {
   UseMethod("mlflow_get_metric", client)
+}
+
+#' @export
+mlflow_get_metric.default <- function(param_name, client = NULL, ...) {
+  stop("`mlflow_get_metric()` requires `client` to be specified.")
 }
 
 #' @rdname mlflow_get_metric

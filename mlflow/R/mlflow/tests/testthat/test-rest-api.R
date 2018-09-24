@@ -66,11 +66,11 @@ test_that("mlflow_log_param()/mlflow_get_param() work properly", {
   )
 })
 
-test_that("mlflow_get_param() requires `run_uuid` when there is no active run", {
+test_that("mlflow_get_param() errors when `client` is not specified", {
   mlflow_clear_test_dir("mlruns")
   expect_error(
     mlflow_get_param("some_param"),
-    "`run_uuid` must be specified when there is no active run\\."
+    "`mlflow_get_param\\(\\)` requires `client` to be specified\\."
   )
 })
 
@@ -93,10 +93,10 @@ test_that("mlflow_log_metric()/mlflow_get_metric() work properly", {
   )
 })
 
-test_that("mlflow_get_metric() requires `run_uuid` when there is no active run", {
+test_that("mlflow_get_metric() errors when `client` isn't specified", {
   expect_error(
     mlflow_get_metric("some_metric"),
-    "`run_uuid` must be specified when there is no active run\\."
+    "`mlflow_get_metric\\(\\)` requires `client` to be specified\\."
   )
 })
 
