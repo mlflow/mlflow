@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
+import ExperimentViewUtil from './ExperimentViewUtil';
+import {Experiment} from "../sdk/MlflowMessages";
 
 class ExperimentRunsTableOld extends Component {
 
@@ -64,22 +66,6 @@ class ExperimentRunsTableOld extends Component {
                             isAllCheckedBool,
                             onSortBy,
                             sortState) {
-        const sortedClassName = (isMetric, isParam, key) => {
-            if (sortState.isMetric !== isMetric
-                || sortState.isParam !== isParam
-                || sortState.key !== key) {
-                return "sortable";
-            }
-            return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
-        };
-        const getHeaderCell = (key, text, sortable) => {
-            let onClick = () => {};
-            if (sortable) {
-                onClick = () => onSortBy(false, false, key);
-            }
-            return <th key={"meta-" + key} className={"bottom-row " + sortedClassName(false, false, key)}
-                       onClick={onClick}>{text}</th>;
-        };
 
         const numParams = paramKeyList.length;
         const numMetrics = metricKeyList.length;
@@ -87,15 +73,15 @@ class ExperimentRunsTableOld extends Component {
             <th key="meta-check" className="bottom-row">
                 <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
             </th>,
-            getHeaderCell("start_time", <span>{"Date"}</span>, true),
-            getHeaderCell("user_id", <span>{"User"}</span>, true),
-            getHeaderCell("source", <span>{"Source"}</span>, true),
-            getHeaderCell("source_version", <span>{"Version"}</span>, true)
+            ExperimentViewUtil.getHeaderCell("start_time", <span>{"Date"}</span>, true, onSortBy, sortState),
+            ExperimentViewUtil.getHeaderCell("user_id", <span>{"User"}</span>, true, onSortBy, sortState),
+            ExperimentViewUtil.getHeaderCell("source", <span>{"Source"}</span>, true, onSortBy, sortState),
+            ExperimentViewUtil.getHeaderCell("source_version", <span>{"Version"}</span>, true, onSortBy, sortState),
         ];
         paramKeyList.forEach((paramKey, i) => {
             const className = "bottom-row "
                 + (i === 0 ? "left-border " : "")
-                + sortedClassName(false, true, paramKey);
+                + ExperimentViewUtil.sortedClassName(sortState, false, true, paramKey);
             columns.push(<th key={'param-' + paramKey} className={className}
                              onClick={() => onSortBy(false, true, paramKey)}>{paramKey}</th>);
         });
@@ -107,7 +93,7 @@ class ExperimentRunsTableOld extends Component {
         metricKeyList.forEach((metricKey) => {
             const className = "bottom-row "
                 + (firstMetric ? "left-border " : "")
-                + sortedClassName(true, false, metricKey);
+                + ExperimentViewUtil.sortedClassName(sortState, true, false, metricKey);
             firstMetric = false;
             columns.push(<th key={'metric-' + metricKey} className={className}
                              onClick={() => onSortBy(true, false, metricKey)}>{metricKey}</th>);

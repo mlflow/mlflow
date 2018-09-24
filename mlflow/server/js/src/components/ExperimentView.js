@@ -69,7 +69,7 @@ class ExperimentView extends Component {
       isParam: false,
       key: "start_time"
     },
-    showNewTable: false,
+    showMultiColumns: false,
   };
 
   static getDerivedStateFromProps(nextProps, prevState) {
@@ -85,7 +85,7 @@ class ExperimentView extends Component {
   }
 
   toggleTableView() {
-    this.setState({ showNewTable: !this.state.showNewTable });
+    this.setState({ showMultiColumns: !this.state.showMultiColumns });
   }
 
   render() {
@@ -102,7 +102,7 @@ class ExperimentView extends Component {
     // of parameter and metric names around later
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
-
+    const rowBuilder = this.state.showMultiColumns ? ExperimentView.runInfoToRow : ExperimentView.runInfoToRowNew;
     const sort = this.state.sort;
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => {
@@ -120,12 +120,10 @@ class ExperimentView extends Component {
       } else {
         sortValue = runInfo[sort.key];
       }
-      console.log(this.props.tagsList[idx]);
-
       return {
         key: runInfo.run_uuid,
         sortValue: sortValue,
-        contents: ExperimentView.runInfoToRow({
+        contents: rowBuilder({
           runInfo,
           onCheckbox: this.onCheckbox,
           paramKeyList,
@@ -238,17 +236,7 @@ class ExperimentView extends Component {
                 <span style={{marginLeft: 4}}>Display multi-columns</span>
               </span>
           </div>
-            {this.state.showNewTable ?
-                <ExperimentRunsTableNew
-                    rows={rows}
-                    onSortBy={this.onSortBy.bind(this)}
-                    onCheckbox={this.onCheckbox.bind(this)}
-                    onCheckAll={this.onCheckAll.bind(this)}
-                    paramKeyList={paramKeyList}
-                    metricKeyList={metricKeyList}
-                    isAllChecked={this.isAllChecked.bind(this)}
-                    sortState={this.state.sort}
-                /> :
+            {this.state.showMultiColumns ?
                 <ExperimentRunsTableOld
                     rows={rows}
                     onSortBy={this.onSortBy.bind(this)}
@@ -258,7 +246,17 @@ class ExperimentView extends Component {
                     metricKeyList={metricKeyList}
                     isAllChecked={this.isAllChecked.bind(this)}
                     sortState={this.state.sort}
-                />
+                /> :
+              <ExperimentRunsTableNew
+                rows={rows}
+                onSortBy={this.onSortBy.bind(this)}
+                onCheckbox={this.onCheckbox.bind(this)}
+                onCheckAll={this.onCheckAll.bind(this)}
+                paramKeyList={paramKeyList}
+                metricKeyList={metricKeyList}
+                isAllChecked={this.isAllChecked.bind(this)}
+                sortState={this.state.sort}
+              />
             }
         </div>
       </div>
@@ -421,6 +419,62 @@ class ExperimentView extends Component {
     if (numMetrics === 0) {
       row.push(<td className="left-border" key="meta-metric-empty" />);
     }
+    return row;
+  }
+
+  /**
+   * Generate a row for a specific run, extracting the params and metrics in the given lists.
+   */
+  static runInfoToRowNew({
+                        runInfo,
+                        onCheckbox,
+                        paramKeyList,
+                        metricKeyList,
+                        paramsMap,
+                        metricsMap,
+                        tags,
+                        metricRanges,
+                        selected}) {
+    const numMetrics = metricKeyList.length;
+    const row = ExperimentViewUtil.runInfoToSharedColumns(runInfo, tags, selected, onCheckbox);
+
+    const paramsCellContents = [];
+
+    paramKeyList.forEach((paramKey, i) => {
+      const keyname = "param-" + paramKey;
+      if (paramsMap[paramKey]) {
+        paramsCellContents.push(<div key={keyname}>
+          {paramKey}: {paramsMap[paramKey].getValue()}
+        </div>);
+      }
+    });
+    row.push(<td className="left-border">{paramsCellContents}</td>);
+
+    const metricsCellContents = [];
+    metricKeyList.forEach((metricKey, i) => {
+      const keyname = "metric-" + metricKey;
+      if (metricsMap[metricKey]) {
+        const metric = metricsMap[metricKey].getValue();
+        const range = metricRanges[metricKey];
+        let fraction = 1.0;
+        if (range.max > range.min) {
+          fraction = (metric - range.min) / (range.max - range.min);
+        }
+        const percent = (fraction * 100) + "%";
+        metricsCellContents.push(
+          <div key={keyname} style={{paddingTop: 4, paddingBottom: 4}}>
+            <span style={{marginRight: "8px", color: "blue", cursor: "pointer"}}>{metricKey}:</span>
+            <span className="metric-filler-bg" style={{width: 100, display: "inline-block"}}>
+              <span className="metric-filler-fg" style={{width: percent, display: "inline-block"}}/>
+              <span className="metric-text">
+                {Utils.formatMetric(metric)}
+              </span>
+            </span>
+          </div>
+        );
+      }
+    });
+    row.push(<td className="left-border">{metricsCellContents}</td>);
     return row;
   }
 

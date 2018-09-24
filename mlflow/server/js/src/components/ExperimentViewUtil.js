@@ -26,4 +26,23 @@ export default class ExperimentViewUtil {
       <td key="meta-version">{Utils.renderVersion(runInfo)}</td>,
     ];
   }
+
+  static sortedClassName = (sortState, isMetric, isParam, key) => {
+    if (sortState.isMetric !== isMetric
+      || sortState.isParam !== isParam
+      || sortState.key !== key) {
+      return "sortable";
+    }
+    return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
+  };
+
+  static getHeaderCell = (key, text, sortable, onSortBy, sortState) => {
+    let onClick = () => {};
+    if (sortable) {
+      onClick = () => onSortBy(false, false, key);
+    }
+    return <th key={"meta-" + key} className={"bottom-row " + ExperimentViewUtil.sortedClassName(sortState, false, false, key)}
+               onClick={onClick}>{text}</th>;
+  };
+
 }

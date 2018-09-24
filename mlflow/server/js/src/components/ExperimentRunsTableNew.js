@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
+import ExperimentViewUtil from "./ExperimentViewUtil";
 
 class ExperimentRunsTableNew extends Component {
 
@@ -15,31 +16,37 @@ class ExperimentRunsTableNew extends Component {
     };
 
     render() {
-        const { paramKeyList, metricKeyList, rows, onCheckAll, isAllChecked, onSortBy, sortState } = this.props;
-
-        return (
-            <div>
-                NEW TABLE VIEW
-            <Table hover>
-            <colgroup span="7"/>
-            <colgroup span="1"/>
-            <colgroup span="1"/>
-            <tbody>
+      const { paramKeyList, metricKeyList, rows, onCheckAll, isAllChecked, onSortBy, sortState } = this.props;
+      const columns = [
+        <th key="meta-check" className="bottom-row">
+          <input type="checkbox" onChange={onCheckAll} checked={isAllChecked()} />
+        </th>,
+        ExperimentViewUtil.getHeaderCell("start_time", <span>{"Date"}</span>, true, onSortBy, sortState),
+        ExperimentViewUtil.getHeaderCell("user_id", <span>{"User"}</span>, true, onSortBy, sortState),
+        ExperimentViewUtil.getHeaderCell("source", <span>{"Source"}</span>, true, onSortBy, sortState),
+        ExperimentViewUtil.getHeaderCell("source_version", <span>{"Version"}</span>, true, onSortBy, sortState)
+      ];
+      return (
+        <Table hover>
+        <colgroup span="7"/>
+        <colgroup span="1"/>
+        <colgroup span="1"/>
+        <tbody>
+        <tr>
+            {columns}
+            <th className="top-row left-border" scope="colgroup"
+                colSpan="1">Parameters
+            </th>
+            <th className="top-row left-border" scope="colgroup"
+                colSpan="1">Metrics
+            </th>
             <tr>
-                <th className="top-row" scope="colgroup" colSpan="5"></th>
-                <th className="top-row left-border" scope="colgroup"
-                    colSpan="1">Parameters
-                </th>
-                <th className="top-row left-border" scope="colgroup"
-                    colSpan="1">Metrics
-                </th>
-                <tr>
 
-                </tr>
             </tr>
-            {rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
-            </tbody>
-        </Table> </div>);
+        </tr>
+        {rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
+        </tbody>
+        </Table>);
     }
 
 
