@@ -247,3 +247,36 @@ mlflow_get_metric_history.mlflow_client <- function(
   metrics$timestamp <- as.POSIXct(as.double(metrics$timestamp) / 1000, origin = "1970-01-01")
   as.data.frame(metrics, stringsAsFactors = FALSE)
 }
+
+#' List Experiments
+#'
+#' Get a list of all experiments.
+#'
+#' @param view_type Qualifier for type of experiments to be returned. If unspecified, return only active experiments.
+#' @export
+mlflow_list_experiments <- function(view_type, client = NULL, ...) {
+  UseMethod("mlflow_list_experiments", client)
+
+}
+
+#' @rdname mlflow_list_experiments
+#' @export
+mlflow_list_experiments.mlflow_client <- function(view_type, client = NULL, ...) {
+  mlflow_client_list_experiments(client, view_type)
+}
+
+#' Get Experiment
+#'
+#' Get meta data for experiment and a list of runs for this experiment.
+#'
+#' @param experiment_id Identifer to get an experiment.
+#' @export
+mlflow_get_experiment <- function(experiment_id, client = NULL, ...) {
+  UseMethod("mlflow_get_experiment", client)
+}
+
+#' @rdname mlflow_get_experiment
+#' @export
+mlflow_get_experiment.mlflow_connection <- function(experiment_id, client = NULL, ...) {
+  mlflow_client_get_experiment(client, experiment_id)
+}

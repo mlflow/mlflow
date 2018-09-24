@@ -33,6 +33,26 @@ mlflow_client_create_experiment <- function(client, name, artifact_location) {
   response$experiment_id
 }
 
+mlflow_client_list_experiments <- function(client, view_type) {
+  response <- mlflow_rest(
+    "experiments", "list", client = client, verb = "GET",
+    query = list(
+      view_type = view_type
+    ))
+  exps <- response$experiments
+
+  exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
+  exps
+}
+
+mlflow_client_get_experiment <- function(client, experiment_id) {
+  response <- mlflow_rest(
+    "experiments", "get", client = client,
+    query = list(experiment_id = experiment_id)
+  )
+  response
+}
+
 mlflow_client_create_run <- function(
   client, experiment_id, user_id, run_name, source_type,
   source_name, entry_point_name, start_time, source_version, tags
@@ -73,7 +93,7 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
 mlflow_client_get_run <- function(client, run_uuid) {
   response <- mlflow_rest(
     "runs", "get", client = client, verb = "GET",
-    data = list(run_uuid = run_uuid),
+    query = list(run_uuid = run_uuid),
   )
   response
 }
