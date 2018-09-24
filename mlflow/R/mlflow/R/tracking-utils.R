@@ -80,20 +80,17 @@ mlflow_get_or_start_run <- function() {
 
 #' @export
 with.mlflow_active_run <- function(data, expr, ...) {
-  runid <- as.character(data$run_info$run_uuid)
 
   tryCatch(
-    error = function(cnd) {
-      message(cnd)
-      mlflow_update_run(run_uuid = runid, status = "FAILED", end_time = current_time())
-    },
-    interrupt = function(cnd) mlflow_update_run(
-      run_uuid = runid, status = "KILLED", end_time = current_time()
-    ),
     {
       force(expr)
       mlflow_end_run()
-    }
+    },
+    error = function(cnd) {
+      message(cnd)
+      mlflow_end_run(status = "FAILED")
+    },
+    interrupt = function(cnd) mlflow_update_run(status = "KILLED")
   )
 
   invisible(NULL)
