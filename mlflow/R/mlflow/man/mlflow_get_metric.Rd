@@ -8,7 +8,7 @@
 mlflow_get_metric(metric_key, client = NULL, ...)
 
 \method{mlflow_get_metric}{mlflow_client}(metric_key, client = NULL,
-  run_id)
+  run_id, ...)
 }
 \arguments{
 \item{metric_key}{Name of the metric.}

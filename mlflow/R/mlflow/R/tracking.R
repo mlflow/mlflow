@@ -218,9 +218,32 @@ mlflow_get_metric <- function(metric_key, client = NULL, ...) {
 #' @rdname mlflow_get_metric
 #' @param run_id Run ID.
 #' @export
-mlflow_get_metric.mlflow_client <- function(metric_key, client = NULL, run_id) {
+mlflow_get_metric.mlflow_client <- function(metric_key, client = NULL, run_id, ...) {
   response <- mlflow_client_get_metric(client, run_id, metric_key)
   metric <- response$metric
   metric$timestamp <- as.POSIXct(as.double(metric$timestamp) / 1000, origin = "1970-01-01")
   as.data.frame(metric, stringsAsFactors = FALSE)
+}
+
+#' Get Metric History
+#'
+#' For cases that a metric is logged more than once during a run, this API can be used
+#'   to retrieve all logged values for this metric.
+#'
+#' @param metric_key Name of the metric.
+#' @export
+mlflow_get_metric_history <- function(metric_key, client = NULL, ...) {
+  UseMethod("mlflow_get_metric_history", client)
+}
+
+#' @rdname mlflow_get_metric_history
+#' @param run_id Run ID.
+#' @export
+mlflow_get_metric_history.mlflow_client <- function(
+  metric_key, client = NULL, run_id, ...
+) {
+  response <- mlflow_client_get_metric_history(client, run_id, metric_key)
+  metrics <- response$metrics
+  metrics$timestamp <- as.POSIXct(as.double(metrics$timestamp) / 1000, origin = "1970-01-01")
+  as.data.frame(metrics, stringsAsFactors = FALSE)
 }

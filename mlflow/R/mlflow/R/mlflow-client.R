@@ -121,3 +121,12 @@ mlflow_client_get_metric <- function(client, run_uuid, metric_key) {
   ))
   response
 }
+
+mlflow_client_get_metric_history <- function(client, run_uuid, metric_key) {
+  response <- mlflow_rest("metrics", "get-history", query = list(
+    run_uuid = run_uuid,
+    metric_key = metric_key
+  ))
+
+  response
+}
