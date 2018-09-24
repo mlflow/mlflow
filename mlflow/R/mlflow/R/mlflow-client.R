@@ -87,3 +87,11 @@ mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp) {
   ))
   response
 }
+
+mlflow_client_set_tag <- function(client, run_uuid, key, value) {
+  response <- mlflow_rest("runs", "set-tag", verb = "POST", data = list(
+    run_uuid = run_uuid,
+    key = key,
+    value = value
+  ))
+}

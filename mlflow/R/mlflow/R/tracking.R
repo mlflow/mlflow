@@ -141,3 +141,22 @@ mlflow_log_metric.mlflow_client <- function(
     client, run_uuid = run_id, key = key, value = value, timestamp = timestamp
   )
 }
+
+#' Set Tag
+#'
+#' Set a tag on a run. Tags are run metadata that can be updated during and
+#'  after a run completes.
+#'
+#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
+#' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
+#' @export
+mlflow_set_tag <- function(key, value, client = NULL, ...) {
+  UseMethod("mlflow_set_tag", client)
+}
+
+#' @rdname mlflow_set_tag
+#' @param run_id Run ID.
+#' @export
+mlflow_set_tag.mlflow_client <- function(key, value, client = NULL, run_id, ...) {
+  mlflow_client_set_tag(client, run_uuid = run_id, key = key, value = value)
+}

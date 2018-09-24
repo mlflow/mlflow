@@ -78,3 +78,14 @@ mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL) 
   )
   invisible(value)
 }
+
+#' @rdname mlflow_set_tag
+#' @export
+mlflow_set_tag.NULL <- function(key, value, client = NULL, ...) {
+  client <- mlflow_client()
+  active_run <- mlflow_active_run()
+  run_id <- as.character(active_run$run_info$run_uuid)
+  mlflow_client_set_tag.mlflow_client(
+    key = key, value = value, client = client, run_id = run_id
+  )
+}
