@@ -94,4 +94,14 @@ mlflow_client_set_tag <- function(client, run_uuid, key, value) {
     key = key,
     value = value
   ))
+  response
+}
+
+mlflow_client_log_param <- function(client, run_uuid, key, value) {
+  response <- mlflow_rest("runs", "log-parameter", verb = "POST", data = list(
+    run_uuid = run_uuid,
+    key = key,
+    value = cast_string(value)
+  ))
+  response
 }

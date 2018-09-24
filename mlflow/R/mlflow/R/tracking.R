@@ -160,3 +160,26 @@ mlflow_set_tag <- function(key, value, client = NULL, ...) {
 mlflow_set_tag.mlflow_client <- function(key, value, client = NULL, run_id, ...) {
   mlflow_client_set_tag(client, run_uuid = run_id, key = key, value = value)
 }
+
+#' Log Parameter
+#'
+#' API to log a parameter used for this run. Examples are params and hyperparams
+#'   used for ML training, or constant dates and values used in an ETL pipeline.
+#'   A params is a STRING key-value pair. For a run, a single parameter is allowed
+#'   to be logged only once.
+#'
+#' @param key Name of the parameter.
+#' @param value String value of the parameter.
+#' @export
+mlflow_log_param <- function(key, value, client = NULL, ...) {
+  UseMethod("mlflow_log_param", client)
+}
+
+#' @rdname mlflow_log_param
+#' @param run_id Run ID.
+#' @export
+mlflow_log_param.mlflow_client <- function(
+  key, value, client = NULL, run_id, ...
+) {
+  mlflow_client_log_param(client, run_uuid = run_id, key, value)
+}

@@ -35,28 +35,6 @@ mlflow_get_experiment <- function(experiment_id) {
   response
 }
 
-#' Log Parameter
-#'
-#' API to log a parameter used for this run. Examples are params and hyperparams
-#'   used for ML training, or constant dates and values used in an ETL pipeline.
-#'   A params is a STRING key-value pair. For a run, a single parameter is allowed
-#'   to be logged only once.
-#'
-#' @param run_uuid Unique ID for the run for which parameter is recorded.
-#' @param key Name of the parameter.
-#' @param value String value of the parameter.
-#' @export
-mlflow_log_param <- function(key, value, run_uuid = NULL) {
-  run_uuid <- mlflow_ensure_run_id(run_uuid)
-  response <- mlflow_rest("runs", "log-parameter", verb = "POST", data = list(
-    run_uuid = run_uuid,
-    key = key,
-    value = as.character(value)
-  ))
-
-  invisible(value)
-}
-
 #' Get Param
 #'
 #' Get a param value.
