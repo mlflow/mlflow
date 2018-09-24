@@ -70,8 +70,8 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 #' @rdname mlflow_log_metric
 #' @export
 mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL) {
+  active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  active_run <- mlflow_active_run()
   run_id <- as.character(active_run$run_info$run_uuid)
   mlflow_log_metric.mlflow_client(
     client = client, key = key, value = value, timestamp = timestamp,
@@ -83,8 +83,8 @@ mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL) 
 #' @rdname mlflow_set_tag
 #' @export
 mlflow_set_tag.NULL <- function(key, value, client = NULL, ...) {
+  cactive_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  active_run <- mlflow_active_run()
   run_id <- as.character(active_run$run_info$run_uuid)
   mlflow_set_tag.mlflow_client(
     key = key, value = value, client = client, run_id = run_id
@@ -122,8 +122,8 @@ mlflow_log_param.NULL <- function(key, value, client = NULL, ...) {
 #' @rdname mlflow_log_artifact
 #' @export
 mlflow_log_artifact.NULL <- function(path, artifact_path = NULL, client = NULL, ...) {
+  active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  active_run <- mlflow_active_run()
   run_id <- as.character(active_run$run_info$run_uuid)
   mlflow_log_artifact.mlflow_client(path, artifact_path, client, run_id)
 }
