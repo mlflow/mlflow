@@ -154,8 +154,7 @@ mlflow_rfunc_predict <- function(
     if (!interactive()) message(prediction)
 
     prediction
-  }
-  else {
+  } else {
     switch(
       fs::path_ext(output_path),
       json = jsonlite::write_json(prediction, output_path),

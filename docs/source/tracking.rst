@@ -310,7 +310,7 @@ SFTP Server
 To store artifacts in an SFTP server, specify a URI of the form ``sftp://user@host/path/to/directory``.
 You should configure the client to be able to log in to the SFTP server without a password over SSH (e.g. public key, identity file in ssh_config, etc.).
 
-The format ``sftp://pass:user@host/`` is supported for logging in. However, for safety reasons this is not recommended.
+The format ``sftp://user:pass@host/`` is supported for logging in. However, for safety reasons this is not recommended.
 
 When using this store, ``pysftp`` must be installed on both the server and the client. Run ``pip install pysftp`` to install the required package.
 

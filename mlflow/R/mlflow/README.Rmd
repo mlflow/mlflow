@@ -16,31 +16,46 @@ knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
 - Connect to MLflow servers to share experiments with others.
 - Use MLflow to export models that can be served locally and remotely.
 
-## Installation
-
-You can install **mlflow** from GitHub as follows:
-
-```{r, eval=FALSE}
-devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
-```
-
-Then, install MLflow to manage models and experiments locally:
-
 ```{r echo=FALSE, message=F, results='hide'}
 unlink("mlruns", recursive = T)
 ```
 
-```{r, eval=FALSE}
-library(mlflow)
-mlflow_install()
+## Installation
+
+Currently, the `mlflow` R package is not on CRAN; therefore, it is required to install the development version. Once released to CRAN, installation will look as follows:
+
+```{r eval=FALSE}
+install.packages("mlflow")
+mlflow::mlflow_install()
 ```
 
-To upgrade to the latest version of mlflow, run the following command and restart your r session:
+### Developemnt
+
+Install the `mlflow` package as follows:
 
 ```{r, eval=FALSE}
 devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
+Then install the latest released `mlflow` runtime.
+
+```{r, eval=FALSE}
+# Install latest released version
+mlflow::mlflow_install()
+```
+
+However, currently, the development runtime of `mlflow` is also required; which means you also need to download or clone the `mlflow` GitHub repo:
+
+```{bash eval=FALSE}
+git clone https://github.com/mlflow/mlflow
+```
+
+And upgrade the runtime to the development version as follows:
+
+```{r, eval=FALSE}
+# Upgrade to the latest development version
+reticulate::conda_install("r-mlflow", "<local github repo>", pip = TRUE)
+```
 ## Tracking
 
 MLflow Tracking allows you to logging parameters, code versions, metrics, and output files when running R code and for later visualizing the results.
@@ -102,7 +117,10 @@ column <- mlflow_log_param("column", 1)
 mlflow_log_metric("rows", nrow(iris))
 
 # train model
-model <- lm(Sepal.Width ~ iris[[column]], iris)
+model <- lm(
+  Sepal.Width ~ x,
+  data.frame(Sepal.Width = iris$Sepal.Width, x = iris[,column])
+)
 
 # log models intercept
 mlflow_log_metric("intercept", model$coefficients[["(Intercept)"]])
@@ -171,9 +189,9 @@ To save a model use `mlflow_save_model()`. For instance, you can add the followi
 # train model (...)
 
 # save model
-mlflow_save_model(function(df, model) {
-  predict(model, df)
-})
+mlflow_save_model(
+  crate(~ stats::predict(model, .x), model)
+)
 ```
 
 And trigger a run with that will also save your model as follows:
@@ -199,7 +217,7 @@ cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 Later on, the R model can be deployed which will perform predictions using `mlflow_rfunc_predict()`:
 
 ```{r}
-mlflow_rfunc_predict("model", iris)
+mlflow_rfunc_predict("model", data = data.frame(x = c(0.3, 0.2)))
 ```
 
 ## Deployment
@@ -252,4 +270,4 @@ To enable fast iteration while tracking with MLflow improvements over a model, [
 
 ## Contributing
 
-See the [MLflow contribution guidelines](../../CONTRIBUTING.rst).
+See the [MLflow contribution guidelines](../../../CONTRIBUTING.rst).

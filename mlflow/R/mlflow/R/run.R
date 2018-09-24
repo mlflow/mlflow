@@ -2,8 +2,8 @@
 #'
 #' Wrapper for `mlflow run`.
 #'
-#' @param uri A directory containing modeling scripts, defaults to the current directory.
 #' @param entry_point Entry point within project, defaults to `main` if not specified.
+#' @param uri A directory containing modeling scripts, defaults to the current directory.
 #' @param version Version of the project to run, as a Git commit reference for Git projects.
 #' @param param_list A list of parameters.
 #' @param experiment_id ID of the experiment under which to launch the run.
@@ -20,7 +20,7 @@
 #' @return The run associated with this run.
 #'
 #' @export
-mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, param_list = NULL,
+mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list = NULL,
                        experiment_id = NULL, mode = NULL, cluster_spec = NULL,
                        git_username = NULL, git_password = NULL, no_conda = FALSE,
                        storage_dir = NULL) {
