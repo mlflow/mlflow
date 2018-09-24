@@ -222,6 +222,8 @@ def test_mleap_output_json_format(spark_model_iris, model_path):
     assert type(json_schema["fields"][0]) == dict
     assert "name" in json_schema["fields"][0]
 
+    json_schema_str = json.dumps(json_schema)
+
     ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
     # Parse the json schema as a Spray JSON `JsValue` object that MLeap's
     # schema parser can process
