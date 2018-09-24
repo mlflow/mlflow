@@ -105,10 +105,6 @@ new_mlflow_server <- function(server_url, handle, ...) {
   mc
 }
 
-mlflow_connection_url <- function(mc) {
-  mc$url
-}
-
 mlflow_connection_wait <- function(mc) {
   wait_for(
     function() mlflow_rest(client = mc, "experiments", "list"),
