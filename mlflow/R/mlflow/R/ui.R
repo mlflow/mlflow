@@ -38,9 +38,4 @@ mlflow_ui.mlflow_client <- function(x, ...) {
 mlflow_ui.NULL <- function(x, ...) {
   client <- mlflow_client()
   mlflow_ui(client)
-  # tracking_uri <- mlflow_tracking_uri()
-  # if (startsWith(tracking_uri, "http"))
-  #   mlflow_view_url(tracking_uri)
-  # else
-  #   mlflow_ui(tracking_uri)
 }
