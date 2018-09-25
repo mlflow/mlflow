@@ -102,7 +102,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         _validate_run_id(existing_run_uuid)
         active_run_obj = MlflowClient().get_run(existing_run_uuid)
     else:
-        if _active_run_stack > 0:
+        if len(_active_run_stack) > 0:
             parent_run_id = _active_run_stack[-1].info.run_uuid
         else:
             parent_run_id = None

@@ -8,11 +8,20 @@ import pytest
 import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.fluent import start_run, end_run
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 
-def test_create_experiment():
+@pytest.fixture()
+def temporary_tracking_uri(tmpdir):
+    tracking.set_tracking_uri(str(tmpdir))
+    yield
+    tracking.set_tracking_uri(None)
+
+
+def test_create_experiment(temporary_tracking_uri):
     with pytest.raises(TypeError):
         mlflow.create_experiment()
 
@@ -22,16 +31,12 @@ def test_create_experiment():
     with pytest.raises(Exception):
         mlflow.create_experiment("")
 
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        exp_id = mlflow.create_experiment(
-            "Some random experiment name %d" % random.randint(1, 1e6))
-        assert exp_id is not None
-    finally:
-        tracking.set_tracking_uri(None)
+    exp_id = mlflow.create_experiment(
+        "Some random experiment name %d" % random.randint(1, 1e6))
+    assert exp_id is not None
 
 
-def test_set_experiment():
+def test_set_experiment(temporary_tracking_uri):
     with pytest.raises(TypeError):
         mlflow.set_experiment()
 
@@ -42,169 +47,140 @@ def test_set_experiment():
         mlflow.set_experiment("")
 
     try:
-        with TempDir() as tracking_uri:
-            tracking.set_tracking_uri(tracking_uri.path())
-            name = "random_exp"
-            exp_id = mlflow.create_experiment(name)
-            mlflow.set_experiment(name)
-            run = start_run()
-            assert run.info.experiment_id == exp_id
-            end_run()
+        name = "random_exp"
+        exp_id = mlflow.create_experiment(name)
+        mlflow.set_experiment(name)
+        run = start_run()
+        assert run.info.experiment_id == exp_id
+        end_run()
 
-            another_name = "another_experiment"
-            mlflow.set_experiment(another_name)
-            exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
-            another_run = start_run()
-            assert another_run.info.experiment_id == exp_id2.experiment_id
-            end_run()
+        another_name = "another_experiment"
+        mlflow.set_experiment(another_name)
+        exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+        another_run = start_run()
+        assert another_run.info.experiment_id == exp_id2.experiment_id
+        end_run()
     finally:
         # Need to do this to clear active experiment to restore state
         mlflow.tracking.fluent._active_experiment_id = None
 
 
-def test_no_nested_run():
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        first_run = start_run()
-        with first_run:
-            with pytest.raises(Exception):
-                start_run()
-    finally:
-        tracking.set_tracking_uri(None)
-
-
-def test_start_run_context_manager():
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        first_run = start_run()
-        first_uuid = first_run.info.run_uuid
-        with first_run:
-            # Check that start_run() causes the run information to be persisted in the store
-            persisted_run = tracking.MlflowClient().get_run(first_uuid)
-            assert persisted_run is not None
-            assert persisted_run.info == first_run.info
-        finished_run = tracking.MlflowClient().get_run(first_uuid)
-        assert finished_run.info.status == RunStatus.FINISHED
-        # Launch a separate run that fails, verify the run status is FAILED and the run UUID is
-        # different
-        second_run = start_run()
-        assert second_run.info.run_uuid != first_uuid
+def test_no_nested_run(temporary_tracking_uri):
+    first_run = start_run()
+    with first_run:
         with pytest.raises(Exception):
-            with second_run:
-                raise Exception("Failing run!")
-        finished_run2 = tracking.MlflowClient().get_run(second_run.info.run_uuid)
-        assert finished_run2.info.status == RunStatus.FAILED
-    finally:
-        tracking.set_tracking_uri(None)
+            start_run()
 
 
-def test_start_and_end_run():
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        # Use the start_run() and end_run() APIs without a `with` block, verify they work.
-        active_run = start_run()
+def test_start_run_context_manager(temporary_tracking_uri):
+    first_run = start_run()
+    first_uuid = first_run.info.run_uuid
+    with first_run:
+        # Check that start_run() causes the run information to be persisted in the store
+        persisted_run = tracking.MlflowClient().get_run(first_uuid)
+        assert persisted_run is not None
+        assert persisted_run.info == first_run.info
+    finished_run = tracking.MlflowClient().get_run(first_uuid)
+    assert finished_run.info.status == RunStatus.FINISHED
+    # Launch a separate run that fails, verify the run status is FAILED and the run UUID is
+    # different
+    second_run = start_run()
+    assert second_run.info.run_uuid != first_uuid
+    with pytest.raises(Exception):
+        with second_run:
+            raise Exception("Failing run!")
+    finished_run2 = tracking.MlflowClient().get_run(second_run.info.run_uuid)
+    assert finished_run2.info.status == RunStatus.FAILED
+
+
+def test_start_and_end_run(temporary_tracking_uri):
+    # Use the start_run() and end_run() APIs without a `with` block, verify they work.
+    active_run = start_run()
+    mlflow.log_metric("name_1", 25)
+    end_run()
+    finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
+    # Validate metrics
+    assert len(finished_run.data.metrics) == 1
+    expected_pairs = {"name_1": 25}
+    for metric in finished_run.data.metrics:
+        assert expected_pairs[metric.key] == metric.value
+
+
+def test_log_metric(temporary_tracking_uri):
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
         mlflow.log_metric("name_1", 25)
-        end_run()
-        finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
-        # Validate metrics
-        assert len(finished_run.data.metrics) == 1
-        expected_pairs = {"name_1": 25}
-        for metric in finished_run.data.metrics:
-            assert expected_pairs[metric.key] == metric.value
-    finally:
-        tracking.set_tracking_uri(None)
+        mlflow.log_metric("name_2", -3)
+        mlflow.log_metric("name_1", 30)
+        mlflow.log_metric("nested/nested/name", 40)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate metrics
+    assert len(finished_run.data.metrics) == 3
+    expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
+    for metric in finished_run.data.metrics:
+        assert expected_pairs[metric.key] == metric.value
 
 
-def test_log_metric():
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        active_run = start_run()
-        run_uuid = active_run.info.run_uuid
-        with active_run:
-            mlflow.log_metric("name_1", 25)
-            mlflow.log_metric("name_2", -3)
-            mlflow.log_metric("name_1", 30)
-            mlflow.log_metric("nested/nested/name", 40)
-        finished_run = tracking.MlflowClient().get_run(run_uuid)
-        # Validate metrics
-        assert len(finished_run.data.metrics) == 3
-        expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
-        for metric in finished_run.data.metrics:
-            assert expected_pairs[metric.key] == metric.value
-    finally:
-        tracking.set_tracking_uri(None)
+def test_log_metric_validation(temporary_tracking_uri):
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
+        mlflow.log_metric("name_1", "apple")
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    assert len(finished_run.data.metrics) == 0
 
 
-def test_log_metric_validation():
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        active_run = start_run()
-        run_uuid = active_run.info.run_uuid
-        with active_run:
-            mlflow.log_metric("name_1", "apple")
-        finished_run = tracking.MlflowClient().get_run(run_uuid)
-        assert len(finished_run.data.metrics) == 0
-    finally:
-        tracking.set_tracking_uri(None)
+def test_log_param(temporary_tracking_uri):
+    print(tracking.get_tracking_uri())
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
+        mlflow.log_param("name_1", "a")
+        mlflow.log_param("name_2", "b")
+        mlflow.log_param("name_1", "c")
+        mlflow.log_param("nested/nested/name", 5)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate params
+    assert len(finished_run.data.params) == 3
+    expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    for param in finished_run.data.params:
+        assert expected_pairs[param.key] == param.value
 
 
-def test_log_param():
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        active_run = start_run()
-        run_uuid = active_run.info.run_uuid
-        with active_run:
-            mlflow.log_param("name_1", "a")
-            mlflow.log_param("name_2", "b")
-            mlflow.log_param("name_1", "c")
-            mlflow.log_param("nested/nested/name", 5)
-        finished_run = tracking.MlflowClient().get_run(run_uuid)
-        # Validate params
-        assert len(finished_run.data.params) == 3
-        expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
-        for param in finished_run.data.params:
-            assert expected_pairs[param.key] == param.value
-    finally:
-        tracking.set_tracking_uri(None)
-
-
-def test_log_artifact():
-    try:
-        tracking.set_tracking_uri(tempfile.mkdtemp())
-        artifact_src_dir = tempfile.mkdtemp()
-        # Create artifacts
-        _, path0 = tempfile.mkstemp(dir=artifact_src_dir)
-        _, path1 = tempfile.mkstemp(dir=artifact_src_dir)
-        for i, path in enumerate([path0, path1]):
-            with open(path, "w") as handle:
-                handle.write("%s" % str(i))
-        # Log an artifact, verify it exists in the directory returned by get_artifact_uri
-        # after the run finishes
-        artifact_parent_dirs = ["some_parent_dir", None]
-        for parent_dir in artifact_parent_dirs:
-            with start_run():
-                run_artifact_dir = mlflow.get_artifact_uri()
-                mlflow.log_artifact(path0, parent_dir)
-            expected_dir = os.path.join(run_artifact_dir, parent_dir) \
-                if parent_dir is not None else run_artifact_dir
-            assert os.listdir(expected_dir) == [os.path.basename(path0)]
-            logged_artifact_path = os.path.join(expected_dir, path0)
-            assert filecmp.cmp(logged_artifact_path, path0, shallow=False)
-        # Log multiple artifacts, verify they exist in the directory returned by get_artifact_uri
-        for parent_dir in artifact_parent_dirs:
-            with start_run():
-                run_artifact_dir = mlflow.get_artifact_uri()
-                mlflow.log_artifacts(artifact_src_dir, parent_dir)
-            # Check that the logged artifacts match
-            expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
-                if parent_dir is not None else run_artifact_dir
-            dir_comparison = filecmp.dircmp(artifact_src_dir, expected_artifact_output_dir)
-            assert len(dir_comparison.left_only) == 0
-            assert len(dir_comparison.right_only) == 0
-            assert len(dir_comparison.diff_files) == 0
-            assert len(dir_comparison.funny_files) == 0
-    finally:
-        tracking.set_tracking_uri(None)
+def test_log_artifact(temporary_tracking_uri):
+    artifact_src_dir = tempfile.mkdtemp()
+    # Create artifacts
+    _, path0 = tempfile.mkstemp(dir=artifact_src_dir)
+    _, path1 = tempfile.mkstemp(dir=artifact_src_dir)
+    for i, path in enumerate([path0, path1]):
+        with open(path, "w") as handle:
+            handle.write("%s" % str(i))
+    # Log an artifact, verify it exists in the directory returned by get_artifact_uri
+    # after the run finishes
+    artifact_parent_dirs = ["some_parent_dir", None]
+    for parent_dir in artifact_parent_dirs:
+        with start_run():
+            run_artifact_dir = mlflow.get_artifact_uri()
+            mlflow.log_artifact(path0, parent_dir)
+        expected_dir = os.path.join(run_artifact_dir, parent_dir) \
+            if parent_dir is not None else run_artifact_dir
+        assert os.listdir(expected_dir) == [os.path.basename(path0)]
+        logged_artifact_path = os.path.join(expected_dir, path0)
+        assert filecmp.cmp(logged_artifact_path, path0, shallow=False)
+    # Log multiple artifacts, verify they exist in the directory returned by get_artifact_uri
+    for parent_dir in artifact_parent_dirs:
+        with start_run():
+            run_artifact_dir = mlflow.get_artifact_uri()
+            mlflow.log_artifacts(artifact_src_dir, parent_dir)
+        # Check that the logged artifacts match
+        expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
+            if parent_dir is not None else run_artifact_dir
+        dir_comparison = filecmp.dircmp(artifact_src_dir, expected_artifact_output_dir)
+        assert len(dir_comparison.left_only) == 0
+        assert len(dir_comparison.right_only) == 0
+        assert len(dir_comparison.diff_files) == 0
+        assert len(dir_comparison.funny_files) == 0
 
 
 def test_uri_types():
@@ -242,4 +218,24 @@ def test_with_startrun():
     run_info = mlflow.tracking._get_store().get_run(runId).info
     assert run_info.status == RunStatus.from_string("FINISHED")
     assert t0 <= run_info.end_time and run_info.end_time <= t1
+    assert mlflow.active_run() is None
+
+
+def test_parent_create_run(temporary_tracking_uri):
+    parent_run = mlflow.start_run()
+    with pytest.raises(Exception, match='To start a nested run'):
+        mlflow.start_run()
+    child_run = mlflow.start_run(nested=True)
+    grand_child_run = mlflow.start_run(nested=True)
+
+    def verify_has_parent_id_tag(child_id, expected_parent_id):
+        tags = tracking.MlflowClient().get_run(child_id).data.tags
+        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == expected_parent_id for t in tags])
+
+    verify_has_parent_id_tag(child_run.info.run_uuid, parent_run.info.run_uuid)
+    verify_has_parent_id_tag(grand_child_run.info.run_uuid, child_run.info.run_uuid)
+
+    mlflow.end_run()
+    mlflow.end_run()
+    mlflow.end_run()
     assert mlflow.active_run() is None
