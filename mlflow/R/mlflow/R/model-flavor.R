@@ -20,11 +20,11 @@ mlflow_save_flavor <- function(x, path = "model") {
 #' Loads an MLflow model flavor, to be used by package authors
 #' to extend the supported MLflow models.
 #'
-#' @param flavor_path The path to the MLflow model wrapped in the correct
+#' @param model_path The path to the MLflow model wrapped in the correct
 #'   class.
 #'
 #' @export
-mlflow_load_flavor <- function(flavor_path) {
+mlflow_load_flavor <- function(model_path) {
   UseMethod("mlflow_load_flavor")
 }
 

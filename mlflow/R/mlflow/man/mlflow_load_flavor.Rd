@@ -4,10 +4,10 @@
 \alias{mlflow_load_flavor}
 \title{Load MLflow Model Flavor}
 \usage{
-mlflow_load_flavor(flavor_path)
+mlflow_load_flavor(model_path)
 }
 \arguments{
-\item{flavor_path}{The path to the MLflow model wrapped in the correct
+\item{model_path}{The path to the MLflow model wrapped in the correct
 class.}
 }
 \description{

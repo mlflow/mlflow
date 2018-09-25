@@ -81,7 +81,7 @@ mlflow_load_model <- function(model_path) {
   model_flavors <- gsub("^r_", "", names(spec$flavors))
 
   supported <- model_flavors %>%
-    Filter(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(methods(class = e)), .)
+    purrr::keep(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(methods(class = e)))
 
   if ("crate" %in% model_flavors) {
     supported <- c("crate", supported)
@@ -94,7 +94,7 @@ mlflow_load_model <- function(model_path) {
       paste(model_flavors, collapse = ", "),
       ". Supported flavors: ",
       paste(
-        purrr::map_chr(model_flavors, ~ as.vector(methods(class = .x))),
+        purrr::map_chr(model_flavors, ~ as.vector(utils::methods(class = .x))),
         collapse = ", "
       )
     )

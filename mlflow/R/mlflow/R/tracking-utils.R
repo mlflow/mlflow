@@ -41,7 +41,7 @@ with.mlflow_active_run <- function(data, expr, ...) {
       message(cnd)
       mlflow_end_run(status = "FAILED")
     },
-    interrupt = function(cnd) mlflow_update_run(status = "KILLED")
+    interrupt = function(cnd) mlflow_end_run(status = "KILLED")
   )
 
   invisible(NULL)

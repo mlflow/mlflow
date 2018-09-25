@@ -119,7 +119,7 @@ mlflow_client_update_run <- function(client, run_uuid, status, end_time) {
   ))
 }
 
-mlflow_client_delete_experiment <- function(client, experimend_id) {
+mlflow_client_delete_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "delete", client = client, verb = "POST",
     data = list(experiment_id = experiment_id),

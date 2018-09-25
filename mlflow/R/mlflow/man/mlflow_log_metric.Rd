@@ -12,7 +12,7 @@ mlflow_log_metric(key, value, timestamp = NULL, client = NULL, ...)
   client = NULL, run_id, ...)
 
 \method{mlflow_log_metric}{NULL}(key, value, timestamp = NULL,
-  client = NULL)
+  client = NULL, ...)
 }
 \arguments{
 \item{key}{Name of the metric.}

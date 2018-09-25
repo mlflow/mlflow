@@ -250,7 +250,7 @@ mlflow_get_metric <- function(metric_key, client = NULL, ...) {
 }
 
 #' @export
-mlflow_get_metric.default <- function(param_name, client = NULL, ...) {
+mlflow_get_metric.default <- function(metric_key, client = NULL, ...) {
   stop("`mlflow_get_metric()` requires `client` to be specified.")
 }
 
