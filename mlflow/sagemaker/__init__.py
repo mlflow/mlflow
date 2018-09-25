@@ -182,7 +182,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
         ecr_client.describe_repositories(repositoryNames=[image])['repositories']
     except ecr_client.exceptions.RepositoryNotFoundException:
         ecr_client.create_repository(repositoryName=image)
-        print("Created new ECR repository: {image}".format(image=image))
+        print("Created new ECR repository: {repository_name}".format(repository_name=image))
     # TODO: it would be nice to translate the docker login, tag and push to python api.
     # x = ecr_client.get_authorization_token()['authorizationData'][0]
     # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken']
