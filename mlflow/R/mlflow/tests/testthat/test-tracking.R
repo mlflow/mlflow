@@ -1,4 +1,4 @@
-context("REST wrappers")
+context("Tracking")
 
 test_that("mlflow_create_experiment() works properly", {
   mlflow_clear_test_dir("mlruns")

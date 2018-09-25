@@ -1,4 +1,4 @@
-context("Run")
+context("Params")
 
 test_that("mlflow can read typed command line parameters", {
   mlflow_clear_test_dir("mlruns")
