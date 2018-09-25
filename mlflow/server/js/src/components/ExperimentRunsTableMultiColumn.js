@@ -4,8 +4,8 @@ import Table from 'react-bootstrap/es/Table';
 import ExperimentViewUtil from './ExperimentViewUtil';
 
 /**
- * Table view for displaying runs associated with an experiment. Renders each metric and param value associated with
- * a run in its own column.
+ * Table view for displaying runs associated with an experiment. Renders each metric and param
+ * value associated with a run in its own column.
  */
 class ExperimentRunsTableMultiColumn extends Component {
   static propTypes = {
@@ -19,7 +19,8 @@ class ExperimentRunsTableMultiColumn extends Component {
   };
 
   render() {
-    const { paramKeyList, metricKeyList, rows, onCheckAll, isAllChecked, onSortBy, sortState } = this.props;
+    const { paramKeyList, metricKeyList, rows, onCheckAll, isAllChecked, onSortBy,
+      sortState } = this.props;
     const columns = ExperimentRunsTableMultiColumn.getColumnHeaders(paramKeyList, metricKeyList,
       onCheckAll, isAllChecked(), onSortBy, sortState);
     return (<Table hover>
@@ -44,22 +45,27 @@ class ExperimentRunsTableMultiColumn extends Component {
     </Table>);
   }
 
-  static getColumnHeaders(paramKeyList, metricKeyList,
-              onCheckAll,
-              isAllCheckedBool,
-              onSortBy,
-              sortState) {
-
+  static getColumnHeaders(
+    paramKeyList,
+    metricKeyList,
+    onCheckAll,
+    isAllCheckedBool,
+    onSortBy,
+    sortState) {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [
       <th key="meta-check" className="bottom-row">
         <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
       </th>,
-      ExperimentViewUtil.getHeaderCell("start_time", <span>{"Date"}</span>, true, onSortBy, sortState),
-      ExperimentViewUtil.getHeaderCell("user_id", <span>{"User"}</span>, true, onSortBy, sortState),
-      ExperimentViewUtil.getHeaderCell("source", <span>{"Source"}</span>, true, onSortBy, sortState),
-      ExperimentViewUtil.getHeaderCell("source_version", <span>{"Version"}</span>, true, onSortBy, sortState),
+      ExperimentViewUtil.getHeaderCell("start_time", <span>{"Date"}</span>, true, onSortBy,
+        sortState),
+      ExperimentViewUtil.getHeaderCell("user_id", <span>{"User"}</span>, true, onSortBy,
+        sortState),
+      ExperimentViewUtil.getHeaderCell("source", <span>{"Source"}</span>, true, onSortBy,
+        sortState),
+      ExperimentViewUtil.getHeaderCell("source_version", <span>{"Version"}</span>, true, onSortBy,
+        sortState),
     ];
     paramKeyList.forEach((paramKey, i) => {
       const className = "bottom-row "

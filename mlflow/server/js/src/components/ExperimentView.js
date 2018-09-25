@@ -4,7 +4,7 @@ import { connect } from 'react-redux';
 import './ExperimentView.css';
 import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
 import 'react-virtualized/styles.css';
-import { Link, withRouter } from 'react-router-dom';
+import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
@@ -14,7 +14,7 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 import Utils from '../utils/Utils';
 
-import ExperimentRunsTableMultiColumn from "./ExperimentRunsTableMultiColumn"
+import ExperimentRunsTableMultiColumn from "./ExperimentRunsTableMultiColumn";
 import ExperimentRunsTableCompact from "./ExperimentRunsTableCompact";
 import ExperimentViewUtil from "./ExperimentViewUtil";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
@@ -155,7 +155,8 @@ class ExperimentView extends Component {
     // of parameter and metric names around later
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
-    const rowBuilder = this.state.showMultiColumns ? ExperimentView.runInfoToRow : this.runInfoToRowNew;
+    const rowBuilder = this.state.showMultiColumns ?
+      ExperimentView.runInfoToRow : this.runInfoToRowNew;
     const sort = this.state.sort;
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => {
@@ -343,23 +344,21 @@ class ExperimentView extends Component {
               </span>
           </div>
             {this.state.showMultiColumns ?
-                <ExperimentRunsTableMultiColumn
-                    rows={rows}
-                    onSortBy={this.onSortBy.bind(this)}
-                    onCheckbox={this.onCheckbox.bind(this)}
-                    onCheckAll={this.onCheckAll.bind(this)}
-                    paramKeyList={paramKeyList}
-                    metricKeyList={metricKeyList}
-                    isAllChecked={this.isAllChecked.bind(this)}
-                    sortState={this.state.sort}
-                /> :
-              <ExperimentRunsTableCompact
+              <ExperimentRunsTableMultiColumn
                 rows={rows}
                 onSortBy={this.onSortBy.bind(this)}
                 onCheckbox={this.onCheckbox.bind(this)}
                 onCheckAll={this.onCheckAll.bind(this)}
                 paramKeyList={paramKeyList}
                 metricKeyList={metricKeyList}
+                isAllChecked={this.isAllChecked.bind(this)}
+                sortState={this.state.sort}
+              /> :
+              <ExperimentRunsTableCompact
+                rows={rows}
+                onSortBy={this.onSortBy.bind(this)}
+                onCheckbox={this.onCheckbox.bind(this)}
+                onCheckAll={this.onCheckAll.bind(this)}
                 isAllChecked={this.isAllChecked.bind(this)}
                 sortState={this.state.sort}
               />
@@ -542,96 +541,85 @@ class ExperimentView extends Component {
    * Generate a row for a specific run, extracting the params and metrics in the given lists.
    */
   runInfoToRowNew({
-                        runInfo,
-                        onCheckbox,
-                        paramKeyList,
-
-                        metricKeyList,
-                        paramsMap,
-                        metricsMap,
-                        tags,
-                        metricRanges,
-                        selected}) {
+    runInfo,
+    onCheckbox,
+    paramsMap,
+    metricsMap,
+    tags,
+    metricRanges,
+    selected}) {
     const row = ExperimentViewUtil.runInfoToSharedColumns(runInfo, tags, selected, onCheckbox);
-
-    const paramsCellContents = [];
-
-    paramKeyList.forEach((paramKey, i) => {
+    const paramsCellContents = Object.keys(paramsMap).map((paramKey) => {
       const keyname = "param-" + paramKey;
-      if (paramsMap[paramKey]) {
-        paramsCellContents.push(
-          <div key={keyname} className="metric-param-cell">
+      return (
+        <div key={keyname} className="metric-param-cell">
+        <Dropdown id="dropdown-custom-1">
+          <CustomToggle noCaret bsRole="toggle">
+            <div>
+              {paramKey}: {paramsMap[paramKey].getValue()}
+            </div>
+          </CustomToggle>
+          <Dropdown.Menu className="mlflow-menu">
+            <MenuItem
+              className="mlflow-menu-item"
+              onClick={() => setSortBy(false, true, paramKey, true)}
+            >
+              Sort ascending ({paramKey})
+            </MenuItem>
+            <MenuItem
+              className="mlflow-menu-item"
+              onClick={() => setSortBy(false, true, paramKey, false)}
+            >
+              Sort descending ({paramKey})
+            </MenuItem>
+          </Dropdown.Menu>
+        </Dropdown>
+        </div>
+      );
+    });
+    row.push(<td className="left-border">{paramsCellContents}</td>);
+
+    const setSortBy = this.setSortBy;
+    const metricsCellContents = Object.keys(metricsMap).map((metricKey) => {
+      const keyname = "metric-" + metricKey;
+      const metric = metricsMap[metricKey].getValue();
+      const range = metricRanges[metricKey];
+      let fraction = 1.0;
+      if (range.max > range.min) {
+        fraction = (metric - range.min) / (range.max - range.min);
+      }
+      const percent = (fraction * 100) + "%";
+      return (
+        <div key={keyname} className="metric-param-cell">
           <Dropdown id="dropdown-custom-1">
             <CustomToggle noCaret bsRole="toggle">
-              <div>
-                {paramKey}: {paramsMap[paramKey].getValue()}
-              </div>
+              <span>
+                {metricKey}:
+              </span>
+              <span className="metric-filler-bg">
+                <span className="metric-filler-fg" style={{width: percent}}/>
+                <span className="metric-text">
+                  {Utils.formatMetric(metric)}
+                </span>
+              </span>
             </CustomToggle>
             <Dropdown.Menu className="mlflow-menu">
               <MenuItem
                 className="mlflow-menu-item"
-                onClick={() => setSortBy(false, true, paramKey, true)}
+                onClick={() => setSortBy(true, false, metricKey, true)}
               >
-                Sort ascending ({paramKey})
+                Sort ascending ({metricKey})
               </MenuItem>
               <MenuItem
                 className="mlflow-menu-item"
-                onClick={() => setSortBy(false, true, paramKey, false)}
+                onClick={() => setSortBy(true, false, metricKey, false)}
               >
-                Sort descending ({paramKey})
+                Sort descending ({metricKey})
               </MenuItem>
             </Dropdown.Menu>
           </Dropdown>
-          </div>
-        );
-      }
-    });
-    row.push(<td className="left-border">{paramsCellContents}</td>);
-
-    const metricsCellContents = [];
-    const setSortBy = this.setSortBy;
-    metricKeyList.forEach((metricKey, i) => {
-      const keyname = "metric-" + metricKey;
-      if (metricsMap[metricKey]) {
-        const metric = metricsMap[metricKey].getValue();
-        const range = metricRanges[metricKey];
-        let fraction = 1.0;
-        if (range.max > range.min) {
-          fraction = (metric - range.min) / (range.max - range.min);
-        }
-        const percent = (fraction * 100) + "%";
-        metricsCellContents.push(
-          <div key={keyname} className="metric-param-cell">
-            <Dropdown id="dropdown-custom-1">
-              <CustomToggle noCaret bsRole="toggle">
-                <span>
-                  {metricKey}:
-                </span>
-                <span className="metric-filler-bg">
-                  <span className="metric-filler-fg" style={{width: percent}}/>
-                  <span className="metric-text">
-                    {Utils.formatMetric(metric)}
-                  </span>
-                </span>
-              </CustomToggle>
-              <Dropdown.Menu className="mlflow-menu">
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortBy(true, false, metricKey, true)}
-                >
-                  Sort ascending ({metricKey})
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortBy(true, false, metricKey, false)}
-                >
-                  Sort descending ({metricKey})
-                </MenuItem>
-              </Dropdown.Menu>
-            </Dropdown>
-          </div>
-        );
-      }
+        </div>
+      );
     });
     row.push(<td className="left-border">{metricsCellContents}</td>);
     return row;
@@ -836,9 +824,13 @@ class CustomToggle extends React.Component {
     this.handleClick = this.handleClick.bind(this);
   }
 
+  static propTypes = {
+    onClick: PropTypes.func,
+    children: PropTypes.arrayOf(PropTypes.element),
+  };
+
   handleClick(e) {
     e.preventDefault();
-
     this.props.onClick(e);
   }
 

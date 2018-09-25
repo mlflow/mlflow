@@ -41,8 +41,25 @@ export default class ExperimentViewUtil {
     if (sortable) {
       onClick = () => onSortBy(false, false, key);
     }
-    return <th key={"meta-" + key} className={"bottom-row " + ExperimentViewUtil.sortedClassName(sortState, false, false, key)}
+    const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key);
+    return <th key={"meta-" + key}
+               className={"bottom-row " + sortedClassName}
                onClick={onClick}>{text}</th>;
   };
 
+  // static getSortValue(sort, metricsMap, paramsMap, tagsMap, runInfo) {
+  //   if (sort.isMetric || sort.isParam) {
+  //     const sortValue = (sort.isMetric ? metricsMap : paramsMap)[sort.key];
+  //     return sortValue === undefined ? undefined : sortValue.value;
+  //   } else if (sort.key === 'user_id') {
+  //     return Utils.formatUser(runInfo.user_id);
+  //   } else if (sort.key === 'source') {
+  //     return Utils.formatSource(runInfo, tagsMap);
+  //   }
+  //   return runInfo[sort.key];
+  // }
+  //
+  // static sortRows() {
+  //
+  // }
 }
