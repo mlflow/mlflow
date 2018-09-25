@@ -370,20 +370,18 @@ class ExperimentView extends Component {
             {this.state.showMultiColumns ?
               <ExperimentRunsTableMultiColumn
                 rows={rows}
-                onSortBy={this.onSortBy}
-                onCheckbox={this.onCheckbox}
-                onCheckAll={this.onCheckAll}
                 paramKeyList={paramKeyList}
                 metricKeyList={metricKeyList}
+                onCheckAll={this.onCheckAll}
                 isAllChecked={this.isAllChecked}
+                onSortBy={this.onSortBy}
                 sortState={this.state.sort}
               /> :
               <ExperimentRunsTableCompact
                 rows={rows}
-                onSortBy={this.onSortBy}
-                onCheckbox={this.onCheckbox}
                 onCheckAll={this.onCheckAll}
                 isAllChecked={this.isAllChecked}
+                onSortBy={this.onSortBy}
                 sortState={this.state.sort}
               />
             }

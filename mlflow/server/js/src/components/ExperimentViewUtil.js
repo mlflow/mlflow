@@ -52,6 +52,7 @@ export default class ExperimentViewUtil {
     ];
   }
 
+  /** Returns a classname for a sortable column (a run metadata column, or a metric/param column) */
   static sortedClassName = (sortState, isMetric, isParam, key) => {
     if (sortState.isMetric !== isMetric
       || sortState.isParam !== isParam
