@@ -4,7 +4,11 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 
 export default class ExperimentViewUtil {
-  static runInfoToSharedColumns(runInfo, tags, selected, onCheckbox) {
+  /**
+   * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
+   *
+   */
+  static getRunInfoColumnsForRow(runInfo, tags, selected, onCheckbox) {
     return [
       <td key="meta-check"><input type="checkbox" checked={selected}
                                   onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
@@ -27,6 +31,32 @@ export default class ExperimentViewUtil {
     ];
   }
 
+  /**
+   * Returns shared headers for
+   * @param onSortBy
+   * @param onCheckall
+   * @param isAllCheckedBool
+   * @param sortState
+   * @returns {*[]}
+   */
+  static sharedColumnHeaders(onSortBy, onCheckall, isAllCheckedBool, sortState) {
+    const getHeaderCell = (key, text) => {
+      const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key);
+      return <th key={"meta-" + key}
+                 className={"bottom-row " + sortedClassName}
+                 onClick={() => onSortBy(false, false, key)}>{text}</th>;
+    };
+    return [
+      <th key="meta-check" className="bottom-row">
+        <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
+      </th>,
+      getHeaderCell("start_time", <span>{"Date"}</span>),
+      getHeaderCell("user_id", <span>{"User"}</span>),
+      getHeaderCell("source", <span>{"Source"}</span>),
+      getHeaderCell("source_version", <span>{"Version"}</span>),
+    ];
+  }
+
   static sortedClassName = (sortState, isMetric, isParam, key) => {
     if (sortState.isMetric !== isMetric
       || sortState.isParam !== isParam
@@ -36,16 +66,6 @@ export default class ExperimentViewUtil {
     return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
   };
 
-  static getHeaderCell = (key, text, sortable, onSortBy, sortState) => {
-    let onClick = () => {};
-    if (sortable) {
-      onClick = () => onSortBy(false, false, key);
-    }
-    const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key);
-    return <th key={"meta-" + key}
-               className={"bottom-row " + sortedClassName}
-               onClick={onClick}>{text}</th>;
-  };
 
   // static getSortValue(sort, metricsMap, paramsMap, tagsMap, runInfo) {
   //   if (sort.isMetric || sort.isParam) {
