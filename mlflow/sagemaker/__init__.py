@@ -180,7 +180,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     ecr_client = boto3.client('ecr')
     try:
         ecr_client.describe_repositories(repositoryNames=[image])['repositories']
-    except RepositoryNotFoundException:
+    except ecr_client.exceptions.RepositoryNotFoundException:
         ecr_client.create_repository(repositoryName=image)
         print("Created new ECR repository: {image}".format(image=image))
     # TODO: it would be nice to translate the docker login, tag and push to python api.
