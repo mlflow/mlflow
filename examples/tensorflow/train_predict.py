@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import mlflow
-from mlflow import tensorflow, tracking
+from mlflow import tensorflow, tracking, pyfunc
 import numpy as np
 import pandas as pd
 import shutil
@@ -38,10 +38,10 @@ def main(argv):
             # Logging the saved model
             tensorflow.log_saved_model(saved_model_dir=saved_estimator_path, signature_def_key="predict", artifact_path="model")
             # Reloading the model
-            pyfunc = tensorflow.load_pyfunc(saved_estimator_path)
+            pyfunc_model = pyfunc.load_pyfunc(saved_estimator_path)
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
             # Predicting on the loaded Python Function
-            predict_df = pyfunc.predict(df)
+            predict_df = pyfunc_model.predict(df)
             predict_df['original_labels'] = y_test
             print(predict_df)
         finally:

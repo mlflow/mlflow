@@ -8,4 +8,4 @@ dependencies:
   - requests
   - click
   - pip:
-    - -e ../../
+    - mlflow

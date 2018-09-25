@@ -7,12 +7,15 @@ class Experiment(_MLflowObject):
     Experiment object.
     """
     DEFAULT_EXPERIMENT_ID = 0
+    ACTIVE_LIFECYCLE = 'active'
+    DELETED_LIFECYCLE = 'deleted'
 
-    def __init__(self, experiment_id, name, artifact_location):
+    def __init__(self, experiment_id, name, artifact_location, lifecycle_stage):
         super(Experiment, self).__init__()
         self._experiment_id = experiment_id
         self._name = name
         self._artifact_location = artifact_location
+        self._lifecycle_stage = lifecycle_stage
 
     @property
     def experiment_id(self):
@@ -29,18 +32,24 @@ class Experiment(_MLflowObject):
         """String corresponding to the root artifact URI for the experiment."""
         return self._artifact_location
 
+    @property
+    def lifecycle_stage(self):
+        """Lifecycle stage of the experiment. Can either be 'active' or 'deleted'."""
+        return self._lifecycle_stage
+
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.experiment_id, proto.name, proto.artifact_location)
+        return cls(proto.experiment_id, proto.name, proto.artifact_location, proto.lifecycle_stage)
 
     def to_proto(self):
         proto = ProtoExperiment()
         proto.experiment_id = self.experiment_id
         proto.name = self.name
         proto.artifact_location = self.artifact_location
+        proto.lifecycle_stage = self.lifecycle_stage
         return proto
 
     @classmethod
     def _properties(cls):
         # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["experiment_id", "name", "artifact_location"]
+        return ["experiment_id", "name", "artifact_location", "lifecycle_stage"]

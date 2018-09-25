@@ -71,8 +71,7 @@ mlflow_snapshot_warning <- function() {
 mlflow_restore_or_warning <- function(restore) {
   if (restore) {
     mlflow_restore_snapshot()
-  }
-  else {
+  } else {
     mlflow_snapshot_warning()
   }
 }

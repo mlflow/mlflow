@@ -95,18 +95,9 @@ class _KerasModelWrapper:
         return predicted
 
 
-def load_pyfunc(model_file):
+def _load_pyfunc(model_file):
     """
-    Load a persisted Keras model as a ``python_function`` model.
-
-    :param model_file: Local filesystem path to model saved by :py:func:`mlflow.keras.log_model`.
-    :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
-
-    >>> model_file = "/tmp/pyfunc-keras-model"
-    >>> keras_model = mlflow.keras.load_pyfunc(model_file)
-    >>> # We can apply the loaded PyFunc for inference on a pandas DataFrame via predict()
-    >>> predictions = keras_model.predict(x_test)
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
     if K._BACKEND == 'tensorflow':
         import tensorflow as tf
