@@ -181,10 +181,12 @@ def _get_mleap_schema(dataframe):
     from pyspark.ml.util import _jvm
     ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
 
+    # Convert the Spark dataframe's schema to an MLeap schema object
     tc_clazz = ReflectionUtil.classForName("org.apache.spark.sql.mleap.TypeConverters$")
     tc_inst = tc_clazz.getField("MODULE$").get(tc_clazz)
     mleap_schema_struct = tc_inst.sparkSchemaToMleapSchema(dataframe._jdf)
 
+    # Obtain a JSON representation of the MLeap schema object
     js_clazz = ReflectionUtil.classForName("ml.combust.mleap.json.JsonSupport$")
     js_inst = js_clazz.getField("MODULE$").get(js_clazz)
     mleap_schema_json = js_inst.MleapStructTypeFormat().write(mleap_schema_struct)
