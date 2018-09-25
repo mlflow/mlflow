@@ -6,17 +6,20 @@ import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../r
 import 'react-virtualized/styles.css';
 import { Link, withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button } from 'react-bootstrap';
+import { Button, Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 import Utils from '../utils/Utils';
+
 import ExperimentRunsTableMultiColumn from "./ExperimentRunsTableMultiColumn"
 import ExperimentRunsTableCompact from "./ExperimentRunsTableCompact";
 import ExperimentViewUtil from "./ExperimentViewUtil";
-import { Dropdown, MenuItem } from 'react-bootstrap';
+import { LIFECYCLE_FILTER } from './ExperimentPage';
+import DeleteRunModal from './modals/DeleteRunModal';
+import RestoreRunModal from './modals/RestoreRunModal';
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -32,6 +35,11 @@ class ExperimentView extends Component {
     this.onSortBy = this.onSortBy.bind(this);
     this.setSortBy = this.setSortBy.bind(this);
     this.runInfoToRowNew = this.runInfoToRowNew.bind(this);
+    this.onDeleteRun = this.onDeleteRun.bind(this);
+    this.onRestoreRun = this.onRestoreRun.bind(this);
+    this.onLifecycleFilterInput = this.onLifecycleFilterInput.bind(this);
+    this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
+    this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
   }
 
   static propTypes = {
@@ -57,6 +65,9 @@ class ExperimentView extends Component {
     // Input to the paramKeyFilter field
     metricKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
 
+    // Input to the lifecycleFilter field
+    lifecycleFilter: PropTypes.string.isRequired,
+
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
   };
@@ -65,6 +76,7 @@ class ExperimentView extends Component {
     runsSelected: {},
     paramKeyFilterInput: '',
     metricKeyFilterInput: '',
+    lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
     searchInput: '',
     searchErrorMessage: undefined,
     sort: {
@@ -74,10 +86,29 @@ class ExperimentView extends Component {
       key: "start_time"
     },
     showMultiColumns: false,
+    showDeleteRunModal: false,
+    showRestoreRunModal: false,
   };
 
+  shouldComponentUpdate(nextProps, nextState) {
+    // Don't update the component if a modal is showing before and after the update try.
+    if (this.state.showDeleteRunModal && nextState.showDeleteRunModal) return false;
+    if (this.state.showRestoreRunModal && nextState.showRestoreRunModal) return false;
+    return true;
+  }
+
+
   static getDerivedStateFromProps(nextProps, prevState) {
-    const { searchInput, paramKeyFilter, metricKeyFilter } = nextProps;
+    // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
+    // prop)
+    const newRunsSelected = {};
+    nextProps.runInfos.forEach((rInfo) => {
+      const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
+      if (prevRunSelected) {
+        newRunsSelected[rInfo.run_uuid] = prevRunSelected;
+      }
+    });
+    const { searchInput, paramKeyFilter, metricKeyFilter, lifecycleFilter } = nextProps;
     const paramKeyFilterInput = paramKeyFilter.getFilterString();
     const metricKeyFilterInput = metricKeyFilter.getFilterString();
     return {
@@ -85,11 +116,29 @@ class ExperimentView extends Component {
       searchInput,
       paramKeyFilterInput,
       metricKeyFilterInput,
+      lifecycleFilterInput: lifecycleFilter,
+      runsSelected: newRunsSelected,
     };
   }
 
   toggleTableView() {
-    this.setState({ showMultiColumns: !this.state.showMultiColumns });
+    this.setState({showMultiColumns: !this.state.showMultiColumns});
+  }
+
+  onDeleteRun() {
+    this.setState({ showDeleteRunModal: true });
+  }
+
+  onRestoreRun() {
+    this.setState({ showRestoreRunModal: true });
+  }
+
+  onCloseDeleteRunModal() {
+    this.setState({ showDeleteRunModal: false });
+  }
+
+  onCloseRestoreRunModal() {
+    this.setState({ showRestoreRunModal: false });
   }
 
   render() {
@@ -161,8 +210,20 @@ class ExperimentView extends Component {
     });
 
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
+    const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     return (
       <div className="ExperimentView">
+        <DeleteRunModal
+          isOpen={this.state.showDeleteRunModal}
+          onClose={this.onCloseDeleteRunModal}
+          selectedRunIds={Object.keys(this.state.runsSelected)}
+        />
+        <RestoreRunModal
+          isOpen={this.state.showRestoreRunModal}
+          onClose={this.onCloseRestoreRunModal}
+          selectedRunIds={Object.keys(this.state.runsSelected)}
+        />
         <h1>{name}</h1>
         <div className="metadata">
           <span className="metadata">
@@ -192,13 +253,42 @@ class ExperimentView extends Component {
             </div>
             <div className="ExperimentView-search-inputs">
               <div className="ExperimentView-search">
-                <label className="filter-label">Search Runs:</label>
-                <div className="filter-wrapper">
-                  <input type="text"
-                         placeholder={'metrics.rmse < 1 and params.model = "tree"'}
-                         value={this.state.searchInput}
-                         onChange={this.onSearchInput}
-                  />
+                <div className="ExperimentView-search-input">
+                  <label className="filter-label">Search Runs:</label>
+                  <div className="filter-wrapper">
+                    <input type="text"
+                           placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                           value={this.state.searchInput}
+                           onChange={this.onSearchInput}
+                    />
+                  </div>
+                </div>
+                <div className="ExperimentView-lifecycle-input">
+                  <label className="filter-label" style={styles.lifecycleButtonLabel}>State:</label>
+                  <div className="filter-wrapper" style={styles.lifecycleButtonFilterWrapper}>
+                    <DropdownButton
+                      id={"ExperimentView-lifecycle-button-id"}
+                      className="ExperimentView-lifecycle-button"
+                      key={this.state.lifecycleFilterInput}
+                      bsStyle='default'
+                      title={this.state.lifecycleFilterInput}
+                    >
+                      <MenuItem
+                        active={this.state.lifecycleFilterInput === LIFECYCLE_FILTER.ACTIVE}
+                        onSelect={this.onLifecycleFilterInput}
+                        eventKey={LIFECYCLE_FILTER.ACTIVE}
+                      >
+                        {LIFECYCLE_FILTER.ACTIVE}
+                      </MenuItem>
+                      <MenuItem
+                        active={this.state.lifecycleFilterInput === LIFECYCLE_FILTER.DELETED}
+                        onSelect={this.onLifecycleFilterInput}
+                        eventKey={LIFECYCLE_FILTER.DELETED}
+                      >
+                        {LIFECYCLE_FILTER.DELETED}
+                      </MenuItem>
+                    </DropdownButton>
+                  </div>
                 </div>
               </div>
               <div className="ExperimentView-keyFilters">
@@ -230,8 +320,20 @@ class ExperimentView extends Component {
               {rows.length} matching {rows.length === 1 ? 'run' : 'runs'}
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
-              Compare Selected
+              Compare
             </Button>
+            {
+              this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ?
+              <Button disabled={deleteDisabled} onClick={this.onDeleteRun}>
+                Delete
+              </Button> : null
+            }
+            {
+              this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ?
+              <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
+                Restore
+              </Button> : null
+            }
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
@@ -325,14 +427,26 @@ class ExperimentView extends Component {
     this.setState({ searchInput: event.target.value });
   }
 
+  onLifecycleFilterInput(newLifecycleInput) {
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
+  }
+
   onSearch(e) {
-    e.preventDefault();
-    const { paramKeyFilterInput, metricKeyFilterInput, searchInput } = this.state;
+    if (e !== undefined) {
+      e.preventDefault();
+    }
+    const {
+      paramKeyFilterInput,
+      metricKeyFilterInput,
+      searchInput,
+      lifecycleFilterInput
+    } = this.state;
     const paramKeyFilter = new KeyFilter(paramKeyFilterInput);
     const metricKeyFilter = new KeyFilter(metricKeyFilterInput);
     try {
       const andedExpressions = SearchUtils.parseSearchInput(searchInput);
-      this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput);
+      this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput,
+        lifecycleFilterInput);
     } catch (ex) {
       this.setState({ searchErrorMessage: ex.errorMessage });
     }
@@ -431,6 +545,7 @@ class ExperimentView extends Component {
                         runInfo,
                         onCheckbox,
                         paramKeyList,
+
                         metricKeyList,
                         paramsMap,
                         metricsMap,
@@ -665,7 +780,7 @@ class ExperimentView extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { searchRunsRequestId } = ownProps;
+  const { lifecycleFilter, searchRunsRequestId } = ownProps;
   const searchRunApi = getApis([searchRunsRequestId], state)[0];
   // The runUuids we should serve.
   let runUuids;
@@ -676,7 +791,13 @@ const mapStateToProps = (state, ownProps) => {
   }
   const runInfos = getRunInfos(state).filter((rInfo) =>
     runUuids.has(rInfo.getRunUuid())
-  );
+  ).filter((rInfo) => {
+    if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
+      return rInfo.lifecycle_stage === 'active';
+    } else {
+      return rInfo.lifecycle_stage === 'deleted';
+    }
+  });
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
@@ -729,5 +850,14 @@ class CustomToggle extends React.Component {
     );
   }
 }
+
+const styles = {
+  lifecycleButtonLabel: {
+    width: '60px'
+  },
+  lifecycleButtonFilterWrapper: {
+    marginLeft: '60px',
+  }
+};
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));

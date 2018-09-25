@@ -221,6 +221,14 @@ class Utils {
     }
     return 'Unknown Error';
   }
+
+  static pluralize(word, quantity) {
+    if (quantity > 1) {
+      return word + 's';
+    } else {
+      return word;
+    }
+  }
 }
 
 export default Utils;
