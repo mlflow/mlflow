@@ -44,8 +44,8 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
 #' @export
 mlflow_create_experiment.mlflow_client <- function(name, artifact_location = NULL, client = NULL) {
   name <- forge::cast_string(name)
-  experiment_id <- mlflow_client_create_experiment(client, name, artifact_location)
-  invisible(experiment_id)
+  response <- mlflow_client_create_experiment(client, name, artifact_location)
+  invisible(response$experiment_id)
 }
 
 #' Create Run
@@ -305,7 +305,11 @@ mlflow_list_experiments.mlflow_client <- function(
   view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL, ...
 ) {
   view_type <- match.arg(view_type)
-  mlflow_client_list_experiments(client, view_type)
+  response <- mlflow_client_list_experiments(client, view_type)
+  exps <- response$experiments
+
+  exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
+  exps
 }
 
 #' Get Experiment

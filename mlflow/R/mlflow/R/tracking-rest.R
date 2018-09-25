@@ -67,26 +67,21 @@ mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", ve
 
 
 mlflow_client_create_experiment <- function(client, name, artifact_location) {
-  response <- mlflow_rest(
+  mlflow_rest(
     "experiments", "create", client = client, verb = "POST",
     data = list(
       name = name,
       artifact_location = artifact_location
     )
   )
-  response$experiment_id
 }
 
 mlflow_client_list_experiments <- function(client, view_type) {
-  response <- mlflow_rest(
+  mlflow_rest(
     "experiments", "list", client = client, verb = "GET",
     query = list(
       view_type = view_type
     ))
-  exps <- response$experiments
-
-  exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
-  exps
 }
 
 mlflow_client_get_experiment <- function(client, experiment_id) {
