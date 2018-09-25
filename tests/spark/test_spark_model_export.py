@@ -226,7 +226,7 @@ def test_mleap_output_json_format(spark_model_iris, model_path):
 
     ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
     # Parse the json schema as a Spray JSON `JsValue` object that MLeap's
-    # schema parser can process
+    # schema parser can process.
     input_creator_clazz = ReflectionUtil.classForName("spray.json.ParserInput$")
     input_creator_inst = input_creator_clazz.getField("MODULE$").get(input_creator_clazz)
     input_item = input_creator_inst.apply(json_schema_str)
@@ -299,5 +299,6 @@ def test_save_fails_with_sample_input_containing_unsupported_data_type(spark_con
     unsupported_df = unsupported_df.withColumn("_2", unsupported_df._2.cast(DateType()))
     pipeline = Pipeline(stages=[])
     model = pipeline.fit(unsupported_df)
+    # The Spark `DateType` is not supported by MLeap, so we expect serialization to fail.
     with pytest.raises(Exception):
         sparkm.save_model(spark_model=model, path=model_path, sample_input=unsupported_df)
