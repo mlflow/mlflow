@@ -5,6 +5,25 @@ mlflow_create_experiment.NULL <- function(name, artifact_location = NULL, client
   invisible(experiment_id)
 }
 
+#' Set Experiment
+#'
+#' Set given experiment as active experiment. If experiment does not
+#'  exist, create an experiment with provided name.
+#'
+#' @param experiment_name Name of experiment to be activated.
+#' @export
+mlflow_set_experiment <- function(experiment_name) {
+  client <- mlflow_client()
+  experiment <- mlflow_get_experiment_by_name(client = client, experiment_name)
+  exp_id <- if (!is.null(experiment)) {
+    experiment$experiment_id
+  } else {
+    message("`", experiment_name, "` does not exist. Creating a new experiment.")
+    mlflow_create_experiment(client = client, name = experiment_name)
+  }
+  mlflow_set_active_experiment_id(exp_id)
+}
+
 #' Start Run
 #'
 #' Starts a new run within an experiment, should be used within a \code{with} block.

@@ -270,6 +270,19 @@ mlflow_get_experiment <- function(experiment_id, client) {
   mlflow_client_get_experiment(client, experiment_id)
 }
 
+#' Get Experiment by Name
+#'
+#' Get meta data for experiment by name.
+#'
+#' @param name The experiment name.
+#' @template roxlate-client
+#' @export
+mlflow_get_experiment_by_name <- function(name, client) {
+  exps <- mlflow_list_experiments(client = client)
+  experiment <- exps[exps$name == name, ]
+  if (nrow(experiment)) experiment else NULL
+}
+
 #' Terminate a Run
 #'
 #' @param run_id Unique identifier for the run.
