@@ -24,7 +24,7 @@ class RestoreRunModal extends Component {
       restorePromises.push(this.props.dispatch(restoreRunApi(runId)));
     });
     return Promise.all(restorePromises).catch(() => {
-      this.props.dispatch(openErrorModal('While deleting an experiment run, an error occurred.'));
+      this.props.dispatch(openErrorModal('While restoring an experiment run, an error occurred.'));
     });
   }
 

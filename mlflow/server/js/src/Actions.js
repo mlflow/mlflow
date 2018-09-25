@@ -60,7 +60,7 @@ export const deleteRunApi = (runUuid, id = getUUID()) => {
       payload: wrapDeferred(MlflowService.deleteRun, { run_id: runUuid }),
       meta: { id: getUUID() },
     });
-    return deleteResponse.then(dispatch(getRunApi(runUuid, id)));
+    return deleteResponse.then(() => dispatch(getRunApi(runUuid, id)));
   };
 };
 
@@ -72,7 +72,7 @@ export const restoreRunApi = (runUuid, id = getUUID()) => {
       payload: wrapDeferred(MlflowService.restoreRun, { run_id: runUuid }),
       meta: { id: getUUID() },
     });
-    return restoreResponse.then(dispatch(getRunApi(runUuid, id)));
+    return restoreResponse.then(() => dispatch(getRunApi(runUuid, id)));
   };
 };
 
