@@ -26,7 +26,7 @@ get_source_version <- function() {
 }
 
 mlflow_get_or_start_run <- function() {
-  mlflow_active_run() %||% mlflow_start_run()
+  mlflow_get_active_run() %||% mlflow_start_run()
 }
 
 #' @export
@@ -50,7 +50,7 @@ with.mlflow_active_run <- function(data, expr, ...) {
 
 run_id <- function(run) cast_nullable_string(run$info$run_uuid)
 
-active_run_id <- function() run_id(mlflow_active_run())
+active_run_id <- function() run_id(mlflow_get_active_run())
 
 current_time <- function() {
   round(as.numeric(Sys.time()) * 1000)

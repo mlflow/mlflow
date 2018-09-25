@@ -4,7 +4,7 @@
 #'
 #' @name active_run
 #' @export
-mlflow_active_run <- function() {
+mlflow_get_active_run <- function() {
   .globals$active_run
 }
 
@@ -35,4 +35,27 @@ mlflow_set_active_experiment_id <- function(experiment_id) {
   }
 
   invisible(experiment_id)
+}
+
+#' Set Remote Tracking URI
+#'
+#' Specifies the URI to the remote MLflow server that will be used
+#' to track experiments.
+#'
+#' @param uri The URI to the remote MLflow server.
+#'
+#' @export
+mlflow_set_tracking_uri <- function(uri) {
+  .globals$tracking_uri <- uri
+  invisible(uri)
+}
+
+#' Get Remote Tracking URI
+#'
+#' @export
+mlflow_get_tracking_uri <- function() {
+  .globals$tracking_uri %||% {
+    env_uri <- Sys.getenv("MLFLOW_TRACKING_URI")
+    if (nchar(env_uri)) env_uri else fs::path_abs("mlruns")
+  }
 }
