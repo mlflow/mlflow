@@ -188,14 +188,14 @@ def _get_mleap_schema(dataframe):
     ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
 
     # Convert the Spark dataframe's schema to an MLeap schema object.
-    # This is equivalent to the Scala function call 
+    # This is equivalent to the Scala function call
     # `org.apache.spark.sql.mleap.TypeConverters.sparkSchemaToMleapSchema(dataframe)`
     tc_clazz = ReflectionUtil.classForName("org.apache.spark.sql.mleap.TypeConverters$")
     tc_inst = tc_clazz.getField("MODULE$").get(tc_clazz)
     mleap_schema_struct = tc_inst.sparkSchemaToMleapSchema(dataframe._jdf)
 
     # Obtain a JSON representation of the MLeap schema object
-    # This is equivalent to the Scala function call 
+    # This is equivalent to the Scala function call
     # `ml.combust.mleap.json.JsonSupport.MleapStructTypeFormat().write(mleap_schema_struct)`
     js_clazz = ReflectionUtil.classForName("ml.combust.mleap.json.JsonSupport$")
     js_inst = js_clazz.getField("MODULE$").get(js_clazz)
@@ -206,7 +206,7 @@ def _get_mleap_schema(dataframe):
 def _handle_py4j_error(reraised_error_type, reraised_error_text):
     """
     Logs information about an exception that is currently being handled
-    and reraises it with the specified error text as a message. 
+    and reraises it with the specified error text as a message.
     """
     traceback.print_exc()
     tb = sys.exc_info()[2]
