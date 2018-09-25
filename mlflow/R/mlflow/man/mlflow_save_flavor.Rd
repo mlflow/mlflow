@@ -4,7 +4,8 @@
 \alias{mlflow_save_flavor}
 \title{Save MLflow Model Flavor}
 \usage{
-mlflow_save_flavor(x, path = "model")
+mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
+  conda_env = NULL)
 }
 \arguments{
 \item{x}{The serving function or model that will perform a prediction.}

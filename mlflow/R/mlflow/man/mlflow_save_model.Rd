@@ -4,7 +4,8 @@
 \alias{mlflow_save_model}
 \title{Save Model for MLflow}
 \usage{
-mlflow_save_model(x, path = "model", dependencies = NULL)
+mlflow_save_model(x, path = "model", r_dependencies = NULL,
+  conda_env = NULL)
 }
 \arguments{
 \item{x}{The serving function or model that will perform a prediction.}

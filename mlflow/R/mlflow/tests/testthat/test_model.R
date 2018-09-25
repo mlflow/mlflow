@@ -32,12 +32,13 @@ test_that("mlflow can write model with dependencies", {
 
   fn <- crate(~ stats::predict(model, .x), model)
 
-  mlflow_save_model(fn, "model", dependencies = "conda.yaml")
+  mlflow_save_model(fn, "model", conda_env = "conda.yaml")
 
   mlmodel <- yaml::read_yaml("model/MLmodel")
 
   expect_equal(
-    mlmodel$conda_env,
+    mlmodel$r_crate$conda_env,
     "conda.yaml"
   )
 })
+
