@@ -210,7 +210,7 @@ def _handle_py4j_error(reraised_error_type, reraised_error_text):
     """
     traceback.print_exc()
     tb = sys.exc_info()[2]
-    reraise(reraised_error_type, reraised_error_text, tb)
+    reraise(reraised_error_type, reraised_error_type(reraised_error_text), tb)
 
 
 class MLeapSerializationException(MlflowException):
