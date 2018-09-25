@@ -2,7 +2,6 @@
 mlflow_create_experiment.NULL <- function(name, artifact_location = NULL, client = NULL) {
   client <- mlflow_client()
   experiment_id <- mlflow_create_experiment.mlflow_client(name, artifact_location, client)
-  mlflow_set_active_experiment_id(experiment_id)
   invisible(experiment_id)
 }
 
