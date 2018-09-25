@@ -41,7 +41,7 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
     tags = list(foo = "bar", foz = "baz")
   )
 
-  run <- mlflow_get_run(client = client, create_run_response$run$info$run_uuid)
+  run <- mlflow_get_run(client = client, create_run_response$info$run_uuid)
   run_info <- run$info
 
   expect_identical(run_info$user_id, "user1")
@@ -61,7 +61,7 @@ test_that("mlflow_log_param()/mlflow_get_param() work properly", {
   expect_identical(some_param, 42)
   client <- mlflow_client()
   expect_identical(
-    mlflow_get_param(client = client, "some_param", run_id = mlflow_active_run()$run_info$run_uuid),
+    mlflow_get_param(client = client, "some_param", run_id = mlflow_active_run()$info$run_uuid),
     data.frame(key = "some_param", value = "42", stringsAsFactors = FALSE)
   )
 })
@@ -82,7 +82,7 @@ test_that("mlflow_log_metric()/mlflow_get_metric() work properly", {
   client <- mlflow_client()
   expect_identical(
     mlflow_get_metric(
-      client = client, run_id = mlflow_active_run()$run_info$run_uuid,
+      client = client, run_id = mlflow_active_run()$info$run_uuid,
       "some_metric"
     ),
     data.frame(
@@ -108,7 +108,7 @@ test_that("mlflow_get_metric_history() works properly", {
   some_metric2 <- mlflow_log_metric("some_metric", 91, timestamp = log_time2)
   client <- mlflow_client()
   metric_history <- mlflow_get_metric_history(
-    client = client, run_id = mlflow_active_run()$run_info$run_uuid, "some_metric"
+    client = client, run_id = mlflow_active_run()$info$run_uuid, "some_metric"
   )
   expected <- data.frame(
     key = c("some_metric", "some_metric"),
@@ -125,7 +125,7 @@ test_that("mlflow_set_teminated() works properly", {
   killed_time <- mlflow:::current_time()
   client <- mlflow_client()
   run_info <- mlflow_set_terminated(
-    client = client, run_id = mlflow_active_run()$run_info$run_uuid,
+    client = client, run_id = mlflow_active_run()$info$run_uuid,
     status = "KILLED", end_time = killed_time
   )
   expect_identical(run_info$status, "KILLED")

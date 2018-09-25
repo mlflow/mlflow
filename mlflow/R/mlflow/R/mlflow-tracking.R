@@ -84,10 +84,11 @@ mlflow_create_run.mlflow_client <- function(
     purrr::imap(~ list(key = .y, value = .x)) %>%
     unname()
 
-  mlflow_client_create_run(
+  run <- mlflow_client_create_run(
     client, experiment_id, user_id, run_name, source_type,
     source_name, entry_point_name, start_time, source_version, tags
   )
+  new_mlflow_entities_run(run)
 }
 
 #' Delete Experiment
@@ -139,9 +140,7 @@ mlflow_get_run <- function(run_uuid, client = NULL) {
 #' @export
 mlflow_get_run.mlflow_client <- function(run_uuid, client = NULL) {
   response <- mlflow_rest("runs", "get", client = client, query = list(run_uuid = run_uuid))
-  run <- purrr::compact(response$run)
-  run %>%
-    purrr::map_at("info", tidy_run_info)
+  new_mlflow_entities_run(response)
 }
 
 #' Log Metric
@@ -420,7 +419,6 @@ mlflow_log_artifact.mlflow_client <- function(path, artifact_path = NULL, client
 #' @export
 mlflow_set_tracking_uri <- function(uri) {
   .globals$tracking_uri <- uri
-
   invisible(uri)
 }
 

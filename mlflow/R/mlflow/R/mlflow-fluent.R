@@ -35,7 +35,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
                              source_type = "LOCAL") {
   active_run <- mlflow_active_run()
   if (!is.null(active_run)) {
-    stop("Run with UUID ", active_run$run_info$run_uuid, " is already active.",
+    stop("Run with UUID ", active_run_id(), " is already active.",
          call. = FALSE)
   }
 
@@ -44,9 +44,9 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     if (nchar(env_run_id)) env_run_id
   }
 
-  run_info <- if (!is.null(existing_run_uuid)) {
+  run <- if (!is.null(existing_run_uuid)) {
     client <- mlflow_client()
-    mlflow_get_run(client = client, existing_run_uuid)$info
+    mlflow_get_run(client = client, existing_run_uuid)
   } else {
     experiment_id <- as.integer(
       experiment_id %||% mlflow_get_active_experiment_id() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
@@ -54,7 +54,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 
     client <- mlflow_client()
 
-    create_run_response <- mlflow_create_run(
+    mlflow_create_run(
       client = client,
       experiment_id = experiment_id,
       source_name = source_name %||% get_source_name(),
@@ -62,10 +62,9 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
       entry_point_name = entry_point_name,
       source_type = source_type
     )
-    create_run_response$run$info
   }
 
-  new_mlflow_active_run(run_info)
+  mlflow_set_active_run(run)
 }
 
 #' @rdname mlflow_log_metric
@@ -73,10 +72,9 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  run_id <- as.character(active_run$run_info$run_uuid)
   mlflow_log_metric.mlflow_client(
     client = client, key = key, value = value, timestamp = timestamp,
-    run_id = run_id
+    run_id = run_id(active_run)
   )
   invisible(value)
 }
@@ -86,9 +84,8 @@ mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL) 
 mlflow_set_tag.NULL <- function(key, value, client = NULL, ...) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  run_id <- as.character(active_run$run_info$run_uuid)
   mlflow_set_tag.mlflow_client(
-    key = key, value = value, client = client, run_id = run_id
+    key = key, value = value, client = client, run_id = run_id(active_run)
   )
 }
 
@@ -102,8 +99,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
   active_run <- mlflow_active_run()
   if (!is.null(active_run)) {
     client <- mlflow_client()
-    run_id <- as.character(active_run$run_info$run_uuid)
-    mlflow_set_terminated(run_id, status, client = client)
+    mlflow_set_terminated(run_id(active_run), status, client = client)
     mlflow_set_active_run(NULL)
   }
   invisible(NULL)
@@ -114,8 +110,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
 mlflow_log_param.NULL <- function(key, value, client = NULL, ...) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  run_id <- as.character(active_run$run_info$run_uuid)
-  mlflow_log_param.mlflow_client(key, value, client, run_id)
+  mlflow_log_param.mlflow_client(key, value, client, run_id(active_run))
   invisible(value)
 }
 
@@ -125,6 +120,5 @@ mlflow_log_param.NULL <- function(key, value, client = NULL, ...) {
 mlflow_log_artifact.NULL <- function(path, artifact_path = NULL, client = NULL, ...) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  run_id <- as.character(active_run$run_info$run_uuid)
-  mlflow_log_artifact.mlflow_client(path, artifact_path, client, run_id)
+  mlflow_log_artifact.mlflow_client(path, artifact_path, client, run_id(active_run))
 }

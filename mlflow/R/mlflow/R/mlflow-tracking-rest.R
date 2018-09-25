@@ -48,10 +48,12 @@ mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", ve
   response <- switch(
     verb,
     GET = GET(api_url, query = query, mlflow_rest_timeout()),
-    POST = POST(api_url,
-                body = mlflow_rest_body(data),
-                mlflow_rest_headers(),
-                mlflow_rest_timeout()),
+    POST = POST(
+      api_url,
+      body = mlflow_rest_body(data),
+      mlflow_rest_headers(),
+      mlflow_rest_timeout()
+    ),
     stop("Verb '", verb, "' is unsupported.")
   )
 

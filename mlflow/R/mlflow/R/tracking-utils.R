@@ -65,15 +65,6 @@ get_source_version <- function() {
   )
 }
 
-new_mlflow_active_run <- function(run_info) {
-  run <- structure(
-    list(run_info = run_info),
-    class = c("mlflow_active_run")
-  )
-  mlflow_set_active_run(run)
-  run
-}
-
 mlflow_get_or_start_run <- function() {
   mlflow_active_run() %||% mlflow_start_run()
 }
@@ -95,3 +86,8 @@ with.mlflow_active_run <- function(data, expr, ...) {
 
   invisible(NULL)
 }
+
+
+run_id <- function(run) cast_nullable_string(run$info$run_uuid)
+
+active_run_id <- function() run_id(mlflow_active_run())
