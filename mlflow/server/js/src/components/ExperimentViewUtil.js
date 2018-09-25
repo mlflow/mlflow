@@ -6,7 +6,7 @@ import Routes from '../Routes';
 export default class ExperimentViewUtil {
   /**
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
-   *
+   * the display row for a run.
    */
   static getRunInfoColumnsForRow(runInfo, tags, selected, onCheckbox) {
     return [
@@ -32,14 +32,9 @@ export default class ExperimentViewUtil {
   }
 
   /**
-   * Returns shared headers for
-   * @param onSortBy
-   * @param onCheckall
-   * @param isAllCheckedBool
-   * @param sortState
-   * @returns {*[]}
+   * Returns header-row table cells for columns containing run metadata.
    */
-  static sharedColumnHeaders(onSortBy, onCheckall, isAllCheckedBool, sortState) {
+  static sharedColumnHeaders(onSortBy, onCheckAll, isAllCheckedBool, sortState) {
     const getHeaderCell = (key, text) => {
       const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key);
       return <th key={"meta-" + key}
@@ -65,21 +60,4 @@ export default class ExperimentViewUtil {
     }
     return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
   };
-
-
-  // static getSortValue(sort, metricsMap, paramsMap, tagsMap, runInfo) {
-  //   if (sort.isMetric || sort.isParam) {
-  //     const sortValue = (sort.isMetric ? metricsMap : paramsMap)[sort.key];
-  //     return sortValue === undefined ? undefined : sortValue.value;
-  //   } else if (sort.key === 'user_id') {
-  //     return Utils.formatUser(runInfo.user_id);
-  //   } else if (sort.key === 'source') {
-  //     return Utils.formatSource(runInfo, tagsMap);
-  //   }
-  //   return runInfo[sort.key];
-  // }
-  //
-  // static sortRows() {
-  //
-  // }
 }

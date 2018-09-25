@@ -138,7 +138,6 @@ span.error-message {
   background-color: #f7f7f7;
   width: 100px;
   display: inline-block;
-  margin-left: 4px;
 }
 
 .metric-filler-fg {
@@ -183,4 +182,21 @@ span.error-message {
 .ExperimentView th.sorted.desc::after {
   border-color: #888 transparent transparent transparent;
   border-width: 8.7px 5px 0 5px;
+}
+
+.ExperimentView .metric-param-cell {
+  padding-bottom: 8px;
+}
+
+.ExperimentView .metric-param-sort-toggle {
+  color: #888;
+  cursor: pointer;
+}
+
+.ExperimentView .metric-param-name {
+  font-weight: bold;
+}
+
+.ExperimentView .metric-param-value {
+  margin-left: 4px;
 }

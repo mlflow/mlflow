@@ -21,8 +21,8 @@ class ExperimentRunsTableMultiColumn extends Component {
   render() {
     const { paramKeyList, metricKeyList, rows, onCheckAll, isAllChecked, onSortBy,
       sortState } = this.props;
-    const columns = ExperimentRunsTableMultiColumn.getColumnHeaders(paramKeyList, metricKeyList,
-      onCheckAll, isAllChecked(), onSortBy, sortState);
+    const columns = this.getColumnHeaders(paramKeyList, metricKeyList, onCheckAll, isAllChecked(),
+      onSortBy, sortState);
     return (<Table hover>
       <colgroup span="7"/>
       <colgroup span={paramKeyList.length}/>
@@ -45,7 +45,7 @@ class ExperimentRunsTableMultiColumn extends Component {
     </Table>);
   }
 
-  static getColumnHeaders(
+  getColumnHeaders(
     paramKeyList,
     metricKeyList,
     onCheckAll,
@@ -54,19 +54,8 @@ class ExperimentRunsTableMultiColumn extends Component {
     sortState) {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
-    const columns = [
-      <th key="meta-check" className="bottom-row">
-        <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
-      </th>,
-      ExperimentViewUtil.getHeaderCell("start_time", <span>{"Date"}</span>, true, onSortBy,
-        sortState),
-      ExperimentViewUtil.getHeaderCell("user_id", <span>{"User"}</span>, true, onSortBy,
-        sortState),
-      ExperimentViewUtil.getHeaderCell("source", <span>{"Source"}</span>, true, onSortBy,
-        sortState),
-      ExperimentViewUtil.getHeaderCell("source_version", <span>{"Version"}</span>, true, onSortBy,
-        sortState),
-    ];
+    const columns = ExperimentViewUtil.sharedColumnHeaders(
+      onSortBy, onCheckAll, isAllCheckedBool, sortState);
     paramKeyList.forEach((paramKey, i) => {
       const className = "bottom-row "
         + (i === 0 ? "left-border " : "")

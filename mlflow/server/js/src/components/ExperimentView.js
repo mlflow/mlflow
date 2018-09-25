@@ -17,6 +17,7 @@ import Utils from '../utils/Utils';
 import ExperimentRunsTableMultiColumn from "./ExperimentRunsTableMultiColumn";
 import ExperimentRunsTableCompact from "./ExperimentRunsTableCompact";
 import ExperimentViewUtil from "./ExperimentViewUtil";
+import ExperimentRunsSortToggle from "./ExperimentRunsSortToggle";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
@@ -33,8 +34,10 @@ class ExperimentView extends Component {
     this.onSearch = this.onSearch.bind(this);
     this.onClear = this.onClear.bind(this);
     this.onSortBy = this.onSortBy.bind(this);
+    this.isAllChecked = this.isAllChecked.bind(this);
+    this.onCheckbox = this.onCheckbox.bind(this);
+    this.onCheckAll = this.onCheckAll.bind(this);
     this.setSortBy = this.setSortBy.bind(this);
-    this.runInfoToRowNew = this.runInfoToRowNew.bind(this);
     this.onDeleteRun = this.onDeleteRun.bind(this);
     this.onRestoreRun = this.onRestoreRun.bind(this);
     this.onLifecycleFilterInput = this.onLifecycleFilterInput.bind(this);
@@ -155,8 +158,6 @@ class ExperimentView extends Component {
     // of parameter and metric names around later
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
-    const rowBuilder = this.state.showMultiColumns ?
-      ExperimentView.runInfoToRow : this.runInfoToRowNew;
     const sort = this.state.sort;
     const metricRanges = ExperimentView.computeMetricRanges(metricsList);
     const rows = [...Array(runInfos.length).keys()].map((idx) => {
@@ -174,19 +175,35 @@ class ExperimentView extends Component {
       } else {
         sortValue = runInfo[sort.key];
       }
+
+      let rowContents;
+      if (this.state.showMultiColumns) {
+        rowContents = ExperimentView.runInfoToRow({
+          runInfo: runInfo,
+          onCheckbox: this.onCheckbox,
+          paramKeyList: paramKeyList,
+          metricKeyList: metricKeyList,
+          paramsMap: paramsMap,
+          metricsMap: metricsMap,
+          tags: this.props.tagsList[idx],
+          metricRanges: metricRanges,
+          selected: !!this.state.runsSelected[runInfo.run_uuid]});
+      } else {
+        rowContents = ExperimentView.runInfoToRowCompact({
+          runInfo: runInfo,
+          onCheckbox: this.onCheckbox,
+          setSortBy: this.setSortBy,
+          paramsMap: paramsMap,
+          metricsMap: metricsMap,
+          tags: this.props.tagsList[idx],
+          metricRanges: metricRanges,
+          selected: !!this.state.runsSelected[runInfo.run_uuid]});
+      }
+
       return {
         key: runInfo.run_uuid,
         sortValue: sortValue,
-        contents: rowBuilder({
-          runInfo,
-          onCheckbox: this.onCheckbox,
-          paramKeyList,
-          metricKeyList,
-          paramsMap,
-          metricsMap,
-          tags: this.props.tagsList[idx],
-          metricRanges,
-          selected: !!this.state.runsSelected[runInfo.run_uuid]})
+        contents: rowContents,
       };
     });
     rows.sort((a, b) => {
@@ -213,6 +230,14 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const toggleElement = this.state.showMultiColumns ?
+      <span onClick={() => this.toggleTableView()}>
+        <i className={"fas fa-columns"}/> Use compact view
+      </span> :
+      <span onClick={() => this.toggleTableView()}>
+        <i className={"fas fa-list"}/> Use multi-column view
+      </span>;
+
     return (
       <div className="ExperimentView">
         <DeleteRunModal
@@ -338,28 +363,27 @@ class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
-              <span style={{float: "right"}} className="form-check">
-                <input type="checkbox" onClick={() => this.toggleTableView()}/>
-                <span style={{marginLeft: 4}}>Display multi-columns</span>
+              <span style={{float: "right", cursor: "pointer"}}>
+                {toggleElement}
               </span>
           </div>
             {this.state.showMultiColumns ?
               <ExperimentRunsTableMultiColumn
                 rows={rows}
-                onSortBy={this.onSortBy.bind(this)}
-                onCheckbox={this.onCheckbox.bind(this)}
-                onCheckAll={this.onCheckAll.bind(this)}
+                onSortBy={this.onSortBy}
+                onCheckbox={this.onCheckbox}
+                onCheckAll={this.onCheckAll}
                 paramKeyList={paramKeyList}
                 metricKeyList={metricKeyList}
-                isAllChecked={this.isAllChecked.bind(this)}
+                isAllChecked={this.isAllChecked}
                 sortState={this.state.sort}
               /> :
               <ExperimentRunsTableCompact
                 rows={rows}
-                onSortBy={this.onSortBy.bind(this)}
-                onCheckbox={this.onCheckbox.bind(this)}
-                onCheckAll={this.onCheckAll.bind(this)}
-                isAllChecked={this.isAllChecked.bind(this)}
+                onSortBy={this.onSortBy}
+                onCheckbox={this.onCheckbox}
+                onCheckAll={this.onCheckAll}
+                isAllChecked={this.isAllChecked}
                 sortState={this.state.sort}
               />
             }
@@ -381,7 +405,6 @@ class ExperimentView extends Component {
       isParam: isParam
     }});
   }
-
 
   onCheckbox(runUuid) {
     const newState = Object.assign({}, this.state);
@@ -490,7 +513,7 @@ class ExperimentView extends Component {
     selected}) {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
-    const row = ExperimentViewUtil.runInfoToSharedColumns(runInfo, tags, selected, onCheckbox);
+    const row = ExperimentViewUtil.getRunInfoColumnsForRow(runInfo, tags, selected, onCheckbox);
     paramKeyList.forEach((paramKey, i) => {
       const className = i === 0 ? "left-border" : undefined;
       const keyname = "param-" + paramKey;
@@ -539,26 +562,35 @@ class ExperimentView extends Component {
 
   /**
    * Generate a row for a specific run, extracting the params and metrics in the given lists.
+   * The row will be rendered in compact form (i.e. metrics/params will each be in a
+   * a single table cell, as opposed to having one cell per metric/param).
    */
-  runInfoToRowNew({
+  static runInfoToRowCompact({
     runInfo,
     onCheckbox,
+    setSortBy,
     paramsMap,
     metricsMap,
     tags,
     metricRanges,
     selected}) {
-    const row = ExperimentViewUtil.runInfoToSharedColumns(runInfo, tags, selected, onCheckbox);
+    const row = ExperimentViewUtil.getRunInfoColumnsForRow(runInfo, tags, selected, onCheckbox);
     const paramsCellContents = Object.keys(paramsMap).map((paramKey) => {
       const keyname = "param-" + paramKey;
       return (
         <div key={keyname} className="metric-param-cell">
         <Dropdown id="dropdown-custom-1">
-          <CustomToggle noCaret bsRole="toggle">
-            <div>
-              {paramKey}: {paramsMap[paramKey].getValue()}
-            </div>
-          </CustomToggle>
+          <ExperimentRunsSortToggle bsRole="toggle" className="metric-param-sort-toggle">
+            <span className="metric-param-name">
+              {paramKey}
+            </span>
+            <span>
+              :
+            </span>
+          </ExperimentRunsSortToggle>
+          <span className="metric-param-value">
+              {paramsMap[paramKey].getValue()}
+          </span>
           <Dropdown.Menu className="mlflow-menu">
             <MenuItem
               className="mlflow-menu-item"
@@ -579,7 +611,6 @@ class ExperimentView extends Component {
     });
     row.push(<td className="left-border">{paramsCellContents}</td>);
 
-    const setSortBy = this.setSortBy;
     const metricsCellContents = Object.keys(metricsMap).map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const metric = metricsMap[metricKey].getValue();
@@ -592,17 +623,20 @@ class ExperimentView extends Component {
       return (
         <div key={keyname} className="metric-param-cell">
           <Dropdown id="dropdown-custom-1">
-            <CustomToggle noCaret bsRole="toggle">
-              <span>
-                {metricKey}:
+            <ExperimentRunsSortToggle bsRole="toggle" className="metric-param-sort-toggle">
+              <span className="metric-param-name">
+                {metricKey}
               </span>
-              <span className="metric-filler-bg">
+              <span>
+                :
+              </span>
+            </ExperimentRunsSortToggle>
+            <span className="metric-filler-bg metric-param-value">
                 <span className="metric-filler-fg" style={{width: percent}}/>
                 <span className="metric-text">
                   {Utils.formatMetric(metric)}
                 </span>
               </span>
-            </CustomToggle>
             <Dropdown.Menu className="mlflow-menu">
               <MenuItem
                 className="mlflow-menu-item"
@@ -815,33 +849,6 @@ const mapStateToProps = (state, ownProps) => {
     tagsList,
   };
 };
-
-
-class CustomToggle extends React.Component {
-  constructor(props, context) {
-    super(props, context);
-
-    this.handleClick = this.handleClick.bind(this);
-  }
-
-  static propTypes = {
-    onClick: PropTypes.func,
-    children: PropTypes.arrayOf(PropTypes.element),
-  };
-
-  handleClick(e) {
-    e.preventDefault();
-    this.props.onClick(e);
-  }
-
-  render() {
-    return (
-      <span onClick={this.handleClick}>
-        {this.props.children}
-      </span>
-    );
-  }
-}
 
 const styles = {
   lifecycleButtonLabel: {
