@@ -91,3 +91,38 @@ with.mlflow_active_run <- function(data, expr, ...) {
 run_id <- function(run) cast_nullable_string(run$info$run_uuid)
 
 active_run_id <- function() run_id(mlflow_active_run())
+
+current_time <- function() {
+  round(as.numeric(Sys.time()) * 1000)
+}
+
+milliseconds_to_date <- function(x) as.POSIXct(as.double(x) / 1000, origin = "1970-01-01")
+
+tidy_run_info <- function(run_info) {
+  df <- as.data.frame(run_info, stringsAsFactors = FALSE)
+  df$start_time <- milliseconds_to_date(df$start_time %||% NA)
+  df$end_time <- milliseconds_to_date(df$end_time %||% NA)
+  df
+}
+
+wait_for <- function(f, wait, sleep) {
+  command_start <- Sys.time()
+
+  success <- FALSE
+  while (!success && Sys.time() < command_start + wait) {
+    success <- suppressWarnings({
+      tryCatch({
+        f()
+        TRUE
+      }, error = function(err) {
+        FALSE
+      })
+    })
+
+    if (!success) Sys.sleep(sleep)
+  }
+
+  if (!success) {
+    stop("Operation failed after waiting for ", wait, " seconds")
+  }
+}
