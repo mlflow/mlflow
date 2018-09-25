@@ -21,10 +21,20 @@ mlflow_log_metric(key, value, timestamp = NULL, client = NULL, ...)
 
 \item{timestamp}{Unix timestamp in milliseconds at the time metric was logged.}
 
+\item{client}{An `mlflow_client` object. See details.}
+
+\item{...}{Additional arguments; currently not used.}
+
 \item{run_id}{Run ID.}
 }
 \description{
 API to log a metric for a run. Metrics key-value pair that record a single float measure.
   During a single execution of a run, a particular metric can be logged several times.
   Backend will keep track of historical values along with timestamps.
+}
+\details{
+For functions where `client` is optional, providing it will invoke the
+  Tracking Service API, allowing the user to specify the service where
+  the operation is executed. When `client` isn't specified, it defaults to
+  the service set by `mlflow_set_tracking_uri()`.
 }

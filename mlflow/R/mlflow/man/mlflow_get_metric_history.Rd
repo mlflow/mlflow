@@ -2,16 +2,14 @@
 % Please edit documentation in R/tracking-client.R
 \name{mlflow_get_metric_history}
 \alias{mlflow_get_metric_history}
-\alias{mlflow_get_metric_history.mlflow_client}
 \title{Get Metric History}
 \usage{
-mlflow_get_metric_history(metric_key, client = NULL, ...)
-
-\method{mlflow_get_metric_history}{mlflow_client}(metric_key,
-  client = NULL, run_id, ...)
+mlflow_get_metric_history(metric_key, client, run_id)
 }
 \arguments{
 \item{metric_key}{Name of the metric.}
+
+\item{client}{An `mlflow_client` object.}
 
 \item{run_id}{Run ID.}
 }

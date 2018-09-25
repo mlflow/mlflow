@@ -18,9 +18,19 @@ mlflow_set_tag(key, value, client = NULL, ...)
 
 \item{value}{String value of the tag being logged. Maximum size is 500 bytes. This field is required.}
 
+\item{client}{An `mlflow_client` object. See details.}
+
+\item{...}{Additional arguments; currently not used.}
+
 \item{run_id}{Run ID.}
 }
 \description{
 Set a tag on a run. Tags are run metadata that can be updated during and
  after a run completes.
+}
+\details{
+For functions where `client` is optional, providing it will invoke the
+  Tracking Service API, allowing the user to specify the service where
+  the operation is executed. When `client` isn't specified, it defaults to
+  the service set by `mlflow_set_tracking_uri()`.
 }

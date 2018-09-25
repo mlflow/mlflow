@@ -13,6 +13,8 @@ mlflow_set_terminated(run_id, status = c("FINISHED", "SCHEDULED",
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
 
 \item{end_time}{Unix timestamp of when the run ended in milliseconds.}
+
+\item{client}{An `mlflow_client` object.}
 }
 \description{
 Terminate a Run

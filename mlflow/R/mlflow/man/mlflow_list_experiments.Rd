@@ -2,18 +2,15 @@
 % Please edit documentation in R/tracking-client.R
 \name{mlflow_list_experiments}
 \alias{mlflow_list_experiments}
-\alias{mlflow_list_experiments.mlflow_client}
 \title{List Experiments}
 \usage{
 mlflow_list_experiments(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
-  "ALL"), client = NULL, ...)
-
-
-  \method{mlflow_list_experiments}{mlflow_client}(view_type = c("ACTIVE_ONLY",
-  "DELETED_ONLY", "ALL"), client = NULL, ...)
+  "ALL"), client)
 }
 \arguments{
 \item{view_type}{Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.}
+
+\item{client}{An `mlflow_client` object.}
 }
 \description{
 Get a list of all experiments.

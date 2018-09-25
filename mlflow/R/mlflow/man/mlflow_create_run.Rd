@@ -6,8 +6,7 @@
 \usage{
 mlflow_create_run(experiment_id, user_id = NULL, run_name = NULL,
   source_type = NULL, source_name = NULL, entry_point_name = NULL,
-  start_time = NULL, source_version = NULL, tags = NULL,
-  client = NULL)
+  start_time = NULL, source_version = NULL, tags = NULL, client)
 }
 \arguments{
 \item{experiment_id}{Unique identifier for the associated experiment.}
@@ -28,9 +27,7 @@ mlflow_create_run(experiment_id, user_id = NULL, run_name = NULL,
 
 \item{tags}{Additional metadata for run in key-value pairs.}
 
-\item{status}{Current status of the run. One of RUNNING, SCHEDULE, FINISHED, FAILED, KILLED.}
-
-\item{end_time}{Unix timestamp of when the run ended in milliseconds.}
+\item{client}{An `mlflow_client` object.}
 }
 \description{
 reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.

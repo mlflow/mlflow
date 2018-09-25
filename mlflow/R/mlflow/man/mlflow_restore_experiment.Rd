@@ -4,10 +4,12 @@
 \alias{mlflow_restore_experiment}
 \title{Restore Experiment}
 \usage{
-mlflow_restore_experiment(experiment_id, client = NULL)
+mlflow_restore_experiment(experiment_id, client)
 }
 \arguments{
 \item{experiment_id}{ID of the associated experiment This field is required.}
+
+\item{client}{An `mlflow_client` object.}
 }
 \description{
 Restore an experiment marked for deletion. This also restores associated metadata,

@@ -18,6 +18,10 @@ mlflow_log_param(key, value, client = NULL, ...)
 
 \item{value}{String value of the parameter.}
 
+\item{client}{An `mlflow_client` object. See details.}
+
+\item{...}{Additional arguments; currently not used.}
+
 \item{run_id}{Run ID.}
 }
 \description{
@@ -25,4 +29,10 @@ API to log a parameter used for this run. Examples are params and hyperparams
   used for ML training, or constant dates and values used in an ETL pipeline.
   A params is a STRING key-value pair. For a run, a single parameter is allowed
   to be logged only once.
+}
+\details{
+For functions where `client` is optional, providing it will invoke the
+  Tracking Service API, allowing the user to specify the service where
+  the operation is executed. When `client` isn't specified, it defaults to
+  the service set by `mlflow_set_tracking_uri()`.
 }

@@ -19,12 +19,21 @@ mlflow_log_artifact(path, artifact_path = NULL, client = NULL, ...)
 
 \item{artifact_path}{Destination path within the run’s artifact URI.}
 
+\item{client}{An `mlflow_client` object. See details.}
+
+\item{...}{Additional arguments; currently not used.}
+
 \item{run_id}{The run associated with this artifact.}
 }
 \description{
 Logs an specific file or directory as an artifact.
 }
 \details{
+For functions where `client` is optional, providing it will invoke the
+  Tracking Service API, allowing the user to specify the service where
+  the operation is executed. When `client` isn't specified, it defaults to
+  the service set by `mlflow_set_tracking_uri()`.
+
 When logging to Amazon S3, ensure that the user has a proper policy
 attach to it, for instance:
 

@@ -2,16 +2,14 @@
 % Please edit documentation in R/tracking-client.R
 \name{mlflow_get_experiment}
 \alias{mlflow_get_experiment}
-\alias{mlflow_get_experiment.mlflow_client}
 \title{Get Experiment}
 \usage{
-mlflow_get_experiment(experiment_id, client = NULL, ...)
-
-\method{mlflow_get_experiment}{mlflow_client}(experiment_id,
-  client = NULL, ...)
+mlflow_get_experiment(experiment_id, client)
 }
 \arguments{
 \item{experiment_id}{Identifer to get an experiment.}
+
+\item{client}{An `mlflow_client` object.}
 }
 \description{
 Get meta data for experiment and a list of runs for this experiment.

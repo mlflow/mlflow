@@ -2,19 +2,19 @@
 % Please edit documentation in R/tracking-client.R
 \name{mlflow_get_param}
 \alias{mlflow_get_param}
-\alias{mlflow_get_param.mlflow_client}
 \title{Get Param}
 \usage{
-mlflow_get_param(param_name, client = NULL, ...)
-
-\method{mlflow_get_param}{mlflow_client}(param_name, client = NULL,
-  run_id, ...)
+mlflow_get_param(param_name, client, run_id)
 }
 \arguments{
 \item{param_name}{Name of the param. This field is required.}
+
+\item{client}{An `mlflow_client` object.}
+
+\item{run_id}{Run ID.}
 }
 \value{
-The param value as a named list.
+The param name and value as a data frame.
 }
 \description{
 Get a param value.

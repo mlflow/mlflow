@@ -4,10 +4,12 @@
 \alias{mlflow_delete_experiment}
 \title{Delete Experiment}
 \usage{
-mlflow_delete_experiment(experiment_id, client = NULL)
+mlflow_delete_experiment(experiment_id, client)
 }
 \arguments{
 \item{experiment_id}{ID of the associated experiment This field is required.}
+
+\item{client}{An `mlflow_client` object.}
 }
 \description{
 Mark an experiment and associated runs, params, metrics, … etc for deletion. If the

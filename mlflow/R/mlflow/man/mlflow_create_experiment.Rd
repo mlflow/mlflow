@@ -11,7 +11,17 @@ mlflow_create_experiment(name, artifact_location = NULL, client = NULL)
 
 \item{artifact_location}{Location where all artifacts for this experiment are stored. If
 not provided, the remote server will select an appropriate default.}
+
+\item{client}{An `mlflow_client` object. See details.}
+
+\item{...}{Additional arguments; currently not used.}
 }
 \description{
 Creates an MLflow experiment.
+}
+\details{
+For functions where `client` is optional, providing it will invoke the
+  Tracking Service API, allowing the user to specify the service where
+  the operation is executed. When `client` isn't specified, it defaults to
+  the service set by `mlflow_set_tracking_uri()`.
 }
