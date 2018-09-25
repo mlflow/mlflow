@@ -13,12 +13,14 @@ import CompareRunPage from './CompareRunPage';
 import AppErrorBoundary from './error-boundaries/AppErrorBoundary';
 import { connect } from 'react-redux';
 import HomePage from './HomePage';
+import ErrorModal from './modals/ErrorModal';
 
 class App extends Component {
   render() {
     return (
       <Router>
         <div>
+          <ErrorModal/>
           <header className="App-header">
             <div className="mlflow-logo">
               <Link
