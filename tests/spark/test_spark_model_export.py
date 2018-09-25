@@ -10,7 +10,7 @@ from pyspark.ml.wrapper import JavaModel
 from pyspark.ml.util import _jvm
 from pyspark.version import __version__ as pyspark_version
 from pyspark.sql import SQLContext
-from pyspark.sql.types import DateType 
+from pyspark.sql.types import DateType
 import pytest
 from sklearn import datasets
 import shutil
@@ -27,8 +27,6 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 from tests.pyfunc.test_spark import score_model_as_udf
 
-import logging
-logging.getLogger("py4j").setLevel(logging.ERROR)
 
 @pytest.fixture
 def spark_conda_env(tmpdir):

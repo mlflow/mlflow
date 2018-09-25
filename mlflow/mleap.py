@@ -150,16 +150,16 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                                       dataset=dataset)
     except Py4JError:
         _handle_py4j_error(
-                "MLeap encountered an error while serializing the model. Ensure that the model is" 
+                "MLeap encountered an error while serializing the model. Ensure that the model is"
                 " compatible with MLeap (i.e does not contain any custom transformers).")
 
     try:
         input_schema = _get_mleap_schema(sample_input)
     except Py4JError:
         _handle_py4j_error(
-                "Encountered an error while converting the schema of the sample input dataframe to" 
+                "Encountered an error while converting the schema of the sample input dataframe to"
                 " MLeap format. Please ensure that this dataframe is compatible with MLeap.")
-        
+
     mleap_schemapath_sub = os.path.join("mleap", "schema.json")
     mleap_schemapath_full = os.path.join(path, mleap_schemapath_sub)
     with open(mleap_schemapath_full, "w") as out:
@@ -175,7 +175,7 @@ def _get_mleap_schema(dataframe):
     """
     :param dataframe: A PySpark dataframe object
 
-    :return: The schema of the supplied dataframe, in MLeap format. This serialized object of type 
+    :return: The schema of the supplied dataframe, in MLeap format. This serialized object of type
     `ml.combust.mleap.core.types.StructType`, represented as a JSON dictionary.
     """
     from pyspark.ml.util import _jvm
