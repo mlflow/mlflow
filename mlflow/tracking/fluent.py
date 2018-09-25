@@ -93,14 +93,20 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
              the run's state.
     """
     global _active_run_stack
-    if len(_active_run_stack) > 0:
+    if len(_active_run_stack) > 0 and not nested:
         raise Exception(("Run with UUID {} is already active. To start a nested " +
-                        "run call start_run with nested=True").format(_active_run_stack[0].info.run_uuid))
+                        "run call start_run with nested=True").format(
+            _active_run_stack[0].info.run_uuid))
     existing_run_uuid = run_uuid or os.environ.get(_RUN_ID_ENV_VAR, None)
     if existing_run_uuid:
         _validate_run_id(existing_run_uuid)
         active_run_obj = MlflowClient().get_run(existing_run_uuid)
     else:
+        if _active_run_stack > 0:
+            parent_run_id = _active_run_stack[-1].info.run_uuid
+        else:
+            parent_run_id = None
+
         exp_id_for_run = experiment_id or _get_experiment_id()
         if is_in_databricks_notebook():
             databricks_tags = {}
@@ -120,7 +126,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 source_version=source_version or _get_source_version(),
                 entry_point_name=entry_point_name,
                 source_type=SourceType.NOTEBOOK,
-                tags=databricks_tags)
+                tags=databricks_tags,
+                parent_run_id=parent_run_id)
         else:
             active_run_obj = MlflowClient().create_run(
                 experiment_id=exp_id_for_run,
@@ -128,7 +135,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 source_name=source_name or _get_source_name(),
                 source_version=source_version or _get_source_version(),
                 entry_point_name=entry_point_name,
-                source_type=source_type or _get_source_type())
+                source_type=source_type or _get_source_type(),
+                parent_run_id=parent_run_id)
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 

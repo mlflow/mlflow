@@ -15,6 +15,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
 
@@ -144,7 +145,10 @@ def _create_run():
         entry_point_name=request_message.entry_point_name,
         start_time=request_message.start_time,
         source_version=request_message.source_version,
-        tags=tags)
+        tags=tags,
+        parent_run_id=request_message.parent_run_id)
+    eprint("in _create_run")
+    eprint(request_message.parent_run_id)
 
     response_message = CreateRun.Response()
     response_message.run.MergeFrom(run.to_proto())
