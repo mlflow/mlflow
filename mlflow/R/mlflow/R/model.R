@@ -12,30 +12,14 @@
 #'
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(x, path = "model", dependencies = NULL) {
-  supported_deps <- list(
-    "r-dependencies.txt" = "r_dependencies",
-    "conda.yaml" = "conda_env"
-  )
-
-  if (!is.null(dependencies)) {
-    dep_file <- basename(dependencies)
-    if (!all(dep_file %in% names(supported_deps))) {
-      stop("Dependency ", dep_file, " is unsupported. Supported files: ", paste(names(supported_deps), collapse = ", "))
-    }
-  }
+mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=NULL) {
 
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
   flavor_spec <- list (
-    flavors = mlflow_save_flavor(x, path)
+    flavors = mlflow_save_flavor(x, path, r_dependencies, conda_env)
   )
-
-  for (dependency in dependencies) {
-    flavor_spec[[supported_deps[[basename(dependency)]]]] <- dependency
-  }
-
   mlflow_write_model_spec(path, flavor_spec)
 }
 
@@ -75,36 +59,45 @@ mlflow_write_model_spec <- function(path, content) {
   )
 }
 
-mlflow_load_model <- function(model_path) {
+#' @export
+mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
+  if(! is.null(run_id)) {
+    x <- mlflow_cli("artifacts","download", "-r", run_id, "-a", model_path)
+    model_path <- substr(x$stdout,1, nchar(x$stdout)-1)
+  }
+
+  supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
+  available_flavors <- intersect(names(spec$flavors), supported_flavors)
 
-  model_flavors <- gsub("^r_", "", names(spec$flavors))
-
-  supported <- model_flavors %>%
-    purrr::keep(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(utils::methods(class = e)))
-
-  if ("crate" %in% model_flavors) {
-    supported <- c("crate", supported)
-  }
-
-  if (length(supported) == 0) {
+  if (length(available_flavors) == 0) {
     stop(
-      "Model must define r_crate flavor to be used from R. ",
+      "Model does not contain any flavor supported by mlflow/R. ",
       "Model flavors: ",
-      paste(model_flavors, collapse = ", "),
+      paste(names(spec$flavors), collapse = ", "),
       ". Supported flavors: ",
-      paste(
-        purrr::map_chr(model_flavors, ~ as.vector(utils::methods(class = .x))),
-        collapse = ", "
-      )
-    )
+      paste(supported_flavors, collapse = ", "))
   }
 
-  supported_class <- supported[[1]]
+  if (!is.null(flavor)) {
+    if(!flavor %in% supported_flavors) {
+      stop("Invalid flavor.", paste("Supported flavors:", paste(supported_flavors, collapse=", ")))
+    }
+    if(!flavor %in% available_flavors) {
+      stop("Model does not contain requested flavor. ", paste("Available flavors:", paste(available_flavors, collapse=", ")))
+    }
 
-  flavor_path <- fs::path(model_path, spec$flavors[[paste("r", supported_class, sep = "_")]]$model)
-  class(flavor_path) <- c(supported_class, class(flavor_path))
+    flavor <- flavor
+  } else {
+    if (length(available_flavors) > 1) {
+      warning(paste("Multiple model flavors available (", paste(available_flavors, collapse=", "), " ).  loading flavor '", available_flavors[[1]], "'", ""))
+    }
 
+    flavor <- available_flavors[[1]]
+  }
+
+  flavor_path <- model_path
+  class(flavor_path) <- c(flavor, class(flavor_path))
   mlflow_load_flavor(flavor_path)
 }
 
@@ -188,4 +181,8 @@ resolve_model_path <- function(model_path, run_uuid) {
   } else {
     model_path
   }
+}
+
+supported_model_flavors <- function() {
+  purrr::map(methods(generic.function=mlflow_load_flavor), ~ substring(.x,20))
 }
