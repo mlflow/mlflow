@@ -422,12 +422,19 @@ class ExperimentView extends Component {
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    this.setState({ lifecycleFilterInput: newLifecycleInput });
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
   }
 
   onSearch(e) {
-    e.preventDefault();
-    const { paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput } = this.state;
+    if (e !== undefined) {
+      e.preventDefault();
+    }
+    const {
+      paramKeyFilterInput,
+      metricKeyFilterInput,
+      searchInput,
+      lifecycleFilterInput
+    } = this.state;
     const paramKeyFilter = new KeyFilter(paramKeyFilterInput);
     const metricKeyFilter = new KeyFilter(metricKeyFilterInput);
     try {

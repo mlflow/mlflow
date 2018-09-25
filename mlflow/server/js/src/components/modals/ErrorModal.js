@@ -68,13 +68,13 @@ const mapStateToProps = (state) => {
   return {
     isOpen,
     text,
-  }
+  };
 };
 
 const mapDispatchToProps = (dispatch) => {
   return {
     onClose: () => {
-      dispatch(closeErrorModal())
+      dispatch(closeErrorModal());
     }
   };
 };

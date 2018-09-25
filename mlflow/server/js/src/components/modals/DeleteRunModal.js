@@ -15,6 +15,7 @@ class DeleteRunModal extends Component {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
     selectedRunIds: PropTypes.arrayOf(String).isRequired,
+    dispatch: PropTypes.func.isRequired,
   };
 
   handleSubmit() {

@@ -124,7 +124,7 @@ export const CLOSE_ERROR_MODAL = 'CLOSE_ERROR_MODAL';
 export const closeErrorModal = () => {
   return {
     type: CLOSE_ERROR_MODAL,
-  }
+  };
 };
 
 export const OPEN_ERROR_MODAL = 'OPEN_ERROR_MODAL';
@@ -132,7 +132,7 @@ export const openErrorModal = (text) => {
   return {
     type: OPEN_ERROR_MODAL,
     text,
-  }
+  };
 };
 
 export const getUUID = () => {
