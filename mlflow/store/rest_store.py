@@ -10,7 +10,8 @@ from mlflow.utils.rest_utils import http_request
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun
+    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun, DeleteExperiment, \
+    RestoreExperiment
 
 from mlflow.protos import databricks_pb2
 
@@ -107,10 +108,12 @@ class RestStore(AbstractStore):
         return Experiment.from_proto(response_proto.experiment)
 
     def delete_experiment(self, experiment_id):
-        pass
+        req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
+        self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
-        pass
+        req_body = message_to_json(RestoreExperiment(experiment_id=experiment_id))
+        self._call_endpoint(RestoreExperiment, req_body)
 
     def get_run(self, run_uuid):
         """

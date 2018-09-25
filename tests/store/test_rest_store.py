@@ -1,9 +1,12 @@
 import json
-import mock
-import six
 import unittest
 
+import mock
+import six
+
+from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment
 from mlflow.store.rest_store import RestStore, RestException
+from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
@@ -61,6 +64,31 @@ class TestRestStore(unittest.TestCase):
         experiments = store.list_experiments()
         assert len(experiments) == 1
         assert experiments[0].name == 'My experiment'
+
+    def _verify_requests(self, http_request, host_creds, endpoint, method, json_body):
+        assert http_request.assert_called_with(host_creds=host_creds,
+                                               endpoint=endpoint,
+                                               method=method,
+                                               json=json_body)
+
+    def test_requestor(self):
+        store = RestStore(lambda: MlflowHostCreds('https://hello'))
+
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
+            store.delete_experiment(0)
+            self._verify_requests(mock_http,
+                                  store.get_host_creds(),
+                                  "/api/2.0/preview/mlflow/experiments/delete",
+                                  "POST",
+                                  message_to_json(DeleteExperiment(experiment_id=0)))
+
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
+            store.restore_experiment(0)
+            self._verify_requests(mock_http,
+                                  store.get_host_creds(),
+                                  "/api/2.0/preview/mlflow/experiments/restore",
+                                  "POST",
+                                  message_to_json(RestoreExperiment(experiment_id=0)))
 
 
 if __name__ == '__main__':
