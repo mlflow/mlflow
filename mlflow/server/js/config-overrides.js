@@ -1,6 +1,7 @@
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
+const rewirePolyfills = require('react-app-rewire-polyfills');
 
 // copied from 'react-dev-utils/WebpackDevServerUtils'
 function mayProxy(pathname) {
@@ -34,6 +35,10 @@ function rewriteCookies(proxyRes) {
 }
 
 module.exports = {
+  webpack: function(config, env) {
+    return rewirePolyfills(config, env);
+  },
+
   devServer: function(configFunction) {
     return function(proxy, allowedHost) {
       const config = configFunction(proxy, allowedHost);

@@ -89,6 +89,40 @@ export class MlflowService {
   }
 
   /**
+   * @param {DeleteRun} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static deleteRun({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/delete', {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {RestoreRun} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static restoreRun({ data, success, error }) {
+    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/restore', {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
    * @param {UpdateRun} data: Immutable Record
    * @param {function} success
    * @param {function} error

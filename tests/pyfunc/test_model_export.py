@@ -26,7 +26,7 @@ from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     with open(path, "rb") as f:
         if six.PY2:
             return pickle.load(f)

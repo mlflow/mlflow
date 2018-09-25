@@ -40,8 +40,7 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
   with_envvar(env, {
     if (background) {
       result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
-    }
-    else {
+    } else {
       result <- run(mlflow_bin, args = unlist(args), echo = echo, echo_cmd = verbose)
     }
   })

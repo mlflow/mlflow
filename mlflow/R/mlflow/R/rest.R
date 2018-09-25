@@ -40,8 +40,7 @@ mlflow_rest <- function(..., query = NULL, data = NULL, verb = "GET", version = 
 
   if (is.null(args$mc)) {
     mc <- mlflow_get_or_create_active_connection()
-  }
-  else {
+  } else {
     mc <- args$mc
     args$mc <- NULL
   }

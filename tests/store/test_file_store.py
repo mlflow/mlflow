@@ -190,6 +190,8 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.DELETED_LIFECYCLE)
 
         # restore it
         fs.restore_experiment(exp_id)
@@ -202,6 +204,8 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.ACTIVE_LIFECYCLE)
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
@@ -213,6 +217,15 @@ class TestFileStore(unittest.TestCase):
         assert fs.get_run(run_id).info.lifecycle_stage == 'deleted'
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == 'active'
+
+    def test_create_run_in_deleted_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        # delete it
+        fs.delete_experiment(exp_id)
+        with pytest.raises(Exception):
+            fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name',
+                          0, None, [])
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
