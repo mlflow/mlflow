@@ -3,8 +3,11 @@ import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
 import ExperimentViewUtil from "./ExperimentViewUtil";
 
-class ExperimentRunsTableNew extends Component {
-
+/**
+ * Compact table view for displaying runs associated with an experiment. Renders metrics/params in a single table cell
+ * per run (as opposed to one cell per metric/param).
+ */
+class ExperimentRunsTableCompact extends Component {
     static propTypes = {
         rows: PropTypes.arrayOf(PropTypes.object),
         paramKeyList: PropTypes.arrayOf(PropTypes.object),
@@ -111,5 +114,5 @@ class ExperimentRunsTableNew extends Component {
     }
 }
 
-export default ExperimentRunsTableNew;
+export default ExperimentRunsTableCompact;
 

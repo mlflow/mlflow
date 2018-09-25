@@ -3,7 +3,11 @@ import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
 import ExperimentViewUtil from './ExperimentViewUtil';
 
-class ExperimentRunsTableOld extends Component {
+/**
+ * Table view for displaying runs associated with an experiment. Renders each metric and param value associated with
+ * a run in its own column.
+ */
+class ExperimentRunsTableMultiColumn extends Component {
   static propTypes = {
     rows: PropTypes.arrayOf(PropTypes.object),
     paramKeyList: PropTypes.arrayOf(PropTypes.object),
@@ -16,7 +20,7 @@ class ExperimentRunsTableOld extends Component {
 
   render() {
     const { paramKeyList, metricKeyList, rows, onCheckAll, isAllChecked, onSortBy, sortState } = this.props;
-    const columns = ExperimentRunsTableOld.getColumnHeaders(paramKeyList, metricKeyList,
+    const columns = ExperimentRunsTableMultiColumn.getColumnHeaders(paramKeyList, metricKeyList,
       onCheckAll, isAllChecked(), onSortBy, sortState);
     return (<Table hover>
       <colgroup span="7"/>
@@ -83,4 +87,4 @@ class ExperimentRunsTableOld extends Component {
     return columns;
   }
 }
-export default ExperimentRunsTableOld;
+export default ExperimentRunsTableMultiColumn;

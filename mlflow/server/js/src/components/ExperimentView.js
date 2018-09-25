@@ -13,8 +13,8 @@ import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 import Utils from '../utils/Utils';
-import ExperimentRunsTableOld from "./ExperimentRunsTableOld"
-import ExperimentRunsTableNew from "./ExperimentRunsTableNew";
+import ExperimentRunsTableMultiColumn from "./ExperimentRunsTableMultiColumn"
+import ExperimentRunsTableCompact from "./ExperimentRunsTableCompact";
 import ExperimentViewUtil from "./ExperimentViewUtil";
 import { Dropdown, MenuItem } from 'react-bootstrap';
 
@@ -241,7 +241,7 @@ class ExperimentView extends Component {
               </span>
           </div>
             {this.state.showMultiColumns ?
-                <ExperimentRunsTableOld
+                <ExperimentRunsTableMultiColumn
                     rows={rows}
                     onSortBy={this.onSortBy.bind(this)}
                     onCheckbox={this.onCheckbox.bind(this)}
@@ -251,7 +251,7 @@ class ExperimentView extends Component {
                     isAllChecked={this.isAllChecked.bind(this)}
                     sortState={this.state.sort}
                 /> :
-              <ExperimentRunsTableNew
+              <ExperimentRunsTableCompact
                 rows={rows}
                 onSortBy={this.onSortBy.bind(this)}
                 onCheckbox={this.onCheckbox.bind(this)}
