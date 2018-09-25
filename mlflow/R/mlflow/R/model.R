@@ -47,13 +47,12 @@ mlflow_save_model <- function(x, path = "model", dependencies = NULL) {
 #' @param fn The serving function that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param run_uuid The run associated with the model to be logged.
 #'
 #' @export
-mlflow_log_model <- function(fn, artifact_path, run_uuid = NULL) {
+mlflow_log_model <- function(fn, artifact_path) {
   temp_path <- fs::path_temp(artifact_path)
   mlflow_save_model(fn, path = temp_path)
-  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path, run_uuid = run_uuid)
+  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
 }
 
 mlflow_timestamp <- function() {
