@@ -594,7 +594,7 @@ class ExperimentView extends Component {
             bsRole="toggle"
             className={"metric-param-sort-toggle " + cellClass}
           >
-            <span className="run-table-container" style={styles.inlineBlock}>
+            <span className="run-table-container" style={{display: "inline-block"}}>
               <span className="metric-param-name" title={paramKey}>
                 {paramKey}
               </span>
@@ -605,7 +605,7 @@ class ExperimentView extends Component {
           </ExperimentRunsSortToggle>
           <span
             className="metric-param-value run-table-container"
-            style={styles.inlineBlock}
+            style={{display: "inline-block"}}
             title={paramsMap[paramKey].getValue()}
           >
               {paramsMap[paramKey].getValue()}
@@ -882,9 +882,6 @@ const styles = {
   },
   lifecycleButtonFilterWrapper: {
     marginLeft: '60px',
-  },
-  inlineBlock: {
-    display: "inline-block",
   },
 };
 

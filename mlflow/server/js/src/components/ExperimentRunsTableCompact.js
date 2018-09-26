@@ -5,10 +5,10 @@ import ExperimentViewUtil from "./ExperimentViewUtil";
 
 const styles = {
   sortArrow: {
-    marginLeft: 2,
+    marginLeft: "2px",
   },
   sortContainer: {
-    minHeight: 18,
+    minHeight: "18px",
   },
   sortToggle: {
     cursor: "pointer",
