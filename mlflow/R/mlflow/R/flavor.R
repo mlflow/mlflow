@@ -11,7 +11,7 @@
 #'   the MLmodel specification.
 #'
 #' @export
-mlflow_save_flavor <- function(x, path = "model") {
+mlflow_save_flavor <- function(x, path = "model", r_dependencies=NULL, conda_env=NULL) {
   UseMethod("mlflow_save_flavor")
 }
 
