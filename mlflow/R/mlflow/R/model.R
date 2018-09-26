@@ -61,11 +61,7 @@ mlflow_write_model_spec <- function(path, content) {
 
 #' @export
 mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
-  if(! is.null(run_id)) {
-    x <- mlflow_cli("artifacts","download", "-r", run_id, "-a", model_path)
-    model_path <- substr(x$stdout,1, nchar(x$stdout)-1)
-  }
-
+  model_path <- resolve_model_path(model_path, run_id)
   supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
   available_flavors <- intersect(names(spec$flavors), supported_flavors)
@@ -80,17 +76,20 @@ mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
   }
 
   if (!is.null(flavor)) {
-    if(!flavor %in% supported_flavors) {
-      stop("Invalid flavor.", paste("Supported flavors:", paste(supported_flavors, collapse=", ")))
+    if (!flavor %in% supported_flavors) {
+      stop("Invalid flavor.", paste("Supported flavors:",
+                              paste(supported_flavors, collapse = ", ")))
     }
-    if(!flavor %in% available_flavors) {
-      stop("Model does not contain requested flavor. ", paste("Available flavors:", paste(available_flavors, collapse=", ")))
+    if (!flavor %in% available_flavors) {
+      stop("Model does not contain requested flavor. ",
+           paste("Available flavors:", paste(available_flavors, collapse = ", ")))
     }
 
     flavor <- flavor
   } else {
     if (length(available_flavors) > 1) {
-      warning(paste("Multiple model flavors available (", paste(available_flavors, collapse=", "), " ).  loading flavor '", available_flavors[[1]], "'", ""))
+      warning(paste("Multiple model flavors available (", paste(available_flavors, collapse = ", "),
+                    " ).  loading flavor '", available_flavors[[1]], "'", ""))
     }
 
     flavor <- available_flavors[[1]]
@@ -175,8 +174,8 @@ mlflow_rfunc_predict <- function(
 
 resolve_model_path <- function(model_path, run_uuid) {
   if (!is.null(run_uuid)) {
-    result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path, echo = FALSE)
-
+    result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path,
+                         echo = FALSE)
     gsub("\n", "", result$stdout)
   } else {
     model_path
@@ -184,5 +183,5 @@ resolve_model_path <- function(model_path, run_uuid) {
 }
 
 supported_model_flavors <- function() {
-  purrr::map(methods(generic.function=mlflow_load_flavor), ~ substring(.x,20))
+  purrr::map(methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
 }
