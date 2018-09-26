@@ -200,3 +200,7 @@ span.error-message {
 .ExperimentView .metric-param-value {
   margin-left: 4px;
 }
+
+.ExperimentView .highlighted {
+  color: black;
+}

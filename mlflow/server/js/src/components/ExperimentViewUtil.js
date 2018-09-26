@@ -61,11 +61,14 @@ export default class ExperimentViewUtil {
     ];
   }
 
+  static isSortedBy(sortState, isMetric, isParam, key) {
+    return (sortState.isMetric === isMetric && sortState.isParam === isParam
+      && sortState.key === key);
+  }
+
   /** Returns a classname for a sortable column (a run metadata column, or a metric/param column) */
   static sortedClassName = (sortState, isMetric, isParam, key) => {
-    if (sortState.isMetric !== isMetric
-      || sortState.isParam !== isParam
-      || sortState.key !== key) {
+    if (!ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
       return "sortable";
     }
     return "sortable sorted " + (sortState.ascending ? "asc" : "desc");

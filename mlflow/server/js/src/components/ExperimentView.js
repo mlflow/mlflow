@@ -194,6 +194,7 @@ class ExperimentView extends Component {
           runInfo: runInfo,
           checkboxHandler: checkboxHandler,
           setSortBy: this.setSortBy,
+          sortState: this.state.sort,
           paramsMap: paramsMap,
           metricsMap: metricsMap,
           tags: this.props.tagsList[idx],
@@ -569,6 +570,7 @@ class ExperimentView extends Component {
     runInfo,
     checkboxHandler,
     setSortBy,
+    sortState,
     paramsMap,
     metricsMap,
     tags,
@@ -576,12 +578,17 @@ class ExperimentView extends Component {
     selected}) {
     const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
-    const paramsCellContents = Object.keys(paramsMap).map((paramKey) => {
+    const paramsCellContents = Object.keys(paramsMap).sort().map((paramKey) => {
       const keyname = "param-" + paramKey;
+      const cellClass = ExperimentViewUtil.isSortedBy(sortState, false, true, paramKey) ?
+        "highlighted" : "";
       return (
         <div key={keyname} className="metric-param-cell">
         <Dropdown id="dropdown-custom-1">
-          <ExperimentRunsSortToggle bsRole="toggle" className="metric-param-sort-toggle">
+          <ExperimentRunsSortToggle
+            bsRole="toggle"
+            className={"metric-param-sort-toggle " + cellClass}
+          >
             <span className="metric-param-name">
               {paramKey}
             </span>
@@ -612,8 +619,10 @@ class ExperimentView extends Component {
     });
     row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
 
-    const metricsCellContents = Object.keys(metricsMap).map((metricKey) => {
+    const metricsCellContents = Object.keys(metricsMap).sort().map((metricKey) => {
       const keyname = "metric-" + metricKey;
+      const cellClass = ExperimentViewUtil.isSortedBy(sortState, true, false, metricKey) ?
+        "highlighted" : "";
       const metric = metricsMap[metricKey].getValue();
       const range = metricRanges[metricKey];
       let fraction = 1.0;
@@ -624,7 +633,10 @@ class ExperimentView extends Component {
       return (
         <div key={keyname} className="metric-param-cell">
           <Dropdown id="dropdown-custom-1">
-            <ExperimentRunsSortToggle bsRole="toggle" className="metric-param-sort-toggle">
+            <ExperimentRunsSortToggle
+              bsRole="toggle"
+              className={"metric-param-sort-toggle " + cellClass}
+            >
               <span className="metric-param-name">
                 {metricKey}
               </span>
