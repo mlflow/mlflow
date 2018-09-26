@@ -21,12 +21,12 @@ mlflow_create_experiment <- function(name, artifact_location = NULL) {
 #' @export
 mlflow_set_experiment <- function(experiment_name) {
   client <- mlflow_client()
-  experiment <- mlflow_get_experiment_by_name(client = client, experiment_name)
+  experiment <- mlflow_client_get_experiment_by_name(client, experiment_name)
   exp_id <- if (!is.null(experiment)) {
     experiment$experiment_id
   } else {
     message("`", experiment_name, "` does not exist. Creating a new experiment.")
-    mlflow_create_experiment(client = client, name = experiment_name)
+    mlflow_client_create_experiment(client, experiment_name)
   }
   mlflow_set_active_experiment_id(exp_id)
 }
@@ -71,7 +71,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 
   run <- if (!is.null(existing_run_uuid)) {
     client <- mlflow_client()
-    mlflow_get_run(client = client, existing_run_uuid)
+    mlflow_get_run(client, existing_run_uuid)
   } else {
     experiment_id <- as.integer(
       experiment_id %||% mlflow_get_active_experiment_id() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
@@ -79,7 +79,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 
     client <- mlflow_client()
 
-    mlflow_create_run(
+    mlflow_client_create_run(
       client = client,
       experiment_id = experiment_id,
       source_name = source_name %||% get_source_name(),
@@ -92,27 +92,39 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
   mlflow_set_active_run(run)
 }
 
-#' @rdname mlflow_log_metric
+#' Log Metric
+#'
+#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
+#'   During a single execution of a run, a particular metric can be logged several times.
+#'   Backend will keep track of historical values along with timestamps.
+#'
+#' @param key Name of the metric.
+#' @param value Float value for the metric being logged.
+#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
 #' @export
-mlflow_log_metric.NULL <- function(
-  key, value, timestamp = NULL, client = NULL, ...
-) {
+mlflow_log_metric <- function(key, value, timestamp = NULL) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  mlflow_log_metric.mlflow_client(
-    client = client, key = key, value = value, timestamp = timestamp,
-    run_id = run_id(active_run)
+  mlflow_client_log_metric(
+    client = client, run_id = run_id(active_run),
+    key = key, value = value, timestamp = timestamp
   )
   invisible(value)
 }
 
-#' @rdname mlflow_set_tag
+#' Set Tag
+#'
+#' Set a tag on a run. Tags are run metadata that can be updated during and
+#'  after a run completes.
+#'
+#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
+#' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
 #' @export
-mlflow_set_tag.NULL <- function(key, value, client = NULL, ...) {
+mlflow_set_tag <- function(key, value) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  mlflow_set_tag.mlflow_client(
-    key = key, value = value, client = client, run_id = run_id(active_run)
+  mlflow_client_set_tag(
+    client = client, run_id = run_id(active_run), key = key, value = value
   )
 }
 
@@ -132,20 +144,66 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
   invisible(NULL)
 }
 
-#' @rdname mlflow_log_param
+#' Log Parameter
+#'
+#' API to log a parameter used for this run. Examples are params and hyperparams
+#'   used for ML training, or constant dates and values used in an ETL pipeline.
+#'   A params is a STRING key-value pair. For a run, a single parameter is allowed
+#'   to be logged only once.
+#'
+#' @param key Name of the parameter.
+#' @param value String value of the parameter.
 #' @export
-mlflow_log_param.NULL <- function(key, value, client = NULL, ...) {
+mlflow_log_param <- function(key, value) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  mlflow_log_param.mlflow_client(key, value, client, run_id(active_run))
+  mlflow_client_log_param(client, run_id(active_run), key, value)
   invisible(value)
 }
 
-
-#' @rdname mlflow_log_artifact
+#' Log Artifact
+#'
+#' Logs an specific file or directory as an artifact.
+#'
+#' @param path The file or directory to log as an artifact.
+#' @param artifact_path Destination path within the run’s artifact URI.
+#' @template roxlate-client-optional
+#'
+#' @details
+#'
+#' When logging to Amazon S3, ensure that the user has a proper policy
+#' attach to it, for instance:
+#'
+#' \code{
+#' {
+#' "Version": "2012-10-17",
+#' "Statement": [
+#'   {
+#'     "Sid": "VisualEditor0",
+#'     "Effect": "Allow",
+#'     "Action": [
+#'       "s3:PutObject",
+#'       "s3:GetObject",
+#'       "s3:ListBucket",
+#'       "s3:GetBucketLocation"
+#'       ],
+#'     "Resource": [
+#'       "arn:aws:s3:::mlflow-test/*",
+#'       "arn:aws:s3:::mlflow-test"
+#'       ]
+#'   }
+#'   ]
+#' }
+#' }
+#'
+#' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
+#' environment variables must be set to the corresponding key and secrets provided
+#' by Amazon IAM.
+#'
+#' @param run_id The run associated with this artifact.
 #' @export
-mlflow_log_artifact.NULL <- function(path, artifact_path = NULL, client = NULL, ...) {
+mlflow_log_artifact <- function(path, artifact_path = NULL) {
   active_run <- mlflow_get_or_start_run()
   client <- mlflow_client()
-  mlflow_log_artifact.mlflow_client(path, artifact_path, client, run_id(active_run))
+  mlflow_client_log_artifact(client, run_id(active_run), path, artifact_path)
 }

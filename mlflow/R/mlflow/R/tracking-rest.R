@@ -396,10 +396,9 @@ mlflow_client_restore_run <- function(client, run_id) {
 #' environment variables must be set to the corresponding key and secrets provided
 #' by Amazon IAM.
 #'
-#' @export
 #' @param run_id The run associated with this artifact.
 #' @export
-mlflow_log_artifact.mlflow_client <- function(client, run_id, path, artifact_path = NULL) {
+mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NULL) {
   artifact_param <- NULL
   if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
 
