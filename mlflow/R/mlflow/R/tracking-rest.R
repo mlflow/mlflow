@@ -156,11 +156,20 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
   )
 }
 
+#' Get Run
+#'
+#' Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.
+#'
+#' @param run_uuid Unique ID for the run.
+#' @template roxlate-client
+#'
+#' @export
 mlflow_client_get_run <- function(client, run_uuid) {
-  mlflow_rest(
+  response <- mlflow_rest(
     "runs", "get", client = client, verb = "GET",
     query = list(run_uuid = run_uuid),
   )
+  new_mlflow_entities_run(response)
 }
 
 mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp) {
