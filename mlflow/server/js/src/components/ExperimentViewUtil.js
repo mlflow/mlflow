@@ -71,4 +71,87 @@ export default class ExperimentViewUtil {
     }
     return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
   };
+
+  static computeMetricRanges(metricsByRun) {
+    const ret = {};
+    metricsByRun.forEach(metrics => {
+      metrics.forEach(metric => {
+        if (!ret.hasOwnProperty(metric.key)) {
+          ret[metric.key] = {min: Math.min(metric.value, metric.value * 0.7), max: metric.value};
+        } else {
+          if (metric.value < ret[metric.key].min) {
+            ret[metric.key].min = Math.min(metric.value, metric.value * 0.7);
+          }
+          if (metric.value > ret[metric.key].max) {
+            ret[metric.key].max = metric.value;
+          }
+        }
+      });
+    });
+    return ret;
+  }
+
+  /**
+   * Turn a list of metrics to a map of metric key to metric.
+   */
+  static toMetricsMap(metrics) {
+    const ret = {};
+    metrics.forEach((metric) => {
+      ret[metric.key] = metric;
+    });
+    return ret;
+  }
+
+  /**
+   * Turn a list of metrics to a map of metric key to metric.
+   */
+  static toParamsMap(params) {
+    const ret = {};
+    params.forEach((param) => {
+      ret[param.key] = param;
+    });
+    return ret;
+  }
+
+  /**
+   * Mutates and sorts the rows by the sortValue member.
+   */
+  static sortRows(rows, sortState) {
+    rows.sort((a, b) => {
+      if (a.sortValue === undefined) {
+        return 1;
+      } else if (b.sortValue === undefined) {
+        return -1;
+      } else if (!sortState.ascending) {
+        // eslint-disable-next-line no-param-reassign
+        [a, b] = [b, a];
+      }
+      let x = a.sortValue;
+      let y = b.sortValue;
+      // Casting to number if possible
+      if (!isNaN(+x)) {
+        x = +x;
+      }
+      if (!isNaN(+y)) {
+        y = +y;
+      }
+      return x < y ? -1 : (x > y ? 1 : 0);
+    });
+  }
+
+  /**
+   * Computes the sortValue for this row
+   */
+  static computeSortValue(sortState, metricsMap, paramsMap, runInfo, tags) {
+    if (sortState.isMetric || sortState.isParam) {
+      const sortValue = (sortState.isMetric ? metricsMap : paramsMap)[sortState.key];
+      return (sortValue === undefined ? undefined : sortValue.value);
+    } else if (sortState.key === 'user_id') {
+      return Utils.formatUser(runInfo.user_id);
+    } else if (sortState.key === 'source') {
+      return Utils.formatSource(runInfo, tags);
+    } else {
+      return runInfo[sortState.key];
+    }
+  }
 }

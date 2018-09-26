@@ -6,18 +6,15 @@ import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../r
 import 'react-virtualized/styles.css';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button, Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
-import Utils from '../utils/Utils';
 
-import ExperimentRunsTableMultiColumn from "./ExperimentRunsTableMultiColumn";
-import ExperimentRunsTableCompact from "./ExperimentRunsTableCompact";
-import ExperimentViewUtil from "./ExperimentViewUtil";
-import ExperimentRunsSortToggle from "./ExperimentRunsSortToggle";
+import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
+import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
@@ -148,8 +145,6 @@ class ExperimentView extends Component {
     const { experiment_id, name, artifact_location } = this.props.experiment;
     const {
       runInfos,
-      paramsList,
-      metricsList,
       paramKeyFilter,
       metricKeyFilter
     } = this.props;
@@ -158,79 +153,6 @@ class ExperimentView extends Component {
     // of parameter and metric names around later
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
-    const sort = this.state.sort;
-    const metricRanges = ExperimentView.computeMetricRanges(metricsList);
-    const rows = [...Array(runInfos.length).keys()].map((idx) => {
-      const runInfo = runInfos[idx];
-      const paramsMap = ExperimentView.toParamsMap(paramsList[idx]);
-      const metricsMap = ExperimentView.toMetricsMap(metricsList[idx]);
-      let sortValue;
-      if (sort.isMetric || sort.isParam) {
-        sortValue = (sort.isMetric ? metricsMap : paramsMap)[sort.key];
-        sortValue = sortValue === undefined ? undefined : sortValue.value;
-      } else if (sort.key === 'user_id') {
-        sortValue = Utils.formatUser(runInfo.user_id);
-      } else if (sort.key === 'source') {
-        sortValue = Utils.formatSource(runInfo, this.props.tagsList[idx]);
-      } else {
-        sortValue = runInfo[sort.key];
-      }
-
-      const checkboxHandler = () => this.onCheckbox(runInfo.run_uuid);
-      let rowContents;
-      if (this.state.showMultiColumns) {
-        rowContents = ExperimentView.runInfoToRow({
-          runInfo: runInfo,
-          checkboxHandler: checkboxHandler,
-          paramKeyList: paramKeyList,
-          metricKeyList: metricKeyList,
-          paramsMap: paramsMap,
-          metricsMap: metricsMap,
-          tags: this.props.tagsList[idx],
-          metricRanges: metricRanges,
-          selected: !!this.state.runsSelected[runInfo.run_uuid]});
-      } else {
-        rowContents = ExperimentView.runInfoToRowCompact({
-          runInfo: runInfo,
-          checkboxHandler: checkboxHandler,
-          paramKeyList: paramKeyList,
-          metricKeyList: metricKeyList,
-          setSortBy: this.setSortBy,
-          sortState: this.state.sort,
-          paramsMap: paramsMap,
-          metricsMap: metricsMap,
-          tags: this.props.tagsList[idx],
-          metricRanges: metricRanges,
-          selected: !!this.state.runsSelected[runInfo.run_uuid]});
-      }
-
-      return {
-        key: runInfo.run_uuid,
-        sortValue: sortValue,
-        contents: rowContents,
-      };
-    });
-    rows.sort((a, b) => {
-      if (a.sortValue === undefined) {
-        return 1;
-      } else if (b.sortValue === undefined) {
-        return -1;
-      } else if (!this.state.sort.ascending) {
-        // eslint-disable-next-line no-param-reassign
-        [a, b] = [b, a];
-      }
-      let x = a.sortValue;
-      let y = b.sortValue;
-      // Casting to number if possible
-      if (!isNaN(+x)) {
-        x = +x;
-      }
-      if (!isNaN(+y)) {
-        y = +y;
-      }
-      return x < y ? -1 : (x > y ? 1 : 0);
-    });
-
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
@@ -347,7 +269,7 @@ class ExperimentView extends Component {
           </form>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
-              {rows.length} matching {rows.length === 1 ? 'run' : 'runs'}
+              {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare
@@ -372,21 +294,34 @@ class ExperimentView extends Component {
               </span>
           </div>
             {this.state.showMultiColumns ?
-              <ExperimentRunsTableMultiColumn
-                rows={rows}
+              <ExperimentRunsTableMultiColumnView
+                onCheckbox={this.onCheckbox}
+                runInfos={this.props.runInfos}
+                paramsList={this.props.paramsList}
+                metricsList={this.props.metricsList}
+                tagsList={this.props.tagsList}
                 paramKeyList={paramKeyList}
                 metricKeyList={metricKeyList}
                 onCheckAll={this.onCheckAll}
-                isAllChecked={this.isAllChecked}
+                isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
                 sortState={this.state.sort}
+                runsSelected={this.state.runsSelected}
               /> :
-              <ExperimentRunsTableCompact
-                rows={rows}
+              <ExperimentRunsTableCompactView
+                onCheckbox={this.onCheckbox}
+                runInfos={this.props.runInfos}
+                paramsList={this.props.paramsList}
+                metricsList={this.props.metricsList}
+                paramKeyList={paramKeyList}
+                metricKeyList={metricKeyList}
+                tagsList={this.props.tagsList}
                 onCheckAll={this.onCheckAll}
-                isAllChecked={this.isAllChecked}
+                isAllChecked={this.isAllChecked()}
                 onSortBy={this.onSortBy}
                 sortState={this.state.sort}
+                runsSelected={this.state.runsSelected}
+                setSortByHandler={this.setSortBy}
               />
             }
         </div>
@@ -498,232 +433,6 @@ class ExperimentView extends Component {
       this.props.metricsList);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, "runs.csv");
-  }
-
-  /**
-   * Generate a row for a specific run, extracting the params and metrics in the given lists.
-   */
-  static runInfoToRow({
-    runInfo,
-    checkboxHandler,
-    paramKeyList,
-    metricKeyList,
-    paramsMap,
-    metricsMap,
-    tags,
-    metricRanges,
-    selected}) {
-    const numParams = paramKeyList.length;
-    const numMetrics = metricKeyList.length;
-    const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
-    paramKeyList.forEach((paramKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyname = "param-" + paramKey;
-      if (paramsMap[paramKey]) {
-        row.push(<td className={className} key={keyname}>
-          {paramsMap[paramKey].getValue()}
-        </td>);
-      } else {
-        row.push(<td className={className} key={keyname}/>);
-      }
-    });
-    if (numParams === 0) {
-      row.push(<td className="left-border" key={"meta-param-empty"}/>);
-    }
-
-    metricKeyList.forEach((metricKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyname = "metric-" + metricKey;
-      if (metricsMap[metricKey]) {
-        const metric = metricsMap[metricKey].getValue();
-        const range = metricRanges[metricKey];
-        let fraction = 1.0;
-        if (range.max > range.min) {
-          fraction = (metric - range.min) / (range.max - range.min);
-        }
-        const percent = (fraction * 100) + "%";
-        row.push(
-          <td className={className} key={keyname}>
-            <div className="metric-filler-bg">
-              <div className="metric-filler-fg" style={{width: percent}}/>
-              <div className="metric-text">
-                {Utils.formatMetric(metric)}
-              </div>
-            </div>
-          </td>
-        );
-      } else {
-        row.push(<td className={className} key={keyname}/>);
-      }
-    });
-    if (numMetrics === 0) {
-      row.push(<td className="left-border" key="meta-metric-empty" />);
-    }
-    return row;
-  }
-
-  /**
-   * Generate a row for a specific run, extracting the params and metrics in the given lists.
-   * The row will be rendered in compact form (i.e. metrics/params will each be in a
-   * a single table cell, as opposed to having one cell per metric/param).
-   */
-  static runInfoToRowCompact({
-    runInfo,
-    checkboxHandler,
-    setSortBy,
-    sortState,
-    paramsMap,
-    metricsMap,
-    paramKeyList,
-    metricKeyList,
-    tags,
-    metricRanges,
-    selected}) {
-    const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
-    const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
-    const paramsCellContents = filteredParamKeys.map((paramKey) => {
-      const keyname = "param-" + paramKey;
-      const cellClass = ExperimentViewUtil.isSortedBy(sortState, false, true, paramKey) ?
-        "highlighted" : "";
-      return (
-        <div key={keyname} className="metric-param-cell">
-        <Dropdown id="dropdown-custom-1">
-          <ExperimentRunsSortToggle
-            bsRole="toggle"
-            className={"metric-param-sort-toggle " + cellClass}
-          >
-            <span className="run-table-container" style={{display: "inline-block"}}>
-              <span className="metric-param-name" title={paramKey}>
-                {paramKey}
-              </span>
-              <span>
-                :
-              </span>
-            </span>
-          </ExperimentRunsSortToggle>
-          <span
-            className="metric-param-value run-table-container"
-            style={{display: "inline-block"}}
-            title={paramsMap[paramKey].getValue()}
-          >
-              {paramsMap[paramKey].getValue()}
-          </span>
-          <Dropdown.Menu className="mlflow-menu">
-            <MenuItem
-              className="mlflow-menu-item sort-run-menu-item"
-              onClick={() => setSortBy(false, true, paramKey, true)}
-            >
-              Sort ascending ({paramKey})
-            </MenuItem>
-            <MenuItem
-              className="mlflow-menu-item sort-run-menu-item"
-              onClick={() => setSortBy(false, true, paramKey, false)}
-            >
-              Sort descending ({paramKey})
-            </MenuItem>
-          </Dropdown.Menu>
-        </Dropdown>
-        </div>
-      );
-    });
-    row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
-    const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
-    const metricsCellContents = filteredMetricKeys.map((metricKey) => {
-      const keyname = "metric-" + metricKey;
-      const cellClass = ExperimentViewUtil.isSortedBy(sortState, true, false, metricKey) ?
-        "highlighted" : "";
-      const metric = metricsMap[metricKey].getValue();
-      const range = metricRanges[metricKey];
-      let fraction = 1.0;
-      if (range.max > range.min) {
-        fraction = (metric - range.min) / (range.max - range.min);
-      }
-      const percent = (fraction * 100) + "%";
-      return (
-        <div key={keyname} className="metric-param-cell">
-          <Dropdown id="dropdown-custom-1">
-            <ExperimentRunsSortToggle
-              bsRole="toggle"
-              className={"metric-param-sort-toggle " + cellClass}
-            >
-              <span className="run-table-container" style={{display: "inline-block"}}>
-                <span className="metric-param-name" title={metricKey}>
-                  {metricKey}
-                </span>
-                <span>
-                  :
-                </span>
-              </span>
-            </ExperimentRunsSortToggle>
-            <span className="metric-filler-bg metric-param-value">
-              <span className="metric-filler-fg" style={{width: percent}}/>
-              <span className="metric-text">
-                {Utils.formatMetric(metric)}
-              </span>
-            </span>
-            <Dropdown.Menu className="mlflow-menu">
-              <MenuItem
-                className="mlflow-menu-item sort-run-menu-item"
-                onClick={() => setSortBy(true, false, metricKey, true)}
-              >
-                Sort ascending ({metricKey})
-              </MenuItem>
-              <MenuItem
-                className="mlflow-menu-item sort-run-menu-item"
-                onClick={() => setSortBy(true, false, metricKey, false)}
-              >
-                Sort descending ({metricKey})
-              </MenuItem>
-            </Dropdown.Menu>
-          </Dropdown>
-        </div>
-      );
-    });
-    row.push(<td key="metrics-container-cell" className="left-border">{metricsCellContents}</td>);
-    return row;
-  }
-
-  static computeMetricRanges(metricsByRun) {
-    const ret = {};
-    metricsByRun.forEach(metrics => {
-      metrics.forEach(metric => {
-        if (!ret.hasOwnProperty(metric.key)) {
-          ret[metric.key] = {min: Math.min(metric.value, metric.value * 0.7), max: metric.value};
-        } else {
-          if (metric.value < ret[metric.key].min) {
-            ret[metric.key].min = Math.min(metric.value, metric.value * 0.7);
-          }
-          if (metric.value > ret[metric.key].max) {
-            ret[metric.key].max = metric.value;
-          }
-        }
-      });
-    });
-    return ret;
-  }
-
-  /**
-   * Turn a list of metrics to a map of metric key to metric.
-   */
-  static toMetricsMap(metrics) {
-    const ret = {};
-    metrics.forEach((metric) => {
-      ret[metric.key] = metric;
-    });
-    return ret;
-  }
-
-  /**
-   * Turn a list of metrics to a map of metric key to metric.
-   */
-  static toParamsMap(params) {
-    const ret = {};
-    params.forEach((param) => {
-      ret[param.key] = param;
-    });
-    return ret;
   }
 
   /**
