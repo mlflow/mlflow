@@ -233,10 +233,10 @@ class ExperimentView extends Component {
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const toggleElement = this.state.showMultiColumns ?
-      <span onClick={() => this.toggleTableView()}>
+      <span onClick={() => this.toggleTableView()} className="unselectable">
         <i className={"fas fa-columns"}/> Use compact view
       </span> :
-      <span onClick={() => this.toggleTableView()}>
+      <span onClick={() => this.toggleTableView()} className="unselectable">
         <i className={"fas fa-list"}/> Use multi-column view
       </span>;
 
@@ -516,7 +516,7 @@ class ExperimentView extends Component {
     const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     paramKeyList.forEach((paramKey, i) => {
-      const className = i === 0 ? "left-border" : undefined;
+      const className = (i === 0 ? "left-border" : "") + " run-table-container";
       const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
         row.push(<td className={className} key={keyname}>
@@ -531,7 +531,7 @@ class ExperimentView extends Component {
     }
 
     metricKeyList.forEach((metricKey, i) => {
-      const className = i === 0 ? "left-border" : undefined;
+      const className = (i === 0 ? "left-border" : "") + " run-table-container" ;
       const keyname = "metric-" + metricKey;
       if (metricsMap[metricKey]) {
         const metric = metricsMap[metricKey].getValue();
@@ -589,25 +589,27 @@ class ExperimentView extends Component {
             bsRole="toggle"
             className={"metric-param-sort-toggle " + cellClass}
           >
-            <span className="metric-param-name">
-              {paramKey}
-            </span>
-            <span>
-              :
+            <span className="run-table-container inline-block">
+              <span className="metric-param-name">
+                {paramKey}
+              </span>
+              <span>
+                :
+              </span>
             </span>
           </ExperimentRunsSortToggle>
-          <span className="metric-param-value">
+          <span className="metric-param-value run-table-container inline-block" title={paramsMap[paramKey].getValue()}>
               {paramsMap[paramKey].getValue()}
           </span>
           <Dropdown.Menu className="mlflow-menu">
             <MenuItem
-              className="mlflow-menu-item"
+              className="mlflow-menu-item sort-run-menu-item"
               onClick={() => setSortBy(false, true, paramKey, true)}
             >
               Sort ascending ({paramKey})
             </MenuItem>
             <MenuItem
-              className="mlflow-menu-item"
+              className="mlflow-menu-item sort-run-menu-item"
               onClick={() => setSortBy(false, true, paramKey, false)}
             >
               Sort descending ({paramKey})
@@ -637,28 +639,30 @@ class ExperimentView extends Component {
               bsRole="toggle"
               className={"metric-param-sort-toggle " + cellClass}
             >
-              <span className="metric-param-name">
-                {metricKey}
-              </span>
-              <span>
-                :
+              <span className="run-table-container" style={{display: "inline-block"}}>
+                <span className="metric-param-name">
+                  {metricKey}
+                </span>
+                <span>
+                  :
+                </span>
               </span>
             </ExperimentRunsSortToggle>
             <span className="metric-filler-bg metric-param-value">
-                <span className="metric-filler-fg" style={{width: percent}}/>
-                <span className="metric-text">
-                  {Utils.formatMetric(metric)}
-                </span>
+              <span className="metric-filler-fg" style={{width: percent}}/>
+              <span className="metric-text">
+                {Utils.formatMetric(metric)}
               </span>
+            </span>
             <Dropdown.Menu className="mlflow-menu">
               <MenuItem
-                className="mlflow-menu-item"
+                className="mlflow-menu-item sort-run-menu-item"
                 onClick={() => setSortBy(true, false, metricKey, true)}
               >
                 Sort ascending ({metricKey})
               </MenuItem>
               <MenuItem
-                className="mlflow-menu-item"
+                className="mlflow-menu-item sort-run-menu-item"
                 onClick={() => setSortBy(true, false, metricKey, false)}
               >
                 Sort descending ({metricKey})

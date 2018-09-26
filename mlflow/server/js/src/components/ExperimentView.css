@@ -204,3 +204,24 @@ span.error-message {
 .ExperimentView .highlighted {
   color: black;
 }
+
+/** Container with a max width & text-truncation for use in the experiment runs table */
+.ExperimentView .run-table-container {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.ExperimentView .sort-run-menu-item {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.inline-block {
+  display: inline-block;
+}

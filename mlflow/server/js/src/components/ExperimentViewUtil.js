@@ -17,22 +17,17 @@ export default class ExperimentViewUtil {
    */
   static getRunInfoCellsForRow(runInfo, tags) {
     return [
-      <td key="meta-link">
+      <td key="meta-link" className="run-table-container">
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
         </Link>
       </td>,
-      <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td key="meta-source" style={{
-        "whiteSpace": "nowrap",
-        "maxWidth": "250px",
-        "overflow": "hidden",
-        "textOverflow": "ellipsis",
-      }}>
+      <td key="meta-user" className="run-table-container">{Utils.formatUser(runInfo.user_id)}</td>,
+      <td className="run-table-container" key="meta-source">
         {Utils.renderSourceTypeIcon(runInfo.source_type)}
         {Utils.renderSource(runInfo, tags)}
       </td>,
-      <td key="meta-version">{Utils.renderVersion(runInfo)}</td>,
+      <td className="run-table-container" key="meta-version">{Utils.renderVersion(runInfo)}</td>,
     ];
   }
 
@@ -48,7 +43,8 @@ export default class ExperimentViewUtil {
    */
   static getRunMetadataHeaderCells(onSortBy, sortState) {
     const getHeaderCell = (key, text) => {
-      const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key);
+      const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key)
+        + " run-table-container";
       return <th key={"meta-" + key}
                  className={"bottom-row " + sortedClassName}
                  onClick={() => onSortBy(false, false, key)}>{text}</th>;

@@ -22,7 +22,7 @@ class ExperimentRunsTableCompact extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((headerCell) => headerCells.push(headerCell));
     const sortIcon = sortState.ascending ?
-      <i className="fas fa-arrow-up"/> : <i className="fas fa-arrow-down"/>;
+      <i className="fas fa-arrow-up" style={{marginLeft: 2}}/> : <i className="fas fa-arrow-down" style={{marginLeft: 2}}/>;
     return (
       <Table hover>
       <colgroup span="7"/>
@@ -33,13 +33,13 @@ class ExperimentRunsTableCompact extends Component {
           {headerCells}
           <th className="top-row left-border" scope="colgroup"
               colSpan="1">
-            <div>Parameters</div>
-            <div style={{minHeight: 18}}>
+            <div style={{minWidth: 180}}>Parameters</div>
+            <div style={{minHeight: 18}} className="unselectable">
               {
                 sortState.isParam ?
                   <span style={{cursor: "pointer"}}
                         onClick={() => onSortBy(false, true, sortState.key)}>
-                    <span> (sort: {sortState.key}</span>
+                    <span style={{verticalAlign: "top",  display: "inline-block", maxWidth: 160}} className="truncate-text">(sort: {sortState.key}</span>
                     {sortIcon}
                     <span>)</span>
                   </span> :
@@ -48,13 +48,14 @@ class ExperimentRunsTableCompact extends Component {
             </div>
           </th>
           <th className="top-row left-border" scope="colgroup"
-              colSpan="1">Metrics
-            <div style={{minHeight: 18}}>
+              colSpan="1">
+            <div style={{minWidth: 180}}>Metrics</div>
+            <div style={{minHeight: 18}} className="unselectable">
               {
                 sortState.isMetric ?
                   <span style={{cursor: "pointer"}}
                         onClick={() => onSortBy(true, false, sortState.key)}>
-                    <span>(sort: {sortState.key} </span>
+                    <span style={{verticalAlign: "top",  display: "inline-block", maxWidth: 160}} className="truncate-text">(sort: {sortState.key} </span>
                     {sortIcon}
                     <span>)</span>
                   </span> :

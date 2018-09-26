@@ -58,6 +58,7 @@ class ExperimentRunsTableMultiColumn extends Component {
     const columns = [];
     paramKeyList.forEach((paramKey, i) => {
       const className = "bottom-row "
+        + "run-table-container "
         + (i === 0 ? "left-border " : "")
         + ExperimentViewUtil.sortedClassName(sortState, false, true, paramKey);
       columns.push(<th key={'param-' + paramKey} className={className}
@@ -70,6 +71,7 @@ class ExperimentRunsTableMultiColumn extends Component {
     let firstMetric = true;
     metricKeyList.forEach((metricKey) => {
       const className = "bottom-row "
+        + "run-table-container "
         + (firstMetric ? "left-border " : "")
         + ExperimentViewUtil.sortedClassName(sortState, true, false, metricKey);
       firstMetric = false;
