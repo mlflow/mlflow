@@ -13,6 +13,7 @@ from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
 
@@ -225,7 +226,7 @@ class TestFileStore(unittest.TestCase):
         fs.delete_experiment(exp_id)
         with pytest.raises(Exception):
             fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name',
-                          0, None, [])
+                          0, None, [], None)
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
@@ -415,3 +416,11 @@ class TestFileStore(unittest.TestCase):
             fs.log_metric(run_id, Metric('a', 0.0, timestamp=0))
         with pytest.raises(MlflowException):
             fs.log_param(run_id, Param('a', 'b'))
+
+    def test_create_run_with_parent_id(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
+                            'entry_point_name', 0, None, [], 'test_parent_run_id')
+        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == 'test_parent_run_id'
+                    for t in fs.get_all_tags(run.info.run_uuid)])

@@ -16,7 +16,7 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      read_yaml, find, read_file_lines, read_file, build_path,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all)
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 from mlflow.utils.search_utils import does_run_match_clause
 
@@ -247,7 +247,7 @@ class FileStore(AbstractStore):
         return new_info
 
     def create_run(self, experiment_id, user_id, run_name, source_type,
-                   source_name, entry_point_name, start_time, source_version, tags):
+                   source_name, entry_point_name, start_time, source_version, tags, parent_run_id):
         """
         Creates a run with the specified attributes.
         """
@@ -276,6 +276,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
+        if parent_run_id:
+            self.set_tag(run_uuid, RunTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
         if run_name:
             self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
