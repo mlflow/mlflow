@@ -223,24 +223,6 @@ mlflow_get_metric_history <- function(metric_key, client, run_id) {
   as.data.frame(metrics, stringsAsFactors = FALSE)
 }
 
-#' List Experiments
-#'
-#' Get a list of all experiments.
-#'
-#' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
-#' @template roxlate-client
-#' @export
-mlflow_list_experiments <- function(
-  view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client
-) {
-  view_type <- match.arg(view_type)
-  response <- mlflow_client_list_experiments(client, view_type)
-  exps <- response$experiments
-
-  exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
-  exps
-}
-
 #' Get Experiment
 #'
 #' Get meta data for experiment and a list of runs for this experiment.
