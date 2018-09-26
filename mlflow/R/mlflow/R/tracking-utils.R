@@ -30,7 +30,7 @@ mlflow_get_or_start_run <- function() {
 }
 
 #' @export
-with.mlflow_active_run <- function(data, expr, ...) {
+with.mlflow_run <- function(data, expr, ...) {
 
   tryCatch(
     {
