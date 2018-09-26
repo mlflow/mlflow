@@ -1,3 +1,33 @@
+new_mlflow_client <- function(tracking_uri, server_url = NULL) {
+  structure(
+    list(
+      tracking_uri = tracking_uri,
+      server_url = server_url %||% tracking_uri
+    ),
+    class = "mlflow_client"
+  )
+}
+
+#' Initialize an MLflow client
+#'
+#' @param tracking_uri The tracking URI
+#'
+#' @export
+mlflow_client <- function(tracking_uri = NULL) {
+  tracking_uri <- tracking_uri %||% mlflow_get_tracking_uri()
+  server_url <- if (startsWith(tracking_uri, "http")) {
+    tracking_uri
+  } else if (!is.null(mlflow_local_server(tracking_uri)$server_url)) {
+    mlflow_local_server(tracking_uri)$server_url
+  } else {
+    local_server <- mlflow_server(file_store = tracking_uri, port = mlflow_connect_port())
+    mlflow_register_local_server(tracking_uri = tracking_uri, local_server = local_server)
+    local_server$server_url
+  }
+
+  new_mlflow_client(tracking_uri, server_url = server_url)
+}
+
 mlflow_rest_path <- function(version) {
   switch(
     version,
@@ -259,14 +289,16 @@ mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp = N
   ))
 }
 
-mlflow_client_set_tag <- function(client, run_uuid, key, value) {
-  mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
-    run_uuid = run_uuid,
-    key = key,
-    value = value
-  ))
-}
-
+#' Log Parameter
+#'
+#' API to log a parameter used for this run. Examples are params and hyperparams
+#'   used for ML training, or constant dates and values used in an ETL pipeline.
+#'   A params is a STRING key-value pair. For a run, a single parameter is allowed
+#'   to be logged only once.
+#'
+#' @param key Name of the parameter.
+#' @param value String value of the parameter.
+#' @export
 mlflow_client_log_param <- function(client, run_uuid, key, value) {
   mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
     run_uuid = run_uuid,
@@ -275,23 +307,118 @@ mlflow_client_log_param <- function(client, run_uuid, key, value) {
   ))
 }
 
-mlflow_client_get_param <- function(client, run_uuid, param_name) {
-  mlflow_rest("params", "get", client = client, query = list(
+#' Set Tag
+#'
+#' Set a tag on a run. Tags are run metadata that can be updated during and
+#'  after a run completes.
+#'
+#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
+#' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
+#' @export
+mlflow_client_set_tag <- function(client, run_uuid, key, value) {
+  mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
     run_uuid = run_uuid,
-    param_name = param_name
+    key = key,
+    value = value
   ))
 }
 
-mlflow_client_get_metric <- function(client, run_uuid, metric_key) {
-  mlflow_rest("metrics", "get", client = client, query = list(
-    run_uuid = run_uuid,
-    metric_key = metric_key
+#' Terminate a Run
+#'
+#' @param run_id Unique identifier for the run.
+#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param end_time Unix timestamp of when the run ended in milliseconds.
+#' @template roxlate-client
+#' @export
+mlflow_client_set_terminated <- function(
+  client, run_id, status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+  end_time = NULL
+) {
+  status <- match.arg(status)
+  response <- mlflow_client_update_run(client, run_id, status, end_time)
+  tidy_run_info(response$run_info)
+}
+
+#' Delete a Run
+#'
+#' @export
+mlflow_client_delete_run <- function(client, run_id) {
+  mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
+    run_uuid = run_id
   ))
 }
 
-mlflow_client_get_metric_history <- function(client, run_uuid, metric_key) {
-  mlflow_rest("metrics", "get-history", client = client, query = list(
-    run_uuid = run_uuid,
-    metric_key = metric_key
+#' Restore a Run
+#'
+#' @export
+mlflow_client_restore_run <- function(client, run_id) {
+  mlflow_rest("runs", "restore", client = client, verb = "POST", data = list(
+    run_uuid = run_id
   ))
+}
+
+#' Log Artifact
+#'
+#' Logs an specific file or directory as an artifact.
+#'
+#' @param path The file or directory to log as an artifact.
+#' @param artifact_path Destination path within the run’s artifact URI.
+#' @template roxlate-client-optional
+#'
+#' @details
+#'
+#' When logging to Amazon S3, ensure that the user has a proper policy
+#' attach to it, for instance:
+#'
+#' \code{
+#' {
+#' "Version": "2012-10-17",
+#' "Statement": [
+#'   {
+#'     "Sid": "VisualEditor0",
+#'     "Effect": "Allow",
+#'     "Action": [
+#'       "s3:PutObject",
+#'       "s3:GetObject",
+#'       "s3:ListBucket",
+#'       "s3:GetBucketLocation"
+#'       ],
+#'     "Resource": [
+#'       "arn:aws:s3:::mlflow-test/*",
+#'       "arn:aws:s3:::mlflow-test"
+#'       ]
+#'   }
+#'   ]
+#' }
+#' }
+#'
+#' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
+#' environment variables must be set to the corresponding key and secrets provided
+#' by Amazon IAM.
+#'
+#' @export
+#' @param run_id The run associated with this artifact.
+#' @export
+mlflow_log_artifact.mlflow_client <- function(client, run_id, path, artifact_path = NULL) {
+  artifact_param <- NULL
+  if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
+
+  if (as.logical(fs::is_file(path))) {
+    command <- "log-artifact"
+    local_param <- "--local-file"
+  } else {
+    command <- "log-artifacts"
+    local_param <- "--local-dir"
+  }
+
+  mlflow_cli("artifacts",
+             command,
+             local_param,
+             path,
+             artifact_param,
+             artifact_path,
+             "--run-id",
+             run_id)
+
+  invisible(NULL)
 }
