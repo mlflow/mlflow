@@ -28,41 +28,6 @@ mlflow_client <- function(tracking_uri = NULL) {
   new_mlflow_client(tracking_uri, server_url = server_url)
 }
 
-#' Create Run
-#'
-#' reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
-#'
-#' MLflow uses runs to track Param, Metric, and RunTag, associated with a single execution.
-#'
-#' @param experiment_id Unique identifier for the associated experiment.
-#' @param user_id User ID or LDAP for the user executing the run.
-#' @param run_name Human readable name for run.
-#' @param source_type Originating source for this run. One of Notebook, Job, Project, Local or Unknown.
-#' @param source_name String descriptor for source. For example, name or description of the notebook, or job name.
-#' @param start_time Unix timestamp of when the run started in milliseconds.
-#' @param source_version Git version of the source code used to create run.
-#' @param entry_point_name Name of the entry point for the run.
-#' @param tags Additional metadata for run in key-value pairs.
-#' @template roxlate-client
-#' @export
-mlflow_create_run <- function(
-  experiment_id, user_id = NULL, run_name = NULL, source_type = NULL,
-  source_name = NULL, entry_point_name = NULL, start_time = NULL, source_version = NULL,
-  tags = NULL, client
-) {
-  tags <- if (!is.null(tags)) tags %>%
-    purrr::imap(~ list(key = .y, value = .x)) %>%
-    unname()
-
-  start_time <- start_time %||% current_time()
-
-  run <- mlflow_client_create_run(
-    client, experiment_id, user_id, run_name, source_type,
-    source_name, entry_point_name, start_time, source_version, tags
-  )
-  new_mlflow_entities_run(run)
-}
-
 #' Delete Experiment
 #'
 #' Mark an experiment and associated runs, params, metrics, … etc for deletion. If the

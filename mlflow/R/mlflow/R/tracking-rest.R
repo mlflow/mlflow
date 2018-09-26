@@ -114,11 +114,34 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
   )
 }
 
+#' Create Run
+#'
+#' reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
+#'
+#' MLflow uses runs to track Param, Metric, and RunTag, associated with a single execution.
+#'
+#' @param experiment_id Unique identifier for the associated experiment.
+#' @param user_id User ID or LDAP for the user executing the run.
+#' @param run_name Human readable name for run.
+#' @param source_type Originating source for this run. One of Notebook, Job, Project, Local or Unknown.
+#' @param source_name String descriptor for source. For example, name or description of the notebook, or job name.
+#' @param start_time Unix timestamp of when the run started in milliseconds.
+#' @param source_version Git version of the source code used to create run.
+#' @param entry_point_name Name of the entry point for the run.
+#' @param tags Additional metadata for run in key-value pairs.
+#' @template roxlate-client
+#' @export
 mlflow_client_create_run <- function(
   client, experiment_id, user_id, run_name, source_type,
   source_name, entry_point_name, start_time, source_version, tags
 ) {
-  mlflow_rest(
+  tags <- if (!is.null(tags)) tags %>%
+    purrr::imap(~ list(key = .y, value = .x)) %>%
+    unname()
+
+  start_time <- start_time %||% current_time()
+
+  response <- mlflow_rest(
     "runs", "create", client = client, verb = "POST",
     data = list(
       experiment_id = experiment_id,
@@ -132,6 +155,7 @@ mlflow_client_create_run <- function(
       tags = tags
     )
   )
+  new_mlflow_entities_run(response)
 }
 
 mlflow_client_update_run <- function(client, run_uuid, status, end_time) {
