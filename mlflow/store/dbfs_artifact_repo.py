@@ -1,9 +1,9 @@
-import json
 import os
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.utils import json_utils
 from mlflow.utils.file_utils import build_path, get_relative_path
 from mlflow.utils.rest_utils import http_request, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
@@ -47,7 +47,7 @@ class DbfsArtifactRepository(ArtifactRepository):
     def _dbfs_is_dir(self, dbfs_path):
         response = self._databricks_api_request(
             endpoint=GET_STATUS_ENDPOINT, method='GET', json={'path': dbfs_path})
-        json_response = json.loads(response.text)
+        json_response = json_utils.loads(response.text)
         try:
             return json_response['is_dir']
         except KeyError:
@@ -106,7 +106,7 @@ class DbfsArtifactRepository(ArtifactRepository):
         else:
             dbfs_list_json = {'path': self._get_dbfs_path('')}
         response = self._dbfs_list_api(dbfs_list_json)
-        json_response = json.loads(response.text)
+        json_response = json_utils.loads(response.text)
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []
         artifact_prefix = strip_prefix(self.artifact_uri, 'dbfs:')

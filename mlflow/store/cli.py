@@ -4,7 +4,7 @@ import click
 
 from mlflow.tracking import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.json_utils import message_to_json
 
 
 @click.group("artifacts")

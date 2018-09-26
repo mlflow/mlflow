@@ -1,9 +1,12 @@
 import json
 
+import pytest
+
 from mlflow.entities import Experiment
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
-from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-
+from mlflow.utils import json_utils
+from mlflow.utils.json_utils import message_to_json, parse_dict
+from mlflow.exceptions import MlflowException
 
 def test_message_to_json():
     json_out = message_to_json(Experiment(123, "name", "arty", 'active').to_proto())
@@ -23,3 +26,8 @@ def test_parse_dict():
     assert experiment.experiment_id == 123
     assert experiment.name == 'name'
     assert experiment.artifact_location == ''
+
+def test_loads():
+    with pytest.raises(MlflowException):
+        json_utils.loads("Invalid JSON")
+    assert json_utils.loads('{"my-key": "my-value"}') == {"my-key": "my-value"}
