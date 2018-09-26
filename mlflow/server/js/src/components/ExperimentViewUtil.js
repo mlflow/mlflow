@@ -4,14 +4,19 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 
 export default class ExperimentViewUtil {
+  /** Returns checkbox cell for a row. */
+  static getCheckboxForRow(selected, checkboxHandler) {
+    return <td key="meta-check">
+      <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
+    </td>;
+  }
+
   /**
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoColumnsForRow(runInfo, tags, selected, onCheckbox) {
+  static getRunInfoCellsForRow(runInfo, tags) {
     return [
-      <td key="meta-check"><input type="checkbox" checked={selected}
-                                  onClick={() => onCheckbox(runInfo.run_uuid)}/></td>,
       <td key="meta-link">
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
@@ -19,10 +24,10 @@ export default class ExperimentViewUtil {
       </td>,
       <td key="meta-user">{Utils.formatUser(runInfo.user_id)}</td>,
       <td key="meta-source" style={{
-        "white-space": "nowrap",
-        "max-width": "250px",
+        "whiteSpace": "nowrap",
+        "maxWidth": "250px",
         "overflow": "hidden",
-        "text-overflow": "ellipsis",
+        "textOverflow": "ellipsis",
       }}>
         {Utils.renderSourceTypeIcon(runInfo.source_type)}
         {Utils.renderSource(runInfo, tags)}
@@ -31,10 +36,17 @@ export default class ExperimentViewUtil {
     ];
   }
 
+  /** Returns checkbox element for selecting all runs */
+  static getSelectAllCheckbox(onCheckAll, isAllCheckedBool) {
+    return <th key="meta-check" className="bottom-row">
+      <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
+    </th>;
+  }
+
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
-  static sharedColumnHeaders(onSortBy, onCheckAll, isAllCheckedBool, sortState) {
+  static getRunMetadataHeaderCells(onSortBy, sortState) {
     const getHeaderCell = (key, text) => {
       const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key);
       return <th key={"meta-" + key}
@@ -42,9 +54,6 @@ export default class ExperimentViewUtil {
                  onClick={() => onSortBy(false, false, key)}>{text}</th>;
     };
     return [
-      <th key="meta-check" className="bottom-row">
-        <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
-      </th>,
       getHeaderCell("start_time", <span>{"Date"}</span>),
       getHeaderCell("user_id", <span>{"User"}</span>),
       getHeaderCell("source", <span>{"Source"}</span>),

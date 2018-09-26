@@ -176,11 +176,12 @@ class ExperimentView extends Component {
         sortValue = runInfo[sort.key];
       }
 
+      const checkboxHandler = () => this.onCheckbox(runInfo.run_uuid);
       let rowContents;
       if (this.state.showMultiColumns) {
         rowContents = ExperimentView.runInfoToRow({
           runInfo: runInfo,
-          onCheckbox: this.onCheckbox,
+          checkboxHandler: checkboxHandler,
           paramKeyList: paramKeyList,
           metricKeyList: metricKeyList,
           paramsMap: paramsMap,
@@ -191,7 +192,7 @@ class ExperimentView extends Component {
       } else {
         rowContents = ExperimentView.runInfoToRowCompact({
           runInfo: runInfo,
-          onCheckbox: this.onCheckbox,
+          checkboxHandler: checkboxHandler,
           setSortBy: this.setSortBy,
           paramsMap: paramsMap,
           metricsMap: metricsMap,
@@ -501,7 +502,7 @@ class ExperimentView extends Component {
    */
   static runInfoToRow({
     runInfo,
-    onCheckbox,
+    checkboxHandler,
     paramKeyList,
     metricKeyList,
     paramsMap,
@@ -511,7 +512,8 @@ class ExperimentView extends Component {
     selected}) {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
-    const row = ExperimentViewUtil.getRunInfoColumnsForRow(runInfo, tags, selected, onCheckbox);
+    const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     paramKeyList.forEach((paramKey, i) => {
       const className = i === 0 ? "left-border" : undefined;
       const keyname = "param-" + paramKey;
@@ -565,14 +567,15 @@ class ExperimentView extends Component {
    */
   static runInfoToRowCompact({
     runInfo,
-    onCheckbox,
+    checkboxHandler,
     setSortBy,
     paramsMap,
     metricsMap,
     tags,
     metricRanges,
     selected}) {
-    const row = ExperimentViewUtil.getRunInfoColumnsForRow(runInfo, tags, selected, onCheckbox);
+    const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     const paramsCellContents = Object.keys(paramsMap).map((paramKey) => {
       const keyname = "param-" + paramKey;
       return (
@@ -607,7 +610,7 @@ class ExperimentView extends Component {
         </div>
       );
     });
-    row.push(<td className="left-border">{paramsCellContents}</td>);
+    row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
 
     const metricsCellContents = Object.keys(metricsMap).map((metricKey) => {
       const keyname = "metric-" + metricKey;
@@ -653,7 +656,7 @@ class ExperimentView extends Component {
         </div>
       );
     });
-    row.push(<td className="left-border">{metricsCellContents}</td>);
+    row.push(<td key="metrics-container-cell" className="left-border">{metricsCellContents}</td>);
     return row;
   }
 

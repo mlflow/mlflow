@@ -18,8 +18,9 @@ class ExperimentRunsTableCompact extends Component {
 
   render() {
     const { rows, onCheckAll, isAllChecked, onSortBy, sortState } = this.props;
-    const runMetadataHeaderCells = ExperimentViewUtil.sharedColumnHeaders(
-      onSortBy, onCheckAll, isAllChecked(), sortState);
+    const headerCells = [ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked())];
+    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
+      .forEach((headerCell) => headerCells.push(headerCell));
     return (
       <Table hover>
       <colgroup span="7"/>
@@ -27,16 +28,13 @@ class ExperimentRunsTableCompact extends Component {
       <colgroup span="1"/>
       <tbody>
       <tr>
-          {runMetadataHeaderCells}
+          {headerCells}
           <th className="top-row left-border" scope="colgroup"
               colSpan="1">Parameters
           </th>
           <th className="top-row left-border" scope="colgroup"
               colSpan="1">Metrics
           </th>
-          <tr>
-
-          </tr>
       </tr>
       {rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
       </tbody>
