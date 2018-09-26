@@ -107,6 +107,13 @@ mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", 
   exps
 }
 
+#' Get Experiment
+#'
+#' Get meta data for experiment and a list of runs for this experiment.
+#'
+#' @param experiment_id Identifer to get an experiment.
+#' @template roxlate-client
+#' @export
 mlflow_client_get_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "get", client = client,

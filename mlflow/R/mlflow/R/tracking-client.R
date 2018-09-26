@@ -175,17 +175,6 @@ mlflow_get_metric_history <- function(metric_key, client, run_id) {
   as.data.frame(metrics, stringsAsFactors = FALSE)
 }
 
-#' Get Experiment
-#'
-#' Get meta data for experiment and a list of runs for this experiment.
-#'
-#' @param experiment_id Identifer to get an experiment.
-#' @template roxlate-client
-#' @export
-mlflow_get_experiment <- function(experiment_id, client) {
-  mlflow_client_get_experiment(client, experiment_id)
-}
-
 #' Get Experiment by Name
 #'
 #' Get meta data for experiment by name.
