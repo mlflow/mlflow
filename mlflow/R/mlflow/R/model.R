@@ -65,7 +65,7 @@ mlflow_write_model_spec <- function(path, content) {
 #' @param data Dataframe to be scored.
 #' @export
 mlflow_model_predict <- function(model, data) {
-   model %>% mlflow_flavor_predict(data)
+   model %>% mlflow_predict_flavor(data)
 }
 
 #' Load MLflow Model.
