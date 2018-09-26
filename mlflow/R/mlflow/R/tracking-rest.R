@@ -235,7 +235,22 @@ mlflow_client_get_run <- function(client, run_uuid) {
   new_mlflow_entities_run(response)
 }
 
-mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp) {
+#' Log Metric
+#'
+#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
+#'   During a single execution of a run, a particular metric can be logged several times.
+#'   Backend will keep track of historical values along with timestamps.
+#'
+#' @param key Name of the metric.
+#' @param value Float value for the metric being logged.
+#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
+#' @export
+mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp = NULL) {
+  if (!is.numeric(value)) stop(
+    "Metric `", key, "`` must be numeric but ", class(value)[[1]], " found.",
+    call. = FALSE
+  )
+  timestamp <- timestamp %||% current_time()
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
     run_uuid = run_uuid,
     key = key,

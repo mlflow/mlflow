@@ -28,36 +28,6 @@ mlflow_client <- function(tracking_uri = NULL) {
   new_mlflow_client(tracking_uri, server_url = server_url)
 }
 
-#' Log Metric
-#'
-#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
-#'   During a single execution of a run, a particular metric can be logged several times.
-#'   Backend will keep track of historical values along with timestamps.
-#'
-#' @param key Name of the metric.
-#' @param value Float value for the metric being logged.
-#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
-#' @template roxlate-client-optional
-#' @export
-mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, ...) {
-  UseMethod("mlflow_log_metric", client)
-}
-
-#' @rdname mlflow_log_metric
-#' @param run_id Run ID.
-#' @export
-mlflow_log_metric.mlflow_client <- function(
-  key, value, timestamp = NULL, client = NULL, run_id, ...
-) {
-  if (!rlang::inherits_any(value, c("character", "numeric", "integer"))) {
-    stop("Metric ", key, " must be a character or numeric but ", class(value), " found.")
-  }
-  timestamp <- timestamp %||% current_time()
-  mlflow_client_log_metric(
-    client, run_uuid = run_id, key = key, value = value, timestamp = timestamp
-  )
-}
-
 #' Set Tag
 #'
 #' Set a tag on a run. Tags are run metadata that can be updated during and
