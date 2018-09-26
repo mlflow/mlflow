@@ -531,7 +531,7 @@ class ExperimentView extends Component {
     }
 
     metricKeyList.forEach((metricKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container" ;
+      const className = (i === 0 ? "left-border" : "") + " run-table-container";
       const keyname = "metric-" + metricKey;
       if (metricsMap[metricKey]) {
         const metric = metricsMap[metricKey].getValue();
@@ -590,7 +590,7 @@ class ExperimentView extends Component {
             className={"metric-param-sort-toggle " + cellClass}
           >
             <span className="run-table-container inline-block">
-              <span className="metric-param-name">
+              <span className="metric-param-name" title={paramKey}>
                 {paramKey}
               </span>
               <span>
@@ -598,7 +598,10 @@ class ExperimentView extends Component {
               </span>
             </span>
           </ExperimentRunsSortToggle>
-          <span className="metric-param-value run-table-container inline-block" title={paramsMap[paramKey].getValue()}>
+          <span
+            className="metric-param-value run-table-container inline-block"
+            title={paramsMap[paramKey].getValue()}
+          >
               {paramsMap[paramKey].getValue()}
           </span>
           <Dropdown.Menu className="mlflow-menu">
@@ -640,7 +643,7 @@ class ExperimentView extends Component {
               className={"metric-param-sort-toggle " + cellClass}
             >
               <span className="run-table-container" style={{display: "inline-block"}}>
-                <span className="metric-param-name">
+                <span className="metric-param-name" title={metricKey}>
                   {metricKey}
                 </span>
                 <span>

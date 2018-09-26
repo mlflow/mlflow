@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 
 export default class ExperimentRunsSortToggle extends React.Component {
   static propTypes = {
-    children: PropTypes.arrayOf(PropTypes.element),
+    children: PropTypes.node,
     bsRole: PropTypes.string,
     bsClass: PropTypes.string,
   };

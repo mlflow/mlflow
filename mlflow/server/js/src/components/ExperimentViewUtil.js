@@ -16,16 +16,18 @@ export default class ExperimentViewUtil {
    * the display row for a run.
    */
   static getRunInfoCellsForRow(runInfo, tags) {
+    const user = Utils.formatUser(runInfo.user_id);
+    const sourceType = Utils.renderSource(runInfo, tags);
     return [
       <td key="meta-link" className="run-table-container">
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
         </Link>
       </td>,
-      <td key="meta-user" className="run-table-container">{Utils.formatUser(runInfo.user_id)}</td>,
-      <td className="run-table-container" key="meta-source">
+      <td key="meta-user" className="run-table-container" title={user}>{user}</td>,
+      <td className="run-table-container" key="meta-source" title={sourceType}>
         {Utils.renderSourceTypeIcon(runInfo.source_type)}
-        {Utils.renderSource(runInfo, tags)}
+        {sourceType}
       </td>,
       <td className="run-table-container" key="meta-version">{Utils.renderVersion(runInfo)}</td>,
     ];
