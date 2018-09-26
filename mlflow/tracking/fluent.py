@@ -89,6 +89,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                         of the run ("local", "project", etc.). Defaults to
                         :py:class:`mlflow.entities.SourceType.LOCAL` ("local").
     :param run_name: Name of new run. Used only when ``run_uuid`` is unspecified.
+    :param nested: Parameter which must be set to ``True`` to create nested runs.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """

@@ -8,20 +8,12 @@ import pytest
 import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus
-from mlflow.exceptions import MlflowException
 from mlflow.tracking.fluent import start_run, end_run
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from tests.projects.utils import tracking_uri_mock
 
 
-@pytest.fixture()
-def temporary_tracking_uri(tmpdir):
-    tracking.set_tracking_uri(str(tmpdir))
-    yield
-    tracking.set_tracking_uri(None)
-
-
-def test_create_experiment(temporary_tracking_uri):
+def test_create_experiment(tracking_uri_mock):
     with pytest.raises(TypeError):
         mlflow.create_experiment()
 
@@ -36,7 +28,7 @@ def test_create_experiment(temporary_tracking_uri):
     assert exp_id is not None
 
 
-def test_set_experiment(temporary_tracking_uri):
+def test_set_experiment(tracking_uri_mock):
     with pytest.raises(TypeError):
         mlflow.set_experiment()
 
@@ -65,14 +57,7 @@ def test_set_experiment(temporary_tracking_uri):
         mlflow.tracking.fluent._active_experiment_id = None
 
 
-def test_no_nested_run(temporary_tracking_uri):
-    first_run = start_run()
-    with first_run:
-        with pytest.raises(Exception):
-            start_run()
-
-
-def test_start_run_context_manager(temporary_tracking_uri):
+def test_start_run_context_manager(tracking_uri_mock):
     first_run = start_run()
     first_uuid = first_run.info.run_uuid
     with first_run:
@@ -93,7 +78,7 @@ def test_start_run_context_manager(temporary_tracking_uri):
     assert finished_run2.info.status == RunStatus.FAILED
 
 
-def test_start_and_end_run(temporary_tracking_uri):
+def test_start_and_end_run(tracking_uri_mock):
     # Use the start_run() and end_run() APIs without a `with` block, verify they work.
     active_run = start_run()
     mlflow.log_metric("name_1", 25)
@@ -106,7 +91,7 @@ def test_start_and_end_run(temporary_tracking_uri):
         assert expected_pairs[metric.key] == metric.value
 
 
-def test_log_metric(temporary_tracking_uri):
+def test_log_metric(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
     with active_run:
@@ -122,7 +107,7 @@ def test_log_metric(temporary_tracking_uri):
         assert expected_pairs[metric.key] == metric.value
 
 
-def test_log_metric_validation(temporary_tracking_uri):
+def test_log_metric_validation(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
     with active_run:
@@ -131,7 +116,7 @@ def test_log_metric_validation(temporary_tracking_uri):
     assert len(finished_run.data.metrics) == 0
 
 
-def test_log_param(temporary_tracking_uri):
+def test_log_param(tracking_uri_mock):
     print(tracking.get_tracking_uri())
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
@@ -148,7 +133,7 @@ def test_log_param(temporary_tracking_uri):
         assert expected_pairs[param.key] == param.value
 
 
-def test_log_artifact(temporary_tracking_uri):
+def test_log_artifact(tracking_uri_mock):
     artifact_src_dir = tempfile.mkdtemp()
     # Create artifacts
     _, path0 = tempfile.mkstemp(dir=artifact_src_dir)
@@ -221,7 +206,7 @@ def test_with_startrun():
     assert mlflow.active_run() is None
 
 
-def test_parent_create_run(temporary_tracking_uri):
+def test_parent_create_run(tracking_uri_mock):
     parent_run = mlflow.start_run()
     with pytest.raises(Exception, match='To start a nested run'):
         mlflow.start_run()
