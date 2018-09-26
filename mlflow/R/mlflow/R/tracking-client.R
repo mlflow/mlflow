@@ -11,6 +11,7 @@ new_mlflow_client <- function(tracking_uri, server_url = NULL) {
 #' Initialize an MLflow client
 #'
 #' @param tracking_uri The tracking URI
+#' @keywords internal
 #'
 #' @export
 mlflow_client <- function(tracking_uri = NULL) {
@@ -154,7 +155,7 @@ mlflow_client_update_run <- function(client, run_uuid, status, end_time) {
 #' Mark an experiment and associated runs, params, metrics, … etc for deletion. If the
 #'   experiment uses FileStore, artifacts associated with experiment are also deleted.
 #'
-#' @param experiment_id ID of the associated experiment This field is required.
+#' @param experiment_id ID of the associated experiment. This field is required.
 #' @template roxlate-client
 #' @export
 mlflow_client_delete_experiment <- function(client, experiment_id) {
@@ -172,7 +173,7 @@ mlflow_client_delete_experiment <- function(client, experiment_id) {
 #'
 #' Throws RESOURCE_DOES_NOT_EXIST if experiment was never created or was permanently deleted.
 #'
-#' @param experiment_id ID of the associated experiment This field is required.
+#' @param experiment_id ID of the associated experiment. This field is required.
 #' @template roxlate-client
 #' @export
 mlflow_client_restore_experiment <- function(client, experiment_id) {
@@ -207,6 +208,7 @@ mlflow_client_get_run <- function(client, run_uuid) {
 #' @param key Name of the metric.
 #' @param value Float value for the metric being logged.
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
+#' @template roxlate-run-id
 #' @template roxlate-client
 #'
 #' @export
@@ -233,6 +235,7 @@ mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp = N
 #'
 #' @param key Name of the parameter.
 #' @param value String value of the parameter.
+#' @template roxlate-run-id
 #' @template roxlate-client
 #'
 #' @export
@@ -251,6 +254,7 @@ mlflow_client_log_param <- function(client, run_uuid, key, value) {
 #'
 #' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
 #' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
+#' @template roxlate-run-id
 #' @template roxlate-client
 #'
 #' @export
@@ -267,6 +271,7 @@ mlflow_client_set_tag <- function(client, run_uuid, key, value) {
 #' @param run_id Unique identifier for the run.
 #' @param status Updated status of the run. Defaults to `FINISHED`.
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
+#' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
 mlflow_client_set_terminated <- function(
@@ -306,6 +311,8 @@ mlflow_client_restore_run <- function(client, run_id) {
 #'
 #' @param path The file or directory to log as an artifact.
 #' @param artifact_path Destination path within the run’s artifact URI.
+#' @template roxlate-client
+#' @template roxlate-run-id
 #'
 #' @details
 #'
@@ -338,8 +345,6 @@ mlflow_client_restore_run <- function(client, run_id) {
 #' environment variables must be set to the corresponding key and secrets provided
 #' by Amazon IAM.
 #'
-#' @template roxlate-client
-#' @template roxlate-run-id
 #' @export
 mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NULL) {
   artifact_param <- NULL
