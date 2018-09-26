@@ -43,6 +43,26 @@ mlflow_write_model_spec <- function(path, content) {
   )
 }
 
+#' Generate prediction with MLflow model.
+#'
+#' @param model MLflow model.
+#' @param data Dataframe to be scored.
+#' @export
+mlflow_model_predict <- function(model, data) {
+   model %>% mlflow_flavor_predict(data)
+}
+
+#' Load MLflow Model.
+#'
+#' MLflow models can have multiple model flavors. Not all flavors / models can be loaded in R. This
+#' method will by default search for a flavor supported by R/mlflow.
+#'
+#' @param model_path "Path to the MLflow model. The path is relative to the run with the given
+#'        run-id or local filesystem path without run-id.
+#' @param run_id Optional MLflow run-id. If supplied model will be fetched from MLflow tracking
+#'        server.
+#' @param flavor Optional flavor specification. Can be used to load a particular flavor in case
+#'        there are multiple flavors available.
 #' @export
 mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
   model_path <- resolve_model_path(model_path, run_id)
