@@ -4,12 +4,13 @@ import PropTypes from "prop-types";
 export default class ExperimentRunsSortToggle extends React.Component {
   static propTypes = {
     children: PropTypes.arrayOf(PropTypes.element),
-    className: PropTypes.string,
   };
 
   render() {
+    // eslint-disable-next-line no-unused-vars
+    const {bsRole, bsClass, ...otherProps} = this.props;
     return (
-      <span className={this.props.className}>
+      <span {...otherProps}>
         {this.props.children}
       </span>
     );
