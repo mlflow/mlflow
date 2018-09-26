@@ -65,15 +65,26 @@ mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", ve
   jsonlite::fromJSON(text)
 }
 
-
-mlflow_client_create_experiment <- function(client, name, artifact_location) {
-  mlflow_rest(
+#' Create Experiment - Tracking Client
+#'
+#' Creates an MLflow experiment.
+#'
+#' @param name The name of the experiment to create.
+#' @param artifact_location Location where all artifacts for this experiment are stored. If
+#'   not provided, the remote server will select an appropriate default.
+#' @param client
+#'
+#' @export
+mlflow_client_create_experiment <- function(client, name, artifact_location = NULL) {
+  name <- forge::cast_string(name)
+  response <- mlflow_rest(
     "experiments", "create", client = client, verb = "POST",
     data = list(
       name = name,
       artifact_location = artifact_location
     )
   )
+  invisible(response$experiment_id)
 }
 
 mlflow_client_list_experiments <- function(client, view_type) {

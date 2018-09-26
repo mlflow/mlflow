@@ -28,27 +28,6 @@ mlflow_client <- function(tracking_uri = NULL) {
   new_mlflow_client(tracking_uri, server_url = server_url)
 }
 
-#' Create Experiment
-#'
-#' Creates an MLflow experiment.
-#'
-#' @param name The name of the experiment to create.
-#' @param artifact_location Location where all artifacts for this experiment are stored. If
-#'   not provided, the remote server will select an appropriate default.
-#' @template roxlate-client-optional
-#'
-#' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
-  UseMethod("mlflow_create_experiment", client)
-}
-
-#' @export
-mlflow_create_experiment.mlflow_client <- function(name, artifact_location = NULL, client = NULL) {
-  name <- forge::cast_string(name)
-  response <- mlflow_client_create_experiment(client, name, artifact_location)
-  invisible(response$experiment_id)
-}
-
 #' Create Run
 #'
 #' reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
@@ -74,6 +53,8 @@ mlflow_create_run <- function(
   tags <- if (!is.null(tags)) tags %>%
     purrr::imap(~ list(key = .y, value = .x)) %>%
     unname()
+
+  start_time <- start_time %||% current_time()
 
   run <- mlflow_client_create_run(
     client, experiment_id, user_id, run_name, source_type,
@@ -146,6 +127,7 @@ mlflow_log_metric.mlflow_client <- function(
   if (!rlang::inherits_any(value, c("character", "numeric", "integer"))) {
     stop("Metric ", key, " must be a character or numeric but ", class(value), " found.")
   }
+  timestamp <- timestamp %||% current_time()
   mlflow_client_log_metric(
     client, run_uuid = run_id, key = key, value = value, timestamp = timestamp
   )
@@ -340,7 +322,7 @@ mlflow_set_terminated <- function(
 #'
 #' @export
 mlflow_log_artifact <- function(path, artifact_path = NULL, client = NULL, ...) {
-  UseMethod("mlflow_log_artifact")
+  UseMethod("mlflow_log_artifact", client)
 }
 
 #' @rdname mlflow_log_artifact
