@@ -124,6 +124,29 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
+
+    // Assert parent run ID is not set.
+    Assert.assertTrue(run.getData().getTagsList().stream().noneMatch(
+            tag -> tag.getKey().equals("mlflow.parentRunId")));
+  }
+
+  @Test
+  public void createRunWithParent() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+    RunInfo parentRun = client.createRun(expId);
+    String parentRunId = parentRun.getRunUuid();
+    RunInfo childRun = client.createRun(CreateRun.newBuilder()
+    .setExperimentId(expId)
+    .setParentRunId(parentRunId)
+    .build());
+    List<RunTag> childTags = client.getRun(childRun.getRunUuid()).getData().getTagsList();
+    String parentRunIdTagValue = childTags.stream()
+      .filter(t -> t.getKey().equals("mlflow.parentRunId"))
+      .findFirst()
+      .get()
+      .getValue();
+    Assert.assertEquals(parentRunIdTagValue, parentRunId);
   }
 
   @Test(dependsOnMethods = {"addGetRun"})
