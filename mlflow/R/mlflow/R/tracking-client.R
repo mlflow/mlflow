@@ -28,18 +28,6 @@ mlflow_client <- function(tracking_uri = NULL) {
   new_mlflow_client(tracking_uri, server_url = server_url)
 }
 
-#' Delete Experiment
-#'
-#' Mark an experiment and associated runs, params, metrics, … etc for deletion. If the
-#'   experiment uses FileStore, artifacts associated with experiment are also deleted.
-#'
-#' @param experiment_id ID of the associated experiment This field is required.
-#' @template roxlate-client
-#' @export
-mlflow_delete_experiment <- function(experiment_id, client) {
-  mlflow_client_delete_experiment(client, experiment_id)
-}
-
 #' Restore Experiment
 #'
 #' Restore an experiment marked for deletion. This also restores associated metadata,

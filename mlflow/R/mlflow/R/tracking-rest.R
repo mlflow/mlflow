@@ -186,6 +186,14 @@ mlflow_client_update_run <- function(client, run_uuid, status, end_time) {
   ))
 }
 
+#' Delete Experiment
+#'
+#' Mark an experiment and associated runs, params, metrics, … etc for deletion. If the
+#'   experiment uses FileStore, artifacts associated with experiment are also deleted.
+#'
+#' @param experiment_id ID of the associated experiment This field is required.
+#' @template roxlate-client
+#' @export
 mlflow_client_delete_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "delete", client = client, verb = "POST",
