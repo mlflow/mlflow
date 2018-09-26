@@ -193,6 +193,8 @@ class ExperimentView extends Component {
         rowContents = ExperimentView.runInfoToRowCompact({
           runInfo: runInfo,
           checkboxHandler: checkboxHandler,
+          paramKeyList: paramKeyList,
+          metricKeyList: metricKeyList,
           setSortBy: this.setSortBy,
           sortState: this.state.sort,
           paramsMap: paramsMap,
@@ -573,12 +575,15 @@ class ExperimentView extends Component {
     sortState,
     paramsMap,
     metricsMap,
+    paramKeyList,
+    metricKeyList,
     tags,
     metricRanges,
     selected}) {
     const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
-    const paramsCellContents = Object.keys(paramsMap).sort().map((paramKey) => {
+    const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
+    const paramsCellContents = filteredParamKeys.map((paramKey) => {
       const keyname = "param-" + paramKey;
       const cellClass = ExperimentViewUtil.isSortedBy(sortState, false, true, paramKey) ?
         "highlighted" : "";
@@ -623,8 +628,8 @@ class ExperimentView extends Component {
       );
     });
     row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
-
-    const metricsCellContents = Object.keys(metricsMap).sort().map((metricKey) => {
+    const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
+    const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const cellClass = ExperimentViewUtil.isSortedBy(sortState, true, false, metricKey) ?
         "highlighted" : "";
