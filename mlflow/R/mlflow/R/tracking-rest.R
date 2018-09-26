@@ -121,6 +121,19 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
   )
 }
 
+#' Get Experiment by Name
+#'
+#' Get meta data for experiment by name.
+#'
+#' @param name The experiment name.
+#' @template roxlate-client
+#' @export
+mlflow_client_get_experiment_by_name <- function(client, name) {
+  exps <- mlflow_list_experiments(client = client)
+  experiment <- exps[exps$name == name, ]
+  if (nrow(experiment)) experiment else NULL
+}
+
 #' Create Run
 #'
 #' reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.

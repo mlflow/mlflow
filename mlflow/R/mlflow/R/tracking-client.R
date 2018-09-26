@@ -175,19 +175,6 @@ mlflow_get_metric_history <- function(metric_key, client, run_id) {
   as.data.frame(metrics, stringsAsFactors = FALSE)
 }
 
-#' Get Experiment by Name
-#'
-#' Get meta data for experiment by name.
-#'
-#' @param name The experiment name.
-#' @template roxlate-client
-#' @export
-mlflow_get_experiment_by_name <- function(name, client) {
-  exps <- mlflow_list_experiments(client = client)
-  experiment <- exps[exps$name == name, ]
-  if (nrow(experiment)) experiment else NULL
-}
-
 #' Terminate a Run
 #'
 #' @param run_id Unique identifier for the run.
