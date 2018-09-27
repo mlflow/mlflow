@@ -10,9 +10,9 @@ Authors@R: c(
   person(family = "RStudio", role = c("cph"))
   )
 Maintainer: Matei Zaharia <matei@databricks.com>
-Description: R interface to MLflow, open source platform for the complete machine
+Description: R interface to 'MLflow', open source platform for the complete machine
   learning lifecycle, see <https://mlflow.org/>. This package supports installing
-  MLflow, tracking experiments, creating and running projects, saving and serving
+  'MLflow', tracking experiments, creating and running projects, saving and serving
   models.
 License: Apache License 2.0
 URL: https://github.com/mlflow/mlflow
