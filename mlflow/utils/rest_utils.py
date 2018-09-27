@@ -1,5 +1,6 @@
 import base64
 import time
+import json
 from json import JSONEncoder
 
 import numpy
@@ -11,6 +12,15 @@ from mlflow.exceptions import MlflowException
 
 
 RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
+
+
+def check_response_status(response):
+    """
+    Raises an MlflowException if the response's status was not 200.
+    """
+    if response.status_code != 200:
+        raise MlflowException("The API request to URL %s failed with status code %s."
+                              % (response.url, response.status_code))
 
 
 def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
@@ -51,6 +61,25 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
             time.sleep(retry_interval)
     raise MlflowException("API request to %s failed to return code 200 after %s tries" %
                           (url, retries))
+
+
+def http_request_safe(host_creds, endpoint, **kwargs):
+    """
+    Wrapper around ``http_request`` that also verifies that the request succeeds with code 200.
+    """
+    response = http_request(host_creds=host_creds, endpoint=endpoint, **kwargs)
+    if response.status_code != 200:
+        base_msg = "API request to endpoint %s failed with error code " \
+                   "%s != 200" % (endpoint, response.status_code)
+        try:
+            js_dict = json.loads(response.text)
+        except ValueError:
+            raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+        message = js_dict['error_code']
+        if 'message' in js_dict:
+            message = "%s: %s" % (message, js_dict['message'])
+        raise MlflowException("%s. Got error '%s'." % (base_msg, message))
+    return response
 
 
 class NumpyEncoder(JSONEncoder):

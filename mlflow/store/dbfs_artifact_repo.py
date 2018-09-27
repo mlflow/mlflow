@@ -1,11 +1,11 @@
+import json
 import os
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils import json_utils
 from mlflow.utils.file_utils import build_path, get_relative_path
-from mlflow.utils.rest_utils import http_request, RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
@@ -28,12 +28,14 @@ class DbfsArtifactRepository(ArtifactRepository):
         if not cleaned_artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
 
-    def _databricks_api_request(self, **kwargs):
+    def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()
-        return http_request(host_creds, **kwargs)
+        return http_request_safe(host_creds, endpoint, **kwargs)
 
     def _dbfs_list_api(self, json):
-        return self._databricks_api_request(endpoint=LIST_API_ENDPOINT, method='GET', json=json)
+        host_creds = self.get_host_creds()
+        return http_request(
+            host_creds=host_creds, endpoint=LIST_API_ENDPOINT, method='GET', json=json)
 
     def _dbfs_download(self, output_path, endpoint):
         with open(output_path, 'wb') as f:
@@ -47,7 +49,7 @@ class DbfsArtifactRepository(ArtifactRepository):
     def _dbfs_is_dir(self, dbfs_path):
         response = self._databricks_api_request(
             endpoint=GET_STATUS_ENDPOINT, method='GET', json={'path': dbfs_path})
-        json_response = json_utils.loads(response.text)
+        json_response = json.loads(response.text)
         try:
             return json_response['is_dir']
         except KeyError:
@@ -106,7 +108,7 @@ class DbfsArtifactRepository(ArtifactRepository):
         else:
             dbfs_list_json = {'path': self._get_dbfs_path('')}
         response = self._dbfs_list_api(dbfs_list_json)
-        json_response = json_utils.loads(response.text)
+        json_response = json.loads(response.text)
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []
         artifact_prefix = strip_prefix(self.artifact_uri, 'dbfs:')

@@ -6,6 +6,7 @@ from __future__ import print_function
 
 from distutils import dir_util
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -18,7 +19,6 @@ from mlflow.entities import RunStatus, SourceType, Param
 import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
-from mlflow.utils import json_utils
 from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
@@ -310,7 +310,7 @@ def _get_or_create_conda_env(conda_env_path):
                                  "by setting the {1} environment variable to the path of the Conda "
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
-    env_names = [os.path.basename(env) for env in json_utils.loads(stdout)['envs']]
+    env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
     project_env_name = _get_conda_env_name(conda_env_path)
     if project_env_name not in env_names:
         eprint('=== Creating conda environment %s ===' % project_env_name)

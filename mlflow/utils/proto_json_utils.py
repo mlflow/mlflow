@@ -1,8 +1,4 @@
-import json
-
 from google.protobuf.json_format import MessageToJson, ParseDict
-
-from mlflow.exceptions import MlflowException
 
 
 def message_to_json(message):
@@ -13,12 +9,3 @@ def message_to_json(message):
 def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JOSN."""
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
-
-def loads(string, message=None):
-    try:
-        return json.loads(string)
-    except ValueError as e:
-        if message:
-            
-        raise MlflowException(
-            "Failed to decode string as JSON. String: '%s'. JSON decode error: '%s'" % (string, e))

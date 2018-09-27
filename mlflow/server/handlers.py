@@ -1,4 +1,5 @@
 # Define all the service endpoint handlers here.
+import json
 import os
 import re
 import six
@@ -16,8 +17,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
-from mlflow.utils import json_utils
-from mlflow.utils.json_utils import message_to_json, parse_dict
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
 
 _store = None
@@ -52,7 +52,7 @@ def _get_request_message(request_message, flask_request=request):
     # (which we can tell for sure because any proper request should be a dictionary),
     # and decode it a second time.
     if isinstance(request_json, six.string_types):
-        request_json = json_utils.loads(request_json)
+        request_json = json.loads(request_json)
 
     # If request doesn't have json body then assume it's empty.
     if request_json is None:

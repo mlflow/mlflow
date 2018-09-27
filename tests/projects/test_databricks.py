@@ -9,7 +9,6 @@ import databricks_cli
 import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
@@ -282,11 +281,3 @@ def test_databricks_http_request_integration(get_config, request):
         '/clusters/list', 'PUT', json={'a': 'b'})
     assert json.loads(response.text) == {'OK': 'woo'}
     assert get_config.call_count == 0
-
-
-def test_run_databricks_failed():
-    with mock.patch('mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request') as m:
-        m.return_value = mock.Mock(text="{'message': 'Node type not supported'}", status_code=400)
-        runner = DatabricksJobRunner('profile')
-        with pytest.raises(MlflowException):
-            runner._run_shell_command_job('/project', 'command', {}, {})
