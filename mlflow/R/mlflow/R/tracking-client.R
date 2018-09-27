@@ -10,7 +10,8 @@ new_mlflow_client <- function(tracking_uri, server_url = NULL) {
 
 #' Initialize an MLflow client
 #'
-#' @param tracking_uri The tracking URI
+#' @param tracking_uri The tracking URI. If not provided, defaults to the service
+#'  set by `mlflow_set_tracking_uri()`.
 #' @keywords internal
 #'
 #' @export

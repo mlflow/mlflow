@@ -7,7 +7,8 @@
 mlflow_client(tracking_uri = NULL)
 }
 \arguments{
-\item{tracking_uri}{The tracking URI}
+\item{tracking_uri}{The tracking URI. If not provided, defaults to the service
+set by `mlflow_set_tracking_uri()`.}
 }
 \description{
 Initialize an MLflow client

@@ -19,6 +19,11 @@ mlflow_client_log_artifact(client, run_id, path, artifact_path = NULL)
 Logs an specific file or directory as an artifact.
 }
 \details{
+The Tracking Client family of functions require an MLflow client to be
+  specified explicitly. These functions allow for greater control of where the
+  operations take place in terms of services and runs, but are more verbose
+  compared to the Fluent API.
+
 When logging to Amazon S3, ensure that the user has a proper policy
 attach to it, for instance:
 

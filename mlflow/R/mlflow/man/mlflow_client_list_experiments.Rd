@@ -15,6 +15,12 @@ mlflow_client_list_experiments(client, view_type = c("ACTIVE_ONLY",
 \description{
 Get a list of all experiments.
 }
+\details{
+The Tracking Client family of functions require an MLflow client to be
+  specified explicitly. These functions allow for greater control of where the
+  operations take place in terms of services and runs, but are more verbose
+  compared to the Fluent API.
+}
 \seealso{
 Other Tracking client functions: \code{\link{mlflow_client_create_experiment}},
   \code{\link{mlflow_client_create_run}},

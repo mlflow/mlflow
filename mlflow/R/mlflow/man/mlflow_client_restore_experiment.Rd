@@ -18,6 +18,11 @@ Restore an experiment marked for deletion. This also restores associated metadat
 }
 \details{
 Throws RESOURCE_DOES_NOT_EXIST if experiment was never created or was permanently deleted.
+
+The Tracking Client family of functions require an MLflow client to be
+  specified explicitly. These functions allow for greater control of where the
+  operations take place in terms of services and runs, but are more verbose
+  compared to the Fluent API.
 }
 \seealso{
 Other Tracking client functions: \code{\link{mlflow_client_create_experiment}},
