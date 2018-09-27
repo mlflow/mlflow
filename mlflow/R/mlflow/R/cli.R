@@ -34,7 +34,7 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
     PATH = paste(Sys.getenv("PATH"), python, sep = ":"),
     MLFLOW_CONDA_HOME = python_conda_home(),                      # devel version
     MLFLOW_MLFLOW_CONDA = file.path(python_conda_bin(), "conda"), # pip version (deprecated)
-    MLFLOW_TRACKING_URI = mlflow_tracking_uri()
+    MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
   )
 
   with_envvar(env, {

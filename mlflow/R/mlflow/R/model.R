@@ -39,6 +39,22 @@ mlflow_save_model <- function(x, path = "model", dependencies = NULL) {
   mlflow_write_model_spec(path, flavor_spec)
 }
 
+#' Log Model
+#'
+#' Logs a model in the given run. Similar to `mlflow_save_model()`
+#' but stores model as an artifact within the active run.
+#'
+#' @param fn The serving function that will perform a prediction.
+#' @param artifact_path Destination path where this MLflow compatible model
+#'   will be saved.
+#'
+#' @export
+mlflow_log_model <- function(fn, artifact_path) {
+  temp_path <- fs::path_temp(artifact_path)
+  mlflow_save_model(fn, path = temp_path)
+  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+}
+
 mlflow_timestamp <- function() {
   withr::with_options(
     c(digits.secs = 2),
@@ -51,7 +67,7 @@ mlflow_timestamp <- function() {
 
 mlflow_write_model_spec <- function(path, content) {
   content$time_created <- mlflow_timestamp()
-  content$run_id <- mlflow_active_run()$run_info$run_uuid
+  content$run_id <- active_run_id()
 
   write_yaml(
     purrr::compact(content),
@@ -65,7 +81,7 @@ mlflow_load_model <- function(model_path) {
   model_flavors <- gsub("^r_", "", names(spec$flavors))
 
   supported <- model_flavors %>%
-    Filter(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(methods(class = e)), .)
+    purrr::keep(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(utils::methods(class = e)))
 
   if ("crate" %in% model_flavors) {
     supported <- c("crate", supported)
@@ -78,7 +94,7 @@ mlflow_load_model <- function(model_path) {
       paste(model_flavors, collapse = ", "),
       ". Supported flavors: ",
       paste(
-        purrr::map_chr(model_flavors, ~ as.vector(methods(class = .x))),
+        purrr::map_chr(model_flavors, ~ as.vector(utils::methods(class = .x))),
         collapse = ", "
       )
     )
@@ -166,7 +182,6 @@ mlflow_rfunc_predict <- function(
 
 resolve_model_path <- function(model_path, run_uuid) {
   if (!is.null(run_uuid)) {
-    mlflow_get_or_create_active_connection()
     result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path, echo = FALSE)
 
     gsub("\n", "", result$stdout)
