@@ -146,6 +146,7 @@ mlflow_set_tag <- function(key, value) {
 mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED")) {
   active_run <- mlflow_active_run()
   if (!is.null(active_run)) {
+    status <- match.arg(status)
     client <- mlflow_client()
     mlflow_client_set_terminated(client, run_id(active_run), status)
     mlflow_set_active_run(NULL)
