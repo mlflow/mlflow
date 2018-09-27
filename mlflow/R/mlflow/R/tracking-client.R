@@ -375,7 +375,6 @@ mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @param path Relative source path to the desired artifact.
-#' @export
 mlflow_client_download_artifacts <- function(client, run_id, path) {
   result <- mlflow_cli(
     "artifacts", "download",
