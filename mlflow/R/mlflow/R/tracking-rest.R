@@ -34,7 +34,6 @@ mlflow_rest_timeout <- function() {
 #' @importFrom httr GET
 #' @importFrom httr POST
 #' @importFrom jsonlite fromJSON
-#' @importFrom xml2 as_list
 mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
   args <- list(...)
   tracking_url <- client$server_url
@@ -58,7 +57,7 @@ mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", ve
   )
 
   if (identical(response$status_code, 500L)) {
-    stop(as_list(content(response))$html$body$p[[1]])
+    stop(xml2::as_list(content(response))$html$body$p[[1]])
   }
 
   text <- content(response, "text", encoding = "UTF-8")

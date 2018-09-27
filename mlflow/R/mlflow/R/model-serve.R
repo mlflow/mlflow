@@ -2,7 +2,7 @@
 
 #' Serve an RFunc MLflow Model
 #'
-#' Serve an RFunc MLflow Model as a local web api under \url{http://localhost:8090}.
+#' Serve an RFunc MLflow Model as a local web api.
 #'
 #' @param model_path The path to the MLflow model, as a string.
 #' @param run_uuid ID of run to grab the model from.

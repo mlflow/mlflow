@@ -13,8 +13,6 @@ new_mlflow_client <- function(tracking_uri, server_url = NULL) {
 #' @param tracking_uri The tracking URI. If not provided, defaults to the service
 #'  set by `mlflow_set_tracking_uri()`.
 #' @keywords internal
-#'
-#' @export
 mlflow_client <- function(tracking_uri = NULL) {
   tracking_uri <- tracking_uri %||% mlflow_get_tracking_uri()
   server_url <- if (startsWith(tracking_uri, "http")) {
@@ -38,8 +36,6 @@ mlflow_client <- function(tracking_uri = NULL) {
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
 #'   not provided, the remote server will select an appropriate default.
 #' @template roxlate-client
-#'
-#' @export
 mlflow_client_create_experiment <- function(client, name, artifact_location = NULL) {
   name <- forge::cast_string(name)
   response <- mlflow_rest(
@@ -58,7 +54,6 @@ mlflow_client_create_experiment <- function(client, name, artifact_location = NU
 #'
 #' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
 #' @template roxlate-client
-#' @export
 mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL")) {
   view_type <- match.arg(view_type)
   response <- mlflow_rest(
@@ -78,7 +73,6 @@ mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", 
 #'
 #' @param experiment_id Identifer to get an experiment.
 #' @template roxlate-client
-#' @export
 mlflow_client_get_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "get", client = client,
@@ -92,7 +86,6 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
 #'
 #' @param name The experiment name.
 #' @template roxlate-client
-#' @export
 mlflow_client_get_experiment_by_name <- function(client, name) {
   exps <- mlflow_client_list_experiments(client = client)
   experiment <- exps[exps$name == name, ]
@@ -115,7 +108,6 @@ mlflow_client_get_experiment_by_name <- function(client, name) {
 #' @param entry_point_name Name of the entry point for the run.
 #' @param tags Additional metadata for run in key-value pairs.
 #' @template roxlate-client
-#' @export
 mlflow_client_create_run <- function(
   client, experiment_id, user_id = NULL, run_name = NULL, source_type = NULL,
   source_name = NULL, entry_point_name = NULL, start_time = NULL,
@@ -160,7 +152,6 @@ mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
 #'
 #' @param experiment_id ID of the associated experiment. This field is required.
 #' @template roxlate-client
-#' @export
 mlflow_client_delete_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "delete", client = client, verb = "POST",
@@ -178,7 +169,6 @@ mlflow_client_delete_experiment <- function(client, experiment_id) {
 #'
 #' @param experiment_id ID of the associated experiment. This field is required.
 #' @template roxlate-client
-#' @export
 mlflow_client_restore_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "restore", client = client, verb = "POST",
@@ -192,8 +182,6 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
 #'
 #' @template roxlate-run-id
 #' @template roxlate-client
-#'
-#' @export
 mlflow_client_get_run <- function(client, run_id) {
   response <- mlflow_rest(
     "runs", "get", client = client, verb = "GET",
@@ -213,8 +201,6 @@ mlflow_client_get_run <- function(client, run_id) {
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
 #' @template roxlate-run-id
 #' @template roxlate-client
-#'
-#' @export
 mlflow_client_log_metric <- function(client, run_id, key, value, timestamp = NULL) {
   if (!is.numeric(value)) stop(
     "Metric `", key, "`` must be numeric but ", class(value)[[1]], " found.",
@@ -240,8 +226,6 @@ mlflow_client_log_metric <- function(client, run_id, key, value, timestamp = NUL
 #' @param value String value of the parameter.
 #' @template roxlate-run-id
 #' @template roxlate-client
-#'
-#' @export
 mlflow_client_log_param <- function(client, run_id, key, value) {
   mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
     run_uuid = run_id,
@@ -259,8 +243,6 @@ mlflow_client_log_param <- function(client, run_id, key, value) {
 #' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
 #' @template roxlate-run-id
 #' @template roxlate-client
-#'
-#' @export
 mlflow_client_set_tag <- function(client, run_id, key, value) {
   mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
     run_uuid = run_id,
@@ -276,7 +258,6 @@ mlflow_client_set_tag <- function(client, run_id, key, value) {
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @template roxlate-run-id
 #' @template roxlate-client
-#' @export
 mlflow_client_set_terminated <- function(
   client, run_id, status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
   end_time = NULL
@@ -291,7 +272,6 @@ mlflow_client_set_terminated <- function(
 #'
 #' @template roxlate-client
 #' @template roxlate-run-id
-#' @export
 mlflow_client_delete_run <- function(client, run_id) {
   mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
     run_uuid = run_id
@@ -302,7 +282,6 @@ mlflow_client_delete_run <- function(client, run_id) {
 #'
 #' @template roxlate-client
 #' @template roxlate-run-id
-#' @export
 mlflow_client_restore_run <- function(client, run_id) {
   mlflow_rest("runs", "restore", client = client, verb = "POST", data = list(
     run_uuid = run_id
@@ -348,8 +327,6 @@ mlflow_client_restore_run <- function(client, run_id) {
 #' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
 #' environment variables must be set to the corresponding key and secrets provided
 #' by Amazon IAM.
-#'
-#' @export
 mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NULL) {
   artifact_param <- NULL
   if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
@@ -380,8 +357,6 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
 #' @template roxlate-run-id
 #' @param path The run's relative artifact path to list from. If not specified, it is
 #'  set to the root artifact path
-#'
-#' @export
 mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
   response <- mlflow_rest(
     "artifacts", "list", client = client, verb = "GET",

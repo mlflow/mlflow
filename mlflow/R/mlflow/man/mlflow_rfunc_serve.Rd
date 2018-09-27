@@ -26,7 +26,7 @@ are not blocked to handle requests. To terminate a daemonized server, call
 \item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
 }
 \description{
-Serve an RFunc MLflow Model as a local web api under \url{http://localhost:8090}.
+Serve an RFunc MLflow Model as a local web api.
 }
 \examples{
 \dontrun{
