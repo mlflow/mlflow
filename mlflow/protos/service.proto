@@ -349,7 +349,7 @@ message Metric {
   optional string key = 1;
 
   // Value associated with this metric.
-  optional float value = 2;
+  optional double value = 2;
 
   // The timestamp at which this metric was recorded.
   optional int64 timestamp = 3;
@@ -446,6 +446,7 @@ message Experiment {
   optional string artifact_location = 3;
 
   // Current life cycle stage of the experiment: "active" or "deleted".
+  // Deleted experiments are not returned by APIs.
   optional string lifecycle_stage = 4;
 
   // Last update time
@@ -512,8 +513,21 @@ message DeleteExperiment {
 message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // Identifier to get an experiment
+  optional int64 experiment_id = 1 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message UpdateExperiment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
   // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
+
+  // If provided, the experiment's name will be changed to this. The new name must be unique.
+  optional string new_name = 2;
 
   message Response {
   }
@@ -603,8 +617,8 @@ message LogMetric {
   // Name of the metric.
   optional string key = 2 [(validate_required) = true];
 
-  // Float value of the metric being logged.
-  optional float value = 3 [(validate_required) = true];
+  // Double value of the metric being logged.
+  optional double value = 3 [(validate_required) = true];
 
   // Unix timestamp in milliseconds at the time metric was logged.
   optional int64 timestamp = 4 [(validate_required) = true];
@@ -702,8 +716,12 @@ message MetricSearchExpression {
   optional string key = 1;
 
   oneof clause {
-    // Float clause for comparison.
+    // [Deprecated in 0.7.0, to be removed in future version] 
+    // Float clause for comparison. Use 'double' instead.
     FloatClause float = 2;
+
+    // Double clause of comparison
+    DoubleClause double = 3;
   }
 }
 
@@ -731,6 +749,14 @@ message FloatClause {
 
   // Float value for comparison.
   optional float value = 2;
+}
+
+message DoubleClause {
+  // OneOf (">", ">=", "==", "!=", "<=", "<")
+  optional string comparator = 1;
+
+  // Float value for comparison.
+  optional double value = 2;
 }
 
 message SearchRuns {
