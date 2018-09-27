@@ -6,9 +6,10 @@
 #' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param dependencies Optional vector of paths to dependency files
+#' @param r_dependencies Optional vector of paths to dependency files
 #'   to include in the model, as in \code{r-dependencies.txt}
 #'   or \code{conda.yaml}.
+#' @param conda_env Path to Conda dependencies file.
 #'
 #' @importFrom yaml write_yaml
 #' @export
@@ -203,5 +204,5 @@ resolve_model_path <- function(model_path, run_uuid) {
 }
 
 supported_model_flavors <- function() {
-  purrr::map(methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
+  purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
 }

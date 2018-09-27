@@ -6,6 +6,10 @@
 #' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param r_dependencies Optional vector of paths to dependency files
+#'   to include in the model, as in \code{r-dependencies.txt}
+#'   or \code{conda.yaml}.
+#' @param conda_env Path to Conda dependencies file.
 #'
 #' @return This funciton must return a list of flavors that conform to
 #'   the MLmodel specification.
