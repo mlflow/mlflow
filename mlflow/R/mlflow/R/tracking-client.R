@@ -280,6 +280,7 @@ mlflow_client_set_terminated <- function(
   end_time = NULL
 ) {
   status <- match.arg(status)
+  end_time <- end_time %||% current_time()
   response <- mlflow_rest_update_run(client, run_id, status, end_time)
   tidy_run_info(response$run_info)
 }
