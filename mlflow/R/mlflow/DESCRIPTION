@@ -36,12 +36,12 @@ Imports:
     withr,
     xml2,
     yaml,
-    carrier (>= 0.0.0.9000)
+    pryr,
+    rlang (>= 0.2.0)
 RoxygenNote: 6.1.0
 Suggests: 
   covr,
   lintr,
   testthat
 Remotes: 
-  rstudio/forge,
-  r-lib/carrier
+  rstudio/forge

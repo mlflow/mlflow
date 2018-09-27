@@ -1,4 +1,3 @@
-#' @import jsonlite
 # nocov start
 
 mlflow_swagger <- function() {
