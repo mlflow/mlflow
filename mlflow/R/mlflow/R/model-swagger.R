@@ -12,15 +12,15 @@ mlflow_swagger <- function() {
 
 swagger_header <- function() {
   list(
-    swagger = unbox("2.0"),
+    swagger = jsonlite::unbox("2.0"),
     info = list(
-      description = unbox("API to MLflow Model."),
-      version = unbox("1.0.0"),
-      title = unbox("MLflow Model")
+      description = jsonlite::unbox("API to MLflow Model."),
+      version = jsonlite::unbox("1.0.0"),
+      title = jsonlite::unbox("MLflow Model")
     ),
-    basePath = unbox("/"),
+    basePath = jsonlite::unbox("/"),
     schemes = list(
-      unbox("http")
+      jsonlite::unbox("http")
     )
   )
 }
@@ -28,28 +28,28 @@ swagger_header <- function() {
 swagger_path <- function() {
   list(
     post = list(
-      summary = unbox(paste0("Perform prediction")),
-      description = unbox(""),
+      summary = jsonlite::unbox(paste0("Perform prediction")),
+      description = jsonlite::unbox(""),
       consumes = list(
-        unbox("application/json")
+        jsonlite::unbox("application/json")
       ),
       produces = list(
-        unbox("application/json")
+        jsonlite::unbox("application/json")
       ),
       parameters = list(
         list(
-          "in" = unbox("body"),
-          name = unbox("body"),
-          description = unbox(paste0("Prediction instances for model")),
-          required = unbox(TRUE),
+          "in" = jsonlite::unbox("body"),
+          name = jsonlite::unbox("body"),
+          description = jsonlite::unbox(paste0("Prediction instances for model")),
+          required = jsonlite::unbox(TRUE),
           schema = list(
-            "$ref" = unbox(paste0("#/definitions/Type"))
+            "$ref" = jsonlite::unbox(paste0("#/definitions/Type"))
           )
         )
       ),
       responses = list(
         "200" = list(
-          description = unbox("Success")
+          description = jsonlite::unbox("Success")
         )
       )
     )
@@ -68,7 +68,7 @@ swagger_defs <- function() {
   list(
     definitions = list(
       Type = list(
-        type = unbox("object")
+        type = jsonlite::unbox("object")
       )
     )
   )
