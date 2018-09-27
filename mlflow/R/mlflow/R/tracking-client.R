@@ -125,6 +125,7 @@ mlflow_client_create_run <- function(
     unname()
 
   start_time <- start_time %||% current_time()
+  user_id <- user_id %||% mlflow_user()
 
   response <- mlflow_rest(
     "runs", "create", client = client, verb = "POST",

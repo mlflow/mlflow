@@ -86,3 +86,10 @@ wait_for <- function(f, wait, sleep) {
     stop("Operation failed after waiting for ", wait, " seconds")
   }
 }
+
+mlflow_user <- function() {
+  if ("user" %in% names(Sys.info()))
+    Sys.info()[["user"]]
+  else
+    "unknown"
+}
