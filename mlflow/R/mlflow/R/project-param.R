@@ -22,19 +22,20 @@ mlflow_param <- function(name, default = NULL, type = NULL, description = NULL) 
 
   caster <- switch(
     target_type,
-    numeric = forge::cast_scalar_double,
-    integer = forge::cast_scalar_integer,
-    purrr::compose(forge::cast_string, as.character)
+    integer = forge::cast_nullable_scalar_integer,
+    double = forge::cast_nullable_scalar_double,
+    numeric = forge::cast_nullable_scalar_double,
+    forge::cast_nullable_string
   )
 
-  tryCatch(
+  default <- tryCatch(
     if (!is.null(default)) caster(default),
     error = function(e) stop("`default` value for `", name, "` cannot be casted to type ",
                              type, ": ", conditionMessage(e), call. = FALSE)
   )
 
   tryCatch(
-    caster(.globals$run_params[[name]], allow_null = TRUE) %||% default,
+    caster(.globals$run_params[[name]]) %||% default,
     error = function(e) stop("Provided value for `", name,
                              "` cannot be casted to type ",
                              type, ": ", conditionMessage(e),
