@@ -20,7 +20,12 @@ def test_artifact_uri_factory():
 
 
 def test_list_artifacts_empty(ftp_mock):
-    repo = FTPArtifactRepository("ftp://test_ftp/some/path", ftp_mock)
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+
     ftp_mock.nlst = MagicMock(return_value=[])
     assert repo.list_artifacts() == []
     ftp_mock.nlst.assert_called_once_with("/some/path")
@@ -28,7 +33,11 @@ def test_list_artifacts_empty(ftp_mock):
 
 def test_list_artifacts(ftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = FTPArtifactRepository("ftp://test_ftp"+artifact_root_path, ftp_mock)
+    repo = FTPArtifactRepository("ftp://test_ftp"+artifact_root_path)
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
     # mocked file structure
     #  |- file
@@ -59,7 +68,11 @@ def test_list_artifacts(ftp_mock):
 
 def test_list_artifacts_with_subdir(ftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = FTPArtifactRepository("sftp://test_sftp"+artifact_root_path, ftp_mock)
+    repo = FTPArtifactRepository("sftp://test_sftp"+artifact_root_path)
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
     # mocked file structure
     #  |- model
@@ -93,7 +106,11 @@ def test_list_artifacts_with_subdir(ftp_mock):
 
 
 def test_log_artifact(ftp_mock, tmpdir):
-    repo = FTPArtifactRepository("ftp://test_ftp/some/path", ftp_mock)
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
     d = tmpdir.mkdir("data")
     f = d.join("test.txt")
@@ -110,7 +127,11 @@ def test_log_artifact(ftp_mock, tmpdir):
 
 
 def test_log_artifacts(ftp_mock, tmpdir):
-    repo = FTPArtifactRepository("ftp://test_ftp/some/path", ftp_mock)
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
     subd = tmpdir.mkdir("data").mkdir("subdir")
     subd.join("a.txt").write("A")
@@ -127,7 +148,11 @@ def test_log_artifacts(ftp_mock, tmpdir):
 
 
 def test_download_artifacts_single(ftp_mock):
-    repo = FTPArtifactRepository("ftp://test_ftp/some/path", ftp_mock)
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
     ftp_mock.cwd = MagicMock(side_effect=ftplib.error_perm)
 
@@ -138,7 +163,11 @@ def test_download_artifacts_single(ftp_mock):
 
 
 def test_download_artifacts(ftp_mock):
-    repo = FTPArtifactRepository("ftp://test_ftp/some/path", ftp_mock)
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
     # mocked file structure
     #  |- model

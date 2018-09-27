@@ -13,7 +13,7 @@ from mlflow.utils.file_utils import TempDir, build_path, get_relative_path
 class FTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via ftp."""
 
-    def __init__(self, artifact_uri, client=None):
+    def __init__(self, artifact_uri):
         self.uri = artifact_uri
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
@@ -27,20 +27,15 @@ class FTPArtifactRepository(ArtifactRepository):
         if self.config['host'] is None:
             self.config['host'] = 'localhost'
 
-        self.client = client
-
         super(FTPArtifactRepository, self).__init__(artifact_uri)
 
     @contextmanager
     def get_ftp_client(self):
-        if self.client:
-            yield self.client
-        else:
-            ftp = FTP()
-            ftp.connect(self.config['host'], self.config['port'])
-            ftp.login(self.config['username'], self.config['password'])
-            yield ftp
-            ftp.close()
+        ftp = FTP()
+        ftp.connect(self.config['host'], self.config['port'])
+        ftp.login(self.config['username'], self.config['password'])
+        yield ftp
+        ftp.close()
 
     def _is_dir(self, full_file_path):
         with self.get_ftp_client() as ftp:
