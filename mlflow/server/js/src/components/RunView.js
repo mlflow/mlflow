@@ -163,7 +163,7 @@ class RunView extends Component {
   render() {
     const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const noteInfo = NoteInfo.fromRunTags(tags);
-    const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
+    const startTime = Utils.formatTimestamp(run.getStartTime());
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
     const tableStyles = {

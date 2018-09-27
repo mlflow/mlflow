@@ -59,9 +59,25 @@ class Utils {
    * Format timestamps from millisecond epoch time.
    */
   static formatTimestamp(timestamp) {
+    if (timestamp === undefined) {
+      return '(unknown)';
+    }
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
     return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
+  }
+
+  /**
+   *
+   * Format timestamps from millisecond epoch time without date
+   */
+  static formatTimestampNoDate(timestamp) {
+    if (timestamp === undefined) {
+      return '(unknown)';
+    }
+    const d = new Date(0);
+    d.setUTCMilliseconds(timestamp);
+    return dateFormat(d, "HH:MM:ss");
   }
 
   /**

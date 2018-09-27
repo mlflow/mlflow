@@ -51,8 +51,7 @@ class CompareRunView extends Component {
               <tr>
                 <th scope="row" className="data-value">Start Time:</th>
                 {this.props.runInfos.map((run) => {
-                  const startTime =
-                    run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
+                  const startTime = Utils.formatTimestamp(run.getStartTime());
                   return <td className="meta-info" key={run.run_uuid}>{startTime}</td>;
                 }
                 )}

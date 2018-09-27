@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
-import ExperimentViewUtil from './ExperimentViewUtil';
+import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 
@@ -11,6 +11,11 @@ import Utils from '../utils/Utils';
  * value associated with a run in its own column.
  */
 class ExperimentRunsTableMultiColumnView extends Component {
+  constructor(props) {
+    super(props);
+    this.getRow = this.getRow.bind(this);
+  }
+
   static propTypes = {
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     // List of list of params in all the visible runs
@@ -24,13 +29,15 @@ class ExperimentRunsTableMultiColumnView extends Component {
     // Function which takes one parameter (runId)
     onCheckbox: PropTypes.func.isRequired,
     onCheckAll: PropTypes.func.isRequired,
+    onExpand: PropTypes.func.isRequired,
     isAllChecked: PropTypes.bool.isRequired,
     onSortBy: PropTypes.func.isRequired,
     sortState: PropTypes.object.isRequired,
     runsSelected: PropTypes.object.isRequired,
+    runsExpanded: PropTypes.object.isRequired,
   };
 
-  getRows() {
+  getRow({ idx, isParent, hasExpander, expanderOpen }) {
     const {
       runInfos,
       paramsList,
@@ -41,72 +48,73 @@ class ExperimentRunsTableMultiColumnView extends Component {
       sortState,
       runsSelected,
       tagsList,
+      onExpand,
     } = this.props;
     const metricRanges = ExperimentViewUtil.computeMetricRanges(metricsList);
-    const rows = [...Array(runInfos.length).keys()].map((idx) => {
-      const runInfo = runInfos[idx];
-      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
-      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
-      const numParams = paramKeyList.length;
-      const numMetrics = metricKeyList.length;
-      const selected = runsSelected[runInfo.run_uuid] === true;
-      const rowContents = [ExperimentViewUtil.getCheckboxForRow(selected, onCheckbox)];
-      ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx]).forEach((col) =>
-        rowContents.push(col));
-      paramKeyList.forEach((paramKey, i) => {
-        const className = (i === 0 ? "left-border" : "") + " run-table-container";
-        const keyName = "param-" + paramKey;
-        if (paramsMap[paramKey]) {
-          rowContents.push(<td className={className} key={keyName}>
-            {paramsMap[paramKey].getValue()}
-          </td>);
-        } else {
-          rowContents.push(<td className={className} key={keyName}/>);
-        }
-      });
-      if (numParams === 0) {
-        rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
+    const runInfo = runInfos[idx];
+    const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
+    const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
+    const numParams = paramKeyList.length;
+    const numMetrics = metricKeyList.length;
+    const selected = runsSelected[runInfo.run_uuid] === true;
+    const rowContents = [
+      ExperimentViewUtil.getCheckboxForRow(selected, onCheckbox),
+      ExperimentViewUtil.getExpander(hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid)),
+    ];
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent).forEach((col) =>
+      rowContents.push(col));
+    paramKeyList.forEach((paramKey, i) => {
+      const className = (i === 0 ? "left-border" : "") + " run-table-container";
+      const keyName = "param-" + paramKey;
+      if (paramsMap[paramKey]) {
+        rowContents.push(<td className={className} key={keyName}>
+          {paramsMap[paramKey].getValue()}
+        </td>);
+      } else {
+        rowContents.push(<td className={className} key={keyName}/>);
       }
-
-      metricKeyList.forEach((metricKey, i) => {
-        const className = (i === 0 ? "left-border" : "") + " run-table-container";
-        const keyName = "metric-" + metricKey;
-        if (metricsMap[metricKey]) {
-          const metric = metricsMap[metricKey].getValue();
-          const range = metricRanges[metricKey];
-          let fraction = 1.0;
-          if (range.max > range.min) {
-            fraction = (metric - range.min) / (range.max - range.min);
-          }
-          const percent = (fraction * 100) + "%";
-          rowContents.push(
-            <td className={className} key={keyName}>
-              <div className="metric-filler-bg">
-                <div className="metric-filler-fg" style={{width: percent}}/>
-                <div className="metric-text">
-                  {Utils.formatMetric(metric)}
-                </div>
-              </div>
-            </td>
-          );
-        } else {
-          rowContents.push(<td className={className} key={keyName}/>);
-        }
-      });
-      if (numMetrics === 0) {
-        rowContents.push(<td className="left-border" key="meta-metric-empty" />);
-      }
-
-      const sortValue = ExperimentViewUtil.computeSortValue(
-        sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
-      return {
-        key: runInfo.run_uuid,
-        sortValue: sortValue,
-        contents: rowContents,
-      };
     });
-    ExperimentViewUtil.sortRows(rows, sortState);
-    return rows;
+    if (numParams === 0) {
+      rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
+    }
+
+    metricKeyList.forEach((metricKey, i) => {
+      const className = (i === 0 ? "left-border" : "") + " run-table-container";
+      const keyName = "metric-" + metricKey;
+      if (metricsMap[metricKey]) {
+        const metric = metricsMap[metricKey].getValue();
+        const range = metricRanges[metricKey];
+        let fraction = 1.0;
+        if (range.max > range.min) {
+          fraction = (metric - range.min) / (range.max - range.min);
+        }
+        const percent = (fraction * 100) + "%";
+        rowContents.push(
+          <td className={className} key={keyName}>
+            <div className="metric-filler-bg">
+              <div className="metric-filler-fg" style={{width: percent}}/>
+              <div className="metric-text">
+                {Utils.formatMetric(metric)}
+              </div>
+            </div>
+          </td>
+        );
+      } else {
+        rowContents.push(<td className={className} key={keyName}/>);
+      }
+    });
+    if (numMetrics === 0) {
+      rowContents.push(<td className="left-border" key="meta-metric-empty" />);
+    }
+
+    const sortValue = ExperimentViewUtil.computeSortValue(
+      sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
+    return {
+      key: runInfo.run_uuid,
+      sortValue: sortValue,
+      contents: rowContents,
+      isChild: !isParent,
+    };
   }
 
   getMetricParamHeaderCells() {
@@ -157,25 +165,32 @@ class ExperimentRunsTableMultiColumnView extends Component {
 
   render() {
     const {
-      paramKeyList,
-      metricKeyList,
+      runInfos,
       onCheckAll,
       isAllChecked,
       onSortBy,
-      sortState } = this.props;
-    const rows = this.getRows();
-    const columns = [ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked)];
+      sortState,
+      tagsList,
+      runsExpanded,
+      paramKeyList,
+      metricKeyList,
+    } = this.props;
+    const rows = ExperimentViewUtil.getRows({ runInfos, sortState, tagsList, runsExpanded, getRow: this.getRow });
+    const columns = [
+      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked),
+      ExperimentViewUtil.getExpanderHeader(),
+    ];
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState).forEach((cell) =>
       columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
     return (
       <Table hover>
-        <colgroup span="7"/>
+        <colgroup span="8"/>
         <colgroup span={paramKeyList.length}/>
         <colgroup span={metricKeyList.length}/>
         <tbody>
         <tr>
-          <th className="top-row" scope="colgroup" colSpan="5"/>
+          <th className="top-row" scope="colgroup" colSpan="6"/>
           <th className="top-row left-border" scope="colgroup" colSpan={paramKeyList.length}>
             Parameters
           </th>
@@ -186,7 +201,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
         <tr>
           {columns}
         </tr>
-        {rows.map(row => <tr key={row.key}>{row.contents}</tr>)}
+        {ExperimentViewUtil.renderRows(rows)}
         </tbody>
       </Table>
     );

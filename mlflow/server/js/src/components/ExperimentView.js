@@ -18,6 +18,9 @@ import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
+import ExperimentViewUtil from './ExperimentViewUtil';
+
+export const DEFAULT_EXPANDED_VALUE = true;
 
 class ExperimentView extends Component {
   constructor(props) {
@@ -40,6 +43,7 @@ class ExperimentView extends Component {
     this.onLifecycleFilterInput = this.onLifecycleFilterInput.bind(this);
     this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
     this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
+    this.onExpand = this.onExpand.bind(this);
   }
 
   static propTypes = {
@@ -74,6 +78,8 @@ class ExperimentView extends Component {
 
   state = {
     runsSelected: {},
+    // By default all runs are expanded. In this state, runs are explicitly expanded or unexpanded.
+    runsExpanded: {},
     paramKeyFilterInput: '',
     metricKeyFilterInput: '',
     lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
@@ -307,6 +313,8 @@ class ExperimentView extends Component {
                 onSortBy={this.onSortBy}
                 sortState={this.state.sort}
                 runsSelected={this.state.runsSelected}
+                runsExpanded={this.state.runsExpanded}
+                onExpand={this.onExpand}
               /> :
               <ExperimentRunsTableCompactView
                 onCheckbox={this.onCheckbox}
@@ -322,6 +330,8 @@ class ExperimentView extends Component {
                 sortState={this.state.sort}
                 runsSelected={this.state.runsSelected}
                 setSortByHandler={this.setSortBy}
+                runsExpanded={this.state.runsExpanded}
+                onExpand={this.onExpand}
               />
             }
         </div>
@@ -372,6 +382,15 @@ class ExperimentView extends Component {
       });
       this.setState({runsSelected: runsSelected});
     }
+  }
+
+  onExpand(runId) {
+    this.setState({
+      runsExpanded: {
+        ...this.state.runsExpanded,
+        [runId]: !ExperimentViewUtil.isExpanderOpen(this.state.runsExpanded, runId)
+      }
+    });
   }
 
   onParamKeyFilterInput(event) {
