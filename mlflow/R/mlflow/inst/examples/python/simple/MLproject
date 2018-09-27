@@ -1,9 +1,0 @@
-name: My Project
-
-conda_env: conda.yaml
-
-entry_points:
-  main:
-    parameters:
-      parameter: {type: float, default: 0.0}
-    command: "python simple.py -r {parameter}"
