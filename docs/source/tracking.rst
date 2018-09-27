@@ -308,7 +308,7 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 FTP server
 ~~~
 Specify a URI of the form ftp://user@host/path/to/directory to store artifacts in a FTP server. 
-The URI may optionally include a password for logging into the server, e.g. ``ftp://pass:user@host/path/to/directory``
+The URI may optionally include a password for logging into the server, e.g. ``ftp://user:pass@host/path/to/directory``
 
 SFTP Server
 ~~~~~~~~~~~
