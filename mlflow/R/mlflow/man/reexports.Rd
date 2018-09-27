@@ -5,7 +5,6 @@
 \alias{reexports}
 \alias{\%||\%}
 \alias{\%>\%}
-\alias{crate}
 \title{Objects exported from other packages}
 \keyword{internal}
 \description{
@@ -13,8 +12,6 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{carrier}{\code{\link[carrier]{crate}}}
-
   \item{purrr}{\code{\link[purrr]{\%>\%}}}
 
   \item{rlang}{\code{\link[rlang]{\%||\%}}}
