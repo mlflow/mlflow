@@ -7,7 +7,6 @@ from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, Vie
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request_safe
-from mlflow.exceptions import MlflowException
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \

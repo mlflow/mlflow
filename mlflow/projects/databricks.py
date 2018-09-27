@@ -9,6 +9,7 @@ import time
 from six.moves import shlex_quote
 
 from mlflow.entities import RunStatus
+from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
@@ -66,9 +67,16 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile. The path is expected to be a relative path to the DBFS root
         directory, e.g. 'path/to/file'.
         """
-        response = self._databricks_api_request(
-            endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": "/%s" % dbfs_path})
-        json_response_obj = json.loads(response.text)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
+        response = rest_utils.http_request(
+            host_creds=host_creds, endpoint="/api/2.0/dbfs/get-status", method="GET",
+            json={"path": "/%s" % dbfs_path})
+        try:
+            json_response_obj = json.loads(response.text)
+        except ValueError:
+            raise MlflowException(
+                "API request to check existence of file at DBFS path %s failed with status code "
+                "%s. Response body: %s" % (dbfs_path, response.status_code, response.text))
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
         if error_code_field in json_response_obj:
