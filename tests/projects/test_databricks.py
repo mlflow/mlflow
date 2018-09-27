@@ -9,6 +9,7 @@ import databricks_cli
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
@@ -281,3 +282,13 @@ def test_databricks_http_request_integration(get_config, request):
         '/clusters/list', 'PUT', json={'a': 'b'})
     assert json.loads(response.text) == {'OK': 'woo'}
     assert get_config.call_count == 0
+
+
+@mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
+def test_run_databricks_failed(_):
+    with mock.patch('mlflow.utils.rest_utils.http_request') as m:
+        text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+        m.return_value = mock.Mock(text=text, status_code=400)
+        runner = DatabricksJobRunner('profile')
+        with pytest.raises(MlflowException):
+            runner._run_shell_command_job('/project', 'command', {}, {})

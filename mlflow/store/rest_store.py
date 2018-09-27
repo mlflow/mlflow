@@ -57,15 +57,7 @@ class RestStore(AbstractStore):
         host_creds = self.get_host_creds()
         response = http_request_safe(
             host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
-        try:
-            js_dict = json.loads(response.text)
-        except ValueError:
-            raise MlflowException(
-                "API request to endpoint {} failed. Error: {}".format(endpoint, response.text))
-        if response.status_code != 200:
-            if 'error_code' in js_dict:
-                raise RestException(js_dict)
-
+        js_dict = json.loads(response.text)
         parse_dict(js_dict=js_dict, message=response_proto)
         return response_proto
 

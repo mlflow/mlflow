@@ -4,11 +4,9 @@ import unittest
 import mock
 import six
 
-from mlflow.entities import Param, Metric, RunTag
-from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
-    SetTag, DeleteRun, RestoreRun
-from mlflow.store.rest_store import RestStore, RestException
-from mlflow.utils.proto_json_utils import message_to_json
+
+from mlflow.exceptions import MlflowException
+from mlflow.store.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
@@ -44,7 +42,7 @@ class TestRestStore(unittest.TestCase):
         request.return_value = response
 
         store = RestStore(lambda: MlflowHostCreds('https://hello'))
-        with self.assertRaises(RestException) as cm:
+        with self.assertRaises(MlflowException) as cm:
             store.list_experiments()
         self.assertIn("RESOURCE_DOES_NOT_EXIST: No experiment", str(cm.exception))
 

@@ -30,7 +30,7 @@ class DbfsArtifactRepository(ArtifactRepository):
 
     def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()
-        return http_request_safe(host_creds, endpoint, **kwargs)
+        return http_request_safe(host_creds=host_creds, endpoint=endpoint, **kwargs)
 
     def _dbfs_list_api(self, json):
         host_creds = self.get_host_creds()
