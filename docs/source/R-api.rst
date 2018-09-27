@@ -135,7 +135,8 @@ Executes a generic MLflow command through the commmand line interface.
 
 .. code:: r
 
-   mlflow_cli(..., background = FALSE, echo = TRUE)
+   mlflow_cli(..., background = FALSE, echo = TRUE,
+     stderr_callback = NULL)
 
 .. _arguments-2:
 
@@ -156,6 +157,9 @@ Arguments
 |                               | to the screen? Defaults to ``TRUE``  |
 |                               | , does not apply to background       |
 |                               | tasks.                               |
++-------------------------------+--------------------------------------+
+| ``stderr_callback``           | NULL, or a function to call for      |
+|                               | every chunk of the standard error.   |
 +-------------------------------+--------------------------------------+
 
 Value
@@ -216,6 +220,8 @@ Other Tracking client functions:
 ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -305,6 +311,8 @@ Other Tracking client functions:
 ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -364,6 +372,8 @@ Other Tracking client functions:
 ```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -421,6 +431,68 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
+```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
+,
+```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
+, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
+```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
+,
+```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
+, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
+```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
+```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
+```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
+, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
+```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
+```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
+
+Download Artifacts
+==================
+
+Download an artifact file or directory from a run to a local directory
+if applicable, and return a local path for it.
+
+.. code:: r
+
+   mlflow_client_download_artifacts(client, run_id, path)
+
+.. _arguments-7:
+
+Arguments
+---------
+
++------------+-----------------------------------------------+
+| Argument   | Description                                   |
++============+===============================================+
+| ``client`` | An ``mlflow_client`` object.                  |
++------------+-----------------------------------------------+
+| ``run_id`` | Run ID.                                       |
++------------+-----------------------------------------------+
+| ``path``   | Relative source path to the desired artifact. |
++------------+-----------------------------------------------+
+
+.. _details-4:
+
+Details
+-------
+
+The Tracking Client family of functions require an MLflow client to be
+specified explicitly. These functions allow for greater control of where
+the operations take place in terms of services and runs, but are more
+verbose compared to the Fluent API.
+
+.. _seealso-4:
+
+Seealso
+-------
+
+Other Tracking client functions:
+```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
+, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
+```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
+, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -445,7 +517,7 @@ Get meta data for experiment by name.
 
    mlflow_client_get_experiment_by_name(client, name)
 
-.. _arguments-7:
+.. _arguments-8:
 
 Arguments
 ---------
@@ -458,7 +530,7 @@ Arguments
 | ``name``   | The experiment name.         |
 +------------+------------------------------+
 
-.. _details-4:
+.. _details-5:
 
 Details
 -------
@@ -468,7 +540,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-4:
+.. _seealso-5:
 
 Seealso
 -------
@@ -478,6 +550,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
 , ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
 ```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
@@ -500,7 +574,7 @@ Get meta data for experiment and a list of runs for this experiment.
 
    mlflow_client_get_experiment(client, experiment_id)
 
-.. _arguments-8:
+.. _arguments-9:
 
 Arguments
 ---------
@@ -513,7 +587,7 @@ Arguments
 | ``experiment_id`` | Identifer to get an experiment. |
 +-------------------+---------------------------------+
 
-.. _details-5:
+.. _details-6:
 
 Details
 -------
@@ -523,7 +597,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-5:
+.. _seealso-6:
 
 Seealso
 -------
@@ -533,6 +607,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 , ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
 ```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
@@ -556,7 +632,7 @@ for each metric is returned.
 
    mlflow_client_get_run(client, run_id)
 
-.. _arguments-9:
+.. _arguments-10:
 
 Arguments
 ---------
@@ -569,7 +645,7 @@ Arguments
 | ``run_id`` | Run ID.                      |
 +------------+------------------------------+
 
-.. _details-6:
+.. _details-7:
 
 Details
 -------
@@ -579,7 +655,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-6:
+.. _seealso-7:
 
 Seealso
 -------
@@ -589,6 +665,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -613,7 +691,7 @@ List artifacts
 
    mlflow_client_list_artifacts(client, run_id, path = NULL)
 
-.. _arguments-10:
+.. _arguments-11:
 
 Arguments
 ---------
@@ -630,7 +708,7 @@ Arguments
 |                               | set to the root artifact path        |
 +-------------------------------+--------------------------------------+
 
-.. _details-7:
+.. _details-8:
 
 Details
 -------
@@ -640,7 +718,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-7:
+.. _seealso-8:
 
 Seealso
 -------
@@ -650,6 +728,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -673,7 +753,7 @@ Get a list of all experiments.
    mlflow_client_list_experiments(client, view_type = c("ACTIVE_ONLY",
      "DELETED_ONLY", "ALL"))
 
-.. _arguments-11:
+.. _arguments-12:
 
 Arguments
 ---------
@@ -688,7 +768,7 @@ Arguments
 |                               | ``ACTIVE_ONLY``.                     |
 +-------------------------------+--------------------------------------+
 
-.. _details-8:
+.. _details-9:
 
 Details
 -------
@@ -698,7 +778,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-8:
+.. _seealso-9:
 
 Seealso
 -------
@@ -708,6 +788,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -730,7 +812,7 @@ Logs an specific file or directory as an artifact.
 
    mlflow_client_log_artifact(client, run_id, path, artifact_path = NULL)
 
-.. _arguments-12:
+.. _arguments-13:
 
 Arguments
 ---------
@@ -747,7 +829,7 @@ Arguments
 | ``artifact_path`` | Destination path within the run’s artifact URI. |
 +-------------------+-------------------------------------------------+
 
-.. _details-9:
+.. _details-10:
 
 Details
 -------
@@ -766,7 +848,7 @@ Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
 corresponding key and secrets provided by Amazon IAM.
 
-.. _seealso-9:
+.. _seealso-10:
 
 Seealso
 -------
@@ -776,6 +858,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -802,7 +886,7 @@ historical values along with timestamps.
 
    mlflow_client_log_metric(client, run_id, key, value, timestamp = NULL)
 
-.. _arguments-13:
+.. _arguments-14:
 
 Arguments
 ---------
@@ -823,7 +907,7 @@ Arguments
 |                                   | the time metric was logged.       |
 +-----------------------------------+-----------------------------------+
 
-.. _details-10:
+.. _details-11:
 
 Details
 -------
@@ -833,7 +917,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-10:
+.. _seealso-11:
 
 Seealso
 -------
@@ -843,6 +927,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -869,7 +955,7 @@ single parameter is allowed to be logged only once.
 
    mlflow_client_log_param(client, run_id, key, value)
 
-.. _arguments-14:
+.. _arguments-15:
 
 Arguments
 ---------
@@ -886,7 +972,7 @@ Arguments
 | ``value``  | String value of the parameter. |
 +------------+--------------------------------+
 
-.. _details-11:
+.. _details-12:
 
 Details
 -------
@@ -896,7 +982,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-11:
+.. _seealso-12:
 
 Seealso
 -------
@@ -906,6 +992,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -931,7 +1019,7 @@ underlying artifacts associated with experiment are also restored.
 
    mlflow_client_restore_experiment(client, experiment_id)
 
-.. _arguments-15:
+.. _arguments-16:
 
 Arguments
 ---------
@@ -945,7 +1033,7 @@ Arguments
 |                                   | This field is required.           |
 +-----------------------------------+-----------------------------------+
 
-.. _details-12:
+.. _details-13:
 
 Details
 -------
@@ -958,7 +1046,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-12:
+.. _seealso-13:
 
 Seealso
 -------
@@ -968,6 +1056,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -991,7 +1081,7 @@ Restore a Run
 
    mlflow_client_restore_run(client, run_id)
 
-.. _arguments-16:
+.. _arguments-17:
 
 Arguments
 ---------
@@ -1004,7 +1094,7 @@ Arguments
 | ``run_id`` | Run ID.                      |
 +------------+------------------------------+
 
-.. _details-13:
+.. _details-14:
 
 Details
 -------
@@ -1014,7 +1104,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-13:
+.. _seealso-14:
 
 Seealso
 -------
@@ -1024,6 +1114,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -1048,7 +1140,7 @@ after a run completes.
 
    mlflow_client_set_tag(client, run_id, key, value)
 
-.. _arguments-17:
+.. _arguments-18:
 
 Arguments
 ---------
@@ -1068,7 +1160,7 @@ Arguments
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
 
-.. _details-14:
+.. _details-15:
 
 Details
 -------
@@ -1078,7 +1170,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-14:
+.. _seealso-15:
 
 Seealso
 -------
@@ -1088,6 +1180,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -1112,7 +1206,7 @@ Terminate a Run
    mlflow_client_set_terminated(client, run_id, status = c("FINISHED",
      "SCHEDULED", "FAILED", "KILLED"), end_time = NULL)
 
-.. _arguments-18:
+.. _arguments-19:
 
 Arguments
 ---------
@@ -1131,7 +1225,7 @@ Arguments
 | ``run_id``   | Run ID.                                               |
 +--------------+-------------------------------------------------------+
 
-.. _details-15:
+.. _details-16:
 
 Details
 -------
@@ -1141,7 +1235,7 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-15:
+.. _seealso-16:
 
 Seealso
 -------
@@ -1151,6 +1245,8 @@ Other Tracking client functions:
 , ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
 ```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
 , ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
+```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
+,
 ```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
 ,
 ```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
@@ -1174,7 +1270,7 @@ Initialize an MLflow client
 
    mlflow_client(tracking_uri = NULL)
 
-.. _arguments-19:
+.. _arguments-20:
 
 Arguments
 ---------
@@ -1196,7 +1292,7 @@ Creates an MLflow experiment.
 
    mlflow_create_experiment(name, artifact_location = NULL)
 
-.. _arguments-20:
+.. _arguments-21:
 
 Arguments
 ---------
@@ -1213,7 +1309,7 @@ Arguments
 |                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
 
-.. _details-16:
+.. _details-17:
 
 Details
 -------
@@ -1223,7 +1319,7 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-16:
+.. _seealso-17:
 
 Seealso
 -------
@@ -1245,7 +1341,7 @@ End an active MLflow run (if there is one).
 
    mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"))
 
-.. _arguments-21:
+.. _arguments-22:
 
 Arguments
 ---------
@@ -1256,7 +1352,7 @@ Arguments
 | ``status`` | Updated status of the run. Defaults to ``FINISHED``. |
 +------------+------------------------------------------------------+
 
-.. _details-17:
+.. _details-18:
 
 Details
 -------
@@ -1266,7 +1362,7 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-17:
+.. _seealso-18:
 
 Seealso
 -------
@@ -1298,7 +1394,7 @@ Installs MLflow for individual use.
 
    mlflow_install()
 
-.. _details-18:
+.. _details-19:
 
 Details
 -------
@@ -1327,7 +1423,7 @@ the supported MLflow models.
 
    mlflow_load_flavor(model_path)
 
-.. _arguments-22:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -1337,6 +1433,40 @@ Arguments
 +================+============================================================+
 | ``model_path`` | The path to the MLflow model wrapped in the correct class. |
 +----------------+------------------------------------------------------------+
+
+Load MLflow Model.
+==================
+
+MLflow models can have multiple model flavors. Not all flavors / models
+can be loaded in R. This method will by default search for a flavor
+supported by R/mlflow.
+
+.. code:: r
+
+   mlflow_load_model(model_path, flavor = NULL, run_id = NULL)
+
+.. _arguments-24:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``model_path``                | "Path to the MLflow model. The path  |
+|                               | is relative to the run with the      |
+|                               | given run-id or local filesystem     |
+|                               | path without run-id.                 |
++-------------------------------+--------------------------------------+
+| ``flavor``                    | Optional flavor specification. Can   |
+|                               | be used to load a particular flavor  |
+|                               | in case there are multiple flavors   |
+|                               | available.                           |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Optional MLflow run-id. If supplied  |
+|                               | model will be fetched from MLflow    |
+|                               | tracking server.                     |
++-------------------------------+--------------------------------------+
 
 .. _log-artifact-1:
 
@@ -1349,7 +1479,7 @@ Logs an specific file or directory as an artifact.
 
    mlflow_log_artifact(path, artifact_path = NULL)
 
-.. _arguments-23:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -1362,7 +1492,7 @@ Arguments
 | ``artifact_path`` | Destination path within the run’s artifact URI. |
 +-------------------+-------------------------------------------------+
 
-.. _details-19:
+.. _details-20:
 
 Details
 -------
@@ -1381,7 +1511,7 @@ Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
 corresponding key and secrets provided by Amazon IAM.
 
-.. _seealso-18:
+.. _seealso-19:
 
 Seealso
 -------
@@ -1409,7 +1539,7 @@ historical values along with timestamps.
 
    mlflow_log_metric(key, value, timestamp = NULL)
 
-.. _arguments-24:
+.. _arguments-26:
 
 Arguments
 ---------
@@ -1426,7 +1556,7 @@ Arguments
 |                                   | the time metric was logged.       |
 +-----------------------------------+-----------------------------------+
 
-.. _details-20:
+.. _details-21:
 
 Details
 -------
@@ -1436,7 +1566,7 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-19:
+.. _seealso-20:
 
 Seealso
 -------
@@ -1460,7 +1590,7 @@ stores model as an artifact within the active run.
 
    mlflow_log_model(fn, artifact_path)
 
-.. _arguments-25:
+.. _arguments-27:
 
 Arguments
 ---------
@@ -1489,7 +1619,7 @@ single parameter is allowed to be logged only once.
 
    mlflow_log_param(key, value)
 
-.. _arguments-26:
+.. _arguments-28:
 
 Arguments
 ---------
@@ -1502,7 +1632,7 @@ Arguments
 | ``value`` | String value of the parameter. |
 +-----------+--------------------------------+
 
-.. _details-21:
+.. _details-22:
 
 Details
 -------
@@ -1512,7 +1642,7 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-20:
+.. _seealso-21:
 
 Seealso
 -------
@@ -1535,7 +1665,7 @@ Reads a command line parameter.
 
    mlflow_param(name, default = NULL, type = NULL, description = NULL)
 
-.. _arguments-27:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -1567,7 +1697,7 @@ to be used by package authors to extend the supported MLflow models.
 
    mlflow_predict_flavor(model, data)
 
-.. _arguments-28:
+.. _arguments-30:
 
 Arguments
 ---------
@@ -1579,6 +1709,28 @@ Arguments
 +-----------+----------------------------------+
 | ``data``  | A data frame to perform scoring. |
 +-----------+----------------------------------+
+
+Generate prediction with MLflow model.
+======================================
+
+Generate prediction with MLflow model.
+
+.. code:: r
+
+   mlflow_predict_model(model, data)
+
+.. _arguments-31:
+
+Arguments
+---------
+
++-----------+-------------------------+
+| Argument  | Description             |
++===========+=========================+
+| ``model`` | MLflow model.           |
++-----------+-------------------------+
+| ``data``  | Dataframe to be scored. |
++-----------+-------------------------+
 
 Restore Snapshot
 ================
@@ -1600,7 +1752,7 @@ Predict using an RFunc MLflow Model from a file or data frame.
    mlflow_rfunc_predict(model_path, run_uuid = NULL, input_path = NULL,
      output_path = NULL, data = NULL, restore = FALSE)
 
-.. _arguments-29:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1650,7 +1802,7 @@ Serve an RFunc MLflow Model as a local web api.
      port = 8090, daemonized = FALSE, browse = !daemonized,
      restore = FALSE)
 
-.. _arguments-30:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1705,7 +1857,7 @@ Wrapper for ``mlflow run``.
      cluster_spec = NULL, git_username = NULL, git_password = NULL,
      no_conda = FALSE, storage_dir = NULL)
 
-.. _arguments-31:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1763,6 +1915,16 @@ Value
 
 The run associated with this run.
 
+importFrom mlflow create_conda_env, create_pyfunc_conf
+======================================================
+
+importFrom mlflow create_conda_env, create_pyfunc_conf
+
+.. code:: r
+
+   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(x,
+     path = "model", r_dependencies = NULL, conda_env = NULL)
+
 Save MLflow Model Flavor
 ========================
 
@@ -1771,9 +1933,10 @@ the supported MLflow models.
 
 .. code:: r
 
-   mlflow_save_flavor(x, path = "model")
+   mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
+     conda_env = NULL)
 
-.. _arguments-32:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1805,9 +1968,10 @@ serving.
 
 .. code:: r
 
-   mlflow_save_model(x, path = "model", dependencies = NULL)
+   mlflow_save_model(x, path = "model", r_dependencies = NULL,
+     conda_env = NULL)
 
-.. _arguments-33:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1838,7 +2002,7 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1", port = 5000, workers = 4,
      static_prefix = NULL)
 
-.. _arguments-34:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1875,7 +2039,7 @@ create an experiment with provided name.
 
    mlflow_set_experiment(experiment_name)
 
-.. _arguments-35:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1886,7 +2050,7 @@ Arguments
 | ``experiment_name`` | Name of experiment to be activated. |
 +---------------------+-------------------------------------+
 
-.. _details-22:
+.. _details-23:
 
 Details
 -------
@@ -1896,7 +2060,7 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-21:
+.. _seealso-22:
 
 Seealso
 -------
@@ -1922,7 +2086,7 @@ after a run completes.
 
    mlflow_set_tag(key, value)
 
-.. _arguments-36:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -1938,7 +2102,7 @@ Arguments
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
 
-.. _details-23:
+.. _details-24:
 
 Details
 -------
@@ -1948,7 +2112,7 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-22:
+.. _seealso-23:
 
 Seealso
 -------
@@ -1972,7 +2136,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-37:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -2003,7 +2167,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-38:
+.. _arguments-41:
 
 Arguments
 ---------
@@ -2026,7 +2190,7 @@ block.
      source_name = NULL, source_version = NULL, entry_point_name = NULL,
      source_type = "LOCAL")
 
-.. _arguments-39:
+.. _arguments-42:
 
 Arguments
 ---------
@@ -2064,7 +2228,7 @@ Arguments
 |                               | etc.).                               |
 +-------------------------------+--------------------------------------+
 
-.. _details-24:
+.. _details-25:
 
 Details
 -------
@@ -2074,7 +2238,7 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-23:
+.. _seealso-24:
 
 Seealso
 -------
@@ -2107,7 +2271,7 @@ Launches MLflow user interface.
 
    mlflow_ui(x, ...)
 
-.. _arguments-40:
+.. _arguments-43:
 
 Arguments
 ---------
