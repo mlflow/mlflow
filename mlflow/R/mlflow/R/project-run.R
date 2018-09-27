@@ -51,7 +51,3 @@ mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list
 
   invisible(run_uuid)
 }
-
-clear_run <- function() {
-  rlang::env_unbind(.globals, "run_params")
-}

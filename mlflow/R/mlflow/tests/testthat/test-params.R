@@ -24,3 +24,10 @@ test_that("mlflow can read typed command line parameters", {
   expect_true("my_num" %in% params_dir)
   expect_true("my_str" %in% params_dir)
 })
+
+test_that("ml_param() type checking works", {
+  expect_identical(mlflow_param("p1", "a", "string"), "a")
+  expect_identical(mlflow_param("p2", 42, "integer"), 42L)
+  expect_identical(mlflow_param("p3", 42L), 42L)
+  expect_identical(mlflow_param("p4", 12), 12)
+})

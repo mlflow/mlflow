@@ -30,8 +30,15 @@ mlflow_source <- function(uri) {
       mlflow_end_run(status = "FAILED")
     },
     interrupt = function(cnd) mlflow_end_run(status = "KILLED"),
-    finally = mlflow_end_run()
+    finally = {
+      mlflow_end_run()
+      clear_run_params()
+    }
   )
 
   invisible(NULL)
+}
+
+clear_run_params <- function() {
+  rlang::env_unbind(.globals, "run_params")
 }
