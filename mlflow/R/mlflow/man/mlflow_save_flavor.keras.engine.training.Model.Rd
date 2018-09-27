@@ -2,11 +2,27 @@
 % Please edit documentation in R/model-keras.R
 \name{mlflow_save_flavor.keras.engine.training.Model}
 \alias{mlflow_save_flavor.keras.engine.training.Model}
-\title{importFrom mlflow create_conda_env, create_pyfunc_conf}
+\title{Save MLflow Keras Model Flavor}
 \usage{
 \method{mlflow_save_flavor}{keras.engine.training.Model}(x,
   path = "model", r_dependencies = NULL, conda_env = NULL)
 }
+\arguments{
+\item{x}{The serving function or model that will perform a prediction.}
+
+\item{path}{Destination path where this MLflow compatible model
+will be saved.}
+
+\item{r_dependencies}{Optional vector of paths to dependency files
+to include in the model, as in \code{r-dependencies.txt}
+or \code{conda.yaml}.}
+
+\item{conda_env}{Path to Conda dependencies file.}
+}
+\value{
+This funciton must return a list of flavors that conform to
+  the MLmodel specification.
+}
 \description{
-importFrom mlflow create_conda_env, create_pyfunc_conf
+Saves model in MLflow's Keras flavor.
 }

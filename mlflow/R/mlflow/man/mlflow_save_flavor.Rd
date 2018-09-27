@@ -12,6 +12,12 @@ mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
 
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
+
+\item{r_dependencies}{Optional vector of paths to dependency files
+to include in the model, as in \code{r-dependencies.txt}
+or \code{conda.yaml}.}
+
+\item{conda_env}{Path to Conda dependencies file.}
 }
 \value{
 This funciton must return a list of flavors that conform to

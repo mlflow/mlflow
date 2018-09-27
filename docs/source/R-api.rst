@@ -1915,15 +1915,45 @@ Value
 
 The run associated with this run.
 
-importFrom mlflow create_conda_env, create_pyfunc_conf
-======================================================
+Save MLflow Keras Model Flavor
+==============================
 
-importFrom mlflow create_conda_env, create_pyfunc_conf
+Saves model in MLflow’s Keras flavor.
 
 .. code:: r
 
    list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(x,
      path = "model", r_dependencies = NULL, conda_env = NULL)
+
+.. _arguments-35:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``x``                         | The serving function or model that   |
+|                               | will perform a prediction.           |
++-------------------------------+--------------------------------------+
+| ``path``                      | Destination path where this MLflow   |
+|                               | compatible model will be saved.      |
++-------------------------------+--------------------------------------+
+| ``r_dependencies``            | Optional vector of paths to          |
+|                               | dependency files to include in the   |
+|                               | model, as in ``r-dependencies.txt``  |
+|                               | or ``conda.yaml`` .                  |
++-------------------------------+--------------------------------------+
+| ``conda_env``                 | Path to Conda dependencies file.     |
++-------------------------------+--------------------------------------+
+
+.. _value-2:
+
+Value
+-----
+
+This funciton must return a list of flavors that conform to the MLmodel
+specification.
 
 Save MLflow Model Flavor
 ========================
@@ -1936,23 +1966,29 @@ the supported MLflow models.
    mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
      conda_env = NULL)
 
-.. _arguments-35:
+.. _arguments-36:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``x``                             | The serving function or model     |
-|                                   | that will perform a prediction.   |
-+-----------------------------------+-----------------------------------+
-| ``path``                          | Destination path where this       |
-|                                   | MLflow compatible model will be   |
-|                                   | saved.                            |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``x``                         | The serving function or model that   |
+|                               | will perform a prediction.           |
++-------------------------------+--------------------------------------+
+| ``path``                      | Destination path where this MLflow   |
+|                               | compatible model will be saved.      |
++-------------------------------+--------------------------------------+
+| ``r_dependencies``            | Optional vector of paths to          |
+|                               | dependency files to include in the   |
+|                               | model, as in ``r-dependencies.txt``  |
+|                               | or ``conda.yaml`` .                  |
++-------------------------------+--------------------------------------+
+| ``conda_env``                 | Path to Conda dependencies file.     |
++-------------------------------+--------------------------------------+
 
-.. _value-2:
+.. _value-3:
 
 Value
 -----
@@ -1971,7 +2007,7 @@ serving.
    mlflow_save_model(x, path = "model", r_dependencies = NULL,
      conda_env = NULL)
 
-.. _arguments-36:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1985,10 +2021,12 @@ Arguments
 | ``path``                      | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
 +-------------------------------+--------------------------------------+
-| ``dependencies``              | Optional vector of paths to          |
+| ``r_dependencies``            | Optional vector of paths to          |
 |                               | dependency files to include in the   |
 |                               | model, as in ``r-dependencies.txt``  |
 |                               | or ``conda.yaml`` .                  |
++-------------------------------+--------------------------------------+
+| ``conda_env``                 | Path to Conda dependencies file.     |
 +-------------------------------+--------------------------------------+
 
 Run the MLflow Tracking Server
@@ -2002,7 +2040,7 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1", port = 5000, workers = 4,
      static_prefix = NULL)
 
-.. _arguments-37:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -2039,7 +2077,7 @@ create an experiment with provided name.
 
    mlflow_set_experiment(experiment_name)
 
-.. _arguments-38:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -2086,7 +2124,7 @@ after a run completes.
 
    mlflow_set_tag(key, value)
 
-.. _arguments-39:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -2136,7 +2174,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-40:
+.. _arguments-41:
 
 Arguments
 ---------
@@ -2167,7 +2205,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-41:
+.. _arguments-42:
 
 Arguments
 ---------
@@ -2190,7 +2228,7 @@ block.
      source_name = NULL, source_version = NULL, entry_point_name = NULL,
      source_type = "LOCAL")
 
-.. _arguments-42:
+.. _arguments-43:
 
 Arguments
 ---------
@@ -2271,7 +2309,7 @@ Launches MLflow user interface.
 
    mlflow_ui(x, ...)
 
-.. _arguments-43:
+.. _arguments-44:
 
 Arguments
 ---------
