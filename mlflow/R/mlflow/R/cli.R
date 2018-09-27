@@ -7,7 +7,7 @@
 #'   Defaults to \code{FALSE}.
 #' @param echo Print the standard output and error to the screen? Defaults to
 #'   \code{TRUE}, does not apply to background tasks.
-#' @param stderr_callback NULL, or a function to call for every chunk of the standard output.
+#' @param stderr_callback NULL, or a function to call for every chunk of the standard error.
 #'
 #' @return A \code{processx} task.
 #'

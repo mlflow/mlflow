@@ -16,7 +16,7 @@ Defaults to \code{FALSE}.}
 \item{echo}{Print the standard output and error to the screen? Defaults to
 \code{TRUE}, does not apply to background tasks.}
 
-\item{stderr_callback}{NULL, or a function to call for every chunk of the standard output.}
+\item{stderr_callback}{NULL, or a function to call for every chunk of the standard error.}
 }
 \value{
 A \code{processx} task.
