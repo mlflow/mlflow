@@ -4,12 +4,12 @@
 \alias{mlflow_client_get_run}
 \title{Get Run}
 \usage{
-mlflow_client_get_run(client, run_uuid)
+mlflow_client_get_run(client, run_id)
 }
 \arguments{
 \item{client}{An `mlflow_client` object.}
 
-\item{run_uuid}{Unique ID for the run.}
+\item{run_id}{Run ID.}
 }
 \description{
 Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.

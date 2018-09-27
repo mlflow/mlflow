@@ -10,21 +10,15 @@ mlflow_log_artifact(path, artifact_path = NULL)
 \item{path}{The file or directory to log as an artifact.}
 
 \item{artifact_path}{Destination path within the run’s artifact URI.}
-
-\item{client}{An `mlflow_client` object. See details.}
-
-\item{...}{Additional arguments; currently not used.}
-
-\item{run_id}{The run associated with this artifact.}
 }
 \description{
 Logs an specific file or directory as an artifact.
 }
 \details{
-For functions where `client` is optional, providing it will invoke the
-  Tracking Service API, allowing the user to specify the service where
-  the operation is executed. When `client` isn't specified, it defaults to
-  the service set by `mlflow_set_tracking_uri()`.
+The fluent API family of functions operate with an implied MLflow client
+  determined by the service set by `mlflow_set_tracking_uri()`. For operations
+  involving a run it adopts the current active run, or, if one does not exist,
+  starts one through the implied service.
 
 When logging to Amazon S3, ensure that the user has a proper policy
 attach to it, for instance:
@@ -55,3 +49,13 @@ Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_
 environment variables must be set to the corresponding key and secrets provided
 by Amazon IAM.
 }
+\seealso{
+Other Fluent API functions: \code{\link{mlflow_create_experiment}},
+  \code{\link{mlflow_end_run}},
+  \code{\link{mlflow_log_metric}},
+  \code{\link{mlflow_log_param}},
+  \code{\link{mlflow_set_experiment}},
+  \code{\link{mlflow_set_tag}},
+  \code{\link{mlflow_start_run}}
+}
+\concept{Fluent API functions}

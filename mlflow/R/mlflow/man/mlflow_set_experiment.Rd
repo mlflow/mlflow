@@ -13,3 +13,19 @@ mlflow_set_experiment(experiment_name)
 Set given experiment as active experiment. If experiment does not
  exist, create an experiment with provided name.
 }
+\details{
+The fluent API family of functions operate with an implied MLflow client
+  determined by the service set by `mlflow_set_tracking_uri()`. For operations
+  involving a run it adopts the current active run, or, if one does not exist,
+  starts one through the implied service.
+}
+\seealso{
+Other Fluent API functions: \code{\link{mlflow_create_experiment}},
+  \code{\link{mlflow_end_run}},
+  \code{\link{mlflow_log_artifact}},
+  \code{\link{mlflow_log_metric}},
+  \code{\link{mlflow_log_param}},
+  \code{\link{mlflow_set_tag}},
+  \code{\link{mlflow_start_run}}
+}
+\concept{Fluent API functions}

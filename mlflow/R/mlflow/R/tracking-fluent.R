@@ -5,6 +5,7 @@
 #' @param name The name of the experiment to create.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
 #'   not provided, the remote server will select an appropriate default.
+#' @template roxlate-fluent
 #'
 #' @export
 mlflow_create_experiment <- function(name, artifact_location = NULL) {
@@ -18,6 +19,7 @@ mlflow_create_experiment <- function(name, artifact_location = NULL) {
 #'  exist, create an experiment with provided name.
 #'
 #' @param experiment_name Name of experiment to be activated.
+#' @template roxlate-fluent
 #' @export
 mlflow_set_experiment <- function(experiment_name) {
   client <- mlflow_client()
@@ -46,6 +48,7 @@ mlflow_set_experiment <- function(experiment_name) {
 #' @param source_version Optional Git commit hash to associate with the run.
 #' @param entry_point_name Optional name of the entry point for to the current run.
 #' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
+#' @template roxlate-fluent
 #'
 #' @examples
 #' \dontrun{
@@ -101,6 +104,8 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 #' @param key Name of the metric.
 #' @param value Float value for the metric being logged.
 #' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
+#' @template roxlate-fluent
+#'
 #' @export
 mlflow_log_metric <- function(key, value, timestamp = NULL) {
   active_run <- mlflow_get_or_start_run()
@@ -119,6 +124,8 @@ mlflow_log_metric <- function(key, value, timestamp = NULL) {
 #'
 #' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
 #' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
+#' @template roxlate-fluent
+#'
 #' @export
 mlflow_set_tag <- function(key, value) {
   active_run <- mlflow_get_or_start_run()
@@ -133,6 +140,8 @@ mlflow_set_tag <- function(key, value) {
 #' End an active MLflow run (if there is one).
 #'
 #' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @template roxlate-fluent
+#'
 #' @export
 mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED")) {
   active_run <- mlflow_active_run()
@@ -153,6 +162,8 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
 #'
 #' @param key Name of the parameter.
 #' @param value String value of the parameter.
+#' @template roxlate-fluent
+#'
 #' @export
 mlflow_log_param <- function(key, value) {
   active_run <- mlflow_get_or_start_run()
@@ -167,7 +178,7 @@ mlflow_log_param <- function(key, value) {
 #'
 #' @param path The file or directory to log as an artifact.
 #' @param artifact_path Destination path within the run’s artifact URI.
-#' @template roxlate-client-optional
+#' @template roxlate-fluent
 #'
 #' @details
 #'
@@ -200,7 +211,6 @@ mlflow_log_param <- function(key, value) {
 #' environment variables must be set to the corresponding key and secrets provided
 #' by Amazon IAM.
 #'
-#' @param run_id The run associated with this artifact.
 #' @export
 mlflow_log_artifact <- function(path, artifact_path = NULL) {
   active_run <- mlflow_get_or_start_run()

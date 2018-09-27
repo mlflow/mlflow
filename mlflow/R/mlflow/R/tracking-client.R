@@ -142,7 +142,7 @@ mlflow_client_create_run <- function(
   new_mlflow_entities_run(response)
 }
 
-mlflow_client_update_run <- function(client, run_uuid, status, end_time) {
+mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
   mlflow_rest("runs", "update", client = client, verb = "POST", data = list(
     run_uuid = run_uuid,
     status = status,
@@ -187,14 +187,14 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
 #'
 #' Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.
 #'
-#' @param run_uuid Unique ID for the run.
+#' @template roxlate-run-id
 #' @template roxlate-client
 #'
 #' @export
-mlflow_client_get_run <- function(client, run_uuid) {
+mlflow_client_get_run <- function(client, run_id) {
   response <- mlflow_rest(
     "runs", "get", client = client, verb = "GET",
-    query = list(run_uuid = run_uuid),
+    query = list(run_uuid = run_id),
   )
   new_mlflow_entities_run(response)
 }
@@ -212,14 +212,14 @@ mlflow_client_get_run <- function(client, run_uuid) {
 #' @template roxlate-client
 #'
 #' @export
-mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp = NULL) {
+mlflow_client_log_metric <- function(client, run_id, key, value, timestamp = NULL) {
   if (!is.numeric(value)) stop(
     "Metric `", key, "`` must be numeric but ", class(value)[[1]], " found.",
     call. = FALSE
   )
   timestamp <- timestamp %||% current_time()
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
-    run_uuid = run_uuid,
+    run_uuid = run_id,
     key = key,
     value = value,
     timestamp = timestamp
@@ -239,9 +239,9 @@ mlflow_client_log_metric <- function(client, run_uuid, key, value, timestamp = N
 #' @template roxlate-client
 #'
 #' @export
-mlflow_client_log_param <- function(client, run_uuid, key, value) {
+mlflow_client_log_param <- function(client, run_id, key, value) {
   mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
-    run_uuid = run_uuid,
+    run_uuid = run_id,
     key = key,
     value = cast_string(value)
   ))
@@ -258,9 +258,9 @@ mlflow_client_log_param <- function(client, run_uuid, key, value) {
 #' @template roxlate-client
 #'
 #' @export
-mlflow_client_set_tag <- function(client, run_uuid, key, value) {
+mlflow_client_set_tag <- function(client, run_id, key, value) {
   mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
-    run_uuid = run_uuid,
+    run_uuid = run_id,
     key = key,
     value = value
   ))
@@ -279,7 +279,7 @@ mlflow_client_set_terminated <- function(
   end_time = NULL
 ) {
   status <- match.arg(status)
-  response <- mlflow_client_update_run(client, run_id, status, end_time)
+  response <- mlflow_rest_run(client, run_id, status, end_time)
   tidy_run_info(response$run_info)
 }
 
