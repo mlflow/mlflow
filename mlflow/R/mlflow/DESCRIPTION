@@ -29,7 +29,6 @@ Imports:
     openssl,
     processx,
     reticulate,
-    rlang,
     packrat,
     purrr,
     swagger,
