@@ -1,7 +1,18 @@
-
-
-
-#' importFrom mlflow create_conda_env, create_pyfunc_conf
+#' Save MLflow Keras Model Flavor
+#'
+#' Saves model in MLflow's Keras flavor.
+#'
+#' @param x The serving function or model that will perform a prediction.
+#' @param path Destination path where this MLflow compatible model
+#'   will be saved.
+#' @param r_dependencies Optional vector of paths to dependency files
+#'   to include in the model, as in \code{r-dependencies.txt}
+#'   or \code{conda.yaml}.
+#' @param conda_env Path to Conda dependencies file.
+#'
+#' @return This funciton must return a list of flavors that conform to
+#'   the MLmodel specification.
+#'
 #' @export
 mlflow_save_flavor.keras.engine.training.Model <- function(x,
                                                            path = "model",
@@ -13,7 +24,7 @@ mlflow_save_flavor.keras.engine.training.Model <- function(x,
   save_model_hdf5 <- get("save_model_hdf5", envir = as.environment("package:keras"))
 
   save_model_hdf5(x, filepath = file.path(path, "model.h5"), include_optimizer = TRUE)
-  version <- as.character(packageVersion("keras"))
+  version <- as.character(utils::packageVersion("keras"))
   conda_env <- if (!is.null(conda_env)) {
     dst <- file.path(path, basename(conda_env))
     if (conda_env != dst) {
@@ -59,5 +70,5 @@ mlflow_predict_flavor.keras.engine.training.Model <- function(model, data) {
     stop("The 'keras' package is not available, use 'library(keras)' before calling predict.")
   }
 
-  predict(model, as.matrix(data))
+  stats::predict(model, as.matrix(data))
 }
