@@ -4,7 +4,7 @@ mlflow: R interface for MLflow
 [![Build
 Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow)
 [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
-[![codecov](https://codecov.io/gh/rstudio/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/rstudio/mlflow)
+[![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow)
 
   - Install [MLflow](https://mlflow.org/) from R to track experiments
     locally.
@@ -13,14 +13,17 @@ Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-
 
 ## Installation
 
-Currently, the `mlflow` R package is not on CRAN; therefore, it is
-required to install the development version. Once released to CRAN,
-installation will look as follows:
+Install `mlflow` from CRAN followed by installing the `mlflow` runtime
+as follows:
 
 ``` r
 install.packages("mlflow")
 mlflow::mlflow_install()
 ```
+
+Notice also that [Anaconda](https://www.anaconda.com/download/) or
+[Miniconda](https://conda.io/miniconda.html) need to be manually
+installed.
 
 ### Developemnt
 
@@ -64,19 +67,10 @@ and activate a new experiment locally using `mlflow` as follows:
 
 ``` r
 library(mlflow)
-mlflow_set_active_experiment("Test")
+mlflow_set_experiment("Test")
 ```
 
-Then you can list your experiments directly from R,
-
-``` r
-mlflow_list_experiments()
-```
-
-    ##   experiment_id    name artifact_location
-    ## 1             0 Default          mlruns/0
-
-or using MLflows user interface by
+Then you can list view your experiments from MLflows user interface by
 running:
 
 ``` r
@@ -240,8 +234,8 @@ cat(paste(readLines("model/MLmodel"), collapse = "\n"))
     ##   r_crate:
     ##     version: 0.1.0
     ##     model: r_crate.bin
-    ## time_created: 18-09-20T23:44:11.11.88
-    ## run_id: 159e6e9d42e0457b975abc32e2c062ab
+    ## time_created: 18-09-27T05:50:37.37.46
+    ## run_id: 91ebbeb8024741e186d91df53fb8788f
 
 Later on, the R model can be deployed which will perform predictions
 using
