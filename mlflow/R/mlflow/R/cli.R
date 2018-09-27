@@ -7,6 +7,7 @@
 #'   Defaults to \code{FALSE}.
 #' @param echo Print the standard output and error to the screen? Defaults to
 #'   \code{TRUE}, does not apply to background tasks.
+#' @param stderr_callback NULL, or a function to call for every chunk of the standard error.
 #'
 #' @return A \code{processx} task.
 #'
@@ -22,7 +23,7 @@
 #' @importFrom processx process
 #' @importFrom withr with_envvar
 #' @export
-mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
+mlflow_cli <- function(..., background = FALSE, echo = TRUE, stderr_callback = NULL) {
   args <- list(...)
 
   verbose <- mlflow_is_verbose()
@@ -41,7 +42,7 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE) {
     if (background) {
       result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
     } else {
-      result <- run(mlflow_bin, args = unlist(args), echo = echo, echo_cmd = verbose)
+      result <- run(mlflow_bin, args = unlist(args), echo = echo, echo_cmd = verbose, stderr_callback = stderr_callback)
     }
   })
 
