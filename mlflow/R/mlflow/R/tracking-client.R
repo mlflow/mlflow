@@ -93,7 +93,7 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
 #' @template roxlate-client
 #' @export
 mlflow_client_get_experiment_by_name <- function(client, name) {
-  exps <- mlflow_list_experiments(client = client)
+  exps <- mlflow_client_list_experiments(client = client)
   experiment <- exps[exps$name == name, ]
   if (nrow(experiment)) experiment else NULL
 }
@@ -116,8 +116,9 @@ mlflow_client_get_experiment_by_name <- function(client, name) {
 #' @template roxlate-client
 #' @export
 mlflow_client_create_run <- function(
-  client, experiment_id, user_id, run_name, source_type,
-  source_name, entry_point_name, start_time, source_version, tags
+  client, experiment_id, user_id = NULL, run_name = NULL, source_type = NULL,
+  source_name = NULL, entry_point_name = NULL, start_time = NULL,
+  source_version = NULL, tags = NULL
 ) {
   tags <- if (!is.null(tags)) tags %>%
     purrr::imap(~ list(key = .y, value = .x)) %>%
@@ -194,7 +195,7 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
 mlflow_client_get_run <- function(client, run_id) {
   response <- mlflow_rest(
     "runs", "get", client = client, verb = "GET",
-    query = list(run_uuid = run_id),
+    query = list(run_uuid = run_id)
   )
   new_mlflow_entities_run(response)
 }
@@ -279,7 +280,7 @@ mlflow_client_set_terminated <- function(
   end_time = NULL
 ) {
   status <- match.arg(status)
-  response <- mlflow_rest_run(client, run_id, status, end_time)
+  response <- mlflow_rest_update_run(client, run_id, status, end_time)
   tidy_run_info(response$run_info)
 }
 

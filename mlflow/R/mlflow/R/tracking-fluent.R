@@ -74,7 +74,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 
   run <- if (!is.null(existing_run_uuid)) {
     client <- mlflow_client()
-    mlflow_get_run(client, existing_run_uuid)
+    mlflow_client_get_run(client, existing_run_uuid)
   } else {
     experiment_id <- as.integer(
       experiment_id %||% mlflow_get_active_experiment_id() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
@@ -147,7 +147,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
   active_run <- mlflow_active_run()
   if (!is.null(active_run)) {
     client <- mlflow_client()
-    mlflow_set_terminated(run_id(active_run), status, client = client)
+    mlflow_client_set_terminated(client, run_id(active_run), status)
     mlflow_set_active_run(NULL)
   }
   invisible(NULL)
