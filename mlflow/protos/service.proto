@@ -513,21 +513,8 @@ message DeleteExperiment {
 message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifier to get an experiment
-  optional int64 experiment_id = 1 [(validate_required) = true];
-
-  message Response {
-  }
-}
-
-message UpdateExperiment {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
   // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
-
-  // If provided, the experiment's name will be changed to this. The new name must be unique.
-  optional string new_name = 2;
 
   message Response {
   }
