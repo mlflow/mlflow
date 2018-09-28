@@ -6,7 +6,7 @@ import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../r
 import 'react-virtualized/styles.css';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button, Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, ButtonGroup, Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
@@ -124,8 +124,8 @@ class ExperimentView extends Component {
     };
   }
 
-  toggleTableView() {
-    this.setState({showMultiColumns: !this.state.showMultiColumns});
+  setShowMultiColumns(value) {
+    this.setState({showMultiColumns: value});
   }
 
   onDeleteRun() {
@@ -234,14 +234,8 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const toggleElement = this.state.showMultiColumns ?
-      <span onClick={() => this.toggleTableView()} className="unselectable">
-        <i className={"fas fa-columns"}/> Use compact view
-      </span> :
-      <span onClick={() => this.toggleTableView()} className="unselectable">
-        <i className={"fas fa-list"}/> Use multi-column view
-      </span>;
-
+    const compactViewButtonClassName = this.state.showMultiColumns ? "" : "active-toggle-button";
+    const multiColumnViewButtonClassName = this.state.showMultiColumns ? "active-toggle-button" : "";
     return (
       <div className="ExperimentView">
         <DeleteRunModal
@@ -368,7 +362,28 @@ class ExperimentView extends Component {
               Download CSV <i className="fas fa-download"/>
             </Button>
               <span style={{float: "right", cursor: "pointer"}}>
-                {toggleElement}
+                <ButtonGroup style={styles.tableToggleButtonGroup}>
+                <Button
+                  onClick={() => {
+                    console.log("Setting showMultiCols to false");
+                    this.setShowMultiColumns(false);
+                  }}
+                  title="Grid view"
+                  className={compactViewButtonClassName}
+                >
+                  <i className={"fas fa-columns"}/>
+                </Button>
+                <Button
+                  onClick={() => {
+                    console.log("Setting showMultiCols to true");
+                    this.setShowMultiColumns(true);
+                  }}
+                  title="List view"
+                  className={multiColumnViewButtonClassName}
+                >
+                  <i className={"fas fa-list"}/>
+                </Button>
+                </ButtonGroup>
               </span>
           </div>
             {this.state.showMultiColumns ?
@@ -588,8 +603,8 @@ class ExperimentView extends Component {
       const cellClass = ExperimentViewUtil.isSortedBy(sortState, false, true, paramKey) ?
         "highlighted" : "";
       return (
-        <div key={keyname} className="metric-param-cell">
-        <Dropdown id="dropdown-custom-1">
+        <span key={keyname} className="metric-param-cell">
+        <Dropdown id="dropdown-custom-1" className="runs-sort-dropdown">
           <ExperimentRunsSortToggle
             bsRole="toggle"
             className={"metric-param-sort-toggle " + cellClass}
@@ -599,6 +614,7 @@ class ExperimentView extends Component {
                 {paramKey}
               </span>
               <span>
+                <i className="fas fa-caret-down" style={styles.sortToggleCaret}/>
                 :
               </span>
             </span>
@@ -615,20 +631,21 @@ class ExperimentView extends Component {
               className="mlflow-menu-item sort-run-menu-item"
               onClick={() => setSortBy(false, true, paramKey, true)}
             >
-              Sort ascending ({paramKey})
+              Sort ascending
             </MenuItem>
             <MenuItem
               className="mlflow-menu-item sort-run-menu-item"
               onClick={() => setSortBy(false, true, paramKey, false)}
             >
-              Sort descending ({paramKey})
+              Sort descending
             </MenuItem>
           </Dropdown.Menu>
         </Dropdown>
-        </div>
+        </span>
       );
     });
-    row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
+    // row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
+    row.push(<td key="params-container-cell" className="left-border metric-param-container-cell">{paramsCellContents}</td>);
     const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
@@ -642,8 +659,8 @@ class ExperimentView extends Component {
       }
       const percent = (fraction * 100) + "%";
       return (
-        <div key={keyname} className="metric-param-cell">
-          <Dropdown id="dropdown-custom-1">
+        <span key={keyname} className="metric-param-cell">
+          <Dropdown id="dropdown-custom-1" className="runs-sort-dropdown">
             <ExperimentRunsSortToggle
               bsRole="toggle"
               className={"metric-param-sort-toggle " + cellClass}
@@ -653,6 +670,7 @@ class ExperimentView extends Component {
                   {metricKey}
                 </span>
                 <span>
+                  <i className="fas fa-caret-down" style={styles.sortToggleCaret}/>
                   :
                 </span>
               </span>
@@ -668,20 +686,20 @@ class ExperimentView extends Component {
                 className="mlflow-menu-item sort-run-menu-item"
                 onClick={() => setSortBy(true, false, metricKey, true)}
               >
-                Sort ascending ({metricKey})
+                Sort ascending
               </MenuItem>
               <MenuItem
                 className="mlflow-menu-item sort-run-menu-item"
                 onClick={() => setSortBy(true, false, metricKey, false)}
               >
-                Sort descending ({metricKey})
+                Sort descending
               </MenuItem>
             </Dropdown.Menu>
           </Dropdown>
-        </div>
+        </span>
       );
     });
-    row.push(<td key="metrics-container-cell" className="left-border">{metricsCellContents}</td>);
+    row.push(<td key="metrics-container-cell" className="left-border metric-param-container-cell">{metricsCellContents}</td>);
     return row;
   }
 
@@ -883,6 +901,15 @@ const styles = {
   lifecycleButtonFilterWrapper: {
     marginLeft: '60px',
   },
+  sortToggleCaret: {
+    marginLeft: '2px',
+  },
+  tableToggleButtonGroup: {
+    marginLeft: '4px',
+  },
+  paddedBottom: {
+    paddingBottom: 16,
+  }
 };
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));

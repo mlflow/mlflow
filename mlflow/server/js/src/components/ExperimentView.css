@@ -186,6 +186,7 @@ span.error-message {
 
 .ExperimentView .metric-param-cell {
   padding-bottom: 8px;
+  margin-right: 32px;
 }
 
 .ExperimentView .metric-param-sort-toggle {
@@ -220,4 +221,13 @@ span.error-message {
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: top;
+}
+
+.ExperimentView .active-toggle-button, .ExperimentView .active-toggle-button:hover {
+  background-color: black;
+  color: white;
+}
+
+.ExperimentView .runs-sort-dropdown {
+  padding-bottom: 8px;
 }
