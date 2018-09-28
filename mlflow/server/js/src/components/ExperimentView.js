@@ -551,8 +551,8 @@ class ExperimentView extends Component {
         runInfo.user_id,
         runInfo.status,
       ];
-      const paramsMap = ExperimentView.toParamsMap(paramsList[index]);
-      const metricsMap = ExperimentView.toMetricsMap(metricsList[index]);
+      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
+      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
           row.push(paramsMap[paramKey].getValue());
