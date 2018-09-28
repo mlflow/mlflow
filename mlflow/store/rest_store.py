@@ -10,7 +10,8 @@ from mlflow.utils.rest_utils import http_request
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun
+    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun, DeleteExperiment, \
+    RestoreExperiment
 
 from mlflow.protos import databricks_pb2
 
@@ -107,10 +108,12 @@ class RestStore(AbstractStore):
         return Experiment.from_proto(response_proto.experiment)
 
     def delete_experiment(self, experiment_id):
-        pass
+        req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
+        self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
-        pass
+        req_body = message_to_json(RestoreExperiment(experiment_id=experiment_id))
+        self._call_endpoint(RestoreExperiment, req_body)
 
     def get_run(self, run_uuid):
         """
@@ -131,7 +134,7 @@ class RestStore(AbstractStore):
         return RunInfo.from_proto(response_proto.run_info)
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags):
+                   entry_point_name, start_time, source_version, tags, parent_run_id):
         """
         Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
@@ -145,7 +148,8 @@ class RestStore(AbstractStore):
         req_body = message_to_json(CreateRun(
             experiment_id=experiment_id, user_id=user_id, run_name="",
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
-            start_time=start_time, source_version=source_version, tags=tag_protos))
+            start_time=start_time, source_version=source_version, tags=tag_protos,
+            parent_run_id=parent_run_id))
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
         if run_name:

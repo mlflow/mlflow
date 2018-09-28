@@ -76,9 +76,11 @@ class ExperimentRunsTableCompactView extends Component {
 
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), isHidden),
-      ExperimentViewUtil.getExpander(hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), isHidden),
+      ExperimentViewUtil.getExpander(
+         hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), isHidden),
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, isHidden).forEach((col) => rowContents.push(col));
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, isHidden)
+      .forEach((col) => rowContents.push(col));
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
       const keyName = "param-" + paramKey;
@@ -125,7 +127,8 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    rowContents.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
+    rowContents.push(
+      <td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
     const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyName = "metric-" + metricKey;
@@ -178,7 +181,8 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    rowContents.push(<td key="metrics-container-cell" className="left-border">{metricsCellContents}</td>);
+    rowContents.push(
+      <td key="metrics-container-cell" className="left-border">{metricsCellContents}</td>);
 
     const sortValue = ExperimentViewUtil.computeSortValue(
       sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
@@ -223,7 +227,12 @@ class ExperimentRunsTableCompactView extends Component {
       tagsList,
       runsExpanded,
     } = this.props;
-    const rows = ExperimentViewUtil.getRows({ runInfos, sortState, tagsList, runsExpanded, getRow: this.getRow });
+    const rows = ExperimentViewUtil.getRows({
+      runInfos,
+      sortState,
+      tagsList,
+      runsExpanded,
+      getRow: this.getRow });
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked),
       // placeholder for expander header cell,
@@ -253,7 +262,7 @@ class ExperimentRunsTableCompactView extends Component {
               colSpan="1">
             <div>Metrics</div>
             <div style={styles.sortContainer} className="unselectable">
-              {this.getSortInfo({ isMetric: true, isParam: false} )}
+              {this.getSortInfo({ isMetric: true, isParam: false })}
             </div>
           </th>
       </tr>

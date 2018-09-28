@@ -7,7 +7,7 @@ import classNames from 'classnames';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
-  static getCheckboxForRow(selected, checkboxHandler, isHidden) {
+  static getCheckboxForRow(selected, checkboxHandler) {
     return <td key="meta-check">
       <div>
         <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
@@ -19,11 +19,11 @@ export default class ExperimentViewUtil {
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoCellsForRow(runInfo, tags, isParent, isHidden) {
+  static getRunInfoCellsForRow(runInfo, tags, isParent) {
     const user = Utils.formatUser(runInfo.user_id);
     const sourceType = Utils.renderSource(runInfo, tags);
     const startTime = runInfo.start_time;
-    const childLeftMargin = isParent ? {}: {marginLeft: '16px'};
+    const childLeftMargin = isParent ? {} : {marginLeft: '16px'};
     return [
       <td key="meta-link" className="run-table-container">
         <div>
@@ -240,7 +240,7 @@ export default class ExperimentViewUtil {
       let childrenIds = undefined;
       if (parentIdToChildren[runId]) {
         hasExpander = true;
-        childrenIds = parentIdToChildren[runId].map((idx => runInfos[idx].run_uuid));
+        childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
       return [getRow({
         idx,
@@ -270,10 +270,18 @@ export default class ExperimentViewUtil {
 
   static renderRows(rows) {
     return rows.map(row => {
-      const style = row.isChild ? { backgroundColor: "#fafafa" }: {};
-      return <tr key={row.key} style={style} className={classNames('ExperimentView-row', {'ExperimentView-hiddenRow': row.isHidden})}>{row.contents}</tr>;
+      const style = row.isChild ? { backgroundColor: "#fafafa" } : {};
+      return (
+        <tr
+          key={row.key}
+          style={style}
+          className={classNames('ExperimentView-row', {'ExperimentView-hiddenRow': row.isHidden})}
+        >
+          {row.contents}
+        </tr>
+      );
     });
-  };
+  }
 }
 
 class TreeNode {

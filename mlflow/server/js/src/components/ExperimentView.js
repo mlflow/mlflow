@@ -390,7 +390,9 @@ class ExperimentView extends Component {
   onExpand(runId, childrenIds) {
     const newExpanderState = !ExperimentViewUtil.isExpanderOpen(this.state.runsExpanded, runId);
     const newRunsHiddenByExpander = {...this.state.runsHiddenByExpander};
-    childrenIds.forEach((childId) => {newRunsHiddenByExpander[childId] = !newExpanderState});
+    childrenIds.forEach((childId) => {
+      newRunsHiddenByExpander[childId] = !newExpanderState;
+    });
     this.setState({
       runsExpanded: {
         ...this.state.runsExpanded,

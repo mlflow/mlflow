@@ -59,7 +59,8 @@ class ExperimentRunsTableMultiColumnView extends Component {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
-      ExperimentViewUtil.getExpander(hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds)),
+      ExperimentViewUtil.getExpander(
+        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds)),
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent).forEach((col) =>
       rowContents.push(col));
@@ -164,7 +165,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
       columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
     }
     return columns;
-  };
+  }
 
   render() {
     const {
@@ -178,7 +179,13 @@ class ExperimentRunsTableMultiColumnView extends Component {
       paramKeyList,
       metricKeyList,
     } = this.props;
-    const rows = ExperimentViewUtil.getRows({ runInfos, sortState, tagsList, runsExpanded, getRow: this.getRow });
+    const rows = ExperimentViewUtil.getRows({
+      runInfos,
+      sortState,
+      tagsList,
+      runsExpanded,
+      getRow: this.getRow
+    });
     const columns = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked),
       ExperimentViewUtil.getExpanderHeader(),

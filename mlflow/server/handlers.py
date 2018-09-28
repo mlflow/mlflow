@@ -144,7 +144,8 @@ def _create_run():
         entry_point_name=request_message.entry_point_name,
         start_time=request_message.start_time,
         source_version=request_message.source_version,
-        tags=tags)
+        tags=tags,
+        parent_run_id=request_message.parent_run_id)
 
     response_message = CreateRun.Response()
     response_message.run.MergeFrom(run.to_proto())
