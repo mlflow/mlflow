@@ -44,5 +44,7 @@ Imports:
 RoxygenNote: 6.1.0
 Suggests: 
   covr,
+  keras,
   lintr,
   testthat
+
