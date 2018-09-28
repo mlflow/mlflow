@@ -234,7 +234,7 @@ export default class ExperimentViewUtil {
 
 
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
-      if (tagsList[idx]['mlflow.parentRunId']) return [];
+      if (!treeNodes[idx].isRoot() || treeNodes[idx].isCycle()) return [];
       const runId = runInfos[idx].run_uuid;
       let hasExpander = false;
       let childrenIds = undefined;
@@ -303,5 +303,13 @@ class TreeNode {
       current = current.parent;
     }
     return current;
+  }
+
+  isRoot() {
+    return this.findRoot().value === this.value;
+  }
+
+  isCycle() {
+    return this.findRoot() === undefined;
   }
 }
