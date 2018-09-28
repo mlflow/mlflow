@@ -11,7 +11,7 @@ Authors@R: c(
   )
 Maintainer: Matei Zaharia <matei@databricks.com>
 Description: R interface to 'MLflow', open source platform for the complete machine
-  learning lifecycle, see <https://mlflow.org/>. This package supports installing
+  learning life cycle, see <https://mlflow.org/>. This package supports installing
   'MLflow', tracking experiments, creating and running projects, and saving and
   serving models.
 License: Apache License 2.0
