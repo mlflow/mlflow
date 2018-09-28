@@ -216,6 +216,12 @@ class FileStore(AbstractStore):
                     databricks_pb2.RESOURCE_ALREADY_EXISTS)
         mv(experiment_dir, self.root_directory)
 
+    def rename_experiment(self, experiment_id, new_name):
+        meta_dir = os.path.join(self.root_directory, str(experiment_id))
+        experiment = self._get_experiment(experiment_id)
+        experiment._set_name(new_name)
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment), overwrite=True)
+
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
