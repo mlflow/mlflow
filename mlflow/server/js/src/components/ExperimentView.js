@@ -620,7 +620,6 @@ class ExperimentView extends Component {
               className="run-table-container"
               style={{display: "inline-block"}}
               onMouseEnter={() => onHover({isParam: true, isMetric: false, key: paramKey})}
-              onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
             >
               <span className="metric-param-name" title={paramKey}>
                 {paramKey}
@@ -683,7 +682,6 @@ class ExperimentView extends Component {
                 className="run-table-container"
                 style={{display: "inline-block"}}
                 onMouseEnter={() => onHover({isParam: false, isMetric: true, key: metricKey})}
-                onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
               >
                 <span className="metric-param-name" title={metricKey}>
                   {metricKey}
