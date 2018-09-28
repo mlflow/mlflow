@@ -4,12 +4,15 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 import AnimateHeight from 'react-animate-height';
+import classNames from 'classnames';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
-  static getCheckboxForRow(selected, checkboxHandler) {
+  static getCheckboxForRow(selected, checkboxHandler, isHidden) {
     return <td key="meta-check">
-      <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
+      <AnimateHeight height={isHidden ? 0: 'auto'}>
+        <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
+      </AnimateHeight>
     </td>;
   }
 
@@ -17,25 +20,37 @@ export default class ExperimentViewUtil {
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoCellsForRow(runInfo, tags, isParent) {
+  static getRunInfoCellsForRow(runInfo, tags, isParent, isHidden) {
     const user = Utils.formatUser(runInfo.user_id);
     const sourceType = Utils.renderSource(runInfo, tags);
     const startTime = runInfo.start_time;
     const childLeftMargin = isParent ? {}: {marginLeft: '16px'};
     return [
       <td key="meta-link" className="run-table-container">
-        <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
-          <span style={childLeftMargin}>
-            {Utils.formatTimestamp(startTime)}
-          </span>
-        </Link>
+        <AnimateHeight height={isHidden ? 0: 'auto'}>
+          <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
+            <span style={childLeftMargin}>
+              {Utils.formatTimestamp(startTime)}
+            </span>
+          </Link>
+        </AnimateHeight>
       </td>,
-      <td key="meta-user" className="run-table-container" title={user}>{user}</td>,
+      <td key="meta-user" className="run-table-container" title={user}>
+        <AnimateHeight height={isHidden ? 0: 'auto'}>
+          {user}
+        </AnimateHeight>
+      </td>,
       <td className="run-table-container" key="meta-source" title={sourceType}>
-        {Utils.renderSourceTypeIcon(runInfo.source_type)}
-        {sourceType}
+        <AnimateHeight height={isHidden ? 0: 'auto'}>
+          {Utils.renderSourceTypeIcon(runInfo.source_type)}
+          {sourceType}
+        </AnimateHeight>
       </td>,
-      <td className="run-table-container" key="meta-version">{Utils.renderVersion(runInfo)}</td>,
+      <td className="run-table-container" key="meta-version">
+        <AnimateHeight height={isHidden ? 0: 'auto'}>
+          {Utils.renderVersion(runInfo)}
+        </AnimateHeight>
+      </td>,
     ];
   }
 
@@ -174,9 +189,11 @@ export default class ExperimentViewUtil {
     return expanderOpen;
   }
 
-  static getExpander(hasExpander, expanderOpen, onExpandBound) {
+  static getExpander(hasExpander, expanderOpen, onExpandBound, isHidden) {
     if (!hasExpander) {
-      return <td/>;
+      return <td>
+        <AnimateHeight height={isHidden ? 0: 'auto'}/>
+      </td>;
     }
     if (expanderOpen) {
       return (
@@ -232,9 +249,10 @@ export default class ExperimentViewUtil {
       const runId = r.key;
       mergedRows.push(r);
       const childrenIdxs = parentIdToChildren[runId];
-      if (childrenIdxs && ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
+      if (childrenIdxs) {
+        const isHidden = !ExperimentViewUtil.isExpanderOpen(runsExpanded, runId);
         const childrenRows = childrenIdxs.map((idx) =>
-          getRow({ idx, isParent: false, hasExpander: false }));
+          getRow({ idx, isParent: false, hasExpander: false, isHidden }));
         ExperimentViewUtil.sortRows(childrenRows, sortState);
         mergedRows.push(...childrenRows);
       }
@@ -245,7 +263,7 @@ export default class ExperimentViewUtil {
   static renderRows(rows) {
     return rows.map(row => {
       const style = row.isChild ? { backgroundColor: "#fafafa" }: {};
-      return <tr key={row.key} style={style}>{row.contents}</tr>;
+      return <tr key={row.key} style={style} className={classNames({'ExperimentView-hiddenRow': row.isHidden})}>{row.contents}</tr>;
     });
   };
 }

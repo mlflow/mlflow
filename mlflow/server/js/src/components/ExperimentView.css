@@ -221,3 +221,10 @@ span.error-message {
   white-space: nowrap;
   vertical-align: top;
 }
+
+.ExperimentView .ExperimentView-hiddenRow td {
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top: 0;
+  border-bottom: 0;
+}
