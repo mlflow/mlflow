@@ -136,7 +136,7 @@ span.error-message {
 .metric-filler-bg {
   position: relative;
   background-color: #f7f7f7;
-  width: 100px;
+  width: 50px;
   display: inline-block;
 }
 

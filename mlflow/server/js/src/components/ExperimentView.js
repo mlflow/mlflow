@@ -76,6 +76,7 @@ class ExperimentView extends Component {
   };
 
   state = {
+    hoverState: {isMetric: false, isParam: false, key: ""},
     runsSelected: {},
     paramKeyFilterInput: '',
     metricKeyFilterInput: '',
@@ -151,7 +152,7 @@ class ExperimentView extends Component {
       paramsList,
       metricsList,
       paramKeyFilter,
-      metricKeyFilter
+      metricKeyFilter,
     } = this.props;
 
     // Apply our parameter and metric key filters to just pass the filtered, sorted lists
@@ -196,7 +197,8 @@ class ExperimentView extends Component {
           paramKeyList: paramKeyList,
           metricKeyList: metricKeyList,
           setSortBy: this.setSortBy,
-          sortState: this.state.sort,
+          hoverState: this.state.hoverState,
+          onHover: this.onHover.bind(this),
           paramsMap: paramsMap,
           metricsMap: metricsMap,
           tags: this.props.tagsList[idx],
@@ -235,7 +237,8 @@ class ExperimentView extends Component {
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const compactViewButtonClassName = this.state.showMultiColumns ? "" : "active-toggle-button";
-    const multiColumnViewButtonClassName = this.state.showMultiColumns ? "active-toggle-button" : "";
+    const multiColumnViewButtonClassName = this.state.showMultiColumns ?
+      "active-toggle-button" : "";
     return (
       <div className="ExperimentView">
         <DeleteRunModal
@@ -578,6 +581,10 @@ class ExperimentView extends Component {
     return row;
   }
 
+  onHover({isParam, isMetric, key}) {
+    this.setState({hoverState: {isParam: isParam, isMetric: isMetric, key: key}});
+  }
+
   /**
    * Generate a row for a specific run, extracting the params and metrics in the given lists.
    * The row will be rendered in compact form (i.e. metrics/params will each be in a
@@ -587,7 +594,8 @@ class ExperimentView extends Component {
     runInfo,
     checkboxHandler,
     setSortBy,
-    sortState,
+    hoverState,
+    onHover,
     paramsMap,
     metricsMap,
     paramKeyList,
@@ -599,9 +607,8 @@ class ExperimentView extends Component {
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
+      const cellClass = hoverState.isParam && hoverState.key === paramKey ? "highlighted" : "";
       const keyname = "param-" + paramKey;
-      const cellClass = ExperimentViewUtil.isSortedBy(sortState, false, true, paramKey) ?
-        "highlighted" : "";
       return (
         <span key={keyname} className="metric-param-cell">
         <Dropdown id="dropdown-custom-1" className="runs-sort-dropdown">
@@ -609,7 +616,12 @@ class ExperimentView extends Component {
             bsRole="toggle"
             className={"metric-param-sort-toggle " + cellClass}
           >
-            <span className="run-table-container" style={{display: "inline-block"}}>
+            <span
+              className="run-table-container"
+              style={{display: "inline-block"}}
+              onMouseEnter={() => onHover({isParam: true, isMetric: false, key: paramKey})}
+              onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
+            >
               <span className="metric-param-name" title={paramKey}>
                 {paramKey}
               </span>
@@ -645,12 +657,14 @@ class ExperimentView extends Component {
       );
     });
     // row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
-    row.push(<td key="params-container-cell" className="left-border metric-param-container-cell">{paramsCellContents}</td>);
+    row.push(
+      <td key="params-container-cell" className="left-border metric-param-container-cell">
+        {paramsCellContents}
+      </td>);
     const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
-      const cellClass = ExperimentViewUtil.isSortedBy(sortState, true, false, metricKey) ?
-        "highlighted" : "";
+      const cellClass = hoverState.isMetric && hoverState.key === metricKey ? "highlighted" : "";
       const metric = metricsMap[metricKey].getValue();
       const range = metricRanges[metricKey];
       let fraction = 1.0;
@@ -665,7 +679,12 @@ class ExperimentView extends Component {
               bsRole="toggle"
               className={"metric-param-sort-toggle " + cellClass}
             >
-              <span className="run-table-container" style={{display: "inline-block"}}>
+              <span
+                className="run-table-container"
+                style={{display: "inline-block"}}
+                onMouseEnter={() => onHover({isParam: false, isMetric: true, key: metricKey})}
+                onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
+              >
                 <span className="metric-param-name" title={metricKey}>
                   {metricKey}
                 </span>
@@ -699,7 +718,9 @@ class ExperimentView extends Component {
         </span>
       );
     });
-    row.push(<td key="metrics-container-cell" className="left-border metric-param-container-cell">{metricsCellContents}</td>);
+    row.push(<td key="metrics-container-cell" className="left-border metric-param-container-cell">
+      {metricsCellContents}
+      </td>);
     return row;
   }
 
