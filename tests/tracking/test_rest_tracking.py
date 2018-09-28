@@ -3,30 +3,27 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
+import mock
+from multiprocessing import Process
 import os
 import pytest
-import mock
+import socket
 import time
 import tempfile
 import unittest
+
 from mlflow.server import app, FILE_STORE_ENV_VAR
 from mlflow.entities import RunStatus
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
-from multiprocessing import Process
-import socket
 
 LOCALHOST = '127.0.0.1'
 SERVER_PORT = 0
 
 
-def run_server(port):
-    print("Found file store = %s" % os.environ.get(FILE_STORE_ENV_VAR))
-    app.run(LOCALHOST, port)
-
-
-def get_safe_port():
+def _get_safe_port():
+    """Returns an ephemeral port that is very likely to be free to bind to."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((LOCALHOST, 0))
     port = sock.getsockname()[1]
@@ -34,7 +31,8 @@ def get_safe_port():
     return port
 
 
-def await_server_up_or_die(port, timeout=60):
+def _await_server_up_or_die(port, timeout=60):
+    """Waits until the local flask server is listening on the given port."""
     print('Awaiting server to be up on %s:%s' % (LOCALHOST, port))
     start_time = time.time()
     connected = False
@@ -54,7 +52,8 @@ def await_server_up_or_die(port, timeout=60):
 
 # NB: We explicitly wait and timeout on server shutdown in order to ensure that pytest output
 # reveals the cause in the event of a test hang due to the subprocess not exiting.
-def await_server_down_or_die(process, timeout=60):
+def _await_server_down_or_die(process, timeout=60):
+    """Waits until the local flask server process is terminated."""
     print('Awaiting termination of server process...')
     start_time = time.time()
     while process.is_alive() and time.time() - start_time < timeout:
@@ -65,23 +64,30 @@ def await_server_down_or_die(process, timeout=60):
 
 @pytest.fixture(scope="module", autouse=True)
 def init_and_tear_down_server(request):
+    """
+    Once per run of the entire set of tests, we create a new server, and
+    clean it up at the end.
+    """
     global SERVER_PORT
-    SERVER_PORT = get_safe_port()
+    SERVER_PORT = _get_safe_port()
     file_store_path = tempfile.mkdtemp("test_rest_tracking_file_store")
     env = {FILE_STORE_ENV_VAR: file_store_path}
     with mock.patch.dict(os.environ, env):
-        process = Process(target=run_server, args=(SERVER_PORT,))
+        process = Process(target=lambda: app.run(LOCALHOST, SERVER_PORT))
         process.start()
-    await_server_up_or_die(SERVER_PORT)
+    _await_server_up_or_die(SERVER_PORT)
 
+    # Yielding here causes pytest to resume execution at the end of all tests.
     yield
+
     print("Terminating server...")
     process.terminate()
-    await_server_down_or_die(process)
+    _await_server_down_or_die(process)
 
 
 @pytest.fixture()
 def mlflow_client():
+    """Provides an MLflow Tracking API client pointed at the local server."""
     return MlflowClient("%s:%s" % (LOCALHOST, SERVER_PORT))
 
 
