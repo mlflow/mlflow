@@ -45,7 +45,6 @@ Small bug fixes and doc updates (#467 @drorata; #470, #497, #508, #518 @dbczumar
 #533, #534 @javierluraschi; #542 @GCBallesteros; #511 @AdamBarnhard)
 
 
-
 0.6.0 (2018-09-10)
 ------------------
 
