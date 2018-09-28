@@ -1,12 +1,11 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
-import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
+import ExperimentViewUtil from './ExperimentViewUtil';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
-import AnimateHeight from 'react-animate-height';
 
 const styles = {
   sortArrow: {
@@ -55,7 +54,7 @@ class ExperimentRunsTableCompactView extends Component {
     setSortByHandler: PropTypes.func.isRequired,
   };
 
-  getRow({ idx, isParent, hasExpander, expanderOpen, isHidden }) {
+  getRow({ idx, isParent, hasExpander, expanderOpen, isHidden, childrenIds }) {
     const {
       runInfos,
       paramsList,
@@ -77,7 +76,7 @@ class ExperimentRunsTableCompactView extends Component {
 
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), isHidden),
-      ExperimentViewUtil.getExpander(hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid), isHidden),
+      ExperimentViewUtil.getExpander(hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), isHidden),
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, isHidden).forEach((col) => rowContents.push(col));
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
@@ -126,7 +125,7 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    rowContents.push(<td key="params-container-cell" className="left-border"><AnimateHeight height={isHidden ? 0: 'auto'}>{paramsCellContents}</AnimateHeight></td>);
+    rowContents.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
     const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyName = "metric-" + metricKey;
@@ -179,7 +178,7 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    rowContents.push(<td key="metrics-container-cell" className="left-border"><AnimateHeight height={isHidden ? 0: 'auto'}>{metricsCellContents}</AnimateHeight></td>);
+    rowContents.push(<td key="metrics-container-cell" className="left-border">{metricsCellContents}</td>);
 
     const sortValue = ExperimentViewUtil.computeSortValue(
       sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);

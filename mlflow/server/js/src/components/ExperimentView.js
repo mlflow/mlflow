@@ -78,6 +78,7 @@ class ExperimentView extends Component {
 
   state = {
     runsSelected: {},
+    runsHiddenByExpander: {},
     // By default all runs are expanded. In this state, runs are explicitly expanded or unexpanded.
     runsExpanded: {},
     paramKeyFilterInput: '',
@@ -378,19 +379,35 @@ class ExperimentView extends Component {
     } else {
       const runsSelected = {};
       this.props.runInfos.forEach(({run_uuid}) => {
-        runsSelected[run_uuid] = true;
+        if (!this.state.runsHiddenByExpander[run_uuid]) {
+          runsSelected[run_uuid] = true;
+        }
       });
       this.setState({runsSelected: runsSelected});
     }
   }
 
-  onExpand(runId) {
+  onExpand(runId, childrenIds) {
+    const newExpanderState = !ExperimentViewUtil.isExpanderOpen(this.state.runsExpanded, runId);
+    const newRunsHiddenByExpander = {...this.state.runsHiddenByExpander};
+    childrenIds.forEach((childId) => {newRunsHiddenByExpander[childId] = !newExpanderState});
     this.setState({
       runsExpanded: {
         ...this.state.runsExpanded,
-        [runId]: !ExperimentViewUtil.isExpanderOpen(this.state.runsExpanded, runId)
-      }
+        [runId]: newExpanderState,
+      },
+      runsHiddenByExpander: newRunsHiddenByExpander,
     });
+    // Deselect the children
+    const newRunsSelected = {...this.state.runsSelected};
+    if (newExpanderState === false) {
+      childrenIds.forEach((childId) => {
+        if (newRunsSelected[childId]) {
+          delete newRunsSelected[childId];
+        }
+      });
+      this.setState({ runsSelected: newRunsSelected });
+    }
   }
 
   onParamKeyFilterInput(event) {

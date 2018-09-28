@@ -3,16 +3,15 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
-import AnimateHeight from 'react-animate-height';
 import classNames from 'classnames';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
   static getCheckboxForRow(selected, checkboxHandler, isHidden) {
     return <td key="meta-check">
-      <AnimateHeight height={isHidden ? 0: 'auto'}>
+      <div>
         <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
-      </AnimateHeight>
+      </div>
     </td>;
   }
 
@@ -27,29 +26,29 @@ export default class ExperimentViewUtil {
     const childLeftMargin = isParent ? {}: {marginLeft: '16px'};
     return [
       <td key="meta-link" className="run-table-container">
-        <AnimateHeight height={isHidden ? 0: 'auto'}>
+        <div>
           <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
             <span style={childLeftMargin}>
               {Utils.formatTimestamp(startTime)}
             </span>
           </Link>
-        </AnimateHeight>
+        </div>
       </td>,
       <td key="meta-user" className="run-table-container" title={user}>
-        <AnimateHeight height={isHidden ? 0: 'auto'}>
+        <div>
           {user}
-        </AnimateHeight>
+        </div>
       </td>,
       <td className="run-table-container" key="meta-source" title={sourceType}>
-        <AnimateHeight height={isHidden ? 0: 'auto'}>
+        <div>
           {Utils.renderSourceTypeIcon(runInfo.source_type)}
           {sourceType}
-        </AnimateHeight>
+        </div>
       </td>,
       <td className="run-table-container" key="meta-version">
-        <AnimateHeight height={isHidden ? 0: 'auto'}>
+        <div>
           {Utils.renderVersion(runInfo)}
-        </AnimateHeight>
+        </div>
       </td>,
     ];
   }
@@ -189,10 +188,9 @@ export default class ExperimentViewUtil {
     return expanderOpen;
   }
 
-  static getExpander(hasExpander, expanderOpen, onExpandBound, isHidden) {
+  static getExpander(hasExpander, expanderOpen, onExpandBound) {
     if (!hasExpander) {
       return <td>
-        <AnimateHeight height={isHidden ? 0: 'auto'}/>
       </td>;
     }
     if (expanderOpen) {
@@ -239,8 +237,18 @@ export default class ExperimentViewUtil {
       if (tagsList[idx]['mlflow.parentRunId']) return [];
       const runId = runInfos[idx].run_uuid;
       let hasExpander = false;
-      if (parentIdToChildren[runId]) hasExpander = true;
-      return [getRow({ idx, isParent: true, hasExpander, expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId) })];
+      let childrenIds = undefined;
+      if (parentIdToChildren[runId]) {
+        hasExpander = true;
+        childrenIds = parentIdToChildren[runId].map((idx => runInfos[idx].run_uuid));
+      }
+      return [getRow({
+        idx,
+        isParent: true,
+        hasExpander,
+        expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
+        childrenIds,
+      })];
     });
     ExperimentViewUtil.sortRows(parentRows, sortState);
 
@@ -263,12 +271,12 @@ export default class ExperimentViewUtil {
   static renderRows(rows) {
     return rows.map(row => {
       const style = row.isChild ? { backgroundColor: "#fafafa" }: {};
-      return <tr key={row.key} style={style} className={classNames({'ExperimentView-hiddenRow': row.isHidden})}>{row.contents}</tr>;
+      return <tr key={row.key} style={style} className={classNames('ExperimentView-row', {'ExperimentView-hiddenRow': row.isHidden})}>{row.contents}</tr>;
     });
   };
 }
 
-export class TreeNode {
+class TreeNode {
   constructor(value) {
     this.value = value;
     this.parent = undefined;

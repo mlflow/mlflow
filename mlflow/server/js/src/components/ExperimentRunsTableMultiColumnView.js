@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import classNames from 'classnames';
 import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
-import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
+import ExperimentViewUtil from './ExperimentViewUtil';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 
@@ -37,7 +37,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     runsExpanded: PropTypes.object.isRequired,
   };
 
-  getRow({ idx, isParent, hasExpander, expanderOpen }) {
+  getRow({ idx, isParent, hasExpander, expanderOpen, isHidden, childrenIds }) {
     const {
       runInfos,
       paramsList,
@@ -58,8 +58,8 @@ class ExperimentRunsTableMultiColumnView extends Component {
     const numMetrics = metricKeyList.length;
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
-      ExperimentViewUtil.getCheckboxForRow(selected, onCheckbox),
-      ExperimentViewUtil.getExpander(hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid)),
+      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
+      ExperimentViewUtil.getExpander(hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds)),
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent).forEach((col) =>
       rowContents.push(col));
@@ -68,7 +68,9 @@ class ExperimentRunsTableMultiColumnView extends Component {
       const keyName = "param-" + paramKey;
       if (paramsMap[paramKey]) {
         rowContents.push(<td className={className} key={keyName}>
-          {paramsMap[paramKey].getValue()}
+          <div>
+            {paramsMap[paramKey].getValue()}
+          </div>
         </td>);
       } else {
         rowContents.push(<td className={className} key={keyName}/>);
@@ -114,6 +116,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
       sortValue: sortValue,
       contents: rowContents,
       isChild: !isParent,
+      isHidden,
     };
   }
 
