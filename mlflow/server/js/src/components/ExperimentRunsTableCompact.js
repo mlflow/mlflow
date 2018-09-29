@@ -34,8 +34,8 @@ class ExperimentRunsTableCompact extends Component {
   getSortInfo(isMetric, isParam) {
     const { sortState, onSortBy } = this.props;
     const sortIcon = sortState.ascending ?
-      <i className="fas fa-arrow-up" style={styles.sortArrow}/> :
-      <i className="fas fa-arrow-down" style={styles.sortArrow}/>;
+      <i className="fas fa-caret-up" style={styles.sortArrow}/> :
+      <i className="fas fa-caret-down" style={styles.sortArrow}/>;
     if (sortState.isMetric === isMetric && sortState.isParam === isParam) {
       return (
       <span

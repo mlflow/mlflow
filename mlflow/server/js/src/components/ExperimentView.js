@@ -89,7 +89,7 @@ class ExperimentView extends Component {
       isParam: false,
       key: "start_time"
     },
-    showMultiColumns: false,
+    showMultiColumns: true,
     showDeleteRunModal: false,
     showRestoreRunModal: false,
   };
@@ -198,6 +198,7 @@ class ExperimentView extends Component {
           metricKeyList: metricKeyList,
           setSortBy: this.setSortBy,
           hoverState: this.state.hoverState,
+          sortState: this.state.sort,
           onHover: this.onHover.bind(this),
           paramsMap: paramsMap,
           metricsMap: metricsMap,
@@ -236,9 +237,9 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const compactViewButtonClassName = this.state.showMultiColumns ? "" : "active-toggle-button";
+    const compactViewButtonClassName = this.state.showMultiColumns ? "" : "active";
     const multiColumnViewButtonClassName = this.state.showMultiColumns ?
-      "active-toggle-button" : "";
+      "active" : "";
     return (
       <div className="ExperimentView">
         <DeleteRunModal
@@ -364,25 +365,19 @@ class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
-              <span style={{float: "right", cursor: "pointer"}}>
+              <span style={{cursor: "pointer"}}>
                 <ButtonGroup style={styles.tableToggleButtonGroup}>
                 <Button
-                  onClick={() => {
-                    console.log("Setting showMultiCols to false");
-                    this.setShowMultiColumns(false);
-                  }}
-                  title="Grid view"
-                  className={compactViewButtonClassName}
+                  onClick={() => this.setShowMultiColumns(true)}
+                  title="Compact view"
+                  className={multiColumnViewButtonClassName}
                 >
-                  <i className={"fas fa-columns"}/>
+                  <i className={"fas fa-table"}/>
                 </Button>
                 <Button
-                  onClick={() => {
-                    console.log("Setting showMultiCols to true");
-                    this.setShowMultiColumns(true);
-                  }}
-                  title="List view"
-                  className={multiColumnViewButtonClassName}
+                  onClick={() => {this.setShowMultiColumns(false)}}
+                  title="Grid view"
+                  className={compactViewButtonClassName}
                 >
                   <i className={"fas fa-list"}/>
                 </Button>
@@ -582,6 +577,7 @@ class ExperimentView extends Component {
   }
 
   onHover({isParam, isMetric, key}) {
+    console.log("In onHover, isParam: " + isParam + ", isMetric: " + isMetric + ", key: " + key);
     this.setState({hoverState: {isParam: isParam, isMetric: isMetric, key: key}});
   }
 
@@ -594,6 +590,7 @@ class ExperimentView extends Component {
     runInfo,
     checkboxHandler,
     setSortBy,
+    sortState,
     hoverState,
     onHover,
     paramsMap,
@@ -603,6 +600,14 @@ class ExperimentView extends Component {
     tags,
     metricRanges,
     selected}) {
+    const getSortIcon = (isMetric, isParam, key) => {
+      if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
+        const arrowClass = sortState.ascending ? "fas fa-arrow-up" : "fas fa-arrow-down";
+        return <i className={arrowClass} style={styles.sortToggleCaret}/>
+      }
+      return "";
+    };
+
     const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
@@ -610,11 +615,11 @@ class ExperimentView extends Component {
       const cellClass = hoverState.isParam && hoverState.key === paramKey ? "highlighted" : "";
       const keyname = "param-" + paramKey;
       return (
-        <span key={keyname} className="metric-param-cell">
+        <span key={keyname} className={"metric-param-cell " + cellClass}>
         <Dropdown id="dropdown-custom-1" className="runs-sort-dropdown">
           <ExperimentRunsSortToggle
             bsRole="toggle"
-            className={"metric-param-sort-toggle " + cellClass}
+            className={"metric-param-sort-toggle"}
           >
             <span
               className="run-table-container"
@@ -625,7 +630,7 @@ class ExperimentView extends Component {
                 {paramKey}
               </span>
               <span>
-                <i className="fas fa-caret-down" style={styles.sortToggleCaret}/>
+                {getSortIcon(false, true, paramKey)}
                 :
               </span>
             </span>
@@ -672,11 +677,11 @@ class ExperimentView extends Component {
       }
       const percent = (fraction * 100) + "%";
       return (
-        <span key={keyname} className="metric-param-cell">
+        <span key={keyname} className={"metric-param-cell " + cellClass}>
           <Dropdown id="dropdown-custom-1" className="runs-sort-dropdown">
             <ExperimentRunsSortToggle
               bsRole="toggle"
-              className={"metric-param-sort-toggle " + cellClass}
+              className={"metric-param-sort-toggle"}
             >
               <span
                 className="run-table-container"
@@ -687,16 +692,13 @@ class ExperimentView extends Component {
                   {metricKey}
                 </span>
                 <span>
-                  <i className="fas fa-caret-down" style={styles.sortToggleCaret}/>
+                  {getSortIcon(true, false, metricKey)}
                   :
                 </span>
               </span>
             </ExperimentRunsSortToggle>
-            <span className="metric-filler-bg metric-param-value">
-              <span className="metric-filler-fg" style={{width: percent}}/>
-              <span className="metric-text">
-                {Utils.formatMetric(metric)}
-              </span>
+            <span className="metric-param-value">
+              {Utils.formatMetric(metric)}
             </span>
             <Dropdown.Menu className="mlflow-menu">
               <MenuItem
@@ -924,7 +926,7 @@ const styles = {
     marginLeft: '2px',
   },
   tableToggleButtonGroup: {
-    marginLeft: '4px',
+    marginLeft: '16px',
   },
   paddedBottom: {
     paddingBottom: 16,

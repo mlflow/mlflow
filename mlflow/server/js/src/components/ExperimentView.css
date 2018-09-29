@@ -185,7 +185,6 @@ span.error-message {
 }
 
 .ExperimentView .metric-param-cell {
-  padding-bottom: 8px;
   margin-right: 32px;
 }
 
@@ -203,6 +202,7 @@ span.error-message {
 }
 
 .ExperimentView .highlighted {
+  /* background-color: #6dc1ee; */
   color: black;
 }
 
@@ -224,10 +224,10 @@ span.error-message {
 }
 
 .ExperimentView .active-toggle-button, .ExperimentView .active-toggle-button:hover {
-  background-color: black;
+  background-color: #3f4145;
   color: white;
 }
 
 .ExperimentView .runs-sort-dropdown {
-  padding-bottom: 8px;
+  /* padding-bottom: 8px; */
 }
