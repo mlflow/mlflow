@@ -161,7 +161,7 @@ public class MlflowClient {
    * Logs a new metric against the given run, as a key-value pair.
    * New values for the same metric may be recorded over time, and are marked with a timestamp.
    * */
-  public void logMetric(String runUuid, String key, float value) {
+  public void logMetric(String runUuid, String key, double value) {
     sendPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
       System.currentTimeMillis()));
   }

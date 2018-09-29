@@ -123,7 +123,7 @@ module.exports = {
       'ignoreStrings': false,
       'ignoreTemplateLiterals': false,
     }],
-    'max-lines': [2, 750],
+    'max-lines': [2, 1000],
     'max-nested-callbacks': 2,
     'max-params': [2, 8],
     'max-statements': 0,

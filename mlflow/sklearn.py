@@ -37,6 +37,16 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
            this model should be run in. At minimum, it should specify python, scikit-learn,
            and mlflow with appropriate versions.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+
+    >>> import mlflow.sklearn
+    >>> from sklearn.datasets import load_iris
+    >>> from sklearn import tree
+    >>> iris = load_iris()
+    >>> sk_model = tree.DecisionTreeClassifier()
+    >>> sk_model = sk_model.fit(iris.data, iris.target)
+    >>> #set path to location for persistence
+    >>> sk_path_dir = ...
+    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir)
     """
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -65,6 +75,20 @@ def log_model(sk_model, artifact_path, conda_env=None):
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
            this model should be run in. At minimum, it should specify python, scikit-learn,
            and mlflow with appropriate versions.
+
+    >>> import mlflow
+    >>> import mlflow.sklearn
+    >>> from sklearn.datasets import load_iris
+    >>> from sklearn import tree
+    >>> iris = load_iris()
+    >>> sk_model = tree.DecisionTreeClassifier()
+    >>> sk_model = sk_model.fit(iris.data, iris.target)
+    >>> #set the artifact_path to location where experiment artifacts will be saved
+    >>> #log model params
+    >>> mlflow.log_param("criterion", sk_model.criterion)
+    >>> mlflow.log_param("splitter", sk_model.splitter)
+    >>> #log model
+    >>> mlflow.sklearn.log_model(sk_model, "sk_models")
     """
     return Model.log(artifact_path=artifact_path,
                      flavor=mlflow.sklearn,
@@ -82,15 +106,10 @@ def _load_model_from_local_file(path):
         return pickle.load(f)
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     """
-    Load a persisted scikit-learn model as a ``python_function`` model.
-
-    :param path: Local filesystem path to the model saved by :py:func:`mlflow.sklearn.save_model`.
-    :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
-
     with open(path, "rb") as f:
         return pickle.load(f)
 
@@ -102,6 +121,12 @@ def load_model(path, run_id=None):
     :param path: Local filesystem path or run-relative artifact path to the model saved
                  by :py:func:`mlflow.sklearn.save_model`.
     :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+
+    >>> import mlflow.sklearn
+    >>> sk_model = mlflow.sklearn.load_model("sk_models", run_id="96771d893a5e46159d9f3b49bf9013e2")
+    >>> #use Pandas DataFrame to make predictions
+    >>> pandas_df = ...
+    >>> predictions = sk_model.predict(pandas_df)
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)

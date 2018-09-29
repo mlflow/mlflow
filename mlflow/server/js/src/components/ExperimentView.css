@@ -69,7 +69,26 @@
   margin-top: 16px;
 }
 
-.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search {
+.ExperimentView-search {
+  display: table;
+  width: 100%;
+}
+
+.ExperimentView-search-input {
+  display: table-cell;
+  width: auto;
+}
+
+.ExperimentView-lifecycle-input {
+  display: table-cell;
+  width: 100px;
+}
+
+.ExperimentView-lifecycle-button {
+  width: 100px;
+}
+
+.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
   padding-right: 16px;
 }
 

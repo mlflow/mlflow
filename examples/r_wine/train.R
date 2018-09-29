@@ -8,7 +8,7 @@ library(glmnet)
 set.seed(40)
 
 # Read the wine-quality csv file
-data <- read.csv("../wine-quality.csv")
+data <- read.csv("wine-quality.csv")
 
 # Split the data into training and test sets. (0.75, 0.25) split.
 sampled <- sample(1:nrow(data), 0.75 * nrow(data))

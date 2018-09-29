@@ -1,9 +1,10 @@
 import { combineReducers } from 'redux';
 import {
+  CLOSE_ERROR_MODAL,
   fulfilled, GET_EXPERIMENT_API, GET_RUN_API, isFulfilledApi, isPendingApi,
   isRejectedApi,
   LIST_ARTIFACTS_API,
-  LIST_EXPERIMENTS_API, SEARCH_RUNS_API, SET_TAG_API,
+  LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
 } from '../Actions';
 import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -294,7 +295,44 @@ const apis = (state = {}, action) => {
   }
 };
 
+export const isErrorModalOpen = (state) => {
+  return state.views.errorModal.isOpen;
+};
+
+export const getErrorModalText = (state) => {
+  return state.views.errorModal.text;
+};
+
+const errorModalDefault = {
+  isOpen: false,
+  text: '',
+};
+
+const errorModal = (state = errorModalDefault, action) => {
+  switch (action.type) {
+    case CLOSE_ERROR_MODAL: {
+      return {
+        ...state,
+        isOpen: false,
+      };
+    }
+    case OPEN_ERROR_MODAL: {
+      return {
+        isOpen: true,
+        text: action.text,
+      };
+    }
+    default:
+      return state;
+  }
+};
+
+const views = combineReducers({
+  errorModal,
+});
+
 export const rootReducer = combineReducers({
   entities,
+  views,
   apis,
 });

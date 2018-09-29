@@ -4,7 +4,7 @@ as :py:mod:`mlflow.pyfunc` models.
 
 You must save your own ``saved_model`` and pass its
 path to ``log_saved_model(saved_model_dir)``. To load the model to predict on it, you call
-``model = load_pyfunc(saved_model_dir)`` followed by
+``model = pyfunc.load_pyfunc(saved_model_dir)`` followed by
 ``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a pandas DataFrame.
 
 The loaded :py:mod:`mlflow.pyfunc` model *does not* expose any APIs for model training.
@@ -81,15 +81,8 @@ def log_saved_model(saved_model_dir, signature_def_key, artifact_path):
     log_artifacts(saved_model_dir, artifact_path)
 
 
-def load_pyfunc(saved_model_dir):
+def _load_pyfunc(saved_model_dir):
     """
-    Load a persisted TensorFlow model as a PyFunc.
-    The loaded model object exposes a ``predict(pandas DataFrame)`` method that returns a pandas
-    DataFrame containing the model's inference output on an input DataFrame.
-
-    :param saved_model_dir: Directory where the TensorFlow model is saved.
-    :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
-
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
     return _TFWrapper(saved_model_dir)

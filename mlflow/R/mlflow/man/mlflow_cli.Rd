@@ -4,7 +4,8 @@
 \alias{mlflow_cli}
 \title{MLflow Command}
 \usage{
-mlflow_cli(..., background = FALSE, echo = TRUE)
+mlflow_cli(..., background = FALSE, echo = TRUE,
+  stderr_callback = NULL)
 }
 \arguments{
 \item{...}{The parameters to pass to the command line.}
@@ -14,6 +15,8 @@ Defaults to \code{FALSE}.}
 
 \item{echo}{Print the standard output and error to the screen? Defaults to
 \code{TRUE}, does not apply to background tasks.}
+
+\item{stderr_callback}{NULL, or a function to call for every chunk of the standard error.}
 }
 \value{
 A \code{processx} task.
