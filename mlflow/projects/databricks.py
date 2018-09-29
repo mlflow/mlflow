@@ -41,8 +41,6 @@ def _check_response_status_code(response):
 
 def before_run_validations(tracking_uri, cluster_spec):
     """Validations to perform before running a project on Databricks."""
-    profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
-    _check_auth_available(profile)
     if cluster_spec is None:
         raise ExecutionException("Cluster spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
@@ -50,16 +48,9 @@ def before_run_validations(tracking_uri, cluster_spec):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be of the form "
             "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "
-            "current client and code running on Databricks. Got local tracking URI %s."
-            % tracking_uri)
-
-
-def _check_auth_available(databricks_profile):
-    """
-    Verify that information for making API requests to Databricks is available to MLflow,
-    raising an exception if not.
-    """
-    databricks_utils.get_databricks_host_creds(databricks_profile)
+            "current client and code running on Databricks. Got local tracking URI %s. "
+            "Please specify a valid tracking URI via mlflow.set_tracking_uri or by setting the "
+            "MLFLOW_TRACKING_URI variable." % tracking_uri)
 
 
 class DatabricksJobRunner(object):
