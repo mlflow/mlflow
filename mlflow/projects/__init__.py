@@ -32,12 +32,22 @@ _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 
 
-def _get_or_create_project_run(
-        run_id, uri, exp_id, work_dir, entry_point, project, parameters, version):
+def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
+         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
+         storage_dir=None, block=True, run_id=None):
     """
-    Helper that gets (if run_id is not None) or creates a ``Run`` object for a project execution.
-    Also logs parameters and initial tags for the run.
+    Helper that delegates to the project-running method corresponding to the passed-in mode.
+    Returns a ``SubmittedRun`` corresponding to the project run.
     """
+    if mode == "databricks":
+        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+
+    exp_id = experiment_id or _get_experiment_id()
+    parameters = parameters or {}
+    work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
+                              git_username=git_username, git_password=git_password)
+    project = _project_spec.load_project(work_dir)
+    project.get_entry_point(entry_point)._validate_parameters(parameters)
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
     else:
@@ -53,48 +63,28 @@ def _get_or_create_project_run(
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
-    return active_run
 
-
-def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-         storage_dir=None, block=True, run_id=None):
-    """
-    Helper that delegates to the project-running method corresponding to the passed-in mode.
-    Returns a ``SubmittedRun`` corresponding to the project run.
-    """
-    exp_id = experiment_id or _get_experiment_id()
-    parameters = parameters or {}
-    work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
-                              git_username=git_username, git_password=git_password)
-    project = _project_spec.load_project(work_dir)
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
     if mode == "databricks":
-        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
-        run_obj = _get_or_create_project_run(
-            run_id, uri, exp_id, work_dir, entry_point, project, parameters, version)
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
-            remote_run=run_obj,
+            remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
     elif mode == "local" or mode is None:
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
         conda_env_name = _get_or_create_conda_env(project.conda_env_path) if use_conda else None
-        run_obj = _get_or_create_project_run(
-            run_id, uri, exp_id, work_dir, entry_point, project, parameters, version)
         # In blocking mode, run the entry point command in blocking fashion, sending status updates
         # to the tracking server when finished. Note that the run state may not be persisted to the
         # tracking server if interrupted
         if block:
             command = _get_entry_point_command(
                 project, entry_point, parameters, conda_env_name, storage_dir)
-            return _run_entry_point(command, work_dir, exp_id, run_id=run_obj.info.run_uuid)
+            return _run_entry_point(command, work_dir, exp_id, run_id=active_run.info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
-            use_conda=use_conda, storage_dir=storage_dir, run_id=run_obj.info.run_uuid)
+            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_uuid)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
