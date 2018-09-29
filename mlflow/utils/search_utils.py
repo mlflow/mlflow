@@ -2,8 +2,15 @@ def does_run_match_clause(run, search_expression):
     key_type = search_expression.WhichOneof('expression')
     if key_type == 'metric':
         key = search_expression.metric.key
-        comparator = search_expression.metric.float.comparator
-        value = search_expression.metric.float.value
+        metric_type = search_expression.metric.WhichOneof('clause')
+        if metric_type == 'float':
+            comparator = search_expression.metric.float.comparator
+            value = search_expression.metric.float.value
+        elif metric_type == 'double':
+            comparator = search_expression.metric.double.comparator
+            value = search_expression.metric.double.value
+        else:
+            raise Exception("Invalid metric type: '%s', expected float or double")
         metric = next((m for m in run.data.metrics if m.key == key), None)
         if metric is None:
             return False
