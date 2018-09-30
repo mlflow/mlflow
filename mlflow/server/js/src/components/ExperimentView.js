@@ -203,7 +203,6 @@ class ExperimentView extends Component {
           paramsMap: paramsMap,
           metricsMap: metricsMap,
           tags: this.props.tagsList[idx],
-          metricRanges: metricRanges,
           selected: !!this.state.runsSelected[runInfo.run_uuid]});
       }
 
@@ -375,7 +374,7 @@ class ExperimentView extends Component {
                   <i className={"fas fa-table"}/>
                 </Button>
                 <Button
-                  onClick={() => {this.setShowMultiColumns(false)}}
+                  onClick={() => this.setShowMultiColumns(false)}
                   title="Grid view"
                   className={compactViewButtonClassName}
                 >
@@ -577,7 +576,6 @@ class ExperimentView extends Component {
   }
 
   onHover({isParam, isMetric, key}) {
-    console.log("In onHover, isParam: " + isParam + ", isMetric: " + isMetric + ", key: " + key);
     this.setState({hoverState: {isParam: isParam, isMetric: isMetric, key: key}});
   }
 
@@ -598,12 +596,11 @@ class ExperimentView extends Component {
     paramKeyList,
     metricKeyList,
     tags,
-    metricRanges,
     selected}) {
     const getSortIcon = (isMetric, isParam, key) => {
       if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
         const arrowClass = sortState.ascending ? "fas fa-arrow-up" : "fas fa-arrow-down";
-        return <i className={arrowClass} style={styles.sortToggleCaret}/>
+        return <i className={arrowClass} style={styles.sortToggleCaret}/>;
       }
       return "";
     };
@@ -615,52 +612,51 @@ class ExperimentView extends Component {
       const cellClass = hoverState.isParam && hoverState.key === paramKey ? "highlighted" : "";
       const keyname = "param-" + paramKey;
       return (
-        <span key={keyname} className={"metric-param-cell " + cellClass}>
-        <Dropdown id="dropdown-custom-1" className="runs-sort-dropdown">
+        <div key={keyname} className={"metric-param-cell " + cellClass}>
+        <Dropdown id="dropdown-custom-1">
           <ExperimentRunsSortToggle
             bsRole="toggle"
             className={"metric-param-sort-toggle"}
           >
             <span
               className="run-table-container"
-              style={{display: "inline-block"}}
+              style={{display: "inline-block", maxWidth: 120}}
               onMouseEnter={() => onHover({isParam: true, isMetric: false, key: paramKey})}
             >
+              {getSortIcon(false, true, paramKey)}
               <span className="metric-param-name" title={paramKey}>
                 {paramKey}
               </span>
               <span>
-                {getSortIcon(false, true, paramKey)}
                 :
               </span>
             </span>
           </ExperimentRunsSortToggle>
           <span
             className="metric-param-value run-table-container"
-            style={{display: "inline-block"}}
+            style={{display: "inline-block", maxWidth: 120}}
             title={paramsMap[paramKey].getValue()}
           >
               {paramsMap[paramKey].getValue()}
           </span>
           <Dropdown.Menu className="mlflow-menu">
             <MenuItem
-              className="mlflow-menu-item sort-run-menu-item"
+              className="mlflow-menu-item"
               onClick={() => setSortBy(false, true, paramKey, true)}
             >
               Sort ascending
             </MenuItem>
             <MenuItem
-              className="mlflow-menu-item sort-run-menu-item"
+              className="mlflow-menu-item"
               onClick={() => setSortBy(false, true, paramKey, false)}
             >
               Sort descending
             </MenuItem>
           </Dropdown.Menu>
         </Dropdown>
-        </span>
+        </div>
       );
     });
-    // row.push(<td key="params-container-cell" className="left-border">{paramsCellContents}</td>);
     row.push(
       <td key="params-container-cell" className="left-border metric-param-container-cell">
         {paramsCellContents}
@@ -670,45 +666,39 @@ class ExperimentView extends Component {
       const keyname = "metric-" + metricKey;
       const cellClass = hoverState.isMetric && hoverState.key === metricKey ? "highlighted" : "";
       const metric = metricsMap[metricKey].getValue();
-      const range = metricRanges[metricKey];
-      let fraction = 1.0;
-      if (range.max > range.min) {
-        fraction = (metric - range.min) / (range.max - range.min);
-      }
-      const percent = (fraction * 100) + "%";
       return (
         <span key={keyname} className={"metric-param-cell " + cellClass}>
-          <Dropdown id="dropdown-custom-1" className="runs-sort-dropdown">
+          <Dropdown id="dropdown-custom-1">
             <ExperimentRunsSortToggle
               bsRole="toggle"
               className={"metric-param-sort-toggle"}
             >
               <span
                 className="run-table-container"
-                style={{display: "inline-block"}}
+                style={{display: "inline-block", maxWidth: 120}}
                 onMouseEnter={() => onHover({isParam: false, isMetric: true, key: metricKey})}
               >
+                {getSortIcon(true, false, metricKey)}
                 <span className="metric-param-name" title={metricKey}>
                   {metricKey}
                 </span>
                 <span>
-                  {getSortIcon(true, false, metricKey)}
                   :
                 </span>
               </span>
             </ExperimentRunsSortToggle>
-            <span className="metric-param-value">
+            <span className="metric-param-value" style={{maxWidth: 120}}>
               {Utils.formatMetric(metric)}
             </span>
             <Dropdown.Menu className="mlflow-menu">
               <MenuItem
-                className="mlflow-menu-item sort-run-menu-item"
+                className="mlflow-menu-item"
                 onClick={() => setSortBy(true, false, metricKey, true)}
               >
                 Sort ascending
               </MenuItem>
               <MenuItem
-                className="mlflow-menu-item sort-run-menu-item"
+                className="mlflow-menu-item"
                 onClick={() => setSortBy(true, false, metricKey, false)}
               >
                 Sort descending
@@ -923,7 +913,7 @@ const styles = {
     marginLeft: '60px',
   },
   sortToggleCaret: {
-    marginLeft: '2px',
+    marginRight: '2px',
   },
   tableToggleButtonGroup: {
     marginLeft: '16px',

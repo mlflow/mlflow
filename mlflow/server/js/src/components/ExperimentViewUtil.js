@@ -19,7 +19,7 @@ export default class ExperimentViewUtil {
     const user = Utils.formatUser(runInfo.user_id);
     const sourceType = Utils.renderSource(runInfo, tags);
     return [
-      <td key="meta-link" className="run-table-container">
+      <td key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
         <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
           {runInfo.start_time ? Utils.formatTimestamp(runInfo.start_time) : '(unknown)'}
         </Link>

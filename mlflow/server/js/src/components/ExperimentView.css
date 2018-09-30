@@ -186,6 +186,7 @@ span.error-message {
 
 .ExperimentView .metric-param-cell {
   margin-right: 32px;
+  display: inline-block;
 }
 
 .ExperimentView .metric-param-sort-toggle {
@@ -202,32 +203,21 @@ span.error-message {
 }
 
 .ExperimentView .highlighted {
-  /* background-color: #6dc1ee; */
+  border-radius: 5px;
+  background-color: rgba(28, 177, 194, .1);
   color: black;
 }
 
 /** Container with a max width & text-truncation for use in the experiment runs table */
 .ExperimentView .run-table-container {
-  max-width: 250px;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: top;
 }
 
-.ExperimentView .sort-run-menu-item {
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: top;
-}
 
-.ExperimentView .active-toggle-button, .ExperimentView .active-toggle-button:hover {
-  background-color: #3f4145;
-  color: white;
-}
-
-.ExperimentView .runs-sort-dropdown {
-  /* padding-bottom: 8px; */
+.ExperimentView .metric-param-container-cell {
+  min-width: 280px;
 }
