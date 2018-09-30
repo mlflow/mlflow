@@ -50,7 +50,7 @@ def before_run_validations(tracking_uri, cluster_spec):
             "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "
             "current client and code running on Databricks. Got local tracking URI %s. "
             "Please specify a valid tracking URI via mlflow.set_tracking_uri or by setting the "
-            "MLFLOW_TRACKING_URI variable." % tracking_uri)
+            "MLFLOW_TRACKING_URI environment variable." % tracking_uri)
 
 
 class DatabricksJobRunner(object):
