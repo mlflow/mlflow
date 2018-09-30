@@ -368,14 +368,14 @@ class ExperimentView extends Component {
                 <ButtonGroup style={styles.tableToggleButtonGroup}>
                 <Button
                   onClick={() => this.setShowMultiColumns(true)}
-                  title="Compact view"
+                  title="Grid view"
                   className={multiColumnViewButtonClassName}
                 >
                   <i className={"fas fa-table"}/>
                 </Button>
                 <Button
                   onClick={() => this.setShowMultiColumns(false)}
-                  title="Grid view"
+                  title="Compact view"
                   className={compactViewButtonClassName}
                 >
                   <i className={"fas fa-list"}/>
