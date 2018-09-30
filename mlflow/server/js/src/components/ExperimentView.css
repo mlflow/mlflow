@@ -204,7 +204,7 @@ span.error-message {
 
 .ExperimentView .highlighted {
   border-radius: 5px;
-  background-color: rgba(28, 177, 194, .1);
+  background-color: rgba(67, 199, 234, 0.1);
   color: black;
 }
 

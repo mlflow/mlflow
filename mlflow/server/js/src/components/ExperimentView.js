@@ -620,7 +620,7 @@ class ExperimentView extends Component {
           >
             <span
               className="run-table-container"
-              style={{display: "inline-block", maxWidth: 120}}
+              style={styles.metricParamCellContent}
               onMouseEnter={() => onHover({isParam: true, isMetric: false, key: paramKey})}
             >
               {getSortIcon(false, true, paramKey)}
@@ -634,7 +634,7 @@ class ExperimentView extends Component {
           </ExperimentRunsSortToggle>
           <span
             className="metric-param-value run-table-container"
-            style={{display: "inline-block", maxWidth: 120}}
+            style={styles.metricParamCellContent}
             title={paramsMap[paramKey].getValue()}
           >
               {paramsMap[paramKey].getValue()}
@@ -675,7 +675,7 @@ class ExperimentView extends Component {
             >
               <span
                 className="run-table-container"
-                style={{display: "inline-block", maxWidth: 120}}
+                style={styles.metricParamCellContent}
                 onMouseEnter={() => onHover({isParam: false, isMetric: true, key: metricKey})}
               >
                 {getSortIcon(true, false, metricKey)}
@@ -687,7 +687,10 @@ class ExperimentView extends Component {
                 </span>
               </span>
             </ExperimentRunsSortToggle>
-            <span className="metric-param-value" style={{maxWidth: 120}}>
+            <span
+              className="metric-param-value run-table-container"
+              style={styles.metricParamCellContent}
+            >
               {Utils.formatMetric(metric)}
             </span>
             <Dropdown.Menu className="mlflow-menu">
@@ -920,7 +923,11 @@ const styles = {
   },
   paddedBottom: {
     paddingBottom: 16,
-  }
+  },
+  metricParamCellContent: {
+    display: "inline-block",
+    maxWidth: 120,
+  },
 };
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));
