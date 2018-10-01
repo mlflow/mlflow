@@ -19,6 +19,9 @@ You can also use syntax like this:
 
 which automatically terminates the run at the end of the block.
 
+The tracking API is not currently threadsafe. Any concurrent callers to the tracking API must
+implement mutual exclusion manually.
+
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 

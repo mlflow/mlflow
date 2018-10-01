@@ -4,7 +4,7 @@ mlflow: R interface for MLflow
 [![Build
 Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow)
 [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
-[![codecov](https://codecov.io/gh/rstudio/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/rstudio/mlflow)
+[![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow)
 
   - Install [MLflow](https://mlflow.org/) from R to track experiments
     locally.
@@ -13,14 +13,17 @@ Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-
 
 ## Installation
 
-Currently, the `mlflow` R package is not on CRAN; therefore, it is
-required to install the development version. Once released to CRAN,
-installation will look as follows:
+Install `mlflow` from CRAN followed by installing the `mlflow` runtime
+as follows:
 
 ``` r
 install.packages("mlflow")
 mlflow::mlflow_install()
 ```
+
+Notice also that [Anaconda](https://www.anaconda.com/download/) or
+[Miniconda](https://conda.io/miniconda.html) need to be manually
+installed.
 
 ### Developemnt
 
@@ -64,19 +67,10 @@ and activate a new experiment locally using `mlflow` as follows:
 
 ``` r
 library(mlflow)
-mlflow_set_active_experiment("Test")
+mlflow_set_experiment("Test")
 ```
 
-Then you can list your experiments directly from R,
-
-``` r
-mlflow_list_experiments()
-```
-
-    ##   experiment_id    name artifact_location
-    ## 1             0 Default          mlruns/0
-
-or using MLflows user interface by
+Then you can list view your experiments from MLflows user interface by
 running:
 
 ``` r
@@ -151,12 +145,10 @@ library(mlflow)
 # define parameters
 my_int <- mlflow_param("my_int", 1, "integer")
 my_num <- mlflow_param("my_num", 1.0, "numeric")
-my_str <- mlflow_param("my_str", "a", "string")
 
 # log parameters
 mlflow_log_param("param_int", my_int)
 mlflow_log_param("param_num", my_num)
-mlflow_log_param("param_str", my_str)
 ```
 
 Then run `mlflow run` with custom parameters as
@@ -168,29 +160,7 @@ Then run `mlflow run` with custom parameters as
     === Running command 'source /miniconda2/bin/activate mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709 && Rscript -e "mlflow::mlflow_source('params_example.R')" --args --my_int 10 --my_num 20.0 --my_str XYZ' in run with ID '191b489b2355450a8c3cc9bf96cb1aa3' === 
     === Run (ID '191b489b2355450a8c3cc9bf96cb1aa3') succeeded ===
 
-Run results that we can view with `mlflow_ui()` or `mlflow_get_run()` as
-follows:
-
-``` r
-mlflow_get_run("191b489b2355450a8c3cc9bf96cb1aa3")
-```
-
-    $info
-                              run_uuid experiment_id  name source_type source_name
-    1 191b489b2355450a8c3cc9bf96cb1aa3             0 Run 3     PROJECT examples
-        user_id   status    start_time      end_time                           source_version
-    1 user_name FINISHED 1535045372367 1535045380361 12871326fd3123f793b6afaa81b2d3c81493c84a
-      entry_point_name                                        artifact_uri
-    1 params_example.R mlruns/0/191b489b2355450a8c3cc9bf96cb1aa3/artifacts
-    
-    $data
-      params.key params.value
-    1  param_str          XYZ
-    2     my_num         20.0
-    3  param_int           10
-    4  param_num           20
-    5     my_str          XYZ
-    6     my_int           10
+Run results that we can view with `mlflow_ui()`.
 
 ## Models
 
@@ -228,7 +198,7 @@ The directory containing the model looks as follows:
 dir("model")
 ```
 
-    ## [1] "MLmodel"     "r_crate.bin"
+    ## [1] "crate.bin" "MLmodel"
 
 and the model definition `model/MLmodel` like:
 
@@ -237,11 +207,11 @@ cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
     ## flavors:
-    ##   r_crate:
+    ##   crate:
     ##     version: 0.1.0
-    ##     model: r_crate.bin
-    ## time_created: 18-09-20T23:44:11.11.88
-    ## run_id: 159e6e9d42e0457b975abc32e2c062ab
+    ##     model: crate.bin
+    ## time_created: 18-09-27T19:06:55.55.85
+    ## run_id: c2e91ac015564ccaa711480c3effd917
 
 Later on, the R model can be deployed which will perform predictions
 using

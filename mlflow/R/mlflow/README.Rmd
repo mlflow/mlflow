@@ -6,7 +6,7 @@ output:
     fig_height: 5
 ---
 
-[![Build Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow) [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow) [![codecov](https://codecov.io/gh/rstudio/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/rstudio/mlflow) 
+[![Build Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow) [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow) [![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow) 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
@@ -22,12 +22,14 @@ unlink("mlruns", recursive = T)
 
 ## Installation
 
-Currently, the `mlflow` R package is not on CRAN; therefore, it is required to install the development version. Once released to CRAN, installation will look as follows:
+Install `mlflow` from CRAN followed by installing the `mlflow` runtime as follows:
 
 ```{r eval=FALSE}
 install.packages("mlflow")
 mlflow::mlflow_install()
 ```
+
+Notice also that [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://conda.io/miniconda.html) need to be manually installed.
 
 ### Developemnt
 
@@ -64,16 +66,10 @@ MLflow allows you to group runs under experiments, which can be useful for compa
 
 ```{r, message=FALSE}
 library(mlflow)
-mlflow_set_active_experiment("Test")
+mlflow_set_experiment("Test")
 ```
 
-Then you can list your experiments directly from R,
-
-```{r}
-mlflow_list_experiments()
-```
-
-or using MLflows user interface by running:
+Then you can list view your experiments from MLflows user interface by running:
 
 ```{r eval=FALSE}
 mlflow_ui()
@@ -136,12 +132,10 @@ library(mlflow)
 # define parameters
 my_int <- mlflow_param("my_int", 1, "integer")
 my_num <- mlflow_param("my_num", 1.0, "numeric")
-my_str <- mlflow_param("my_str", "a", "string")
 
 # log parameters
 mlflow_log_param("param_int", my_int)
 mlflow_log_param("param_num", my_num)
-mlflow_log_param("param_str", my_str)
 ```
 
 Then run `mlflow run` with custom parameters as follows
@@ -155,29 +149,7 @@ mlflow run tests/testthat/examples/ --entry-point params_example.R -P my_int=10 
 === Run (ID '191b489b2355450a8c3cc9bf96cb1aa3') succeeded ===
 ```
 
-Run results that we can view with `mlflow_ui()` or `mlflow_get_run()` as follows:
-
-```{r eval=FALSE}
-mlflow_get_run("191b489b2355450a8c3cc9bf96cb1aa3")
-```
-```
-$info
-                          run_uuid experiment_id  name source_type source_name
-1 191b489b2355450a8c3cc9bf96cb1aa3             0 Run 3     PROJECT examples
-    user_id   status    start_time      end_time                           source_version
-1 user_name FINISHED 1535045372367 1535045380361 12871326fd3123f793b6afaa81b2d3c81493c84a
-  entry_point_name                                        artifact_uri
-1 params_example.R mlruns/0/191b489b2355450a8c3cc9bf96cb1aa3/artifacts
-
-$data
-  params.key params.value
-1  param_str          XYZ
-2     my_num         20.0
-3  param_int           10
-4  param_num           20
-5     my_str          XYZ
-6     my_int           10
-```
+Run results that we can view with `mlflow_ui()`.
 
 ## Models
 

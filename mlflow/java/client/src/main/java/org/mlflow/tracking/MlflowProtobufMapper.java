@@ -22,7 +22,7 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeLogMetric(String runUuid, String key, float value, long timestamp) {
+  String makeLogMetric(String runUuid, String key, double value, long timestamp) {
     LogMetric.Builder builder = LogMetric.newBuilder();
     builder.setRunUuid(runUuid);
     builder.setKey(key);
