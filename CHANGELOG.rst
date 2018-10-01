@@ -36,7 +36,7 @@ Bug fixes:
 - [Python] Fix DBFS upload file-existence-checking logic during Databricks project execution (#510, @smurching)
 - [Python] Support multi-line and unicode tags (#502, @mparkhe)
 - [Python] Add missing DeleteExperiment, RestoreExperiment implementations in the Python REST API client (#551, @mparkhe)
-- [Scoring] Convert Spark DataFrame schema to an MLeap schema prior to serialization
+- [Scoring] Convert Spark DataFrame schema to an MLeap schema prior to serialization (#540, @dbczumar)
 - [UI] Fix bar chart always showing in metric view (#488, @smurching)
 
 
