@@ -3,9 +3,20 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 
+
+const styles = {
+  sortIconStyle: {
+    verticalAlign: "middle",
+    fontSize: 20,
+  }
+};
+
 class Private {
   static getSortIconHelper(sortState) {
-    return <i className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}/>;
+    return <i
+      className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}
+      style={styles.sortIconStyle}
+    />;
   }
 }
 
@@ -72,7 +83,7 @@ export default class ExperimentViewUtil {
           className={"bottom-row " + sortedClassName}
           onClick={() => onSortBy(false, false, key)}
         >
-          {text}
+          <span style={{verticalAlign: "middle"}}>{text}</span>
           <span style={{marginLeft: 2}}>{sortIcon}</span>
         </th>);
     };

@@ -59,7 +59,6 @@ class ExperimentRunsTableMultiColumn extends Component {
     paramKeyList.forEach((paramKey, i) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       const className = "bottom-row "
-        + "run-table-container "
         + "sortable "
         + (i === 0 ? "left-border " : "");
       columns.push(
@@ -67,7 +66,12 @@ class ExperimentRunsTableMultiColumn extends Component {
           key={'param-' + paramKey} className={className}
           onClick={() => onSortBy(false, true, paramKey)}
         >
-          {paramKey}
+          <span
+            style={{verticalAlign: "middle", display: "inline-block"}}
+            className="run-table-container"
+          >
+            {paramKey}
+          </span>
           <span style={{marginLeft: 2}}>{sortIcon}</span>
         </th>);
     });
@@ -78,7 +82,6 @@ class ExperimentRunsTableMultiColumn extends Component {
     let firstMetric = true;
     metricKeyList.forEach((metricKey) => {
       const className = "bottom-row "
-        + "run-table-container "
         + "sortable "
         + (firstMetric ? "left-border " : "");
       firstMetric = false;
@@ -88,7 +91,12 @@ class ExperimentRunsTableMultiColumn extends Component {
           key={'metric-' + metricKey} className={className}
           onClick={() => onSortBy(true, false, metricKey)}
         >
-          {metricKey}
+          <span
+            style={{verticalAlign: "middle", display: "inline-block"}}
+            className="run-table-container"
+          >
+            {metricKey}
+          </span>
           <span style={{marginLeft: 2}}>{sortIcon}</span>
         </th>);
     });
