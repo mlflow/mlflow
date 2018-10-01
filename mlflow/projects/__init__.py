@@ -12,6 +12,7 @@ import re
 import subprocess
 import tempfile
 
+from git import Repo
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException
@@ -23,6 +24,7 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -59,6 +61,11 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
+
+    git_remote_url = _get_remote_repo_url(work_dir)
+    if git_remote_url is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL,
+                                        git_remote_url)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -192,6 +199,15 @@ def _expand_uri(uri):
 def _is_local_uri(uri):
     """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
     return not _GIT_URI_REGEX.match(uri)
+
+
+def _get_remote_repo_url(work_dir):
+    repo = Repo(work_dir, search_parent_directories=True)
+    try:
+        remote_urls = [remote.url for remote in repo.remotes]
+    except GitCommandError:
+        return None
+    return remote_urls[0]
 
 
 def _is_valid_branch_name(work_dir, version):
