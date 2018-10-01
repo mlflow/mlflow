@@ -450,7 +450,8 @@ class ExperimentView extends Component {
     const paramKeyFilter = new KeyFilter();
     const metricKeyFilter = new KeyFilter();
     const andedExpressions = [];
-    this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, "");
+    this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, "",
+      LIFECYCLE_FILTER.ACTIVE);
   }
 
   onCompare() {
