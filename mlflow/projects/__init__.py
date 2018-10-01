@@ -20,6 +20,7 @@ import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
 
+import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
@@ -38,6 +39,9 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     Helper that delegates to the project-running method corresponding to the passed-in mode.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
+    if mode == "databricks":
+        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
