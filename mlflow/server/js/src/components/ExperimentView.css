@@ -164,32 +164,6 @@ span.error-message {
           user-select: none;
 }
 
-.ExperimentView th.sortable::after {
-  content: " ";
-  font-size: 0;
-  display: inline-block;
-  margin: 0 0 0 4px;
-  border-style: solid;
-  border-color: transparent;
-  border-width: 0 5px 8.7px 5px;
-}
-
-.ExperimentView th.sorted.asc::after {
-  border-color: transparent transparent #888 transparent;
-  border-width: 0 5px 8.7px 5px;
-}
-
-.ExperimentView th.sorted.desc::after {
-  border-color: #888 transparent transparent transparent;
-  border-width: 8.7px 5px 0 5px;
-}
-
-.ExperimentView .metric-param-cell {
-  margin-right: 0px;
-  display: inline-block;
-  width: 250px;
-}
-
 .ExperimentView .metric-param-sort-toggle {
   color: #888;
   cursor: pointer;
@@ -205,7 +179,7 @@ span.error-message {
 
 .ExperimentView .highlighted {
   border-radius: 5px;
-  background-color: rgba(67, 199, 234, 0.1);
+  background-color: rgba(255, 242, 172, 0.5);
   color: black;
 }
 
@@ -221,4 +195,15 @@ span.error-message {
 
 .ExperimentView .metric-param-container-cell {
   min-width: 280px;
+}
+
+.ExperimentView .metric-param-cell {
+  margin-right: 0px;
+  display: inline-block;
+  width: 250px;
+  padding: 2px;
+}
+
+.ExperimentView .metric-param-content {
+  padding: 4px;
 }

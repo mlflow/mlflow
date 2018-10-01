@@ -57,12 +57,19 @@ class ExperimentRunsTableMultiColumn extends Component {
     const numMetrics = metricKeyList.length;
     const columns = [];
     paramKeyList.forEach((paramKey, i) => {
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       const className = "bottom-row "
         + "run-table-container "
-        + (i === 0 ? "left-border " : "")
-        + ExperimentViewUtil.sortedClassName(sortState, false, true, paramKey);
-      columns.push(<th key={'param-' + paramKey} className={className}
-               onClick={() => onSortBy(false, true, paramKey)}>{paramKey}</th>);
+        + "sortable "
+        + (i === 0 ? "left-border " : "");
+      columns.push(
+        <th
+          key={'param-' + paramKey} className={className}
+          onClick={() => onSortBy(false, true, paramKey)}
+        >
+          {paramKey}
+          <span style={{marginLeft: 2}}>{sortIcon}</span>
+        </th>);
     });
     if (numParams === 0) {
       columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
@@ -72,11 +79,18 @@ class ExperimentRunsTableMultiColumn extends Component {
     metricKeyList.forEach((metricKey) => {
       const className = "bottom-row "
         + "run-table-container "
-        + (firstMetric ? "left-border " : "")
-        + ExperimentViewUtil.sortedClassName(sortState, true, false, metricKey);
+        + "sortable "
+        + (firstMetric ? "left-border " : "");
       firstMetric = false;
-      columns.push(<th key={'metric-' + metricKey} className={className}
-               onClick={() => onSortBy(true, false, metricKey)}>{metricKey}</th>);
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
+      columns.push(
+        <th
+          key={'metric-' + metricKey} className={className}
+          onClick={() => onSortBy(true, false, metricKey)}
+        >
+          {metricKey}
+          <span style={{marginLeft: 2}}>{sortIcon}</span>
+        </th>);
     });
     if (numMetrics === 0) {
       columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);

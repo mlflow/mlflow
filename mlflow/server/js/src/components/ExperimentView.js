@@ -597,22 +597,20 @@ class ExperimentView extends Component {
     metricKeyList,
     tags,
     selected}) {
-    const getSortIcon = (isMetric, isParam, key) => {
-      if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
-        const arrowClass = sortState.ascending ? "fas fa-arrow-up" : "fas fa-arrow-down";
-        return <i className={arrowClass} style={styles.sortToggleCaret}/>;
-      }
-      return "";
-    };
-
     const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
-      const cellClass = hoverState.isParam && hoverState.key === paramKey ? "highlighted" : "";
+      const cellClass = "metric-param-content " +
+        (hoverState.isParam && hoverState.key === paramKey ? "highlighted" : "");
       const keyname = "param-" + paramKey;
       return (
-        <div key={keyname} className={"metric-param-cell"}>
+        <div
+          key={keyname}
+          className={"metric-param-cell"}
+          onMouseEnter={() => onHover({isParam: true, isMetric: false, key: paramKey})}
+          onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
+        >
           <span className={cellClass}>
             <Dropdown id="dropdown-custom-1">
               <ExperimentRunsSortToggle
@@ -622,9 +620,10 @@ class ExperimentView extends Component {
                 <span
                   className="run-table-container"
                   style={styles.metricParamCellContent}
-                  onMouseEnter={() => onHover({isParam: true, isMetric: false, key: paramKey})}
                 >
-                  {getSortIcon(false, true, paramKey)}
+                  <span style={{marginRight: 2}}>
+                    {ExperimentViewUtil.getSortIconNoSpace(sortState, false, true, paramKey)}
+                  </span>
                   <span className="metric-param-name" title={paramKey}>
                     {paramKey}
                   </span>
@@ -666,10 +665,16 @@ class ExperimentView extends Component {
     const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
-      const cellClass = hoverState.isMetric && hoverState.key === metricKey ? "highlighted" : "";
+      const cellClass = "metric-param-content " +
+        (hoverState.isMetric && hoverState.key === metricKey ? "highlighted" : "");
       const metric = metricsMap[metricKey].getValue();
       return (
-        <span key={keyname} className={"metric-param-cell"}>
+        <span
+          key={keyname}
+          className={"metric-param-cell"}
+          onMouseEnter={() => onHover({isParam: false, isMetric: true, key: metricKey})}
+          onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
+        >
           <span className={cellClass}>
             <Dropdown id="dropdown-custom-1">
               <ExperimentRunsSortToggle
@@ -679,9 +684,10 @@ class ExperimentView extends Component {
                 <span
                   className="run-table-container"
                   style={styles.metricParamCellContent}
-                  onMouseEnter={() => onHover({isParam: false, isMetric: true, key: metricKey})}
                 >
-                  {getSortIcon(true, false, metricKey)}
+                  <span style={{marginRight: 2}}>
+                    {ExperimentViewUtil.getSortIconNoSpace(sortState, true, false, metricKey)}
+                  </span>
                   <span className="metric-param-name" title={metricKey}>
                     {metricKey}
                   </span>

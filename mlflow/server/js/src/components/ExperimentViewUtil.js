@@ -3,6 +3,12 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 
+class Private {
+  static getSortIconHelper(sortState) {
+    return <i className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}/>;
+  }
+}
+
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
   static getCheckboxForRow(selected, checkboxHandler) {
@@ -33,6 +39,18 @@ export default class ExperimentViewUtil {
     ];
   }
 
+  static getSortIcon(sortState, isMetric, isParam, key) {
+    const isSortedBy = ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key);
+    const arrowStyle = isSortedBy ? {} : {visibility: "hidden"};
+    return <span style={arrowStyle}>{Private.getSortIconHelper(sortState)}</span>;
+  }
+
+  static getSortIconNoSpace(sortState, isMetric, isParam, key) {
+    const isSortedBy = ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key);
+    const arrowStyle = isSortedBy ? {} : {display: "none"};
+    return <span style={arrowStyle}>{Private.getSortIconHelper(sortState)}</span>;
+  }
+
   /** Returns checkbox element for selecting all runs */
   static getSelectAllCheckbox(onCheckAll, isAllCheckedBool) {
     return <th key="meta-check" className="bottom-row">
@@ -45,11 +63,18 @@ export default class ExperimentViewUtil {
    */
   static getRunMetadataHeaderCells(onSortBy, sortState) {
     const getHeaderCell = (key, text) => {
-      const sortedClassName = ExperimentViewUtil.sortedClassName(sortState, false, false, key)
+      const sortedClassName = "sortable "
         + " run-table-container";
-      return <th key={"meta-" + key}
-                 className={"bottom-row " + sortedClassName}
-                 onClick={() => onSortBy(false, false, key)}>{text}</th>;
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
+      return (
+        <th
+          key={"meta-" + key}
+          className={"bottom-row " + sortedClassName}
+          onClick={() => onSortBy(false, false, key)}
+        >
+          {text}
+          <span style={{marginLeft: 2}}>{sortIcon}</span>
+        </th>);
     };
     return [
       getHeaderCell("start_time", <span>{"Date"}</span>),
