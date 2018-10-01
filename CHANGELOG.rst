@@ -25,7 +25,7 @@ Features:
 - [Python] Add arguments for specifying a parent run to tracking & projects APIs (#547, @andrewmchen)
 - [Java] Add Java set tag API (#495, @smurching)
 - [Python] Support logging a conda environment with sklearn models (#489, @dbczumar)
-- [Scoring] Support downloading MLflow scoring jar from Maven during scoring container build (#507, @dbczumar)
+- [Scoring] Support downloading MLflow scoring JAR from Maven during scoring container build (#507, @dbczumar)
 
 
 Bug fixes:
