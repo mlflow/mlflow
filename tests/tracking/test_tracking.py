@@ -8,6 +8,7 @@ import pytest
 import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.fluent import start_run, end_run
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.projects.utils import tracking_uri_mock
@@ -193,14 +194,14 @@ def test_uri_types():
 
 
 def test_with_startrun():
-    runId = None
+    run_id = None
     import time
     t0 = int(time.time() * 1000)
     with mlflow.start_run() as active_run:
         assert mlflow.active_run() == active_run
-        runId = active_run.info.run_uuid
+        run_id = active_run.info.run_uuid
     t1 = int(time.time() * 1000)
-    run_info = mlflow.tracking._get_store().get_run(runId).info
+    run_info = mlflow.tracking._get_store().get_run(run_id).info
     assert run_info.status == RunStatus.from_string("FINISHED")
     assert t0 <= run_info.end_time and run_info.end_time <= t1
     assert mlflow.active_run() is None
@@ -223,4 +224,14 @@ def test_parent_create_run(tracking_uri_mock):
     mlflow.end_run()
     mlflow.end_run()
     mlflow.end_run()
+    assert mlflow.active_run() is None
+
+def test_start_deleted_run():
+    run_id = None
+    with mlflow.start_run() as active_run:
+        run_id = active_run.info.run_uuid
+    tracking.MlflowClient().delete_run(run_id)
+    with pytest.raises(MlflowException, matches='because it is in the deleted state.'):
+        with mlflow.start_run(run_uuid=run_id):
+            pass
     assert mlflow.active_run() is None
