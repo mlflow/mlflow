@@ -19,7 +19,7 @@ Breaking changes:
 Features:
 - [R] Support for R (#370, #471, @javierluraschi; #548 @kevinykuo)
 - [UI] Add support for adding notes to Runs (#396, @aadamson)
-- [Python] Python API, REST API, and UI support for deleting Runs (#418, #473, #526 @andrewmchen)
+- [Python] Python API, REST API, and UI support for deleting Runs (#418, #473, #526, #579 @andrewmchen)
 - [Python] Set a tag containing the branch name when executing a branch of a Git project (#469, @adrian555)
 - [Python] Add a set_experiment API to activate an experiment before starting runs (#462, @mparkhe)
 - [Python] Add arguments for specifying a parent run to tracking & projects APIs (#547, @andrewmchen)
