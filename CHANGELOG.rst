@@ -5,7 +5,7 @@ Changelog
 
 MLflow 0.7.0 introduces several major features:
 
-- An R client API, available on CRAN
+- An R client API
 - Support for deleting runs
 - UI support for adding notes to a run
 
@@ -14,6 +14,7 @@ and documentation.
 
 Breaking changes:
 - [Python] The per-flavor implementation of load_pyfunc has been made private (#539, @tomasatdatabricks)
+- [REST API, Java] logMetric now accepts a double metric value instead of a float (#566, @aarondav)
 
 Features:
 - [R] Support for R (#370, #471, @javierluraschi; #548 @kevinykuo)
@@ -40,9 +41,10 @@ Bug fixes:
 
 
 Small bug fixes and doc updates (#467 @drorata; #470, #497, #508, #518 @dbczumar;
-#455, #466, #492, #504, #527 @aarondav; #481, #475, #484, #496, #515, #517, #498, #521 @smurching; #477 @parkerzf;
-#494 @jainr; #501, #531, #532, #552 @mparkhe; #503, #520 @dmatrix; #509, #532 @tomasatdatabricks; #484, #486 @stbof;
-#533, #534 @javierluraschi; #542 @GCBallesteros; #511 @AdamBarnhard)
+#455, #466, #492, #504, #527 @aarondav; #481, #475, #484, #496, #515, #517, #498, #521, #522 @smurching;
+#477 @parkerzf; #494 @jainr; #501, #531, #532, #552 @mparkhe; #503, #520 @dmatrix;
+#509, #532 @tomasatdatabricks; #484, #486 @stbof; #533, #534 @javierluraschi;
+#542 @GCBallesteros; #511 @AdamBarnhard)
 
 
 0.6.0 (2018-09-10)
