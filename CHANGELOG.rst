@@ -5,8 +5,8 @@ Changelog
 
 MLflow 0.7.0 introduces several major features:
 
-- An R client API
-- Support for deleting runs
+- An R client API (to be released on CRAN soon)
+- Support for deleting runs (API + UI)
 - UI support for adding notes to a run
 
 The release also includes bugfixes and improvements across the Python and Java clients, tracking UI,
@@ -41,8 +41,8 @@ Bug fixes:
 
 
 Small bug fixes and doc updates (#467 @drorata; #470, #497, #508, #518 @dbczumar;
-#455, #466, #492, #504, #527 @aarondav; #481, #475, #484, #496, #515, #517, #498, #521, #522 @smurching;
-#477 @parkerzf; #494 @jainr; #501, #531, #532, #552 @mparkhe; #503, #520 @dmatrix;
+#455, #466, #492, #504, #527 @aarondav; #481, #475, #484, #496, #515, #517, #498, #521, #522,
+#573 @smurching; #477 @parkerzf; #494 @jainr; #501, #531, #532, #552 @mparkhe; #503, #520 @dmatrix;
 #509, #532 @tomasatdatabricks; #484, #486 @stbof; #533, #534 @javierluraschi;
 #542 @GCBallesteros; #511 @AdamBarnhard)
 
