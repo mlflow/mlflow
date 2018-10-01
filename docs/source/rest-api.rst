@@ -6,7 +6,7 @@ REST API
 ========
 
 
-The MLflow REST API allows you to create, list, and get experiments and runs, and log parameters, metrics, and artifacts.
+The MLflow REST API allows you to create, list, and get experiments and runs, and log params, metrics, and artifacts.
 The API is hosted under the ``/api`` route on the MLflow tracking server. For example, to list
 experiments on a tracking server hosted at ``http://localhost:5000``, access
 ``http://localhost:5000/api/2.0/preview/mlflow/experiments/list``.
@@ -149,6 +149,7 @@ Get Experiment
 +----------------------------------------+-------------+
 
 Get metadata for an experiment and a list of runs for the experiment.
+This RPC will work on deleted experiments.
 
 
 
@@ -166,7 +167,7 @@ Request Structure
 +---------------+-----------+----------------------------------+
 |  Field Name   |   Type    |           Description            |
 +===============+===========+==================================+
-| experiment_id | ``INT64`` | Identifier to get an experiment. |
+| experiment_id | ``INT64`` | ID of the associated experiment. |
 |               |           | This field is required.          |
 |               |           |                                  |
 +---------------+-----------+----------------------------------+
@@ -181,13 +182,13 @@ Response Structure
 
 
 
-+------------+----------------------------------+---------------------------------------------------------------------+
-| Field Name |               Type               |                             Description                             |
-+============+==================================+=====================================================================+
-| experiment | :ref:`mlflowexperiment`          | Returns experiment details.                                         |
-+------------+----------------------------------+---------------------------------------------------------------------+
-| runs       | An array of :ref:`mlflowruninfo` | All (max limit to be imposed) runs associated with this experiment. |
-+------------+----------------------------------+---------------------------------------------------------------------+
++------------+----------------------------------+----------------------------------------------------------------------------+
+| Field Name |               Type               |                                Description                                 |
++============+==================================+============================================================================+
+| experiment | :ref:`mlflowexperiment`          | Returns experiment details.                                                |
++------------+----------------------------------+----------------------------------------------------------------------------+
+| runs       | An array of :ref:`mlflowruninfo` | All (max limit to be imposed) active runs associated with this experiment. |
++------------+----------------------------------+----------------------------------------------------------------------------+
 
 ===========================
 
@@ -195,8 +196,8 @@ Response Structure
 
 .. _mlflowMlflowServicedeleteExperiment:
 
-Experiments Delete
-=========================
+Delete Experiment
+=================
 
 
 +-------------------------------------------+-------------+
@@ -221,13 +222,13 @@ Request Structure
 
 
 
-+---------------+-----------+---------------------------------+
-|  Field Name   |   Type    |           Description           |
-+===============+===========+=================================+
-| experiment_id | ``INT64`` | ID of the associated experiment |
-|               |           | This field is required.         |
-|               |           |                                 |
-+---------------+-----------+---------------------------------+
++---------------+-----------+----------------------------------+
+|  Field Name   |   Type    |           Description            |
++===============+===========+==================================+
+| experiment_id | ``INT64`` | ID of the associated experiment. |
+|               |           | This field is required.          |
+|               |           |                                  |
++---------------+-----------+----------------------------------+
 
 ===========================
 
@@ -235,8 +236,8 @@ Request Structure
 
 .. _mlflowMlflowServicerestoreExperiment:
 
-Experiments Restore
-==========================
+Restore Experiment
+==================
 
 
 +--------------------------------------------+-------------+
@@ -264,13 +265,13 @@ Request Structure
 
 
 
-+---------------+-----------+---------------------------------+
-|  Field Name   |   Type    |           Description           |
-+===============+===========+=================================+
-| experiment_id | ``INT64`` | ID of the associated experiment |
-|               |           | This field is required.         |
-|               |           |                                 |
-+---------------+-----------+---------------------------------+
++---------------+-----------+----------------------------------+
+|  Field Name   |   Type    |           Description            |
++===============+===========+==================================+
+| experiment_id | ``INT64`` | ID of the associated experiment. |
+|               |           | This field is required.          |
+|               |           |                                  |
++---------------+-----------+----------------------------------+
 
 ===========================
 
@@ -326,6 +327,8 @@ Request Structure
 | source_version   | ``STRING``                      | Git commit hash of the source code used to create run.                                         |
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
 | tags             | An array of :ref:`mlflowruntag` | Additional metadata for run.                                                                   |
++------------------+---------------------------------+------------------------------------------------------------------------------------------------+
+| parent_run_id    | ``STRING``                      | ID of the parent run which started this run.                                                   |
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateRunResponse:
@@ -416,8 +419,8 @@ Log Metric
 | ``2.0/preview/mlflow/runs/log-metric`` | ``POST``    |
 +----------------------------------------+-------------+
 
-Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
-associated timestamp. Examples include the various metrics that represent ML model accuracy. 
+Log a metric for a run. A metric is a key-value pair (string key, float value) with an
+associated timestamp. Examples include the various metrics that represent ML model accuracy.
 A metric can be logged multiple times.
 
 
@@ -444,7 +447,7 @@ Request Structure
 |            |            | This field is required.                                       |
 |            |            |                                                               |
 +------------+------------+---------------------------------------------------------------+
-| value      | ``FLOAT``  | Float value of the metric being logged.                       |
+| value      | ``DOUBLE`` | Double value of the metric being logged.                      |
 |            |            | This field is required.                                       |
 |            |            |                                                               |
 +------------+------------+---------------------------------------------------------------+
@@ -485,21 +488,21 @@ Request Structure
 
 
 
-+------------+------------+------------------------------------------------------------------+
-| Field Name |    Type    |                           Description                            |
-+============+============+==================================================================+
-| run_uuid   | ``STRING`` | ID of the run under which to set the tag.                        |
-|            |            | This field is required.                                          |
-|            |            |                                                                  |
-+------------+------------+------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size is 255 bytes.                      |
-|            |            | This field is required.                                          |
-|            |            |                                                                  |
-+------------+------------+------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the tag being logged. Maximum size if 500 bytes. |
-|            |            | This field is required.                                          |
-|            |            |                                                                  |
-+------------+------------+------------------------------------------------------------------+
++------------+------------+-------------------------------------------------------------------+
+| Field Name |    Type    |                            Description                            |
++============+============+===================================================================+
+| run_uuid   | ``STRING`` | ID of the run under which to set the tag.                         |
+|            |            | This field is required.                                           |
+|            |            |                                                                   |
++------------+------------+-------------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size is 255 bytes.                       |
+|            |            | This field is required.                                           |
+|            |            |                                                                   |
++------------+------------+-------------------------------------------------------------------+
+| value      | ``STRING`` | String value of the tag being logged. Maximum size is 5000 bytes. |
+|            |            | This field is required.                                           |
+|            |            |                                                                   |
++------------+------------+-------------------------------------------------------------------+
 
 ===========================
 
@@ -545,7 +548,7 @@ Request Structure
 |            |            | This field is required.                                            |
 |            |            |                                                                    |
 +------------+------------+--------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the param being logged. Maximum size if 500 bytes. |
+| value      | ``STRING`` | String value of the param being logged. Maximum size is 500 bytes. |
 |            |            | This field is required.                                            |
 |            |            |                                                                    |
 +------------+------------+--------------------------------------------------------------------+
@@ -767,6 +770,8 @@ Request Structure
 +-------------------+-------------------------------------------+--------------------------------------------------------------------+
 | anded_expressions | An array of :ref:`mlflowsearchexpression` | Expressions describing runs (AND-ed together when filtering runs). |
 +-------------------+-------------------------------------------+--------------------------------------------------------------------+
+| run_view_type     | :ref:`mlflowviewtype`                     |                                                                    |
++-------------------+-------------------------------------------+--------------------------------------------------------------------+
 
 .. _mlflowSearchRunsResponse:
 
@@ -901,12 +906,108 @@ Response Structure
 | run_info   | :ref:`mlflowruninfo` | Updated metadata of the run. |
 +------------+----------------------+------------------------------+
 
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteRun:
+
+Mlflow Runs Delete
+==================
+
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``2.0/preview/mlflow/runs/delete`` | ``POST``    |
++------------------------------------+-------------+
+
+This operation will mark the run for deletion.
+
+
+
+
+.. _mlflowDeleteRun:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| run_id     | ``STRING`` |                         |
+|            |            | This field is required. |
+|            |            |                         |
++------------+------------+-------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicerestoreRun:
+
+Mlflow Runs Restore
+===================
+
+
++-------------------------------------+-------------+
+|              Endpoint               | HTTP Method |
++=====================================+=============+
+| ``2.0/preview/mlflow/runs/restore`` | ``POST``    |
++-------------------------------------+-------------+
+
+Restore a deleted run.
+
+
+
+
+.. _mlflowRestoreRun:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| run_id     | ``STRING`` |                         |
+|            |            | This field is required. |
+|            |            |                         |
++------------+------------+-------------------------+
+
 .. _RESTadd:
 
 Data Structures
 ===============
 
 
+
+.. _mlflowDoubleClause:
+
+DoubleClause
+------------
+
+
+
+
+
+
++------------+------------+------------------------------------------+
+| Field Name |    Type    |               Description                |
++============+============+==========================================+
+| comparator | ``STRING`` | OneOf (">", ">=", "==", "!=", "<=", "<") |
++------------+------------+------------------------------------------+
+| value      | ``DOUBLE`` | Float value for comparison.              |
++------------+------------+------------------------------------------+
 
 .. _mlflowExperiment:
 
@@ -988,7 +1089,7 @@ Metric associated with a run, represented as a key-value pair.
 +============+============+==================================================+
 | key        | ``STRING`` | Key identifying this metric.                     |
 +------------+------------+--------------------------------------------------+
-| value      | ``FLOAT``  | Value associated with this metric.               |
+| value      | ``DOUBLE`` | Value associated with this metric.               |
 +------------+------------+--------------------------------------------------+
 | timestamp  | ``INT64``  | The timestamp at which this metric was recorded. |
 +------------+------------+--------------------------------------------------+
@@ -1003,15 +1104,22 @@ MetricSearchExpression
 
 
 
-+------------+--------------------------+--------------------------------------------+
-| Field Name |           Type           |                Description                 |
-+============+==========================+============================================+
-| ``float``  | :ref:`mlflowfloatclause` |                                            |
-|            |                          |                                            |
-|            |                          | If ``float``, float clause for comparison. |
-+------------+--------------------------+--------------------------------------------+
-| key        | ``STRING``               | :ref:`mlflowMetric` key for search.        |
-+------------+--------------------------+--------------------------------------------+
++-------------------------+-------------------------------------------------------+-----------------------------------------------------------------------+
+|       Field Name        |                         Type                          |                              Description                              |
++=========================+=======================================================+=======================================================================+
+| ``float`` OR ``double`` | :ref:`mlflowfloatclause` OR :ref:`mlflowdoubleclause` |                                                                       |
+|                         |                                                       |                                                                       |
+|                         |                                                       | If ``float``, [Deprecated in 0.7.0, to be removed in future version]  |
+|                         |                                                       | Float clause for comparison. Use 'double' instead.                    |
+|                         |                                                       |                                                                       |
+|                         |                                                       |                                                                       |
+|                         |                                                       |                                                                       |
+|                         |                                                       |                                                                       |
+|                         |                                                       |                                                                       |
+|                         |                                                       | If ``double``, double clause of comparison                            |
++-------------------------+-------------------------------------------------------+-----------------------------------------------------------------------+
+| key                     | ``STRING``                                            | :ref:`mlflowMetric` key for search.                                   |
++-------------------------+-------------------------------------------------------+-----------------------------------------------------------------------+
 
 .. _mlflowParam:
 
@@ -1129,6 +1237,8 @@ Metadata of a single run.
 |                  |                         | path, like ``s3://bucket/directory`` or ``dbfs:/my/directory``.                  |
 |                  |                         | If not set, the local ``./mlruns`` directory is  chosen.                         |
 +------------------+-------------------------+----------------------------------------------------------------------------------+
+| lifecycle_stage  | ``STRING``              | Current life cycle stage of the experiment : OneOf("active", "deleted")          |
++------------------+-------------------------+----------------------------------------------------------------------------------+
 
 .. _mlflowRunTag:
 
@@ -1141,7 +1251,7 @@ Tag for a run.
 
 
 +------------+------------+----------------+
-| Field Name |    Type    | Description    |
+| Field Name |    Type    |  Description   |
 +============+============+================+
 | key        | ``STRING`` | The tag key.   |
 +------------+------------+----------------+
