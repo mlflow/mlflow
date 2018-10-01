@@ -183,7 +183,7 @@ service MlflowService {
     };
   }
 
-  // Set a tag on a run. Tags are run metadata that can be updated during and after
+  // Set a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
   rpc setTag(SetTag) returns (SetTag.Response) {
@@ -385,7 +385,9 @@ message RunData {
 
 // Tag for a run.
 message RunTag {
+  // The tag key.
   optional string key = 1;
+  // The tag value.
   optional string value = 2;
 }
 
@@ -633,7 +635,7 @@ message LogParam {
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the param.
+  // ID of the run under which to set the tag.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Name of the tag. Maximum size is 255 bytes.
