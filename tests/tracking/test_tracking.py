@@ -226,6 +226,7 @@ def test_parent_create_run(tracking_uri_mock):
     mlflow.end_run()
     assert mlflow.active_run() is None
 
+
 def test_start_deleted_run():
     run_id = None
     with mlflow.start_run() as active_run:
