@@ -70,6 +70,11 @@ test_that("mlflow_client_set_teminated() works properly", {
 
 test_that("mlflow_create_experiment() works properly", {
   experiment <- mlflow_create_experiment("test")
-
   expect_gt(as.numeric(experiment), 0)
+})
+
+test_that("mlflow_set_tag() should return NULL invisibly", {
+  mlflow_clear_test_dir("mlruns")
+  value <- mlflow_set_tag("foo", "bar")
+  expect_null(value)
 })
