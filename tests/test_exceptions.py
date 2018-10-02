@@ -17,5 +17,3 @@ class TestMlflowException(object):
         deserialized = json.loads(mlflow_exception.serialize_as_json())
         assert deserialized['message'] == 'test'
         assert deserialized['error_code'] == 'INTERNAL_ERROR'
-
-
