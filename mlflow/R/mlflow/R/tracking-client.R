@@ -249,6 +249,7 @@ mlflow_client_set_tag <- function(client, run_id, key, value) {
     key = key,
     value = value
   ))
+  invisible(NULL)
 }
 
 #' Terminate a Run
