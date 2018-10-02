@@ -198,7 +198,6 @@ span.error-message {
 }
 
 .ExperimentView .metric-param-cell {
-  margin-right: 0px;
   display: inline-block;
   width: 250px;
   padding: 2px;

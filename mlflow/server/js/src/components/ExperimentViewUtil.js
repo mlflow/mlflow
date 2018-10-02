@@ -8,7 +8,13 @@ const styles = {
   sortIconStyle: {
     verticalAlign: "middle",
     fontSize: 20,
-  }
+  },
+  headerCellText: {
+    verticalAlign: "middle"
+  },
+  sortIconContainer: {
+    marginLeft: 2,
+  },
 };
 
 class Private {
@@ -50,12 +56,21 @@ export default class ExperimentViewUtil {
     ];
   }
 
+  /**
+   * Returns an icon for sorting the metric or param column with the specified key. The icon
+   * is visible if we're currently sorting by the corresponding column. Otherwise, the icon is
+   * invisible but takes up space.
+   */
   static getSortIcon(sortState, isMetric, isParam, key) {
     const isSortedBy = ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key);
     const arrowStyle = isSortedBy ? {} : {visibility: "hidden"};
     return <span style={arrowStyle}>{Private.getSortIconHelper(sortState)}</span>;
   }
 
+  /**
+   * Returns an icon for sorting the metric or param column with the specified key. The icon
+   * is visible if we're currently sorting by the corresponding column.
+   */
   static getSortIconNoSpace(sortState, isMetric, isParam, key) {
     const isSortedBy = ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key);
     const arrowStyle = isSortedBy ? {} : {display: "none"};
@@ -83,8 +98,8 @@ export default class ExperimentViewUtil {
           className={"bottom-row " + sortedClassName}
           onClick={() => onSortBy(false, false, key)}
         >
-          <span style={{verticalAlign: "middle"}}>{text}</span>
-          <span style={{marginLeft: 2}}>{sortIcon}</span>
+          <span style={styles.headerCellText}>{text}</span>
+          <span style={styles.sortIconContainer}>{sortIcon}</span>
         </th>);
     };
     return [
@@ -99,12 +114,4 @@ export default class ExperimentViewUtil {
     return (sortState.isMetric === isMetric && sortState.isParam === isParam
       && sortState.key === key);
   }
-
-  /** Returns a classname for a sortable column (a run metadata column, or a metric/param column) */
-  static sortedClassName = (sortState, isMetric, isParam, key) => {
-    if (!ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
-      return "sortable";
-    }
-    return "sortable sorted " + (sortState.ascending ? "asc" : "desc");
-  };
 }

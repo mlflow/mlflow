@@ -607,7 +607,7 @@ class ExperimentView extends Component {
       return (
         <div
           key={keyname}
-          className={"metric-param-cell"}
+          className="metric-param-cell"
           onMouseEnter={() => onHover({isParam: true, isMetric: false, key: paramKey})}
           onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
         >
@@ -615,13 +615,13 @@ class ExperimentView extends Component {
             <Dropdown id="dropdown-custom-1">
               <ExperimentRunsSortToggle
                 bsRole="toggle"
-                className={"metric-param-sort-toggle"}
+                className="metric-param-sort-toggle"
               >
                 <span
                   className="run-table-container"
                   style={styles.metricParamCellContent}
                 >
-                  <span style={{marginRight: 2}}>
+                  <span style={styles.sortIconContainer}>
                     {ExperimentViewUtil.getSortIconNoSpace(sortState, false, true, paramKey)}
                   </span>
                   <span className="metric-param-name" title={paramKey}>
@@ -685,7 +685,7 @@ class ExperimentView extends Component {
                   className="run-table-container"
                   style={styles.metricParamCellContent}
                 >
-                  <span style={{marginRight: 2}}>
+                  <span style={styles.sortIconContainer}>
                     {ExperimentViewUtil.getSortIconNoSpace(sortState, true, false, metricKey)}
                   </span>
                   <span className="metric-param-name" title={metricKey}>
@@ -937,6 +937,9 @@ const styles = {
   metricParamCellContent: {
     display: "inline-block",
     maxWidth: 120,
+  },
+  sortIconContainer: {
+    marginRight: 2,
   },
 };
 
