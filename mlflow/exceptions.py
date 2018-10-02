@@ -5,8 +5,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
 
 class MlflowException(Exception):
     """Base exception in MLflow."""
-    def __init__(self, message, **kwargs):
-        error_code = kwargs.pop('error_code', INTERNAL_ERROR)
+    def __init__(self, message, error_code=INTERNAL_ERROR):
         try:
             self.error_code = ErrorCode.Name(error_code)
         except (ValueError, TypeError):
