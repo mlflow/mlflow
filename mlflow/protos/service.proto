@@ -133,6 +133,7 @@ service MlflowService {
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
+      rpc_doc_title: "Delete Run",
     };
   }
 
@@ -145,6 +146,7 @@ service MlflowService {
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
+      rpc_doc_title: "Restore Run",
     };
   }
 
