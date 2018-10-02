@@ -912,8 +912,8 @@ Response Structure
 
 .. _mlflowMlflowServicedeleteRun:
 
-Mlflow Runs Delete
-==================
+Delete Run
+==========
 
 
 +------------------------------------+-------------+
@@ -951,8 +951,8 @@ Request Structure
 
 .. _mlflowMlflowServicerestoreRun:
 
-Mlflow Runs Restore
-===================
+Restore Run
+===========
 
 
 +-------------------------------------+-------------+
