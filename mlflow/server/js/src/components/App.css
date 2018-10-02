@@ -175,13 +175,6 @@ table th {
   margin-left: 16px;
 }
 
-.truncate-text {
-  height: 1.3em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .unselectable {
   -moz-user-select: none;
   -webkit-user-select: none;

@@ -9,6 +9,7 @@ import Routes from '../Routes';
 import { Button, ButtonGroup, Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
+import classNames from 'classnames';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
@@ -126,7 +127,7 @@ class ExperimentView extends Component {
   }
 
   setShowMultiColumns(value) {
-    this.setState({showMultiColumns: value});
+    this.setState({ showMultiColumns: value });
   }
 
   onDeleteRun() {
@@ -236,9 +237,6 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const compactViewButtonClassName = this.state.showMultiColumns ? "" : "active";
-    const multiColumnViewButtonClassName = this.state.showMultiColumns ?
-      "active" : "";
     return (
       <div className="ExperimentView">
         <DeleteRunModal
@@ -369,14 +367,14 @@ class ExperimentView extends Component {
                 <Button
                   onClick={() => this.setShowMultiColumns(true)}
                   title="Grid view"
-                  className={multiColumnViewButtonClassName}
+                  className={classNames({ "active": this.state.showMultiColumns })}
                 >
                   <i className={"fas fa-table"}/>
                 </Button>
                 <Button
                   onClick={() => this.setShowMultiColumns(false)}
                   title="Compact view"
-                  className={compactViewButtonClassName}
+                  className={classNames({ "active": !this.state.showMultiColumns })}
                 >
                   <i className={"fas fa-list"}/>
                 </Button>
@@ -530,7 +528,7 @@ class ExperimentView extends Component {
     const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     paramKeyList.forEach((paramKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
+      const className = classNames({"left-border" : i === 0}, "run-table-container");
       const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
         row.push(<td className={className} key={keyname}>
@@ -576,7 +574,7 @@ class ExperimentView extends Component {
   }
 
   onHover({isParam, isMetric, key}) {
-    this.setState({hoverState: {isParam: isParam, isMetric: isMetric, key: key}});
+    this.setState({ hoverState: {isParam, isMetric, key} });
   }
 
   /**
@@ -601,9 +599,10 @@ class ExperimentView extends Component {
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
-      const cellClass = "metric-param-content " +
-        (hoverState.isParam && hoverState.key === paramKey ? "highlighted" : "");
+      const cellClass = classNames("metric-param-content",
+        { highlighted:  hoverState.isParam && hoverState.key === paramKey });
       const keyname = "param-" + paramKey;
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (
         <div
           key={keyname}
@@ -621,8 +620,8 @@ class ExperimentView extends Component {
                   className="run-table-container"
                   style={styles.metricParamCellContent}
                 >
-                  <span style={styles.sortIconContainer}>
-                    {ExperimentViewUtil.getSortIconNoSpace(sortState, false, true, paramKey)}
+                  <span style={{marginRight: sortIcon ? 2 : 0}}>
+                    {sortIcon}
                   </span>
                   <span className="metric-param-name" title={paramKey}>
                     {paramKey}
@@ -665,8 +664,9 @@ class ExperimentView extends Component {
     const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
-      const cellClass = "metric-param-content " +
-        (hoverState.isMetric && hoverState.key === metricKey ? "highlighted" : "");
+      const cellClass = classNames("metric-param-content",
+        { highlighted:  hoverState.isMetric && hoverState.key === metricKey });
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       const metric = metricsMap[metricKey].getValue();
       return (
         <span
@@ -685,8 +685,8 @@ class ExperimentView extends Component {
                   className="run-table-container"
                   style={styles.metricParamCellContent}
                 >
-                  <span style={styles.sortIconContainer}>
-                    {ExperimentViewUtil.getSortIconNoSpace(sortState, true, false, metricKey)}
+                  <span style={{marginRight: sortIcon ? 2 : 0}}>
+                    {sortIcon}
                   </span>
                   <span className="metric-param-name" title={metricKey}>
                     {metricKey}

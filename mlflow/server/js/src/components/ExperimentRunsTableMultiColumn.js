@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Table from 'react-bootstrap/es/Table';
 import ExperimentViewUtil from './ExperimentViewUtil';
+import classNames from 'classnames';
 
 /**
  * Table view for displaying runs associated with an experiment. Renders each metric and param
@@ -33,8 +34,12 @@ class ExperimentRunsTableMultiColumn extends Component {
       <tbody>
       <tr>
         <th className="top-row" scope="colgroup" colSpan="5"></th>
-        <th className="top-row left-border" scope="colgroup"
-          colSpan={paramKeyList.length}>Parameters
+        <th
+          className="top-row left-border"
+          scope="colgroup"
+          colSpan={paramKeyList.length}
+        >
+          Parameters
         </th>
         <th className="top-row left-border" scope="colgroup"
           colSpan={metricKeyList.length}>Metrics
@@ -56,49 +61,36 @@ class ExperimentRunsTableMultiColumn extends Component {
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [];
-    paramKeyList.forEach((paramKey, i) => {
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
-      const className = "bottom-row "
-        + "sortable "
-        + (i === 0 ? "left-border " : "");
-      columns.push(
+
+    const getHeaderCell = (isParam, key, i) => {
+      const isMetric = !isParam;
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
+      const className = classNames("bottom-row", "sortable", { "left-border": i === 0 });
+      const elemKey = (isParam ? "param-" : "metric-") + key;
+      return (
         <th
-          key={'param-' + paramKey} className={className}
-          onClick={() => onSortBy(false, true, paramKey)}
+          key={elemKey} className={className}
+          onClick={() => onSortBy(isMetric, isParam, key)}
         >
           <span
-            style={{verticalAlign: "middle", display: "inline-block"}}
+            style={styles.metricParamNameContainer}
             className="run-table-container"
           >
-            {paramKey}
+            {key}
           </span>
-          <span style={{marginLeft: 2}}>{sortIcon}</span>
+          <span style={styles.sortIconContainer}>{sortIcon}</span>
         </th>);
+    };
+
+    paramKeyList.forEach((paramKey, i) => {
+      columns.push(getHeaderCell(true, paramKey, i));
     });
     if (numParams === 0) {
       columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
-    let firstMetric = true;
-    metricKeyList.forEach((metricKey) => {
-      const className = "bottom-row "
-        + "sortable "
-        + (firstMetric ? "left-border " : "");
-      firstMetric = false;
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
-      columns.push(
-        <th
-          key={'metric-' + metricKey} className={className}
-          onClick={() => onSortBy(true, false, metricKey)}
-        >
-          <span
-            style={{verticalAlign: "middle", display: "inline-block"}}
-            className="run-table-container"
-          >
-            {metricKey}
-          </span>
-          <span style={{marginLeft: 2}}>{sortIcon}</span>
-        </th>);
+    metricKeyList.forEach((metricKey, i) => {
+      columns.push(getHeaderCell(false, metricKey, i));
     });
     if (numMetrics === 0) {
       columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
@@ -106,4 +98,17 @@ class ExperimentRunsTableMultiColumn extends Component {
     return columns;
   }
 }
+
+const styles = {
+  sortIconContainer: {
+    marginLeft: 2,
+    minWidth: 12.5,
+    display: 'inline-block',
+  },
+  metricParamNameContainer: {
+    verticalAlign: "middle",
+    display: "inline-block",
+  },
+};
+
 export default ExperimentRunsTableMultiColumn;

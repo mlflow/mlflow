@@ -49,7 +49,6 @@ class ExperimentRunsTableCompact extends Component {
         <span>)</span>
       </span>);
     }
-    return "";
   }
 
   render() {

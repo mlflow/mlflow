@@ -14,16 +14,16 @@ const styles = {
   },
   sortIconContainer: {
     marginLeft: 2,
+    minWidth: 12.5,
+    display: 'inline-block',
   },
 };
 
-class Private {
-  static getSortIconHelper(sortState) {
-    return <i
+function getSortIconHelper(sortState) {
+    return (<span><i
       className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}
       style={styles.sortIconStyle}
-    />;
-  }
+    /></span>);
 }
 
 export default class ExperimentViewUtil {
@@ -62,19 +62,9 @@ export default class ExperimentViewUtil {
    * invisible but takes up space.
    */
   static getSortIcon(sortState, isMetric, isParam, key) {
-    const isSortedBy = ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key);
-    const arrowStyle = isSortedBy ? {} : {visibility: "hidden"};
-    return <span style={arrowStyle}>{Private.getSortIconHelper(sortState)}</span>;
-  }
-
-  /**
-   * Returns an icon for sorting the metric or param column with the specified key. The icon
-   * is visible if we're currently sorting by the corresponding column.
-   */
-  static getSortIconNoSpace(sortState, isMetric, isParam, key) {
-    const isSortedBy = ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key);
-    const arrowStyle = isSortedBy ? {} : {display: "none"};
-    return <span style={arrowStyle}>{Private.getSortIconHelper(sortState)}</span>;
+    if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
+      return getSortIconHelper(sortState);
+    }
   }
 
   /** Returns checkbox element for selecting all runs */
@@ -89,13 +79,11 @@ export default class ExperimentViewUtil {
    */
   static getRunMetadataHeaderCells(onSortBy, sortState) {
     const getHeaderCell = (key, text) => {
-      const sortedClassName = "sortable "
-        + " run-table-container";
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
       return (
         <th
           key={"meta-" + key}
-          className={"bottom-row " + sortedClassName}
+          className="bottom-row sortable run-table-container"
           onClick={() => onSortBy(false, false, key)}
         >
           <span style={styles.headerCellText}>{text}</span>
