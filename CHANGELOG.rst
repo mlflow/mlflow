@@ -1,7 +1,8 @@
 Changelog
 =========
 
-0.7.0
+0.7.0 (2018-10-1)
+-----------------
 
 MLflow 0.7.0 introduces several major features:
 
