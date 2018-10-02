@@ -206,3 +206,21 @@ span.error-message {
 .ExperimentView .metric-param-content {
   padding: 4px;
 }
+
+.ExperimentView .ExperimentView-hiddenRow td {
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.ExperimentView .ExperimentView-row.ExperimentView-hiddenRow td {
+  transition: all 0.3s;
+  visibility: hidden;
+}
+
+.ExperimentView .ExperimentView-row.ExperimentView-hiddenRow div {
+  max-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
