@@ -528,7 +528,7 @@ class ExperimentView extends Component {
     const row = [ExperimentViewUtil.getCheckboxForRow(selected, checkboxHandler)];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tags).forEach((col) => row.push(col));
     paramKeyList.forEach((paramKey, i) => {
-      const className = classNames({"left-border" : i === 0}, "run-table-container");
+      const className = classNames({"left-border": i === 0}, "run-table-container");
       const keyname = "param-" + paramKey;
       if (paramsMap[paramKey]) {
         row.push(<td className={className} key={keyname}>
@@ -600,7 +600,7 @@ class ExperimentView extends Component {
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
       const cellClass = classNames("metric-param-content",
-        { highlighted:  hoverState.isParam && hoverState.key === paramKey });
+        { highlighted: hoverState.isParam && hoverState.key === paramKey });
       const keyname = "param-" + paramKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (
@@ -665,7 +665,7 @@ class ExperimentView extends Component {
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const cellClass = classNames("metric-param-content",
-        { highlighted:  hoverState.isMetric && hoverState.key === metricKey });
+        { highlighted: hoverState.isMetric && hoverState.key === metricKey });
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       const metric = metricsMap[metricKey].getValue();
       return (
@@ -925,21 +925,12 @@ const styles = {
   lifecycleButtonFilterWrapper: {
     marginLeft: '60px',
   },
-  sortToggleCaret: {
-    marginRight: '2px',
-  },
   tableToggleButtonGroup: {
     marginLeft: '16px',
-  },
-  paddedBottom: {
-    paddingBottom: 16,
   },
   metricParamCellContent: {
     display: "inline-block",
     maxWidth: 120,
-  },
-  sortIconContainer: {
-    marginRight: 2,
   },
 };
 

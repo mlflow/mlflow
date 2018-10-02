@@ -78,7 +78,7 @@ class ExperimentRunsTableMultiColumn extends Component {
           >
             {key}
           </span>
-          <span style={styles.sortIconContainer}>{sortIcon}</span>
+          <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
         </th>);
     };
 
@@ -100,11 +100,6 @@ class ExperimentRunsTableMultiColumn extends Component {
 }
 
 const styles = {
-  sortIconContainer: {
-    marginLeft: 2,
-    minWidth: 12.5,
-    display: 'inline-block',
-  },
   metricParamNameContainer: {
     verticalAlign: "middle",
     display: "inline-block",

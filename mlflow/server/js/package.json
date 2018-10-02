@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "bytes": "3.0.0",
+    "classnames": "^2.2.6",
     "cookie": "0.3.1",
     "dateformat": "3.0.3",
     "draft-js": "^0.10.5",
