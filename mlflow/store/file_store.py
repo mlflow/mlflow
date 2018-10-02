@@ -220,6 +220,9 @@ class FileStore(AbstractStore):
         meta_dir = os.path.join(self.root_directory, str(experiment_id))
         experiment = self._get_experiment(experiment_id)
         experiment._set_name(new_name)
+        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+            raise Exception("Cannot rename experiment in non-active lifecycle stage."
+                            " Current stage: %s" % experiment.lifecycle_stage)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment), overwrite=True)
 
     def delete_run(self, run_id):

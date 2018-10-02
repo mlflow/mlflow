@@ -218,6 +218,19 @@ class TestFileStore(unittest.TestCase):
         fs.rename_experiment(exp_id, new_name)
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
 
+        # Ensure that we cannot rename deleted experiments.
+        fs.delete_experiment(exp_id)
+        with pytest.raises(Exception) as e:
+            fs.rename_experiment(exp_id, exp_name)
+        assert 'non-active lifecycle' in str(e.value)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+
+        # Restore the experiment, and confirm that we acn now rename it.
+        fs.restore_experiment(exp_id)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        fs.rename_experiment(exp_id, exp_name)
+        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
+
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
