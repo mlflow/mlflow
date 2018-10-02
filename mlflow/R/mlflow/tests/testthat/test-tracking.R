@@ -67,3 +67,9 @@ test_that("mlflow_client_set_teminated() works properly", {
   expect_identical(run_info$status, "KILLED")
   expect_identical(run_info$end_time, as.POSIXct(as.double(c(killed_time)) / 1000, origin = "1970-01-01"))
 })
+
+test_that("mlflow_create_experiment() works properly", {
+  experiment <- mlflow_create_experiment("test")
+
+  expect_gt(as.numeric(experiment), 0)
+})

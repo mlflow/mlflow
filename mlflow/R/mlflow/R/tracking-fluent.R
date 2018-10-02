@@ -10,7 +10,7 @@
 #' @export
 mlflow_create_experiment <- function(name, artifact_location = NULL) {
   client <- mlflow_client()
-  mlflow_client_create_experiment(name, artifact_location, client)
+  mlflow_client_create_experiment(client, name, artifact_location)
 }
 
 #' Set Experiment
