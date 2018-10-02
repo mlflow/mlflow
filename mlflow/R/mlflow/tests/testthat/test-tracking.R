@@ -67,3 +67,9 @@ test_that("mlflow_client_set_teminated() works properly", {
   expect_identical(run_info$status, "KILLED")
   expect_identical(run_info$end_time, as.POSIXct(as.double(c(killed_time)) / 1000, origin = "1970-01-01"))
 })
+
+test_that("mlflow_set_tag() should return NULL invisibly", {
+  mlflow_clear_test_dir("mlruns")
+  value <- mlflow_set_tag("foo", "bar")
+  expect_null(value)
+})
