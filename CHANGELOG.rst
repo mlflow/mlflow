@@ -14,10 +14,12 @@ The release also includes bugfixes and improvements across the Python and Java c
 and documentation.
 
 Breaking changes:
+
 - [Python] The per-flavor implementation of load_pyfunc has been made private (#539, @tomasatdatabricks)
 - [REST API, Java] logMetric now accepts a double metric value instead of a float (#566, @aarondav)
 
 Features:
+
 - [R] Support for R (#370, #471, @javierluraschi; #548 @kevinykuo)
 - [UI] Add support for adding notes to Runs (#396, @aadamson)
 - [Python] Python API, REST API, and UI support for deleting Runs (#418, #473, #526, #579 @andrewmchen)
@@ -30,6 +32,7 @@ Features:
 
 
 Bug fixes:
+
 - [Python] Print errors when the Databricks run fails to start (#412, @andrewmchen)
 - [Python] Fix Spark ML PyFunc loader to work on Spark driver (#480, @tomasatdatabricks)
 - [Python] Fix Spark ML load_pyfunc on distributed clusters (#490, @tomasatdatabricks)
