@@ -21,8 +21,9 @@ import static org.mlflow.tracking.TestUtils.*;
 public class MlflowClientTest {
   private static final Logger logger = LoggerFactory.getLogger(MlflowClientTest.class);
 
-  private static float ACCURACY_SCORE = 0.9733333333333334F;
-  private static float ZERO_ONE_LOSS = 0.026666666666666616F;
+  private static double ACCURACY_SCORE = 0.9733333333333334D;
+  // NB: This can only be represented as a double (not float)
+  private static double ZERO_ONE_LOSS = 123.456789123456789D;
   private static String MIN_SAMPLES_LEAF = "2";
   private static String MAX_DEPTH = "3";
   private static String USER_EMAIL = "some@email.com";
