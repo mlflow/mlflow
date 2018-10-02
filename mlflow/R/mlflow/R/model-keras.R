@@ -18,12 +18,11 @@ mlflow_save_flavor.keras.engine.training.Model <- function(x,
                                                            path = "model",
                                                            r_dependencies=NULL,
                                                            conda_env=NULL) {
-  if (!"package:keras" %in% search()) {
-    stop("The 'keras' package is not available, use 'library(keras)' before exporting a model.")
+  if (!requireNamespace("keras", quietly = TRUE)) {
+    stop("The 'keras' package must be installed.")
   }
-  save_model_hdf5 <- get("save_model_hdf5", envir = as.environment("package:keras"))
 
-  save_model_hdf5(x, filepath = file.path(path, "model.h5"), include_optimizer = TRUE)
+  keras::save_model_hdf5(x, filepath = file.path(path, "model.h5"), include_optimizer = TRUE)
   version <- as.character(utils::packageVersion("keras"))
   conda_env <- if (!is.null(conda_env)) {
     dst <- file.path(path, basename(conda_env))
@@ -56,18 +55,17 @@ mlflow_save_flavor.keras.engine.training.Model <- function(x,
 
 #' @export
 mlflow_load_flavor.keras <- function(model_path) {
-  if (!"package:keras" %in% search()) {
-    stop("The 'keras' package is not available, use 'library(keras)' before loading a model.")
+  if (!requireNamespace("keras", quietly = TRUE)) {
+    stop("The 'keras' package must be installed.")
   }
 
-  load_model_hdf5 <- get("load_model_hdf5", envir = as.environment("package:keras"))
-  load_model_hdf5(file.path(model_path, "model.h5"))
+  keras::load_model_hdf5(file.path(model_path, "model.h5"))
 }
 
 #' @export
 mlflow_predict_flavor.keras.engine.training.Model <- function(model, data) {
-  if (!"package:keras" %in% search()) {
-    stop("The 'keras' package is not available, use 'library(keras)' before calling predict.")
+  if (!requireNamespace("keras", quietly = TRUE)) {
+    stop("The 'keras' package must be installed.")
   }
 
   stats::predict(model, as.matrix(data))
