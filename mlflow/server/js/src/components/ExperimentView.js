@@ -16,8 +16,9 @@ import KeyFilter from '../utils/KeyFilter';
 
 import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
-import ExperimentViewUtil from "./ExperimentViewUtil";
+import Utils from '../utils/Utils';
 import { LIFECYCLE_FILTER } from './ExperimentPage';
+import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
 
@@ -95,7 +96,7 @@ class ExperimentView extends Component {
       isParam: false,
       key: "start_time"
     },
-    showMultiColumns: false,
+    showMultiColumns: true,
     showDeleteRunModal: false,
     showRestoreRunModal: false,
   };
@@ -483,47 +484,6 @@ class ExperimentView extends Component {
     saveAs(blob, "runs.csv");
   }
 
-  static computeMetricRanges(metricsByRun) {
-    const ret = {};
-    metricsByRun.forEach(metrics => {
-      metrics.forEach(metric => {
-        if (!ret.hasOwnProperty(metric.key)) {
-          ret[metric.key] = {min: Math.min(metric.value, metric.value * 0.7), max: metric.value};
-        } else {
-          if (metric.value < ret[metric.key].min) {
-            ret[metric.key].min = Math.min(metric.value, metric.value * 0.7);
-          }
-          if (metric.value > ret[metric.key].max) {
-            ret[metric.key].max = metric.value;
-          }
-        }
-      });
-    });
-    return ret;
-  }
-
-  /**
-   * Turn a list of metrics to a map of metric key to metric.
-   */
-  static toMetricsMap(metrics) {
-    const ret = {};
-    metrics.forEach((metric) => {
-      ret[metric.key] = metric;
-    });
-    return ret;
-  }
-
-  /**
-   * Turn a list of metrics to a map of metric key to metric.
-   */
-  static toParamsMap(params) {
-    const ret = {};
-    params.forEach((param) => {
-      ret[param.key] = param;
-    });
-    return ret;
-  }
-
   /**
    * Format a string for insertion into a CSV file.
    */
@@ -602,8 +562,8 @@ class ExperimentView extends Component {
         runInfo.user_id,
         runInfo.status,
       ];
-      const paramsMap = ExperimentView.toParamsMap(paramsList[index]);
-      const metricsMap = ExperimentView.toMetricsMap(metricsList[index]);
+      const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
+      const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
           row.push(paramsMap[paramKey].getValue());
@@ -681,14 +641,12 @@ const styles = {
   lifecycleButtonFilterWrapper: {
     marginLeft: '60px',
   },
-  sortToggleCaret: {
-    marginRight: '2px',
-  },
   tableToggleButtonGroup: {
     marginLeft: '16px',
   },
-  paddedBottom: {
-    paddingBottom: 16,
+  metricParamCellContent: {
+    display: "inline-block",
+    maxWidth: 120,
   },
 };
 

@@ -1,5 +1,6 @@
 import json
 
+from mlflow.exceptions import RestException
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, ViewType
@@ -33,16 +34,6 @@ def _api_method_to_info():
 
 
 _METHOD_TO_INFO = _api_method_to_info()
-
-
-class RestException(Exception):
-    """Exception thrown on 400-level errors from the REST API"""
-    def __init__(self, json):
-        message = json['error_code']
-        if 'message' in json:
-            message = "%s: %s" % (message, json['message'])
-        super(RestException, self).__init__(message)
-        self.json = json
 
 
 class RestStore(AbstractStore):

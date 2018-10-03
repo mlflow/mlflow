@@ -18,11 +18,13 @@ test_that("mlflow can save keras model ", {
   model %>% mlflow_save_model("model")
   expect_true(dir.exists("model"))
 
+  detach("package:keras", unload = TRUE)
+
   model_reloaded <- mlflow_load_model("model")
 
   expect_equal(
-    model %>% predict(train_x),
-    model_reloaded %>% predict(train_x),
+    predict(model, train_x),
+    predict(model_reloaded, train_x),
     mlflow_predict_flavor(model_reloaded, iris[, 1:4])
   )
 })

@@ -5,29 +5,6 @@ import Routes from '../Routes';
 import classNames from 'classnames';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 
-
-const styles = {
-  sortIconStyle: {
-    verticalAlign: "middle",
-    fontSize: 20,
-  },
-  headerCellText: {
-    verticalAlign: "middle"
-  },
-  sortIconContainer: {
-    marginLeft: 2,
-    minWidth: 12.5,
-    display: 'inline-block',
-  },
-};
-
-function getSortIconHelper(sortState) {
-    return (<span><i
-      className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}
-      style={styles.sortIconStyle}
-    /></span>);
-}
-
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
   static getCheckboxForRow(selected, checkboxHandler) {
@@ -37,6 +14,21 @@ export default class ExperimentViewUtil {
       </div>
     </td>;
   }
+
+  static styles = {
+    sortIconStyle: {
+      verticalAlign: "middle",
+      fontSize: 20,
+    },
+    headerCellText: {
+      verticalAlign: "middle"
+    },
+    sortIconContainer: {
+      marginLeft: 2,
+      minWidth: 12.5,
+      display: 'inline-block',
+    },
+  };
 
   /**
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
@@ -81,8 +73,15 @@ export default class ExperimentViewUtil {
    */
   static getSortIcon(sortState, isMetric, isParam, key) {
     if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
-      return getSortIconHelper(sortState);
+      return (
+        <span>
+          <i
+            className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}
+            style={ExperimentViewUtil.styles.sortIconStyle}
+          />
+        </span>);
     }
+    return undefined;
   }
 
   /** Returns checkbox element for selecting all runs */
@@ -104,8 +103,8 @@ export default class ExperimentViewUtil {
           className="bottom-row sortable run-table-container"
           onClick={() => onSortBy(false, false, key)}
         >
-          <span style={styles.headerCellText}>{text}</span>
-          <span style={styles.sortIconContainer}>{sortIcon}</span>
+          <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
+          <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
         </th>);
     };
     return [

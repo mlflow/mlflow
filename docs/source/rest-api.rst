@@ -469,7 +469,7 @@ Set Tag
 | ``2.0/preview/mlflow/runs/set-tag`` | ``POST``    |
 +-------------------------------------+-------------+
 
-Set a tag on a run. Tags are run metadata that can be updated during and after
+Set a tag on a run. Tags are run metadata that can be updated during a run and after
 a run completes.
 
 
@@ -488,7 +488,7 @@ Request Structure
 +------------+------------+------------------------------------------------------------------+
 | Field Name |    Type    |                           Description                            |
 +============+============+==================================================================+
-| run_uuid   | ``STRING`` | ID of the run under which to log the param.                      |
+| run_uuid   | ``STRING`` | ID of the run under which to set the tag.                        |
 |            |            | This field is required.                                          |
 |            |            |                                                                  |
 +------------+------------+------------------------------------------------------------------+
@@ -1140,13 +1140,13 @@ RunTag
 Tag for a run.
 
 
-+------------+------------+-------------+
-| Field Name |    Type    | Description |
-+============+============+=============+
-| key        | ``STRING`` |             |
-+------------+------------+-------------+
-| value      | ``STRING`` |             |
-+------------+------------+-------------+
++------------+------------+----------------+
+| Field Name |    Type    | Description    |
++============+============+================+
+| key        | ``STRING`` | The tag key.   |
++------------+------------+----------------+
+| value      | ``STRING`` | The tag value. |
++------------+------------+----------------+
 
 .. _mlflowSearchExpression:
 
