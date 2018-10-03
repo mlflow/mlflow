@@ -104,7 +104,7 @@ def test_http_request_wrapper(request):
     response.text =\
         '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
     request.return_value = response
-    with pytest.raises(MlflowException, match="'RESOURCE_DOES_NOT_EXIST: Node type not supported'"):
+    with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
         http_request_safe(host_only, '/my/endpoint')
 
 

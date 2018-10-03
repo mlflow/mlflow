@@ -14,6 +14,16 @@ from mlflow.exceptions import MlflowException
 RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
 
 
+class RestException(MlflowException):
+    """Exception thrown on 400-level errors from the REST API"""
+    def __init__(self, json):
+        message = json['error_code']
+        if 'message' in json:
+            message = "%s: %s" % (message, json['message'])
+        super(RestException, self).__init__(message)
+        self.json = json
+
+
 def check_response_status(response):
     """
     Raises an MlflowException if the response's status was not 200.
@@ -75,10 +85,7 @@ def http_request_safe(host_creds, endpoint, **kwargs):
             js_dict = json.loads(response.text)
         except ValueError:
             raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
-        message = js_dict['error_code']
-        if 'message' in js_dict:
-            message = "%s: %s" % (message, js_dict['message'])
-        raise MlflowException("%s. Got error '%s'." % (base_msg, message))
+        raise RestException(js_dict)
     return response
 
 
