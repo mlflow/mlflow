@@ -4,6 +4,9 @@ Utilities for validating user inputs such as metric names and parameter names.
 import os.path
 import re
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
 # Regex for valid run IDs: must be a 32-character hex string.
@@ -55,4 +58,4 @@ def _validate_tag_name(name):
 def _validate_run_id(run_id):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
-        raise Exception("Invalid run ID: '%s'" % run_id)
+        raise MlflowException("Invalid run ID: '%s'" % run_id, error_code=INVALID_PARAMETER_VALUE)
