@@ -254,11 +254,18 @@ export default class ExperimentViewUtil {
       const root = t.findRoot();
       if (root !== undefined && root.value !== t.value) {
         const old = parentIdToChildren[root.value];
-        parentIdToChildren[root.value] = old ? (old.push(idx)) : [idx];
+        let newList = undefined;
+        if (old) {
+          old.push(idx);
+          newList = old;
+        } else {
+          newList = [idx];
+        }
+        parentIdToChildren[root.value] = newList;
       }
     });
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
-      if (!treeNodes[idx].isRoot() || treeNodes[idx].isCycle()) return [];
+      if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
       let hasExpander = false;
       let childrenIds = undefined;
