@@ -107,6 +107,12 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
+    def get_experiment_by_name(self,name):
+        for experiment in self.list_experiments():
+            if experiment.name == name:
+                return experiment
+        return None
+
     def delete_experiment(self, experiment_id):
         req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
         self._call_endpoint(DeleteExperiment, req_body)
