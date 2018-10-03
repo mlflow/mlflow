@@ -213,30 +213,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Create Run
 ==========
 
@@ -301,33 +277,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-1:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Delete Experiment
 =================
 
@@ -363,32 +312,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-2:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Delete a Run
 ============
 
@@ -420,33 +343,6 @@ The Tracking Client family of functions require an MLflow client to be
 specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
-
-.. _seealso-3:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
 
 Download Artifacts
 ==================
@@ -483,31 +379,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-4:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Get Experiment by Name
 ======================
 
@@ -539,31 +410,6 @@ The Tracking Client family of functions require an MLflow client to be
 specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
-
-.. _seealso-5:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
 
 Get Experiment
 ==============
@@ -597,31 +443,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-6:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Get Run
 =======
 
@@ -654,33 +475,6 @@ The Tracking Client family of functions require an MLflow client to be
 specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
-
-.. _seealso-7:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
 
 List artifacts
 ==============
@@ -718,31 +512,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-8:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 List Experiments
 ================
 
@@ -777,31 +546,6 @@ The Tracking Client family of functions require an MLflow client to be
 specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
-
-.. _seealso-9:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
 
 Log Artifact
 ============
@@ -848,32 +592,6 @@ Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
 corresponding key and secrets provided by Amazon IAM.
 
-.. _seealso-10:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Log Metric
 ==========
 
@@ -917,32 +635,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-11:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Log Parameter
 =============
 
@@ -982,32 +674,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-12:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Restore Experiment
 ==================
 
@@ -1046,32 +712,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-13:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Restore a Run
 =============
 
@@ -1103,32 +743,6 @@ The Tracking Client family of functions require an MLflow client to be
 specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
-
-.. _seealso-14:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
 
 Set Tag
 =======
@@ -1170,32 +784,6 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-.. _seealso-15:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_terminated`` <mlflow_client_set_terminated.html>`__
-
 Terminate a Run
 ===============
 
@@ -1234,32 +822,6 @@ The Tracking Client family of functions require an MLflow client to be
 specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
-
-.. _seealso-16:
-
-Seealso
--------
-
-Other Tracking client functions:
-```mlflow_client_create_experiment`` <mlflow_client_create_experiment.html>`__
-, ```mlflow_client_create_run`` <mlflow_client_create_run.html>`__ ,
-```mlflow_client_delete_experiment`` <mlflow_client_delete_experiment.html>`__
-, ```mlflow_client_delete_run`` <mlflow_client_delete_run.html>`__ ,
-```mlflow_client_download_artifacts`` <mlflow_client_download_artifacts.html>`__
-,
-```mlflow_client_get_experiment_by_name`` <mlflow_client_get_experiment_by_name.html>`__
-,
-```mlflow_client_get_experiment`` <mlflow_client_get_experiment.html>`__
-, ```mlflow_client_get_run`` <mlflow_client_get_run.html>`__ ,
-```mlflow_client_list_artifacts`` <mlflow_client_list_artifacts.html>`__
-,
-```mlflow_client_list_experiments`` <mlflow_client_list_experiments.html>`__
-, ```mlflow_client_log_artifact`` <mlflow_client_log_artifact.html>`__ ,
-```mlflow_client_log_metric`` <mlflow_client_log_metric.html>`__ ,
-```mlflow_client_log_param`` <mlflow_client_log_param.html>`__ ,
-```mlflow_client_restore_experiment`` <mlflow_client_restore_experiment.html>`__
-, ```mlflow_client_restore_run`` <mlflow_client_restore_run.html>`__ ,
-```mlflow_client_set_tag`` <mlflow_client_set_tag.html>`__
 
 Initialize an MLflow client
 ===========================
@@ -1319,19 +881,6 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-17:
-
-Seealso
--------
-
-Other Fluent API functions: ```mlflow_end_run`` <mlflow_end_run.html>`__
-, ```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_set_experiment`` <mlflow_set_experiment.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 End a Run
 =========
 
@@ -1361,20 +910,6 @@ The fluent API family of functions operate with an implied MLflow client
 determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
-
-.. _seealso-18:
-
-Seealso
--------
-
-Other Fluent API functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_set_experiment`` <mlflow_set_experiment.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Get Remote Tracking URI
 =======================
@@ -1511,20 +1046,6 @@ Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
 corresponding key and secrets provided by Amazon IAM.
 
-.. _seealso-19:
-
-Seealso
--------
-
-Other Fluent API functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_set_experiment`` <mlflow_set_experiment.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 .. _log-metric-1:
 
 Log Metric
@@ -1565,20 +1086,6 @@ The fluent API family of functions operate with an implied MLflow client
 determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
-
-.. _seealso-20:
-
-Seealso
--------
-
-Other Fluent API functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_set_experiment`` <mlflow_set_experiment.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Log Model
 =========
@@ -1641,20 +1148,6 @@ The fluent API family of functions operate with an implied MLflow client
 determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
-
-.. _seealso-21:
-
-Seealso
--------
-
-Other Fluent API functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_set_experiment`` <mlflow_set_experiment.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Read Command Line Parameter
 ===========================
@@ -2098,20 +1591,6 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-.. _seealso-22:
-
-Seealso
--------
-
-Other Fluent API functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 .. _set-tag-1:
 
 Set Tag
@@ -2149,20 +1628,6 @@ The fluent API family of functions operate with an implied MLflow client
 determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
-
-.. _seealso-23:
-
-Seealso
--------
-
-Other Fluent API functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_set_experiment`` <mlflow_set_experiment.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Set Remote Tracking URI
 =======================
@@ -2275,20 +1740,6 @@ The fluent API family of functions operate with an implied MLflow client
 determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
-
-.. _seealso-24:
-
-Seealso
--------
-
-Other Fluent API functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_set_experiment`` <mlflow_set_experiment.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__
 
 .. _examples-5:
 

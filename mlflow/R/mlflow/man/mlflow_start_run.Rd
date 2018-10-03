@@ -43,13 +43,3 @@ with(mlflow_start_run(), {
 }
 
 }
-\seealso{
-Other Fluent API functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_end_run}},
-  \code{\link{mlflow_log_artifact}},
-  \code{\link{mlflow_log_metric}},
-  \code{\link{mlflow_log_param}},
-  \code{\link{mlflow_set_experiment}},
-  \code{\link{mlflow_set_tag}}
-}
-\concept{Fluent API functions}
