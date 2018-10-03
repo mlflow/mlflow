@@ -82,7 +82,6 @@ class ExperimentRunsTableCompactView extends Component {
     const runInfo = runInfos[idx];
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
-    const metricRanges = ExperimentViewUtil.computeMetricRanges(metricsList);
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), isHidden),
@@ -157,7 +156,7 @@ class ExperimentRunsTableCompactView extends Component {
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const cellClass = classNames("metric-param-content",
-        { highlighted:  hoverState.isMetric && hoverState.key === metricKey });
+        { highlighted: hoverState.isMetric && hoverState.key === metricKey });
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       const metric = metricsMap[metricKey].getValue();
       return (
@@ -213,11 +212,13 @@ class ExperimentRunsTableCompactView extends Component {
         </span>
       );
     });
-    rowContents.push(<td key="metrics-container-cell" className="left-border metric-param-container-cell">
-      <div>
-      {metricsCellContents}
-      </div>
-    </td>);
+    rowContents.push(
+      <td key="metrics-container-cell" className="left-border metric-param-container-cell">
+        <div>
+        {metricsCellContents}
+        </div>
+      </td>
+    );
 
     const sortValue = ExperimentViewUtil.computeSortValue(
       sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
@@ -228,7 +229,6 @@ class ExperimentRunsTableCompactView extends Component {
       isChild: !isParent,
       isHidden,
     };
-
   }
 
   getSortInfo(isMetric, isParam) {
@@ -249,6 +249,7 @@ class ExperimentRunsTableCompactView extends Component {
           <span>)</span>
       </span>);
     }
+    return undefined;
   }
 
   render() {

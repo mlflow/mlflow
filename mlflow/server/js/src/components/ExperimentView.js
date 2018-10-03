@@ -6,7 +6,7 @@ import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../r
 import 'react-virtualized/styles.css';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button, ButtonGroup, Dropdown, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import classNames from 'classnames';
@@ -16,7 +16,6 @@ import KeyFilter from '../utils/KeyFilter';
 
 import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
-import Utils from '../utils/Utils';
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
@@ -164,7 +163,6 @@ class ExperimentView extends Component {
     // of parameter and metric names around later
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
-    const sort = this.state.sort;
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
