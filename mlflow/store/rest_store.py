@@ -107,7 +107,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
-    def get_experiment_by_name(self,name):
+    def get_experiment_by_name(self, name):
         for experiment in self.list_experiments():
             if experiment.name == name:
                 return experiment
