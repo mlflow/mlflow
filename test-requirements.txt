@@ -19,5 +19,4 @@ tensorflow
 torch
 torchvision
 pysftp
-# TODO: don't pin Keras version once https://github.com/keras-team/keras/issues/11276 is addressed
-keras==2.2.2
+keras
