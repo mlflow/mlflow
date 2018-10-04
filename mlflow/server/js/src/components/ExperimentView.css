@@ -224,3 +224,7 @@ span.error-message {
   padding-bottom: 0;
   overflow: hidden;
 }
+
+.ExperimentView-expander:hover {
+  cursor: pointer;
+}

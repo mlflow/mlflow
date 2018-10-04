@@ -93,10 +93,13 @@ class ExperimentRunsTableMultiColumnView extends Component {
         const percent = (fraction * 100) + "%";
         rowContents.push(
           <td className={className} key={keyName}>
-            <div className="metric-filler-bg">
-              <div className="metric-filler-fg" style={{width: percent}}/>
-              <div className="metric-text">
-                {Utils.formatMetric(metric)}
+            {/* We need the extra div because metric-filler-bg is inline-block */}
+            <div>
+              <div className="metric-filler-bg">
+                <div className="metric-filler-fg" style={{width: percent}}/>
+                <div className="metric-text">
+                  {Utils.formatMetric(metric)}
+                </div>
               </div>
             </div>
           </td>

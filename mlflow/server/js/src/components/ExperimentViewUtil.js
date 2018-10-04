@@ -28,6 +28,9 @@ export default class ExperimentViewUtil {
       minWidth: 12.5,
       display: 'inline-block',
     },
+    expander: {
+      pointer: 'cursor',
+    }
   };
 
   /**
@@ -224,11 +227,11 @@ export default class ExperimentViewUtil {
     }
     if (expanderOpen) {
       return (
-        <td onClick={onExpandBound}><i className="far fa-minus-square"/></td>
+        <td onClick={onExpandBound}><i className="ExperimentView-expander far fa-minus-square"/></td>
       );
     } else {
       return (
-        <td onClick={onExpandBound}><i className="far fa-plus-square"/></td>
+        <td onClick={onExpandBound}><i className="ExperimentView-expander far fa-plus-square"/></td>
       );
     }
   }
@@ -254,7 +257,7 @@ export default class ExperimentViewUtil {
       const root = t.findRoot();
       if (root !== undefined && root.value !== t.value) {
         const old = parentIdToChildren[root.value];
-        let newList = undefined;
+        let newList;
         if (old) {
           old.push(idx);
           newList = old;

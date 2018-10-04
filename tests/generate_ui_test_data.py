@@ -87,6 +87,7 @@ if __name__ == '__main__':
                 'handles': str(random()),
             }
             log_params(parameters)
+            mlflow.log_metric('test_metric', 1)
 
         with mlflow.start_run(source_name='child_metrics.py', nested=True):
             metrics = {
