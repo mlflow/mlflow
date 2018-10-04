@@ -1,5 +1,5 @@
 import { MlflowService } from './sdk/MlflowService';
-import Utils from './utils/Utils';
+import ErrorCodes from './sdk/ErrorCodes';
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
@@ -153,9 +153,32 @@ const wrapDeferred = (deferred, data) => {
       success: response => resolve(response),
       error: xhr => {
         console.error("XHR failed", xhr);
-        reject(new Error(Utils.getErrorMessageFromXhr(xhr)));
+        // We can't throw the XHR itself because it looks like a promise to the
+        // redux-promise-middleware.
+        reject(new ErrorWrapper(xhr));
       }
     });
   });
 };
+
+class ErrorWrapper {
+  constructor(xhr) {
+    this.xhr = xhr;
+  }
+
+  getErrorCode() {
+    const responseText = this.xhr.responseText;
+    if (responseText) {
+      try {
+        const parsed = JSON.parse(responseText);
+        if (parsed.error_code) {
+          return parsed.error_code;
+        }
+      } catch (e) {
+        return ErrorCodes.INTERNAL_ERROR;
+      }
+    }
+    return ErrorCodes.INTERNAL_ERROR;
+  }
+}
 

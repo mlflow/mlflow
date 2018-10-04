@@ -7,6 +7,8 @@ from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, Ru
                             ViewType
 from mlflow.entities.run_info import check_run_is_active, \
     check_run_is_deleted
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name
@@ -307,7 +309,7 @@ class FileStore(AbstractStore):
         if run_dir is not None:
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
             return _read_persisted_run_info_dict(meta)
-        raise Exception("Run '%s' not found" % run_uuid)
+        raise MlflowException("Run '%s' not found" % run_uuid, error_code=RESOURCE_DOES_NOT_EXIST)
 
     def _get_run_files(self, run_uuid, resource_type):
         _validate_run_id(run_uuid)

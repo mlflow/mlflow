@@ -115,7 +115,7 @@ module.exports = {
     'keyword-spacing': 2,
     'linebreak-style': 2,
     'lines-around-comment': 0,
-    'max-depth': [2, 3],
+    'max-depth': [2, 4],
     'max-len': ['error', 100, 2, {
       'ignoreUrls': false,
       'ignoreComments': false,
