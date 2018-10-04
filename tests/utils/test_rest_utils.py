@@ -5,7 +5,7 @@ import numpy
 import pytest
 
 from mlflow.utils.rest_utils import NumpyEncoder, http_request, http_request_safe,\
-    MlflowHostCreds
+    MlflowHostCreds, RestException
 from mlflow.exceptions import MlflowException
 
 
@@ -104,7 +104,7 @@ def test_http_request_wrapper(request):
     response.text =\
         '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
     request.return_value = response
-    with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
+    with pytest.raises(RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
         http_request_safe(host_only, '/my/endpoint')
 
 
