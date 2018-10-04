@@ -108,7 +108,7 @@ class RestStore(AbstractStore):
         return Experiment.from_proto(response_proto.experiment)
 
     def get_experiment_by_name(self, name):
-        for experiment in self.list_experiments():
+        for experiment in self.list_experiments(ViewType.ALL):
             if experiment.name == name:
                 return experiment
         return None
