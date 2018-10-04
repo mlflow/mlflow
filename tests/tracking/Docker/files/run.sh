@@ -9,4 +9,5 @@ fi
 
 mkdir $FILE_DIR && mlflow server \
     --file-store $FILE_DIR \
-    --host 0.0.0.0
+    --host 0.0.0.0 \
+    --port $PORT
