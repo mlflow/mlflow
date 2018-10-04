@@ -13,11 +13,10 @@ Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-
 
 ## Installation
 
-Install `mlflow` from CRAN followed by installing the `mlflow` runtime
-as follows:
+Install `mlflow` followed by installing the `mlflow` runtime as follows:
 
 ``` r
-install.packages("mlflow")
+devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 mlflow::mlflow_install()
 ```
 
@@ -25,7 +24,7 @@ Notice also that [Anaconda](https://www.anaconda.com/download/) or
 [Miniconda](https://conda.io/miniconda.html) need to be manually
 installed.
 
-### Developemnt
+### Development
 
 Install the `mlflow` package as follows:
 
@@ -210,8 +209,8 @@ cat(paste(readLines("model/MLmodel"), collapse = "\n"))
     ##   crate:
     ##     version: 0.1.0
     ##     model: crate.bin
-    ## time_created: 18-09-27T19:06:55.55.85
-    ## run_id: c2e91ac015564ccaa711480c3effd917
+    ## time_created: 18-10-03T22:18:25.25.55
+    ## run_id: 4286a3d27974487b95b19e01b7b3caab
 
 Later on, the R model can be deployed which will perform predictions
 using

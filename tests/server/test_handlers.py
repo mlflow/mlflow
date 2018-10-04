@@ -1,9 +1,13 @@
+import json
+
 import mock
 import pytest
 
 from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
-    _search_runs
+    _search_runs, catch_mlflow_exception
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 
 
@@ -72,3 +76,16 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_store):
     _search_runs()
     args, _ = mock_store.search_runs.call_args
     assert args[2] == ViewType.ACTIVE_ONLY
+
+
+def test_catch_mlflow_exception():
+    @catch_mlflow_exception
+    def test_handler():
+        raise MlflowException('test error', error_code=INTERNAL_ERROR)
+
+    # pylint: disable=assignment-from-no-return
+    response = test_handler()
+    json_response = json.loads(response.get_data())
+    assert response.status_code == 500
+    assert json_response['error_code'] == ErrorCode.Name(INTERNAL_ERROR)
+    assert json_response['message'] == 'test error'
