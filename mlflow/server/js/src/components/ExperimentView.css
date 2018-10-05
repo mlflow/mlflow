@@ -206,3 +206,7 @@ span.error-message {
 .ExperimentView .metric-param-content {
   padding: 4px;
 }
+
+.ExperimentView-expander:hover {
+  cursor: pointer;
+}
