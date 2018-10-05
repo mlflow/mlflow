@@ -21,6 +21,8 @@ from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 
+FLAVOR_NAME = 
+
 
 class _TFWrapper(object):
     """

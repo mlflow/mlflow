@@ -11,17 +11,29 @@ PyTorch (native) format
 from __future__ import absolute_import
 
 import os
+import shutil
 
 import numpy as np
 import pandas as pd
 import torch
+import torchvision
 
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
-
+from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.utils.flavor_utils import _get_flavor_configuration 
 
 FLAVOR_NAME = "pytorch"
+
+CONDA_DEPENDENCIES = [
+    "pytorch={}".format(torch.__version__),
+    "torchvision={}".format(torchvision.__version__)
+]
+
+CONDA_CHANNELS = [
+    "pytorch"
+]
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
@@ -123,9 +135,17 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     torch.save(pytorch_model, model_path, **kwargs)
     model_file = os.path.basename(model_path)
 
+    conda_env_subpath = "conda.yaml"
+    if conda_env:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        _mlflow_conda_env(
+                path=os.path.join(path, conda_env_subpath), 
+                additional_conda_deps=CONDA_DEPENDENCIES)
+
     mlflow_model.add_flavor(FLAVOR_NAME, model_data=model_file, pytorch_version=torch.__version__)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch",
-                        data=model_file, env=conda_env)
+                        data=model_file, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -134,22 +154,18 @@ def _load_model(path, **kwargs):
     if not os.path.exists(mlflow_model_path):
         raise RuntimeError("MLmodel is not found at '{}'".format(path))
 
-    mlflow_model = Model.load(mlflow_model_path)
-
-    if FLAVOR_NAME not in mlflow_model.flavors:
-        raise ValueError("Could not find flavor '{}' amongst available flavors {}, "
-                         "unable to load stored model"
-                         .format(FLAVOR_NAME, list(mlflow_model.flavors.keys())))
+    flavor = _get_flavor_configuration(
+            model_configuration_path=mlflow_model_path,
+            flavor_name=FLAVOR_NAME)
 
     # This maybe replaced by a warning and then try/except torch.load
-    flavor = mlflow_model.flavors[FLAVOR_NAME]
     if torch.__version__ != flavor["pytorch_version"]:
         raise ValueError("Stored model version '{}' does not match "
                          "installed PyTorch version '{}'"
                          .format(flavor["pytorch_version"], torch.__version__))
 
     path = os.path.abspath(path)
-    path = os.path.join(path, mlflow_model.flavors[FLAVOR_NAME]['model_data'])
+    path = os.path.join(path, flavor['model_data'])
     return torch.load(path, **kwargs)
 
 

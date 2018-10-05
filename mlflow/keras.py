@@ -11,13 +11,22 @@ Keras (native) format
 from __future__ import absolute_import
 
 import os
+import shutil
 
+import keras
 import keras.backend as K
 import pandas as pd
 
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+from mlflow.utils.environment import _mlflow_conda_env
+
+FLAVOR_NAME = "keras"
+
+CONDA_DEPENDENCIES = [
+    "keras={}".format(keras.__version__)
+]
 
 
 def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
@@ -38,8 +47,6 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     ... # Save the model as an MLflow Model
     >>> mlflow.keras.save_model(keras_model, keras_model_path)
     """
-    import keras
-
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -47,9 +54,17 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     model_file = os.path.join(path, "model.h5")
     keras_model.save(model_file)
 
+    conda_env_subpath = "conda.yaml"
+    if conda_env:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        _mlflow_conda_env(
+                path=os.path.join(path, conda_env_subpath), 
+                additional_conda_deps=CONDA_DEPENDENCIES)
+
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
-                        data="model.h5", env=conda_env)
-    mlflow_model.add_flavor("keras", keras_version=keras.__version__)
+                        data="model.h5", env=conda_env_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -129,4 +144,8 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    return _load_model(os.path.join(path, "model.h5"))
+    m = Model.load(os.path.join(path, 'MLmodel'))
+    if FLAVOR_NAME not in m.flavors:
+        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
+    conf = m.flavors[FLAVOR_NAME]
+    return _load_model(os.path.join(path, conf['data']))

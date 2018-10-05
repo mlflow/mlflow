@@ -22,9 +22,16 @@ import pandas
 import sklearn
 
 from mlflow.utils import cli_args
+from mlflow.utils.environment import _mlflow_conda_env 
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+
+FLAVOR_NAME = "sklearn"
+
+CONDA_DEPENDENCIES = [
+    "sklearn={}".format(sklearn.__version__),
+]
 
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
@@ -54,13 +61,18 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model()):
     model_file = os.path.join(path, "model.pkl")
     with open(model_file, "wb") as out:
         pickle.dump(sk_model, out)
-    model_conda_env = None
+
+    conda_env_subpath = "conda.yaml"
     if conda_env:
-        model_conda_env = os.path.basename(os.path.abspath(conda_env))
-        shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        _mlflow_conda_env(
+                path=os.path.join(path, conda_env_subpath), 
+                additional_conda_deps=CONDA_DEPENDENCIES)
+
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data="model.pkl",
-                        env=model_conda_env)
-    mlflow_model.add_flavor("sklearn",
+                        env=conda_env_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME,
                             pickled_model="model.pkl",
                             sklearn_version=sklearn.__version__)
     mlflow_model.save(os.path.join(path, "MLmodel"))
@@ -99,10 +111,7 @@ def log_model(sk_model, artifact_path, conda_env=None):
 def _load_model_from_local_file(path):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system."""
     # TODO: we could validate the SciKit-Learn version here
-    model = Model.load(os.path.join(path, "MLmodel"))
-    assert "sklearn" in model.flavors
-    params = model.flavors["sklearn"]
-    with open(os.path.join(path, params["pickled_model"]), "rb") as f:
+    with open(path) as f:
         return pickle.load(f)
 
 
@@ -130,7 +139,11 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    return _load_model_from_local_file(path)
+    m = Model.load(os.path.join(path, 'MLmodel'))
+    if FLAVOR_NAME not in m.flavors:
+        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
+    conf = m.flavors[FLAVOR_NAME]
+    return _load_model_from_local_file(os.path.join(path, conf['pickled_model']))
 
 
 @click.group("sklearn")

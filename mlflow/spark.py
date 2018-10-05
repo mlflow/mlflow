@@ -31,12 +31,18 @@ from pyspark.ml.pipeline import PipelineModel
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
+from mlflow.utils.flavor_utils import _get_flavor_configuration 
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.environment import _mlflow_conda_env 
 
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
 DFS_TMP = "/tmp/mlflow"
+
+CONDA_DEPENDENCIES = [
+    "pyspark={}".format(pyspark.__version__),
+]
 
 
 def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=None,
@@ -204,14 +210,19 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     sparkml_data_path = os.path.abspath(os.path.join(path, sparkml_data_path_sub))
     _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     pyspark_version = pyspark.version.__version__
-    model_conda_env = None
+    
+    conda_env_subpath = "conda.yaml"
     if conda_env:
-        model_conda_env = os.path.basename(os.path.abspath(conda_env))
-        shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        _mlflow_conda_env(
+                path=os.path.join(path, conda_env_subpath), 
+                additional_conda_deps=CONDA_DEPENDENCIES)
+
     mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version,
                             model_data=sparkml_data_path_sub)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=sparkml_data_path_sub,
-                        env=model_conda_env)
+                        env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -250,10 +261,9 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(os.path.join(path, 'MLmodel'))
-    if FLAVOR_NAME not in m.flavors:
-        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
-    conf = m.flavors[FLAVOR_NAME]
+    conf = _get_flavor_configuration(
+            model_configuration_path=os.path.join(path, "MLmodel"),
+            flavor_name=FLAVOR_NAME)
     model_path = os.path.join(path, conf['model_data'])
     return _load_model(model_path=model_path, dfs_tmpdir=dfs_tmpdir)
 

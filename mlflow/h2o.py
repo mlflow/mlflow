@@ -11,11 +11,21 @@ H20 (native) format
 from __future__ import absolute_import
 
 import os
+import shutil
 import yaml
+
+import h2o
 
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+from mlflow.utils.environment import _mlflow_conda_env
+
+FLAVOR_NAME = "h2o"
+
+CONDA_DEPENDENCIES = [
+    "h2o={}".format(h2o.__version__)
+]
 
 
 def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=None):
@@ -26,8 +36,6 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     :param path: Local path where the model is to be saved.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
-    import h2o
-
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -47,9 +55,17 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     with open(os.path.join(model_dir, "h2o.yaml"), 'w') as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 
+    conda_env_subpath = "conda.yaml"
+    if conda_env:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        _mlflow_conda_env(
+                path=os.path.join(path, conda_env_subpath), 
+                additional_conda_deps=CONDA_DEPENDENCIES)
+
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
-                        data="model.h2o", env=conda_env)
-    mlflow_model.add_flavor("h2o", saved_model=model_file, h2o_version=h2o.__version__)
+                        data="model.h2o", env=conda_env_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, saved_model=model_file, h2o_version=h2o.__version__)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -66,7 +82,6 @@ def log_model(h2o_model, artifact_path, **kwargs):
 
 
 def _load_model(path, init=False):
-    import h2o
     path = os.path.abspath(path)
     with open(os.path.join(path, "h2o.yaml")) as f:
         params = yaml.safe_load(f.read())
@@ -105,4 +120,8 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    return _load_model(os.path.join(path, "model.h2o"))
+    m = Model.load(os.path.join(path, 'MLmodel'))
+    if FLAVOR_NAME not in m.flavors:
+        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
+    conf = m.flavors[FLAVOR_NAME]
+    return _load_model(os.path.join(path, conf['data']))
