@@ -48,7 +48,7 @@ test("Renders children when requests are complete", () => {
 
 test("Throws exception if errorRenderFunc is not defined and wrapper has bad request.", () => {
   try {
-    const wrapper = shallow(
+    shallow(
       <RequestStateWrapper
         requests={[errorRequest]}
       >
@@ -62,10 +62,12 @@ test("Throws exception if errorRenderFunc is not defined and wrapper has bad req
 
 test("Throws exception if errorRenderFunc returns undefined and wrapper has bad request.", () => {
   try {
-    const wrapper = shallow(
+    shallow(
       <RequestStateWrapper
         requests={[errorRequest]}
-        errorRenderFunc={()=>{return undefined;}}
+        errorRenderFunc={() => {
+          return undefined;
+        }}
       >
         <div className='child'>I am the child</div>
       </RequestStateWrapper>
@@ -79,7 +81,7 @@ test("Renders errorRenderFunc if wrapper has bad request.", () => {
   const wrapper = shallow(
     <RequestStateWrapper
       requests={[errorRequest]}
-      errorRenderFunc={(requests)=>{
+      errorRenderFunc={(requests) => {
         expect(requests).toEqual([errorRequest]);
         return <div className='error'>Error!</div>;
       }}
