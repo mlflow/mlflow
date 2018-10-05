@@ -161,7 +161,7 @@ const wrapDeferred = (deferred, data) => {
   });
 };
 
-class ErrorWrapper {
+export class ErrorWrapper {
   constructor(xhr) {
     this.xhr = xhr;
   }

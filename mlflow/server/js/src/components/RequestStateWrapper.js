@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { getApis } from '../reducers/Reducers';
 import PropTypes from 'prop-types';
 
-class RequestStateWrapper extends Component {
+export class RequestStateWrapper extends Component {
   static propTypes = {
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
