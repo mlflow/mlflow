@@ -8,29 +8,10 @@ import requests
 
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 
 
 RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
-
-
-class RestException(MlflowException):
-    """Exception thrown on 400-level errors from the REST API"""
-    def __init__(self, json):
-        message = json['error_code']
-        if 'message' in json:
-            message = "%s: %s" % (message, json['message'])
-        super(RestException, self).__init__(message)
-        self.json = json
-
-
-def check_response_status(response):
-    """
-    Raises an MlflowException if the response's status was not 200.
-    """
-    if response.status_code != 200:
-        raise MlflowException("The API request to URL %s failed with status code %s."
-                              % (response.url, response.status_code))
 
 
 def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):

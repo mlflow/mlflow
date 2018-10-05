@@ -5,8 +5,8 @@ import numpy
 import pytest
 
 from mlflow.utils.rest_utils import NumpyEncoder, http_request, http_request_safe,\
-    MlflowHostCreds, RestException
-from mlflow.exceptions import MlflowException
+    MlflowHostCreds
+from mlflow.exceptions import MlflowException, RestException
 
 
 @mock.patch('requests.request')
