@@ -8,7 +8,7 @@ from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, Ru
 from mlflow.entities.run_info import check_run_is_active, \
     check_run_is_deleted
 from mlflow.exceptions import MlflowException
-import mlflow.protos.databricks_pb2 as databricks_pb2 
+import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name
@@ -92,7 +92,7 @@ class FileStore(AbstractStore):
             if len(exp_list) > 0:
                 return exp_list[0]
         if assert_exists:
-            raise MlflowException('Experiment {} does not exist.'.format(experiment_id), 
+            raise MlflowException('Experiment {} does not exist.'.format(experiment_id),
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         return None
 
@@ -152,11 +152,11 @@ class FileStore(AbstractStore):
     def create_experiment(self, name, artifact_location=None):
         self._check_root_dir()
         if name is None or name == "":
-            raise MlflowException("Invalid experiment name '%s'" % name, 
+            raise MlflowException("Invalid experiment name '%s'" % name,
                                   databricks_pb2.INVALID_PARAMETER_VALUE)
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
-            raise MlflowException("Experiment '%s' already exists." % experiment.name, 
+            raise MlflowException("Experiment '%s' already exists." % experiment.name,
                                   databricks_pb2.RESOURCE_ALREADY_EXISTS)
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
@@ -321,7 +321,7 @@ class FileStore(AbstractStore):
         if run_dir is not None:
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
             return _read_persisted_run_info_dict(meta)
-        raise MlflowException("Run '%s' not found" % run_uuid, 
+        raise MlflowException("Run '%s' not found" % run_uuid,
                               databricks_pb2.RESOURCE_DOES_NOT_EXIST)
 
     def _get_run_files(self, run_uuid, resource_type):
@@ -339,7 +339,7 @@ class FileStore(AbstractStore):
                     databricks_pb2.INVALID_PARAMETER_VALUE)
         run_dir = self._find_run_root(run_uuid)
         if run_dir is None:
-            raise MlflowException("Run '%s' not found" % run_uuid, 
+            raise MlflowException("Run '%s' not found" % run_uuid,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         source_dirs = find(run_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
