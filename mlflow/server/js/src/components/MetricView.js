@@ -68,7 +68,7 @@ class MetricView extends Component {
               <Tooltip isAnimationActive={false} labelStyle={{display: "none"}}/>
               <XAxis dataKey="index"/>
               <CartesianGrid strokeDasharray="3 3"/>
-              <Legend verticalAlign="bottom" payload={this.getLegendPayload('square')} />
+              <Legend verticalAlign="bottom" payload={this.getLegendPayload('rect')} />
               <YAxis/>
               {runUuids.map((uuid, idx) => (
                 <Bar dataKey={uuid}
