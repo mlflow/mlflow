@@ -642,10 +642,6 @@ const styles = {
   tableToggleButtonGroup: {
     marginLeft: '16px',
   },
-  metricParamCellContent: {
-    display: "inline-block",
-    maxWidth: 120,
-  },
 };
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));

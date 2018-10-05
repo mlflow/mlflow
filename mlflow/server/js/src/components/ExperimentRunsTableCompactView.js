@@ -21,6 +21,10 @@ const styles = {
   sortKeyName: {
     display: "inline-block"
   },
+  metricParamCellContent: {
+    display: "inline-block",
+    maxWidth: 120,
+  },
 };
 
 /**
@@ -64,7 +68,7 @@ class ExperimentRunsTableCompactView extends Component {
     this.setState({ hoverState: {isParam, isMetric, key} });
   }
 
-  getRow({ idx, isParent, hasExpander, expanderOpen, isHidden, childrenIds }) {
+  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
       runInfos,
       paramsList,
@@ -84,11 +88,11 @@ class ExperimentRunsTableCompactView extends Component {
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
-      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), isHidden),
+      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), isHidden),
+        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds)),
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, isHidden)
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent)
       .forEach((col) => rowContents.push(col));
     const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
@@ -227,7 +231,6 @@ class ExperimentRunsTableCompactView extends Component {
       sortValue,
       contents: rowContents,
       isChild: !isParent,
-      isHidden,
     };
   }
 

@@ -37,7 +37,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     runsExpanded: PropTypes.object.isRequired,
   };
 
-  getRow({ idx, isParent, hasExpander, expanderOpen, isHidden, childrenIds }) {
+  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
       runInfos,
       paramsList,
@@ -118,7 +118,6 @@ class ExperimentRunsTableMultiColumnView extends Component {
       sortValue: sortValue,
       contents: rowContents,
       isChild: !isParent,
-      isHidden,
     };
   }
 
@@ -195,7 +194,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((cell) => columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
-    return (<Table hover>
+    return (<Table className="ExperimentViewMultiColumn" hover>
       <colgroup span="8"/>
       <colgroup span={paramKeyList.length}/>
       <colgroup span={metricKeyList.length}/>

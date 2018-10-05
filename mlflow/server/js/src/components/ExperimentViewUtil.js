@@ -291,11 +291,12 @@ export default class ExperimentViewUtil {
       mergedRows.push(r);
       const childrenIdxs = parentIdToChildren[runId];
       if (childrenIdxs) {
-        const isHidden = !ExperimentViewUtil.isExpanderOpen(runsExpanded, runId);
-        const childrenRows = childrenIdxs.map((idx) =>
-          getRow({ idx, isParent: false, hasExpander: false, isHidden }));
-        ExperimentViewUtil.sortRows(childrenRows, sortState);
-        mergedRows.push(...childrenRows);
+        if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
+          const childrenRows = childrenIdxs.map((idx) =>
+            getRow({ idx, isParent: false, hasExpander: false }));
+          ExperimentViewUtil.sortRows(childrenRows, sortState);
+          mergedRows.push(...childrenRows);
+        }
       }
     });
     return mergedRows;
@@ -308,7 +309,7 @@ export default class ExperimentViewUtil {
         <tr
           key={row.key}
           style={style}
-          className={classNames('ExperimentView-row', {'ExperimentView-hiddenRow': row.isHidden})}
+          className='ExperimentView-row'
         >
           {row.contents}
         </tr>

@@ -132,5 +132,10 @@ if __name__ == '__main__':
             loop_2_run_id = run_2.info.run_uuid
     client.set_tag(loop_1_run_id, 'mlflow.parentRunId', loop_2_run_id)
 
+    # Lot's of children
+    with mlflow.start_run(source_name='parent-with-lots-of-children'):
+        for i in range(100):
+            with mlflow.start_run(source_name='child-{}'.format(i), nested=True):
+                pass
 
 
