@@ -226,11 +226,15 @@ export default class ExperimentViewUtil {
     }
     if (expanderOpen) {
       return (
-        <td onClick={onExpandBound}><i className="ExperimentView-expander far fa-minus-square"/></td>
+        <td onClick={onExpandBound}>
+          <i className="ExperimentView-expander far fa-minus-square"/>
+        </td>
       );
     } else {
       return (
-        <td onClick={onExpandBound}><i className="ExperimentView-expander far fa-plus-square"/></td>
+        <td onClick={onExpandBound}>
+          <i className="ExperimentView-expander far fa-plus-square"/>
+        </td>
       );
     }
   }
