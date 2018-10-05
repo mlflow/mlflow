@@ -6,7 +6,10 @@ import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
+import { ViewType } from '../sdk/MlflowEnums';
 
+
+export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
 class ExperimentPage extends Component {
   constructor(props) {
@@ -27,6 +30,7 @@ class ExperimentPage extends Component {
     searchRunsRequestId: getUUID(),
     searchInput: '',
     lastExperimentId: undefined,
+    lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
   };
 
   static getDerivedStateFromProps(props, state) {
@@ -38,18 +42,28 @@ class ExperimentPage extends Component {
         searchRunsRequestId: getUUID(),
         searchInput: '',
         lastExperimentId: props.experimentId,
+        lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
       props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
-      props.dispatch(searchRunsApi([props.experimentId], [], newState.searchRunsRequestId));
+      props.dispatch(searchRunsApi(
+        [props.experimentId],
+        [],
+        lifecycleFilterToRunViewType(newState.lifecycleFilter),
+        newState.searchRunsRequestId));
       return newState;
     }
     return null;
   }
 
-  onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput) {
-    this.setState({paramKeyFilter, metricKeyFilter, searchInput});
+  onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput, lifecycleFilterInput) {
+    this.setState({
+      paramKeyFilter,
+      metricKeyFilter,
+      searchInput,
+      lifecycleFilter: lifecycleFilterInput
+    });
     const searchRunsRequestId = this.props.dispatchSearchRuns(
-      this.props.experimentId, andedExpressions);
+      this.props.experimentId, andedExpressions, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
   }
 
@@ -62,6 +76,7 @@ class ExperimentPage extends Component {
             metricKeyFilter={this.state.metricKeyFilter}
             experimentId={this.props.experimentId}
             searchRunsRequestId={this.state.searchRunsRequestId}
+            lifecycleFilter={this.state.lifecycleFilter}
             onSearch={this.onSearch}
             searchInput={this.state.searchInput}
           />
@@ -83,16 +98,24 @@ const mapStateToProps = (state, ownProps) => {
   return { experimentId: parseInt(match.params.experimentId, 10) };
 };
 
-// eslint-disable-next-line no-unused-vars
-const mapDispatchToProps = (dispatch, ownProps) => {
+const mapDispatchToProps = (dispatch) => {
   return {
     dispatch,
-    dispatchSearchRuns: (experimentId, andedExpressions) => {
+    dispatchSearchRuns: (experimentId, andedExpressions, lifecycleFilterInput) => {
       const requestId = getUUID();
-      dispatch(searchRunsApi([experimentId], andedExpressions, requestId));
+      dispatch(searchRunsApi([experimentId], andedExpressions,
+        lifecycleFilterToRunViewType(lifecycleFilterInput), requestId));
       return requestId;
     }
   };
+};
+
+const lifecycleFilterToRunViewType = (lifecycleFilter) => {
+  if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
+    return ViewType.ACTIVE_ONLY;
+  } else {
+    return ViewType.DELETED_ONLY;
+  }
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(ExperimentPage);

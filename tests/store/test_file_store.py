@@ -13,6 +13,7 @@ from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
 
@@ -190,6 +191,8 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.DELETED_LIFECYCLE)
 
         # restore it
         fs.restore_experiment(exp_id)
@@ -202,6 +205,8 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.ACTIVE_LIFECYCLE)
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
@@ -213,6 +218,15 @@ class TestFileStore(unittest.TestCase):
         assert fs.get_run(run_id).info.lifecycle_stage == 'deleted'
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == 'active'
+
+    def test_create_run_in_deleted_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        # delete it
+        fs.delete_experiment(exp_id)
+        with pytest.raises(Exception):
+            fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name',
+                          0, None, [], None)
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
@@ -402,3 +416,11 @@ class TestFileStore(unittest.TestCase):
             fs.log_metric(run_id, Metric('a', 0.0, timestamp=0))
         with pytest.raises(MlflowException):
             fs.log_param(run_id, Param('a', 'b'))
+
+    def test_create_run_with_parent_id(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
+                            'entry_point_name', 0, None, [], 'test_parent_run_id')
+        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == 'test_parent_run_id'
+                    for t in fs.get_all_tags(run.info.run_uuid)])

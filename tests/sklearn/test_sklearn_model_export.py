@@ -18,7 +18,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     with open(path, "rb") as f:
         return pickle.load(f)
 

@@ -69,7 +69,26 @@
   margin-top: 16px;
 }
 
-.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search {
+.ExperimentView-search {
+  display: table;
+  width: 100%;
+}
+
+.ExperimentView-search-input {
+  display: table-cell;
+  width: auto;
+}
+
+.ExperimentView-lifecycle-input {
+  display: table-cell;
+  width: 100px;
+}
+
+.ExperimentView-lifecycle-button {
+  width: 100px;
+}
+
+.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
   padding-right: 16px;
 }
 
@@ -116,14 +135,17 @@ span.error-message {
 
 .metric-filler-bg {
   position: relative;
+  background-color: #f7f7f7;
+  width: 50px;
+  display: inline-block;
 }
 
 .metric-filler-fg {
   background-color: #def1ff;
   position: absolute;
-  left: -3px;
   top: -1px;
   height: 22px;
+  display: inline-block;
 }
 
 .metric-text {
@@ -142,22 +164,49 @@ span.error-message {
           user-select: none;
 }
 
-.ExperimentView th.sortable::after {
-  content: " ";
-  font-size: 0;
+.ExperimentView .metric-param-sort-toggle {
+  color: #888;
+  cursor: pointer;
+}
+
+.ExperimentView .metric-param-name {
+  font-weight: bold;
+}
+
+.ExperimentView .metric-param-value {
+  margin-left: 4px;
+}
+
+.ExperimentView .highlighted {
+  border-radius: 5px;
+  background-color: rgba(255, 242, 172, 0.5);
+  color: black;
+}
+
+/** Container with a max width & text-truncation for use in the experiment runs table */
+.ExperimentView .run-table-container {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+
+.ExperimentView .metric-param-container-cell {
+  min-width: 280px;
+}
+
+.ExperimentView .metric-param-cell {
   display: inline-block;
-  margin: 0 0 0 4px;
-  border-style: solid;
-  border-color: transparent;
-  border-width: 0 5px 8.7px 5px;
+  width: 250px;
+  padding: 2px;
 }
 
-.ExperimentView th.sorted.asc::after {
-  border-color: transparent transparent #888 transparent;
-  border-width: 0 5px 8.7px 5px;
+.ExperimentView .metric-param-content {
+  padding: 4px;
 }
 
-.ExperimentView th.sorted.desc::after {
-  border-color: #888 transparent transparent transparent;
-  border-width: 8.7px 5px 0 5px;
+.ExperimentView-expander:hover {
+  cursor: pointer;
 }

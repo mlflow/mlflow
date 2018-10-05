@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "bytes": "3.0.0",
+    "classnames": "^2.2.6",
     "cookie": "0.3.1",
     "dateformat": "3.0.3",
     "draft-js": "^0.10.5",
@@ -15,6 +16,7 @@
     "prop-types": "15.6.1",
     "qs": "6.5.2",
     "react": "^16.3.2",
+    "react-app-rewire-polyfills": "^0.2.0",
     "react-bootstrap": "0.32.1",
     "react-dom": "^16.3.2",
     "react-mde": "5.8.0",
@@ -30,6 +32,7 @@
     "recharts": "1.0.0-beta.10",
     "redux": "3.7.2",
     "redux-promise-middleware": "5.0.0",
+    "redux-thunk": "^2.3.0",
     "sanitize-html": "^1.18.5",
     "showdown": "^1.8.6",
     "url-parse": "1.4.3",

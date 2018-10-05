@@ -70,6 +70,9 @@ class Utils {
    * Format timestamps from millisecond epoch time.
    */
   static formatTimestamp(timestamp) {
+    if (timestamp === undefined) {
+      return '(unknown)';
+    }
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
     return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
@@ -231,6 +234,14 @@ class Utils {
       return `Request Failed: ${xhr.statusText}`;
     }
     return 'Unknown Error';
+  }
+
+  static pluralize(word, quantity) {
+    if (quantity > 1) {
+      return word + 's';
+    } else {
+      return word;
+    }
   }
 }
 

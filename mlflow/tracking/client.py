@@ -38,7 +38,7 @@ class MlflowClient(object):
 
     def create_run(self, experiment_id, user_id=None, run_name=None, source_type=None,
                    source_name=None, entry_point_name=None, start_time=None,
-                   source_version=None, tags=None):
+                   source_version=None, tags=None, parent_run_id=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -63,6 +63,7 @@ class MlflowClient(object):
             start_time=start_time or int(time.time() * 1000),
             source_version=source_version,
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
+            parent_run_id=parent_run_id,
         )
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
@@ -139,7 +140,7 @@ class MlflowClient(object):
         Set a tag on the run ID. Value is converted to a string.
         """
         _validate_tag_name(key)
-        tag = RunTag(key, value)
+        tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):

@@ -140,7 +140,7 @@ A ``python_function`` model directory must contain an ``MLmodel`` file in its ro
      (for example, ``mlflow.sklearn``) importable via ``importlib.import_module``.
      The imported module must contain a function with the following signature:
 
-          load_pyfunc(path: string) -> <pyfunc model>
+          _load_pyfunc(path: string) -> <pyfunc model>
 
      The path argument is specified by the ``data`` parameter and may refer to a file or directory.
 
@@ -208,7 +208,7 @@ The ``mleap`` model flavor supports saving models using the MLeap persistence me
 PyTorch (``pytorch``)
 ^^^^^^^^^^^^^^^^^^^^^
 
-The ``pytorch`` model flavor enables logging and loading PyTorch models. Model is completely stored in `.pth` format using `torch.save(model)` method. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``load_pyfunc()``. For more information, see :py:mod:`mlflow.pytorch`. 
+The ``pytorch`` model flavor enables logging and loading PyTorch models. Model is completely stored in `.pth` format using `torch.save(model)` method. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model``. The saved model can then be loaded for inference via ``mlflow.pyfunc.load_pyfunc()``. For more information, see :py:mod:`mlflow.pytorch`.
 
 Scikit-learn (``sklearn``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -232,7 +232,7 @@ MLflow. For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model`` and then load the saved model for inference using ``load_pyfunc``. For more information, see :py:mod:`mlflow.tensorflow`.
+The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model`` and then load the saved model for inference using ``mlflow.pyfunc.load_pyfunc``. For more information, see :py:mod:`mlflow.tensorflow`.
 
 Custom Flavors
 --------------
@@ -299,9 +299,9 @@ Model export example:
 
 .. code:: bash
 
-    az ml set env <local-env> - set environment to local deployment
+    az ml env set -n <local-env-name> -g <local-env-resource-group> - set environment to local deployment
     mlflow azureml deploy <parameters> - deploy locally to test the model
-    az ml set env <cluster-env> - set environment to cluster
+    az ml env set -n <cluster-env-name> -g <cluster-env-resource-group> - set environment to cluster
     mlflow azureml deploy <parameters> - deploy to the cloud
 
 For more info, see:

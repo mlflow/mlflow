@@ -51,6 +51,14 @@ LIST_ARTIFACTS_RESPONSE = {
     }]
 }
 
+LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
+    'files': [{
+        'path': '/test/a.txt',
+        'is_dir': False,
+        'file_size': 0,
+    }]
+}
+
 
 class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
@@ -146,6 +154,10 @@ class TestDbfsArtifactRepository(object):
             assert artifacts[1].path == 'dir'
             assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
+            # Calling list_artifacts() on a path that's a file should return an empty list
+            http_request_mock.return_value.text = json.dumps(LIST_ARTIFACTS_SINGLE_FILE_RESPONSE)
+            list_on_file = dbfs_artifact_repo.list_artifacts("a.txt")
+            assert len(list_on_file) == 0
 
     def test_download_artifacts(self, dbfs_artifact_repo):
         with mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_is_dir') as is_dir_mock,\

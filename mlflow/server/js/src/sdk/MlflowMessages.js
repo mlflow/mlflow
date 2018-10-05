@@ -5,7 +5,7 @@
  *
  * @NOTE(dli) 12-21-2016
  *   This file is generated. For now, it is a snapshot of the proto messages as of
- *   Jun 3, 2018 11:41:31 AM. We will update the generation pipeline to actually
+ *   Sep 17, 2018 6:48:22 PM. We will update the generation pipeline to actually
  *   place these generated records in the correct location shortly.
  */
 
@@ -139,8 +139,11 @@ export const RunInfo = Immutable.Record({
   // optional STRING
   entry_point_name: undefined,
 
-  // repeated RunTag
-  tags: Immutable.List(),
+  // optional STRING
+  artifact_uri: undefined,
+
+  // optional STRING
+  lifecycle_stage: undefined,
 }, 'RunInfo');
 
 /**
@@ -150,10 +153,6 @@ export const RunInfo = Immutable.Record({
  */
 RunInfo.fromJsReviver = function fromJsReviver(key, value) {
   switch (key) {
-    case 'tags':
-      return Immutable.List(value.map((element) =>
-        RunTag.fromJs(element)
-      ));
     default:
       return Immutable.fromJS(value);
   }
@@ -194,6 +193,12 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   getEntryPointName() {
     return this.entry_point_name !== undefined ? this.entry_point_name : '';
   },
+  getArtifactUri() {
+    return this.artifact_uri !== undefined ? this.artifact_uri : '';
+  },
+  getLifecycleStage() {
+    return this.lifecycle_stage !== undefined ? this.lifecycle_stage : '';
+  },
 });
 
 /**
@@ -214,6 +219,9 @@ export const RunData = Immutable.Record({
 
   // repeated Param
   params: Immutable.List(),
+
+  // repeated RunTag
+  tags: Immutable.List(),
 }, 'RunData');
 
 /**
@@ -231,6 +239,11 @@ RunData.fromJsReviver = function fromJsReviver(key, value) {
     case 'params':
       return Immutable.List(value.map((element) =>
         Param.fromJs(element)
+      ));
+
+    case 'tags':
+      return Immutable.List(value.map((element) =>
+        RunTag.fromJs(element)
       ));
     default:
       return Immutable.fromJS(value);
@@ -309,6 +322,15 @@ export const Experiment = Immutable.Record({
 
   // optional STRING
   artifact_location: undefined,
+
+  // optional STRING
+  lifecycle_stage: undefined,
+
+  // optional INT64
+  last_update_time: undefined,
+
+  // optional INT64
+  creation_time: undefined,
 }, 'Experiment');
 
 /**
@@ -334,6 +356,15 @@ const extended_Experiment = ModelBuilder.extend(Experiment, {
   getArtifactLocation() {
     return this.artifact_location !== undefined ? this.artifact_location : '';
   },
+  getLifecycleStage() {
+    return this.lifecycle_stage !== undefined ? this.lifecycle_stage : '';
+  },
+  getLastUpdateTime() {
+    return this.last_update_time !== undefined ? this.last_update_time : 0;
+  },
+  getCreationTime() {
+    return this.creation_time !== undefined ? this.creation_time : 0;
+  },
 });
 
 /**
@@ -351,6 +382,9 @@ Experiment.fromJs = function fromJs(pojo) {
 export const CreateExperiment = Immutable.Record({
   // required STRING
   name: undefined,
+
+  // optional STRING
+  artifact_location: undefined,
 }, 'CreateExperiment');
 
 /**
@@ -370,6 +404,9 @@ const extended_CreateExperiment = ModelBuilder.extend(CreateExperiment, {
   getName() {
     return this.name !== undefined ? this.name : '';
   },
+  getArtifactLocation() {
+    return this.artifact_location !== undefined ? this.artifact_location : '';
+  },
 });
 
 /**
@@ -385,7 +422,8 @@ CreateExperiment.fromJs = function fromJs(pojo) {
 };
 
 export const ListExperiments = Immutable.Record({
-
+  // optional ViewType
+  view_type: undefined,
 }, 'ListExperiments');
 
 /**
@@ -402,6 +440,9 @@ ListExperiments.fromJsReviver = function fromJsReviver(key, value) {
 
 const extended_ListExperiments = ModelBuilder.extend(ListExperiments, {
 
+  getViewType() {
+    return this.view_type !== undefined ? this.view_type : 'ACTIVE_ONLY';
+  },
 });
 
 /**
@@ -648,7 +689,7 @@ const extended_SearchExpression = ModelBuilder.extend(SearchExpression, {
   getMetric() {
     return this.metric !== undefined ? this.metric : MetricSearchExpression.fromJs({});
   },
-  getParam() {
+  getParameter() {
     return this.parameter !== undefined ? this.parameter : ParameterSearchExpression.fromJs({});
   },
 });
@@ -755,6 +796,9 @@ export const SearchRuns = Immutable.Record({
 
   // repeated SearchExpression
   anded_expressions: Immutable.List(),
+
+  // optional ViewType
+  run_view_type: 'ACTIVE_ONLY',
 }, 'SearchRuns');
 
 /**
@@ -778,6 +822,9 @@ SearchRuns.fromJsReviver = function fromJsReviver(key, value) {
 
 const extended_SearchRuns = ModelBuilder.extend(SearchRuns, {
 
+  getRunViewType() {
+    return this.run_view_type !== undefined ? this.run_view_type : 'ACTIVE_ONLY';
+  },
 });
 
 /**
@@ -882,6 +929,47 @@ ListArtifacts.fromJs = function fromJs(pojo) {
   return new extended_ListArtifacts(pojoWithNestedImmutables);
 };
 
+export const GetArtifact = Immutable.Record({
+  // optional STRING
+  run_uuid: undefined,
+
+  // optional STRING
+  path: undefined,
+}, 'GetArtifact');
+
+/**
+ * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
+ * This reviver allow us to keep the Immutable.Record type when serializing JSON message
+ * into nested Immutable Record class.
+ */
+GetArtifact.fromJsReviver = function fromJsReviver(key, value) {
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
+};
+
+const extended_GetArtifact = ModelBuilder.extend(GetArtifact, {
+
+  getRunUuid() {
+    return this.run_uuid !== undefined ? this.run_uuid : '';
+  },
+  getPath() {
+    return this.path !== undefined ? this.path : '';
+  },
+});
+
+/**
+ * This is a customized fromJs function used to translate plain old Javascript
+ * objects into this Immutable Record.  Example usage:
+ *
+ *   // The pojo is your javascript object
+ *   const record = GetArtifact.fromJs(pojo);
+ */
+GetArtifact.fromJs = function fromJs(pojo) {
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, GetArtifact.fromJsReviver);
+  return new extended_GetArtifact(pojoWithNestedImmutables);
+};
 
 export const GetMetricHistory = Immutable.Record({
   // required STRING
@@ -966,3 +1054,4 @@ RunTag.fromJs = function fromJs(pojo) {
   const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, RunTag.fromJsReviver);
   return new extended_RunTag(pojoWithNestedImmutables);
 };
+

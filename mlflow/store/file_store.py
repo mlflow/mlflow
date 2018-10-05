@@ -16,7 +16,7 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      read_yaml, find, read_file_lines, read_file, build_path,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all)
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 from mlflow.utils.search_utils import does_run_match_clause
 
@@ -79,7 +79,7 @@ class FileStore(AbstractStore):
         if not is_directory(self.root_directory):
             raise Exception("'%s' is not a directory." % self.root_directory)
 
-    def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL):
+    def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL, assert_exists=False):
         parents = []
         if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
             parents.append(self.root_directory)
@@ -88,12 +88,14 @@ class FileStore(AbstractStore):
         for parent in parents:
             exp_list = find(parent, str(experiment_id), full_path=True)
             if len(exp_list) > 0:
-                return exp_list
-        return []
+                return exp_list[0]
+        if assert_exists:
+            raise Exception('Experiment {} does not exist.'.format(experiment_id))
+        return None
 
     def _get_run_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
-        return build_path(self._get_experiment_path(experiment_id)[0], run_uuid)
+        return build_path(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
@@ -140,7 +142,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
-        experiment = Experiment(experiment_id, name, artifact_uri)
+        experiment = Experiment(experiment_id, name, artifact_uri, Experiment.ACTIVE_LIFECYCLE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
@@ -158,14 +160,18 @@ class FileStore(AbstractStore):
         return self._create_experiment_with_id(name, experiment_id, artifact_location)
 
     def _has_experiment(self, experiment_id):
-        return len(self._get_experiment_path(experiment_id)) > 0
+        return self._get_experiment_path(experiment_id) is not None
 
     def _get_experiment(self, experiment_id, view_type=ViewType.ALL):
         self._check_root_dir()
-        experiment_dirs = self._get_experiment_path(experiment_id, view_type)
-        if len(experiment_dirs) == 0:
+        experiment_dir = self._get_experiment_path(experiment_id, view_type)
+        if experiment_dir is None:
             raise Exception("Could not find experiment with ID %s" % experiment_id)
-        meta = read_yaml(experiment_dirs[0], FileStore.META_DATA_FILE_NAME)
+        meta = read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
+        if experiment_dir.startswith(self.trash_folder):
+            meta['lifecycle_stage'] = Experiment.DELETED_LIFECYCLE
+        else:
+            meta['lifecycle_stage'] = Experiment.ACTIVE_LIFECYCLE
         return Experiment.from_dictionary(meta)
 
     def get_experiment(self, experiment_id):
@@ -185,20 +191,20 @@ class FileStore(AbstractStore):
         return None
 
     def delete_experiment(self, experiment_id):
-        experiment_dirs = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
-        if len(experiment_dirs) == 0:
+        experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
+        if experiment_dir is None:
             raise Exception("Could not find experiment with ID %s" % experiment_id)
-        mv(experiment_dirs[0], self.trash_folder)
+        mv(experiment_dir, self.trash_folder)
 
     def restore_experiment(self, experiment_id):
-        experiment_dirs = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
-        if len(experiment_dirs) == 0:
+        experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
+        if experiment_dir is None:
             raise Exception("Could not find deleted experiment with ID %d" % experiment_id)
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
-        if len(conflict_experiment) > 0:
+        if conflict_experiment is not None:
             raise Exception("Cannot restore eperiment with ID %d. "
                             "An experiment with same ID already exists." % experiment_id)
-        mv(experiment_dirs[0], self.root_directory)
+        mv(experiment_dir, self.root_directory)
 
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
@@ -241,13 +247,17 @@ class FileStore(AbstractStore):
         return new_info
 
     def create_run(self, experiment_id, user_id, run_name, source_type,
-                   source_name, entry_point_name, start_time, source_version, tags):
+                   source_name, entry_point_name, start_time, source_version, tags, parent_run_id):
         """
         Creates a run with the specified attributes.
         """
-        if self.get_experiment(experiment_id) is None:
+        experiment = self.get_experiment(experiment_id)
+        if experiment is None:
             raise Exception("Could not create run under experiment with ID %s - no such experiment "
                             "exists." % experiment_id)
+        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+            raise Exception('Could not create run under non-active experiment with ID '
+                            '%s.' % experiment_id)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
@@ -266,9 +276,17 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
+        if parent_run_id:
+            self.set_tag(run_uuid, RunTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
         if run_name:
             self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
+
+    def _make_experiment_dict(self, experiment):
+        # Don't persist lifecycle_stage since it's inferred from the ".trash" folder.
+        experiment_dict = dict(experiment)
+        del experiment_dict['lifecycle_stage']
+        return experiment_dict
 
     def get_run(self, run_uuid):
         """
@@ -394,7 +412,7 @@ class FileStore(AbstractStore):
 
     def _list_run_uuids(self, experiment_id, run_view_type):
         self._check_root_dir()
-        experiment_dir = self._get_experiment_path(experiment_id)[0]
+        experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
         run_uuids = list_all(experiment_dir, os.path.isdir, full_path=False)
         if run_view_type == ViewType.ALL:
             return run_uuids

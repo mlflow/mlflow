@@ -39,11 +39,11 @@ What You'll Need
 
       To run this tutorial, you'll need to:
 
-       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "R/mlflow")``)
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")``)
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
-       - `setwd()` into the ``example`` directory within your clone of MLflow - we'll use this working
+       - `setwd()` into the directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
          so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
          MLflow.
@@ -190,13 +190,13 @@ Training the Model
 
       .. code:: R
 
-          mlflow_run(uri = "tutorial", entry_point = "train.R")
+          mlflow_run(uri = "examples/r_wine", entry_point = "train.R")
 
       Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
       .. code:: R
 
-          mlflow_run(uri = "", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
+          mlflow_run(uri = "examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
 
       Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -235,7 +235,7 @@ Comparing the Models
       You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
       returns all the models with root mean squared error less than 0.8. For more complex manipulations,
       you can download this table as a CSV and use your favorite data munging software to analyze it.
-      
+
 Packaging the Training Code
 ---------------------------
 
@@ -335,10 +335,9 @@ Packaging the Training Code
       .. code:: R
 
         mlflow_run(
-          "git@github.com:rstudio/mlflow-example.git",
           "train.R",
-          param_list = list(alpha = 0.2),
-          restore = TRUE
+          "https://github.com/rstudio/mlflow-example",
+          param_list = list(alpha = 0.2)
         )
 
 Serving the Model
@@ -425,7 +424,7 @@ Serving the Model
 
       .. code:: R
 
-          mlflow_rfunc_serve("mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model")
+          mlflow_rfunc_serve(model_path = "model", run_uuid = "1bf3cca7f3814d8fac7be7874de1046d")
 
       This will initialize a REST server and open a `swagger <https://swagger.io/>`_ interface to perform predicitons against
       the REST API:

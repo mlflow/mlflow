@@ -91,6 +91,10 @@ directory. The URI defaults to ``mlruns``.
 :py:func:`mlflow.create_experiment` creates a new experiment and returns its ID. Runs can be
 launched under the experiment by passing the experiment ID to ``mlflow.start_run``.
 
+:py:func:`mlflow.set_experiment` sets an experiment as active. If the experiment does not exist,
+creates a new experiment. If you do not specify an experiment in :py:func:`mlflow.start_run`, new
+runs are launched under this experiment.
+
 :py:func:`mlflow.start_run` returns the currently active run (if one exists), or starts a new run
 and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager for the
 current run. You do not need to call ``start_run`` explicitly: calling one of the logging functions
@@ -306,7 +310,7 @@ SFTP Server
 To store artifacts in an SFTP server, specify a URI of the form ``sftp://user@host/path/to/directory``.
 You should configure the client to be able to log in to the SFTP server without a password over SSH (e.g. public key, identity file in ssh_config, etc.).
 
-The format ``sftp://pass:user@host/`` is supported for logging in. However, for safety reasons this is not recommended.
+The format ``sftp://user:pass@host/`` is supported for logging in. However, for safety reasons this is not recommended.
 
 When using this store, ``pysftp`` must be installed on both the server and the client. Run ``pip install pysftp`` to install the required package.
 

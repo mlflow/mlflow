@@ -6,37 +6,38 @@
 #' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param dependencies Optional vector of paths to dependency files
+#' @param r_dependencies Optional vector of paths to dependency files
 #'   to include in the model, as in \code{r-dependencies.txt}
 #'   or \code{conda.yaml}.
+#' @param conda_env Path to Conda dependencies file.
 #'
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(x, path = "model", dependencies = NULL) {
-  supported_deps <- list(
-    "r-dependencies.txt" = "r_dependencies",
-    "conda.yaml" = "conda_env"
-  )
-
-  if (!is.null(dependencies)) {
-    dep_file <- basename(dependencies)
-    if (!all(dep_file %in% names(supported_deps))) {
-      stop("Dependency ", dep_file, " is unsupported. Supported files: ", paste(names(supported_deps), collapse = ", "))
-    }
-  }
+mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=NULL) {
 
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
   flavor_spec <- list (
-    flavors = mlflow_save_flavor(x, path)
+    flavors = mlflow_save_flavor(x, path, r_dependencies, conda_env)
   )
-
-  for (dependency in dependencies) {
-    flavor_spec[[supported_deps[[basename(dependency)]]]] <- dependency
-  }
-
   mlflow_write_model_spec(path, flavor_spec)
+}
+
+#' Log Model
+#'
+#' Logs a model in the given run. Similar to `mlflow_save_model()`
+#' but stores model as an artifact within the active run.
+#'
+#' @param fn The serving function that will perform a prediction.
+#' @param artifact_path Destination path where this MLflow compatible model
+#'   will be saved.
+#'
+#' @export
+mlflow_log_model <- function(fn, artifact_path) {
+  temp_path <- fs::path_temp(artifact_path)
+  mlflow_save_model(fn, path = temp_path)
+  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
 }
 
 mlflow_timestamp <- function() {
@@ -51,7 +52,7 @@ mlflow_timestamp <- function() {
 
 mlflow_write_model_spec <- function(path, content) {
   content$time_created <- mlflow_timestamp()
-  content$run_id <- mlflow_active_run()$run_info$run_uuid
+  content$run_id <- active_run_id()
 
   write_yaml(
     purrr::compact(content),
@@ -59,36 +60,64 @@ mlflow_write_model_spec <- function(path, content) {
   )
 }
 
-mlflow_load_model <- function(model_path) {
+#' Generate prediction with MLflow model.
+#'
+#' @param model MLflow model.
+#' @param data Dataframe to be scored.
+#' @export
+mlflow_predict_model <- function(model, data) {
+   model %>% mlflow_predict_flavor(data)
+}
+
+#' Load MLflow Model.
+#'
+#' MLflow models can have multiple model flavors. Not all flavors / models can be loaded in R. This
+#' method will by default search for a flavor supported by R/mlflow.
+#'
+#' @param model_path "Path to the MLflow model. The path is relative to the run with the given
+#'        run-id or local filesystem path without run-id.
+#' @param run_id Optional MLflow run-id. If supplied model will be fetched from MLflow tracking
+#'        server.
+#' @param flavor Optional flavor specification. Can be used to load a particular flavor in case
+#'        there are multiple flavors available.
+#' @export
+mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
+  model_path <- resolve_model_path(model_path, run_id)
+  supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
+  available_flavors <- intersect(names(spec$flavors), supported_flavors)
 
-  model_flavors <- gsub("^r_", "", names(spec$flavors))
-
-  supported <- model_flavors %>%
-    Filter(function(e) paste("mlflow_load_flavor", e, sep = ".") %in% as.vector(methods(class = e)), .)
-
-  if ("crate" %in% model_flavors) {
-    supported <- c("crate", supported)
-  }
-
-  if (length(supported) == 0) {
+  if (length(available_flavors) == 0) {
     stop(
-      "Model must define r_crate flavor to be used from R. ",
+      "Model does not contain any flavor supported by mlflow/R. ",
       "Model flavors: ",
-      paste(model_flavors, collapse = ", "),
+      paste(names(spec$flavors), collapse = ", "),
       ". Supported flavors: ",
-      paste(
-        purrr::map_chr(model_flavors, ~ as.vector(methods(class = .x))),
-        collapse = ", "
-      )
-    )
+      paste(supported_flavors, collapse = ", "))
   }
 
-  supported_class <- supported[[1]]
+  if (!is.null(flavor)) {
+    if (!flavor %in% supported_flavors) {
+      stop("Invalid flavor.", paste("Supported flavors:",
+                              paste(supported_flavors, collapse = ", ")))
+    }
+    if (!flavor %in% available_flavors) {
+      stop("Model does not contain requested flavor. ",
+           paste("Available flavors:", paste(available_flavors, collapse = ", ")))
+    }
 
-  flavor_path <- fs::path(model_path, spec$flavors[[paste("r", supported_class, sep = "_")]]$model)
-  class(flavor_path) <- c(supported_class, class(flavor_path))
+    flavor <- flavor
+  } else {
+    if (length(available_flavors) > 1) {
+      warning(paste("Multiple model flavors available (", paste(available_flavors, collapse = ", "),
+                    " ).  loading flavor '", available_flavors[[1]], "'", ""))
+    }
 
+    flavor <- available_flavors[[1]]
+  }
+
+  flavor_path <- model_path
+  class(flavor_path) <- c(flavor, class(flavor_path))
   mlflow_load_flavor(flavor_path)
 }
 
@@ -154,8 +183,7 @@ mlflow_rfunc_predict <- function(
     if (!interactive()) message(prediction)
 
     prediction
-  }
-  else {
+  } else {
     switch(
       fs::path_ext(output_path),
       json = jsonlite::write_json(prediction, output_path),
@@ -167,11 +195,14 @@ mlflow_rfunc_predict <- function(
 
 resolve_model_path <- function(model_path, run_uuid) {
   if (!is.null(run_uuid)) {
-    mlflow_get_or_create_active_connection()
-    result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path, echo = FALSE)
-
+    result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path,
+                         echo = FALSE)
     gsub("\n", "", result$stdout)
   } else {
     model_path
   }
+}
+
+supported_model_flavors <- function() {
+  purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
 }

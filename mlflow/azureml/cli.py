@@ -15,7 +15,12 @@ from mlflow.utils import cli_args
 
 @click.group("azureml")
 def commands():
-    """Serve models on Azure ML."""
+    """
+    Serve models on Azure ML.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 
