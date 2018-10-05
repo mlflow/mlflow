@@ -22,7 +22,7 @@ const experimentsById = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(LIST_EXPERIMENTS_API): {
       let newState = Object.assign({}, state);
-      if (action.payload) {
+      if (action.payload && action.payload.experiments) {
         action.payload.experiments.forEach((eJson) => {
           const experiment = Experiment.fromJs(eJson);
           newState = Object.assign(newState, {[experiment.getExperimentId()]: experiment});
