@@ -13,6 +13,7 @@ SOURCE_VERSIONS = [
     'ccc76efe9ceb633710bbd7acf408bebe0095eb10'
 ]
 
+
 def log_metrics(metrics):
     for k, values in metrics.items():
         for v in values:
@@ -137,5 +138,3 @@ if __name__ == '__main__':
         for i in range(100):
             with mlflow.start_run(source_name='child-{}'.format(i), nested=True):
                 pass
-
-

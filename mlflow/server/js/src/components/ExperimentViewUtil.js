@@ -2,7 +2,6 @@ import React from 'react';
 import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
-import classNames from 'classnames';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 
 export default class ExperimentViewUtil {
