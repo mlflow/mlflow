@@ -181,3 +181,8 @@ table th {
   -ms-user-select: none;
   user-select: none;
 }
+
+img.center {
+  display: block;
+  margin: 0 auto;
+}

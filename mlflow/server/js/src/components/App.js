@@ -14,6 +14,7 @@ import AppErrorBoundary from './error-boundaries/AppErrorBoundary';
 import { connect } from 'react-redux';
 import HomePage from './HomePage';
 import ErrorModal from './modals/ErrorModal';
+import PageNotFoundView from './PageNotFoundView';
 
 class App extends Component {
   render() {
@@ -54,6 +55,7 @@ class App extends Component {
                 <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
             </div>
           </AppErrorBoundary>
+          <Route component={PageNotFoundView}/>
         </div>
       </Router>
     );
