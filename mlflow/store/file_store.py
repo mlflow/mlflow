@@ -333,10 +333,7 @@ class FileStore(AbstractStore):
         elif resource_type == "tag":
             subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
-            raise MlflowException(
-                    "Requested an unknown resource type from a run: {resource_type}".format(
-                        resource_type=resource_type),
-                    databricks_pb2.INVALID_PARAMETER_VALUE)
+            raise Exception("Looking for unknown resource under run.")
         run_dir = self._find_run_root(run_uuid)
         if run_dir is None:
             raise MlflowException("Run '%s' not found" % run_uuid,
