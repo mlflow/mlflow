@@ -90,6 +90,14 @@ class ExperimentPage extends Component {
   }
 }
 
+const mapStateToProps = (state, ownProps) => {
+  const { match } = ownProps;
+  if (match.url === "/") {
+    return { experimentId: 0 };
+  }
+  return { experimentId: parseInt(match.params.experimentId, 10) };
+};
+
 const mapDispatchToProps = (dispatch) => {
   return {
     dispatch,
@@ -110,4 +118,4 @@ const lifecycleFilterToRunViewType = (lifecycleFilter) => {
   }
 };
 
-export default connect(undefined, mapDispatchToProps)(ExperimentPage);
+export default connect(mapStateToProps, mapDispatchToProps)(ExperimentPage);

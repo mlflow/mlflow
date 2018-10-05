@@ -41,7 +41,7 @@ class RequestStateWrapper extends Component {
   render() {
     const { children } = this.props;
     if (this.state.shouldRender) {
-      return children;
+      return <div>{children}</div>;
     }
     if (this.state.shouldRenderError) {
       const errorRequests = RequestStateWrapper.getErrorRequests(this.props.requests);
