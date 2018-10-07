@@ -318,7 +318,11 @@ def _copy_project(src_path, dst_path=""):
     return mlflow_dir
 
 
-def _copy_file_or_tree(src, dst, dst_dir):
+def _copy_file_or_tree(src, dst, dst_dir=None):
+    if dst_dir is not None:
+        os.mkdir(os.path.join(dst, dst_dir))
+    else:
+        dst_dir = "."
     name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
     if dst_dir:
         os.mkdir(os.path.join(dst, dst_dir))
