@@ -51,24 +51,10 @@ Source: CRAN
 Version: 0.1-3
 Hash: c590d29e555926af053055e23ee79efb
 
-Package: carrier
-Source: github
-Version: 0.0.0.9000
-Hash: 734fd13bc5a7782b88e1df658d371171
-Requires: pryr, rlang
-GithubRepo: carrier
-GithubUsername: r-lib
-GithubRef: master
-GithubSha1: 2e1bd1410968d87b8d010531420873930b62be65
-RemoteHost: https://api.github.com
-RemoteRepo: carrier
-RemoteUsername: r-lib
-RemoteSha: 2e1bd1410968d87b8d010531420873930b62be65
-
 Package: cli
 Source: CRAN
-Version: 1.0.0
-Hash: f4239f89feb7ddc65821e4514e9734ae
+Version: 1.0.1
+Hash: a742a3229dbf7085c3a737af10e5065b
 Requires: assertthat, crayon
 
 Package: codetools
@@ -88,8 +74,8 @@ Hash: e3318ec2d42d15a38485bab047d114ba
 
 Package: digest
 Source: CRAN
-Version: 0.6.15
-Hash: 1f202ebd812ac7192be3739245746a13
+Version: 0.6.17
+Hash: 6bd8bf6c0430a024a994f2481c2d8516
 
 Package: evaluate
 Source: CRAN
@@ -109,18 +95,10 @@ Hash: 4df5ab2c8c35382dacab75d414da6748
 Requires: codetools, iterators
 
 Package: forge
-Source: github
+Source: CRAN
 Version: 0.1.0
-Hash: 09806d1bf8fbdc5a726a4efe300bdf47
+Hash: 40abe9d5fe241ac5d937831c087120fe
 Requires: rlang
-GithubRepo: forge
-GithubUsername: rstudio
-GithubRef: master
-GithubSha1: f84b834e06dc73bdad348480acc997e92f2540db
-RemoteHost: https://api.github.com
-RemoteRepo: forge
-RemoteUsername: rstudio
-RemoteSha: f84b834e06dc73bdad348480acc997e92f2540db
 
 Package: fs
 Source: CRAN
@@ -158,7 +136,7 @@ Requires: Rcpp, digest
 Package: httpuv
 Source: CRAN
 Version: 1.4.5
-Hash: a21b769562c800e73d417208d7b242ab
+Hash: c22431b27ffdbb4795cf16ccd64fdf17
 Requires: BH, Rcpp, later, promises
 
 Package: httr
@@ -185,8 +163,8 @@ Requires: evaluate, highr, markdown, stringr, yaml
 
 Package: later
 Source: CRAN
-Version: 0.7.3
-Hash: 087b02f5b287d252fc78a4489de3ff3b
+Version: 0.7.5
+Hash: c24487d2467d8f78dfa8fa8282211a51
 Requires: BH, Rcpp, rlang
 
 Package: lattice
@@ -211,21 +189,12 @@ Version: 0.5
 Hash: 463550cf44fb6f0a2359368f42eebe62
 
 Package: mlflow
-Source: github
-Version: 0.1.0
-Hash: dd22f58641fca8714810a3a24a9c2b4d
-Requires: aws.s3, carrier, forge, fs, git2r, httpuv, httr, jsonlite,
-    openssl, packrat, processx, purrr, reticulate, rlang, swagger,
-    withr, xml2, yaml
-GithubRepo: mlflow
-GithubUsername: rstudio
-GithubRef: master
-GithubSha1: 6afab6885b922da24ec195416a5c6e79d9ffbe5a
-RemoteHost: https://api.github.com
-RemoteRepo: mlflow
-RemoteUsername: rstudio
-RemoteSha: 6afab6885b922da24ec195416a5c6e79d9ffbe5a
-GithubSubdir: R/mlflow
+Source: CRAN
+Version: 0.7.0
+Hash: 8b0ed649fcb824b537e7caf1f92adc0a
+Requires: aws.s3, forge, fs, git2r, httpuv, httr, jsonlite, openssl,
+    packrat, processx, pryr, purrr, reticulate, rlang, swagger, withr,
+    xml2, yaml
 
 Package: openssl
 Source: CRAN
@@ -252,7 +221,7 @@ Requires: R6, assertthat, crayon, ps
 Package: promises
 Source: CRAN
 Version: 1.0.1
-Hash: 1e5d5469b95be6e1b6cd8c35e3bdea60
+Hash: f34f1ee49ac0dfaabb30a06b1ab014b2
 Requires: R6, Rcpp, later, magrittr, rlang
 
 Package: pryr
@@ -320,8 +289,8 @@ Requires: cli, crayon, pillar, rlang
 
 Package: tinytex
 Source: CRAN
-Version: 0.7
-Hash: dd8bee60e088d200d7d0f7bde5be4375
+Version: 0.8
+Hash: bf76759350cd2bfec401d8861a61ad66
 Requires: xfun
 
 Package: utf8
