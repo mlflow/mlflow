@@ -24,7 +24,7 @@ class CompareRunScatter extends Component {
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
-    runNames: PropTypes.arrayOf(String).isRequired,
+    runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
   constructor(props) {
@@ -170,7 +170,7 @@ class CompareRunScatter extends Component {
         <div className="panel panel-default scatter-tooltip">
           <div className="panel-heading">
             <h3 className="panel-title truncate-text single-line">
-              {this.props.runNames[i]}
+              {this.props.runDisplayNames[i]}
             </h3>
           </div>
           <div className="panel-body">

@@ -19,7 +19,12 @@ class CompareRunView extends Component {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
+    // Array of user-specified run names. Elements may be falsy (e.g. empty string or undefined) if
+    // a run was never given a name.
     runNames: PropTypes.arrayOf(String).isRequired,
+    // Array of names to use when displaying runs. No element in this array should be falsy;
+    // we expect this array to contain user-specified run names, or default display names
+    // ("Run <uuid>") for runs without names.
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
@@ -58,7 +63,10 @@ class CompareRunView extends Component {
                     className="meta-info"
                     key={runInfos[i].run_uuid}
                     >
-                      <div className="truncate-text single-line" style={{"width": "200px"}}>
+                      <div
+                        className="truncate-text single-line"
+                        style={styles.compareRunTableCellContents}
+                      >
                         {runName}
                       </div>
                     </td>);
@@ -105,7 +113,10 @@ class CompareRunView extends Component {
           </table>
         </div>
 
-        <CompareRunScatter runUuids={this.props.runUuids} runNames={this.props.runDisplayNames}/>
+        <CompareRunScatter
+          runUuids={this.props.runUuids}
+          runDisplayNames={this.props.runDisplayNames}
+        />
       </div>
     );
   }
@@ -125,7 +136,7 @@ class CompareRunView extends Component {
         <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
         {data[k].map((value, i) =>
           <td className="data-value" key={this.props.runInfos[i].run_uuid}>
-            <span className="truncate-text single-line" style={{"width": "200px"}}>
+            <span className="truncate-text single-line" style={styles.compareRunTableCellContents}>
               {value === undefined ? "" : formatter(value)}
             </span>
           </td>
@@ -134,6 +145,12 @@ class CompareRunView extends Component {
     });
   }
 }
+
+const styles = {
+  compareRunTableCellContents: {
+    maxWidth: '200px',
+  },
+};
 
 const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
