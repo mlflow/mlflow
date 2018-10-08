@@ -61,6 +61,7 @@ def _can_parse_as_json(string):
     except ValueError:
         return False
 
+
 def http_request_safe(host_creds, endpoint, **kwargs):
     """
     Wrapper around ``http_request`` that also verifies that the request succeeds with code 200.
