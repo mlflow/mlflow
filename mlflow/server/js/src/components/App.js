@@ -50,12 +50,9 @@ class App extends Component {
               { /* Since the experiment sidebar goes outside of the 80% width, put outside of div */ }
               <Route exact path={Routes.rootRoute} component={HomePage}/>
               <Route exact path={Routes.experimentPageRoute} component={HomePage}/>
-              { /* App-content ensures 80% width */ }
-              <div className="App-content">
-                  <Route exact path={Routes.runPageRoute} component={RunPage}/>
-                  <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
-                  <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
-              </div>
+              <Route exact path={Routes.runPageRoute} component={RunPage}/>
+              <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
+              <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
               <Route component={PageNotFoundView}/>
             </Switch>
           </AppErrorBoundary>

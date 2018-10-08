@@ -32,7 +32,7 @@ class RunPage extends Component {
 
   render() {
     return (
-      <div>
+      <div className='App-content'>
         <RequestStateWrapper
           requestIds={[this.state.getRunRequestId,
             this.state.listArtifactRequestId,
