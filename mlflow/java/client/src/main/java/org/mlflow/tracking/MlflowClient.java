@@ -133,6 +133,24 @@ public class MlflowClient {
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
+  /** Mark an experiment and associated runs, params, metrics, etc for deletion. */
+  public void deleteExperiment(long experimentId) {
+    String ijson = mapper.makeDeleteExperimentRequest(experimentId);
+    httpCaller.post("experiments/delete", ijson);
+  }
+
+  /** Restore an experiment marked for deletion. */
+  public void restoreExperiment(long experimentId) {
+    String ijson = mapper.makeRestoreExperimentRequest(experimentId);
+    httpCaller.post("experiments/restore", ijson);
+  }
+
+  /** Update an experiment's name. The new name must be unique. */
+  public void renameExperiment(long experimentId, String newName) {
+    String ijson = mapper.makeUpdateExperimentRequest(experimentId, newName);
+    httpCaller.post("experiments/update", ijson);
+  }
+
   /**
    * Deletes a run with the given ID.
    */
