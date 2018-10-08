@@ -40,7 +40,7 @@ What You'll Need
       To run this tutorial, you'll need to:
 
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
-       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")``)
+       - Install the MLflow package (via ``install.packages("mlflow")``)
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - `setwd()` into the directory within your clone of MLflow - we'll use this working
@@ -235,7 +235,7 @@ Comparing the Models
       You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
       returns all the models with root mean squared error less than 0.8. For more complex manipulations,
       you can download this table as a CSV and use your favorite data munging software to analyze it.
-
+      
 Packaging the Training Code
 ---------------------------
 

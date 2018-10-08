@@ -22,16 +22,16 @@ unlink("mlruns", recursive = T)
 
 ## Installation
 
-Install `mlflow` followed by installing the `mlflow` runtime as follows:
+Install `mlflow` from CRAN followed by installing the `mlflow` runtime as follows:
 
 ```{r eval=FALSE}
-devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
+install.packages("mlflow")
 mlflow::mlflow_install()
 ```
 
 Notice also that [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://conda.io/miniconda.html) need to be manually installed.
 
-### Development
+### Developemnt
 
 Install the `mlflow` package as follows:
 
