@@ -42,7 +42,7 @@ class HomeView extends Component {
             </div>
           </div>
           <div className="experiment-view-container">
-            { this.props.experimentId ?
+            { this.props.experimentId !== undefined ?
              <ExperimentPage experimentId={this.props.experimentId}/> :
              <NoExperimentView/>
             }
@@ -59,7 +59,10 @@ class HomeView extends Component {
                className="expander fa fa-chevron-right login-icon"/>
           </div>
           <div className="experiment-page-container">
-            <ExperimentPage experimentId={this.props.experimentId}/>
+            { this.props.experimentId !== undefined ?
+              <ExperimentPage experimentId={this.props.experimentId}/> :
+              <NoExperimentView/>
+            }
           </div>
         </div>
       );
