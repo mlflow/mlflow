@@ -95,10 +95,14 @@ class _TFWrapper(object):
     def __init__(self, sess, graph, signature_def):
         self.sess = sess
         self.graph = graph
+        # We assume that input keys in the signature definition correspond to input DataFrame column
+        # names
         self.input_tensor_mapping = {
                 tensor_column_name: graph.get_tensor_by_name(tensor_info.name)
                 for tensor_column_name, tensor_info in signature_def.inputs().items()
         }
+        # We assume that output keys in the signature definition correspond to output DataFrame
+        # column names
         self.output_tensors = {
                 sigdef_output: graph.get_tensor_by_name(tnsr_info.name)
                 for sigdef_output, tnsr_info in signature_def.outputs.items()
@@ -106,6 +110,7 @@ class _TFWrapper(object):
 
     def predict(self, df):
         with self.graph:
+            # Build the feed dict, mapping input tensors to DataFrame column values.
             feed_dict = {
                     self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
                     for tensor_column_name in self.input_tensor_mapping.keys()
