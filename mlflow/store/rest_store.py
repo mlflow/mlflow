@@ -1,13 +1,12 @@
 import json
 
-from mlflow.exceptions import RestException
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, ViewType
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import http_request
+from mlflow.utils.rest_utils import http_request_safe
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
@@ -55,13 +54,9 @@ class RestStore(AbstractStore):
         if json_body:
             json_body = json.loads(json_body)
         host_creds = self.get_host_creds()
-        response = http_request(host_creds=host_creds, endpoint=endpoint, method=method,
-                                json=json_body)
+        response = http_request_safe(
+            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
         js_dict = json.loads(response.text)
-
-        if 'error_code' in js_dict:
-            raise RestException(js_dict)
-
         parse_dict(js_dict=js_dict, message=response_proto)
         return response_proto
 
