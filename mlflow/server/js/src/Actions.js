@@ -180,5 +180,22 @@ export class ErrorWrapper {
     }
     return ErrorCodes.INTERNAL_ERROR;
   }
+
+  // Return the responseText if it is in the
+  // { error_code: ..., message: ...} format. Otherwise return "INTERNAL_SERVER_ERROR".
+  getUserVisibleError() {
+    const responseText = this.xhr.responseText;
+    if (responseText) {
+      try {
+        const parsed = JSON.parse(responseText);
+        if (parsed.error_code) {
+          return responseText
+        }
+      } catch (e) {
+        return "INTERNAL_SERVER_ERROR";
+      }
+    }
+    return "INTERNAL_SERVER_ERROR";
+  }
 }
 

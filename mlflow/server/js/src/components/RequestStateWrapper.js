@@ -11,7 +11,7 @@ export class RequestStateWrapper extends Component {
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
     children: PropTypes.node.isRequired,
     // (requests) => undefined | React Node.
-    // This function is called when all requests are complete and when more than one of them is
+    // This function is called when all requests are complete and when one or more of them is
     // in the error state. The function can choose to render an error view depending on the
     // type of errors received. If undefined is returned, then render the AppErrorBoundary view.
     errorRenderFunc: PropTypes.func,
@@ -43,7 +43,7 @@ export class RequestStateWrapper extends Component {
   }
 
   render() {
-    const { children, errorRenderFunc } = this.props;
+    const { children, errorRenderFunc, requests } = this.props;
     const { shouldRender, shouldRenderError } = this.state;
     if (shouldRender) {
       if (shouldRenderError) {
@@ -54,6 +54,7 @@ export class RequestStateWrapper extends Component {
           }
         }
         // This triggers the OOPS error boundary.
+        console.error("ERROR", requests);
         throw Error("GOTO error boundary");
       } else {
         return <div>{children}</div>;
