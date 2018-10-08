@@ -20,7 +20,6 @@ import tensorflow as tf
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.file_utils import _copy_file_or_tree
 
@@ -63,13 +62,14 @@ def load_model(path, sess, graph, run_id=None):
 
 
 def _load_model(saved_model_dir, sess, graph, signature_def_key=None):
-    meta_graph_def = tf.saved_model.loader.load(sess, [tf.saved_model.tag_constants.SERVING],
-                                                saved_model_dir)
-    signature_def = tf.contrib.saved_model.get_signature_def_by_key(
-            meta_graph_def,
-            signature_def_key if signature_def_key is not None else
-            tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY)
-    return signature_def
+    with graph:
+        meta_graph_def = tf.saved_model.loader.load(sess, [tf.saved_model.tag_constants.SERVING],
+                                                    saved_model_dir)
+        signature_def = tf.contrib.saved_model.get_signature_def_by_key(
+                meta_graph_def,
+                signature_def_key if signature_def_key is not None else
+                tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY)
+        return signature_def
 
 
 def _load_pyfunc(path, sess=None, graph=None):
@@ -91,8 +91,6 @@ class _TFWrapper(object):
     """
     Wrapper class that creates a predict function such that
     predict(data: pandas.DataFrame) -> pandas.DataFrame
-
-
     """
     def __init__(self, sess, graph, signature_def):
         self.sess = sess
@@ -113,5 +111,5 @@ class _TFWrapper(object):
                     for tensor_column_name in self.input_tensor_mapping.keys()
             }
             raw_preds = self.sess.run(self.output_tensors, feed_dict=feed_dict)
-            pred_dict = {column_name: list(values) for column_name, values in raw_preds.items()}
+            pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)
