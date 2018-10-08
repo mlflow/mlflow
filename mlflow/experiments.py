@@ -75,3 +75,16 @@ def restore_experiment(experiment_id):
     store = _get_store()
     store.restore_experiment(experiment_id)
     print("Experiment with id %s has been restored." % str(experiment_id))
+
+
+@commands.command("rename")
+@click.argument("experiment_id")
+@click.argument("new_name")
+def rename_experiment(experiment_id, new_name):
+    """
+    Renames an active experiment.
+    Returns an error if the experiment is inactive.
+    """
+    store = _get_store()
+    store.rename_experiment(experiment_id, new_name)
+    print("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))

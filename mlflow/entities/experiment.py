@@ -27,6 +27,9 @@ class Experiment(_MLflowObject):
         """String name of the experiment."""
         return self._name
 
+    def _set_name(self, new_name):
+        self._name = new_name
+
     @property
     def artifact_location(self):
         """String corresponding to the root artifact URI for the experiment."""
