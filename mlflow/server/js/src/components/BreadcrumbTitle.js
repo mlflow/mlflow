@@ -23,7 +23,7 @@ export default class BreadcrumbTitle extends Component {
     const experimentLink = (
       <Link
         to={Routes.getExperimentPageRoute(experimentId)}
-        className="truncate-text breadcrumb-title"
+        className="truncate-text single-line breadcrumb-title"
       >
         {experiment.getName()}
       </Link>
@@ -34,7 +34,7 @@ export default class BreadcrumbTitle extends Component {
         <Link
           to={Routes.getRunPageRoute(experimentId, runUuids[0])}
           key="link"
-          className="truncate-text breadcrumb-title"
+          className="truncate-text single-line breadcrumb-title"
         >
           {runNames[0]}
         </Link>
@@ -42,7 +42,7 @@ export default class BreadcrumbTitle extends Component {
         <Link
           to={Routes.getCompareRunPageRoute(runUuids, experimentId)}
           key="link"
-          className="truncate-text breadcrumb-title"
+          className="truncate-text single-line breadcrumb-title"
         >
           Comparing {runUuids.length} Runs
         </Link>
@@ -54,7 +54,7 @@ export default class BreadcrumbTitle extends Component {
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink, chevron] : [] }
-        <span className="truncate-text breadcrumb-title">
+        <span className="truncate-text single-line breadcrumb-title">
           {title}
         </span>
       </h1>

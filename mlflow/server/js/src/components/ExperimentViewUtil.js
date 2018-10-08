@@ -54,23 +54,23 @@ export default class ExperimentViewUtil {
         </div>
       </td>,
       <td key="meta-user" className="run-table-container" title={user}>
-        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
+        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {user}
         </div>
       </td>,
       <td key="meta-run-name" className="run-table-container" title={runName}>
-        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
+        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {runName}
         </div>
       </td>,
       <td className="run-table-container" key="meta-source" title={sourceType}>
-        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
+        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderSourceTypeIcon(runInfo.source_type)}
           {sourceType}
         </div>
       </td>,
       <td className="run-table-container" key="meta-version">
-        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
+        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderVersion(runInfo)}
         </div>
       </td>,

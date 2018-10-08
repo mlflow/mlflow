@@ -170,10 +170,13 @@ table th {
 }
 
 .truncate-text {
-  height: 1.3em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.single-line {
+  height: 1.3em;
 }
 
 .unselectable {
