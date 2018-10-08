@@ -281,7 +281,7 @@ class ExperimentRunsTableCompactView extends Component {
       .forEach((headerCell) => headerCells.push(headerCell));
     return (
       <Table hover>
-        <colgroup span="8"/>
+        <colgroup span="9"/>
         <colgroup span="1"/>
         <colgroup span="1"/>
         <tbody>
