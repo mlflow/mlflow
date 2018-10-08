@@ -30,5 +30,5 @@ def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None
         env["channels"] += additional_conda_channels
 
     with open(path, "w") as f:
-        yaml.dump(env, f, default_flow_style=False)
+        yaml.safe_dump(env, f, default_flow_style=False)
     return path
