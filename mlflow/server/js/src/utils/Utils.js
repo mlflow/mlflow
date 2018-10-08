@@ -206,31 +206,16 @@ class Utils {
     return null;
   }
 
-  static getErrorMessageFromXhr(xhr) {
-    const { status } = xhr;
-    if (status === 0) {
-      return 'Request failed to send. Check your internet connection';
-    }
-    if (status >= 400 && status < 500) {
-      if (xhr.responseJSON && xhr.responseJSON.message) {
-        return xhr.responseJSON.message;
-      }
-      if (xhr.responseText) {
-        return xhr.responseText;
-      }
-    }
-    if (status >= 500) {
-      return `Request Failed: ${xhr.statusText}`;
-    }
-    return 'Unknown Error';
-  }
-
   static pluralize(word, quantity) {
     if (quantity > 1) {
       return word + 's';
     } else {
       return word;
     }
+  }
+
+  static getRequestWithId(requests, requestId) {
+    return requests.find((r) => r.id === requestId);
   }
 }
 
