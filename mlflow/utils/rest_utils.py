@@ -54,6 +54,13 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
                           (url, retries))
 
 
+def _can_parse_as_json(string):
+    try:
+        json.loads(string)
+        return True
+    except ValueError:
+        return False
+
 def http_request_safe(host_creds, endpoint, **kwargs):
     """
     Wrapper around ``http_request`` that also verifies that the request succeeds with code 200.
@@ -62,11 +69,9 @@ def http_request_safe(host_creds, endpoint, **kwargs):
     if response.status_code != 200:
         base_msg = "API request to endpoint %s failed with error code " \
                    "%s != 200" % (endpoint, response.status_code)
-        try:
-            js_dict = json.loads(response.text)
-        except ValueError:
-            raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
-        raise RestException(js_dict)
+        if _can_parse_as_json(response.text):
+            raise RestException(json.loads(response.text))
+        raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
     return response
 
 
