@@ -189,7 +189,7 @@ export class ErrorWrapper {
       try {
         const parsed = JSON.parse(responseText);
         if (parsed.error_code) {
-          return responseText
+          return responseText;
         }
       } catch (e) {
         return "INTERNAL_SERVER_ERROR";
