@@ -79,7 +79,7 @@ def restore_experiment(experiment_id):
 
 @commands.command("rename")
 @click.argument("experiment_id")
-@click.argument("new_name", help="New name to give to the experiment.")
+@click.argument("new_name")
 def rename_experiment(experiment_id, new_name):
     """
     Renames an active experiment.
