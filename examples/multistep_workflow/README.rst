@@ -11,6 +11,8 @@ a history of their ratings for other movies. This example is based
 on `this webinar <https://databricks.com/blog/2018/07/13/scalable-end-to-end-deep-learning-using-tensorflow-and-databricks-on-demand-webinar-and-faq-now-available.html>`_
 by @brookewenig and @smurching.
 
+.. image:: ../../docs/source/_static/images/tutorial-multistep-workflow.png?raw=true
+
 There are four steps to this workflow:
 
 - **load_raw_data.py**: Downloads the MovieLens dataset
