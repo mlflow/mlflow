@@ -47,7 +47,6 @@ class App extends Component {
           </header>
           <AppErrorBoundary>
             <Switch>
-              { /* Since the experiment sidebar goes outside of the 80% width, put outside of div */ }
               <Route exact path={Routes.rootRoute} component={HomePage}/>
               <Route exact path={Routes.experimentPageRoute} component={HomePage}/>
               <Route exact path={Routes.runPageRoute} component={RunPage}/>
