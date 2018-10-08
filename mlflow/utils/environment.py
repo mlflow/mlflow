@@ -20,8 +20,8 @@ def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None
     :param additional_channels: List of additional conda channels to search when resolving packages.
     :return: path where the conda environment file has been created.
     """
-    base_env = yaml.load(_conda_header)
-    base_env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
+    env = yaml.load(_conda_header)
+    env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
     if additional_conda_deps is not None:
         env["dependencies"] += additional_conda_deps
     if additional_pip_deps is not None:
