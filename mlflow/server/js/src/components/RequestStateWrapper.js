@@ -5,11 +5,16 @@ import { connect } from 'react-redux';
 import { getApis } from '../reducers/Reducers';
 import PropTypes from 'prop-types';
 
-class RequestStateWrapper extends Component {
+export class RequestStateWrapper extends Component {
   static propTypes = {
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
-    children: PropTypes.node,
+    children: PropTypes.node.isRequired,
+    // (requests) => undefined | React Node.
+    // This function is called when all requests are complete and when one or more of them is
+    // in the error state. The function can choose to render an error view depending on the
+    // type of errors received. If undefined is returned, then render the AppErrorBoundary view.
+    errorRenderFunc: PropTypes.func,
   };
 
   static defaultProps = {
@@ -27,10 +32,9 @@ class RequestStateWrapper extends Component {
     });
   }
 
-  // eslint-disable-next-line no-unused-vars
-  static getDerivedStateFromProps(nextProps, prevState) {
+  static getDerivedStateFromProps(nextProps) {
     const shouldRender = nextProps.requests.every((r) => {
-      return r.active === false && r.error === undefined;
+      return r.active === false;
     });
     return {
       shouldRender,
@@ -39,19 +43,22 @@ class RequestStateWrapper extends Component {
   }
 
   render() {
-    const { children } = this.props;
-    if (this.state.shouldRender) {
-      return <div>{children}</div>;
-    }
-    if (this.state.shouldRenderError) {
-      const errorRequests = RequestStateWrapper.getErrorRequests(this.props.requests);
-      const api = errorRequests.length > 0 ? errorRequests[0] : "";
-      console.log("ERROR", api.error);
-      return (
-        <div className="RequestStateWrapper-error">
-          {api.error.xhr.status}: {api.error.xhr.statusText}
-        </div>
-      );
+    const { children, errorRenderFunc, requests } = this.props;
+    const { shouldRender, shouldRenderError } = this.state;
+    if (shouldRender) {
+      if (shouldRenderError) {
+        if (errorRenderFunc) {
+          const result = errorRenderFunc(this.props.requests);
+          if (result) {
+            return result;
+          }
+        }
+        // This triggers the OOPS error boundary.
+        console.error("ERROR", requests);
+        throw Error("GOTO error boundary");
+      } else {
+        return <div>{children}</div>;
+      }
     }
     if (this.props.shouldOptimisticallyRender) {
       return <div>{children}</div>;

@@ -14,7 +14,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -146,6 +146,17 @@ def _restore_experiment():
     request_message = _get_request_message(RestoreExperiment())
     _get_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _update_experiment():
+    request_message = _get_request_message(UpdateExperiment())
+    if request_message.new_name:
+        _get_store().rename_experiment(request_message.experiment_id, request_message.new_name)
+    response_message = UpdateExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
@@ -369,6 +380,7 @@ HANDLERS = {
     GetExperiment: _get_experiment,
     DeleteExperiment: _delete_experiment,
     RestoreExperiment: _restore_experiment,
+    UpdateExperiment: _update_experiment,
     CreateRun: _create_run,
     UpdateRun: _update_run,
     DeleteRun: _delete_run,

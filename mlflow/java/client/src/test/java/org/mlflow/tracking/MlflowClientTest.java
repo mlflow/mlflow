@@ -59,6 +59,31 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void deleteAndRestoreExperiments() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "active");
+
+    client.deleteExperiment(expId);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "deleted");
+
+    client.restoreExperiment(expId);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "active");
+  }
+
+  @Test
+  public void renameExperiment() {
+    String expName = createExperimentName();
+    String newName = createExperimentName();
+
+    long expId = client.createExperiment(expName);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getName(), expName);
+
+    client.renameExperiment(expId, newName);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getName(), newName);
+  }
+
+  @Test
   public void listExperimentsTest() {
     List<Experiment> expsBefore = client.listExperiments();
 
