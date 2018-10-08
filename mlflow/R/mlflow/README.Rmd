@@ -31,7 +31,7 @@ mlflow::mlflow_install()
 
 Notice also that [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://conda.io/miniconda.html) need to be manually installed.
 
-### Developemnt
+### Development
 
 Install the `mlflow` package as follows:
 
