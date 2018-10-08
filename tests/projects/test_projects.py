@@ -163,13 +163,13 @@ def test_run_local_git_repo(tmpdir,
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
-    store = FileStore(tmpdir.strpath)
-    run_infos = store.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
+    mlflow_service = mlflow.tracking.MlflowClient()
+    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
     assert run_uuid == store_run_uuid
-    run = store.get_run(run_uuid)
+    run = mlflow_service.get_run(run_uuid)
     expected_params = {"use_start_run": use_start_run}
     assert run.info.status == RunStatus.FINISHED
     assert len(run.data.params) == len(expected_params)
@@ -211,12 +211,12 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
-    store = FileStore(tmpdir.strpath)
-    run_infos = store.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
+    mlflow_service = mlflow.tracking.MlflowClient()
+    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
     assert run_uuid == store_run_uuid
-    run = store.get_run(run_uuid)
+    run = mlflow_service.get_run(run_uuid)
     expected_params = {"use_start_run": use_start_run}
     assert run.info.status == RunStatus.FINISHED
     assert len(run.data.params) == len(expected_params)
