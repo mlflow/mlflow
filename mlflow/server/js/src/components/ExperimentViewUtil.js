@@ -20,7 +20,7 @@ export default class ExperimentViewUtil {
       fontSize: 20,
     },
     headerCellText: {
-      verticalAlign: "middle"
+      verticalAlign: "middle",
     },
     sortIconContainer: {
       marginLeft: 2,
@@ -29,7 +29,10 @@ export default class ExperimentViewUtil {
     },
     expander: {
       pointer: 'cursor',
-    }
+    },
+    runInfoCell: {
+      maxWidth: 250
+    },
   };
 
   /**
@@ -40,6 +43,7 @@ export default class ExperimentViewUtil {
     const user = Utils.formatUser(runInfo.user_id);
     const sourceType = Utils.renderSource(runInfo, tags);
     const startTime = runInfo.start_time;
+    const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
     return [
       <td key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
@@ -50,18 +54,23 @@ export default class ExperimentViewUtil {
         </div>
       </td>,
       <td key="meta-user" className="run-table-container" title={user}>
-        <div>
+        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
           {user}
         </div>
       </td>,
+      <td key="meta-run-name" className="run-table-container" title={runName}>
+        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
+          {runName}
+        </div>
+      </td>,
       <td className="run-table-container" key="meta-source" title={sourceType}>
-        <div>
+        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderSourceTypeIcon(runInfo.source_type)}
           {sourceType}
         </div>
       </td>,
       <td className="run-table-container" key="meta-version">
-        <div>
+        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderVersion(runInfo)}
         </div>
       </td>,
@@ -112,6 +121,7 @@ export default class ExperimentViewUtil {
     return [
       getHeaderCell("start_time", <span>{"Date"}</span>),
       getHeaderCell("user_id", <span>{"User"}</span>),
+      getHeaderCell("run_name", <span>{"Run Name"}</span>),
       getHeaderCell("source", <span>{"Source"}</span>),
       getHeaderCell("source_version", <span>{"Version"}</span>),
     ];

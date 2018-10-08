@@ -155,7 +155,7 @@ class Utils {
       height: '20px',
       position: 'relative',
       top: '-1px',
-      right: '3px',
+      marginRight: 2,
     };
     if (sourceType === "NOTEBOOK") {
       return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
