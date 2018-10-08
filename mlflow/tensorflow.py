@@ -37,7 +37,7 @@ def save_model(tf_saved_model_dir, path, signature_def_key=None, mlflow_model=Mo
                conda_env=None):
     model_dir_subpath = "model"
     _copy_file_or_tree(src=tf_saved_model_dir, dst=path, dst_dir=model_dir_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, saved_model_dir=model_dir_subpath, 
+    mlflow_model.add_flavor(FLAVOR_NAME, saved_model_dir=model_dir_subpath,
                             signature_def_key=signature_def_key)
 
     model_conda_env = None
@@ -58,7 +58,7 @@ def load_model(path, sess, graph, run_id=None):
     conf = m.flavors[FLAVOR_NAME]
     saved_model_dir = os.path.join(path, conf['saved_model_dir'])
     signature_def_key = conf.get('signature_def_key', None)
-    return _load_model(saved_model_dir=saved_model_dir, sess=sess, graph=graph, 
+    return _load_model(saved_model_dir=saved_model_dir, sess=sess, graph=graph,
                        signature_def_key=signature_def_key)
 
 
@@ -67,8 +67,8 @@ def _load_model(saved_model_dir, sess, graph, signature_def_key=None):
                                                 saved_model_dir)
     signature_def = tf.contrib.saved_model.get_signature_def_by_key(
             meta_graph_def,
-            signature_def_key if signature_def_key is not None else\
-                    tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY)
+            signature_def_key if signature_def_key is not None else
+            tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY)
     return signature_def
 
 
@@ -92,20 +92,19 @@ class _TFWrapper(object):
     Wrapper class that creates a predict function such that
     predict(data: pandas.DataFrame) -> pandas.DataFrame
 
-    
+
     """
     def __init__(self, sess, graph, signature_def):
         self.sess = sess
         self.graph = graph
         self.input_tensor_mapping = {
-                tensor_column_name : graph.get_tensor_by_name(tensor_info.name)
+                tensor_column_name: graph.get_tensor_by_name(tensor_info.name)
                 for tensor_column_name, tensor_info in signature_def.inputs().items()
         }
         self.output_tensors = {
                 sigdef_output: graph.get_tensor_by_name(tnsr_info.name)
                 for sigdef_output, tnsr_info in signature_def.outputs.items()
         }
-
 
     def predict(self, df):
         with self.graph:
