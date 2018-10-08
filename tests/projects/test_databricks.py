@@ -160,14 +160,12 @@ def test_run_databricks_validations(
         mock.patch("mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request")\
             as db_api_req_mock:
         # Test bad tracking URI
-        tracking_uri_mock.return_value = tmpdir.strpath
         with pytest.raises(ExecutionException):
             run_databricks_project(cluster_spec_mock, block=True)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         mlflow_service = mlflow.tracking.MlflowClient()
         assert len(mlflow_service.list_run_infos(experiment_id=0)) == 0
-        tracking_uri_mock.return_value = "http://"
         # Test misspecified parameters
         with pytest.raises(ExecutionException):
             mlflow.projects.run(

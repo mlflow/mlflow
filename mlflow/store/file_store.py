@@ -61,6 +61,7 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
+            print("here")
             self._create_experiment_with_id(name="Default",
                                             experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
