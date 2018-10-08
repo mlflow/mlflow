@@ -24,6 +24,7 @@ class CompareRunScatter extends Component {
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
+    runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
   constructor(props) {
@@ -168,7 +169,9 @@ class CompareRunScatter extends Component {
       return (
         <div className="panel panel-default scatter-tooltip">
           <div className="panel-heading">
-            <h3 className="panel-title">{this.props.runInfos[i].run_uuid}</h3>
+            <h3 className="panel-title truncate-text single-line">
+              {this.props.runDisplayNames[i]}
+            </h3>
           </div>
           <div className="panel-body">
             <div className="row">
@@ -186,6 +189,12 @@ class CompareRunScatter extends Component {
                   {this.props.metricLists[i].map((p) =>
                     <li key={p.key}>{p.key}: {Utils.formatMetric(p.value)}</li>
                   )}
+                </ul>
+              </div>
+              <div className="col-xs-6">
+                <h4>Run ID</h4>
+                <ul>
+                  {this.props.runInfos[i].run_uuid}
                 </ul>
               </div>
             </div>

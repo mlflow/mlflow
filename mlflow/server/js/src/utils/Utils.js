@@ -40,6 +40,17 @@ class Utils {
   }
 
   /**
+   * Helper method for that returns a truncated version of the passed-in string (with trailing
+   * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
+   */
+  static truncateString(string, maxLength) {
+    if (string.length > maxLength) {
+      return string.slice(0, maxLength - 3) + "...";
+    }
+    return string;
+  }
+
+  /**
    * We need to cast all of the timestamps back to numbers since keys of JS objects are auto casted
    * to strings.
    *
@@ -144,7 +155,7 @@ class Utils {
       height: '20px',
       position: 'relative',
       top: '-1px',
-      right: '3px',
+      marginRight: '2px',
     };
     if (sourceType === "NOTEBOOK") {
       return <img title="Notebook" style={imageStyle} src={notebookSvg} />;

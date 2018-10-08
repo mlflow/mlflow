@@ -195,12 +195,12 @@ class ExperimentRunsTableMultiColumnView extends Component {
       .forEach((cell) => columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
     return (<Table className="ExperimentViewMultiColumn" hover>
-      <colgroup span="8"/>
+      <colgroup span="9"/>
       <colgroup span={paramKeyList.length}/>
       <colgroup span={metricKeyList.length}/>
       <tbody>
       <tr>
-        <th className="top-row" scope="colgroup" colSpan="6"/>
+        <th className="top-row" scope="colgroup" colSpan="7"/>
         <th
           className="top-row left-border"
           scope="colgroup"
