@@ -52,6 +52,8 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model(), **kwargs
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param kwargs: kwargs to pass to ``spacy_model.to_disk`` method.
     """
+    import spacy
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise RuntimeError("Path '{}' already exists".format(path))
