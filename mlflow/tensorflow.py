@@ -114,10 +114,10 @@ def load_model(path, tf_sess, tf_graph, tf_context=None, run_id=None):
     :param path: The local filesystem path or run-relative artifact path to the model.
     :param tf_sess: The Tensorflow session in which to the load the model.
     :param tf_graph: The Tensorflow graph in which to the load the model.
-    :param tf_context: The Tensorflow context in which to the load the model. This should be an 
+    :param tf_context: The Tensorflow context in which to the load the model. This should be an
                        instance of `contextlib.GeneratorContextManager`. If a context is not
                        specified, the default context of the specified graph will be used:
-                       `tf_graph.as_default()`. 
+                       `tf_graph.as_default()`.
     :return: A Tensorflow signature definition of type:
              `tensorflow.core.protobuf.meta_graph_pb2.SignatureDef`. This defines the input and
              output tensors for model inference.
@@ -153,7 +153,7 @@ def _load_model(tf_saved_model_dir, tf_sess, tf_graph, tf_meta_graph_tags, tf_si
                                  definition mapping. For more information, see the
                                  `signature_def_map` parameter of the
                                  `tf.saved_model.builder.SavedModelBuilder` method.
-    :param tf_context: The Tensorflow context in which to the load the metagraph. This should be an 
+    :param tf_context: The Tensorflow context in which to the load the metagraph. This should be an
                        instance of `contextlib.GeneratorContextManager`. If a context is
                        not specified, the default context of the specified graph will be used:
                        `tf_graph.as_default()`.
@@ -175,9 +175,9 @@ def _load_model(tf_saved_model_dir, tf_sess, tf_graph, tf_meta_graph_tags, tf_si
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``. This function loads an MLflow 
-    model with the Tensorflow flavor into the default Tensorflow graph and exposes it behind the 
-    `pyfunc.predict` interface. 
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``. This function loads an MLflow
+    model with the Tensorflow flavor into the default Tensorflow graph and exposes it behind the
+    `pyfunc.predict` interface.
     """
     tf_graph = tf.get_default_graph()
     tf_sess = tf.Session(graph=tf_graph)
@@ -198,7 +198,7 @@ class _TFWrapper(object):
         """
         :param tf_sess: The Tensorflow session used to evaluate the model.
         :param tf_graph: The Tensorflow graph containing the model.
-        :param tf_context: The Tensorflow context containing the model. This should be an 
+        :param tf_context: The Tensorflow context containing the model. This should be an
                            instance of `contextlib.GeneratorContextManager`.
         :param signature_def: The Tensorflow signature definition used to transform input dataframes
                               into tensors and output vectors into dataframes.
