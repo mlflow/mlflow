@@ -15,6 +15,7 @@ pytest==3.2.1
 pytest-cov
 rstcheck==3.2
 scipy
+spacy==2.0.0
 tensorflow
 torch
 torchvision
