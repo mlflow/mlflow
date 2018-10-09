@@ -36,7 +36,7 @@ def assert_dirs_equal(expected, actual):
 @pytest.fixture()
 def tracking_uri_mock(tmpdir):
     try:
-        mlflow.set_tracking_uri(tmpdir.strpath)
+        mlflow.set_tracking_uri(os.path.join(tmpdir.strpath, 'mlruns'))
         yield tmpdir
     finally:
         mlflow.set_tracking_uri(None)
