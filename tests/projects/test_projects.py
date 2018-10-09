@@ -10,7 +10,6 @@ import pytest
 import mlflow
 from mlflow.entities import RunStatus, ViewType
 from mlflow.exceptions import ExecutionException
-from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
@@ -138,8 +137,7 @@ def test_is_valid_branch_name(local_git_repo):
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(tmpdir,
-                            local_git_repo,
+def test_run_local_git_repo(local_git_repo,
                             local_git_repo_uri,
                             tracking_uri_mock,   # pylint: disable=unused-argument
                             use_start_run,
