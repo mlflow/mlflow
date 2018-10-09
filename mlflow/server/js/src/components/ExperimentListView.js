@@ -7,7 +7,7 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 
-class ExperimentListView extends Component {
+export class ExperimentListView extends Component {
   static propTypes = {
     onClickListExperiments: PropTypes.func.isRequired,
     // If activeExperimentId is undefined, then the active experiment is the first one.
