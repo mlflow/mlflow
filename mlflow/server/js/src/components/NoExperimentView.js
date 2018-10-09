@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import Colors from '../styles/Colors';
-import overflow from '../static/project.svg';
+import noExperiments from '../static/no-experiments.svg';
 
 export default class NoExperimentView extends Component {
   render() {
@@ -8,9 +8,9 @@ export default class NoExperimentView extends Component {
       <div>
         <img
           className='center'
-          alt="404 Not Found"
+          alt="No experiments found."
           style={{ height: '200px', marginTop: '80px' }}
-          src={overflow}
+          src={noExperiments}
         />
         <h1 className="center" style={{ paddingTop: '10px' }}>
           No Experiments Exist
