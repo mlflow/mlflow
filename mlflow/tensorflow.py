@@ -101,26 +101,34 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     model_conda_env = None
     if conda_env:
         model_conda_env = os.path.basename(os.path.abspath(conda_env))
-        _copy_file_or_tree(src=conda_env, dst=os.path.join(path, model_conda_env))
+        _copy_file_or_tree(src=conda_env, dst=path)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=model_conda_env)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def load_model(path, tf_sess, tf_graph, tf_context=None, run_id=None):
+def load_model(path, tf_sess, run_id=None):
     """
     Load an MLflow model that contains the Tensorflow flavor from the specified path.
 
+    **This method must be called within a Tensorflow graph context!**
+
     :param path: The local filesystem path or run-relative artifact path to the model.
     :param tf_sess: The Tensorflow session in which to the load the model.
-    :param tf_graph: The Tensorflow graph in which to the load the model.
-    :param tf_context: The Tensorflow context in which to the load the model. This should be an
-                       instance of `contextlib.GeneratorContextManager`. If a context is not
-                       specified, the default context of the specified graph will be used:
-                       `tf_graph.as_default()`.
     :return: A Tensorflow signature definition of type:
              `tensorflow.core.protobuf.meta_graph_pb2.SignatureDef`. This defines the input and
              output tensors for model inference.
+
+    >>> import mlflow.tensorflow
+    >>> import tensorflow as tf
+    >>> tf_graph = tf.Graph()
+    >>> tf_sess = tf.Session(graph=tf_graph)
+    >>> with tf_graph.as_default():
+    >>>     signature_definition = mlflow.tensorflow.load_model(path="model_path", tf_sess=tf_sess)
+    >>>     input_tensors = [tf_graph.get_tensor_by_name(input_signature.name)
+    >>>                      for _, input_signature in signature_def.inputs.items()]
+    >>>     output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
+    >>>                       for _, output_signature in signature_def.outputs.items()]
     """
     if run_id is not None:
         path = _get_model_log_dir(model_name=path, run_id=run_id)
@@ -129,20 +137,18 @@ def load_model(path, tf_sess, tf_graph, tf_context=None, run_id=None):
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
     conf = m.flavors[FLAVOR_NAME]
     saved_model_dir = os.path.join(path, conf['saved_model_dir'])
-    return _load_model(tf_saved_model_dir=saved_model_dir, tf_sess=tf_sess, tf_graph=tf_graph,
-                       tf_context=tf_context, tf_meta_graph_tags=conf['meta_graph_tags'],
+    return _load_model(tf_saved_model_dir=saved_model_dir, tf_sess=tf_sess, 
+                       tf_meta_graph_tags=conf['meta_graph_tags'],
                        tf_signature_def_key=conf['signature_def_key'])
 
 
-def _load_model(tf_saved_model_dir, tf_sess, tf_graph, tf_meta_graph_tags, tf_signature_def_key,
-                tf_context=None):
+def _load_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags, tf_signature_def_key):
     """
     Load a specified Tensorflow model consisting of a Tensorflow meta graph and signature definition
     from a serialized Tensorflow `SavedModel` collection.
 
     :param tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
     :param tf_sess: The Tensorflow session in which to the load the metagraph.
-    :param tf_graph: The Tensorflow graph in which to the load the metagraph.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
                                serialized `SavedModel` object. For more information, see the `tags`
                                parameter of the `tf.saved_model.builder.SavedModelBuilder` method:
@@ -153,40 +159,31 @@ def _load_model(tf_saved_model_dir, tf_sess, tf_graph, tf_meta_graph_tags, tf_si
                                  definition mapping. For more information, see the
                                  `signature_def_map` parameter of the
                                  `tf.saved_model.builder.SavedModelBuilder` method.
-    :param tf_context: The Tensorflow context in which to the load the metagraph. This should be an
-                       instance of `contextlib.GeneratorContextManager`. If a context is
-                       not specified, the default context of the specified graph will be used:
-                       `tf_graph.as_default()`.
     :return: A Tensorflow signature definition of type:
              `tensorflow.core.protobuf.meta_graph_pb2.SignatureDef`. This defines input and
              output tensors within the specified metagraph for inference.
     """
-    if tf_context is None:
-        tf_context = tf_graph.as_default()
-    with tf_context:
-        meta_graph_def = tf.saved_model.loader.load(
-                sess=tf_sess,
-                tags=tf_meta_graph_tags,
-                export_dir=tf_saved_model_dir)
-        signature_def = tf.contrib.saved_model.get_signature_def_by_key(
-                meta_graph_def, tf_signature_def_key)
-        return signature_def
+    meta_graph_def = tf.saved_model.loader.load(
+            sess=tf_sess,
+            tags=tf_meta_graph_tags,
+            export_dir=tf_saved_model_dir)
+    signature_def = tf.contrib.saved_model.get_signature_def_by_key(
+            meta_graph_def, tf_signature_def_key)
+    return signature_def
 
 
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``. This function loads an MLflow
-    model with the Tensorflow flavor into the default Tensorflow graph and exposes it behind the
+    model with the Tensorflow flavor into a new Tensorflow graph and exposes it behind the
     `pyfunc.predict` interface.
     """
-    tf_graph = tf.get_default_graph()
+    tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
-    tf_context = tf_graph.as_default()
-    signature_def = load_model(path=path, tf_sess=tf_sess, tf_graph=tf_graph,
-                               tf_context=tf_context, run_id=None)
+    with tf_graph.as_default():
+        signature_def = load_model(path=path, tf_sess=tf_sess, run_id=None)
 
-    return _TFWrapper(tf_sess=tf_sess, tf_graph=tf_graph,
-                      tf_context=tf_context, signature_def=signature_def)
+    return _TFWrapper(tf_sess=tf_sess, tf_graph=tf_graph, signature_def=signature_def)
 
 
 class _TFWrapper(object):
@@ -194,22 +191,20 @@ class _TFWrapper(object):
     Wrapper class that exposes a Tensorflow model for inference via a `predict` function such that
     predict(data: pandas.DataFrame) -> pandas.DataFrame.
     """
-    def __init__(self, tf_sess, tf_graph, tf_context, signature_def):
+    def __init__(self, tf_sess, tf_graph, signature_def):
         """
         :param tf_sess: The Tensorflow session used to evaluate the model.
         :param tf_graph: The Tensorflow graph containing the model.
-        :param tf_context: The Tensorflow context containing the model. This should be an
-                           instance of `contextlib.GeneratorContextManager`.
         :param signature_def: The Tensorflow signature definition used to transform input dataframes
                               into tensors and output vectors into dataframes.
         """
         self.tf_sess = tf_sess
-        self.tf_context = tf_context
+        self.tf_graph = tf_graph
         # We assume that input keys in the signature definition correspond to input DataFrame column
         # names
         self.input_tensor_mapping = {
                 tensor_column_name: tf_graph.get_tensor_by_name(tensor_info.name)
-                for tensor_column_name, tensor_info in signature_def.inputs().items()
+                for tensor_column_name, tensor_info in signature_def.inputs.items()
         }
         # We assume that output keys in the signature definition correspond to output DataFrame
         # column names
@@ -219,12 +214,12 @@ class _TFWrapper(object):
         }
 
     def predict(self, df):
-        with self.tf_context:
+        with self.tf_graph.as_default():
             # Build the feed dict, mapping input tensors to DataFrame column values.
             feed_dict = {
                     self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
                     for tensor_column_name in self.input_tensor_mapping.keys()
             }
-            raw_preds = self.sess.run(self.output_tensors, feed_dict=feed_dict)
+            raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)

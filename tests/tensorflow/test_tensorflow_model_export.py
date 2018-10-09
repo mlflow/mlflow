@@ -4,182 +4,276 @@ from __future__ import print_function
 
 import collections
 import os
-import pandas
 import shutil
-import unittest
+import pytest
 
+import numpy as np
 import pandas as pd
+import pandas.testing
 import sklearn.datasets as datasets
 import tensorflow as tf
 
 import mlflow
-from mlflow import tensorflow, pyfunc
-from mlflow.utils.file_utils import TempDir
+import mlflow.tensorflow
+from mlflow import pyfunc
+from mlflow.models import Model
+from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.tracking.utils import _get_model_log_dir
+
+SavedModelInfo = collections.namedtuple(
+        "SavedModelInfo", 
+        ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
 
 
-class TestModelExport(unittest.TestCase):
+@pytest.fixture
+def saved_tf_iris_model(tmpdir):
+    iris = datasets.load_iris()
+    X = iris.data[:, :2]  # we only take the first two features
+    y = iris.target
+    trainingFeatures = {}
+    for i in range(0, 2):
+        # TensorFlow is fickle about feature names, so we remove offending characters
+        iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
+        iris.feature_names[i] = iris.feature_names[i].replace("(", "")
+        iris.feature_names[i] = iris.feature_names[i].replace(")", "")
+        trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
+    tf_feat_cols = []
+    feature_names = iris.feature_names[:2]
+    # Create Tensorflow-specific numeric columns for input.
+    for col in iris.feature_names[:2]:
+        tf_feat_cols.append(tf.feature_column.numeric_column(col))
+    # Create a training function for the estimator
+    input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
+                                                     y,
+                                                     shuffle=False,
+                                                     batch_size=1)
+    estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols,
+                                          hidden_units=[1])
+    # Train the estimator and obtain expected predictions on the training dataset
+    estimator.train(input_train, steps=10)
+    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
+    estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
-    def helper(self, feature_spec, tmp, estimator, df):
-        """
-        This functions handles exporting, logging, loading back, and predicting on an estimator for
-        testing purposes.
-        """
-        receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-        saved_estimator_path = tmp.path("model")
-        os.makedirs(saved_estimator_path)
-        # Saving TensorFlow model.
-        saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
-                                                           receiver_fn).decode("utf-8")
-        # Logging the TensorFlow model just saved.
-        tensorflow.log_saved_model(saved_model_dir=saved_estimator_path,
-                                   signature_def_key="predict",
-                                   artifact_path="hello")
-        # Loading the saved TensorFlow model as a pyfunc.
-        x = pyfunc.load_pyfunc(saved_estimator_path)
-        # Predicting on the dataset using the pyfunc.
-        return x.predict(df)
+    # Define a function for estimator inference
+    feature_spec = {}
+    for name in feature_names:
+        feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
+    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
-    def test_log_saved_model(self):
-        # This tests model logging capabilities on the sklearn.iris dataset.
-        iris = datasets.load_iris()
-        X = iris.data[:, :2]  # we only take the first two features.
-        y = iris.target
-        trainingFeatures = {}
-        for i in range(0, 2):
-            # TensorFlow is fickle about feature names, so we remove offending characters
-            iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
-            iris.feature_names[i] = iris.feature_names[i].replace("(", "")
-            iris.feature_names[i] = iris.feature_names[i].replace(")", "")
-            trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
-        tf_feat_cols = []
-        feature_names = iris.feature_names[:2]
-        # Creating TensorFlow-specific numeric columns for input.
-        for col in iris.feature_names[:2]:
-            tf_feat_cols.append(tf.feature_column.numeric_column(col))
-        # Creating input training function.
-        input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
-                                                         y,
-                                                         shuffle=False,
-                                                         batch_size=1)
-        # Creating Deep Neural Network Regressor.
-        estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols,
-                                              hidden_units=[1])
-        # Training and creating expected predictions on training dataset.
-        estimator.train(input_train, steps=10)
-        # Saving the estimator's prediction on the training data; assume the DNNRegressor
-        # produces a single output column named 'predictions'
-        pred_col = "predictions"
-        estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
-        estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
+    # Save the estimator and its inference function
+    saved_estimator_path = str(tmpdir.mkdir("saved_model"))
+    saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
+                                                       receiver_fn).decode("utf-8")
+    return SavedModelInfo(path=saved_estimator_path, 
+                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING], 
+                          signature_def_key="predict",
+                          inference_df=pd.DataFrame(data=X, columns=feature_names),
+                          expected_results_df=estimator_preds_df)
 
-        old_tracking_uri = mlflow.get_tracking_uri()
-        # should_start_run tests whether or not calling log_model() automatically starts a run.
-        for should_start_run in [False, True]:
-            with TempDir(chdr=True, remove_on_exit=True) as tmp:
-                try:
-                    # Creating dict of features names (str) to placeholders (tensors)
-                    feature_spec = {}
-                    for name in feature_names:
-                        feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
-                    mlflow.set_tracking_uri("test")
-                    if should_start_run:
-                        mlflow.start_run()
-                    pyfunc_preds_df = self.helper(feature_spec, tmp, estimator,
-                                                  pandas.DataFrame(data=X, columns=feature_names))
 
-                    # Asserting that the loaded model predictions are as expected.
-                    assert estimator_preds_df.equals(pyfunc_preds_df)
-                finally:
-                    # Restoring the old logging location.
-                    mlflow.end_run()
-                    mlflow.set_tracking_uri(old_tracking_uri)
+@pytest.fixture
+def saved_tf_categorical_model(tmpdir):
+    path = os.path.abspath("tests/data/uci-autos-imports-85.data")
+    # Order is important for the csv-readers, so we use an OrderedDict here
+    defaults = collections.OrderedDict([
+        ("body-style", [""]),
+        ("curb-weight", [0.0]),
+        ("highway-mpg", [0.0]),
+        ("price", [0.0])
+    ])
+    types = collections.OrderedDict((key, type(value[0]))
+                                    for key, value in defaults.items())
+    df = pd.read_csv(path, names=types.keys(), dtype=types, na_values="?")
+    df = df.dropna()
 
-    def test_categorical_columns(self):
-        """
-        This tests logging capabilities on datasets with categorical columns.
-        See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/get_started/\
-        regression/imports85.py
-        for reference code.
-        """
-        with TempDir(chdr=False, remove_on_exit=True) as tmp:
-            path = os.path.abspath("tests/data/uci-autos-imports-85.data")
-            # Order is important for the csv-readers, so we use an OrderedDict here.
-            defaults = collections.OrderedDict([
-                ("body-style", [""]),
-                ("curb-weight", [0.0]),
-                ("highway-mpg", [0.0]),
-                ("price", [0.0])
-            ])
+    # Extract the label from the features dataframe
+    y_train = df.pop("price")
 
-            types = collections.OrderedDict((key, type(value[0]))
-                                            for key, value in defaults.items())
-            df = pandas.read_csv(path, names=types.keys(), dtype=types, na_values="?")
-            df = df.dropna()
+    # Create the required input training function
+    trainingFeatures = {}
+    for i in df:
+        trainingFeatures[i] = df[i].values
+    input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
+                                                     y_train.values,
+                                                     shuffle=False,
+                                                     batch_size=1)
 
-            # Extract the label from the features dataframe.
-            y_train = df.pop("price")
+    # Create the feature columns required for the DNNRegressor
+    body_style_vocab = ["hardtop", "wagon", "sedan", "hatchback", "convertible"]
+    body_style = tf.feature_column.categorical_column_with_vocabulary_list(
+        key="body-style", vocabulary_list=body_style_vocab)
+    feature_columns = [
+        tf.feature_column.numeric_column(key="curb-weight"),
+        tf.feature_column.numeric_column(key="highway-mpg"),
+        # Since this is a DNN model, convert categorical columns from sparse to dense.
+        # Then, wrap them in an `indicator_column` to create a one-hot vector from the input
+        tf.feature_column.indicator_column(body_style)
+    ]
 
-            # Creating the input training function required.
-            trainingFeatures = {}
+    # Build a DNNRegressor, with 2x20-unit hidden layers, with the feature columns
+    # defined above as input
+    estimator = tf.estimator.DNNRegressor(
+        hidden_units=[20, 20], feature_columns=feature_columns)
 
-            for i in df:
-                trainingFeatures[i] = df[i].values
+    # Train the estimator and obtain expected predictions on the training dataset
+    estimator.train(input_fn=input_train, steps=10)
+    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
+    estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
-            input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
-                                                             y_train.values,
-                                                             shuffle=False,
-                                                             batch_size=1)
+   
+    # Define a function for estimator inference
+    feature_spec = {
+        "body-style" : tf.placeholder("string", name="body-style", shape=[None]),
+        "curb-weight" : tf.placeholder("float", name="curb-weight", shape=[None]),
+        "highway-mpg" : tf.placeholder("float", name="highway-mpg", shape=[None])
+    }
+    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
-            # Creating the feature columns required for the DNNRegressor.
-            body_style_vocab = ["hardtop", "wagon", "sedan", "hatchback", "convertible"]
-            body_style = tf.feature_column.categorical_column_with_vocabulary_list(
-                key="body-style", vocabulary_list=body_style_vocab)
-            feature_columns = [
-                tf.feature_column.numeric_column(key="curb-weight"),
-                tf.feature_column.numeric_column(key="highway-mpg"),
-                # Since this is a DNN model, convert categorical columns from sparse
-                # to dense.
-                # Wrap them in an `indicator_column` to create a
-                # one-hot vector from the input.
-                tf.feature_column.indicator_column(body_style)
-            ]
+    # Save the estimator and its inference function
+    saved_estimator_path = str(tmpdir.mkdir("saved_model"))
+    saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
+                                                       receiver_fn).decode("utf-8")
+    return SavedModelInfo(path=saved_estimator_path, 
+                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING], 
+                          signature_def_key="predict",
+                          inference_df=df,
+                          expected_results_df=estimator_preds_df)
 
-            # Build a DNNRegressor, with 2x20-unit hidden layers, with the feature columns
-            # defined above as input.
-            estimator = tf.estimator.DNNRegressor(
-                hidden_units=[20, 20], feature_columns=feature_columns)
 
-            # Training the estimator.
-            estimator.train(input_fn=input_train, steps=10)
-            # Saving the estimator's prediction on the training data; assume the DNNRegressor
-            # produces a single output column named 'predictions'
-            pred_col = "predictions"
-            estimator_preds = [s[pred_col] for s in estimator.predict(input_train)]
-            estimator_preds_df = pd.DataFrame({pred_col: estimator_preds})
-            # Setting the logging such that it is in the temp folder and deleted after the test.
-            old_tracking_dir = mlflow.get_tracking_uri()
-            tracking_dir = os.path.abspath(tmp.path("mlruns"))
-            mlflow.set_tracking_uri("file://%s" % tracking_dir)
-            mlflow.start_run()
-            try:
-                # Creating dict of features names (str) to placeholders (tensors)
-                feature_spec = {}
-                feature_spec["body-style"] = tf.placeholder("string",
-                                                            name="body-style",
-                                                            shape=[None])
-                feature_spec["curb-weight"] = tf.placeholder("float",
-                                                             name="curb-weight",
-                                                             shape=[None])
-                feature_spec["highway-mpg"] = tf.placeholder("float",
-                                                             name="highway-mpg",
-                                                             shape=[None])
+def test_save_and_load_model_persists_and_restores_model_in_default_graph_context_successfully(
+        tmpdir, saved_tf_iris_model):
+    model_path = os.path.join(str(tmpdir), "model")
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                path=model_path)
+    
+    tf_graph = tf.Graph()
+    tf_sess = tf.Session(graph=tf_graph)
+    with tf_graph.as_default():
+        signature_def = mlflow.tensorflow.load_model(
+                path=model_path, tf_sess=tf_sess)
+       
+        for _, input_signature in signature_def.inputs.items():
+            t_input = tf_graph.get_tensor_by_name(input_signature.name)
+            assert t_input is not None
 
-                pyfunc_preds_df = self.helper(feature_spec, tmp, estimator, df)
-                # Asserting that the loaded model predictions are as expected. Allow for some
-                # imprecision as this is expected with TensorFlow.
-                pandas.testing.assert_frame_equal(
-                    pyfunc_preds_df, estimator_preds_df, check_less_precise=6)
-            finally:
-                # Restoring the old logging location.
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_tracking_dir)
+        for _, output_signature in signature_def.outputs.items():
+            t_output = tf_graph.get_tensor_by_name(output_signature.name)
+            assert t_output is not None
+
+
+def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context_successfully(
+        tmpdir, saved_tf_iris_model):
+    model_path = os.path.join(str(tmpdir), "model")
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+    
+    tf_graph = tf.Graph()
+    tf_sess = tf.Session(graph=tf_graph)
+    custom_tf_context = tf_graph.device("/cpu:0")
+    with custom_tf_context:
+        signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
+        
+        for _, input_signature in signature_def.inputs.items():
+            t_input = tf_graph.get_tensor_by_name(input_signature.name)
+            assert t_input is not None
+
+        for _, output_signature in signature_def.outputs.items():
+            t_output = tf_graph.get_tensor_by_name(output_signature.name)
+            assert t_output is not None
+
+
+def test_load_model_loads_artifacts_from_specified_model_directory(tmpdir, saved_tf_iris_model):
+    model_path = os.path.join(str(tmpdir), "model")
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+    
+    # Verify that the MLflow model can be loaded even after deleting the Tensorflow `SavedModel`
+    # directory that was used to create it, implying that the artifacts were copied to and are
+    # loaded from the specified MLflow model path
+    shutil.rmtree(saved_tf_iris_model.path)
+    with tf.Session(graph=tf.Graph()) as tf_sess:
+        signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
+
+
+def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                    tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                    tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                    artifact_path=artifact_path)
+                                    
+        run_id = mlflow.active_run().info.run_uuid
+
+    tf_graph = tf.Graph()
+    tf_sess = tf.Session(graph=tf_graph)
+    with tf_graph.as_default():
+        signature_def = mlflow.tensorflow.load_model(path=artifact_path, tf_sess=tf_sess, run_id=run_id)
+        
+        for _, input_signature in signature_def.inputs.items():
+            t_input = tf_graph.get_tensor_by_name(input_signature.name)
+            assert t_input is not None
+
+        for _, output_signature in signature_def.outputs.items():
+            t_output = tf_graph.get_tensor_by_name(output_signature.name)
+            assert t_output is not None
+
+
+def test_log_model_persists_conda_environment(tmpdir, saved_tf_iris_model):
+    conda_env_path = os.path.join(str(tmpdir), "conda_env.yaml")
+    _mlflow_conda_env(path=conda_env_path, additional_conda_deps=["tensorflow"])
+    with open(conda_env_path, "r") as f:
+        conda_env_text = f.read()
+
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                    tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                    tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                    artifact_path=artifact_path,
+                                    conda_env=conda_env_path)
+                                    
+        run_id = mlflow.active_run().info.run_uuid
+
+    model_dir = _get_model_log_dir(artifact_path, run_id)
+    model_config = Model.load(os.path.join(model_dir, "MLmodel"))
+    flavor_config = model_config.flavors.get(pyfunc.FLAVOR_NAME, None)
+    assert flavor_config is not None
+    pyfunc_env_subpath = flavor_config.get(pyfunc.ENV, None)
+    assert pyfunc_env_subpath is not None
+    with open(os.path.join(model_dir, pyfunc_env_subpath), "r") as f:
+        persisted_env_text = f.read()
+
+    assert persisted_env_text == conda_env_text
+
+
+def test_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, saved_tf_iris_model):
+    model_path = os.path.join(str(tmpdir), "model")
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+
+    pyfunc_wrapper = pyfunc.load_pyfunc(model_path)
+    results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
+    assert results_df.equals(saved_tf_categorical_model.expected_results_df)
+
+
+def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
+        tmpdir, saved_tf_categorical_model):
+    model_path = os.path.join(str(tmpdir), "model")
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_categorical_model.path,
+                                 tf_meta_graph_tags=saved_tf_categorical_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_categorical_model.signature_def_key,
+                                 path=model_path)
+
+    pyfunc_wrapper = pyfunc.load_pyfunc(model_path)
+    results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
+    pandas.testing.assert_frame_equal(
+        results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6)
