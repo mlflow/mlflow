@@ -63,14 +63,13 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
-        # Create trash folder if needed
-        if not exists(self.trash_folder):
-            mkdir(self.trash_folder)
-        # Create default experiment if needed
-        if not self._has_experiment(experiment_id=Experiment.DEFAULT_EXPERIMENT_ID):
+            print("here")
             self._create_experiment_with_id(name="Default",
                                             experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
+        # Create trash folder if needed
+        if not exists(self.trash_folder):
+            mkdir(self.trash_folder)
 
     def _check_root_dir(self):
         """
