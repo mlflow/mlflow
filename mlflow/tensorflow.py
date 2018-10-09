@@ -29,14 +29,14 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 FLAVOR_NAME = "tensorflow"
 
 
-def log_model(tf_saved_model_dir, meta_graph_tags, signature_def_key, artifact_path, 
+def log_model(tf_saved_model_dir, meta_graph_tags, signature_def_key, artifact_path,
               conda_env=None):
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, meta_graph_tags=meta_graph_tags,
                      signature_def_key=signature_def_key, conda_env=conda_env)
 
 
-def save_model(tf_saved_model_dir, meta_graph_tags, signature_def_key, path, mlflow_model=Model(), 
+def save_model(tf_saved_model_dir, meta_graph_tags, signature_def_key, path, mlflow_model=Model(),
                conda_env=None):
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
@@ -66,18 +66,18 @@ def load_model(path, tf_sess, tf_graph, tf_context=None, run_id=None):
     conf = m.flavors[FLAVOR_NAME]
     saved_model_dir = os.path.join(path, conf['saved_model_dir'])
     return _load_model(saved_model_dir=saved_model_dir, tf_sess=tf_sess, tf_graph=tf_graph,
-                       tf_context=tf_context, meta_graph_tags=conf['meta_graph_tags'], 
+                       tf_context=tf_context, meta_graph_tags=conf['meta_graph_tags'],
                        signature_def_key=conf['signature_def_key'])
 
 
-def _load_model(saved_model_dir, tf_sess, tf_graph, meta_graph_tags, signature_def_key, 
+def _load_model(saved_model_dir, tf_sess, tf_graph, meta_graph_tags, signature_def_key,
                 tf_context=None):
     if tf_context is None:
         tf_context = tf_graph.as_default()
     with tf_context:
         meta_graph_def = tf.saved_model.loader.load(
-                sess=tf_sess, 
-                tags=meta_graph_tags, 
+                sess=tf_sess,
+                tags=meta_graph_tags,
                 export_dir=saved_model_dir)
         signature_def = tf.contrib.saved_model.get_signature_def_by_key(
                 meta_graph_def, signature_def_key)
@@ -95,10 +95,10 @@ def _load_pyfunc(path, tf_sess=None, tf_graph=None, tf_context=None):
     if tf_context is None:
         tf_context = tf_graph.as_default()
 
-    signature_def = load_model(path=path, tf_sess=tf_sess, tf_graph=tf_graph, 
+    signature_def = load_model(path=path, tf_sess=tf_sess, tf_graph=tf_graph,
                                tf_context=tf_context, run_id=None)
 
-    return _TFWrapper(tf_sess=tf_sess, tf_graph=tf_graph, 
+    return _TFWrapper(tf_sess=tf_sess, tf_graph=tf_graph,
                       tf_context=tf_context, signature_def=signature_def)
 
 
