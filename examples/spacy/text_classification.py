@@ -33,20 +33,20 @@ def main(model, n_iter, n_texts):
         print("Loaded model '%s'" % model)
     else:
         # Create blank Language class
-        nlp = spacy.blank('en')
+        nlp = spacy.blank("en")
         print("Created blank 'en' model")
 
     # Add the text classifier to the pipeline if it doesn't exist
     # nlp.create_pipe works for built-ins that are registered with spaCy
-    if 'textcat' not in nlp.pipe_names:
-        textcat = nlp.create_pipe('textcat')
+    if "textcat" not in nlp.pipe_names:
+        textcat = nlp.create_pipe("textcat")
         nlp.add_pipe(textcat, last=True)
     # Otherwise, get it, so we can add labels to it
     else:
-        textcat = nlp.get_pipe('textcat')
+        textcat = nlp.get_pipe("textcat")
 
     # Add label to text classifier
-    textcat.add_label('POSITIVE')
+    textcat.add_label("POSITIVE")
 
     # Load the IMDB dataset
     print("Loading IMDB data...")
@@ -54,7 +54,7 @@ def main(model, n_iter, n_texts):
     print("Using {} examples ({} training, {} evaluation)"
           .format(n_texts, len(train_texts), len(dev_texts)))
     train_data = list(zip(train_texts,
-                          [{'cats': cats} for cats in train_cats]))
+                          [{"cats": cats} for cats in train_cats]))
 
     # Get names of other pipes to disable them during training
     other_pipes = [pipe for pipe in nlp.pipe_names if pipe != 'textcat']
@@ -62,7 +62,7 @@ def main(model, n_iter, n_texts):
         with mlflow.start_run():
             optimizer = nlp.begin_training()
             print("Training the model...")
-            print('{:^5}\t{:^5}\t{:^5}\t{:^5}'.format('LOSS', 'P', 'R', 'F'))
+            print("{:^5}\t{:^5}\t{:^5}\t{:^5}".format("LOSS", "P", "R", "F"))
             mlflow.log_param("n_texts", n_texts)
             mlflow.log_param("n_iter", n_iter)
             for i in range(n_iter):
@@ -77,14 +77,14 @@ def main(model, n_iter, n_texts):
                     # Evaluate on the dev data split off in load_data()
                     scores = evaluate(nlp.tokenizer, textcat, dev_texts, dev_cats)
                 # Print a simple table
-                print('{0:.3f}\t{1:.3f}\t{2:.3f}\t{3:.3f}'
-                      .format(losses['textcat'], scores['textcat_p'],
-                              scores['textcat_r'], scores['textcat_f']))
+                print("{0:.3f}\t{1:.3f}\t{2:.3f}\t{3:.3f}"
+                      .format(losses["textcat"], scores["textcat_p"],
+                              scores["textcat_r"], scores["textcat_f"]))
 
-                mlflow.log_metric("loss", losses['textcat'])
-                mlflow.log_metric("precision", scores['textcat_p'])
-                mlflow.log_metric("recall", scores['textcat_r'])
-                mlflow.log_metric("f-score", scores['textcat_f'])
+                mlflow.log_metric("loss", losses["textcat"])
+                mlflow.log_metric("precision", scores["textcat_p"])
+                mlflow.log_metric("recall", scores["textcat_r"])
+                mlflow.log_metric("f-score", scores["textcat_f"])
 
             # Test the trained model
             test_text = "This movie sucked"
@@ -101,7 +101,7 @@ def load_data(limit=0, split=0.8):
     random.shuffle(train_data)
     train_data = train_data[-limit:]
     texts, labels = zip(*train_data)
-    cats = [{'POSITIVE': bool(y)} for y in labels]
+    cats = [{"POSITIVE": bool(y)} for y in labels]
     split = int(len(train_data) * split)
     return (texts[:split], cats[:split]), (texts[split:], cats[split:])
 
@@ -128,8 +128,8 @@ def evaluate(tokenizer, textcat, texts, cats):
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     f_score = 2 * (precision * recall) / (precision + recall)
-    return {'textcat_p': precision, 'textcat_r': recall, 'textcat_f': f_score}
+    return {"textcat_p": precision, "textcat_r": recall, "textcat_f": f_score}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
