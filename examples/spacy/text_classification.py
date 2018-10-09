@@ -10,7 +10,7 @@ see the documentation:
 Compatible with: spaCy v2.0.0+
 """
 from __future__ import unicode_literals, print_function
-import plac
+import click
 import random
 from pathlib import Path
 import thinc.extra.datasets
@@ -21,32 +21,34 @@ import spacy
 from spacy.util import minibatch, compounding
 
 
-@plac.annotations(
-    model=("Model name. Defaults to blank 'en' model.", "option", "m", str),
-    output_dir=("Optional output directory", "option", "o", Path),
-    n_texts=("Number of texts to train from", "option", "t", int),
-    n_iter=("Number of training iterations", "option", "n", int))
-def main(model=None, output_dir=None, n_iter=20, n_texts=2000):
+@click.command()
+@click.option("--model", "-m", help="Model name. Defaults to blank 'en' model",
+              type=str, default=None)
+@click.option("--n_iter", "-n", help="Number of training iterations", type=int, default=20)
+@click.option("--n_texts", "-t", help="Number of texts to train from", type=int, default=2000)
+def main(model, n_iter, n_texts):
     if model is not None:
-        nlp = spacy.load(model)  # load existing spaCy model
+        # Load existing spaCy model
+        nlp = spacy.load(model)
         print("Loaded model '%s'" % model)
     else:
-        nlp = spacy.blank('en')  # create blank Language class
+        # Create blank Language class
+        nlp = spacy.blank('en')
         print("Created blank 'en' model")
 
-    # add the text classifier to the pipeline if it doesn't exist
+    # Add the text classifier to the pipeline if it doesn't exist
     # nlp.create_pipe works for built-ins that are registered with spaCy
     if 'textcat' not in nlp.pipe_names:
         textcat = nlp.create_pipe('textcat')
         nlp.add_pipe(textcat, last=True)
-    # otherwise, get it, so we can add labels to it
+    # Otherwise, get it, so we can add labels to it
     else:
         textcat = nlp.get_pipe('textcat')
 
-    # add label to text classifier
+    # Add label to text classifier
     textcat.add_label('POSITIVE')
 
-    # load the IMDB dataset
+    # Load the IMDB dataset
     print("Loading IMDB data...")
     (train_texts, train_cats), (dev_texts, dev_cats) = load_data(limit=n_texts)
     print("Using {} examples ({} training, {} evaluation)"
@@ -54,7 +56,7 @@ def main(model=None, output_dir=None, n_iter=20, n_texts=2000):
     train_data = list(zip(train_texts,
                           [{'cats': cats} for cats in train_cats]))
 
-    # get names of other pipes to disable them during training
+    # Get names of other pipes to disable them during training
     other_pipes = [pipe for pipe in nlp.pipe_names if pipe != 'textcat']
     with nlp.disable_pipes(*other_pipes):  # only train textcat
         with mlflow.start_run():
@@ -65,16 +67,17 @@ def main(model=None, output_dir=None, n_iter=20, n_texts=2000):
             mlflow.log_param("n_iter", n_iter)
             for i in range(n_iter):
                 losses = {}
-                # batch up the examples using spaCy's minibatch
+                # Batch up the examples using spaCy's minibatch
                 batches = minibatch(train_data, size=compounding(4., 32., 1.001))
                 for batch in batches:
                     texts, annotations = zip(*batch)
                     nlp.update(texts, annotations, sgd=optimizer, drop=0.2,
                                losses=losses)
                 with textcat.model.use_params(optimizer.averages):
-                    # evaluate on the dev data split off in load_data()
+                    # Evaluate on the dev data split off in load_data()
                     scores = evaluate(nlp.tokenizer, textcat, dev_texts, dev_cats)
-                print('{0:.3f}\t{1:.3f}\t{2:.3f}\t{3:.3f}'  # print a simple table
+                # Print a simple table
+                print('{0:.3f}\t{1:.3f}\t{2:.3f}\t{3:.3f}'
                       .format(losses['textcat'], scores['textcat_p'],
                               scores['textcat_r'], scores['textcat_f']))
 
@@ -83,7 +86,7 @@ def main(model=None, output_dir=None, n_iter=20, n_texts=2000):
                 mlflow.log_metric("recall", scores['textcat_r'])
                 mlflow.log_metric("f-score", scores['textcat_f'])
 
-            # test the trained model
+            # Test the trained model
             test_text = "This movie sucked"
             doc = nlp(test_text)
             print(test_text, doc.cats)
@@ -129,4 +132,4 @@ def evaluate(tokenizer, textcat, texts, cats):
 
 
 if __name__ == '__main__':
-    plac.call(main)
+    main()
