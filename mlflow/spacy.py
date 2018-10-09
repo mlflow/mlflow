@@ -14,7 +14,6 @@ import os
 
 import numpy as np
 import pandas as pd
-import spacy
 
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -34,7 +33,7 @@ def log_model(spacy_model, artifact_path, conda_env=None, **kwargs):
                       defines the environment for the model. At minimum, it
                       should specify python, spacy, and mlflow with
                       appropriate versions.
-    :param kwargs: kwargs to pass to ``spacy.save`` method.
+    :param kwargs: kwargs to pass to ``spacy_model.to_disk()`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.spacy,
               spacy_model=spacy_model, conda_env=conda_env, **kwargs)
@@ -72,6 +71,8 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model(), **kwargs
 
 
 def _load_model(path, **kwargs):
+    import spacy
+
     mlflow_model_path = os.path.join(path, "MLmodel")
     if not os.path.exists(mlflow_model_path):
         raise RuntimeError("MLmodel is not found at '{}'".format(path))
