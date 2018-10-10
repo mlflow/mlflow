@@ -49,13 +49,3 @@ Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_
 environment variables must be set to the corresponding key and secrets provided
 by Amazon IAM.
 }
-\seealso{
-Other Fluent API functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_end_run}},
-  \code{\link{mlflow_log_metric}},
-  \code{\link{mlflow_log_param}},
-  \code{\link{mlflow_set_experiment}},
-  \code{\link{mlflow_set_tag}},
-  \code{\link{mlflow_start_run}}
-}
-\concept{Fluent API functions}

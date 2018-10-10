@@ -154,12 +154,6 @@ table th {
   font-weight: 500;
 }
 
-.breadcrumb-chevron {
-  font-size: 75%;
-  margin-left: 10px;
-  margin-right: 8px;
-}
-
 /* Overrides for bootstrap modal */
 .modal-body {
   padding: 16px;
@@ -173,4 +167,26 @@ table th {
 
 .modal-footer .btn+.btn {
   margin-left: 16px;
+}
+
+.truncate-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.single-line {
+  height: 1.3em;
+}
+
+.unselectable {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+img.center {
+  display: block;
+  margin: 0 auto;
 }

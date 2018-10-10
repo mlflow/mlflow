@@ -70,6 +70,15 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def rename_experiment(self, experiment_id, new_name):
+        """
+        Update an experiment's name. The new name must be unique.
+
+        :param experiment_id: Integer id for the experiment
+        """
+        pass
+
+    @abstractmethod
     def get_run(self, run_uuid):
         """
         Fetches the run from backend store

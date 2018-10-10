@@ -284,9 +284,11 @@ def test_databricks_http_request_integration(get_config, request):
     assert get_config.call_count == 0
 
 
-def test_run_databricks_failed():
-    with mock.patch('mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request') as m:
-        m.return_value = mock.Mock(text="{'message': 'Node type not supported'}", status_code=400)
+@mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
+def test_run_databricks_failed(_):
+    with mock.patch('mlflow.utils.rest_utils.http_request') as m:
+        text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+        m.return_value = mock.Mock(text=text, status_code=400)
         runner = DatabricksJobRunner('profile')
         with pytest.raises(MlflowException):
             runner._run_shell_command_job('/project', 'command', {}, {})

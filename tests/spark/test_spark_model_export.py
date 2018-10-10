@@ -167,7 +167,7 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
         for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
             print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
             try:
-                tracking_dir = os.path.abspath(str(tmpdir.mkdir("mlruns")))
+                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
                 mlflow.set_tracking_uri("file://%s" % tracking_dir)
                 if should_start_run:
                     mlflow.start_run()

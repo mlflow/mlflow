@@ -299,9 +299,9 @@ Model export example:
 
 .. code:: bash
 
-    az ml set env <local-env> - set environment to local deployment
+    az ml env set -n <local-env-name> -g <local-env-resource-group> - set environment to local deployment
     mlflow azureml deploy <parameters> - deploy locally to test the model
-    az ml set env <cluster-env> - set environment to cluster
+    az ml env set -n <cluster-env-name> -g <cluster-env-resource-group> - set environment to cluster
     mlflow azureml deploy <parameters> - deploy to the cloud
 
 For more info, see:

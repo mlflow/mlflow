@@ -12,7 +12,8 @@ import atexit
 import sys
 import time
 
-from mlflow.entities import Experiment, Run, SourceType
+from mlflow.entities import Experiment, Run, SourceType, RunInfo
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
@@ -102,6 +103,9 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     if existing_run_uuid:
         _validate_run_id(existing_run_uuid)
         active_run_obj = MlflowClient().get_run(existing_run_uuid)
+        if active_run_obj.info.lifecycle_stage == RunInfo.DELETED_LIFECYCLE:
+            raise MlflowException("Cannot start run with ID {} because it is in the "
+                                  "deleted state.".format(existing_run_uuid))
     else:
         if len(_active_run_stack) > 0:
             parent_run_id = _active_run_stack[-1].info.run_uuid
