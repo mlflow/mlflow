@@ -90,7 +90,7 @@ class ExperimentRunsTableCompactView extends Component {
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds)),
+        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid),
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent)
       .forEach((col) => rowContents.push(col));
