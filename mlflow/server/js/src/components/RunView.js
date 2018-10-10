@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import './RunView.css';
 import HtmlTableView from './HtmlTableView';
 import { Link } from 'react-router-dom';
+import Routes from '../Routes';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
@@ -222,10 +223,14 @@ class RunView extends Component {
               {Utils.renderSource(run, tags)}
             </span>
           </div>
-          {run.source_version ?
+          {tags['mlflow.parentRunId'] !== undefined ?
             <div className="run-info">
-              <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
+              <span className="metadata-header">Parent Run: </span>
+              <span className="metadata-info">
+                <Link to={Routes.getRunPageRoute(this.props.experimentId, tags['mlflow.parentRunId'].value)}>
+                  {tags['mlflow.parentRunId'].value}
+                </Link>
+              </span>
             </div>
             : null
           }
@@ -233,6 +238,13 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Entry Point: </span>
               <span className="metadata-info">{run.entry_point_name || "main"}</span>
+            </div>
+            : null
+          }
+          {run.source_version ?
+            <div className="run-info">
+              <span className="metadata-header">Git Commit: </span>
+              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
             </div>
             : null
           }
