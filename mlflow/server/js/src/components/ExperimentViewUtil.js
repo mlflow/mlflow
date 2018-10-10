@@ -229,20 +229,20 @@ export default class ExperimentViewUtil {
     return expanderOpen;
   }
 
-  static getExpander(hasExpander, expanderOpen, onExpandBound) {
+  static getExpander(hasExpander, expanderOpen, onExpandBound, runUuid) {
     if (!hasExpander) {
-      return <td>
+      return <td key={'Expander-' + runUuid}>
       </td>;
     }
     if (expanderOpen) {
       return (
-        <td onClick={onExpandBound}>
+        <td onClick={onExpandBound} key={'Expander-' + runUuid}>
           <i className="ExperimentView-expander far fa-minus-square"/>
         </td>
       );
     } else {
       return (
-        <td onClick={onExpandBound}>
+        <td onClick={onExpandBound} key={'Expander-' + runUuid}>
           <i className="ExperimentView-expander far fa-plus-square"/>
         </td>
       );
