@@ -255,6 +255,15 @@ class RunView extends Component {
             </div>
             : null
           }
+          {tags['mlflow.qubole.commandURL'] !== undefined ?
+            <div className="run-info">
+              <span className="metadata-header">Job Output: </span>
+              <span className="metadata-info">
+                <a href={tags['mlflow.qubole.commandURL'].value}>Logs</a>
+              </span>
+            </div>
+            : null
+          }
         </div>
         {runCommand ?
           <div className="RunView-info">

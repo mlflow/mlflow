@@ -41,6 +41,9 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     """
     if mode == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+    elif mode == "qubole":
+        mlflow.projects.qubole.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+
 
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
@@ -67,6 +70,12 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
+            remote_run=active_run,
+            uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
+            experiment_id=exp_id, cluster_spec=cluster_spec)
+    elif mode == "qubole":
+        from mlflow.projects.qubole import run_qubole
+        return run_qubole(
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
@@ -112,8 +121,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         environment variable ``$SHELL``) to run ``.sh`` files.
     :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_id: ID of experiment under which to launch the run.
-    :param mode: Execution mode of the run: "local" or "databricks".
-    :param cluster_spec: When ``mode`` is "databricks", path to a JSON file containing a
+    :param mode: Execution mode of the run: "local", "databricks" or "qubole".
+    :param cluster_spec: When ``mode`` is "databricks" or "qubole", path to a JSON file containing a
                          `Databricks cluster specification
                          <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
                          to use when launching a run.
