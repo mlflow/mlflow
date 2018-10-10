@@ -17,11 +17,11 @@ import mlflow
 import mlflow.tensorflow
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tracking.utils import _get_model_log_dir
 
 SavedModelInfo = collections.namedtuple(
-        "SavedModelInfo", 
+        "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
 
 
@@ -64,8 +64,8 @@ def saved_tf_iris_model(tmpdir):
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
     saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
                                                        receiver_fn).decode("utf-8")
-    return SavedModelInfo(path=saved_estimator_path, 
-                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING], 
+    return SavedModelInfo(path=saved_estimator_path,
+                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
                           signature_def_key="predict",
                           inference_df=pd.DataFrame(data=X, columns=feature_names),
                           expected_results_df=estimator_preds_df)
@@ -120,12 +120,11 @@ def saved_tf_categorical_model(tmpdir):
     estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
     estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
-   
     # Define a function for estimator inference
     feature_spec = {
-        "body-style" : tf.placeholder("string", name="body-style", shape=[None]),
-        "curb-weight" : tf.placeholder("float", name="curb-weight", shape=[None]),
-        "highway-mpg" : tf.placeholder("float", name="highway-mpg", shape=[None])
+        "body-style": tf.placeholder("string", name="body-style", shape=[None]),
+        "curb-weight": tf.placeholder("float", name="curb-weight", shape=[None]),
+        "highway-mpg": tf.placeholder("float", name="highway-mpg", shape=[None])
     }
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
@@ -133,8 +132,8 @@ def saved_tf_categorical_model(tmpdir):
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
     saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
                                                        receiver_fn).decode("utf-8")
-    return SavedModelInfo(path=saved_estimator_path, 
-                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING], 
+    return SavedModelInfo(path=saved_estimator_path,
+                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
                           signature_def_key="predict",
                           inference_df=df,
                           expected_results_df=estimator_preds_df)
@@ -144,16 +143,16 @@ def test_save_and_load_model_persists_and_restores_model_in_default_graph_contex
         tmpdir, saved_tf_iris_model):
     model_path = os.path.join(str(tmpdir), "model")
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
-                                tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-                                tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-                                path=model_path)
-    
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+
     tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
     with tf_graph.as_default():
         signature_def = mlflow.tensorflow.load_model(
                 path=model_path, tf_sess=tf_sess)
-       
+
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
             assert t_input is not None
@@ -170,13 +169,13 @@ def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path)
-    
+
     tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
     custom_tf_context = tf_graph.device("/cpu:0")
     with custom_tf_context:
         signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
-        
+
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
             assert t_input is not None
@@ -192,7 +191,7 @@ def test_load_model_loads_artifacts_from_specified_model_directory(tmpdir, saved
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path)
-    
+
     # Verify that the MLflow model can be loaded even after deleting the Tensorflow `SavedModel`
     # directory that was used to create it, implying that the artifacts were copied to and are
     # loaded from the specified MLflow model path
@@ -208,14 +207,15 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
                                     tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path)
-                                    
+
         run_id = mlflow.active_run().info.run_uuid
 
     tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
     with tf_graph.as_default():
-        signature_def = mlflow.tensorflow.load_model(path=artifact_path, tf_sess=tf_sess, run_id=run_id)
-        
+        signature_def = mlflow.tensorflow.load_model(
+                path=artifact_path, tf_sess=tf_sess, run_id=run_id)
+
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
             assert t_input is not None
@@ -238,7 +238,7 @@ def test_log_model_persists_conda_environment(tmpdir, saved_tf_iris_model):
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path,
                                     conda_env=conda_env_path)
-                                    
+
         run_id = mlflow.active_run().info.run_uuid
 
     model_dir = _get_model_log_dir(artifact_path, run_id)
@@ -253,7 +253,7 @@ def test_log_model_persists_conda_environment(tmpdir, saved_tf_iris_model):
     assert persisted_env_text == conda_env_text
 
 
-def test_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, saved_tf_iris_model):
+def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, saved_tf_iris_model):
     model_path = os.path.join(str(tmpdir), "model")
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
@@ -262,7 +262,7 @@ def test_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, saved_tf_iris_model
 
     pyfunc_wrapper = pyfunc.load_pyfunc(model_path)
     results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
-    assert results_df.equals(saved_tf_categorical_model.expected_results_df)
+    assert results_df.equals(saved_tf_iris_model.expected_results_df)
 
 
 def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(

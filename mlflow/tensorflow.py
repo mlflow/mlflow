@@ -137,7 +137,7 @@ def load_model(path, tf_sess, run_id=None):
         raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
     conf = m.flavors[FLAVOR_NAME]
     saved_model_dir = os.path.join(path, conf['saved_model_dir'])
-    return _load_model(tf_saved_model_dir=saved_model_dir, tf_sess=tf_sess, 
+    return _load_model(tf_saved_model_dir=saved_model_dir, tf_sess=tf_sess,
                        tf_meta_graph_tags=conf['meta_graph_tags'],
                        tf_signature_def_key=conf['signature_def_key'])
 
