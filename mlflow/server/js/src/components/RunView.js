@@ -223,14 +223,10 @@ class RunView extends Component {
               {Utils.renderSource(run, tags)}
             </span>
           </div>
-          {tags['mlflow.parentRunId'] !== undefined ?
+          {run.source_version ?
             <div className="run-info">
-              <span className="metadata-header">Parent Run: </span>
-              <span className="metadata-info">
-                <Link to={Routes.getRunPageRoute(this.props.experimentId, tags['mlflow.parentRunId'].value)}>
-                  {tags['mlflow.parentRunId'].value}
-                </Link>
-              </span>
+              <span className="metadata-header">Git Commit: </span>
+              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
             </div>
             : null
           }
@@ -238,13 +234,6 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Entry Point: </span>
               <span className="metadata-info">{run.entry_point_name || "main"}</span>
-            </div>
-            : null
-          }
-          {run.source_version ?
-            <div className="run-info">
-              <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
             </div>
             : null
           }
@@ -256,6 +245,17 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Duration: </span>
               <span className="metadata-info">{Utils.formatDuration(duration)}</span>
+            </div>
+            : null
+          }
+          {tags['mlflow.parentRunId'] !== undefined ?
+            <div className="run-info">
+              <span className="metadata-header">Parent Run: </span>
+              <span className="metadata-info">
+                <Link to={Routes.getRunPageRoute(this.props.experimentId, tags['mlflow.parentRunId'].value)}>
+                  {tags['mlflow.parentRunId'].value}
+                </Link>
+              </span>
             </div>
             : null
           }
