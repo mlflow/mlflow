@@ -11,6 +11,7 @@ import mlflow
 from mlflow.entities import RunStatus, ViewType
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import env
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
@@ -224,6 +225,22 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     assert len(run.data.metrics) == len(expected_metrics)
     for metric in run.data.metrics:
         assert metric.value == expected_metrics[metric.key]
+
+
+def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-argument
+    """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
+    with mlflow.start_run():
+        parent_run_id = mlflow.active_run().info.run_uuid
+        submitted_run = mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="test_tracking",
+            parameters={"use_start_run": "1"},
+            use_conda=False, experiment_id=0)
+    assert submitted_run.run_id is not None
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+    run_uuid = submitted_run.run_id
+    run = mlflow.tracking.MlflowClient().get_run(run_uuid)
+    parent_run_id_tag = [tag.value for tag in run.data.tags if tag.key == MLFLOW_PARENT_RUN_ID]
+    assert parent_run_id_tag == [parent_run_id]
 
 
 def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
