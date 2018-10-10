@@ -319,15 +319,23 @@ def _copy_project(src_path, dst_path=""):
 
 
 def _copy_file_or_tree(src, dst, dst_dir=None):
-    name = os.path.basename(os.path.abspath(src))
+    """
+    :return: The path to the copied artifacts, relative to `dst`
+    """
+    dst_subpath = os.path.basename(os.path.abspath(src))
     if dst_dir is not None:
-        os.mkdir(os.path.join(dst, dst_dir))
-        name = os.path.join(dst_dir, name)
+        dst_subpath = os.path.join(dst_dir, dst_subpath)
+    dst_path = os.path.join(dst, dst_subpath)
+
+    dst_dirpath = os.path.dirname(dst_path)
+    if not os.path.exists(dst_dirpath):
+        os.makedirs(dst_dirpath)
+
     if os.path.isfile(src):
-        shutil.copy(src=src, dst=os.path.join(dst, name))
+        shutil.copy(src=src, dst=dst_path)
     else:
-        shutil.copytree(src=src, dst=os.path.join(dst, name))
-    return name
+        shutil.copytree(src=src, dst=dst_path)
+    return dst_subpath
 
 
 def get_parent_dir(path):
