@@ -104,10 +104,12 @@ class ExperimentRunsTableCompactView extends Component {
         <div
           key={keyname}
           className="metric-param-cell"
-          onMouseEnter={() => this.onHover({isParam: true, isMetric: false, key: paramKey})}
-          onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
         >
-          <span className={cellClass}>
+          <span
+            className={cellClass}
+            onMouseEnter={() => this.onHover({isParam: true, isMetric: false, key: paramKey})}
+            onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
+          >
             <Dropdown id="dropdown-custom-1">
               <ExperimentRunsSortToggle
                 bsRole="toggle"
