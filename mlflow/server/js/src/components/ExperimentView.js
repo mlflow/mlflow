@@ -310,6 +310,7 @@ class ExperimentView extends Component {
                 </ButtonGroup>
               </span>
           </div>
+          <div style={styles.scrollableTable}>
             {this.state.showMultiColumns ?
               <ExperimentRunsTableMultiColumnView
                 onCheckbox={this.onCheckbox}
@@ -345,6 +346,7 @@ class ExperimentView extends Component {
                 onExpand={this.onExpand}
               />
             }
+          </div>
         </div>
       </div>
     );
@@ -641,6 +643,9 @@ const styles = {
   },
   tableToggleButtonGroup: {
     marginLeft: '16px',
+  },
+  scrollableTable: {
+    overflow: "scroll",
   },
 };
 
