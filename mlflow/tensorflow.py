@@ -23,7 +23,8 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
+from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY, INVALID_PARAMETER_VALUE 
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.exception_utils import _log_exception_trace_and_reraise
 from mlflow.utils.file_utils import _copy_file_or_tree
@@ -74,12 +75,12 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
 
     :param tf_saved_model_dir: Path to the directory containing serialized Tensorflow variables and
                                graphs in `SavedModel` format.
-    :param tf_meta_graph_tags: a list of tags identifying the model's metagraph within the
+    :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
                                serialized `savedmodel` object. for more information, see the `tags`
                                parameter of the `tf.saved_model.builder.savedmodelbuilder` method:
                                https://www.tensorflow.org/api_docs/python/tf/saved_model/builder/
                                savedmodelbuilder#add_meta_graph
-    :param tf_signature_def_key: a string identifying the input/output signature associated with the
+    :param tf_signature_def_key: A string identifying the input/output signature associated with the
                                  model. this is a key within the serialized `savedmodel`'s signature
                                  definition mapping. for more information, see the
                                  `signature_def_map` parameter of the
@@ -125,13 +126,20 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
                         tf_sess=validation_tf_sess,
                         tf_meta_graph_tags=tf_meta_graph_tags,
                         tf_signature_def_key=tf_signature_def_key)
-        except RuntimeError:
+        except IOError:
             _log_exception_trace_and_reraise(
-                    reraised_error_type=MlflowException,
-                    reraised_error_text=("Failed to validate the saved model by loading it in a"
+                    reraised_error_type=MlflowException, 
+                    reraised_error_text=("Failed to locate the SavedModel. Pleasure ensure that a"
+                                         " valid path to a Tensorflow SavedModel was specified."),
+                   error_code=RESOURCE_DOES_NOT_EXIST) 
+        except (RuntimeError, ValueError):
+            _log_exception_trace_and_reraise(
+                    reraised_error_type=MlflowException, 
+                    reraised_error_text=("Failed to validate the SavedModel by loading it in a" 
                                          " new Tensorflow session and graph context. Please ensure"
                                          " that the specified saved model contains the specified"
-                                         " signature definition key and meta graph tag set."))
+                                         " signature definition key and meta graph tag set."),
+                   error_code=INVALID_PARAMETER_VALUE) 
 
 
 def load_model(path, tf_sess, run_id=None):

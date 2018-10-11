@@ -16,10 +16,11 @@ import tensorflow as tf
 import mlflow
 import mlflow.tensorflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException 
 from mlflow.models import Model
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE 
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tracking.utils import _get_model_log_dir
-
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
@@ -175,7 +176,7 @@ def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context
     custom_tf_context = tf_graph.device("/cpu:0")
     with custom_tf_context:
         signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
-
+        
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
             assert t_input is not None
@@ -183,6 +184,86 @@ def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context
         for _, output_signature in signature_def.outputs.items():
             t_output = tf_graph.get_tensor_by_name(output_signature.name)
             assert t_output is not None
+
+
+def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, saved_tf_iris_model):
+    model_path = os.path.join(str(tmpdir), "model")
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+
+    expected_input_keys = ["sepallengthcm", "sepalwidthcm"]
+    expected_output_keys = ["predictions"]
+    input_length = 10
+
+    def load_and_evaluate(tf_sess, tf_graph, tf_context):
+        with tf_context:
+            signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
+
+            input_signature = signature_def.inputs.items()
+            assert len(input_signature) == len(expected_input_keys)
+            feed_dict = {}
+            for input_key, input_signature in signature_def.inputs.items():
+                assert input_key in expected_input_keys 
+                t_input = tf_graph.get_tensor_by_name(input_signature.name)
+                feed_dict[t_input] = np.array(range(input_length), dtype=np.float32) 
+
+            output_signature = signature_def.outputs.items()
+            assert len(output_signature) == len(expected_output_keys)
+            output_tensors = []
+            for output_key, output_signature in signature_def.outputs.items():
+                assert output_key in expected_output_keys 
+                t_output = tf_graph.get_tensor_by_name(output_signature.name)
+                output_tensors.append(t_output)
+
+            outputs_list = tf_sess.run(output_tensors, feed_dict=feed_dict)
+            assert len(outputs_list) == 1
+            outputs = outputs_list[0]
+            assert len(outputs.ravel()) == input_length
+
+    tf_graph_1 = tf.Graph()
+    tf_sess_1 = tf.Session(graph=tf_graph_1)
+    load_and_evaluate(tf_sess=tf_sess_1, tf_graph=tf_graph_1, tf_context=tf_graph_1.as_default())
+
+    tf_graph_2 = tf.Graph()
+    tf_sess_2 = tf.Session(graph=tf_graph_2)
+    load_and_evaluate(tf_sess=tf_sess_2, 
+                      tf_graph=tf_graph_2, 
+                      tf_context=tf_graph_1.device("/cpu:0"))
+
+
+def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exception(
+        tmpdir, saved_tf_iris_model):
+    model_path = os.path.join(str(tmpdir), "model")
+
+    with pytest.raises(MlflowException) as e:
+        mlflow.tensorflow.save_model(tf_saved_model_dir="not_a_valid_tf_model_dir",
+                                     tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                     path=model_path)
+        assert e.error_code == RESOURCE_DOES_NOT_EXIST 
+
+    with pytest.raises(MlflowException) as e:
+        mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                     tf_meta_graph_tags=["bad tags"],
+                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                     path=model_path)
+        assert e.error_code == INVALID_PARAMETER_VALUE
+
+    with pytest.raises(MlflowException) as e:
+        mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                     tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                     tf_signature_def_key="bad signature",
+                                     path=model_path)
+        assert e.error_code == INVALID_PARAMETER_VALUE 
+
+    with pytest.raises(MlflowException) as e:
+        mlflow.tensorflow.save_model(tf_saved_model_dir="bad path",
+                                     tf_meta_graph_tags="bad tags",
+                                     tf_signature_def_key="bad signature",
+                                     path=model_path)
+        assert e.error_code == RESOURCE_DOES_NOT_EXIST 
 
 
 def test_load_model_loads_artifacts_from_specified_model_directory(tmpdir, saved_tf_iris_model):
