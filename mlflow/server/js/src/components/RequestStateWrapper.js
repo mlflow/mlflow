@@ -57,11 +57,11 @@ export class RequestStateWrapper extends Component {
         console.error("ERROR", requests);
         throw Error("GOTO error boundary");
       } else {
-        return <div>{children}</div>;
+        return children;
       }
     }
     if (this.props.shouldOptimisticallyRender) {
-      return <div>{children}</div>;
+      return children;
     }
     return (
       <div className="RequestStateWrapper-spinner">

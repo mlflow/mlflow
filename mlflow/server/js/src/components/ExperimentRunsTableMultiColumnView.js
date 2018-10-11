@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import Table from 'react-bootstrap/es/Table';
+import { Table } from 'react-bootstrap';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import classNames from 'classnames';
 import Utils from '../utils/Utils';

@@ -7,10 +7,11 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 
-class ExperimentListView extends Component {
+export class ExperimentListView extends Component {
   static propTypes = {
     onClickListExperiments: PropTypes.func.isRequired,
-    activeExperimentId: PropTypes.number.isRequired,
+    // If activeExperimentId is undefined, then the active experiment is the first one.
+    activeExperimentId: PropTypes.number,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
   };
 
@@ -44,8 +45,13 @@ class ExperimentListView extends Component {
                className="collapser fa fa-chevron-left login-icon"/>
           </div>
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
-            {this.props.experiments.map((e) => {
-              const active = parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId;
+            {this.props.experiments.map((e, idx) => {
+              let active;
+              if (this.props.activeExperimentId) {
+                active = parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId;
+              } else {
+                active = idx === 0;
+              }
               let className = "experiment-list-item";
               if (active) {
                 className = `${className} active-experiment-list-item`;
