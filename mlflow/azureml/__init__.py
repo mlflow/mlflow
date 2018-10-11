@@ -7,46 +7,119 @@ from __future__ import print_function
 
 import os
 import shutil
+import tempfile
+
+from azureml.core.image import ContainerImage
+from azureml.core import Workspace
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
-def deploy(app_name, model_path, run_id=None, mlflow_home=None):
+# def deploy(app_name, model_path, run_id=None, mlflow_home=None):
+#     """
+#     Deploy an MLflow model to Azure Machine Learning.
+#
+#     NOTE:
+#
+#         - This command must be called from a console launched from Azure Machine Learning Workbench.
+#           Caller is reponsible for setting up Azure Machine Learning environment and accounts.
+#
+#         - Azure Machine Learning cannot handle any Conda environment. In particular the Python
+#           version is fixed. If the model contains Conda environment and it has been trained outside
+#           of Azure Machine Learning, the Conda environment might need to be edited to work with
+#           Azure Machine Learning.
+#
+#     :param app_name: Name of the deployed application.
+#     :param model_path: Local or MLflow-run-relative path to the model to be deployed.
+#     :param run_id: MLflow run ID.
+#     :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
+#                         current directory if not specified.
+#     """
+#     if run_id:
+#         model_path = _get_model_log_dir(model_path, run_id)
+#     model_path = os.path.abspath(model_path)
+#     with TempDir(chdr=True, remove_on_exit=True):
+#         exec_str = _export(app_name, model_path, mlflow_home=mlflow_home)
+#         eprint("executing", '"{}"'.format(exec_str))
+#         # Use os.system instead of subprocess due to the fact that currently all azureml commands
+#         # have to be called within the same shell (launched from azureml workbench app by the user).
+#         # We can change this once there is a python api (or general cli) available.
+#         os.system(exec_str)
+#
+
+
+SCORE_SRC = """
+import pandas as pd
+
+from mlflow.pyfunc import load_pyfunc
+from mlflow.utils import get_jsonable_obj
+
+
+def init():
+    global model
+    model = load_pyfunc("{model_path}")
+
+
+def run(s):
+    input_df = pd.read_json(s, orient="records")
+    return get_jsonable_obj(model.predict(input_df))
+
+"""
+
+
+def deploy(model_path, workspace, run_id=None):
+    if run_id is not None:
+        model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
+
+    return _build_image(model_path=model_path, workspace=workspace)
+    
+
+def _build_image(model_path, workspace):
     """
-    Deploy an MLflow model to Azure Machine Learning.
-
-    NOTE:
-
-        - This command must be called from a console launched from Azure Machine Learning Workbench.
-          Caller is reponsible for setting up Azure Machine Learning environment and accounts.
-
-        - Azure Machine Learning cannot handle any Conda environment. In particular the Python
-          version is fixed. If the model contains Conda environment and it has been trained outside
-          of Azure Machine Learning, the Conda environment might need to be edited to work with
-          Azure Machine Learning.
-
-    :param app_name: Name of the deployed application.
-    :param model_path: Local or MLflow-run-relative path to the model to be deployed.
-    :param run_id: MLflow run ID.
-    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
-                        current directory if not specified.
+    :param model_path: The absolute path to MLflow model for which the image is being built
+    :param workspace: The AzureML workspace in which to build the image. This is a 
+                      `azureml.core.Workspace` object.
+    :return: The name of the image that was created
     """
-    if run_id:
-        model_path = _get_model_log_dir(model_path, run_id)
-    model_path = os.path.abspath(model_path)
-    with TempDir(chdr=True, remove_on_exit=True):
-        exec_str = _export(app_name, model_path, mlflow_home=mlflow_home)
-        eprint("executing", '"{}"'.format(exec_str))
-        # Use os.system instead of subprocess due to the fact that currently all azureml commands
-        # have to be called within the same shell (launched from azureml workbench app by the user).
-        # We can change this once there is a python api (or general cli) available.
-        os.system(exec_str)
+    image_name = "mlflow-{id}".format(id=_get_azureml_resource_unique_id())
+    with TempDir() as tmp:
+        tmp_model_path = tmp.path("model")
+        tmp_model_subpath = _copy_file_or_tree(src=model_path, dst=tmp_model_path)
+        tmp_model_path = os.path.join(tmp_model_path, tmp_model_subpath)
+
+        # AzureML requires the container's execution script to be located
+        # in the current working directory during image creation, so we
+        # create the execution script as a temporary file in the current directory
+        driver_file = tempfile.NamedTemporaryFile(dir=os.getcwd(), mode="w", 
+                                                  prefix="driver", suffix=".py")
+        driver_text = SCORE_SRC.format(
+                model_path=("/var/azureml-app" + os.path.abspath(tmp_model_path)))
+        driver_file.write(driver_text)
+
+        conda_env_path = tmp.path("conda_env.yaml")
+        _mlflow_conda_env(conda_env_path, 
+                          additional_pip_deps=["mlflow=={mlflow_version}".format(
+                              mlflow_version=mlflow_version)])
+
+        image_configuration = ContainerImage.image_configuration(
+                execution_script=driver_file.name,
+                runtime="python",
+                dependencies=[tmp_model_path],
+                conda_file=conda_env_path)
+
+        image = ContainerImage.create(workspace=workspace,
+                                      name=image_name,
+                                      image_config=image_configuration,
+                                      models=[])
+        image.wait_for_creation(show_output=True)
+        return image_name
 
 
 def export(output, model_path, run_id=None, mlflow_home=None):
@@ -123,20 +196,28 @@ def _load_conf(path):
     return model.flavors[pyfunc.FLAVOR_NAME]
 
 
-SCORE_SRC = """
-import pandas as pd
+def _get_azureml_resource_unique_id():
+    """
+    :return: A unique identifier that can be appended to a user-readable resource name to avoid
+             naming collisions.
+    """
+    import uuid
+    import base64
+    uuid_bytes = uuid.uuid4().bytes
+    # Use base64 encoding to shorten the UUID length. Note that the replacement of the
+    # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
+    # 32-byte length
+    uuid_b64 = base64.b64encode(uuid_bytes)
+    if sys.version_info >= (3, 0):
+        # In Python3, `uuid_b64` is a `bytes` object. It needs to be
+        # converted to a string
+        uuid_b64 = uuid_b64.decode("ascii")
+    uuid_b64 = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB")
+    return uuid_b64.lower()
 
-from mlflow.pyfunc import load_pyfunc
-from mlflow.utils import get_jsonable_obj
 
-
-def init():
-    global model
-    model = load_pyfunc("model")
-
-
-def run(s):
-    input_df = pd.read_json(s, orient="records")
-    return get_jsonable_obj(model.predict(input_df))
-
-"""
+if __name__ == "__main__":
+    import sys
+    model_path = sys.argv[1]
+    workspace = Workspace.get("corey-azuresdk-test1")
+    deploy(model_path=sys.argv[1], workspace=workspace, run_id=None)
