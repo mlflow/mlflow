@@ -16,7 +16,6 @@ import tensorflow as tf
 import mlflow
 import mlflow.tensorflow
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.utils.environment import _mlflow_conda_env
@@ -235,30 +234,30 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, saved_tf_ir
 
 def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exception(
         tmpdir, saved_tf_iris_model):
+    from exceptions import RuntimeError
     model_path = os.path.join(str(tmpdir), "model")
 
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(IOError) as e:
         mlflow.tensorflow.save_model(tf_saved_model_dir="not_a_valid_tf_model_dir",
                                      tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                      tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                      path=model_path)
-        assert e.error_code == RESOURCE_DOES_NOT_EXIST
 
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(RuntimeError) as e:
         mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                      tf_meta_graph_tags=["bad tags"],
                                      tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                      path=model_path)
         assert e.error_code == INVALID_PARAMETER_VALUE
 
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(ValueError) as e:
         mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                      tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                      tf_signature_def_key="bad signature",
                                      path=model_path)
         assert e.error_code == INVALID_PARAMETER_VALUE
 
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(IOError) as e:
         mlflow.tensorflow.save_model(tf_saved_model_dir="bad path",
                                      tf_meta_graph_tags="bad tags",
                                      tf_signature_def_key="bad signature",
