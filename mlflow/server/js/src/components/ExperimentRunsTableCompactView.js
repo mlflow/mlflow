@@ -116,7 +116,7 @@ class ExperimentRunsTableCompactView extends Component {
                 className="metric-param-sort-toggle"
               >
                 <span
-                  className="run-table-container"
+                  className="run-table-container underline-on-hover"
                   style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
@@ -179,7 +179,7 @@ class ExperimentRunsTableCompactView extends Component {
                 className={"metric-param-sort-toggle"}
               >
                 <span
-                  className="run-table-container"
+                  className="run-table-container underline-on-hover"
                   style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>

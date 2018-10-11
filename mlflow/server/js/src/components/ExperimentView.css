@@ -173,7 +173,7 @@ span.error-message {
   font-weight: bold;
 }
 
-.ExperimentView .metric-param-name:hover {
+.ExperimentView .underline-on-hover:hover {
   text-decoration: underline;
 }
 

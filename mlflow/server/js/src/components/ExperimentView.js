@@ -310,7 +310,6 @@ class ExperimentView extends Component {
                 </ButtonGroup>
               </span>
           </div>
-          <div>
             {this.state.showMultiColumns ?
               <ExperimentRunsTableMultiColumnView
                 onCheckbox={this.onCheckbox}
@@ -346,7 +345,6 @@ class ExperimentView extends Component {
                 onExpand={this.onExpand}
               />
             }
-          </div>
         </div>
       </div>
     );
