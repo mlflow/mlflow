@@ -27,6 +27,7 @@ from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY, INVALID_PARAMETER_
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.logging_utils import eprint
 from six import reraise
 
 FLAVOR_NAME = "tensorflow"
@@ -90,12 +91,12 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                       model. At minimum, it should specify python, tensorflow, and mlflow with
                       appropriate versions.
     """
-    print("Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
-          " graph...")
+    eprint("Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
+           " graph...")
     _validate_saved_model(tf_saved_model_dir=tf_saved_model_dir,
                           tf_meta_graph_tags=tf_meta_graph_tags,
                           tf_signature_def_key=tf_signature_def_key)
-    print("Validation succeeded!")
+    eprint("Validation succeeded!")
 
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
