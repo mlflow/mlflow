@@ -14,7 +14,6 @@ from __future__ import absolute_import
 
 import os
 import shutil
-import traceback
 
 import pandas
 import tensorflow as tf
@@ -23,12 +22,10 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY, INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.logging_utils import eprint
-from six import reraise
 
 FLAVOR_NAME = "tensorflow"
 
