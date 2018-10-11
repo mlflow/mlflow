@@ -202,6 +202,8 @@ def _load_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags, tf_signature_de
             sess=tf_sess,
             tags=tf_meta_graph_tags,
             export_dir=tf_saved_model_dir)
+    # TODO: Stop relying on `tf.contrib` when it becomes deprecated. For reference, see the
+    #       Tensorflow roadmap: https://www.tensorflow.org/community/roadmap#roadmap_2.
     signature_def = tf.contrib.saved_model.get_signature_def_by_key(
             meta_graph_def, tf_signature_def_key)
     return signature_def
