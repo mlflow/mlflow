@@ -23,7 +23,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY, INVALID_PARAMETER_VALUE 
+from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY, INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.exception_utils import _log_exception_trace_and_reraise
@@ -128,18 +128,18 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
                         tf_signature_def_key=tf_signature_def_key)
         except IOError:
             _log_exception_trace_and_reraise(
-                    reraised_error_type=MlflowException, 
+                    reraised_error_type=MlflowException,
                     reraised_error_text=("Failed to locate the SavedModel. Pleasure ensure that a"
                                          " valid path to a Tensorflow SavedModel was specified."),
-                   error_code=RESOURCE_DOES_NOT_EXIST) 
+                   error_code=RESOURCE_DOES_NOT_EXIST)
         except (RuntimeError, ValueError):
             _log_exception_trace_and_reraise(
-                    reraised_error_type=MlflowException, 
-                    reraised_error_text=("Failed to validate the SavedModel by loading it in a" 
+                    reraised_error_type=MlflowException,
+                    reraised_error_text=("Failed to validate the SavedModel by loading it in a"
                                          " new Tensorflow session and graph context. Please ensure"
                                          " that the specified saved model contains the specified"
                                          " signature definition key and meta graph tag set."),
-                   error_code=INVALID_PARAMETER_VALUE) 
+                   error_code=INVALID_PARAMETER_VALUE)
 
 
 def load_model(path, tf_sess, run_id=None):
