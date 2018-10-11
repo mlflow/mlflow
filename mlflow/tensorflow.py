@@ -26,7 +26,6 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY, INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils.exception_utils import _log_exception_trace_and_reraise
 from mlflow.utils.file_utils import _copy_file_or_tree
 from six import reraise
 
