@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
 import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
-import 'react-virtualized/styles.css';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
