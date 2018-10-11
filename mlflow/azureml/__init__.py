@@ -72,23 +72,18 @@ def run(s):
     return get_jsonable_obj(model.predict(input_df))
 
 """
-
-
-def deploy(model_path, workspace, run_id=None):
-    if run_id is not None:
-        model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
-
-    return _build_image(model_path=model_path, workspace=workspace)
-    
-
-def _build_image(model_path, workspace):
+def build_image(model_path, workspace, run_id=None):
     """
     :param model_path: The absolute path to MLflow model for which the image is being built
     :param workspace: The AzureML workspace in which to build the image. This is a 
                       `azureml.core.Workspace` object.
-    :return: The name of the image that was created
+    :return: The name of the image that was created within the specified AzureML workspace.
     """
+    if run_id is not None:
+        model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
+
     image_name = "mlflow-{id}".format(id=_get_azureml_resource_unique_id())
+
     with TempDir() as tmp:
         tmp_model_path = tmp.path("model")
         tmp_model_subpath = _copy_file_or_tree(src=model_path, dst=tmp_model_path)
@@ -220,4 +215,4 @@ if __name__ == "__main__":
     import sys
     model_path = sys.argv[1]
     workspace = Workspace.get("corey-azuresdk-test1")
-    deploy(model_path=sys.argv[1], workspace=workspace, run_id=None)
+    build_image(model_path=sys.argv[1], workspace=workspace, run_id=None)
