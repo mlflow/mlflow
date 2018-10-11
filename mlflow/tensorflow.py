@@ -14,6 +14,7 @@ from __future__ import absolute_import
 
 import os
 import shutil
+import traceback
 
 import pandas
 import tensorflow as tf
@@ -24,7 +25,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils.exception_utils import _log_exception_trace_and_reraise
 from mlflow.utils.file_utils import _copy_file_or_tree
+from six import reraise
 
 FLAVOR_NAME = "tensorflow"
 
@@ -87,6 +90,10 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                       model. At minimum, it should specify python, tensorflow, and mlflow with
                       appropriate versions.
     """
+    _validate_saved_model(tf_saved_model_dir=tf_saved_model_dir,
+                          tf_meta_graph_tags=tf_meta_graph_tags,
+                          tf_signature_def_key=tf_signature_def_key)
+
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
     os.makedirs(path)
@@ -105,6 +112,26 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=model_conda_env)
     mlflow_model.save(os.path.join(path, "MLmodel"))
+
+
+def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
+    import sys
+    from exceptions import RuntimeError
+    validation_tf_graph = tf.Graph()
+    validation_tf_sess = tf.Session(graph=validation_tf_graph)
+    with validation_tf_graph.as_default():
+        try:
+            _load_model(tf_saved_model_dir=tf_saved_model_dir,
+                        tf_sess=validation_tf_sess,
+                        tf_meta_graph_tags=tf_meta_graph_tags,
+                        tf_signature_def_key=tf_signature_def_key)
+        except RuntimeError:
+            _log_exception_trace_and_reraise(
+                    reraised_error_type=MlflowException,
+                    reraised_error_text=("Failed to validate the saved model by loading it in a"
+                                         " new Tensorflow session and graph context. Please ensure"
+                                         " that the specified saved model contains the specified"
+                                         " signature definition key and meta graph tag set."))
 
 
 def load_model(path, tf_sess, run_id=None):
