@@ -119,8 +119,8 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
 
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
     """
-    Attempt to load the specified Tensorflow SavedModel. If the loading process fails,
-    any exceptions thrown by Tensorflow will be propagated.
+    Validate the Tensorflow SavedModle by attempting to load it in a new Tensorflow graph.
+    If the loading process fails, any exceptions thrown by Tensorflow will be propagated.
     """
     validation_tf_graph = tf.Graph()
     validation_tf_sess = tf.Session(graph=validation_tf_graph)
