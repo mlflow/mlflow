@@ -3,6 +3,7 @@ import sys
 
 from six import reraise
 
+
 def _log_exception_trace_and_reraise(reraised_error_type, reraised_error_text, **exception_kwargs):
     """
     Logs information about an exception that is currently being handled

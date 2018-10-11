@@ -131,7 +131,7 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
                     reraised_error_type=MlflowException,
                     reraised_error_text=("Failed to locate the SavedModel. Pleasure ensure that a"
                                          " valid path to a Tensorflow SavedModel was specified."),
-                   error_code=RESOURCE_DOES_NOT_EXIST)
+                    error_code=RESOURCE_DOES_NOT_EXIST)
         except (RuntimeError, ValueError):
             _log_exception_trace_and_reraise(
                     reraised_error_type=MlflowException,
@@ -139,7 +139,7 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
                                          " new Tensorflow session and graph context. Please ensure"
                                          " that the specified saved model contains the specified"
                                          " signature definition key and meta graph tag set."),
-                   error_code=INVALID_PARAMETER_VALUE)
+                    error_code=INVALID_PARAMETER_VALUE)
 
 
 def load_model(path, tf_sess, run_id=None):
