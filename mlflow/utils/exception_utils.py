@@ -12,7 +12,7 @@ def _log_exception_trace_and_reraise(reraised_error_type, reraised_error_text, *
     :param reraised_error_type: The class of exception to reraise
     :param reraised_error_text: The text of the reraised exception to include with the current
                                 exception's traceback.
-    :param exception_kwargs: Keyword arguments to include in the exception constructor
+    :param exception_kwargs: Keyword arguments to include in the reraised exception's constructor
     """
     traceback.print_exc()
     tb = sys.exc_info()[2]
