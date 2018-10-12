@@ -22,39 +22,6 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
-# def deploy(app_name, model_path, run_id=None, mlflow_home=None):
-#     """
-#     Deploy an MLflow model to Azure Machine Learning.
-#
-#     NOTE:
-#
-#         - This command must be called from a console launched from Azure Machine Learning Workbench.
-#           Caller is reponsible for setting up Azure Machine Learning environment and accounts.
-#
-#         - Azure Machine Learning cannot handle any Conda environment. In particular the Python
-#           version is fixed. If the model contains Conda environment and it has been trained outside
-#           of Azure Machine Learning, the Conda environment might need to be edited to work with
-#           Azure Machine Learning.
-#
-#     :param app_name: Name of the deployed application.
-#     :param model_path: Local or MLflow-run-relative path to the model to be deployed.
-#     :param run_id: MLflow run ID.
-#     :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
-#                         current directory if not specified.
-#     """
-#     if run_id:
-#         model_path = _get_model_log_dir(model_path, run_id)
-#     model_path = os.path.abspath(model_path)
-#     with TempDir(chdr=True, remove_on_exit=True):
-#         exec_str = _export(app_name, model_path, mlflow_home=mlflow_home)
-#         eprint("executing", '"{}"'.format(exec_str))
-#         # Use os.system instead of subprocess due to the fact that currently all azureml commands
-#         # have to be called within the same shell (launched from azureml workbench app by the user).
-#         # We can change this once there is a python api (or general cli) available.
-#         os.system(exec_str)
-#
-
-
 SCORE_SRC = """
 import pandas as pd
 
@@ -72,6 +39,8 @@ def run(s):
     return get_jsonable_obj(model.predict(input_df))
 
 """
+
+
 def build_image(model_path, workspace, run_id=None):
     """
     :param model_path: The absolute path to MLflow model for which the image is being built
@@ -81,6 +50,8 @@ def build_image(model_path, workspace, run_id=None):
     """
     if run_id is not None:
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
+
+    model_pyfunc_conf = _load_conf(path=model_path)
 
     image_name = "mlflow-{id}".format(id=_get_azureml_resource_unique_id())
 
@@ -98,17 +69,25 @@ def build_image(model_path, workspace, run_id=None):
                 model_path=("/var/azureml-app" + os.path.abspath(tmp_model_path)))
         driver_file.write(driver_text)
 
-        conda_env_path = tmp.path("conda_env.yaml")
-        _mlflow_conda_env(conda_env_path, 
-                          additional_pip_deps=["mlflow=={mlflow_version}".format(
-                              mlflow_version=mlflow_version)])
+        conda_env_path = None
+        if pyfunc.ENV in model_pyfunc_conf:
+            conda_env_path = model_pyfunc_conf[pyfunc.ENV]
+            conda_env_path = os.path.join(tmp.path(), _copy_file_or_tree(
+                src=conda_env_path, dst=tmp.path()))
 
-        image_configuration = ContainerImage.image_configuration(
-                execution_script=driver_file.name,
-                runtime="python",
-                dependencies=[tmp_model_path],
-                conda_file=conda_env_path)
+        # conda_env_path = tmp.path("conda_env.yaml")
+        # _mlflow_conda_env(conda_env_path, 
+        #                   additional_pip_deps=["mlflow=={mlflow_version}".format(
+        #                       mlflow_version=mlflow_version)])
 
+        image_configuration_kwargs = {
+            "execution_script": driver_file.name,
+            "runtime": "python",
+            "dependencies": [tmp_model_path],
+        }
+        if conda_env_path is not None:
+            image_configuration_kwargs["conda_file"] = conda_env_path 
+        image_configuration = ContainerImage.image_configuration(**image_configuration_kwargs)
         image = ContainerImage.create(workspace=workspace,
                                       name=image_name,
                                       image_config=image_configuration,
