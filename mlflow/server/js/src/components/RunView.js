@@ -252,7 +252,8 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Parent Run: </span>
               <span className="metadata-info">
-                <Link to={Routes.getRunPageRoute(this.props.experimentId, tags['mlflow.parentRunId'].value)}>
+                <Link to={Routes.getRunPageRoute(this.props.experimentId,
+                    tags['mlflow.parentRunId'].value)}>
                   {tags['mlflow.parentRunId'].value}
                 </Link>
               </span>
