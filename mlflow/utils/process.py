@@ -25,6 +25,7 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
     stream_output is false, then a tuple of the exit code, standard output and standard error is
     returned.
     """
+    print("\n"*10 + str(cmd) + "\n"*5)
     cmd_env = os.environ.copy()
     if env:
         cmd_env.update(env)

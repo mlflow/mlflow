@@ -127,7 +127,9 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                    "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-def ui(file_store, host, port):
+@click.option("--gunicorn_opts", default=None,
+              help="Additional command line options forwarded to gunicorn processes.")
+def ui(file_store, host, port, gunicorn_opts):
     """
     Launch the MLflow tracking UI.
 
@@ -135,7 +137,7 @@ def ui(file_store, host, port):
     """
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(file_store, file_store, host, port, 1, None)
+        _run_server(file_store, file_store, host, port, 1, None, gunicorn_opts)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
@@ -174,7 +176,9 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Number of gunicorn worker processes to handle requests (default: 4).")
 @click.option("--static-prefix", default=None, callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
-def server(file_store, default_artifact_root, host, port, workers, static_prefix):
+@click.option("--gunicorn_opts", default=None,
+              help="Additional command line options forwarded to gunicorn processes.")
+def server(file_store, default_artifact_root, host, port, workers, static_prefix, gunicorn_opts):
     """
     Run the MLflow tracking server.
 
@@ -183,7 +187,8 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
     try:
-        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix)
+        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix,
+                    gunicorn_opts)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
