@@ -234,7 +234,6 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, saved_tf_ir
 
 def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exception(
         tmpdir, saved_tf_iris_model):
-    from exceptions import RuntimeError
     model_path = os.path.join(str(tmpdir), "model")
 
     with pytest.raises(IOError) as e:
