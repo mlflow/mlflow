@@ -41,7 +41,7 @@ def run(s):
 """
 
 
-def build_image(model_path, workspace, run_id=None):
+def build_image(model_path, workspace, run_id=None, mlflow_home=None):
     """
     :param model_path: The absolute path to MLflow model for which the image is being built
     :param workspace: The AzureML workspace in which to build the image. This is a 
@@ -57,8 +57,8 @@ def build_image(model_path, workspace, run_id=None):
 
     with TempDir() as tmp:
         tmp_model_path = tmp.path("model")
-        tmp_model_subpath = _copy_file_or_tree(src=model_path, dst=tmp_model_path)
-        tmp_model_path = os.path.join(tmp_model_path, tmp_model_subpath)
+        tmp_model_path = os.path.join(
+            tmp_model_path, _copy_file_or_tree(src=model_path, dst=tmp_model_path))
 
         # AzureML requires the container's execution script to be located
         # in the current working directory during image creation, so we
@@ -69,24 +69,36 @@ def build_image(model_path, workspace, run_id=None):
                 model_path=("/var/azureml-app" + os.path.abspath(tmp_model_path)))
         driver_file.write(driver_text)
 
+        tmp_mlflow_path = None
+        if mlflow_home is not None:
+            tmp_mlflow_path = tmp.path("mlflow")
+            tmp_mlflow_path = os.path.join(
+                tmp_mlflow_path, _copy_file_or_tree(src=mlflow_home, dst=tmp_mlflow_path))
+            docker_cmd = "RUN pip install -e {mlflow_path}".format(
+                mlflow_path=("/var/azureml-app" + tmp_mlflow_path))
+        else:
+            docker_cmd = "RUN pip install mlflow=={mlflow_version}".format(
+                mlflow_version=mlflow_version)
+        docker_path = tmp.path("Dockerfile")
+        with open(docker_path, "w") as f:
+            f.write(docker_cmd)
+
         conda_env_path = None
         if pyfunc.ENV in model_pyfunc_conf:
             conda_env_path = model_pyfunc_conf[pyfunc.ENV]
-            conda_env_path = os.path.join(tmp.path(), _copy_file_or_tree(
-                src=conda_env_path, dst=tmp.path()))
-
-        # conda_env_path = tmp.path("conda_env.yaml")
-        # _mlflow_conda_env(conda_env_path, 
-        #                   additional_pip_deps=["mlflow=={mlflow_version}".format(
-        #                       mlflow_version=mlflow_version)])
+            conda_env_path = os.path.join(
+                tmp.path(), _copy_file_or_tree( src=conda_env_path, dst=tmp.path()))
 
         image_configuration_kwargs = {
             "execution_script": driver_file.name,
             "runtime": "python",
+            "docker_file": docker_path,
             "dependencies": [tmp_model_path],
         }
         if conda_env_path is not None:
-            image_configuration_kwargs["conda_file"] = conda_env_path 
+            image_configuration_kwargs["conda_file"] = conda_env_path
+        if tmp_mlflow_path is not None:
+            image_configuration_kwargs["dependencies"].append(tmp_mlflow_path)
         image_configuration = ContainerImage.image_configuration(**image_configuration_kwargs)
         image = ContainerImage.create(workspace=workspace,
                                       name=image_name,
@@ -193,5 +205,9 @@ def _get_azureml_resource_unique_id():
 if __name__ == "__main__":
     import sys
     model_path = sys.argv[1]
-    workspace = Workspace.get("corey-azuresdk-test1")
-    build_image(model_path=sys.argv[1], workspace=workspace, run_id=None)
+    if len(sys.argv) > 2:
+        mlflow_home = sys.argv[2]
+    else:
+        mlflow_home = None
+    workspace = Workspace.get("corey-azuresdk-east1")
+    build_image(model_path=sys.argv[1], workspace=workspace, run_id=None, mlflow_home=mlflow_home)
