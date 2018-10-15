@@ -71,8 +71,8 @@ ListArtifacts.Response listArtifacts(String runUuid, String path)
 
 ### Java Usage
 
-For a simple example see [QuickStartDriver.java](src/main/java/org/mlflow/client/samples/QuickStartDriver.java).
-For full examples of API coverage see the [tests](src/test/java/org/mlflow/client) such as [ApiClientTest.java](src/test/java/org/mlflow/client/ApiClientTest.java).
+For a simple example see [QuickStartDriver.java](src/main/java/org/mlflow/tracking/samples/QuickStartDriver.java).
+For full examples of API coverage see the [tests](src/test/java/org/mlflow/tracking) such as [MlflowClientTest.java](src/test/java/org/mlflow/tracking/MlflowClientTest.java).
 
 ```
 package org.mlflow.tracking.samples;
