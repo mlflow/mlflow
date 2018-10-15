@@ -174,7 +174,7 @@ which is available through client SDK in the :py:mod:`mlflow.tracking` module.
 This makes it possible to query data about past runs, log additional information about them, create experiments, 
 add tags to a run, and more.
 
-Example usage:
+.. rubric:: Example
 
 .. code:: python
 
@@ -196,11 +196,7 @@ The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom
 
   client.set_tag(run.info.run_uuid, "tag_key", "tag_value")
   
-If you log a run from a Databricks notebook, the run has the default tags::
-  
-  mlflow.databricks.notebookID
-  mlflow.databricks.webappURL
-  mlflow.databricks.notebookPath
+.. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
 
 
 Tracking UI
