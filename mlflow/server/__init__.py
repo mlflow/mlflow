@@ -1,4 +1,5 @@
 import os
+import shlex
 
 from flask import Flask, send_from_directory
 
@@ -66,6 +67,6 @@ def _run_server(file_store_path, default_artifact_root, host, port, workers, sta
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
     bind_address = "%s:%s" % (host, port)
-    opts = gunicorn_opts.split(" ") if gunicorn_opts else []
+    opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
     exec_cmd(["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
              env=env_map, stream_output=True)

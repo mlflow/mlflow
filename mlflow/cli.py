@@ -127,7 +127,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                    "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-@click.option("--gunicorn_opts", default=None,
+@click.option("--gunicorn-opts", default=None,
               help="Additional command line options forwarded to gunicorn processes.")
 def ui(file_store, host, port, gunicorn_opts):
     """
