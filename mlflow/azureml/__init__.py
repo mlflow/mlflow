@@ -73,7 +73,7 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
         # Azure ML copies the execution script into the image's application root directory by
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
-        # if the script path is an **absolute path**, Azure ML attempts to reference it directly,
+        # if the script path is an absolute path, Azure ML attempts to reference it directly,
         # resulting in a failure. To circumvent this problem, we provide Azure ML with the relative
         # script path. Because the execution script was created in the current working directory,
         # this relative path is the script path's base name.
