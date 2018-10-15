@@ -40,3 +40,8 @@ class IllegalArtifactPathError(MlflowException):
 class ExecutionException(MlflowException):
     """Exception thrown when executing a project fails."""
     pass
+
+
+class ResourceNotFoundException(MlflowException):
+    """Exception thrown when expected entity, resource, or physical file/directory not found"""
+    pass
