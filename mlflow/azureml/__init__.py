@@ -14,9 +14,9 @@ from azureml.core import Workspace
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException 
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST 
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
@@ -24,7 +24,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
-def build_image(model_path, workspace, run_id=None, mlflow_home=None, description=None, tags={}, 
+def build_image(model_path, workspace, run_id=None, mlflow_home=None, description=None, tags={},
                 synchronous=True):
     """
     Builds an Azure ML ContainerImage for the specified model. This image can be deployed as a
@@ -33,18 +33,18 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
     :param run_id: MLflow run ID.
-    :param workspace: The AzureML workspace in which to build the image. This is a 
+    :param workspace: The AzureML workspace in which to build the image. This is a
                       `azureml.core.Workspace` object.
-    :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the 
+    :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
                         image will install MLflow from this directory. Otherwise, it will install
                         MLflow from pip.
     :param description: A string description to give the container image when pushing to the Azure
-                        Container Registry. For more information, see 
+                        Container Registry. For more information, see
                         https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.image.container.containerimageconfig.
     :param tags: A collection of tags to give the image when pushing to the Azure Container
-                 Registry. These tags will be added to a set of default tags that include the model 
-                 path, the model run id (if specified), and more. For more information, see 
+                 Registry. These tags will be added to a set of default tags that include the model
+                 path, the model run id (if specified), and more. For more information, see
                  https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.image.container.containerimageconfig.
     :param synchronous: If `True`, this method will block until the image creation procedure
@@ -57,8 +57,8 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
     if run_id is not None:
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
-    image_tags = _build_image_tags(model_path=model_path, run_id=run_id, 
-                                   model_pyfunc_conf=model_pyfunc_conf, 
+    image_tags = _build_image_tags(model_path=model_path, run_id=run_id,
+                                   model_pyfunc_conf=model_pyfunc_conf,
                                    user_tags=tags)
 
     with TempDir() as tmp:
@@ -74,14 +74,14 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
         # if the script path is an **absolute path**, Azure ML attempts to reference it directly,
-        # resulting in a failure. To circumvent this problem, we provide Azure ML with the relative 
-        # script path. Because the execution script was created in the current working directory, 
+        # resulting in a failure. To circumvent this problem, we provide Azure ML with the relative
+        # script path. Because the execution script was created in the current working directory,
         # this relative path is the script path's base name.
         execution_script_path = os.path.basename(execution_script_file.name)
 
         if mlflow_home is not None:
             eprint("Copying the specified mlflow_home directory: {mlflow_home} to a temporary"
-                  " location for container creation".format(mlflow_home=mlflow_home))
+                   " location for container creation".format(mlflow_home=mlflow_home))
             tmp_mlflow_path = tmp.path("mlflow")
             mlflow_home = os.path.join(
                     tmp_mlflow_path, _copy_file_or_tree(src=mlflow_home, dst=tmp_mlflow_path))
@@ -136,7 +136,7 @@ def _build_image_tags(model_path, run_id, model_pyfunc_conf, user_tags):
 def _create_execution_script(model_path):
     """
     Creates an Azure-compatibele execution script (entry point) for a model server backed by
-    the specified model. This script is created as a temporary file in the current working 
+    the specified model. This script is created as a temporary file in the current working
     directory.
 
     :param model_path: The absolute path to the model for which to create an execution script.
@@ -150,7 +150,7 @@ def _create_execution_script(model_path):
     execution_script_text = SCORE_SRC.format(model_path=_get_container_path(model_path))
     execution_script_file.write(execution_script_text)
     execution_script_file.seek(0)
-    return execution_script_file 
+    return execution_script_file
 
 
 def _create_dockerfile(output_path, mlflow_path=None):
@@ -177,7 +177,7 @@ def _create_dockerfile(output_path, mlflow_path=None):
 
 def _get_container_path(local_path):
     """
-    Given a local path to a resource, obtains the path at which this resource will exist 
+    Given a local path to a resource, obtains the path at which this resource will exist
     when it is copied into the Azure ML container image.
     """
     if local_path.startswith("/"):
@@ -187,7 +187,7 @@ def _get_container_path(local_path):
 
 def _load_pyfunc_conf(model_path):
     """
-    Loads the `python_function` flavor configuration for the specified model or throws an exception 
+    Loads the `python_function` flavor configuration for the specified model or throws an exception
     if the model does not contain the `python_function` flavor.
 
     :param model_path: The absolute path to the model.
@@ -199,7 +199,7 @@ def _load_pyfunc_conf(model_path):
         raise MlflowException(
                 message=("The specified model does not contain the `python_function` flavor. This "
                          " flavor is required for model deployment required for model deployment."),
-                         error_code=RESOURCE_DOES_NOT_EXIST)
+                error_code=RESOURCE_DOES_NOT_EXIST)
     return model.flavors[pyfunc.FLAVOR_NAME]
 
 
