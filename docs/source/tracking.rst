@@ -219,16 +219,12 @@ The UI contains the following key features:
 Querying Runs Programmatically
 ==============================
 
-All of the functions in the Tracking UI can be accessed programmatically. This makes it easy to do several
-common tasks:
+All of the functions in the Tracking UI can be accessed programmatically. This makes it easy to do several common tasks:
 
 * Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
-* Determine the artifact URI for a run to feed some of its artifacts into a new run when executing
-  a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
-* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using
-the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
-* Run automated parameter search algorithms, where you query the metrics from various runs to
-  submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
+* Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
+* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+* Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
 
 .. _tracking_server:
@@ -278,12 +274,13 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   server will probably be referring to different physical locations (that is, the same path on different disks).
 
 Supported Artifact Stores
-^^^^^^^^^^^^^^^^^^^^^^^^^
-In addition to local file paths, MLflow supports the following storage systems as artifact stores:
-Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In addition to local file paths, MLflow supports the following storage systems as artifact stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Amazon S3
-~~~~~~~~~
+^^^^^^^^^
+
 To store artifacts in S3, specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
@@ -298,7 +295,8 @@ For example, if you have a Minio server at 1.2.3.4 on port 9000:
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
 
 Azure Blob Storage
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
+
 To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
@@ -309,7 +307,8 @@ separately (on both your client and the server) to access Azure Blob Storage; ML
 a dependency on this package by default.
 
 Google Cloud Storage
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
+
 To store artifacts in Google Cloud Storage, specify a URI of the form ``gs://<bucket>/<path>``.
 You should configure credentials for accessing the GCS container on the client and server as described
 in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
@@ -317,7 +316,8 @@ Finally, you will need to ``pip install google-cloud-storage`` (on both your cli
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
 SFTP Server
-~~~~~~~~~~~
+^^^^^^^^^^^
+
 To store artifacts in an SFTP server, specify a URI of the form ``sftp://user@host/path/to/directory``.
 You should configure the client to be able to log in to the SFTP server without a password over SSH (e.g. public key, identity file in ssh_config, etc.).
 
@@ -326,7 +326,8 @@ The format ``sftp://user:pass@host/`` is supported for logging in. However, for 
 When using this store, ``pysftp`` must be installed on both the server and the client. Run ``pip install pysftp`` to install the required package.
 
 NFS
-~~~
+^^^
+
 To store artifacts in an NFS mount, specify a URI as a normal file system path, e.g., ``/mnt/nfs``.
 This path must the same on both the server and the client -- you may need to use symlinks or remount
 the client in order to enforce this property.
