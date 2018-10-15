@@ -176,7 +176,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Number of gunicorn worker processes to handle requests (default: 4).")
 @click.option("--static-prefix", default=None, callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
-@click.option("--gunicorn_opts", default=None,
+@click.option("--gunicorn-opts", default=None,
               help="Additional command line options forwarded to gunicorn processes.")
 def server(file_store, default_artifact_root, host, port, workers, static_prefix, gunicorn_opts):
     """
