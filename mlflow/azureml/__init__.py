@@ -24,8 +24,8 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
-def build_container_image(model_path, workspace, run_id=None, mlflow_home=None, description=None, 
-                          tags={}, synchronous=True):
+def build_image(model_path, workspace, run_id=None, mlflow_home=None, description=None, tags={}, 
+                synchronous=True):
     """
     Builds an Azure ML ContainerImage for the specified model. This image can be deployed as a
     web service to Azure Container Instances (ACI) or Azure Kubernetes Service (AKS).
@@ -38,11 +38,11 @@ def build_container_image(model_path, workspace, run_id=None, mlflow_home=None, 
     :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the 
                         image will install MLflow from this directory. Otherwise, it will install
                         MLflow from pip.
-    :param description: A string description to give the Docker image when pushing to the Azure
+    :param description: A string description to give the container image when pushing to the Azure
                         Container Registry. For more information, see 
                         https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.image.container.containerimageconfig.
-    :param tags: A collection of tags to give the Docker image when pushing to the Azure Container
+    :param tags: A collection of tags to give the image when pushing to the Azure Container
                  Registry. These tags will be added to a set of default tags that include the model 
                  path, the model run id (if specified), and more. For more information, see 
                  https://docs.microsoft.com/en-us/python/api/azureml-core/
@@ -100,7 +100,7 @@ def build_container_image(model_path, workspace, run_id=None, mlflow_home=None, 
                 dependencies=file_dependencies,
                 conda_file=conda_env_path,
                 description=description,
-                tags=tags,
+                tags=image_tags,
         )
         image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
         eprint("A new docker image will be built with the name: {image_name}".format(
