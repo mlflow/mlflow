@@ -30,20 +30,24 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
     :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the 
                         image will install MLflow from this directory. Otherwise, it will install
                         MLflow from pip.
+    :param description: A string description to give the Docker image when pushing to the Azure
+                        Container Registry. For more information, see 
+                        https://docs.microsoft.com/en-us/python/api/azureml-core/
+                        azureml.core.image.container.containerimageconfig.
     :param tags: A collection of tags to give the Docker image when pushing to the Azure Container
                  Registry. These tags will be added to a set of default tags that include the model 
                  path, the model run id (if specified), and more. For more information, see 
                  https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.image.container.containerimageconfig.
-    :param description: A string description to give the Docker image when pushing to the Azure
-                        Container Registry. For more information, see 
-                        https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.image.container.containerimageconfig.
     :return: An `azureml.core.image.ContainerImage` object containing metadata for the new image.
     """
     if run_id is not None:
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
-    mlflow_pyfunc_conf = _load_pyfunc_conf(path=model_path)
+    model_pyfunc_conf = _load_pyfunc_conf(path=model_path)
+    image_tags = _build_image_tags(model_path=model_path, run_id=run_id, 
+                                   model_pyfunc_conf=model_pyfunc_conf, 
+                                   user_tags=tags)
+    print(image_tags)
 
     with TempDir() as tmp:
         tmp_model_path = tmp.path("model")
@@ -77,7 +81,7 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
                 description=description,
                 tags=tags,
         )
-        image_name = "mlflow-{id}".format(id=_get_azureml_resource_unique_id())
+        image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
         print("A new docker image will be built with the name: {image_name}".format(
             image_name=image_name))
         image = ContainerImage.create(workspace=workspace,
@@ -89,14 +93,13 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
 
 
 def _build_image_tags(model_path, run_id, model_pyfunc_conf, user_tags):
-    image_tags = {
-        "model_path": model_path,
-    }
+    image_tags = dict(user_tags)
+    image_tags["model_path"] = model_path if run_id is not None else os.path.abspath(model_path)
     if run_id is not None:
         image_tags["model_run_id"] = run_id
     if pyfunc.PY_VERSION in model_pyfunc_conf:
         image_tags["model_python_version"] = model_pyfunc_conf[pyfunc.PY_VERSION]
-
+    return image_tags
 
 
 def _create_execution_script(model_path):
