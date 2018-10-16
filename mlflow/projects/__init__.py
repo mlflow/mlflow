@@ -21,7 +21,7 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 import mlflow.tracking.fluent as fluent
 
 
-import mlflow.projects.databricks
+from mlflow.projects import databricks, qubole
 from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
@@ -42,6 +42,9 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     """
     if mode == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+    elif mode == "qubole":
+        mlflow.projects.qubole.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+
 
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
@@ -71,6 +74,12 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
+    elif mode == "qubole":
+        from mlflow.projects.qubole import run_qubole
+        return run_qubole(
+            remote_run=active_run,
+            uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
+            experiment_id=exp_id, cluster_spec=cluster_spec)
     elif mode == "local" or mode is None:
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
@@ -86,7 +95,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_uuid)
-    supported_modes = ["local", "databricks"]
+    supported_modes = ["local", "databricks", "qubole"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
 
@@ -113,8 +122,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         environment variable ``$SHELL``) to run ``.sh`` files.
     :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_id: ID of experiment under which to launch the run.
-    :param mode: Execution mode of the run: "local" or "databricks".
-    :param cluster_spec: When ``mode`` is "databricks", path to a JSON file containing a
+    :param mode: Execution mode of the run: "local", "databricks" or "qubole".
+    :param cluster_spec: When ``mode`` is "databricks" or "qubole", path to a JSON file containing a
                          `Databricks cluster specification
                          <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
                          to use when launching a run.

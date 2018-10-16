@@ -44,6 +44,7 @@ setup(
         'querystring_parser',
         'simplejson',
         'mleap>=0.8.1',
+        'qds-sdk'
     ],
     entry_points='''
         [console_scripts]
