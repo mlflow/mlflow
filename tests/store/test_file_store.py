@@ -457,7 +457,7 @@ class TestFileStore(unittest.TestCase):
     def test_malformed_experiment(self):
         fs = FileStore(self.test_root)
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        assert  exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
 
         experiments = len(fs.list_experiments(ViewType.ALL))
 
