@@ -173,6 +173,10 @@ span.error-message {
   font-weight: bold;
 }
 
+.ExperimentView .underline-on-hover:hover {
+  text-decoration: underline;
+}
+
 .ExperimentView .metric-param-value {
   margin-left: 4px;
 }
@@ -205,4 +209,8 @@ span.error-message {
 
 .ExperimentView .metric-param-content {
   padding: 4px;
+}
+
+.ExperimentView-expander:hover {
+  cursor: pointer;
 }

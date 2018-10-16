@@ -27,9 +27,11 @@ class CompareRunPage extends Component {
 
   render() {
     return (
-      <RequestStateWrapper requestIds={this.requestIds}>
-        <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId}/>
-      </RequestStateWrapper>
+      <div className='App-content'>
+        <RequestStateWrapper requestIds={this.requestIds}>
+          <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId}/>
+        </RequestStateWrapper>
+      </div>
     );
   }
 }

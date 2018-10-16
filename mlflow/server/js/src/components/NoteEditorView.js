@@ -87,7 +87,7 @@ class NoteEditorView extends Component {
           <Alert bsStyle="danger" onDismiss={this.handleErrorAlertDismissed}>
             <h4>Uh oh! There was an error submitting your note.</h4>
             <p>
-              {this.state.error.message}
+              {this.state.error.getUserVisibleError()}
             </p>
           </Alert>
           :

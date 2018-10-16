@@ -4,11 +4,13 @@ import unittest
 import mock
 import six
 
+from mlflow.exceptions import MlflowException
 from mlflow.entities import Param, Metric, RunTag
 from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
     SetTag, DeleteRun, RestoreRun
-from mlflow.store.rest_store import RestStore, RestException
+from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
+
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
@@ -44,7 +46,7 @@ class TestRestStore(unittest.TestCase):
         request.return_value = response
 
         store = RestStore(lambda: MlflowHostCreds('https://hello'))
-        with self.assertRaises(RestException) as cm:
+        with self.assertRaises(MlflowException) as cm:
             store.list_experiments()
         self.assertIn("RESOURCE_DOES_NOT_EXIST: No experiment", str(cm.exception))
 
@@ -84,43 +86,43 @@ class TestRestStore(unittest.TestCase):
         creds = MlflowHostCreds('https://hello')
         store = RestStore(lambda: creds)
 
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
             body = message_to_json(LogParam(run_uuid="some_uuid", key="k1", value="v1"))
             self._verify_requests(mock_http, creds,
                                   "runs/log-parameter", "POST", body)
 
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
             body = message_to_json(SetTag(run_uuid="some_uuid", key="t1", value="abcd"*1000))
             self._verify_requests(mock_http, creds,
                                   "runs/set-tag", "POST", body)
 
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_metric("u2", Metric("m1", 0.87, 12345))
             body = message_to_json(LogMetric(run_uuid="u2", key="m1", value=0.87, timestamp=12345))
             self._verify_requests(mock_http, creds,
                                   "runs/log-metric", "POST", body)
 
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.delete_run("u25")
             self._verify_requests(mock_http, creds,
                                   "runs/delete", "POST",
                                   message_to_json(DeleteRun(run_id="u25")))
 
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.restore_run("u76")
             self._verify_requests(mock_http, creds,
                                   "runs/restore", "POST",
                                   message_to_json(RestoreRun(run_id="u76")))
 
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.delete_experiment(0)
             self._verify_requests(mock_http, creds,
                                   "experiments/delete", "POST",
                                   message_to_json(DeleteExperiment(experiment_id=0)))
 
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.restore_experiment(0)
             self._verify_requests(mock_http, creds,
                                   "experiments/restore", "POST",
