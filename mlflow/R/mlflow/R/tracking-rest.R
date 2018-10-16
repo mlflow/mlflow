@@ -1,7 +1,7 @@
 mlflow_rest_path <- function(version) {
   switch(
     version,
-    "2.0" = "api/2.0/preview/mlflow"
+    "2.0" = "ajax-api/2.0/preview/mlflow"
   )
 }
 
@@ -43,13 +43,13 @@ mlflow_rest <- function(..., client, query = NULL, data = NULL, verb = "GET", ve
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
+
   response <- switch(
     verb,
     GET = GET(api_url, query = query, mlflow_rest_timeout()),
     POST = POST(
       api_url,
       body = mlflow_rest_body(data),
-      verbose = T,
       mlflow_rest_headers(),
       mlflow_rest_timeout()
     ),
