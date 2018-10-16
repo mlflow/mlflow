@@ -157,9 +157,6 @@ class Parameter(object):
 
     def compute_value(self, param_value, storage_dir):
         if storage_dir and self.type == "path":
-            print("storage_dir", storage_dir, "path", param_value)
-            import os
-            os.system("find {}".format(storage_dir))
             return self._compute_path_value(param_value, storage_dir)
         elif self.type == "uri":
             return self._compute_uri_value(param_value)
