@@ -40,11 +40,11 @@ Running the remote job requires `cluster-spec.json` to be passed as follows,
 ```json
 {
     "aws": {
-        "s3_experiment_bucket": "dev.canopydata.com",
-        "s3_experiment_base_path": "ameya/mlfow-test"
+        "s3_experiment_bucket": "<bucket-name>",
+        "s3_experiment_base_path": "<directory>"
     },
     "qubole": {
-        "api_token": "xyz" ,
+        "api_token": "<qubole-api-token>" ,
         "api_url": "https://api.qubole.com/api/",
         "version": "v1.2",
         "poll_interval": 5,

@@ -20,7 +20,7 @@ import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
 
-import mlflow.projects.databricks
+from mlflow.projects import databricks, qubole
 from mlflow.utils import process
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
@@ -94,7 +94,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_uuid)
-    supported_modes = ["local", "databricks"]
+    supported_modes = ["local", "databricks", "qubole"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
 
