@@ -479,17 +479,13 @@ class FileStore(AbstractStore):
         return run_infos
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
-        run_uuids = []
+        run_infos = []
+        for experiment_id in experiment_ids:
+            run_infos.extend(self._list_run_infos(experiment_id, run_view_type))
         if len(search_expressions) == 0:
-            for experiment_id in experiment_ids:
-                run_uuids.extend(self._list_run_infos(experiment_id, run_view_type))
-        else:
-            for experiment_id in experiment_ids:
-                for run_uuid in self._list_run_infos(experiment_id, run_view_type):
-                    run = self.get_run(run_uuid)
-                    if all([does_run_match_clause(run, s) for s in search_expressions]):
-                        run_uuids.append(run_uuid)
-        return [self.get_run(run_uuid) for run_uuid in run_uuids]
+            return run_infos
+        return [run for run in run_infos if
+                all([does_run_match_clause(run, s) for s in search_expressions])]
 
     def list_run_infos(self, experiment_id, run_view_type):
         return self._list_run_infos(experiment_id, run_view_type)
