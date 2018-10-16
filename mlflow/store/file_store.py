@@ -146,7 +146,7 @@ class FileStore(AbstractStore):
                 experiments.append(experiment)
             except ResourceNotFoundException as rnfe:
                 # Trap malformed experiments and log warnings.
-                logging.warning("Malformed experiment '%s'" % exp_id, {"details": str(rnfe)})
+                logging.warning("Malformed experiment '%s'. Detailed error %s", exp_id, str(rnfe))
             except Exception as e:
                 # raise on unexpected error
                 raise e
@@ -472,7 +472,7 @@ class FileStore(AbstractStore):
                     run_infos.append(run_info)
             except ResourceNotFoundException as rnfe:
                 # trap malformed exception and log warning
-                logging.warning("Malformed run '%s'" % r_id, {"details": str(rnfe)})
+                logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe))
             except Exception as e:
                 # raise unexpected exception to caller
                 raise e
