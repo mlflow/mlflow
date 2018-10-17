@@ -86,6 +86,8 @@ class NumpyEncoder(JSONEncoder):
     def default(self, o):  # pylint: disable=E0202
         if isinstance(o, numpy.generic):
             return numpy.asscalar(o)
+        if isinstance(o, numpy.ndarray):
+            return o.tolist()
         return JSONEncoder.default(self, o)
 
 
