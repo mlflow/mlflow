@@ -24,8 +24,8 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
-def build_image(model_path, workspace, run_id=None, mlflow_home=None, image_name=None, 
-                description=None, tags={}, synchronous=True):
+def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None, 
+                mlflow_home=None, description=None, tags={}, synchronous=True):
     """
     Builds an Azure ML ContainerImage for the specified model. This image can be deployed as a
     web service to Azure Container Instances (ACI) or Azure Kubernetes Service (AKS).
@@ -60,12 +60,18 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, image_name
     image_tags = _build_image_tags(model_path=model_path, run_id=run_id,
                                    model_pyfunc_conf=model_pyfunc_conf,
                                    user_tags=tags)
+   
+    if image_name is None:
+        image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
+    if model_name is None:
+        model_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
 
-    image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
-    eprint("A new docker image will be built with the name: {image_name}".format(
+    registered_model = AzureModel.register(workspace=workspace, model_path=model_path, 
+                                           model_name=model_name)
+    eprint("Registered a new Azure Model with name: {model_name}".format(model_name=model_name))
+
+    eprint("Building a new container image with name: {image_name}".format(
         image_name=image_name))
-    AzureModel.register(workspace=workspace, model_path=model_path, model_name=image_name)
-
     with TempDir() as tmp:
         tmp_model_path = tmp.path("model")
         model_path = os.path.join(
@@ -74,7 +80,7 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, image_name
 
         # Create an execution script (entry point) for the image's model server in the
         # current working directory
-        execution_script_file = _create_execution_script(image_name=image_name)
+        execution_script_file = _create_execution_script(model_name=model_name)
         # Azure ML copies the execution script into the image's application root directory by
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
@@ -110,10 +116,10 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, image_name
         image = ContainerImage.create(workspace=workspace,
                                       name=image_name,
                                       image_config=image_configuration,
-                                      models=[])
+                                      models=[registered_model])
         if synchronous:
             image.wait_for_creation(show_output=True)
-        return image
+        return image, registered_model
 
 
 def _build_image_tags(model_path, run_id, model_pyfunc_conf, user_tags):
@@ -135,7 +141,7 @@ def _build_image_tags(model_path, run_id, model_pyfunc_conf, user_tags):
     return image_tags
 
 
-def _create_execution_script(image_name):
+def _create_execution_script(model_name):
     """
     Creates an Azure-compatibele execution script (entry point) for a model server backed by
     the specified model. This script is created as a temporary file in the current working
@@ -149,7 +155,7 @@ def _create_execution_script(image_name):
     # create the execution script as a temporary file in the current directory
     execution_script_file = tempfile.NamedTemporaryFile(
             dir=os.getcwd(), mode="w", prefix="driver", suffix=".py")
-    execution_script_text = SCORE_SRC.format(model_name=image_name)
+    execution_script_text = SCORE_SRC.format(model_name=model_name)
     execution_script_file.write(execution_script_text)
     execution_script_file.seek(0)
     return execution_script_file
@@ -218,7 +224,7 @@ def _get_azureml_resource_unique_id():
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the
     # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
-    # 32-byte length
+    # 16-byte length
     uuid_b64 = base64.b64encode(uuid_bytes)
     if sys.version_info >= (3, 0):
         # In Python3, `uuid_b64` is a `bytes` object. It needs to be

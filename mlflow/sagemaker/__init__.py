@@ -626,7 +626,7 @@ def _get_sagemaker_resource_unique_id():
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the
     # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
-    # 32-byte length
+    # 16-byte length
     uuid_b64 = base64.b64encode(uuid_bytes)
     if sys.version_info >= (3, 0):
         # In Python3, `uuid_b64` is a `bytes` object. It needs to be
