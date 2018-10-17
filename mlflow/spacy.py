@@ -132,4 +132,6 @@ class _SpaCyWrapper(object):
         if mode != "classification":
             raise ValueError("{} is not a supported mode".format(mode))
 
-        return data.ix[:, 0].apply(lambda text: self.spacy_model(text).cats)
+        return pd.DataFrame({
+            'predictions': data.ix[:, 0].apply(lambda text: self.spacy_model(text).cats)
+        })
