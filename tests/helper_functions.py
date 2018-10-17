@@ -37,7 +37,7 @@ def score_model_in_sagemaker_docker_container(model_path, data, flavor=mlflow.py
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True, env=env)
-    r = _score_proc(proc, 5000, data, "json").content
+    r = _score_proc(proc, 5000, data, "json", flavor).content
     import json
     return json.loads(r)  # TODO: we should return pd.Dataframe the same as pyfunc serve
 
@@ -65,7 +65,7 @@ def pyfunc_serve_and_score_model(model_path, data):
     raise Exception("Failed to start server")
 
 
-def _score_proc(proc, port, data, data_type):
+def _score_proc(proc, port, data, data_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
     try:
         for i in range(0, 50):
             assert proc.poll() is None, "scoring process died"
@@ -86,7 +86,8 @@ def _score_proc(proc, port, data, data_type):
             raise Exception("ping failed, server is not happy")
         if data_type == "json":
             if type(data) == pd.DataFrame:
-                data = data.to_dict(orient="records")
+                orient = "split" if flavor == mlflow.pyfunc.FLAVOR_NAME else "records"
+                data = data.to_dict(orient=orient)
             r = requests.post(url='http://localhost:%d/invocations' % port,
                               json=data)
         elif data_type == "csv":
