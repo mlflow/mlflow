@@ -10,7 +10,7 @@ import shutil
 import tempfile
 
 from azureml.core.image import ContainerImage
-from azureml.core import Workspace
+from azureml.core.model import Model as AzureModel
 
 import mlflow
 from mlflow import pyfunc
@@ -24,8 +24,8 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
-def build_image(model_path, workspace, run_id=None, mlflow_home=None, description=None, tags={},
-                synchronous=True):
+def build_image(model_path, workspace, run_id=None, mlflow_home=None, image_name=None, 
+                description=None, tags={}, synchronous=True):
     """
     Builds an Azure ML ContainerImage for the specified model. This image can be deployed as a
     web service to Azure Container Instances (ACI) or Azure Kubernetes Service (AKS).
@@ -61,6 +61,11 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
                                    model_pyfunc_conf=model_pyfunc_conf,
                                    user_tags=tags)
 
+    image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
+    eprint("A new docker image will be built with the name: {image_name}".format(
+        image_name=image_name))
+    AzureModel.register(workspace=workspace, model_path=model_path, model_name=image_name)
+
     with TempDir() as tmp:
         tmp_model_path = tmp.path("model")
         model_path = os.path.join(
@@ -69,7 +74,7 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
 
         # Create an execution script (entry point) for the image's model server in the
         # current working directory
-        execution_script_file = _create_execution_script(model_path=model_path)
+        execution_script_file = _create_execution_script(image_name=image_name)
         # Azure ML copies the execution script into the image's application root directory by
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
@@ -102,9 +107,6 @@ def build_image(model_path, workspace, run_id=None, mlflow_home=None, descriptio
                 description=description,
                 tags=image_tags,
         )
-        image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
-        eprint("A new docker image will be built with the name: {image_name}".format(
-            image_name=image_name))
         image = ContainerImage.create(workspace=workspace,
                                       name=image_name,
                                       image_config=image_configuration,
@@ -133,7 +135,7 @@ def _build_image_tags(model_path, run_id, model_pyfunc_conf, user_tags):
     return image_tags
 
 
-def _create_execution_script(model_path):
+def _create_execution_script(image_name):
     """
     Creates an Azure-compatibele execution script (entry point) for a model server backed by
     the specified model. This script is created as a temporary file in the current working
@@ -147,7 +149,7 @@ def _create_execution_script(model_path):
     # create the execution script as a temporary file in the current directory
     execution_script_file = tempfile.NamedTemporaryFile(
             dir=os.getcwd(), mode="w", prefix="driver", suffix=".py")
-    execution_script_text = SCORE_SRC.format(model_path=_get_container_path(model_path))
+    execution_script_text = SCORE_SRC.format(model_name=image_name)
     execution_script_file.write(execution_script_text)
     execution_script_file.seek(0)
     return execution_script_file
@@ -165,14 +167,17 @@ def _create_dockerfile(output_path, mlflow_path=None):
                         Dockerfile command for MLflow installation will install MLflow from this
                         directory. Otherwise, it will install MLflow from pip.
     """
+    docker_cmds = []
+    docker_cmds.append("RUN pip install azureml-sdk")
     if mlflow_path is not None:
         docker_cmd = "RUN pip install -e {mlflow_path}".format(
             mlflow_path=_get_container_path(mlflow_path))
     else:
         docker_cmd = "RUN pip install mlflow=={mlflow_version}".format(
             mlflow_version=mlflow_version)
+    docker_cmds.append(docker_cmd)
     with open(output_path, "w") as f:
-        f.write(docker_cmd)
+        f.write("\n".join(docker_cmds))
 
 
 def _get_container_path(local_path):
@@ -226,13 +231,15 @@ def _get_azureml_resource_unique_id():
 SCORE_SRC = """
 import pandas as pd
 
+from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
 from mlflow.utils import get_jsonable_obj
 
 
 def init():
     global model
-    model = load_pyfunc("{model_path}")
+    model_path = Model.get_model_path("{model_name}")
+    model = load_pyfunc(model_path)
 
 
 def run(s):
@@ -240,3 +247,10 @@ def run(s):
     return get_jsonable_obj(model.predict(input_df))
 
 """
+
+if __name__ == "__main__":
+    from azureml.core import Workspace
+
+    model_path = sys.argv[1]
+    workspace = Workspace.get("corey-azuresdk-east1")
+    build_image(model_path=model_path, workspace=workspace)
