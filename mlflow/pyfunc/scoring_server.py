@@ -53,11 +53,12 @@ def init(model):
         if flask.request.content_type == 'text/csv':
             data = flask.request.data.decode('utf-8')
             s = StringIO(data)
-            data = pd.read_csv(s)
+            data = pd.read_csv(s, header=None)  # HACK https://github.com/pandas-dev/pandas/issues/19383
+            data = data.rename(columns=data.iloc[0], copy=False).iloc[1:].reset_index(drop=True)
         elif flask.request.content_type == 'application/json':
             data = flask.request.data.decode('utf-8')
             s = StringIO(data)
-            data = pd.read_json(s, orient="records")
+            data = pd.read_json(s, orient="split")
         else:
             return flask.Response(
                 response='This predictor only supports CSV or JSON  data, got %s' % str(
