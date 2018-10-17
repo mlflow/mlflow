@@ -1,4 +1,5 @@
 import os
+import posixpath
 
 from six.moves import urllib
 
@@ -37,8 +38,8 @@ class GCSArtifactRepository(ArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
-            dest_path = build_path(dest_path, artifact_path)
-        dest_path = build_path(dest_path, os.path.basename(local_file))
+            dest_path = self._build_gcs_path(dest_path, artifact_path)
+        dest_path = self._build_gcs_path(dest_path, os.path.basename(local_file))
 
         gcs_bucket = self.gcs.Client().get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
@@ -91,3 +92,6 @@ class GCSArtifactRepository(ArtifactRepository):
         remote_full_path = build_path(remote_root_path, remote_file_path)
         gcs_bucket = self.gcs.Client().get_bucket(bucket)
         gcs_bucket.get_blob(remote_full_path).download_to_filename(local_path)
+
+    def _build_gcs_path(self, *path_segments):
+        return posixpath.join(*path_segments)
