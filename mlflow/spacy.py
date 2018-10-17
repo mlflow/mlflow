@@ -43,7 +43,6 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model(), **kwargs
     Save a SpaCy model to a path on the local file system.
 
     :param spacy_model: SpaCy model to be saved.
-                          input and produce a single output tensor.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this
                       decribes the environment this model should be run in.
@@ -122,16 +121,68 @@ class _SpaCyWrapper(object):
     """
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
+
+    Be sure to pass an additional row with a "mode" column that specifies the
+    kind of model.
+
+    Possible modes:
+        - classification: text classification, eg. positive v. negative
+        - ner: named entity recognition, eg. identify animals "I see a [dog]"
+        - parser: dependency parsing; how to parse a sentence into a tree
+        - tagger: part-of-speech tagging
+
+    For example,
+    $ curl -d '[{"text": "That movie sucked. It was so awful. I hated every moment of it."}, {"text": "That movie was fantastic! So amazing!! 10/10 would recommend"}, {"mode": "classification"}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
+    [{"predictions": {"POSITIVE": 0.0586448609828949}}, {"predictions": {"POSITIVE": 0.6672934889793396}}]
     """
     def __init__(self, spacy_model):
         self.spacy_model = spacy_model
 
-    def predict(self, data, mode='classification'):
+    def predict(self, data):
         if not isinstance(data, pd.DataFrame):
             raise TypeError("Input data should be pandas.DataFrame")
-        if mode != "classification":
-            raise ValueError("{} is not a supported mode".format(mode))
 
-        return pd.DataFrame({
-            'predictions': data.ix[:, 0].apply(lambda text: self.spacy_model(text).cats)
-        })
+        if "mode" not in data:
+            raise ValueError(
+                "Please specify an additional column called mode with one "
+                "of the following values: classification, ner, parsing, tagging",
+            )
+        mode = data["mode"][data["mode"].notna()].tolist()
+        if not mode:
+            raise ValueError(
+                "Please specify a value for \"mode\". You can choose one "
+                "of the following values: classification, ner, parsing, tagging",
+            )
+        mode = mode[0]
+
+        if set(data.columns) != {"text", "mode"}:
+            raise ValueError(
+                "Data has columns that are not only \"text\" and \"mode\"."
+                "Found columns: {}".format(set(data.columns)),
+            )
+
+        # Drop the extra row from the "mode" column
+        texts = data[data["mode"].isna()]["text"]
+
+        if mode == "classification":
+            return pd.DataFrame({
+                "predictions": texts.apply(lambda text: self.spacy_model(text).cats)
+            })
+        if mode == "ner":
+            entities = texts.apply(lambda text: self.spacy_model(text).ents)
+            return pd.DataFrame({
+                "predictions": entities.apply(lambda ents: [{
+                    "text": ent.text,
+                    "label": ent.label_,
+                    "start_char": ent.start_char,
+                    "end_char": ent.end_char,
+                } for ent in ents])
+            })
+        if mode == "parser":
+            # TODO
+            return
+        if mode == "tagger":
+            # TODO
+            return
+
+        raise ValueError("{} is not a supported mode".format(mode))
