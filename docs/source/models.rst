@@ -270,7 +270,7 @@ Deploy a ``python_function`` model on Microsoft AzureML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The :py:mod:`mlflow.azureml` module can export ``python_function`` models as Azure ML models and
-to directly deploy and serve models on Azure ML, provided the environment has been set up.
+directly deploy and serve models on Azure ML, provided the environment has been set up.
 
 * :py:func:`export <mlflow.azureml.export>` exports the model as a 
   directory with the dependencies necessary to deploy the model on Azure ML.
