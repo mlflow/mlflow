@@ -38,7 +38,7 @@ class MlflowClient(object):
 
     def create_run(self, experiment_id, user_id=None, run_name=None, source_type=None,
                    source_name=None, entry_point_name=None, start_time=None,
-                   source_version=None, tags=None, parent_run_id=None):
+                   source_version=None, tags=None, parent_run_id=None, artifact_relative=False):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -64,6 +64,7 @@ class MlflowClient(object):
             source_version=source_version,
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
             parent_run_id=parent_run_id,
+            artifact_relative=artifact_relative,
         )
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
@@ -88,17 +89,20 @@ class MlflowClient(object):
         """
         return self.store.get_experiment_by_name(name)
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, artifact_relative=False):
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
+        :param artifact_relative: Flag to define, if artifact location should be saved
+                                  as relative path, if artifact location is not provided.
         :return: Integer ID of the created experiment.
         """
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
+            artifact_relative=artifact_relative,
         )
 
     def delete_experiment(self, experiment_id):

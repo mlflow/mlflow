@@ -30,19 +30,21 @@ _active_run_stack = []
 _active_experiment_id = None
 
 
-def set_experiment(experiment_name):
+def set_experiment(experiment_name, artifact_relative=False):
     """
     Set given experiment as active experiment. If experiment does not exist, create an experiment
     with provided name.
 
     :param experiment_name: Name of experiment to be activated.
+    :param artifact_relative: Flag to define, if artifact location should be
+                              saved as relative path.
     """
     client = MlflowClient()
     experiment = client.get_experiment_by_name(experiment_name)
     exp_id = experiment.experiment_id if experiment else None
     if not exp_id:
         print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
-        exp_id = client.create_experiment(experiment_name)
+        exp_id = client.create_experiment(experiment_name, artifact_relative=artifact_relative)
     global _active_experiment_id
     _active_experiment_id = exp_id
 
@@ -63,7 +65,8 @@ class ActiveRun(Run):  # pylint: disable=W0223
 
 
 def start_run(run_uuid=None, experiment_id=None, source_name=None, source_version=None,
-              entry_point_name=None, source_type=None, run_name=None, nested=False):
+              entry_point_name=None, source_type=None, run_name=None, nested=False,
+              artifact_relative=False):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -91,6 +94,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                         :py:class:`mlflow.entities.SourceType.LOCAL` ("local").
     :param run_name: Name of new run. Used only when ``run_uuid`` is unspecified.
     :param nested: Parameter which must be set to ``True`` to create nested runs.
+    :param artifact_relative: Flag to save local artifact URI as relative.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
@@ -132,7 +136,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 entry_point_name=entry_point_name,
                 source_type=SourceType.NOTEBOOK,
                 tags=databricks_tags,
-                parent_run_id=parent_run_id)
+                parent_run_id=parent_run_id,
+                artifact_relative=artifact_relative)
         else:
             active_run_obj = MlflowClient().create_run(
                 experiment_id=exp_id_for_run,
@@ -141,7 +146,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
                 source_version=source_version or _get_source_version(),
                 entry_point_name=entry_point_name,
                 source_type=source_type or _get_source_type(),
-                parent_run_id=parent_run_id)
+                parent_run_id=parent_run_id,
+                artifact_relative=artifact_relative)
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
@@ -223,16 +229,18 @@ def log_artifacts(local_dir, artifact_path=None):
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def create_experiment(name, artifact_location=None):
+def create_experiment(name, artifact_location=None, artifact_relative=False):
     """
     Create an experiment.
 
     :param name: The experiment name. Must be unique.
     :param artifact_location: The location to store run artifacts.
                               If not provided, the server picks an appropriate default.
+    :param artifact_relative: Flag to define, if artifact location should be saved
+                              as relative path, if artifact location is not provided.
     :return: Integer ID of the created experiment.
     """
-    return MlflowClient().create_experiment(name, artifact_location)
+    return MlflowClient().create_experiment(name, artifact_location, artifact_relative)
 
 
 def get_artifact_uri():

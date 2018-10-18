@@ -28,13 +28,15 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def create_experiment(self, name, artifact_location):
+    def create_experiment(self, name, artifact_location, artifact_relative):
         """
         Creates a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
+        :param artifact_relative: Flag to make artifact location as relative, if
+                                  store supports that.
         :return: experiment_id (integer) for the newly created experiment if successful, else None
         """
         pass
@@ -96,7 +98,8 @@ class AbstractStore:
         pass
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, parent_run_id):
+                   entry_point_name, start_time, source_version, tags, parent_run_id,
+                   artifact_relative):
         """
         Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.

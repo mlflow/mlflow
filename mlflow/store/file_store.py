@@ -17,7 +17,7 @@ from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file, build_path,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
-                                     list_all)
+                                     list_all, is_fs_path, get_relative_path)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 from mlflow.utils.search_utils import does_run_match_clause
@@ -140,15 +140,19 @@ class FileStore(AbstractStore):
             rsl += self._get_deleted_experiments(full_path=False)
         return [self._get_experiment(exp_id, view_type) for exp_id in rsl]
 
-    def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
+    def _create_experiment_with_id(self, name, experiment_id, artifact_uri,
+                                   artifact_relative=False):
         self._check_root_dir()
-        meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
+        experiment_dirname = str(experiment_id)
+        meta_dir = mkdir(self.root_directory, experiment_dirname)
+        if not(artifact_relative and is_fs_path(self.artifact_root_uri)):
+            experiment_dirname = build_path(self.artifact_root_uri, experiment_dirname)
+        artifact_uri = artifact_uri or experiment_dirname
         experiment = Experiment(experiment_id, name, artifact_uri, Experiment.ACTIVE_LIFECYCLE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, artifact_relative=False):
         self._check_root_dir()
         if name is None or name == "":
             raise MlflowException("Invalid experiment name '%s'" % name,
@@ -161,7 +165,8 @@ class FileStore(AbstractStore):
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [e.experiment_id for e in self.list_experiments(ViewType.ALL)]
         experiment_id = max(experiments_ids) + 1
-        return self._create_experiment_with_id(name, experiment_id, artifact_location)
+        return self._create_experiment_with_id(
+            name, experiment_id, artifact_location, artifact_relative)
 
     def _has_experiment(self, experiment_id):
         return self._get_experiment_path(experiment_id) is not None
@@ -173,6 +178,9 @@ class FileStore(AbstractStore):
             raise MlflowException("Could not find experiment with ID %s" % experiment_id,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         meta = read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
+        if is_fs_path(self.artifact_root_uri):
+            meta['artifact_location'] = build_path(self.artifact_root_uri,
+                                                   meta['artifact_location'])
         if experiment_dir.startswith(self.trash_folder):
             meta['lifecycle_stage'] = Experiment.DELETED_LIFECYCLE
         else:
@@ -265,7 +273,8 @@ class FileStore(AbstractStore):
         return new_info
 
     def create_run(self, experiment_id, user_id, run_name, source_type,
-                   source_name, entry_point_name, start_time, source_version, tags, parent_run_id):
+                   source_name, entry_point_name, start_time, source_version,
+                   tags, parent_run_id, artifact_relative=False):
         """
         Creates a run with the specified attributes.
         """
@@ -282,6 +291,8 @@ class FileStore(AbstractStore):
                     databricks_pb2.INVALID_STATE)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
+        if artifact_relative and is_fs_path(self.artifact_root_uri):
+            artifact_uri = get_relative_path(self.artifact_root_uri, artifact_uri)
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
                            name="",
                            artifact_uri=artifact_uri, source_type=source_type,
@@ -328,6 +339,8 @@ class FileStore(AbstractStore):
         run_dir = self._find_run_root(run_uuid)
         if run_dir is not None:
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+            if is_fs_path(self.artifact_root_uri):
+                meta['artifact_uri'] = build_path(self.artifact_root_uri, meta['artifact_uri'])
             return _read_persisted_run_info_dict(meta)
         raise MlflowException("Run '%s' not found" % run_uuid,
                               databricks_pb2.RESOURCE_DOES_NOT_EXIST)

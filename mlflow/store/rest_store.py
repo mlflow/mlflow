@@ -69,7 +69,7 @@ class RestStore(AbstractStore):
         return [Experiment.from_proto(experiment_proto)
                 for experiment_proto in response_proto.experiments]
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, artifact_relative=False):
         """
         Creates a new experiment.
         If an experiment with the given name already exists, throws exception.
@@ -131,7 +131,8 @@ class RestStore(AbstractStore):
         return RunInfo.from_proto(response_proto.run_info)
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, parent_run_id):
+                   entry_point_name, start_time, source_version, tags, parent_run_id,
+                   artifact_relative=False):
         """
         Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.

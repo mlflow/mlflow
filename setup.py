@@ -34,6 +34,7 @@ setup(
         'Flask',
         'numpy',
         'pandas',
+        'psutil==5.4.7',
         'scipy',
         'scikit-learn',
         'python-dateutil',

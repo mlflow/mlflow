@@ -5,11 +5,21 @@ import shutil
 import tarfile
 import tempfile
 
+import psutil
 import yaml
 
 from mlflow.entities import FileInfo
 
 ENCODING = "utf-8"
+
+
+def is_fs_path(path):
+    if path.startswith("file:/"):
+        return True
+    for part in psutil.disk_partitions():
+        if path.startswith(part.mountpoint):
+            return True
+    return False
 
 
 def is_directory(name):
