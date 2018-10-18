@@ -14,8 +14,6 @@ from azureml.core.model import Model as AzureModel
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.azureml.py27 import SCORE_SRC as PY27_SCORE_SRC 
-from mlflow.azureml.py27 import CUSTOM_CONDA_ENV_NAME as PY27_CUSTOM_CONDA_ENV_NAME 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -68,8 +66,6 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     if run_id is not None:
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
-    model_python_version = model_pyfunc_conf[pyfunc.PY_VERSION] if pyfunc.PY_VERSION in\
-            model_pyfunc_conf else PYTHON_VERSION 
     image_tags = _build_image_tags(model_path=model_path, run_id=run_id,
                                    model_pyfunc_conf=model_pyfunc_conf,
                                    user_tags=tags)
@@ -91,7 +87,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
         # Create an execution script (entry point) for the image's model server in the
         # current working directory
-        execution_script_file = _create_execution_script(model_name=model_name)
+        execution_script_file = _create_execution_script(registered_model=registered_model)
         # Azure ML copies the execution script into the image's application root directory by
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
@@ -156,7 +152,7 @@ def _build_image_tags(model_path, run_id, model_pyfunc_conf, user_tags):
     return image_tags
 
 
-def _create_execution_script(model_name):
+def _create_execution_script(registered_model):
     """
     Creates an Azure-compatibele execution script (entry point) for a model server backed by
     the specified model. This script is created as a temporary file in the current working
@@ -170,13 +166,14 @@ def _create_execution_script(model_name):
     # create the execution script as a temporary file in the current directory
     execution_script_file = tempfile.NamedTemporaryFile(
             dir=os.getcwd(), mode="w", prefix="driver", suffix=".py")
-    execution_script_text = SCORE_SRC.format(model_name=model_name)
+    execution_script_text = SCORE_SRC.format(
+            model_name=registered_model.name, model_version=registered_model.version)
     execution_script_file.write(execution_script_text)
     execution_script_file.seek(0)
     return execution_script_file
 
 
-def _create_dockerfile(output_path, mlflow_path=None, conda_env_path=None):
+def _create_dockerfile(output_path, mlflow_path=None):
     """
     Creates a Dockerfile containing additional Docker build steps to execute
     when building the Azure container image. These build steps perform the following tasks:
@@ -190,12 +187,6 @@ def _create_dockerfile(output_path, mlflow_path=None, conda_env_path=None):
     """
     docker_cmds = ["RUN pip install azureml-sdk"]
 
-    if conda_env_path is not None:
-        docker_cmds.append("RUN conda env create -f {env_path} -n {env_name}".format(
-            env_path=conda_env_path, env_name=PY27_CUSTOM_CONDA_ENV_NAME))
-        docker_cmds.append("RUN conda activate {env_name}".format(
-            env_name=PY27_CUSTOM_CONDA_ENV_NAME))
-
     if mlflow_path is not None:
         mlflow_install_cmd = "RUN pip install -e {mlflow_path}".format(
             mlflow_path=_get_container_path(mlflow_path))
@@ -206,9 +197,6 @@ def _create_dockerfile(output_path, mlflow_path=None, conda_env_path=None):
 
     with open(output_path, "w") as f:
         f.write("\n".join(docker_cmds))
-
-
-
 
 
 def _get_container_path(local_path):
@@ -269,7 +257,7 @@ from mlflow.utils import get_jsonable_obj
 
 def init():
     global model
-    model_path = Model.get_model_path("{MODEL_NAME}")
+    model_path = Model.get_model_path("{model_name}", version={model_version})
     model = load_pyfunc(model_path)
 
 
