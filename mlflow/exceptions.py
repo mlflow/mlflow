@@ -44,5 +44,4 @@ class ExecutionException(MlflowException):
 
 class MissingConfigException(MlflowException):
     """Exception thrown when expected configuration file/directory not found"""
-    def __init__(self, message, error_code=INTERNAL_ERROR):
-        super(MissingConfigException, self).__init__(message, error_code)
+    pass
