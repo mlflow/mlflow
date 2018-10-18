@@ -10,7 +10,7 @@ import time
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
-from mlflow.exceptions import MlflowException, ResourceNotFoundException
+from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -464,7 +464,7 @@ class TestFileStore(unittest.TestCase):
         # delete metadata file.
         path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(ResourceNotFoundException) as e:
+        with pytest.raises(MissingConfigException) as e:
             fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
             assert e.message.contains("does not exist")
 
@@ -482,7 +482,7 @@ class TestFileStore(unittest.TestCase):
         bad_run_id = self.exp_data[exp_0.experiment_id]['runs'][0]
         path = os.path.join(self.test_root, str(exp_0.experiment_id), str(bad_run_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(ResourceNotFoundException) as e:
+        with pytest.raises(MissingConfigException) as e:
             fs.get_run(bad_run_id)
             assert e.message.contains("does not exist")
 

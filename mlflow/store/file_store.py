@@ -6,9 +6,8 @@ import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
-from mlflow.entities.run_info import check_run_is_active, \
-    check_run_is_deleted
-from mlflow.exceptions import MlflowException, ResourceNotFoundException, ExecutionException
+from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
+from mlflow.exceptions import MlflowException, MissingConfigException, ExecutionException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
@@ -20,7 +19,6 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
-
 from mlflow.utils.search_utils import does_run_match_clause
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
@@ -142,14 +140,13 @@ class FileStore(AbstractStore):
         experiments = []
         for exp_id in rsl:
             try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
                 experiment = self._get_experiment(exp_id, view_type)
                 experiments.append(experiment)
-            except ResourceNotFoundException as rnfe:
+            except MissingConfigException as rnfe:
                 # Trap malformed experiments and log warnings.
-                logging.warning("Malformed experiment '%s'. Detailed error %s", exp_id, str(rnfe))
-            except Exception as e:
-                # raise on unexpected error
-                raise e
+                logging.warning("Malformed experiment '%s'. Detailed error %s",
+                                str(exp_id), str(rnfe), {"exc_info" : True})
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
@@ -467,15 +464,14 @@ class FileStore(AbstractStore):
         run_infos = []
         for r_id in run_uuids:
             try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
                 run_info = self._get_run_info(r_id)
                 if self._lifecycle_stage_valid_for_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
-            except ResourceNotFoundException as rnfe:
-                # trap malformed exception and log warning
-                logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe))
-            except Exception as e:
-                # raise unexpected exception to caller
-                raise e
+            except MissingConfigException as rnfe:
+                # trap malformed run exception and log warning
+                kwargs = {"exc_info" : True}
+                logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe), **kwargs)
         return run_infos
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):

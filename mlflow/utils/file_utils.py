@@ -8,7 +8,7 @@ import tempfile
 import yaml
 
 from mlflow.entities import FileInfo
-from mlflow.exceptions import ResourceNotFoundException
+from mlflow.exceptions import MissingConfigException
 
 ENCODING = "utf-8"
 
@@ -125,7 +125,7 @@ def write_yaml(root, file_name, data, overwrite=False):
     :param overwrite: If True, will overwrite existing files
     """
     if not exists(root):
-        raise ResourceNotFoundException("Parent directory '%s' does not exist." % root)
+        raise MissingConfigException("Parent directory '%s' does not exist." % root)
 
     file_path = os.path.join(root, file_name)
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
@@ -150,12 +150,12 @@ def read_yaml(root, file_name):
     :return: Data in yaml file as dictionary
     """
     if not exists(root):
-        raise ResourceNotFoundException(
+        raise MissingConfigException(
             "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
-        raise ResourceNotFoundException("Yaml file '%s' does not exist." % file_path)
+        raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
 
     try:
         with open(file_path, 'r') as yaml_file:
