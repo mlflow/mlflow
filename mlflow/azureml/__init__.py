@@ -14,10 +14,13 @@ from azureml.core.model import Model as AzureModel
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.azureml.py27 import SCORE_SRC as PY27_SCORE_SRC 
+from mlflow.azureml.py27 import CUSTOM_CONDA_ENV_NAME as PY27_CUSTOM_CONDA_ENV_NAME 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils import PYTHON_VERSION 
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.environment import _mlflow_conda_env
@@ -65,6 +68,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     if run_id is not None:
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
+    model_python_version = model_pyfunc_conf[pyfunc.PY_VERSION] if pyfunc.PY_VERSION in\
+            model_pyfunc_conf else PYTHON_VERSION 
     image_tags = _build_image_tags(model_path=model_path, run_id=run_id,
                                    model_pyfunc_conf=model_pyfunc_conf,
                                    user_tags=tags)
@@ -79,10 +84,6 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         model_path = os.path.join(
             model_directory_path, 
             _copy_file_or_tree(src=model_path, dst=model_directory_path))
-        # print(os.listdir(model_path))
-        # print(os.listdir(model_directory_path))
-        # print(os.listdir(os.path.join(model_directory_path, "model")))
-        # 1/0
 
         registered_model = AzureModel.register(workspace=workspace, model_path=model_path, 
                                                model_name=model_name)
@@ -175,7 +176,7 @@ def _create_execution_script(model_name):
     return execution_script_file
 
 
-def _create_dockerfile(output_path, mlflow_path=None):
+def _create_dockerfile(output_path, mlflow_path=None, conda_env_path=None):
     """
     Creates a Dockerfile containing additional Docker build steps to execute
     when building the Azure container image. These build steps perform the following tasks:
@@ -187,17 +188,27 @@ def _create_dockerfile(output_path, mlflow_path=None):
                         Dockerfile command for MLflow installation will install MLflow from this
                         directory. Otherwise, it will install MLflow from pip.
     """
-    docker_cmds = []
-    docker_cmds.append("RUN pip install azureml-sdk")
+    docker_cmds = ["RUN pip install azureml-sdk"]
+
+    if conda_env_path is not None:
+        docker_cmds.append("RUN conda env create -f {env_path} -n {env_name}".format(
+            env_path=conda_env_path, env_name=PY27_CUSTOM_CONDA_ENV_NAME))
+        docker_cmds.append("RUN conda activate {env_name}".format(
+            env_name=PY27_CUSTOM_CONDA_ENV_NAME))
+
     if mlflow_path is not None:
-        docker_cmd = "RUN pip install -e {mlflow_path}".format(
+        mlflow_install_cmd = "RUN pip install -e {mlflow_path}".format(
             mlflow_path=_get_container_path(mlflow_path))
     else:
-        docker_cmd = "RUN pip install mlflow=={mlflow_version}".format(
+        mlflow_install_cmd = "RUN pip install mlflow=={mlflow_version}".format(
             mlflow_version=mlflow_version)
-    docker_cmds.append(docker_cmd)
+    docker_cmds.append(mlflow_install_cmd)
+
     with open(output_path, "w") as f:
         f.write("\n".join(docker_cmds))
+
+
+
 
 
 def _get_container_path(local_path):
@@ -258,7 +269,7 @@ from mlflow.utils import get_jsonable_obj
 
 def init():
     global model
-    model_path = Model.get_model_path("{model_name}")
+    model_path = Model.get_model_path("{MODEL_NAME}")
     model = load_pyfunc(model_path)
 
 

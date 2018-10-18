@@ -7,7 +7,7 @@ from mlflow.utils import get_jsonable_obj
 def main(model_path):
     model = load_pyfunc(model_path)
     for json_content in sys.stdin:
-        print(score(model, json_content))
+        print(score(model, json_content.decode("utf-8")))
 
 
 def score(model, content):
