@@ -243,15 +243,16 @@ for your flavor. MLflow tools ignore flavors in the MLmodel file that they do no
 Built-In Deployment Tools
 -------------------------
 
-MLflow provides tools for deploying models on a local machine and several production environments.
-You can use these tools to easily apply your models in a production environment. Not all deployment
-methods are available for all model flavors. Deployment is supported for the Python function format and all compatible formats.
+MLflow provides tools for deploying models on a local machine and to several production environments.
+Not all deployment methods are available for all model flavors. Deployment is supported for the 
+Python Function format and all compatible formats.
 
-Local
-^^^^^
+Deploy a ``python_function`` model as a local REST API endpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 MLflow can deploy models locally as local REST API endpoints or to directly score CSV files.
-This functionality is a convenient way of testing models before uploading to a remote model server.
-You deploy the Python Function flavor locally via the CLI interface to the :py:mod:`mlflow.pyfunc` module.
+This functionality is a convenient way of testing models before deploying to a remote model server.
+You deploy the Python Function flavor locally using the CLI interface to the :py:mod:`mlflow.pyfunc` module.
 
 * :py:func:`serve <mlflow.pyfunc.cli.serve>` deploys the model as a local REST API server.
 * :py:func:`predict <mlflow.pyfunc.cli.predict>` uses the model to generate a prediction for a local
@@ -265,23 +266,23 @@ For more info, see:
     mlflow pyfunc serve --help
     mlflow pyfunc predict --help
 
-Microsoft AzureML
-^^^^^^^^^^^^^^^^^
-The :py:mod:`mlflow.azureml` module can export ``python_function`` models as Azure ML compatible models. It
-can also be used to directly deploy and serve models on Azure ML, provided the environment has
-been correctly set up.
+Deploy a ``python_function`` model on Microsoft AzureML
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* :py:func:`export <mlflow.azureml.export>` exports the model in Azure ML-compatible format.
-  MLflow will output a directory with the dependencies necessary to deploy the model.
+The :py:mod:`mlflow.azureml` module can export ``python_function`` models as Azure ML models and
+directly deploy and serve models on Azure ML, provided the environment has been set up.
+
+* :py:func:`export <mlflow.azureml.export>` exports the model as a 
+  directory with the dependencies necessary to deploy the model on Azure ML.
 
 * :py:func:`deploy <mlflow.azureml.deploy>` deploys the model directly to Azure ML.
-  You first need to set up your environment to work with the Azure ML CLI. You can do this by
+  You need to set up your environment to work with the Azure ML CLI. You can do this by
   starting a shell from the Azure ML Workbench application. You also have to set up all accounts
   required to run and deploy on Azure ML. Where the model is deployed is dependent on your
   active Azure ML environment. If the active environment is set up for local deployment, the model
-  will be deployed locally in a Docker container (Docker is required).
+  is deployed locally in a Docker container (Docker is required).
 
-Model export example:
+.. rubric:: Model export example
 
 .. code:: bash
 
@@ -312,24 +313,24 @@ For more info, see:
     mlflow azureml export --help
     mlflow azureml deploy --help
 
-Amazon SageMaker
-^^^^^^^^^^^^^^^^
-The :py:mod:`mlflow.sagemaker` module can deploy ``python_function`` models on SageMaker
-or locally in a Docker container with SageMaker compatible environment.
-You have to set up your environment and user accounts first in order to
-deploy to SageMaker with MLflow. Also, in order to export a custom model to SageMaker, you need a
-MLflow-compatible Docker image to be available on Amazon ECR. MLflow provides a default Docker
-image definition; however, it is up to you to build the actual image and upload it to ECR.
-MLflow includes a utility function to perform this step. Once built and uploaded, the MLflow
-container can be used for all MLflow models.
+Deploy a ``python_function`` model on Amazon SageMaker
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* The :py:func:`build-and-push-container <mlflow.sagemaker.cli.build_and_push_container>` CLI command builds an MLfLow
-  Docker image and uploads it to ECR. The caller must have the correct permissions set up. The image
-  is built locally and requires Docker to be present on the machine that performs this step.
+The :py:mod:`mlflow.sagemaker` module can deploy ``python_function`` models locally in a Docker 
+container with SageMaker compatible environment and remotely on SageMaker.
+To deploy remotely to SageMaker you need to set up your environment and user accounts.
+To export a custom model to SageMaker, you need a MLflow-compatible Docker image to be available on Amazon ECR. 
+MLflow provides a default Docker image definition; however, it is up to you to build the image and upload it to ECR.
+MLflow includes the utility function ``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow
+container for all MLflow models.
 
 * :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker
   container. The image and the environment should be identical to how the model would be run
   remotely and it is therefore useful for testing the model prior to deployment.
+  
+* The :py:func:`build-and-push-container <mlflow.sagemaker.cli.build_and_push_container>` CLI command builds an MLfLow
+  Docker image and uploads it to ECR. The caller must have the correct permissions set up. The image
+  is built locally and requires Docker to be present on the machine that performs this step.
 
 * :py:func:`deploy <mlflow.sagemaker.deploy>` deploys the model on Amazon SageMaker. MLflow
   uploads the Python Function model into S3 and starts an Amazon SageMaker endpoint serving
@@ -341,7 +342,7 @@ container can be used for all MLflow models.
 
     mlflow sagemaker build-and-push-container  - build the container (only needs to be called once)
     mlflow sagemaker run-local -m <path-to-model>  - test the model locally
-    mlflow sagemaker deploy <parameters> - deploy the model to the cloud
+    mlflow sagemaker deploy <parameters> - deploy the model remotely
 
 
 For more info, see:
@@ -354,10 +355,11 @@ For more info, see:
     mlflow sagemaker deploy --help
 
 
-Apache Spark
-^^^^^^^^^^^^
-MLfLow can output a ``python_function`` model as an Apache Spark UDF, which can be uploaded to a Spark cluster and
-used to score the model.
+Export a ``python_function`` model as an Apache Spark UDF
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can output a ``python_function`` model as an Apache Spark UDF, which can be uploaded to a 
+Spark cluster and used to score the model.
 
 .. rubric:: Example
 
