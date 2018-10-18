@@ -33,20 +33,28 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
     :param run_id: MLflow run ID.
+    :param image_name: The name to assign the Azure Container Image that is created. If unspecified,
+                       a unique image name will be generated. 
+    :param model_name: The name to assign the Azure Model that is created. If unspecified,
+                       a unique model name will be generated. 
     :param workspace: The AzureML workspace in which to build the image. This is a
                       `azureml.core.Workspace` object.
     :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
                         image will install MLflow from this directory. Otherwise, it will install
                         MLflow from pip.
-    :param description: A string description to give the container image when pushing to the Azure
-                        Container Registry. For more information, see
-                        https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.image.container.containerimageconfig.
-    :param tags: A collection of tags to give the image when pushing to the Azure Container
-                 Registry. These tags will be added to a set of default tags that include the model
-                 path, the model run id (if specified), and more. For more information, see
-                 https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.image.container.containerimageconfig.
+    :param description: A string description to associate with the Azure Container Image and the
+                        Azure Model that are created. For more information, see 
+                        `https://docs.microsoft.com/en-us/python/api/azureml-core/
+                        azureml.core.image.container.containerimageconfig` and 
+                        `https://docs.microsoft.com/en-us/python/api/azureml-core/
+                        azureml.core.model.model?view=azure-ml-py#register`. 
+    :param tags: A collection of tags to associate with the Azure Container Image and the Azure 
+                 Model that are created. These tags will be added to a set of default tags that 
+                 include the model path, the model run id (if specified), and more. 
+                 For more information, see `https://docs.microsoft.com/en-us/python/api/
+                 azureml-core/azureml.core.image.container.containerimageconfig` and 
+                 `https://docs.microsoft.com/en-us/python/api/azureml-core/
+                 azureml.core.model.model?view=azure-ml-py#register`. 
     :param synchronous: If `True`, this method will block until the image creation procedure
                         terminates before returning. If `False`, the method will return immediately,
                         but the returned image will not be available until the asynchronous
@@ -66,17 +74,19 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     if model_name is None:
         model_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
 
-    registered_model = AzureModel.register(workspace=workspace, model_path=model_path, 
-                                           model_name=model_name)
-    eprint("Registered a new Azure Model with name: {model_name}".format(model_name=model_name))
-
-    eprint("Building a new container image with name: {image_name}".format(
-        image_name=image_name))
     with TempDir() as tmp:
-        tmp_model_path = tmp.path("model")
+        model_directory_path = tmp.path("model")
         model_path = os.path.join(
-            tmp_model_path, _copy_file_or_tree(src=model_path, dst=tmp_model_path))
-        file_dependencies = [model_path]
+            model_directory_path, 
+            _copy_file_or_tree(src=model_path, dst=model_directory_path))
+        # print(os.listdir(model_path))
+        # print(os.listdir(model_directory_path))
+        # print(os.listdir(os.path.join(model_directory_path, "model")))
+        # 1/0
+
+        registered_model = AzureModel.register(workspace=workspace, model_path=model_path, 
+                                               model_name=model_name)
+        eprint("Registered a new Azure Model with name: {model_name}".format(model_name=model_name))
 
         # Create an execution script (entry point) for the image's model server in the
         # current working directory
@@ -96,7 +106,9 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
             tmp_mlflow_path = tmp.path("mlflow")
             mlflow_home = os.path.join(
                     tmp_mlflow_path, _copy_file_or_tree(src=mlflow_home, dst=tmp_mlflow_path))
-            file_dependencies.append(mlflow_home)
+            image_file_dependencies = [mlflow_home]
+        else:
+            image_file_dependencies = None
         dockerfile_path = tmp.path("Dockerfile")
         _create_dockerfile(output_path=dockerfile_path, mlflow_path=mlflow_home)
 
@@ -108,11 +120,13 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                 execution_script=execution_script_path,
                 runtime="python",
                 docker_file=dockerfile_path,
-                dependencies=file_dependencies,
+                dependencies=image_file_dependencies,
                 conda_file=conda_env_path,
                 description=description,
                 tags=image_tags,
         )
+        eprint("Building a new Azure Container Image with name: {image_name}".format(
+            image_name=image_name))
         image = ContainerImage.create(workspace=workspace,
                                       name=image_name,
                                       image_config=image_configuration,
