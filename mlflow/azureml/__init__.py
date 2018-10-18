@@ -28,15 +28,16 @@ from mlflow.version import VERSION as mlflow_version
 def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None, 
                 mlflow_home=None, description=None, tags={}, synchronous=True):
     """
-    Builds an Azure ML ContainerImage for the specified model. This image can be deployed as a
-    web service to Azure Container Instances (ACI) or Azure Kubernetes Service (AKS).
+    Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
+    The resulting image can be deployed as a web service to Azure Container Instances (ACI) or 
+    Azure Kubernetes Service (AKS).
 
-    :param model_path: The path to MLflow model for which the image is being built. If a run id
+    :param model_path: The path to MLflow model for which the image will be built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
     :param run_id: MLflow run ID.
-    :param image_name: The name to assign the Azure Container Image that is created. If unspecified,
-                       a unique image name will be generated. 
-    :param model_name: The name to assign the Azure Model that is created. If unspecified,
+    :param image_name: The name to assign the Azure Container Image that will be created. If 
+                       unspecified, a unique image name will be generated. 
+    :param model_name: The name to assign the Azure Model will be created. If unspecified,
                        a unique model name will be generated. 
     :param workspace: The AzureML workspace in which to build the image. This is a
                       `azureml.core.Workspace` object.
@@ -44,13 +45,13 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                         image will install MLflow from this directory. Otherwise, it will install
                         MLflow from pip.
     :param description: A string description to associate with the Azure Container Image and the
-                        Azure Model that are created. For more information, see 
+                        Azure Model that will be created. For more information, see 
                         `https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.image.container.containerimageconfig` and 
                         `https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.model.model?view=azure-ml-py#register`. 
     :param tags: A collection of tags to associate with the Azure Container Image and the Azure 
-                 Model that are created. These tags will be added to a set of default tags that 
+                 Model that will be created. These tags will be added to a set of default tags that 
                  include the model path, the model run id (if specified), and more. 
                  For more information, see `https://docs.microsoft.com/en-us/python/api/
                  azureml-core/azureml.core.image.container.containerimageconfig` and 
@@ -61,14 +62,15 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                         but the returned image will not be available until the asynchronous
                         creation process completes. The `azureml.core.Image.wait_for_creation()`
                         function can be used to wait for the creation process to complete.
-    :return: An `azureml.core.image.ContainerImage` object containing metadata for the new image.
+    :return: A tuple containing the following elements in order:
+             - An `azureml.core.image.ContainerImage` object containing metadata for the new image.
+             - An `azureml.core.model.Model` object containing metadata for the new model.
     """
     if run_id is not None:
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
-    image_tags = _build_image_tags(model_path=model_path, run_id=run_id,
-                                   model_pyfunc_conf=model_pyfunc_conf,
-                                   user_tags=tags)
+    tags = _build_tags(model_path=model_path, run_id=run_id, model_pyfunc_conf=model_pyfunc_conf, 
+                       user_tags=tags)
    
     if image_name is None:
         image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
@@ -82,12 +84,15 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
             _copy_file_or_tree(src=model_path, dst=model_directory_path))
 
         registered_model = AzureModel.register(workspace=workspace, model_path=model_path, 
-                                               model_name=model_name)
-        eprint("Registered a new Azure Model with name: {model_name}".format(model_name=model_name))
+                                               model_name=model_name, tags=tags, 
+                                               description=description)
+        eprint("Registered an Azure Model with name: `{model_name}` and version:" 
+               " `{model_version}`".format(model_name=registered_model.name, 
+                                         model_version=registered_model.version))
 
         # Create an execution script (entry point) for the image's model server in the
         # current working directory
-        execution_script_file = _create_execution_script(registered_model=registered_model)
+        execution_script_file = _create_execution_script(azure_model=registered_model)
         # Azure ML copies the execution script into the image's application root directory by
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
@@ -98,7 +103,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         execution_script_path = os.path.basename(execution_script_file.name)
 
         if mlflow_home is not None:
-            eprint("Copying the specified mlflow_home directory: {mlflow_home} to a temporary"
+            eprint("Copying the specified mlflow_home directory: `{mlflow_home}` to a temporary"
                    " location for container creation".format(mlflow_home=mlflow_home))
             tmp_mlflow_path = tmp.path("mlflow")
             mlflow_home = os.path.join(
@@ -120,45 +125,45 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                 dependencies=image_file_dependencies,
                 conda_file=conda_env_path,
                 description=description,
-                tags=image_tags,
+                tags=tags,
         )
-        eprint("Building a new Azure Container Image with name: {image_name}".format(
-            image_name=image_name))
         image = ContainerImage.create(workspace=workspace,
                                       name=image_name,
                                       image_config=image_configuration,
                                       models=[registered_model])
+        eprint("Building an Azure Container Image with name: `{image_name}` and version:" 
+               " `{image_version}`".format(image_name=image.name, 
+                                         image_version=image.version))
         if synchronous:
             image.wait_for_creation(show_output=True)
         return image, registered_model
 
 
-def _build_image_tags(model_path, run_id, model_pyfunc_conf, user_tags):
+def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags):
     """
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
     :param run_id: MLflow run ID.
     :param model_pyfunc_conf: The configuration for the `python_function` flavor within the
                               specified model's "MLmodel" configuration.
-    :param user_tags: A collection of user-specified tags to add to the image, in addition to
-                      the default set of tags.
+    :param user_tags: A collection of user-specified tags to append to the set of default tags.
     """
-    image_tags = dict(user_tags)
-    image_tags["model_path"] = model_path if run_id is not None else os.path.abspath(model_path)
+    tags = dict(user_tags)
+    tags["model_path"] = model_path if run_id is not None else os.path.abspath(model_path)
     if run_id is not None:
-        image_tags["model_run_id"] = run_id
+        tags["model_run_id"] = run_id
     if pyfunc.PY_VERSION in model_pyfunc_conf:
-        image_tags["model_python_version"] = model_pyfunc_conf[pyfunc.PY_VERSION]
-    return image_tags
+        tags["model_python_version"] = model_pyfunc_conf[pyfunc.PY_VERSION]
+    return tags 
 
 
-def _create_execution_script(registered_model):
+def _create_execution_script(azure_model):
     """
     Creates an Azure-compatibele execution script (entry point) for a model server backed by
     the specified model. This script is created as a temporary file in the current working
     directory.
 
-    :param model_path: The absolute path to the model for which to create an execution script.
+    :param registered_model: The Azure Model that the execution script will load for inference. 
     :return: A reference to the temporary file containing the execution script.
     """
     # Azure ML requires the container's execution script to be located
@@ -167,7 +172,7 @@ def _create_execution_script(registered_model):
     execution_script_file = tempfile.NamedTemporaryFile(
             dir=os.getcwd(), mode="w", prefix="driver", suffix=".py")
     execution_script_text = SCORE_SRC.format(
-            model_name=registered_model.name, model_version=registered_model.version)
+            model_name=azure_model.name, model_version=azure_model.version)
     execution_script_file.write(execution_script_text)
     execution_script_file.seek(0)
     return execution_script_file
