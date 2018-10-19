@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import importlib
 import os
 import pytest
 import mock
@@ -8,7 +7,6 @@ from mock import Mock
 
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
-from click.testing import CliRunner
 from azureml.core import Workspace 
 
 import mlflow

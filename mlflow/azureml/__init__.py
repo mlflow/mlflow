@@ -26,7 +26,7 @@ from mlflow.version import VERSION as mlflow_version
 
 
 def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None, 
-                mlflow_home=None, description=None, tags={}, synchronous=True):
+                mlflow_home=None, description=None, tags=None, synchronous=True):
     """
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or 
@@ -145,7 +145,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         return image, registered_model
 
 
-def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags):
+def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags=None):
     """
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
@@ -154,7 +154,7 @@ def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags):
                               specified model's "MLmodel" configuration.
     :param user_tags: A collection of user-specified tags to append to the set of default tags.
     """
-    tags = dict(user_tags)
+    tags = dict(user_tags) if user_tags is not None else {}
     tags["model_path"] = model_path if run_id is not None else os.path.abspath(model_path)
     if run_id is not None:
         tags["run_id"] = run_id
