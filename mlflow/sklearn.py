@@ -84,7 +84,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                         env=model_conda_env)
     mlflow_model.add_flavor("sklearn",
                             pickled_model=model_data_subpath,
-                            sklearn_version=sklearn.__version__)
+                            sklearn_version=sklearn.__version__,
+                            serialization_format=serialization_format)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -130,6 +131,8 @@ def _load_model_from_local_file(path):
     assert "sklearn" in model.flavors
     params = model.flavors["sklearn"]
     with open(os.path.join(path, params["pickled_model"]), "rb") as f:
+        # Models serialized with Cloudpickle can be deserialized using Pickle, so there
+        # is no need to check the serialization format of the model before deserializing
         return pickle.load(f)
 
 
