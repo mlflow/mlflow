@@ -1,3 +1,4 @@
+import logging
 import os
 
 import uuid
@@ -5,9 +6,8 @@ import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
-from mlflow.entities.run_info import check_run_is_active, \
-    check_run_is_deleted
-from mlflow.exceptions import MlflowException
+from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
+from mlflow.exceptions import MlflowException, MissingConfigException, ExecutionException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
@@ -19,7 +19,6 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
-
 from mlflow.utils.search_utils import does_run_match_clause
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
@@ -138,7 +137,17 @@ class FileStore(AbstractStore):
             rsl += self._get_active_experiments(full_path=False)
         if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
             rsl += self._get_deleted_experiments(full_path=False)
-        return [self._get_experiment(exp_id, view_type) for exp_id in rsl]
+        experiments = []
+        for exp_id in rsl:
+            try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
+                experiment = self._get_experiment(exp_id, view_type)
+                experiments.append(experiment)
+            except MissingConfigException as rnfe:
+                # Trap malformed experiments and log warnings.
+                logging.warning("Malformed experiment '%s'. Detailed error %s",
+                                str(exp_id), str(rnfe), **{"exc_info": True})
+        return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
@@ -217,6 +226,7 @@ class FileStore(AbstractStore):
 
     def rename_experiment(self, experiment_id, new_name):
         meta_dir = os.path.join(self.root_directory, str(experiment_id))
+        # if experiment is malformed, will raise error
         experiment = self._get_experiment(experiment_id)
         experiment._set_name(new_name)
         if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
@@ -437,37 +447,45 @@ class FileStore(AbstractStore):
             tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
 
-    def _list_run_uuids(self, experiment_id, run_view_type):
+    def _lifecycle_stage_valid_for_view_type(self, view_type, lifecycle_stage):
+        if view_type == ViewType.ALL:
+            return True
+        elif view_type == ViewType.ACTIVE_ONLY:
+            return lifecycle_stage == RunInfo.ACTIVE_LIFECYCLE
+        elif view_type == ViewType.DELETED_ONLY:
+            return lifecycle_stage == RunInfo.DELETED_LIFECYCLE
+        else:
+            raise ExecutionException("Invalid view type '%s'" % str(view_type))
+
+    def _list_run_infos(self, experiment_id, view_type):
         self._check_root_dir()
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
         run_uuids = list_all(experiment_dir, os.path.isdir, full_path=False)
-        if run_view_type == ViewType.ALL:
-            return run_uuids
-        elif run_view_type == ViewType.ACTIVE_ONLY:
-            return [r_id for r_id in run_uuids
-                    if self._get_run_info(r_id).lifecycle_stage == RunInfo.ACTIVE_LIFECYCLE]
-        else:
-            return [r_id for r_id in run_uuids
-                    if self._get_run_info(r_id).lifecycle_stage == RunInfo.DELETED_LIFECYCLE]
+        run_infos = []
+        for r_id in run_uuids:
+            try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
+                run_info = self._get_run_info(r_id)
+                if self._lifecycle_stage_valid_for_view_type(view_type, run_info.lifecycle_stage):
+                    run_infos.append(run_info)
+            except MissingConfigException as rnfe:
+                # trap malformed run exception and log warning
+                kwargs = {"exc_info": True}
+                logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe), **kwargs)
+        return run_infos
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
-        run_uuids = []
+        runs = []
+        for experiment_id in experiment_ids:
+            run_infos = self._list_run_infos(experiment_id, run_view_type)
+            runs.extend(self.get_run(r.run_uuid) for r in run_infos)
         if len(search_expressions) == 0:
-            for experiment_id in experiment_ids:
-                run_uuids.extend(self._list_run_uuids(experiment_id, run_view_type))
-        else:
-            for experiment_id in experiment_ids:
-                for run_uuid in self._list_run_uuids(experiment_id, run_view_type):
-                    run = self.get_run(run_uuid)
-                    if all([does_run_match_clause(run, s) for s in search_expressions]):
-                        run_uuids.append(run_uuid)
-        return [self.get_run(run_uuid) for run_uuid in run_uuids]
+            return runs
+        return [run for run in runs if
+                all([does_run_match_clause(run, s) for s in search_expressions])]
 
     def list_run_infos(self, experiment_id, run_view_type):
-        run_infos = []
-        for run_uuid in self._list_run_uuids(experiment_id, run_view_type):
-            run_infos.append(self._get_run_info(run_uuid))
-        return run_infos
+        return self._list_run_infos(experiment_id, run_view_type)
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)
