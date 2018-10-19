@@ -23,11 +23,18 @@ import sklearn
 
 from mlflow.utils import cli_args
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException 
 from mlflow.models import Model
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 import mlflow.tracking
 
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
+
+SUPPORTED_SERIALIZATION_FORMATS = [
+    SERIALIZATION_FORMAT_PICKLE,
+    SERIALIZATION_FORMAT_CLOUDPICKLE
+]
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model(), 
                serialization_format=SERIALIZATION_FORMAT_PICKLE):
@@ -41,9 +48,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
            and mlflow with appropriate versions.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
-                                 the following: `mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`,
-                                 `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`.
-
+                                 the formats listed in 
+                                 `mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS`.
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
     >>> from sklearn import tree
@@ -54,6 +60,15 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     >>> sk_path_dir = ...
     >>> mlflow.sklearn.save_model(sk_model, sk_path_dir)
     """
+    if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
+        raise MlflowException(
+                message=(
+                    "Unrecognized serialization format: {serialization_format}. Please specify one"
+                    " of the following supported formats: {supported_formats}.".format(
+                        serialization_format=serialization_format,
+                        supported_formats=SUPPORTED_SERIALIZATION_FORMATS)),
+                error_code=INVALID_PARAMETER_VALUE)
+
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
     os.makedirs(path)
@@ -139,6 +154,11 @@ def _save_model(sk_model, output_path, serialization_format):
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
             cloudpickle.dump(sk_model, out)
+        else:
+            raise MlflowException(
+                    message="Unrecognized serialization format: {serialization_format}".format(
+                        serialization_format=serialization_format),
+                    error_code=INTERNAL_ERROR)
 
 
 def load_model(path, run_id=None):
