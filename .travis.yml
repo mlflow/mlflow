@@ -59,8 +59,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   # Useful for debugging any issues with conda
   - conda info -a
-  - conda update --yes conda
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION --verbose
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
   - source activate test-environment
   - python --version
   - pip install --upgrade pip
