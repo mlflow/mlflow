@@ -3,14 +3,9 @@ CLI for azureml module.
 """
 from __future__ import print_function
 
-import os
 import json
 
 import click
-from azureml.core import Workspace
-
-import mlflow
-import mlflow.azureml
 
 from mlflow.utils import cli_args
 
@@ -56,6 +51,12 @@ def build_image(model_path, workspace_name, subscription_id, run_id, image_name,
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
     """
+    # If users do not have the Azure ML SDK installed, they should still be able to view the 
+    # usage guide for the command associated with this method. Therefore, we do not attempt to 
+    # import modules dependent on the SDK until this method is invoked.
+    import mlflow.azureml
+    from azureml.core import Workspace
+
     workspace = Workspace.get(name=workspace_name, subscription_id=subscription_id)
     if tags is not None:
         tags = json.loads(tags)
