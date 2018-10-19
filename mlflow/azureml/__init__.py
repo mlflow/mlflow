@@ -33,7 +33,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     Azure Kubernetes Service (AKS).
 
     :param model_path: The path to MLflow model for which the image will be built. If a run id
-                       is specified, this is a run-relative path. Otherwise, it is a local path.
+                       is specified, this is should be a run-relative path. Otherwise, it 
+                       should be a local path.
     :param run_id: MLflow run ID.
     :param image_name: The name to assign the Azure Container Image that will be created. If 
                        unspecified, a unique image name will be generated. 
