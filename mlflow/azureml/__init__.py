@@ -16,7 +16,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE 
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import PYTHON_VERSION 
 from mlflow.utils.logging_utils import eprint
@@ -233,7 +233,7 @@ def _load_pyfunc_conf(model_path):
         raise MlflowException(
                 message=("The specified model does not contain the `python_function` flavor. This "
                          " flavor is required for model deployment required for model deployment."),
-                error_code=RESOURCE_DOES_NOT_EXIST)
+                error_code=INVALID_PARAMETER_VALUE)
     return model.flavors[pyfunc.FLAVOR_NAME]
 
 
