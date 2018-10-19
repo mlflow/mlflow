@@ -11,6 +11,7 @@ import tempfile
 
 from azureml.core.image import ContainerImage
 from azureml.core.model import Model as AzureModel
+from distutils.version import StrictVersion
 
 import mlflow
 from mlflow import pyfunc
@@ -75,8 +76,14 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         relative_model_path = model_path
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
+    model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
+    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion("3.0.0"):
+        raise MlflowException(
+                message="Azure ML can only deploy models trained in Python 3 or above!",
+                error_code=INVALID_PARAMETER_VALUE)
+
     tags = _build_tags(model_path=relative_model_path, run_id=run_id,
-                       model_pyfunc_conf=model_pyfunc_conf, user_tags=tags)
+                       model_python_version=model_python_version, user_tags=tags)
 
     if image_name is None:
         image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
@@ -145,7 +152,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         return image, registered_model
 
 
-def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags=None):
+def _build_tags(model_path, run_id, model_python_version=None, user_tags=None):
     """
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
@@ -158,8 +165,8 @@ def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags=None):
     tags["model_path"] = model_path if run_id is not None else os.path.abspath(model_path)
     if run_id is not None:
         tags["run_id"] = run_id
-    if pyfunc.PY_VERSION in model_pyfunc_conf:
-        tags["python_version"] = model_pyfunc_conf[pyfunc.PY_VERSION]
+    if model_python_version is not None:
+        tags["python_version"] = model_python_version 
     return tags
 
 

@@ -249,11 +249,26 @@ def test_build_image_includes_user_specified_description_in_azure_image_and_mode
         assert image_config.description == custom_description
 
 
-def test_build_image_fails_if_model_does_not_contain_pyfunc_flavor(sklearn_model, model_path):
+def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
+        sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     model_config_path = os.path.join(model_path, "MLmodel")
     model_config = Model.load(model_config_path)
     del model_config.flavors[pyfunc.FLAVOR_NAME]
+    model_config.save(model_config_path)
+
+    with AzureMLMocks() as aml_mocks, pytest.raises(MlflowException) as exc:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
+        assert exc.error_code == INVALID_PARAMETER_VALUE
+
+
+def test_build_image_throws_exception_if_model_python_version_is_less_than_three(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config = Model.load(model_config_path)
+    model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION] = "2.7.6"
     model_config.save(model_config_path)
 
     with AzureMLMocks() as aml_mocks, pytest.raises(MlflowException) as exc:
