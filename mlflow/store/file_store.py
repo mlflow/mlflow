@@ -146,7 +146,7 @@ class FileStore(AbstractStore):
             except MissingConfigException as rnfe:
                 # Trap malformed experiments and log warnings.
                 logging.warning("Malformed experiment '%s'. Detailed error %s",
-                                str(exp_id), str(rnfe), **{"exc_info": True})
+                                str(exp_id), str(rnfe), exc_info=True)
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
@@ -470,8 +470,8 @@ class FileStore(AbstractStore):
                     run_infos.append(run_info)
             except MissingConfigException as rnfe:
                 # trap malformed run exception and log warning
-                kwargs = {"exc_info": True}
-                logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe), **kwargs)
+                logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe),
+                                exc_info=True)
         return run_infos
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
