@@ -1,16 +1,19 @@
 from __future__ import print_function
 
 import os
+import json
 import pytest
 import mock
 from mock import Mock
 
+from azureml.core import Workspace
+from click.testing import CliRunner
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
-from azureml.core import Workspace
 
 import mlflow
 import mlflow.azureml
+import mlflow.azureml.cli
 import mlflow.sklearn
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -340,3 +343,85 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         _, get_model_path_call_kwargs = get_model_path_call_args[0]
         assert get_model_path_call_kwargs["model_name"] == model_name
         assert get_model_path_call_kwargs["version"] == model_version
+
+
+def test_cli_build_image_with_absolute_model_path_calls_expected_azure_routines(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+                mlflow.azureml.cli.commands,
+                [
+                    'build-image',
+                    '-m', model_path,
+                    '-w', "test_workspace",
+                    '-i', "image_name",
+                    '-n', "model_name",
+                ])
+        assert result.exit_code == 0
+
+        assert aml_mocks["register_model"].call_count == 1
+        assert aml_mocks["create_image"].call_count == 1
+        assert aml_mocks["load_workspace"].call_count == 1
+
+
+def test_cli_build_image_with_run_relative_model_path_calls_expected_azure_routines(sklearn_model):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
+        run_id = mlflow.active_run().info.run_uuid
+
+    with AzureMLMocks() as aml_mocks:
+        result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+                mlflow.azureml.cli.commands,
+                [
+                    'build-image',
+                    '-m', artifact_path,
+                    '-r', run_id,
+                    '-w', 'test_workspace',
+                    '-i', 'image_name',
+                    '-n', 'model_name',
+                ])
+        assert result.exit_code == 0
+
+        assert aml_mocks["register_model"].call_count == 1
+        assert aml_mocks["create_image"].call_count == 1
+        assert aml_mocks["load_workspace"].call_count == 1
+
+
+def test_cli_build_image_parses_and_includes_user_specified_tags_in_azureml_image_and_model_tags(
+        sklearn_model):
+    custom_tags = {
+        "User": "Corey",
+        "Date": "Today",
+        "Other": "Entry",
+    }
+
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
+        run_id = mlflow.active_run().info.run_uuid
+
+    with AzureMLMocks() as aml_mocks:
+        result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+                mlflow.azureml.cli.commands,
+                [
+                    'build-image',
+                    '-m', artifact_path,
+                    '-r', run_id,
+                    '-w', 'test_workspace',
+                    '-t', json.dumps(custom_tags),
+                 ])
+        assert result.exit_code == 0
+
+        register_model_call_args = aml_mocks["register_model"].call_args_list
+        assert len(register_model_call_args) == 1
+        _, register_model_call_kwargs = register_model_call_args[0]
+        called_tags = register_model_call_kwargs["tags"]
+        assert custom_tags.items() <= called_tags.items()
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        image_config = create_image_call_kwargs["image_config"]
+        assert custom_tags.items() <= image_config.tags.items()
