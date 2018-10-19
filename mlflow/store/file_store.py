@@ -96,6 +96,8 @@ class FileStore(AbstractStore):
 
     def _get_run_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
+        if not self._has_experiment(experiment_id):
+            return None
         return build_path(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
@@ -142,7 +144,8 @@ class FileStore(AbstractStore):
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
                 experiment = self._get_experiment(exp_id, view_type)
-                experiments.append(experiment)
+                if experiment:
+                    experiments.append(experiment)
             except MissingConfigException as rnfe:
                 # Trap malformed experiments and log warnings.
                 logging.warning("Malformed experiment '%s'. Detailed error %s",
@@ -186,7 +189,12 @@ class FileStore(AbstractStore):
             meta['lifecycle_stage'] = Experiment.DELETED_LIFECYCLE
         else:
             meta['lifecycle_stage'] = Experiment.ACTIVE_LIFECYCLE
-        return Experiment.from_dictionary(meta)
+        experiment = Experiment.from_dictionary(meta)
+        if experiment_id != experiment.experiment_id:
+            logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data.",
+                            str(experiment_id), str(experiment.experiment_id))
+            return None
+        return experiment
 
     def get_experiment(self, experiment_id):
         """
@@ -205,6 +213,8 @@ class FileStore(AbstractStore):
         return None
 
     def delete_experiment(self, experiment_id):
+        if not self._has_experiment(experiment_id):
+            return
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if experiment_dir is None:
             raise MlflowException("Could not find experiment with ID %s" % experiment_id,
@@ -212,6 +222,8 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.trash_folder)
 
     def restore_experiment(self, experiment_id):
+        if not self._has_experiment(experiment_id):
+            return
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
         if experiment_dir is None:
             raise MlflowException("Could not find deleted experiment with ID %d" % experiment_id,
@@ -459,6 +471,8 @@ class FileStore(AbstractStore):
 
     def _list_run_infos(self, experiment_id, view_type):
         self._check_root_dir()
+        if not self._has_experiment(experiment_id):
+            return []
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
         run_uuids = list_all(experiment_dir, os.path.isdir, full_path=False)
         run_infos = []
