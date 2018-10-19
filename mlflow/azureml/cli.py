@@ -51,8 +51,8 @@ def build_image(model_path, workspace_name, subscription_id, run_id, image_name,
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
     """
-    # If users do not have the Azure ML SDK installed, they should still be able to view the 
-    # usage guide for the command associated with this method. Therefore, we do not attempt to 
+    # If users do not have the Azure ML SDK installed, they should still be able to view the
+    # usage guide for the command associated with this method. Therefore, we do not attempt to
     # import modules dependent on the SDK until this method is invoked.
     import mlflow.azureml
     from azureml.core import Workspace
