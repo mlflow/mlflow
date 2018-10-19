@@ -5,14 +5,10 @@ import os
 import pytest
 import mock
 from mock import Mock
-# import unittest
 
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 from click.testing import CliRunner
-
-# from azureml.core.image import ContainerImage
-# from azureml.core.model import Model as AzureModel
 from azureml.core import Workspace 
 
 import mlflow
@@ -24,7 +20,6 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE 
 from mlflow.tracking.utils import _get_model_log_dir 
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree 
-# from mlflow.azureml import cli
 
 
 class AzureMLMocks:
