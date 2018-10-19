@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 import os
 import shutil
+import time
 import unittest
 import uuid
 
-import time
-
+import mock
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
@@ -147,6 +147,15 @@ class TestFileStore(unittest.TestCase):
         for exp_names in set(random_str(15) for x in range(20)):
             exp = fs.get_experiment_by_name(exp_names)
             self.assertIsNone(exp)
+
+    def test_create_first_experiment(self):
+        fs = FileStore(self.test_root)
+        fs.list_experiments = mock.Mock(return_value=[])
+        fs._create_experiment_with_id = mock.Mock()
+        fs.create_experiment(random_str(1))
+        fs._create_experiment_with_id.assert_called_once()
+        experiment_id = fs._create_experiment_with_id.call_args[0][1]
+        self.assertEqual(experiment_id, 0)
 
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
