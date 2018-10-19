@@ -45,10 +45,10 @@ def commands():
               help=("A string description to associate with the Azure Container Image and the"
                     " Azure Model that are created."))
 @click.option("--tags", "-t", default=None, 
-              help=("A collection of tags, represented as a JSON-formatted string, to associate" 
-                    " with the Azure Container Image and the Azure Model that are created. These" 
-                    " tags will be added to a set of default tags that include the model path, the" 
-                    " model run id (if specified), and more."))
+              help=("A collection of tags, represented as a JSON-formatted dictionary of string"
+                    " key-value pairs, to associate with the Azure Container Image and the Azure" 
+                    " Model that are created. These tags will be added to a set of default tags"
+                    " that include the model path, the model run id (if specified), and more."))
 def build_image(model_path, workspace_name, subscription_id, run_id, image_name, model_name, 
                 mlflow_home, description, tags):
     """

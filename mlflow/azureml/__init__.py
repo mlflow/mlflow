@@ -50,11 +50,12 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                         azureml.core.image.container.containerimageconfig` and 
                         `https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.model.model?view=azure-ml-py#register`. 
-    :param tags: A collection of tags to associate with the Azure Container Image and the Azure 
-                 Model that will be created. These tags will be added to a set of default tags that 
-                 include the model path, the model run id (if specified), and more. 
-                 For more information, see `https://docs.microsoft.com/en-us/python/api/
-                 azureml-core/azureml.core.image.container.containerimageconfig` and 
+    :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to 
+                 associate with the Azure Container Image and the Azure Model that will be created. 
+                 These tags will be added to a set of default tags that include the model path, 
+                 the model run id (if specified), and more. For more information, see 
+                 `https://docs.microsoft.com/en-us/python/api/azureml-core/
+                 azureml.core.image.container.containerimageconfig` and 
                  `https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.model.model?view=azure-ml-py#register`. 
     :param synchronous: If `True`, this method will block until the image creation procedure
@@ -67,10 +68,14 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
              - An `azureml.core.model.Model` object containing metadata for the new model.
     """
     if run_id is not None:
+        relative_model_path = model_path
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
+    else:
+        relative_model_path = model_path
+
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
-    tags = _build_tags(model_path=model_path, run_id=run_id, model_pyfunc_conf=model_pyfunc_conf, 
-                       user_tags=tags)
+    tags = _build_tags(model_path=relative_model_path, run_id=run_id, 
+                       model_pyfunc_conf=model_pyfunc_conf, user_tags=tags)
    
     if image_name is None:
         image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
@@ -151,9 +156,9 @@ def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags):
     tags = dict(user_tags)
     tags["model_path"] = model_path if run_id is not None else os.path.abspath(model_path)
     if run_id is not None:
-        tags["model_run_id"] = run_id
+        tags["run_id"] = run_id
     if pyfunc.PY_VERSION in model_pyfunc_conf:
-        tags["model_python_version"] = model_pyfunc_conf[pyfunc.PY_VERSION]
+        tags["python_version"] = model_pyfunc_conf[pyfunc.PY_VERSION]
     return tags 
 
 
@@ -262,7 +267,7 @@ from mlflow.utils import get_jsonable_obj
 
 def init():
     global model
-    model_path = Model.get_model_path("{model_name}", version={model_version})
+    model_path = Model.get_model_path(model_name="{model_name}", version={model_version})
     model = load_pyfunc(model_path)
 
 

@@ -1,0 +1,334 @@
+from __future__ import print_function
+
+import importlib
+import os
+import pytest
+import mock
+from mock import Mock
+# import unittest
+
+import sklearn.datasets as datasets
+import sklearn.linear_model as glm
+from click.testing import CliRunner
+
+# from azureml.core.image import ContainerImage
+# from azureml.core.model import Model as AzureModel
+from azureml.core import Workspace 
+
+import mlflow
+import mlflow.azureml
+import mlflow.sklearn
+from mlflow import pyfunc
+from mlflow.exceptions import MlflowException 
+from mlflow.models import Model 
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE 
+from mlflow.tracking.utils import _get_model_log_dir 
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree 
+# from mlflow.azureml import cli
+
+
+class AzureMLMocks:
+
+    def __init__(self):
+        self.mocks = {
+            "register_model" : mock.patch("azureml.core.model.Model.register"),
+            "get_model_path" : mock.patch("azureml.core.model.Model.get_model_path"),
+            "create_image" : mock.patch("azureml.core.Image.create"),
+            "load_workspace" : mock.patch("azureml.core.Workspace.get"),
+        }
+
+    def __getitem__(self, key):
+        return self.mocks[key]
+
+    def __enter__(self):
+        for key, mock in self.mocks.items():
+            self.mocks[key] = mock.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        for mock in self.mocks.values():
+            mock.__exit__(*args)
+
+
+@pytest.fixture(scope="session")
+def sklearn_model():
+    iris = datasets.load_iris()
+    X = iris.data[:, :2]  # we only take the first two features.
+    y = iris.target
+    linear_lr = glm.LogisticRegression()
+    linear_lr.fit(X, y)
+    return linear_lr
+
+
+@pytest.fixture
+def model_path(tmpdir):
+    return os.path.join(str(tmpdir), "model")
+
+
+def test_build_image_with_absolute_model_path_calls_expected_azure_routines(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
+
+        assert aml_mocks["register_model"].call_count == 1
+        assert aml_mocks["create_image"].call_count == 1
+
+
+def test_build_image_with_run_relative_model_path_calls_expected_azure_routines(sklearn_model):
+    artifact_path = "model" 
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
+        run_id = mlflow.active_run().info.run_uuid
+
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=artifact_path, run_id=run_id, workspace=workspace)
+
+        assert aml_mocks["register_model"].call_count == 1
+        assert aml_mocks["create_image"].call_count == 1
+
+
+def test_synchronous_build_image_awaits_azure_image_creation(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        image, _ = mlflow.azureml.build_image(
+                model_path=model_path, workspace=workspace, synchronous=True)
+        image.wait_for_creation.assert_called_once()
+
+
+def test_asynchronous_build_image_awaits_azure_image_creation(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        image, _ = mlflow.azureml.build_image(
+                model_path=model_path, workspace=workspace, synchronous=False)
+        image.wait_for_creation.assert_not_called()
+
+
+def test_build_image_registers_model_and_creates_image_with_specified_names(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        model_name = "MODEL_NAME_1"
+        image_name = "IMAGE_NAME_1"
+        mlflow.azureml.build_image(
+                model_path=model_path, workspace=workspace, model_name=model_name,
+                image_name=image_name)
+
+        register_model_call_args = aml_mocks["register_model"].call_args_list
+        assert len(register_model_call_args) == 1
+        _, register_model_call_kwargs = register_model_call_args[0]
+        assert register_model_call_kwargs["model_name"] == model_name 
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        assert create_image_call_kwargs["name"] == image_name
+
+
+def test_build_image_generates_model_and_image_names_meeting_azureml_resource_naming_requirements(
+        sklearn_model, model_path):
+    aml_resource_name_max_length = 32
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
+
+        register_model_call_args = aml_mocks["register_model"].call_args_list
+        assert len(register_model_call_args) == 1
+        _, register_model_call_kwargs = register_model_call_args[0]
+        called_model_name = register_model_call_kwargs["model_name"]
+        assert len(called_model_name) <= aml_resource_name_max_length
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        called_image_name = create_image_call_kwargs["name"]
+        assert len(called_image_name) <= aml_resource_name_max_length
+
+
+def test_build_image_passes_model_conda_environment_to_azure_image_creation_routine(
+        sklearn_model, model_path):
+    sklearn_conda_env_text = """\
+    name: sklearn-env
+    dependencies:
+        - scikit-learn
+    """
+    with TempDir() as tmp:
+        sklearn_conda_env_path = tmp.path("conda.yaml")
+        with open(sklearn_conda_env_path, "w") as f:
+            f.write(sklearn_conda_env_text)
+
+        mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path, 
+                                  conda_env=sklearn_conda_env_path)
+
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        image_config = create_image_call_kwargs["image_config"]
+        assert image_config.conda_file is not None
+
+
+def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(sklearn_model):
+    artifact_path = "model" 
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
+        run_id = mlflow.active_run().info.run_uuid
+    model_config = Model.load(os.path.join(_get_model_log_dir(artifact_path, run_id), "MLmodel"))
+
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=artifact_path, run_id=run_id, workspace=workspace)
+
+        register_model_call_args = aml_mocks["register_model"].call_args_list
+        assert len(register_model_call_args) == 1
+        _, register_model_call_kwargs = register_model_call_args[0]
+        called_tags = register_model_call_kwargs["tags"]
+        assert called_tags["run_id"] == run_id 
+        assert called_tags["model_path"] == artifact_path 
+        assert called_tags["python_version"] ==\
+                model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION]
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        image_config = create_image_call_kwargs["image_config"]
+        assert image_config.tags["run_id"] == run_id 
+        assert image_config.tags["model_path"] == artifact_path 
+        assert image_config.tags["python_version"] ==\
+                model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION]
+
+
+def test_build_image_includes_user_specified_tags_in_azure_image_and_model_tags(
+        sklearn_model, model_path):
+    custom_tags = {
+        "User": "Corey",
+        "Date": "Today",
+        "Other": "Entry",
+    }
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=model_path, workspace=workspace, tags=custom_tags) 
+
+        register_model_call_args = aml_mocks["register_model"].call_args_list
+        assert len(register_model_call_args) == 1
+        _, register_model_call_kwargs = register_model_call_args[0]
+        called_tags = register_model_call_kwargs["tags"]
+        assert custom_tags.items() <= called_tags.items()
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        image_config = create_image_call_kwargs["image_config"]
+        assert custom_tags.items() <= image_config.tags.items()
+
+
+def test_build_image_includes_user_specified_description_in_azure_image_and_model_tags(
+        sklearn_model, model_path):
+    custom_description = "a custom description" 
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(
+                model_path=model_path, workspace=workspace, description=custom_description) 
+
+        register_model_call_args = aml_mocks["register_model"].call_args_list
+        assert len(register_model_call_args) == 1
+        _, register_model_call_kwargs = register_model_call_args[0]
+        assert register_model_call_kwargs["description"] == custom_description
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        image_config = create_image_call_kwargs["image_config"]
+        assert image_config.description == custom_description
+
+
+def test_build_image_fails_if_model_does_not_contain_pyfunc_flavor(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config = Model.load(model_config_path)
+    del model_config.flavors[pyfunc.FLAVOR_NAME]
+    model_config.save(model_config_path)
+
+    with AzureMLMocks() as aml_mocks, pytest.raises(MlflowException) as exc:
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
+        assert exc.error_code == INVALID_PARAMETER_VALUE
+
+
+def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
+        sklearn_model, model_path):
+    def mock_create_dockerfile(output_path, *args, **kwargs):
+        with open(output_path, "w") as f:
+            f.write("Dockerfile contents")
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks, TempDir() as tmp,\
+            mock.patch("mlflow.azureml._create_dockerfile") as create_dockerfile_mock:
+        create_dockerfile_mock.side_effect = mock_create_dockerfile 
+
+        workspace = Workspace.get("test_workspace")
+        mlflow.azureml.build_image(
+                model_path=model_path, workspace=workspace, mlflow_home=tmp.path())
+
+        assert len(create_dockerfile_mock.call_args_list) == 1
+        _, create_dockerfile_kwargs = create_dockerfile_mock.call_args_list[0]
+        # The path to MLflow that is referenced by the Docker container may differ from the
+        # user-specified `mlflow_home` path if the directory is copied before image building 
+        # for safety 
+        dockerfile_mlflow_path = create_dockerfile_kwargs["mlflow_path"]
+
+        create_image_call_args = aml_mocks["create_image"].call_args_list
+        assert len(create_image_call_args) == 1
+        _, create_image_call_kwargs = create_image_call_args[0]
+        image_config = create_image_call_kwargs["image_config"]
+        assert dockerfile_mlflow_path in image_config.dependencies
+
+
+def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
+        sklearn_model, model_path):
+    model_name = "test_model_name"
+    model_version = 1
+
+    model_mock = Mock()
+    model_mock.name = model_name
+    model_mock.version = model_version
+
+    with TempDir() as tmp:
+        execution_script_file = mlflow.azureml._create_execution_script(azure_model=model_mock)
+        execution_script_path = tmp.path("dest")
+        execution_script_path = os.path.join(
+                execution_script_path, 
+                _copy_file_or_tree(src=execution_script_file.name, dst=execution_script_path))
+
+        with open(execution_script_path, "r") as f:
+            execution_script = f.read()
+
+    # Define the `init` and `score` methods contained in the execution script
+    exec(execution_script, globals())
+    with AzureMLMocks() as aml_mocks:
+        # Execute the `init` method of the execution script. The model will not actually exist, 
+        # so we expect this call to fail when loading artifacts that are not present
+        with pytest.raises(Exception):
+            init()
+            pass
+
+        assert aml_mocks["get_model_path"].call_count == 1
+        get_model_path_call_args = aml_mocks["get_model_path"].call_args_list
+        assert len(get_model_path_call_args) == 1
+        _, get_model_path_call_kwargs = get_model_path_call_args[0]
+        assert get_model_path_call_kwargs["model_name"] == model_name
+        assert get_model_path_call_kwargs["version"] == model_version
