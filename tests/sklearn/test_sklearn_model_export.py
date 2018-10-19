@@ -15,8 +15,8 @@ from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.sklearn
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException 
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.file_utils import TempDir
@@ -77,6 +77,7 @@ def test_model_save_load(sklearn_knn_model, model_path):
             reloaded_knn_model.predict(sklearn_knn_model.inference_data),
             reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data))
 
+
 def test_model_log(sklearn_logreg_model, model_path):
     old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -129,15 +130,15 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
         expect_exception_context = pytest.raises(pickle.PicklingError)
     with expect_exception_context:
         pickle_format_model_path = os.path.join(str(tmpdir), "pickle_model")
-        mlflow.sklearn.save_model(sk_model=custom_transformer_model, 
+        mlflow.sklearn.save_model(sk_model=custom_transformer_model,
                                   path=pickle_format_model_path,
                                   serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
 
     cloudpickle_format_model_path = os.path.join(str(tmpdir), "cloud_pickle_model")
-    mlflow.sklearn.save_model(sk_model=custom_transformer_model, 
+    mlflow.sklearn.save_model(sk_model=custom_transformer_model,
                               path=cloudpickle_format_model_path,
                               serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
-    
+
     reloaded_custom_transformer_model = mlflow.sklearn.load_model(
             path=cloudpickle_format_model_path)
 
@@ -153,8 +154,8 @@ def test_save_model_throws_exception_if_serialization_format_is_unrecognized(
         mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path,
                                   serialization_format="not a valid format")
 
-    # The unsupported serialization format should have been detected prior to the execution of 
-    # any directory creation or state-mutating persistence logic that would prevent a second 
+    # The unsupported serialization format should have been detected prior to the execution of
+    # any directory creation or state-mutating persistence logic that would prevent a second
     # serialization call with the same model path from succeeding
-    assert os.path.exists(model_path) != True
+    assert not os.path.exists(model_path)
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)

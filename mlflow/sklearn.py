@@ -23,7 +23,7 @@ import sklearn
 
 from mlflow.utils import cli_args
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException 
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 import mlflow.tracking
@@ -36,7 +36,8 @@ SUPPORTED_SERIALIZATION_FORMATS = [
     SERIALIZATION_FORMAT_CLOUDPICKLE
 ]
 
-def save_model(sk_model, path, conda_env=None, mlflow_model=Model(), 
+
+def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                serialization_format=SERIALIZATION_FORMAT_PICKLE):
     """
     Save a scikit-learn model to a path on the local file system.
@@ -48,7 +49,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
            and mlflow with appropriate versions.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
-                                 the formats listed in 
+                                 the formats listed in
                                  `mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS`.
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
@@ -73,7 +74,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
         raise Exception("Path '{}' already exists".format(path))
     os.makedirs(path)
     model_data_subpath = "model.pkl"
-    _save_model(sk_model=sk_model, output_path=os.path.join(path, model_data_subpath), 
+    _save_model(sk_model=sk_model, output_path=os.path.join(path, model_data_subpath),
                 serialization_format=serialization_format)
     model_conda_env = None
     if conda_env:
@@ -87,7 +88,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(sk_model, artifact_path, conda_env=None, 
+def log_model(sk_model, artifact_path, conda_env=None,
               serialization_format=SERIALIZATION_FORMAT_PICKLE):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
@@ -143,7 +144,7 @@ def _load_pyfunc(path):
 def _save_model(sk_model, output_path, serialization_format):
     """
     :param sk_model: The Scikit-learn model to serialize.
-    :param output_path: The file path to which to write the serialized model. 
+    :param output_path: The file path to which to write the serialized model.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the following: `mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`,
                                  `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`.
