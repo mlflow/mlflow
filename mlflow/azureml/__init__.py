@@ -16,49 +16,49 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE 
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils import PYTHON_VERSION 
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
-def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None, 
+def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None,
                 mlflow_home=None, description=None, tags=None, synchronous=True):
     """
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
-    The resulting image can be deployed as a web service to Azure Container Instances (ACI) or 
+    The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
 
     :param model_path: The path to MLflow model for which the image will be built. If a run id
-                       is specified, this is should be a run-relative path. Otherwise, it 
+                       is specified, this is should be a run-relative path. Otherwise, it
                        should be a local path.
     :param run_id: MLflow run ID.
-    :param image_name: The name to assign the Azure Container Image that will be created. If 
-                       unspecified, a unique image name will be generated. 
+    :param image_name: The name to assign the Azure Container Image that will be created. If
+                       unspecified, a unique image name will be generated.
     :param model_name: The name to assign the Azure Model will be created. If unspecified,
-                       a unique model name will be generated. 
+                       a unique model name will be generated.
     :param workspace: The AzureML workspace in which to build the image. This is a
                       `azureml.core.Workspace` object.
     :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
                         image will install MLflow from this directory. Otherwise, it will install
                         MLflow from pip.
     :param description: A string description to associate with the Azure Container Image and the
-                        Azure Model that will be created. For more information, see 
+                        Azure Model that will be created. For more information, see
                         `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.image.container.containerimageconfig` and 
+                        azureml.core.image.container.containerimageconfig` and
                         `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.model.model?view=azure-ml-py#register`. 
-    :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to 
-                 associate with the Azure Container Image and the Azure Model that will be created. 
-                 These tags will be added to a set of default tags that include the model path, 
-                 the model run id (if specified), and more. For more information, see 
+                        azureml.core.model.model?view=azure-ml-py#register`.
+    :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
+                 associate with the Azure Container Image and the Azure Model that will be created.
+                 These tags will be added to a set of default tags that include the model path,
+                 the model run id (if specified), and more. For more information, see
                  `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.image.container.containerimageconfig` and 
+                 azureml.core.image.container.containerimageconfig` and
                  `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.model.model?view=azure-ml-py#register`. 
+                 azureml.core.model.model?view=azure-ml-py#register`.
     :param synchronous: If `True`, this method will block until the image creation procedure
                         terminates before returning. If `False`, the method will return immediately,
                         but the returned image will not be available until the asynchronous
@@ -75,9 +75,9 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         relative_model_path = model_path
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
-    tags = _build_tags(model_path=relative_model_path, run_id=run_id, 
+    tags = _build_tags(model_path=relative_model_path, run_id=run_id,
                        model_pyfunc_conf=model_pyfunc_conf, user_tags=tags)
-   
+
     if image_name is None:
         image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
     if model_name is None:
@@ -86,14 +86,14 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     with TempDir() as tmp:
         model_directory_path = tmp.path("model")
         model_path = os.path.join(
-            model_directory_path, 
+            model_directory_path,
             _copy_file_or_tree(src=model_path, dst=model_directory_path))
 
-        registered_model = AzureModel.register(workspace=workspace, model_path=model_path, 
-                                               model_name=model_name, tags=tags, 
+        registered_model = AzureModel.register(workspace=workspace, model_path=model_path,
+                                               model_name=model_name, tags=tags,
                                                description=description)
-        eprint("Registered an Azure Model with name: `{model_name}` and version:" 
-               " `{model_version}`".format(model_name=registered_model.name, 
+        eprint("Registered an Azure Model with name: `{model_name}` and version:"
+               " `{model_version}`".format(model_name=registered_model.name,
                                          model_version=registered_model.version))
 
         # Create an execution script (entry point) for the image's model server in the
@@ -137,8 +137,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                                       name=image_name,
                                       image_config=image_configuration,
                                       models=[registered_model])
-        eprint("Building an Azure Container Image with name: `{image_name}` and version:" 
-               " `{image_version}`".format(image_name=image.name, 
+        eprint("Building an Azure Container Image with name: `{image_name}` and version:"
+               " `{image_version}`".format(image_name=image.name,
                                          image_version=image.version))
         if synchronous:
             image.wait_for_creation(show_output=True)
@@ -160,7 +160,7 @@ def _build_tags(model_path, run_id, model_pyfunc_conf, user_tags=None):
         tags["run_id"] = run_id
     if pyfunc.PY_VERSION in model_pyfunc_conf:
         tags["python_version"] = model_pyfunc_conf[pyfunc.PY_VERSION]
-    return tags 
+    return tags
 
 
 def _create_execution_script(azure_model):
@@ -169,7 +169,7 @@ def _create_execution_script(azure_model):
     the specified model. This script is created as a temporary file in the current working
     directory.
 
-    :param registered_model: The Azure Model that the execution script will load for inference. 
+    :param registered_model: The Azure Model that the execution script will load for inference.
     :return: A reference to the temporary file containing the execution script.
     """
     # Azure ML requires the container's execution script to be located
