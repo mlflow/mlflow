@@ -77,7 +77,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion("3.0.0"):
+    if model_python_version is not None and\
+            StrictVersion(model_python_version) < StrictVersion("3.0.0"):
         raise MlflowException(
                 message="Azure ML can only deploy models trained in Python 3 or above!",
                 error_code=INVALID_PARAMETER_VALUE)
@@ -166,7 +167,7 @@ def _build_tags(model_path, run_id, model_python_version=None, user_tags=None):
     if run_id is not None:
         tags["run_id"] = run_id
     if model_python_version is not None:
-        tags["python_version"] = model_python_version 
+        tags["python_version"] = model_python_version
     return tags
 
 
