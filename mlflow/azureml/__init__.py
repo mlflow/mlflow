@@ -63,7 +63,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     :param synchronous: If `True`, this method will block until the image creation procedure
                         terminates before returning. If `False`, the method will return immediately,
                         but the returned image will not be available until the asynchronous
-                        creation process completes. The `azureml.core.Image.wait_for_creation()` 
+                        creation process completes. The `azureml.core.Image.wait_for_creation()`
                         function can be used to wait for the creation process to complete.
     :return: A tuple containing the following elements in order:
              - An `azureml.core.image.ContainerImage` object containing metadata for the new image.

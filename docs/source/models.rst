@@ -5,7 +5,7 @@ MLflow Models
 
 An MLflow Model is a standard format for packaging machine learning models that can be used in a
 variety of downstream tools---for example, real-time serving through a REST API or batch inference
-on Apache Spark. The format defines a convention that lets you save a model in different "flavors" 
+on Apache Spark. The format defines a convention that lets you save a model in different "flavors"
 that can be understood by different downstream tools.
 
 .. contents:: Table of Contents
@@ -162,9 +162,9 @@ A ``python_function`` model directory must contain an ``MLmodel`` file in its ro
 .. code:: bash
 
    tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
-   
+
 ::
- 
+
    ├── MLmodel
    ├── code
    │   ├── sklearn_iris.py
@@ -176,9 +176,9 @@ A ``python_function`` model directory must contain an ``MLmodel`` file in its ro
 .. code:: bash
 
    cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
-   
+
 ::
-  
+
    python_function:
      code: code
      data: data/model.pkl
@@ -215,7 +215,7 @@ Scikit-learn (``sklearn``)
 
 The ``sklearn`` model flavor provides an easy to use interface for handling scikit-learn models with no
 external dependencies. It saves and loads models using Python's pickle module and also generates a valid
-``python_function`` flavor model. For more information, see :py:mod:`mlflow.sklearn`. 
+``python_function`` flavor model. For more information, see :py:mod:`mlflow.sklearn`.
 
 
 Spark MLlib (``spark``)
@@ -268,16 +268,16 @@ For more info, see:
 Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^
 The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
-These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI) 
+These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
 platform for real-time serving.
 
 * :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow model with an existing Azure ML
-  workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is 
+  workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is
   required in order to use this function.
 
   .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
 
-.. rubric:: Deployment example (Python API): 
+.. rubric:: Deployment example (Python API):
 
 .. code:: python
 
@@ -299,16 +299,16 @@ platform for real-time serving.
                         image=image, workspace=workspace, name="<deployment-name>")
     webservice.wait_for_deployment()
 
-    # After the image deployment completes, requests can be posted via HTTP to the new ACI 
+    # After the image deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI
     print("Scoring URI is: %s", webservice.scoring_uri)
-   
-.. rubric:: Deployment example (CLI): 
+
+.. rubric:: Deployment example (CLI):
 
 .. code:: bash
 
     mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
-    
+
     az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
 
 For more info, see:
