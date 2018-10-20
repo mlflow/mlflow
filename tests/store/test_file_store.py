@@ -12,7 +12,7 @@ import pytest
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, mv
+from mlflow.utils.file_utils import write_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
