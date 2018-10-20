@@ -162,7 +162,7 @@ simple REST server for scikit-learn models:
 .. note::
 
     By default the server runs on port 5000. If that port is already in use, use the `--port` option to
-    specify a different port. For example: ``mlflow sklearn serve --port 1234 -m <RUN_ID> -r model``
+    specify a different port. For example: ``mlflow sklearn serve --port 1234 -r <RUN_ID> -m model``
 
 Once you have started the server, you can pass it some sample data with ``curl`` and see the
 predictions:
