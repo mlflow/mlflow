@@ -12,7 +12,7 @@ import pytest
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.file_utils import write_yaml, mv
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
@@ -501,3 +501,20 @@ class TestFileStore(unittest.TestCase):
         for rid in all_run_ids:
             if rid != bad_run_id:
                 fs.get_run(rid)
+
+    def test_mismatching_experiment_id(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+
+        # mv experiment folder
+        target = 1
+        path_orig = os.path.join(self.test_root, str(exp_0.experiment_id))
+        path_new = os.path.join(self.test_root, str(target))
+        os.rename(path_orig, path_new)
+
+        with pytest.raises(MlflowException) as e:
+            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            assert e.message.contains("Could not find experiment with ID")
+
+        assert fs.get_experiment(target) is None
