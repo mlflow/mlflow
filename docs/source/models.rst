@@ -265,52 +265,58 @@ For more info, see:
     mlflow pyfunc serve --help
     mlflow pyfunc predict --help
 
-Microsoft AzureML
+Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^
-The :py:mod:`mlflow.azureml` module can export ``python_function`` models as Azure ML compatible models. It
-can also be used to directly deploy and serve models on Azure ML, provided the environment has
-been correctly set up.
+The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
+These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI) 
+platform for real-time serving.
 
-* :py:func:`export <mlflow.azureml.export>` exports the model in Azure ML-compatible format.
-  MLflow will output a directory with the dependencies necessary to deploy the model.
+* :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow model with an existing Azure ML
+  workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is 
+  required in order to use this function.
 
-* :py:func:`deploy <mlflow.azureml.deploy>` deploys the model directly to Azure ML.
-  You first need to set up your environment to work with the Azure ML CLI. You can do this by
-  starting a shell from the Azure ML Workbench application. You also have to set up all accounts
-  required to run and deploy on Azure ML. Where the model is deployed is dependent on your
-  active Azure ML environment. If the active environment is set up for local deployment, the model
-  will be deployed locally in a Docker container (Docker is required).
+  .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
 
-Model export example:
+.. rubric:: Deployment example (Python API): 
+
+.. code:: python
+
+    import mlflow.azureml
+
+    from azureml.core import Workspace
+    from azureml.core.webservice import AciWebservice, Webservice
+
+    azure_workspace = Workspace.get("<workspace-name>")
+    # Build an Azure ML container image for deployment
+    azure_image, azure_model = mlflow.azureml.build_image(model_path="<path-to-model>",
+                                                          workspace=azure_workspace,
+                                                          description="Wine regression model 1",
+                                                          synchronous=True)
+
+    # Deploy the container image to ACI
+    webservice_deployment_config = AciWebservice.deploy_configuration()
+    webservice = Webservice.deploy_from_image(
+                        image=image, workspace=workspace, name="<deployment-name>")
+    webservice.wait_for_deployment()
+
+    # After the image deployment completes, requests can be posted via HTTP to the new ACI 
+    # webservice's scoring URI
+    print("Scoring URI is: %s", webservice.scoring_uri)
+   
+.. rubric:: Deployment example (CLI): 
 
 .. code:: bash
 
-    mlflow azureml export -m <path-to-model> -o test-output
-    tree test-output
-
-::
-  
-    test-output
-    ├── create_service.sh  - use this script to upload the model to Azure ML
-    ├── score.py - main module required by Azure ML
-    └── test-output - directory containing MLflow model in Python Function flavor
-
-.. rubric:: Example workflow using the MLflow CLI
-
-.. code:: bash
-
-    az ml env set -n <local-env-name> -g <local-env-resource-group> - set environment to local deployment
-    mlflow azureml deploy <parameters> - deploy locally to test the model
-    az ml env set -n <cluster-env-name> -g <cluster-env-resource-group> - set environment to cluster
-    mlflow azureml deploy <parameters> - deploy to the cloud
+    mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
+    
+    az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
 
 For more info, see:
 
 .. code:: bash
 
     mlflow azureml --help
-    mlflow azureml export --help
-    mlflow azureml deploy --help
+    mlflow azureml build-image --help
 
 Amazon SageMaker
 ^^^^^^^^^^^^^^^^

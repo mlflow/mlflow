@@ -48,22 +48,22 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                         MLflow from pip.
     :param description: A string description to associate with the Azure Container Image and the
                         Azure Model that will be created. For more information, see
-                        `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.image.container.containerimageconfig` and
-                        `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.model.model?view=azure-ml-py#register`.
+                        `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                        azureml.core.image.container.containerimageconfig>`_ and
+                        `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                        azureml.core.model.model?view=azure-ml-py#register>`_.
     :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
                  associate with the Azure Container Image and the Azure Model that will be created.
                  These tags will be added to a set of default tags that include the model path,
                  the model run id (if specified), and more. For more information, see
-                 `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.image.container.containerimageconfig` and
-                 `https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.model.model?view=azure-ml-py#register`.
+                 `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                 azureml.core.image.container.containerimageconfig>`_ and
+                 `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                 azureml.core.model.model?view=azure-ml-py#register>`_.
     :param synchronous: If `True`, this method will block until the image creation procedure
                         terminates before returning. If `False`, the method will return immediately,
                         but the returned image will not be available until the asynchronous
-                        creation process completes. The `azureml.core.Image.wait_for_creation()`
+                        creation process completes. The `azureml.core.Image.wait_for_creation()` 
                         function can be used to wait for the creation process to complete.
     :return: A tuple containing the following elements in order:
              - An `azureml.core.image.ContainerImage` object containing metadata for the new image.
