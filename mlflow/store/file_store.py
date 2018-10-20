@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException, MissingConfigException, Execution
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
-                                    _validate_tag_name
+    _validate_tag_name, _validate_experiment_id
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
@@ -62,7 +62,6 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
-            print("here")
             self._create_experiment_with_id(name="Default",
                                             experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
@@ -180,6 +179,7 @@ class FileStore(AbstractStore):
 
     def _get_experiment(self, experiment_id, view_type=ViewType.ALL):
         self._check_root_dir()
+        _validate_experiment_id(experiment_id)
         experiment_dir = self._get_experiment_path(experiment_id, view_type)
         if experiment_dir is None:
             raise MlflowException("Could not find experiment with ID %s" % experiment_id,
@@ -190,7 +190,7 @@ class FileStore(AbstractStore):
         else:
             meta['lifecycle_stage'] = Experiment.ACTIVE_LIFECYCLE
         experiment = Experiment.from_dictionary(meta)
-        if experiment_id != experiment.experiment_id:
+        if int(experiment_id) != experiment.experiment_id:
             logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data.",
                             str(experiment_id), str(experiment.experiment_id))
             return None
