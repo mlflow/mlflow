@@ -85,7 +85,17 @@ public class MlflowClient {
   }
 
   /**
-   * Creates a new run.
+   * Creates a new run. This method allows providing all possible fields of CreateRun, and can be
+   * invoked as follows:
+   *
+   *   <pre>
+   *   import org.mlflow.api.proto.Service.CreateRun;
+   *   CreateRun.Builder request = CreateRun.newBuilder();
+   *   request.setExperimentId(experimentId);
+   *   request.setSourceVersion("my-version");
+   *   createRun(request.build());
+   *   </pre>
+   *
    * @return RunInfo created by the server
    */
   public RunInfo createRun(CreateRun request) {

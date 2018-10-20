@@ -66,8 +66,8 @@ RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
 ENV PATH="/miniconda/bin:${PATH}"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
-RUN conda install -c anaconda gunicorn;\
-    conda install -c anaconda gevent;\
+RUN conda install gunicorn;\
+    conda install gevent;\
 
 %s
 
