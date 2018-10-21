@@ -40,7 +40,7 @@ def set_experiment(experiment_name):
     client = MlflowClient()
     experiment = client.get_experiment_by_name(experiment_name)
     exp_id = experiment.experiment_id if experiment else None
-    if not exp_id:
+    if exp_id is None:  # id can be 0
         print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
         exp_id = client.create_experiment(experiment_name)
     global _active_experiment_id
