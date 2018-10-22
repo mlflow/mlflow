@@ -6,10 +6,11 @@ import pytest
 import mock
 from mock import Mock
 
-from azureml.core import Workspace
-from click.testing import CliRunner
+import pandas as pd
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
+from azureml.core import Workspace
+from click.testing import CliRunner
 
 import mlflow
 import mlflow.azureml
@@ -311,6 +312,8 @@ def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
 
 def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+
     model_name = "test_model_name"
     model_version = 1
 
@@ -331,11 +334,9 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
     # Define the `init` and `score` methods contained in the execution script
     exec(execution_script, globals())
     with AzureMLMocks() as aml_mocks:
-        # Execute the `init` method of the execution script. The model will not actually exist,
-        # so we expect this call to fail when loading artifacts that are not present
-        with pytest.raises(Exception):
-            init()
-            pass
+        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs : model_path
+        # Execute the `init` method of the execution script. 
+        init()
 
         assert aml_mocks["get_model_path"].call_count == 1
         get_model_path_call_args = aml_mocks["get_model_path"].call_args_list
@@ -343,6 +344,37 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         _, get_model_path_call_kwargs = get_model_path_call_args[0]
         assert get_model_path_call_kwargs["model_name"] == model_name
         assert get_model_path_call_kwargs["version"] == model_version
+
+
+def test_execution_script_run_method_scores_pandas_dataframes_successfully(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+
+    model_mock = Mock()
+    model_mock.name = "model_name" 
+    model_mock.version = 1
+
+    with TempDir() as tmp:
+        execution_script_file = mlflow.azureml._create_execution_script(azure_model=model_mock)
+        execution_script_path = tmp.path("dest")
+        execution_script_path = os.path.join(
+                execution_script_path,
+                _copy_file_or_tree(src=execution_script_file.name, dst=execution_script_path))
+
+        with open(execution_script_path, "r") as f:
+            execution_script = f.read()
+
+    # Define the `init` and `score` methods contained in the execution script
+    exec(execution_script, globals())
+    with AzureMLMocks() as aml_mocks:
+        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs : model_path
+        # Execute the `init` method of the execution script and load the sklearn model from the
+        # mocked path
+        init()
+        
+        input_data = datasets.load_iris().data[:, :2]
+        output_data = run(pd.DataFrame(data=input_data).to_json(orient="records"))
+        assert len(output_data) == len(input_data)
 
 
 def test_cli_build_image_with_absolute_model_path_calls_expected_azure_routines(
