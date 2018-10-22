@@ -520,7 +520,7 @@ class TestFileStore(unittest.TestCase):
 
         with pytest.raises(MlflowException) as e:
             fs.get_run(bad_run_id)
-            assert e.message.contains("Could not find experiment with ID")
+            assert e.message.contains("not found")
 
         valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
         assert len(valid_runs) == len(all_runs) - 1

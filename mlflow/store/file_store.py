@@ -351,7 +351,7 @@ class FileStore(AbstractStore):
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
         run_info = _read_persisted_run_info_dict(meta)
         if str(run_info.experiment_id) != str(exp_id):
-            logging.warning("Recorded experiment ID (%s) for run '%s', is wrong. Should be %s. "
+            logging.warning("Wrong experiment ID (%s) recorded for run '%s'. It should be %s. "
                             "Run will be ignored.", str(run_info.experiment_id),
                             str(run_info.run_uuid), str(exp_id), exc_info=True)
             return None
