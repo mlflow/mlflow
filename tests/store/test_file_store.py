@@ -512,7 +512,6 @@ class TestFileStore(unittest.TestCase):
 
         # change experiment pointer in run
         bad_run_id = str(self.exp_data[exp_0.experiment_id]['runs'][0])
-        target = 1
         path = os.path.join(self.test_root, str(exp_0.experiment_id), bad_run_id)
         experiment_data = read_yaml(path, "meta.yaml")
         experiment_data["experiment_id"] = 1
