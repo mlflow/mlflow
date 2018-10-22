@@ -73,11 +73,9 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
 
+    relative_model_path = model_path
     if run_id is not None:
-        relative_model_path = model_path
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
-    else:
-        relative_model_path = model_path
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
