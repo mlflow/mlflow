@@ -6,6 +6,9 @@ import classNames from 'classnames';
 import { Table, Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
+import {getArtifactRootUri, getArtifacts} from "../reducers/Reducers";
+import BaggedArrayUtils from './BaggedArray';
+import _ from 'lodash';
 
 const styles = {
   sortArrow: {
@@ -30,7 +33,7 @@ const styles = {
  * Compact table view for displaying runs associated with an experiment. Renders metrics/params in
  * a single table cell per run (as opposed to one cell per metric/param).
  */
-class ExperimentRunsTableCompactView extends Component {
+export default class ExperimentRunsTableCompactView extends Component {
   constructor(props) {
     super(props);
     this.onHover = this.onHover.bind(this);
@@ -43,8 +46,6 @@ class ExperimentRunsTableCompactView extends Component {
     paramsList: PropTypes.arrayOf(Array).isRequired,
     // List of list of metrics in all the visible runs
     metricsList: PropTypes.arrayOf(Array).isRequired,
-    paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
-    metricKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
     // Function which takes one parameter (runId)
@@ -57,32 +58,44 @@ class ExperimentRunsTableCompactView extends Component {
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
     setSortByHandler: PropTypes.func.isRequired,
+    paramKeyList: PropTypes.arrayOf(String).isRequired,
+    metricKeyList: PropTypes.arrayOf(String).isRequired,
   };
 
   state = {
     hoverState: {isMetric: false, isParam: false, key: ""},
+    unbaggedMetrics: [],
+    unbaggedParams: [],
   };
 
   onHover({isParam, isMetric, key}) {
     this.setState({ hoverState: {isParam, isMetric, key} });
   }
 
+  // Builds a single row of table content (not header)
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
       runInfos,
       paramsList,
       metricsList,
-      paramKeyList,
-      metricKeyList,
       onCheckbox,
       sortState,
       runsSelected,
       tagsList,
       setSortByHandler,
       onExpand,
+      paramKeyList,
+      metricKeyList,
     } = this.props;
+    const {
+      unbaggedParams,
+      unbaggedMetrics,
+    } = this.state;
+    // TODO: maybe pull this out so we don't do it for each row?
+    const metricRanges = ExperimentViewUtil.computeMetricRanges(metricsList);
     const hoverState = this.state.hoverState;
     const runInfo = runInfos[idx];
+    // TODO need to use bagged metrics, params here
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
     const selected = runsSelected[runInfo.run_uuid] === true;
@@ -93,7 +106,58 @@ class ExperimentRunsTableCompactView extends Component {
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent)
       .forEach((col) => rowContents.push(col));
-    const filteredParamKeys = paramKeyList.filter((paramKey) => paramsMap[paramKey] !== undefined);
+
+    const unbaggedParamSet = new Set(unbaggedParams);
+    const unbaggedMetricSet = new Set(unbaggedMetrics);
+    const baggedParams = paramKeyList.filter((elem) => !unbaggedParamSet.has(elem));
+    const baggedMetrics = metricKeyList.filter((elem) => !unbaggedMetricSet.has(elem));
+
+    // Add unbagged metrics and params
+    unbaggedParams.forEach((paramKey, i) => {
+      const className = (i === 0 ? "left-border" : "") + " run-table-container";
+      const keyName = "param-" + paramKey;
+      if (paramsMap[paramKey]) {
+        rowContents.push(<td className={className} key={keyName}>
+          <div>
+            {paramsMap[paramKey].getValue()}
+          </div>
+        </td>);
+      } else {
+        rowContents.push(<td className={className} key={keyName}/>);
+      }
+    });
+    unbaggedMetrics.forEach((metricKey, i) => {
+      const className = (i === 0 ? "left-border" : "") + " run-table-container";
+      const keyName = "metric-" + metricKey;
+      if (metricsMap[metricKey]) {
+        const metric = metricsMap[metricKey].getValue();
+        const range = metricRanges[metricKey];
+        let fraction = 1.0;
+        if (range.max > range.min) {
+          fraction = (metric - range.min) / (range.max - range.min);
+        }
+        const percent = (fraction * 100) + "%";
+        rowContents.push(
+          <td className={className} key={keyName}>
+            {/* We need the extra div because metric-filler-bg is inline-block */}
+            <div>
+              <div className="metric-filler-bg">
+                <div className="metric-filler-fg" style={{width: percent}}/>
+                <div className="metric-text">
+                  {Utils.formatMetric(metric)}
+                </div>
+              </div>
+            </div>
+          </td>
+        );
+      } else {
+        rowContents.push(<td className={className} key={keyName}/>);
+      }
+    });
+
+
+    // Add bagged metrics and params
+    const filteredParamKeys = baggedParams.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
       const cellClass = classNames("metric-param-content",
         { highlighted: hoverState.isParam && hoverState.key === paramKey });
@@ -149,15 +213,27 @@ class ExperimentRunsTableCompactView extends Component {
                 >
                   Sort descending
                 </MenuItem>
+                <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={() => {
+                    this.setState({unbaggedParams: BaggedArrayUtils.withRemoveBagged(unbaggedParams, paramKey)});
+                  }}
+                >
+                  Display in column
+                </MenuItem>
               </Dropdown.Menu>
             </Dropdown>
           </span>
         </div>
       );
     });
-    rowContents.push(
-      <td key="params-container-cell" className="left-border"><div>{paramsCellContents}</div></td>);
-    const filteredMetricKeys = metricKeyList.filter((key) => metricsMap[key] !== undefined);
+    if (baggedParams.length > 0) {
+      rowContents.push(
+        <td key="params-container-cell" className="left-border">
+          <div>{paramsCellContents}</div>
+        </td>);
+    }
+    const filteredMetricKeys = baggedMetrics.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const cellClass = classNames("metric-param-content",
@@ -211,20 +287,27 @@ class ExperimentRunsTableCompactView extends Component {
                 >
                   Sort descending
                 </MenuItem>
+                <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={() => this.setState({unbaggedMetrics: BaggedArrayUtils.withRemoveBagged(unbaggedMetrics, metricKey)})}
+                >
+                  Display in column
+                </MenuItem>
               </Dropdown.Menu>
             </Dropdown>
           </span>
         </span>
       );
     });
-    rowContents.push(
-      <td key="metrics-container-cell" className="left-border metric-param-container-cell">
-        <div>
-        {metricsCellContents}
-        </div>
-      </td>
-    );
-
+    if (baggedMetrics.length > 0) {
+      rowContents.push(
+        <td key="metrics-container-cell" className="left-border metric-param-container-cell">
+          <div>
+            {metricsCellContents}
+          </div>
+        </td>
+      );
+    }
     const sortValue = ExperimentViewUtil.computeSortValue(
       sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
     return {
@@ -256,6 +339,56 @@ class ExperimentRunsTableCompactView extends Component {
     return undefined;
   }
 
+  getMetricParamHeaderCells() {
+    const {
+      onSortBy,
+      sortState,
+      paramKeyList,
+      metricKeyList,
+    } = this.props;
+    const {
+      unbaggedParams,
+      unbaggedMetrics,
+    } = this.state;
+    const numParams = unbaggedParams.length;
+    const numMetrics = unbaggedMetrics.length;
+    const columns = [];
+
+    const getHeaderCell = (isParam, key, i) => {
+      const isMetric = !isParam;
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
+      const className = classNames("bottom-row", "sortable", { "left-border": i === 0 });
+      const elemKey = (isParam ? "param-" : "metric-") + key;
+      return (
+        <th
+          key={elemKey} className={className}
+          onClick={() => onSortBy(isMetric, isParam, key)}
+        >
+          <span
+            style={styles.metricParamNameContainer}
+            className="run-table-container"
+          >
+            {key}
+          </span>
+          <span style={styles.sortIconContainer}>{sortIcon}</span>
+        </th>);
+    };
+
+    unbaggedParams.forEach((paramKey, i) => {
+      columns.push(getHeaderCell(true, paramKey, i));
+    });
+    if (numParams !== paramKeyList.length) {
+      columns.push(<th key="meta-param-empty" className="bottom-row left-border"/>);
+    }
+    unbaggedMetrics.forEach((metricKey, i) => {
+      columns.push(getHeaderCell(false, metricKey, i));
+    });
+    if (numMetrics !== metricKeyList.length) {
+      columns.push(<th key="meta-metric-empty" className="bottom-row left-border"/>);
+    }
+    return columns;
+  }
+
   render() {
     const {
       runInfos,
@@ -265,14 +398,20 @@ class ExperimentRunsTableCompactView extends Component {
       sortState,
       tagsList,
       runsExpanded,
+      paramKeyList,
+      metricKeyList,
     } = this.props;
+    const {
+      unbaggedMetrics,
+      unbaggedParams,
+    } = this.state;
+    console.log("ExperimentRunsTableCompactView: render");
     const rows = ExperimentViewUtil.getRows({
       runInfos,
       sortState,
       tagsList,
       runsExpanded,
       getRow: this.getRow });
-
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked),
       // placeholder for expander header cell,
@@ -280,39 +419,51 @@ class ExperimentRunsTableCompactView extends Component {
     ];
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((headerCell) => headerCells.push(headerCell));
+    this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
+    // If more than one split out column, have the option to "merge all columns"
+    // If more than one bagged column, have the option to "display all in columns"
+    // TODO: Replace clickable ellipsis with dropdown with an additional "Hide content" option as in
+    // https://projects.invisionapp.com/share/W7OF3J0NBH3#/screens/323861944. Also, add ability to
+    // collapse unbagged columns
+
+    // Params header will always contain one column per split out param, plus one column
+    // for bagged params, unless there are no bagged params. Current problem: we only show the bagged
+    // param cell if there are no unbagged params, we should show it as long as there are bagged params (I think)
+    const baggedParamsLength = unbaggedParams.length === paramKeyList.length ? 0 : 1;
+    const baggedMetricsLength = unbaggedMetrics.length === metricKeyList.length ? 0 : 1;
+
     return (
       <Table hover>
         <colgroup span="9"/>
-        <colgroup span="1"/>
-        <colgroup span="1"/>
+        <colgroup span={unbaggedMetrics.length}/>
+        <colgroup span={unbaggedParams.length}/>
         <tbody>
         <tr>
+          <th className="top-row" scope="colgroup" colSpan="7"/>
+          <th
+            className="top-row left-border"
+            scope="colgroup"
+
+            colSpan={unbaggedParams.length + baggedParamsLength}
+          >
+            Parameters
+
+            <i className="fas fa-ellipsis-h" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedParams: []})}/>
+            <i className="fas fa-ellipsis-v" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedParams: paramKeyList.slice(0, paramKeyList.length)})}/>
+          </th>
+          <th className="top-row left-border" scope="colgroup"
+            colSpan={unbaggedMetrics.length + baggedMetricsLength}
+          >
+            Metrics
+            <i className="fas fa-ellipsis-h" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedMetrics: []})}/>
+            <i className="fas fa-ellipsis-v" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedMetrics: metricKeyList.slice(0, metricKeyList.length)})}/>
+          </th>
+        </tr>
+        <tr>
           {headerCells}
-          <th
-            className="top-row left-border"
-            scope="colgroup"
-            colSpan="1"
-          >
-            <div>Parameters</div>
-            <div style={styles.sortContainer} className="unselectable">
-              {this.getSortInfo(false, true)}
-            </div>
-          </th>
-          <th
-            className="top-row left-border"
-            scope="colgroup"
-            colSpan="1"
-          >
-            <div>Metrics</div>
-            <div style={styles.sortContainer} className="unselectable">
-              {this.getSortInfo(true, false)}
-            </div>
-          </th>
         </tr>
         {ExperimentViewUtil.renderRows(rows)}
         </tbody>
       </Table>);
   }
 }
-
-export default ExperimentRunsTableCompactView;
