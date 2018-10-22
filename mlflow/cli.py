@@ -5,6 +5,7 @@ import sys
 import click
 from click import UsageError
 
+import mlflow.azureml.cli
 import mlflow.projects as projects
 import mlflow.sklearn
 import mlflow.data
@@ -201,9 +202,7 @@ cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
-if sys.version_info >= (3, 0):
-    import mlflow.azureml.cli
-    cli.add_command(mlflow.azureml.cli.commands)
+cli.add_command(mlflow.azureml.cli.commands)
 
 if __name__ == '__main__':
     cli()
