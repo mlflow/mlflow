@@ -348,6 +348,10 @@ platform for real-time serving.
 
     az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
 
+    # After the image deployment completes, requests can be posted via HTTP to the new ACI
+    # webservice's scoring URI. The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
     sample_input='
     {
          "residual sugar": {"0": 20.7},
