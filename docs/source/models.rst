@@ -267,7 +267,7 @@ For more info, see:
     mlflow pyfunc predict --help
 
 Microsoft Azure ML
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
 These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
 platform for real-time serving.
