@@ -193,7 +193,13 @@ def _create_execution_script(azure_model):
     execution_script_text = SCORE_SRC.format(
             model_name=azure_model.name, model_version=azure_model.version)
     execution_script_file.write(execution_script_text)
+    # This file will be read from the current location of the file pointer, which was
+    # advanced during the write. Therefore, we seek to the beginning of the file so that
+    # its full contents can be read later.
     execution_script_file.seek(0)
+    # Temporary files created using the `tempfile.NamedTemporaryFile` constructor are deleted
+    # when their associated object reference goes out of scope. Therefore, We return a reference to 
+    # the execution script file to prevent it from being deleted prematurely.
     return execution_script_file
 
 
