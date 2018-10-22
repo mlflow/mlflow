@@ -20,3 +20,4 @@ torch
 torchvision
 pysftp
 keras
+cloudpickle
