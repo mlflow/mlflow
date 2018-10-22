@@ -50,7 +50,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
-                                 `mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS`. The Cloudpickle 
+                                 `mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS`. The Cloudpickle
                                  format, `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`, provides
                                  better cross-system compatibility by identifying and packaging
                                  code dependencies with the serialized model.
@@ -64,13 +64,13 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     >>> #set path to location for persistence
     >>> sk_path_dir_1 = ...
     >>> mlflow.sklearn.save_model(
-    >>>         sk_model, sk_path_dir_1, 
+    >>>         sk_model, sk_path_dir_1,
     >>>         serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
     >>>
     >>> #Save the model in pickle format
     >>> #set path to location for persistence
     >>> sk_path_dir_2 = ...
-    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_2, 
+    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_2,
     >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
