@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 import os
 import shutil
+import time
 import unittest
 import uuid
 
-import time
-
+import mock
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -147,6 +147,15 @@ class TestFileStore(unittest.TestCase):
         for exp_names in set(random_str(15) for x in range(20)):
             exp = fs.get_experiment_by_name(exp_names)
             self.assertIsNone(exp)
+
+    def test_create_first_experiment(self):
+        fs = FileStore(self.test_root)
+        fs.list_experiments = mock.Mock(return_value=[])
+        fs._create_experiment_with_id = mock.Mock()
+        fs.create_experiment(random_str(1))
+        fs._create_experiment_with_id.assert_called_once()
+        experiment_id = fs._create_experiment_with_id.call_args[0][1]
+        self.assertEqual(experiment_id, 0)
 
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
@@ -453,3 +462,42 @@ class TestFileStore(unittest.TestCase):
         fs.delete_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
         fs = FileStore(self.test_root)
         assert fs.get_experiment(0).lifecycle_stage == Experiment.DELETED_LIFECYCLE
+
+    def test_malformed_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+
+        experiments = len(fs.list_experiments(ViewType.ALL))
+
+        # delete metadata file.
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
+        os.remove(path)
+        with pytest.raises(MissingConfigException) as e:
+            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            assert e.message.contains("does not exist")
+
+        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
+
+    def test_malformed_run(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+
+        all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
+        assert len(all_runs) == len(all_run_ids)
+
+        # delete metadata file.
+        bad_run_id = self.exp_data[exp_0.experiment_id]['runs'][0]
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), str(bad_run_id), "meta.yaml")
+        os.remove(path)
+        with pytest.raises(MissingConfigException) as e:
+            fs.get_run(bad_run_id)
+            assert e.message.contains("does not exist")
+
+        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        assert len(valid_runs) == len(all_runs) - 1
+
+        for rid in all_run_ids:
+            if rid != bad_run_id:
+                fs.get_run(rid)

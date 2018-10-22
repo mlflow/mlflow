@@ -1,5 +1,6 @@
 import os
 import re
+import posixpath
 
 from six.moves import urllib
 
@@ -83,7 +84,9 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
-            dest_path = build_path(dest_path, path)
+            # Separator needs to be fixed as '/' because of azure blob storage pattern.
+            # Do not change to os.path.join because in Windows system path separator is '\'
+            dest_path = posixpath.join(dest_path, path)
         infos = []
         prefix = dest_path + "/"
         marker = None  # Used to make next list request if this one exceeded the result limit
@@ -107,5 +110,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         (container, _, remote_root_path) = self.parse_wasbs_uri(self.artifact_uri)
-        remote_full_path = build_path(remote_root_path, remote_file_path)
+        # Separator needs to be fixed as '/' because of azure blob storage pattern.
+        # Do not change to os.path.join because in Windows system path separator is '\'
+        remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         self.client.get_blob_to_path(container, remote_full_path, local_path)
