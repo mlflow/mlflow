@@ -3,12 +3,15 @@ import os
 import random
 import tempfile
 
+import attrdict
+import mock
 import pytest
 
 import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.projects.utils import tracking_uri_mock
@@ -29,7 +32,7 @@ def test_create_experiment(tracking_uri_mock):
     assert exp_id is not None
 
 
-def test_set_experiment(tracking_uri_mock):
+def test_set_experiment(tracking_uri_mock, reset_active_experiment):
     with pytest.raises(TypeError):
         mlflow.set_experiment()
 
@@ -39,23 +42,30 @@ def test_set_experiment(tracking_uri_mock):
     with pytest.raises(Exception):
         mlflow.set_experiment("")
 
-    try:
-        name = "random_exp"
-        exp_id = mlflow.create_experiment(name)
-        mlflow.set_experiment(name)
-        run = start_run()
-        assert run.info.experiment_id == exp_id
-        end_run()
+    name = "random_exp"
+    exp_id = mlflow.create_experiment(name)
+    mlflow.set_experiment(name)
+    run = start_run()
+    assert run.info.experiment_id == exp_id
+    end_run()
 
-        another_name = "another_experiment"
-        mlflow.set_experiment(another_name)
-        exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
-        another_run = start_run()
-        assert another_run.info.experiment_id == exp_id2.experiment_id
-        end_run()
-    finally:
-        # Need to do this to clear active experiment to restore state
-        mlflow.tracking.fluent._active_experiment_id = None
+    another_name = "another_experiment"
+    mlflow.set_experiment(another_name)
+    exp_id2 = mlflow.tracking.MlflowClient().get_experiment_by_name(another_name)
+    another_run = start_run()
+    assert another_run.info.experiment_id == exp_id2.experiment_id
+    end_run()
+
+
+def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
+    reset_mock(MlflowClient, "get_experiment_by_name",
+               mock.Mock(return_value=attrdict.AttrDict(experiment_id=0)))
+    reset_mock(MlflowClient, "create_experiment", mock.Mock())
+
+    mlflow.set_experiment("my_exp")
+
+    MlflowClient.get_experiment_by_name.assert_called_once()
+    MlflowClient.create_experiment.assert_not_called()
 
 
 def test_start_run_context_manager(tracking_uri_mock):
