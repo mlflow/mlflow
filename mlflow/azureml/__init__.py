@@ -198,7 +198,7 @@ def _create_execution_script(azure_model):
     # its full contents can be read later
     execution_script_file.seek(0)
     # Temporary files created using the `tempfile.NamedTemporaryFile` constructor are deleted
-    # when their associated object reference goes out of scope. Therefore, We return a reference to 
+    # when their associated object reference goes out of scope. Therefore, We return a reference to
     # the execution script file to prevent it from being deleted prematurely
     return execution_script_file
 
