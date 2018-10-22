@@ -38,7 +38,7 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
-               serialization_format=SERIALIZATION_FORMAT_PICKLE):
+               serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
     """
     Save a scikit-learn model to a path on the local file system.
 
@@ -50,16 +50,27 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
-                                 `mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS`.
+                                 `mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS`. The Cloudpickle 
+                                 format, `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`, provides
+                                 better cross-system compatibility by identifying and packaging
+                                 code dependencies with the serialized model.
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
     >>> from sklearn import tree
     >>> iris = load_iris()
     >>> sk_model = tree.DecisionTreeClassifier()
     >>> sk_model = sk_model.fit(iris.data, iris.target)
+    >>> #Save the model in pickle format
     >>> #set path to location for persistence
-    >>> sk_path_dir = ...
-    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir)
+    >>> sk_path_dir_1 = ...
+    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_1, 
+    >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
+    >>>
+    >>> #Save the model in cloudpickle format
+    >>> #set path to location for persistence
+    >>> sk_path_dir_2 = ...
+    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_2, 
+    >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
@@ -131,8 +142,9 @@ def _load_model_from_local_file(path):
     assert "sklearn" in model.flavors
     params = model.flavors["sklearn"]
     with open(os.path.join(path, params["pickled_model"]), "rb") as f:
-        # Models serialized with Cloudpickle can be deserialized using Pickle, so there
-        # is no need to check the serialization format of the model before deserializing
+        # Models serialized with Cloudpickle can be deserialized using Pickle; in fact,
+        # Cloudpickle.load() is just a redefinition of pickle.load(). Therefore, we do
+        # not need to check the serialization format of the model before deserializing.
         return pickle.load(f)
 
 
