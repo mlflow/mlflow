@@ -40,6 +40,17 @@ class Utils {
   }
 
   /**
+   * Helper method for that returns a truncated version of the passed-in string (with trailing
+   * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
+   */
+  static truncateString(string, maxLength) {
+    if (string.length > maxLength) {
+      return string.slice(0, maxLength - 3) + "...";
+    }
+    return string;
+  }
+
+  /**
    * We need to cast all of the timestamps back to numbers since keys of JS objects are auto casted
    * to strings.
    *
@@ -59,6 +70,9 @@ class Utils {
    * Format timestamps from millisecond epoch time.
    */
   static formatTimestamp(timestamp) {
+    if (timestamp === undefined) {
+      return '(unknown)';
+    }
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
     return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
@@ -141,7 +155,7 @@ class Utils {
       height: '20px',
       position: 'relative',
       top: '-1px',
-      right: '3px',
+      marginRight: '2px',
     };
     if (sourceType === "NOTEBOOK") {
       return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
@@ -203,23 +217,16 @@ class Utils {
     return null;
   }
 
-  static getErrorMessageFromXhr(xhr) {
-    const { status } = xhr;
-    if (status === 0) {
-      return 'Request failed to send. Check your internet connection';
+  static pluralize(word, quantity) {
+    if (quantity > 1) {
+      return word + 's';
+    } else {
+      return word;
     }
-    if (status >= 400 && status < 500) {
-      if (xhr.responseJSON && xhr.responseJSON.message) {
-        return xhr.responseJSON.message;
-      }
-      if (xhr.responseText) {
-        return xhr.responseText;
-      }
-    }
-    if (status >= 500) {
-      return `Request Failed: ${xhr.statusText}`;
-    }
-    return 'Unknown Error';
+  }
+
+  static getRequestWithId(requests, requestId) {
+    return requests.find((r) => r.id === requestId);
   }
 }
 

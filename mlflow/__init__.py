@@ -19,6 +19,9 @@ You can also use syntax like this:
 
 which automatically terminates the run at the end of the block.
 
+The tracking API is not currently threadsafe. Any concurrent callers to the tracking API must
+implement mutual exclusion manually.
+
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 
@@ -51,6 +54,7 @@ get_artifact_uri = mlflow.tracking.fluent.get_artifact_uri
 set_tracking_uri = tracking.set_tracking_uri
 get_tracking_uri = tracking.get_tracking_uri
 create_experiment = mlflow.tracking.fluent.create_experiment
+set_experiment = mlflow.tracking.fluent.set_experiment
 
 
 run = projects.run
@@ -58,4 +62,4 @@ run = projects.run
 
 __all__ = ["ActiveRun", "log_param", "log_metric", "set_tag", "log_artifacts", "log_artifact",
            "active_run", "start_run", "end_run", "get_artifact_uri", "set_tracking_uri",
-           "create_experiment", "run"]
+           "create_experiment", "set_experiment", "run"]

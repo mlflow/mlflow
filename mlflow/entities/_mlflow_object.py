@@ -20,7 +20,8 @@ class _MLflowObject(object):
 
     @classmethod
     def from_dictionary(cls, the_dict):
-        return cls(**the_dict)
+        filtered_dict = {key: value for key, value in the_dict.items() if key in cls._properties()}
+        return cls(**filtered_dict)
 
     def __repr__(self):
         return to_string(self)

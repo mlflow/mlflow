@@ -82,3 +82,10 @@ class TestRunInfo(unittest.TestCase):
         self._check(ri3, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                     user_id, status, start_time, end_time, source_version, lifecycle_stage,
                     artifact_uri)
+        # Test that we can add a field to RunInfo and still deserialize it from a dictionary
+        dict_copy_0 = as_dict.copy()
+        dict_copy_0["my_new_field"] = "new field value"
+        ri4 = RunInfo.from_dictionary(dict_copy_0)
+        self._check(ri4, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
+                    user_id, status, start_time, end_time, source_version, lifecycle_stage,
+                    artifact_uri)

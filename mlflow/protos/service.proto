@@ -46,7 +46,7 @@ service MlflowService {
   }
 
   // Get metadata for an experiment and a list of runs for the experiment.
-  //
+  // This RPC will work on deleted experiments.
   rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
       endpoints: [{
@@ -89,6 +89,20 @@ service MlflowService {
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Restore Experiment",
+    };
+  }
+
+  // Updates an experiment metadata.
+  //
+  rpc updateExperiment (UpdateExperiment) returns (UpdateExperiment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/experiments/update"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Update Experiment",
     };
   }
 
@@ -148,8 +162,9 @@ service MlflowService {
     };
   }
 
-  // Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
-  // associated timestamp. Examples include the various metrics that represent ML model accuracy. 
+
+  // Log a metric for a run. A metric is a key-value pair (string key, float value) with an
+  // associated timestamp. Examples include the various metrics that represent ML model accuracy.
   // A metric can be logged multiple times.
   //
   rpc logMetric(LogMetric) returns (LogMetric.Response) {
@@ -182,7 +197,7 @@ service MlflowService {
     };
   }
 
-  // Set a tag on a run. Tags are run metadata that can be updated during and after
+  // Set a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
   rpc setTag(SetTag) returns (SetTag.Response) {
@@ -348,7 +363,7 @@ message Metric {
   optional string key = 1;
 
   // Value associated with this metric.
-  optional float value = 2;
+  optional double value = 2;
 
   // The timestamp at which this metric was recorded.
   optional int64 timestamp = 3;
@@ -384,7 +399,9 @@ message RunData {
 
 // Tag for a run.
 message RunTag {
+  // The tag key.
   optional string key = 1;
+  // The tag value.
   optional string value = 2;
 }
 
@@ -487,7 +504,7 @@ message ListExperiments {
 message GetExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifier to get an experiment.
+  // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
 
   message Response {
@@ -512,8 +529,21 @@ message DeleteExperiment {
 message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // Identifier to get an experiment
+  optional int64 experiment_id = 1 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message UpdateExperiment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
   // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
+
+  // If provided, the experiment's name will be changed to this. The new name must be unique.
+  optional string new_name = 2;
 
   message Response {
   }
@@ -549,6 +579,9 @@ message CreateRun {
 
   // Additional metadata for run.
   repeated RunTag tags = 9;
+
+  // ID of the parent run which started this run.
+  optional string parent_run_id = 10;
 
   message Response {
     // The newly created run.
@@ -590,6 +623,7 @@ message RestoreRun {
   message Response {}
 }
 
+
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -599,8 +633,8 @@ message LogMetric {
   // Name of the metric.
   optional string key = 2 [(validate_required) = true];
 
-  // Float value of the metric being logged.
-  optional float value = 3 [(validate_required) = true];
+  // Double value of the metric being logged.
+  optional double value = 3 [(validate_required) = true];
 
   // Unix timestamp in milliseconds at the time metric was logged.
   optional int64 timestamp = 4 [(validate_required) = true];
@@ -618,7 +652,7 @@ message LogParam {
   // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the param being logged. Maximum size if 500 bytes.
+  // String value of the param being logged. Maximum size is 500 bytes.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
@@ -628,13 +662,13 @@ message LogParam {
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the param.
+  // ID of the run under which to set the tag.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Name of the tag. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the tag being logged. Maximum size if 500 bytes.
+  // String value of the tag being logged. Maximum size is 5000 bytes.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
@@ -698,8 +732,12 @@ message MetricSearchExpression {
   optional string key = 1;
 
   oneof clause {
-    // Float clause for comparison.
+    // [Deprecated in 0.7.0, to be removed in future version] 
+    // Float clause for comparison. Use 'double' instead.
     FloatClause float = 2;
+
+    // Double clause of comparison
+    DoubleClause double = 3;
   }
 }
 
@@ -729,6 +767,14 @@ message FloatClause {
   optional float value = 2;
 }
 
+message DoubleClause {
+  // OneOf (">", ">=", "==", "!=", "<=", "<")
+  optional string comparator = 1;
+
+  // Float value for comparison.
+  optional double value = 2;
+}
+
 message SearchRuns {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -738,7 +784,7 @@ message SearchRuns {
   // Expressions describing runs (AND-ed together when filtering runs).
   repeated SearchExpression anded_expressions = 2;
 
-  optional ViewType run_view_type = 3;
+  optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
   message Response {
     // Runs that match the search criteria.
@@ -774,6 +820,21 @@ message FileInfo {
 
   // Size in bytes. Unset for directories.
   optional int64 file_size = 3;
+}
+
+message GetArtifact {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run from which to fetch the artifact.
+  optional string run_uuid = 1;
+
+  // Path of the artifact to fetch (relative to the root artifact directory for the run).
+  optional string path = 2;
+
+  message Response {
+    // Empty because the data of the file will be streamed back in the HTTP response.
+    // The response will have an HTTP status code of 404 if the artifact path is not found.
+  }
 }
 
 message GetMetricHistory {

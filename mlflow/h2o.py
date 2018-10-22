@@ -87,16 +87,9 @@ class _H2OModelWrapper:
         return predicted
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     """
-    Load a persisted H2O model as a ``python_function`` model.
-    This method calls ``h2o.init``, so the right version of h2o(-py) must be in the
-    environment. The arguments given to ``h2o.init`` can be customized in ``path/h2o.yaml``
-    under the key ``init``.
-
-    :param path: Local filesystem path to the model saved by :py:func:`mlflow.h2o.save_model`.
-    :rtype: Pyfunc format model with function
-            ``model.predict(pandas DataFrame) -> pandas DataFrame``.
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
     return _H2OModelWrapper(_load_model(path, init=True))
 

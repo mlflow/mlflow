@@ -59,7 +59,7 @@ def _server_dependencies_cmds():
     :return: List of commands.
     """
     # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
-    return ["conda install -c anaconda gunicorn", "conda install -c anaconda gevent",
+    return ["conda install gunicorn", "conda install gevent",
             "pip install /opt/mlflow/." if _container_includes_mlflow_source()
             else "pip install mlflow=={}".format(MLFLOW_VERSION)]
 
@@ -80,15 +80,7 @@ def _serve():
         serving_flavor = pyfunc.FLAVOR_NAME
 
     if serving_flavor == mleap.FLAVOR_NAME:
-        # TODO(dbczumar): Host the scoring Java package on Maven Central so that we no
-        # longer require the container source for this flavor.
-        if _container_includes_mlflow_source():
-            _serve_mleap()
-        else:
-            raise Exception("The container does not support the specified deployment flavor:"
-                            " `{mleap_flavor}`. Please build the container with the `mlflow_home`"
-                            " parameter specified to enable this feature.".format(
-                                mleap_flavor=mleap.FLAVOR_NAME))
+        _serve_mleap()
     elif pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m)
     else:
@@ -122,7 +114,7 @@ def _serve_pyfunc(model):
     cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
            "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
     bash_cmds.append(cmd)
-    gunicorn = Popen(["/bin/bash", "-c", "; ".join(bash_cmds)])
+    gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
     # If either subprocess exits, so do we.
     awaited_pids = _await_subprocess_exit_any(procs=[nginx, gunicorn])
@@ -130,10 +122,7 @@ def _serve_pyfunc(model):
 
 
 def _serve_mleap():
-    serve_cmd = ["java", "-cp", "/opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*"
-                 "-with-dependencies.jar".format(
-                    mlflow_version=mlflow.version.VERSION),
-                 "org.mlflow.sagemaker.ScoringServer",
+    serve_cmd = ["java", "-cp", "\"/opt/java/jars/*\"", "org.mlflow.sagemaker.ScoringServer",
                  MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)]
     # Invoke `Popen` with a single string command in the shell to support wildcard usage
     # with the mlflow jar version.

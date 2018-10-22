@@ -1,16 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import os
 import shutil
+import time
 import unittest
 import uuid
 
-import time
-
+import mock
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
 
@@ -145,6 +148,15 @@ class TestFileStore(unittest.TestCase):
             exp = fs.get_experiment_by_name(exp_names)
             self.assertIsNone(exp)
 
+    def test_create_first_experiment(self):
+        fs = FileStore(self.test_root)
+        fs.list_experiments = mock.Mock(return_value=[])
+        fs._create_experiment_with_id = mock.Mock()
+        fs.create_experiment(random_str(1))
+        fs._create_experiment_with_id.assert_called_once()
+        experiment_id = fs._create_experiment_with_id.call_args[0][1]
+        self.assertEqual(experiment_id, 0)
+
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
 
@@ -188,6 +200,8 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.DELETED_LIFECYCLE)
 
         # restore it
         fs.restore_experiment(exp_id)
@@ -200,6 +214,31 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
+                         Experiment.ACTIVE_LIFECYCLE)
+
+    def test_rename_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        exp_name = self.exp_data[exp_id]["name"]
+        new_name = exp_name + "!!!"
+        self.assertNotEqual(exp_name, new_name)
+        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
+        fs.rename_experiment(exp_id, new_name)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+
+        # Ensure that we cannot rename deleted experiments.
+        fs.delete_experiment(exp_id)
+        with pytest.raises(Exception) as e:
+            fs.rename_experiment(exp_id, exp_name)
+        assert 'non-active lifecycle' in str(e.value)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+
+        # Restore the experiment, and confirm that we acn now rename it.
+        fs.restore_experiment(exp_id)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        fs.rename_experiment(exp_id, exp_name)
+        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
@@ -211,6 +250,15 @@ class TestFileStore(unittest.TestCase):
         assert fs.get_run(run_id).info.lifecycle_stage == 'deleted'
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == 'active'
+
+    def test_create_run_in_deleted_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        # delete it
+        fs.delete_experiment(exp_id)
+        with pytest.raises(Exception):
+            fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name',
+                          0, None, [], None)
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
@@ -362,6 +410,15 @@ class TestFileStore(unittest.TestCase):
             ("multiline_tag", "value2\nvalue2\nvalue2"),
         }
 
+    def test_unicode_tag(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
+        fs.set_tag(run_uuid, RunTag("message", value))
+        tag = fs.get_run(run_uuid).data.tags[0]
+        assert tag.key == "message"
+        assert tag.value == value
+
     def test_get_deleted_run(self):
         """
         Getting metrics/tags/params/run info should be allowed on deleted runs.
@@ -391,3 +448,56 @@ class TestFileStore(unittest.TestCase):
             fs.log_metric(run_id, Metric('a', 0.0, timestamp=0))
         with pytest.raises(MlflowException):
             fs.log_param(run_id, Param('a', 'b'))
+
+    def test_create_run_with_parent_id(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
+                            'entry_point_name', 0, None, [], 'test_parent_run_id')
+        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == 'test_parent_run_id'
+                    for t in fs.get_all_tags(run.info.run_uuid)])
+
+    def test_default_experiment_initialization(self):
+        fs = FileStore(self.test_root)
+        fs.delete_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        fs = FileStore(self.test_root)
+        assert fs.get_experiment(0).lifecycle_stage == Experiment.DELETED_LIFECYCLE
+
+    def test_malformed_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+
+        experiments = len(fs.list_experiments(ViewType.ALL))
+
+        # delete metadata file.
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
+        os.remove(path)
+        with pytest.raises(MissingConfigException) as e:
+            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            assert e.message.contains("does not exist")
+
+        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
+
+    def test_malformed_run(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+
+        all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
+        assert len(all_runs) == len(all_run_ids)
+
+        # delete metadata file.
+        bad_run_id = self.exp_data[exp_0.experiment_id]['runs'][0]
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), str(bad_run_id), "meta.yaml")
+        os.remove(path)
+        with pytest.raises(MissingConfigException) as e:
+            fs.get_run(bad_run_id)
+            assert e.message.contains("does not exist")
+
+        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        assert len(valid_runs) == len(all_runs) - 1
+
+        for rid in all_run_ids:
+            if rid != bad_run_id:
+                fs.get_run(rid)

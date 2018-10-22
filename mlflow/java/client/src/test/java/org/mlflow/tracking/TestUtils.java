@@ -8,9 +8,9 @@ import org.mlflow.api.proto.Service.*;
 
 public class TestUtils {
 
-  final static float EPSILON = 0.0001F;
+  final static double EPSILON = 0.0001F;
 
-  static boolean equals(float a, float b) {
+  static boolean equals(double a, double b) {
     return a == b ? true : Math.abs(a - b) < EPSILON;
   }
 
@@ -24,7 +24,7 @@ public class TestUtils {
     Assert.assertTrue(params.stream().filter(e -> e.getKey().equals(key) && e.getValue().equals(value)).findFirst().isPresent());
   }
 
-  public static void assertMetric(List<Metric> metrics, String key, float value) {
+  public static void assertMetric(List<Metric> metrics, String key, double value) {
     Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
   }
 
@@ -36,6 +36,6 @@ public class TestUtils {
   }
 
   static public String createExperimentName() {
-    return "TestExp_" + UUID.randomUUID().toString();
+    return "JavaTestExp_" + UUID.randomUUID().toString();
   }
 }

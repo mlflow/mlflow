@@ -5,8 +5,8 @@ import pytest
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
-                                  _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
-                                  _TRACKING_INSECURE_TLS_ENV_VAR
+    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
+    _TRACKING_INSECURE_TLS_ENV_VAR, get_db_profile_from_uri
 
 
 def test_get_store_file_store(tmpdir):
@@ -114,3 +114,7 @@ def test_get_store_databricks_profile(tmpdir):
         with pytest.raises(Exception) as e_info:
             store.get_host_creds()
         assert 'mycoolprofile' in str(e_info.value)
+
+
+def test_get_db_profile_from_uri_casing():
+    assert get_db_profile_from_uri('databricks://aAbB') == 'aAbB'

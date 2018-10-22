@@ -3,10 +3,42 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mlflow</groupId>
   <artifactId>mlflow-parent</artifactId>
-  <version>0.7.0</version>
+  <version>0.7.1</version>
   <packaging>pom</packaging>
   <name>MLflow Parent POM</name>
   <url>http://mlflow.org</url>
+
+  <description>Open source platform for the machine learning lifecycle</description>
+
+  <!-- The following sections (licenses, developers, scm, and distributionManagement) are needed to
+       publish pom-only packages to Maven -->
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Matei Zaharia</name>
+      <email>matei@databricks.com</email>
+      <organization>Databricks</organization>
+      <organizationUrl>http://www.databricks.com</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/mlflow/mlflow.git</connection>
+    <developerConnection>scm:git:ssh://github.com:mlflow/mlflow.git</developerConnection>
+    <url>http://github.com/mlflow/mlflow/tree/master</url>
+  </scm>
+  <distributionManagement>
+    <repository>
+      <id>bintray</id>
+      <name>mlflow</name>
+      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-parent/;publish=1</url>
+    </repository>
+  </distributionManagement>
+
   <properties>
     <mlflow-version>0.5.1</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -21,10 +53,12 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
+
   <modules>
     <module>scoring</module>
     <module>client</module>
   </modules>
+
   <dependencyManagement>
     <dependencies>
       <dependency>

@@ -14,6 +14,25 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeDeleteExperimentRequest(long experimentId) {
+    DeleteExperiment.Builder builder = DeleteExperiment.newBuilder();
+    builder.setExperimentId(experimentId);
+    return print(builder);
+  }
+
+  String makeRestoreExperimentRequest(long experimentId) {
+    RestoreExperiment.Builder builder = RestoreExperiment.newBuilder();
+    builder.setExperimentId(experimentId);
+    return print(builder);
+  }
+
+  String makeUpdateExperimentRequest(long experimentId, String newExperimentName) {
+    UpdateExperiment.Builder builder = UpdateExperiment.newBuilder();
+    builder.setExperimentId(experimentId);
+    builder.setNewName(newExperimentName);
+    return print(builder);
+  }
+
   String makeLogParam(String runUuid, String key, String value) {
     LogParam.Builder builder = LogParam.newBuilder();
     builder.setRunUuid(runUuid);
@@ -22,7 +41,7 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeLogMetric(String runUuid, String key, float value, long timestamp) {
+  String makeLogMetric(String runUuid, String key, double value, long timestamp) {
     LogMetric.Builder builder = LogMetric.newBuilder();
     builder.setRunUuid(runUuid);
     builder.setKey(key);
@@ -89,30 +108,6 @@ class MlflowProtobufMapper {
 
   CreateRun.Response toCreateRunResponse(String json) {
     CreateRun.Response.Builder builder = CreateRun.Response.newBuilder();
-    merge(json, builder);
-    return builder.build();
-  }
-
-  GetMetric.Response toGetMetricResponse(String json) {
-    GetMetric.Response.Builder builder = GetMetric.Response.newBuilder();
-    merge(json, builder);
-    return builder.build();
-  }
-
-  GetMetricHistory.Response toGetMetricHistoryResponse(String json) {
-    GetMetricHistory.Response.Builder builder = GetMetricHistory.Response.newBuilder();
-    merge(json, builder);
-    return builder.build();
-  }
-
-  GetParam.Response toGeParamResponse(String json) {
-    GetParam.Response.Builder builder = GetParam.Response.newBuilder();
-    merge(json, builder);
-    return builder.build();
-  }
-
-  ListArtifacts.Response toListArtifactsResponse(String json) {
-    ListArtifacts.Response.Builder builder = ListArtifacts.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }

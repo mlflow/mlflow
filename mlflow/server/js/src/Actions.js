@@ -1,5 +1,5 @@
 import { MlflowService } from './sdk/MlflowService';
-import Utils from './utils/Utils';
+import ErrorCodes from './sdk/ErrorCodes';
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
@@ -52,12 +52,36 @@ export const getRunApi = (runUuid, id = getUUID()) => {
   };
 };
 
+export const DELETE_RUN_API = 'DELETE_RUN_API';
+export const deleteRunApi = (runUuid, id = getUUID()) => {
+  return (dispatch) => {
+    const deleteResponse = dispatch({
+      type: DELETE_RUN_API,
+      payload: wrapDeferred(MlflowService.deleteRun, { run_id: runUuid }),
+      meta: { id: getUUID() },
+    });
+    return deleteResponse.then(() => dispatch(getRunApi(runUuid, id)));
+  };
+};
+
+export const RESTORE_RUN_API = 'RESTORE_RUN_API';
+export const restoreRunApi = (runUuid, id = getUUID()) => {
+  return (dispatch) => {
+    const restoreResponse = dispatch({
+      type: RESTORE_RUN_API,
+      payload: wrapDeferred(MlflowService.restoreRun, { run_id: runUuid }),
+      meta: { id: getUUID() },
+    });
+    return restoreResponse.then(() => dispatch(getRunApi(runUuid, id)));
+  };
+};
+
 export const SEARCH_RUNS_API = 'SEARCH_RUNS_API';
-export const searchRunsApi = (experimentIds, andedExpressions, id = getUUID()) => {
+export const searchRunsApi = (experimentIds, andedExpressions, runViewType, id = getUUID()) => {
   return {
     type: SEARCH_RUNS_API,
     payload: wrapDeferred(MlflowService.searchRuns, {
-      experiment_ids: experimentIds, anded_expressions: andedExpressions
+      experiment_ids: experimentIds, anded_expressions: andedExpressions, run_view_type: runViewType
     }),
     meta: { id: id },
   };
@@ -96,6 +120,21 @@ export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
   };
 };
 
+export const CLOSE_ERROR_MODAL = 'CLOSE_ERROR_MODAL';
+export const closeErrorModal = () => {
+  return {
+    type: CLOSE_ERROR_MODAL,
+  };
+};
+
+export const OPEN_ERROR_MODAL = 'OPEN_ERROR_MODAL';
+export const openErrorModal = (text) => {
+  return {
+    type: OPEN_ERROR_MODAL,
+    text,
+  };
+};
+
 export const getUUID = () => {
   const randomPart = Math.random()
     .toString(36)
@@ -114,9 +153,49 @@ const wrapDeferred = (deferred, data) => {
       success: response => resolve(response),
       error: xhr => {
         console.error("XHR failed", xhr);
-        reject(new Error(Utils.getErrorMessageFromXhr(xhr)));
+        // We can't throw the XHR itself because it looks like a promise to the
+        // redux-promise-middleware.
+        reject(new ErrorWrapper(xhr));
       }
     });
   });
 };
+
+export class ErrorWrapper {
+  constructor(xhr) {
+    this.xhr = xhr;
+  }
+
+  getErrorCode() {
+    const responseText = this.xhr.responseText;
+    if (responseText) {
+      try {
+        const parsed = JSON.parse(responseText);
+        if (parsed.error_code) {
+          return parsed.error_code;
+        }
+      } catch (e) {
+        return ErrorCodes.INTERNAL_ERROR;
+      }
+    }
+    return ErrorCodes.INTERNAL_ERROR;
+  }
+
+  // Return the responseText if it is in the
+  // { error_code: ..., message: ...} format. Otherwise return "INTERNAL_SERVER_ERROR".
+  getUserVisibleError() {
+    const responseText = this.xhr.responseText;
+    if (responseText) {
+      try {
+        const parsed = JSON.parse(responseText);
+        if (parsed.error_code) {
+          return responseText;
+        }
+      } catch (e) {
+        return "INTERNAL_SERVER_ERROR";
+      }
+    }
+    return "INTERNAL_SERVER_ERROR";
+  }
+}
 

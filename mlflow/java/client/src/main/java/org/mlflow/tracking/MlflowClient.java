@@ -85,7 +85,17 @@ public class MlflowClient {
   }
 
   /**
-   * Creates a new run.
+   * Creates a new run. This method allows providing all possible fields of CreateRun, and can be
+   * invoked as follows:
+   *
+   *   <pre>
+   *   import org.mlflow.api.proto.Service.CreateRun;
+   *   CreateRun.Builder request = CreateRun.newBuilder();
+   *   request.setExperimentId(experimentId);
+   *   request.setSourceVersion("my-version");
+   *   createRun(request.build());
+   *   </pre>
+   *
    * @return RunInfo created by the server
    */
   public RunInfo createRun(CreateRun request) {
@@ -133,6 +143,24 @@ public class MlflowClient {
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
+  /** Mark an experiment and associated runs, params, metrics, etc for deletion. */
+  public void deleteExperiment(long experimentId) {
+    String ijson = mapper.makeDeleteExperimentRequest(experimentId);
+    httpCaller.post("experiments/delete", ijson);
+  }
+
+  /** Restore an experiment marked for deletion. */
+  public void restoreExperiment(long experimentId) {
+    String ijson = mapper.makeRestoreExperimentRequest(experimentId);
+    httpCaller.post("experiments/restore", ijson);
+  }
+
+  /** Update an experiment's name. The new name must be unique. */
+  public void renameExperiment(long experimentId, String newName) {
+    String ijson = mapper.makeUpdateExperimentRequest(experimentId, newName);
+    httpCaller.post("experiments/update", ijson);
+  }
+
   /**
    * Deletes a run with the given ID.
    */
@@ -161,7 +189,7 @@ public class MlflowClient {
    * Logs a new metric against the given run, as a key-value pair.
    * New values for the same metric may be recorded over time, and are marked with a timestamp.
    * */
-  public void logMetric(String runUuid, String key, float value) {
+  public void logMetric(String runUuid, String key, double value) {
     sendPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
       System.currentTimeMillis()));
   }

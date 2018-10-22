@@ -32,18 +32,18 @@ To run this tutorial, you'll need to:
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``cd`` into the ``examples`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
-         so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
+         so would cause the tutorial to use MLflow from source, rather than your PyPI installation of
          MLflow.
 
     .. container:: R
 
-       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "R/mlflow")``)
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")``)
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
-         so would cause the tutorial to use MLflow from source, rather than your PyPi installation of
+         so would cause the tutorial to use MLflow from source, rather than your PyPI installation of
          MLflow.
 
 Training the Model
@@ -134,7 +134,7 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
   .. container:: R
 
-    First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``lambda``. The code is located at ``examples/r_wine/train.R`` and is reproduced below.
+    The code is located at ``examples/r_wine/train.R`` and is reproduced below.
 
     .. code:: R
 
@@ -220,14 +220,14 @@ On this page, you can see a list of experiment runs with metrics you can use to 
     .. image:: _static/images/tutorial-compare.png
 
   .. container:: R
+  
+      .. image:: _static/images/tutorial-compare-R.png
 
-    .. image:: _static/images/tutorial-compare-R.png
+You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
+returns all the models with root mean squared error less than 0.8. For more complex manipulations,
+you can download this table as a CSV and use your favorite data munging software to analyze it.
 
-  You can see that the lower ``alpha`` is, the better the model. You can also
-  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
-  returns all the models with root mean squared error less than 0.8. For more complex manipulations,
-  you can download this table as a CSV and use your favorite data munging software to analyze it.
-      
+
 Packaging the Training Code
 ---------------------------
 
@@ -327,10 +327,9 @@ Now that you have your training code, you can package it so that other data scie
       .. code:: R
 
         mlflow_run(
-          "git@github.com:rstudio/mlflow-example.git",
           "train.R",
-          param_list = list(alpha = 0.2),
-          restore = TRUE
+          "https://github.com/rstudio/mlflow-example",
+          param_list = list(alpha = 0.2)
         )
 
 Serving the Model
@@ -409,15 +408,15 @@ in MLflow saved the model as an artifact within the run.
 
       .. code:: R
 
-          mlflow_rfunc_serve("mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model")
+          mlflow_rfunc_serve(model_path = "model", run_uuid = "1bf3cca7f3814d8fac7be7874de1046d")
 
-      This will initialize a REST server and open a `swagger <https://swagger.io/>`_ interface to perform predicitions against
+      This initializes a REST server and opens a `Swagger <https://swagger.io/>`_ interface to perform predictions against
       the REST API:
 
       .. image:: _static/images/tutorial-serving-r.png
 
       .. note::
-
+        
           By default, a model is served using the R packages available. To ensure the environment serving
           the prediction function matches the model, set ``restore = TRUE`` when calling
           ``mlflow_rfunc_serve()``.
@@ -440,8 +439,8 @@ in MLflow saved the model as an artifact within the run.
 
 More Resources
 --------------
-Congratulations on finishing the tutorial! For more reading, see :doc:`tracking`, :doc:`projects`, :doc:`models`,
-and more.
+
+Congratulations on finishing the tutorial! For more reading, see :doc:`tracking`, :doc:`projects`, :doc:`models`, and more.
 
 
 .. [1] P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.

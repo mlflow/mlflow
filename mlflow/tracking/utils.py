@@ -127,7 +127,7 @@ def get_db_profile_from_uri(uri):
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
-        return parsed_uri.hostname
+        return parsed_uri.netloc
     return None
 
 

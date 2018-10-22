@@ -7,7 +7,10 @@ from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
+from pyspark.ml.util import _jvm
 from pyspark.version import __version__ as pyspark_version
+from pyspark.sql import SQLContext
+from pyspark.sql.types import DateType
 import pytest
 from sklearn import datasets
 import shutil
@@ -164,7 +167,7 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
         for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
             print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
             try:
-                tracking_dir = os.path.abspath(str(tmpdir.mkdir("mlruns")))
+                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
                 mlflow.set_tracking_uri("file://%s" % tracking_dir)
                 if should_start_run:
                     mlflow.start_run()
@@ -227,7 +230,7 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
     unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
     unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
 
-    with pytest.raises(Exception):
+    with pytest.raises(mleap.MLeapSerializationException):
         sparkm.save_model(spark_model=unsupported_model,
                           path=model_path,
                           sample_input=spark_model_iris.spark_df)
@@ -257,7 +260,7 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
                           sample_input=invalid_input)
 
 
-def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
+def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
         spark_model_iris, model_path):
     class CustomTransformer(JavaModel):
         def _transform(self, dataset):
@@ -266,7 +269,19 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_exception(
     unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
     unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
 
-    with pytest.raises(Exception):
+    with pytest.raises(mleap.MLeapSerializationException):
         mleap.save_model(spark_model=unsupported_model,
                          path=model_path,
                          sample_input=spark_model_iris.spark_df)
+
+
+def test_save_with_sample_input_containing_unsupported_data_type_raises_serialization_exception(
+        spark_context, model_path):
+    sql_context = SQLContext(spark_context)
+    unsupported_df = sql_context.createDataFrame([(1, "2016-09-30"), (2, "2017-02-27")])
+    unsupported_df = unsupported_df.withColumn("_2", unsupported_df._2.cast(DateType()))
+    pipeline = Pipeline(stages=[])
+    model = pipeline.fit(unsupported_df)
+    # The Spark `DateType` is not supported by MLeap, so we expect serialization to fail.
+    with pytest.raises(mleap.MLeapSerializationException):
+        sparkm.save_model(spark_model=model, path=model_path, sample_input=unsupported_df)

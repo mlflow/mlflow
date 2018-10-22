@@ -6,11 +6,12 @@ from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, Vie
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import http_request
+from mlflow.utils.rest_utils import http_request_safe
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun
+    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun, DeleteExperiment, \
+    RestoreExperiment, UpdateExperiment
 
 from mlflow.protos import databricks_pb2
 
@@ -34,16 +35,6 @@ def _api_method_to_info():
 _METHOD_TO_INFO = _api_method_to_info()
 
 
-class RestException(Exception):
-    """Exception thrown on 400-level errors from the REST API"""
-    def __init__(self, json):
-        message = json['error_code']
-        if 'message' in json:
-            message = "%s: %s" % (message, json['message'])
-        super(RestException, self).__init__(message)
-        self.json = json
-
-
 class RestStore(AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
@@ -63,13 +54,9 @@ class RestStore(AbstractStore):
         if json_body:
             json_body = json.loads(json_body)
         host_creds = self.get_host_creds()
-        response = http_request(host_creds=host_creds, endpoint=endpoint, method=method,
-                                json=json_body)
+        response = http_request_safe(
+            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
         js_dict = json.loads(response.text)
-
-        if 'error_code' in js_dict:
-            raise RestException(js_dict)
-
         parse_dict(js_dict=js_dict, message=response_proto)
         return response_proto
 
@@ -106,11 +93,24 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
+    def get_experiment_by_name(self, name):
+        for experiment in self.list_experiments(ViewType.ALL):
+            if experiment.name == name:
+                return experiment
+        return None
+
     def delete_experiment(self, experiment_id):
-        pass
+        req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
+        self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
-        pass
+        req_body = message_to_json(RestoreExperiment(experiment_id=experiment_id))
+        self._call_endpoint(RestoreExperiment, req_body)
+
+    def rename_experiment(self, experiment_id, new_name):
+        req_body = message_to_json(UpdateExperiment(
+            experiment_id=experiment_id, new_name=new_name))
+        self._call_endpoint(UpdateExperiment, req_body)
 
     def get_run(self, run_uuid):
         """
@@ -131,7 +131,7 @@ class RestStore(AbstractStore):
         return RunInfo.from_proto(response_proto.run_info)
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags):
+                   entry_point_name, start_time, source_version, tags, parent_run_id):
         """
         Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
@@ -145,7 +145,8 @@ class RestStore(AbstractStore):
         req_body = message_to_json(CreateRun(
             experiment_id=experiment_id, user_id=user_id, run_name="",
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
-            start_time=start_time, source_version=source_version, tags=tag_protos))
+            start_time=start_time, source_version=source_version, tags=tag_protos,
+            parent_run_id=parent_run_id))
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
         if run_name:

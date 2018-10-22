@@ -15,7 +15,7 @@ You install MLflow by running:
 
     .. code-block:: R
 
-        devtools::install_github("mlflow/mlflow", subdir = "R/mlflow")
+        devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
         mlflow_install()
 
 .. note::

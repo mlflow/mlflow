@@ -4,15 +4,17 @@ import os
 import re
 import six
 
+from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -59,6 +61,19 @@ def _get_request_message(request_message, flask_request=request):
     return request_message
 
 
+def catch_mlflow_exception(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MlflowException as e:
+            response = Response(mimetype='application/json')
+            response.set_data(e.serialize_as_json())
+            response.status_code = 500
+            return response
+    return wrapper
+
+
 def get_handler(request_class):
     """
     :param request_class: The type of protobuf message
@@ -71,6 +86,7 @@ _TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
                     'csv', 'tsv', 'md', 'rst', 'MLmodel', 'MLproject']
 
 
+@catch_mlflow_exception
 def get_artifact_handler():
     query_string = request.query_string.decode('utf-8')
     request_dict = parser.parse(query_string, normalized=True)
@@ -89,6 +105,7 @@ def _not_implemented():
     return response
 
 
+@catch_mlflow_exception
 def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
     experiment_id = _get_store().create_experiment(request_message.name,
@@ -100,6 +117,7 @@ def _create_experiment():
     return response
 
 
+@catch_mlflow_exception
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
@@ -113,6 +131,7 @@ def _get_experiment():
     return response
 
 
+@catch_mlflow_exception
 def _delete_experiment():
     request_message = _get_request_message(DeleteExperiment())
     _get_store().delete_experiment(request_message.experiment_id)
@@ -122,6 +141,7 @@ def _delete_experiment():
     return response
 
 
+@catch_mlflow_exception
 def _restore_experiment():
     request_message = _get_request_message(RestoreExperiment())
     _get_store().restore_experiment(request_message.experiment_id)
@@ -131,6 +151,18 @@ def _restore_experiment():
     return response
 
 
+@catch_mlflow_exception
+def _update_experiment():
+    request_message = _get_request_message(UpdateExperiment())
+    if request_message.new_name:
+        _get_store().rename_experiment(request_message.experiment_id, request_message.new_name)
+    response_message = UpdateExperiment.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _create_run():
     request_message = _get_request_message(CreateRun())
 
@@ -144,7 +176,8 @@ def _create_run():
         entry_point_name=request_message.entry_point_name,
         start_time=request_message.start_time,
         source_version=request_message.source_version,
-        tags=tags)
+        tags=tags,
+        parent_run_id=request_message.parent_run_id)
 
     response_message = CreateRun.Response()
     response_message.run.MergeFrom(run.to_proto())
@@ -153,6 +186,7 @@ def _create_run():
     return response
 
 
+@catch_mlflow_exception
 def _update_run():
     request_message = _get_request_message(UpdateRun())
     updated_info = _get_store().update_run_info(request_message.run_uuid, request_message.status,
@@ -163,6 +197,7 @@ def _update_run():
     return response
 
 
+@catch_mlflow_exception
 def _delete_run():
     request_message = _get_request_message(DeleteRun())
     _get_store().delete_run(request_message.run_id)
@@ -172,6 +207,7 @@ def _delete_run():
     return response
 
 
+@catch_mlflow_exception
 def _restore_run():
     request_message = _get_request_message(RestoreRun())
     _get_store().restore_run(request_message.run_id)
@@ -181,6 +217,7 @@ def _restore_run():
     return response
 
 
+@catch_mlflow_exception
 def _log_metric():
     request_message = _get_request_message(LogMetric())
     metric = Metric(request_message.key, request_message.value, request_message.timestamp)
@@ -191,6 +228,7 @@ def _log_metric():
     return response
 
 
+@catch_mlflow_exception
 def _log_param():
     request_message = _get_request_message(LogParam())
     param = Param(request_message.key, request_message.value)
@@ -201,6 +239,7 @@ def _log_param():
     return response
 
 
+@catch_mlflow_exception
 def _set_tag():
     request_message = _get_request_message(SetTag())
     tag = RunTag(request_message.key, request_message.value)
@@ -211,6 +250,7 @@ def _set_tag():
     return response
 
 
+@catch_mlflow_exception
 def _get_run():
     request_message = _get_request_message(GetRun())
     response_message = GetRun.Response()
@@ -220,6 +260,7 @@ def _get_run():
     return response
 
 
+@catch_mlflow_exception
 def _search_runs():
     request_message = _get_request_message(SearchRuns())
     response_message = SearchRuns.Response()
@@ -235,6 +276,7 @@ def _search_runs():
     return response
 
 
+@catch_mlflow_exception
 def _list_artifacts():
     request_message = _get_request_message(ListArtifacts())
     response_message = ListArtifacts.Response()
@@ -251,6 +293,7 @@ def _list_artifacts():
     return response
 
 
+@catch_mlflow_exception
 def _get_metric_history():
     request_message = _get_request_message(GetMetricHistory())
     response_message = GetMetricHistory.Response()
@@ -262,6 +305,7 @@ def _get_metric_history():
     return response
 
 
+@catch_mlflow_exception
 def _get_metric():
     request_message = _get_request_message(GetMetric())
     response_message = GetMetric.Response()
@@ -272,6 +316,7 @@ def _get_metric():
     return response
 
 
+@catch_mlflow_exception
 def _get_param():
     request_message = _get_request_message(GetParam())
     response_message = GetParam.Response()
@@ -282,6 +327,7 @@ def _get_param():
     return response
 
 
+@catch_mlflow_exception
 def _list_experiments():
     request_message = _get_request_message(ListExperiments())
     experiment_entities = _get_store().list_experiments(request_message.view_type)
@@ -292,6 +338,7 @@ def _list_experiments():
     return response
 
 
+@catch_mlflow_exception
 def _get_artifact_repo(run):
     store = _get_store()
     if run.info.artifact_uri:
@@ -333,6 +380,7 @@ HANDLERS = {
     GetExperiment: _get_experiment,
     DeleteExperiment: _delete_experiment,
     RestoreExperiment: _restore_experiment,
+    UpdateExperiment: _update_experiment,
     CreateRun: _create_run,
     UpdateRun: _update_run,
     DeleteRun: _delete_run,

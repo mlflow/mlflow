@@ -3,7 +3,7 @@ Rd2md::ReferenceManual()
 
 # Remove markdown package description
 markdown_doc <- readLines("Reference_Manual_mlflow.md")
-first_function <- which(grepl("active_experiment", markdown_doc))[[1]]
+first_function <- which(grepl("crate", markdown_doc))[[1]]
 markdown_fixed <- markdown_doc[first_function:length(markdown_doc)]
 
 # Remove function name from section

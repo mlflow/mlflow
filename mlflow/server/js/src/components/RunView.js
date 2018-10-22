@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import './RunView.css';
 import HtmlTableView from './HtmlTableView';
 import { Link } from 'react-router-dom';
+import Routes from '../Routes';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
@@ -47,6 +48,7 @@ class RunView extends Component {
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
     getMetricPagePath: PropTypes.func.isRequired,
+    runDisplayName: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
   };
 
@@ -183,7 +185,7 @@ class RunView extends Component {
         <div className="header-container">
           <BreadcrumbTitle
             experiment={this.props.experiment}
-            title={this.props.runName}
+            title={this.props.runDisplayName}
           />
           <Dropdown id="dropdown-custom-1" className="mlflow-dropdown">
              <Dropdown.Toggle noCaret className="mlflow-dropdown-button">
@@ -243,6 +245,18 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Duration: </span>
               <span className="metadata-info">{Utils.formatDuration(duration)}</span>
+            </div>
+            : null
+          }
+          {tags['mlflow.parentRunId'] !== undefined ?
+            <div className="run-info">
+              <span className="metadata-header">Parent Run: </span>
+              <span className="metadata-info">
+                <Link to={Routes.getRunPageRoute(this.props.experimentId,
+                    tags['mlflow.parentRunId'].value)}>
+                  {tags['mlflow.parentRunId'].value}
+                </Link>
+              </span>
             </div>
             : null
           }
@@ -350,8 +364,9 @@ const mapStateToProps = (state, ownProps) => {
   const params = getParams(runUuid, state);
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
-  const runName = Utils.getRunDisplayName(tags, runUuid);
-  return { run, experiment, params, tags, latestMetrics, runName };
+  const runDisplayName = Utils.getRunDisplayName(tags, runUuid);
+  const runName = Utils.getRunName(tags, runUuid);
+  return { run, experiment, params, tags, latestMetrics, runDisplayName, runName};
 };
 
 export default connect(mapStateToProps)(RunView);

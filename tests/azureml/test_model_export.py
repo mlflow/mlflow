@@ -15,7 +15,7 @@ from mlflow import pyfunc
 from mlflow.azureml import cli
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     with open(path, "rb") as f:
         return pickle.load(f)
 

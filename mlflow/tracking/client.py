@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
                                     _validate_tag_name, _validate_run_id
-from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
@@ -38,7 +38,7 @@ class MlflowClient(object):
 
     def create_run(self, experiment_id, user_id=None, run_name=None, source_type=None,
                    source_name=None, entry_point_name=None, start_time=None,
-                   source_version=None, tags=None):
+                   source_version=None, tags=None, parent_run_id=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -57,12 +57,13 @@ class MlflowClient(object):
             experiment_id=experiment_id,
             user_id=user_id if user_id is not None else _get_user_id(),
             run_name=run_name,
-            source_type=source_type,
-            source_name=source_name,
+            source_type=source_type if source_type is not None else SourceType.LOCAL,
+            source_name=source_name if source_name is not None else "Python Application",
             entry_point_name=entry_point_name,
             start_time=start_time or int(time.time() * 1000),
             source_version=source_version,
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
+            parent_run_id=parent_run_id,
         )
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
@@ -106,7 +107,7 @@ class MlflowClient(object):
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         """
-        return self.store.delete_experiment(experiment_id)
+        self.store.delete_experiment(experiment_id)
 
     def restore_experiment(self, experiment_id):
         """
@@ -114,7 +115,15 @@ class MlflowClient(object):
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         """
-        return self.store.restore_experiment(experiment_id)
+        self.store.restore_experiment(experiment_id)
+
+    def rename_experiment(self, experiment_id, new_name):
+        """
+        Update an experiment's name. The new name must be unique.
+
+        :param experiment_id: The experiment ID returned from ``create_experiment``.
+        """
+        self.store.rename_experiment(experiment_id, new_name)
 
     def log_metric(self, run_id, key, value, timestamp=None):
         """

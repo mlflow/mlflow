@@ -5,7 +5,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import build_path, get_relative_path
-from mlflow.utils.rest_utils import http_request, RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
@@ -28,12 +28,14 @@ class DbfsArtifactRepository(ArtifactRepository):
         if not cleaned_artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
 
-    def _databricks_api_request(self, **kwargs):
+    def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()
-        return http_request(host_creds, **kwargs)
+        return http_request_safe(host_creds=host_creds, endpoint=endpoint, **kwargs)
 
     def _dbfs_list_api(self, json):
-        return self._databricks_api_request(endpoint=LIST_API_ENDPOINT, method='GET', json=json)
+        host_creds = self.get_host_creds()
+        return http_request(
+            host_creds=host_creds, endpoint=LIST_API_ENDPOINT, method='GET', json=json)
 
     def _dbfs_download(self, output_path, endpoint):
         with open(output_path, 'wb') as f:
@@ -69,14 +71,8 @@ class DbfsArtifactRepository(ArtifactRepository):
         else:
             http_endpoint = self._get_dbfs_endpoint(os.path.basename(local_file))
         with open(local_file, 'rb') as f:
-            response = self._databricks_api_request(
+            self._databricks_api_request(
                 endpoint=http_endpoint, method='POST', data=f, allow_redirects=False)
-            if response.status_code == 409:
-                raise MlflowException('File already exists at {} and can\'t be overwritten.'
-                                      .format(http_endpoint))
-            elif response.status_code != 200:
-                raise MlflowException('log_artifact to "{}" returned a non-200 status code.'
-                                      .format(http_endpoint))
 
     def log_artifacts(self, local_dir, artifact_path=None):
         if artifact_path:
@@ -91,22 +87,22 @@ class DbfsArtifactRepository(ArtifactRepository):
             for name in filenames:
                 endpoint = build_path(dir_http_endpoint, name)
                 with open(build_path(dirpath, name), 'rb') as f:
-                    response = self._databricks_api_request(
+                    self._databricks_api_request(
                         endpoint=endpoint, method='POST', data=f, allow_redirects=False)
-                if response.status_code == 409:
-                    raise MlflowException('File already exists at {} and can\'t be overwritten.'
-                                          .format(endpoint))
-                elif response.status_code != 200:
-                    raise MlflowException('log_artifacts to "{}" returned a non-200 status code.'
-                                          .format(endpoint))
 
     def list_artifacts(self, path=None):
         if path:
-            dbfs_list_json = {'path': self._get_dbfs_path(path)}
+            dbfs_path = self._get_dbfs_path(path)
         else:
-            dbfs_list_json = {'path': self._get_dbfs_path('')}
+            dbfs_path = self._get_dbfs_path('')
+        dbfs_list_json = {'path': dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)
-        json_response = json.loads(response.text)
+        try:
+            json_response = json.loads(response.text)
+        except ValueError:
+            raise MlflowException(
+                "API request to list files under DBFS path %s failed with status code %s. "
+                "Response body: %s" % (dbfs_path, response.status_code, response.text))
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []
         artifact_prefix = strip_prefix(self.artifact_uri, 'dbfs:')
@@ -114,9 +110,14 @@ class DbfsArtifactRepository(ArtifactRepository):
             return []
         dbfs_files = json_response.get('files', [])
         for dbfs_file in dbfs_files:
+            stripped_path = strip_prefix(dbfs_file['path'], artifact_prefix + '/')
+            # If `path` is a file, the DBFS list API returns a single list element with the
+            # same name as `path`. The list_artifacts API expects us to return an empty list in this
+            # case, so we do so here.
+            if stripped_path == path:
+                return []
             is_dir = dbfs_file['is_dir']
             artifact_size = None if is_dir else dbfs_file['file_size']
-            stripped_path = strip_prefix(dbfs_file['path'], artifact_prefix + '/')
             infos.append(FileInfo(stripped_path, is_dir, artifact_size))
         return sorted(infos, key=lambda f: f.path)
 

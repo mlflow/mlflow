@@ -51,6 +51,14 @@ LIST_ARTIFACTS_RESPONSE = {
     }]
 }
 
+LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
+    'files': [{
+        'path': '/test/a.txt',
+        'is_dir': False,
+        'file_size': 0,
+    }]
+}
+
 
 class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
@@ -64,7 +72,7 @@ class TestDbfsArtifactRepository(object):
         ('output', '/dbfs/test/output/test.txt'),
     ])
     def test_log_artifact(self, dbfs_artifact_repo, test_file, artifact_path, expected_endpoint):
-        with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
             endpoints = []
             data = []
 
@@ -82,8 +90,8 @@ class TestDbfsArtifactRepository(object):
             dbfs_artifact_repo.log_artifact(test_file.strpath, '')
 
     def test_log_artifact_error(self, dbfs_artifact_repo, test_file):
-        with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
-            http_request_mock.return_value = Mock(status_code=409)
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+            http_request_mock.return_value = Mock(status_code=409, text='')
             with pytest.raises(MlflowException):
                 dbfs_artifact_repo.log_artifact(test_file.strpath)
 
@@ -93,7 +101,7 @@ class TestDbfsArtifactRepository(object):
         # We should add '.',
     ])
     def test_log_artifacts(self, dbfs_artifact_repo, test_dir, artifact_path):
-        with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
             endpoints = []
             data = []
 
@@ -113,8 +121,8 @@ class TestDbfsArtifactRepository(object):
             }
 
     def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
-        with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
-            http_request_mock.return_value = Mock(status_code=409)
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+            http_request_mock.return_value = Mock(status_code=409, text='')
             with pytest.raises(MlflowException):
                 dbfs_artifact_repo.log_artifacts(test_dir.strpath)
 
@@ -125,7 +133,7 @@ class TestDbfsArtifactRepository(object):
     ])
     def test_log_artifacts_with_artifact_path(self, dbfs_artifact_repo, test_dir, artifact_path,
                                               expected_endpoints):
-        with mock.patch('mlflow.store.dbfs_artifact_repo.http_request') as http_request_mock:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
             endpoints = []
 
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
@@ -146,6 +154,10 @@ class TestDbfsArtifactRepository(object):
             assert artifacts[1].path == 'dir'
             assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
+            # Calling list_artifacts() on a path that's a file should return an empty list
+            http_request_mock.return_value.text = json.dumps(LIST_ARTIFACTS_SINGLE_FILE_RESPONSE)
+            list_on_file = dbfs_artifact_repo.list_artifacts("a.txt")
+            assert len(list_on_file) == 0
 
     def test_download_artifacts(self, dbfs_artifact_repo):
         with mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_is_dir') as is_dir_mock,\
