@@ -60,13 +60,14 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     >>> iris = load_iris()
     >>> sk_model = tree.DecisionTreeClassifier()
     >>> sk_model = sk_model.fit(iris.data, iris.target)
-    >>> #Save the model in pickle format
+    >>> #Save the model in cloudpickle format
     >>> #set path to location for persistence
     >>> sk_path_dir_1 = ...
-    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_1, 
-    >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
+    >>> mlflow.sklearn.save_model(
+    >>>         sk_model, sk_path_dir_1, 
+    >>>         serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
     >>>
-    >>> #Save the model in cloudpickle format
+    >>> #Save the model in pickle format
     >>> #set path to location for persistence
     >>> sk_path_dir_2 = ...
     >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_2, 
