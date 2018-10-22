@@ -191,8 +191,9 @@ class FileStore(AbstractStore):
             meta['lifecycle_stage'] = Experiment.ACTIVE_LIFECYCLE
         experiment = Experiment.from_dictionary(meta)
         if int(experiment_id) != experiment.experiment_id:
-            logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data.",
-                            str(experiment_id), str(experiment.experiment_id))
+            logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
+                            "Experiment will be ignored.",
+                            str(experiment_id), str(experiment.experiment_id), exc_info=True)
             return None
         return experiment
 
@@ -203,7 +204,11 @@ class FileStore(AbstractStore):
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
-        return self._get_experiment(experiment_id)
+        experiment = self._get_experiment(experiment_id)
+        if experiment is None:
+            raise MlflowException("Experiment '%s' does not exist." % experiment_id,
+                                  databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+        return experiment
 
     def get_experiment_by_name(self, name):
         self._check_root_dir()
@@ -213,8 +218,6 @@ class FileStore(AbstractStore):
         return None
 
     def delete_experiment(self, experiment_id):
-        if not self._has_experiment(experiment_id):
-            return
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if experiment_dir is None:
             raise MlflowException("Could not find experiment with ID %s" % experiment_id,
@@ -222,8 +225,6 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.trash_folder)
 
     def restore_experiment(self, experiment_id):
-        if not self._has_experiment(experiment_id):
-            return
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
         if experiment_dir is None:
             raise MlflowException("Could not find deleted experiment with ID %d" % experiment_id,
@@ -240,6 +241,9 @@ class FileStore(AbstractStore):
         meta_dir = os.path.join(self.root_directory, str(experiment_id))
         # if experiment is malformed, will raise error
         experiment = self._get_experiment(experiment_id)
+        if experiment is None:
+            raise MlflowException("Experiment '%s' does not exist." % experiment_id,
+                                  databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         experiment._set_name(new_name)
         if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
             raise Exception("Cannot rename experiment in non-active lifecycle stage."

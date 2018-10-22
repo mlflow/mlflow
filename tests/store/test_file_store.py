@@ -507,6 +507,8 @@ class TestFileStore(unittest.TestCase):
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
         assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
 
+        experiments = len(fs.list_experiments(ViewType.ALL))
+
         # mv experiment folder
         target = 1
         path_orig = os.path.join(self.test_root, str(exp_0.experiment_id))
@@ -517,4 +519,7 @@ class TestFileStore(unittest.TestCase):
             fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
             assert e.message.contains("Could not find experiment with ID")
 
-        assert fs.get_experiment(target) is None
+        with pytest.raises(MlflowException) as e:
+            fs.get_experiment(target)
+            assert e.message.contains("does not exist")
+        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1

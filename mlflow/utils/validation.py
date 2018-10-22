@@ -62,7 +62,7 @@ def _validate_run_id(run_id):
 
 
 def _validate_experiment_id(exp_id):
-    """Check that `experiment_id`is a valid integer and rause an expcepton if it isn't."""
+    """Check that `experiment_id`is a valid integer and raise an exception if it isn't."""
     try:
         int(exp_id)
     except ValueError:
