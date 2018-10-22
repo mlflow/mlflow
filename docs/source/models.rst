@@ -294,12 +294,12 @@ platform for real-time serving.
     subscription_id = "<Your Azure subscription ID>"
     resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
     location = "<Name of the Azure location (region) in which to create Azure ML resources>"
-    
     ws = Workspace.create(name=workspace_name,
                           subscription_id=subscription_id,
                           resource_group=resource_group,
+                          location=location,
                           create_resource_group=True,
-                          location=location)
+                          exist_okay=True)
 
     # Build an Azure ML container image for deployment
     azure_image, azure_model = mlflow.azureml.build_image(model_path="<path-to-model>",

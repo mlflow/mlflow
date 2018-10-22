@@ -149,7 +149,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                                       models=[registered_model])
         eprint("Building an Azure Container Image with name: `{image_name}` and version:"
                " `{image_version}`. You can check the status of the build by accessing the"
-               " following URL: {build_status_url}".format(
+               " following URI: {build_status_url}".format(
                    image_name=image.name,
                    image_version=image.version,
                    build_status_url=image.image_build_uri))
