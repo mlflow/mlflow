@@ -352,6 +352,7 @@ platform for real-time serving.
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
     # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
 
     sample_input='
