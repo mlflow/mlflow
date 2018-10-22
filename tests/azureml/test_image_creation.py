@@ -334,8 +334,8 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
     # Define the `init` and `score` methods contained in the execution script
     exec(execution_script, globals())
     with AzureMLMocks() as aml_mocks:
-        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs : model_path
-        # Execute the `init` method of the execution script. 
+        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
+        # Execute the `init` method of the execution script.
         init()
 
         assert aml_mocks["get_model_path"].call_count == 1
@@ -351,7 +351,7 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
     model_mock = Mock()
-    model_mock.name = "model_name" 
+    model_mock.name = "model_name"
     model_mock.version = 1
 
     with TempDir() as tmp:
@@ -367,11 +367,11 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
     # Define the `init` and `score` methods contained in the execution script
     exec(execution_script, globals())
     with AzureMLMocks() as aml_mocks:
-        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs : model_path
+        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script and load the sklearn model from the
         # mocked path
         init()
-       
+
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         input_data = datasets.load_iris().data[:, :2]
