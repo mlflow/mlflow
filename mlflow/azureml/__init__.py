@@ -19,7 +19,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
@@ -122,8 +122,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
             eprint("Copying the specified mlflow_home directory: `{mlflow_home}` to a temporary"
                    " location for container creation".format(mlflow_home=mlflow_home))
             tmp_mlflow_path = tmp.path("mlflow")
-            mlflow_home = os.path.join(
-                    tmp_mlflow_path, _copy_file_or_tree(src=mlflow_home, dst=tmp_mlflow_path))
+            mlflow_home = os.path.join(tmp.path(), 
+                                       _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
             image_file_dependencies = [mlflow_home]
         else:
             image_file_dependencies = None
