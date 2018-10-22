@@ -112,7 +112,7 @@ export default class ExperimentRunsTableCompactView extends Component {
     const baggedParams = paramKeyList.filter((elem) => !unbaggedParamSet.has(elem));
     const baggedMetrics = metricKeyList.filter((elem) => !unbaggedMetricSet.has(elem));
 
-    // Add unbagged metrics and params
+    // Add params (unbagged, then bagged)
     unbaggedParams.forEach((paramKey, i) => {
       const className = (i === 0 ? "left-border" : "") + " run-table-container";
       const keyName = "param-" + paramKey;
@@ -126,43 +126,12 @@ export default class ExperimentRunsTableCompactView extends Component {
         rowContents.push(<td className={className} key={keyName}/>);
       }
     });
-    unbaggedMetrics.forEach((metricKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyName = "metric-" + metricKey;
-      if (metricsMap[metricKey]) {
-        const metric = metricsMap[metricKey].getValue();
-        const range = metricRanges[metricKey];
-        let fraction = 1.0;
-        if (range.max > range.min) {
-          fraction = (metric - range.min) / (range.max - range.min);
-        }
-        const percent = (fraction * 100) + "%";
-        rowContents.push(
-          <td className={className} key={keyName}>
-            {/* We need the extra div because metric-filler-bg is inline-block */}
-            <div>
-              <div className="metric-filler-bg">
-                <div className="metric-filler-fg" style={{width: percent}}/>
-                <div className="metric-text">
-                  {Utils.formatMetric(metric)}
-                </div>
-              </div>
-            </div>
-          </td>
-        );
-      } else {
-        rowContents.push(<td className={className} key={keyName}/>);
-      }
-    });
-
-
-    // Add bagged metrics and params
     const filteredParamKeys = baggedParams.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
       const cellClass = classNames("metric-param-content",
         { highlighted: hoverState.isParam && hoverState.key === paramKey });
       const keyname = "param-" + paramKey;
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, paramKey);
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (
         <div
           key={keyname}
@@ -233,6 +202,37 @@ export default class ExperimentRunsTableCompactView extends Component {
           <div>{paramsCellContents}</div>
         </td>);
     }
+
+    // Add metrics (unbagged, then bagged)
+    unbaggedMetrics.forEach((metricKey, i) => {
+      const className = (i === 0 ? "left-border" : "") + " run-table-container";
+      const keyName = "metric-" + metricKey;
+      if (metricsMap[metricKey]) {
+        const metric = metricsMap[metricKey].getValue();
+        const range = metricRanges[metricKey];
+        let fraction = 1.0;
+        if (range.max > range.min) {
+          fraction = (metric - range.min) / (range.max - range.min);
+        }
+        const percent = (fraction * 100) + "%";
+        rowContents.push(
+          <td className={className} key={keyName}>
+            {/* We need the extra div because metric-filler-bg is inline-block */}
+            <div>
+              <div className="metric-filler-bg">
+                <div className="metric-filler-fg" style={{width: percent}}/>
+                <div className="metric-text">
+                  {Utils.formatMetric(metric)}
+                </div>
+              </div>
+            </div>
+          </td>
+        );
+      } else {
+        rowContents.push(<td className={className} key={keyName}/>);
+      }
+    });
+
     const filteredMetricKeys = baggedMetrics.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
@@ -389,6 +389,32 @@ export default class ExperimentRunsTableCompactView extends Component {
     return columns;
   }
 
+  getBaggedHeaderDropdown(stateKeyToUpdate, keyList) {
+    // TODO rename toggle component to something appropriate, like EmptyToggle or something
+    return <Dropdown>
+      <ExperimentRunsSortToggle
+        bsRole="toggle"
+        className="metric-param-sort-toggle"
+      >
+        <i className="fas fa-ellipsis-h" style={{cursor: "pointer", marginLeft: 10}}/>
+      </ExperimentRunsSortToggle>
+      <Dropdown.Menu className="mlflow-menu">
+        <MenuItem
+          className="mlflow-menu-item"
+          onClick={() => this.setState({[stateKeyToUpdate]: keyList.slice(0, keyList.length)})}
+        >
+          Show all in columns
+        </MenuItem>
+        <MenuItem
+          className="mlflow-menu-item"
+          onClick={() => this.setState({[stateKeyToUpdate]: []})}
+        >
+          Merge all columns
+        </MenuItem>
+      </Dropdown.Menu>
+    </Dropdown>;
+  }
+
   render() {
     const {
       runInfos,
@@ -447,16 +473,13 @@ export default class ExperimentRunsTableCompactView extends Component {
             colSpan={unbaggedParams.length + baggedParamsLength}
           >
             Parameters
-
-            <i className="fas fa-ellipsis-h" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedParams: []})}/>
-            <i className="fas fa-ellipsis-v" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedParams: paramKeyList.slice(0, paramKeyList.length)})}/>
+            {this.getBaggedHeaderDropdown("unbaggedParams", paramKeyList)}
           </th>
           <th className="top-row left-border" scope="colgroup"
             colSpan={unbaggedMetrics.length + baggedMetricsLength}
           >
             Metrics
-            <i className="fas fa-ellipsis-h" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedMetrics: []})}/>
-            <i className="fas fa-ellipsis-v" style={{cursor: "pointer", marginLeft: 10}} onClick={() => this.setState({unbaggedMetrics: metricKeyList.slice(0, metricKeyList.length)})}/>
+            {this.getBaggedHeaderDropdown("unbaggedMetrics", metricKeyList)}
           </th>
         </tr>
         <tr>
