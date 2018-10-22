@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ExperimentViewUtil from "./ExperimentViewUtil";
 import { RunInfo } from '../sdk/MlflowMessages';
@@ -6,9 +7,6 @@ import classNames from 'classnames';
 import { Table, Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
-import {getArtifactRootUri, getArtifacts} from "../reducers/Reducers";
-import BaggedArrayUtils from './BaggedArray';
-import _ from 'lodash';
 
 const styles = {
   sortArrow: {
@@ -33,7 +31,7 @@ const styles = {
  * Compact table view for displaying runs associated with an experiment. Renders metrics/params in
  * a single table cell per run (as opposed to one cell per metric/param).
  */
-export default class ExperimentRunsTableCompactView extends Component {
+class ExperimentRunsTableCompactView extends Component {
   constructor(props) {
     super(props);
     this.onHover = this.onHover.bind(this);
@@ -60,6 +58,7 @@ export default class ExperimentRunsTableCompactView extends Component {
     setSortByHandler: PropTypes.func.isRequired,
     paramKeyList: PropTypes.arrayOf(String).isRequired,
     metricKeyList: PropTypes.arrayOf(String).isRequired,
+    metricRanges: PropTypes.object.isRequired,
   };
 
   state = {
@@ -70,6 +69,23 @@ export default class ExperimentRunsTableCompactView extends Component {
 
   onHover({isParam, isMetric, key}) {
     this.setState({ hoverState: {isParam, isMetric, key} });
+  }
+
+  // Mark a column as "bagged" by removing it from the unbagged array
+  addBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const idx = unbagged.indexOf(colName);
+    const newUnbagged = idx >= 0 ?
+      unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: newUnbagged});
+  }
+
+  // Split out a column (add it to array of unbagged cols)
+  removeBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: unbagged.concat([colName])});
   }
 
   // Builds a single row of table content (not header)
@@ -86,16 +102,14 @@ export default class ExperimentRunsTableCompactView extends Component {
       onExpand,
       paramKeyList,
       metricKeyList,
+      metricRanges,
     } = this.props;
     const {
       unbaggedParams,
       unbaggedMetrics,
     } = this.state;
-    // TODO: maybe pull this out so we don't do it for each row?
-    const metricRanges = ExperimentViewUtil.computeMetricRanges(metricsList);
     const hoverState = this.state.hoverState;
     const runInfo = runInfos[idx];
-    // TODO need to use bagged metrics, params here
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
     const selected = runsSelected[runInfo.run_uuid] === true;
@@ -185,9 +199,7 @@ export default class ExperimentRunsTableCompactView extends Component {
                 </MenuItem>
                 <MenuItem
                   className="mlflow-menu-item"
-                  onClick={() => {
-                    this.setState({unbaggedParams: BaggedArrayUtils.withRemoveBagged(unbaggedParams, paramKey)});
-                  }}
+                  onClick={() => this.removeBagged(true, paramKey)}
                 >
                   Display in column
                 </MenuItem>
@@ -291,7 +303,7 @@ export default class ExperimentRunsTableCompactView extends Component {
                 </MenuItem>
                 <MenuItem
                   className="mlflow-menu-item"
-                  onClick={() => this.setState({unbaggedMetrics: BaggedArrayUtils.withRemoveBagged(unbaggedMetrics, metricKey)})}
+                  onClick={() => this.removeBagged(false, metricKey)}
                 >
                   Display in column
                 </MenuItem>
@@ -361,8 +373,6 @@ export default class ExperimentRunsTableCompactView extends Component {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
       const className = classNames("bottom-row", "sortable", { "left-border": i === 0 });
       const elemKey = (isParam ? "param-" : "metric-") + key;
-      const stateKeyToUpdate = isParam ? "unbaggedParams" : "unbaggedMetrics";
-      const removeBaggedArg = isParam ? unbaggedParams : unbaggedMetrics;
       return (
         <th
           key={elemKey} className={className}
@@ -394,9 +404,7 @@ export default class ExperimentRunsTableCompactView extends Component {
                 </MenuItem>
                 <MenuItem
                   className="mlflow-menu-item"
-                  onClick={() => {
-                    this.setState({[stateKeyToUpdate]: BaggedArrayUtils.withAddBagged(removeBaggedArg, key)});
-                  }}
+                  onClick={() => this.addBagged(isParam, key)}
                 >
                   Display bagged
                 </MenuItem>
@@ -423,7 +431,7 @@ export default class ExperimentRunsTableCompactView extends Component {
 
   getBaggedHeaderDropdown(stateKeyToUpdate, keyList) {
     // TODO rename toggle component to something appropriate, like EmptyToggle or something
-    return <Dropdown>
+    return <Dropdown id={stateKeyToUpdate + "-header"}>
       <ExperimentRunsSortToggle
         bsRole="toggle"
         className="metric-param-sort-toggle"
@@ -463,7 +471,6 @@ export default class ExperimentRunsTableCompactView extends Component {
       unbaggedMetrics,
       unbaggedParams,
     } = this.state;
-    console.log("ExperimentRunsTableCompactView: render");
     const rows = ExperimentViewUtil.getRows({
       runInfos,
       sortState,
@@ -478,15 +485,6 @@ export default class ExperimentRunsTableCompactView extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
-    // If more than one split out column, have the option to "merge all columns"
-    // If more than one bagged column, have the option to "display all in columns"
-    // TODO: Replace clickable ellipsis with dropdown with an additional "Hide content" option as in
-    // https://projects.invisionapp.com/share/W7OF3J0NBH3#/screens/323861944. Also, add ability to
-    // collapse unbagged columns
-
-    // Params header will always contain one column per split out param, plus one column
-    // for bagged params, unless there are no bagged params. Current problem: we only show the bagged
-    // param cell if there are no unbagged params, we should show it as long as there are bagged params (I think)
     const baggedParamsLength = unbaggedParams.length === paramKeyList.length ? 0 : 1;
     const baggedMetricsLength = unbaggedMetrics.length === metricKeyList.length ? 0 : 1;
 
@@ -522,3 +520,10 @@ export default class ExperimentRunsTableCompactView extends Component {
       </Table>);
   }
 }
+
+const mapStateToProps = (state, ownProps) => {
+  const { metricsList } = ownProps;
+  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList)};
+};
+
+export default connect(mapStateToProps)(ExperimentRunsTableCompactView);

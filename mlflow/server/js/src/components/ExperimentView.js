@@ -5,22 +5,18 @@ import './ExperimentView.css';
 import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
-import classNames from 'classnames';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 
-import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
-import BaggedArray from './BaggedArray';
-
 
 export const DEFAULT_EXPANDED_VALUE = true;
 
@@ -310,24 +306,6 @@ class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
-              <span style={{cursor: "pointer"}}>
-                <ButtonGroup style={styles.tableToggleButtonGroup}>
-                <Button
-                  onClick={() => this.setShowMultiColumns(true)}
-                  title="Grid view"
-                  className={classNames({ "active": this.state.showMultiColumns })}
-                >
-                  <i className={"fas fa-table"}/>
-                </Button>
-                <Button
-                  onClick={() => this.setShowMultiColumns(false)}
-                  title="Compact view"
-                  className={classNames({ "active": !this.state.showMultiColumns })}
-                >
-                  <i className={"fas fa-list"}/>
-                </Button>
-                </ButtonGroup>
-              </span>
           </div>
           {compactView}
         </div>
