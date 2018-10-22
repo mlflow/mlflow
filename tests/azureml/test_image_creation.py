@@ -371,7 +371,9 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
         # Execute the `init` method of the execution script and load the sklearn model from the
         # mocked path
         init()
-        
+       
+        # Invoke the `run` method of the execution script with sample input data and verify that
+        # reasonable output data is produced
         input_data = datasets.load_iris().data[:, :2]
         output_data = run(pd.DataFrame(data=input_data).to_json(orient="records"))
         assert len(output_data) == len(input_data)
