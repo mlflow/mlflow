@@ -352,6 +352,8 @@ platform for real-time serving.
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
     # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
+
     sample_input='
     {
          "residual sugar": {"0": 20.7},
@@ -367,7 +369,7 @@ platform for real-time serving.
          "free sulfur dioxide": {"0": 45.0}
     }'
 
-    echo $sample_input | curl -s -X POST <ACI_WEBSERVICE_SCORING_URI>\
+    echo $sample_input | curl -s -X POST $scoring_uri\
     -H 'Cache-Control: no-cache'\
     -H 'Content-Type: application/json'\
     -d @-
