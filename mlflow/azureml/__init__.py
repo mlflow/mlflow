@@ -122,7 +122,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
             eprint("Copying the specified mlflow_home directory: `{mlflow_home}` to a temporary"
                    " location for container creation".format(mlflow_home=mlflow_home))
             tmp_mlflow_path = tmp.path("mlflow")
-            mlflow_home = os.path.join(tmp.path(), 
+            mlflow_home = os.path.join(tmp.path(),
                                        _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
             image_file_dependencies = [mlflow_home]
         else:
