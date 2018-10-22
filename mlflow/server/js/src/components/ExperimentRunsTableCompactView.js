@@ -209,12 +209,10 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    if (baggedParams.length > 0) {
-      rowContents.push(
-        <td key="params-container-cell" className="left-border">
-          <div>{paramsCellContents}</div>
-        </td>);
-    }
+    rowContents.push(
+      <td key="params-container-cell" className="left-border">
+        <div>{paramsCellContents}</div>
+      </td>);
 
     // Add metrics (unbagged, then bagged)
     unbaggedMetrics.forEach((metricKey, i) => {
@@ -313,15 +311,13 @@ class ExperimentRunsTableCompactView extends Component {
         </span>
       );
     });
-    if (baggedMetrics.length > 0) {
-      rowContents.push(
-        <td key="metrics-container-cell" className="left-border metric-param-container-cell">
-          <div>
-            {metricsCellContents}
-          </div>
-        </td>
-      );
-    }
+    rowContents.push(
+      <td key="metrics-container-cell" className="left-border metric-param-container-cell">
+        <div>
+          {metricsCellContents}
+        </div>
+      </td>
+    );
     const sortValue = ExperimentViewUtil.computeSortValue(
       sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
     return {
@@ -364,8 +360,6 @@ class ExperimentRunsTableCompactView extends Component {
       unbaggedParams,
       unbaggedMetrics,
     } = this.state;
-    const numParams = unbaggedParams.length;
-    const numMetrics = unbaggedMetrics.length;
     const columns = [];
 
     const getHeaderCell = (isParam, key, i) => {
@@ -414,23 +408,29 @@ class ExperimentRunsTableCompactView extends Component {
         </th>);
     };
 
+    const paramClassName = classNames("bottom-row",
+      { "left-border": unbaggedParams.length === 0 });
+    const metricClassName = classNames("bottom-row",
+      { "left-border": unbaggedMetrics.length === 0 });
     unbaggedParams.forEach((paramKey, i) => {
       columns.push(getHeaderCell(true, paramKey, i));
     });
-    if (numParams !== paramKeyList.length) {
-      columns.push(<th key="meta-param-empty" className="bottom-row left-border"/>);
-    }
+    columns.push(<th key="meta-bagged-params" className={paramClassName}>
+      {this.getBaggedHeaderDropdown(true)}
+    </th>);
     unbaggedMetrics.forEach((metricKey, i) => {
       columns.push(getHeaderCell(false, metricKey, i));
     });
-    if (numMetrics !== metricKeyList.length) {
-      columns.push(<th key="meta-metric-empty" className="bottom-row left-border"/>);
-    }
+    columns.push(<th key="meta-bagged-metrics" className={metricClassName}>
+      {this.getBaggedHeaderDropdown(false)}
+    </th>);
     return columns;
   }
 
-  getBaggedHeaderDropdown(stateKeyToUpdate, keyList) {
+  getBaggedHeaderDropdown(isParam) {
     // TODO rename toggle component to something appropriate, like EmptyToggle or something
+    const stateKeyToUpdate = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    const keyList = isParam ? this.props.paramKeyList : this.props.metricKeyList;
     return <Dropdown id={stateKeyToUpdate + "-header"}>
       <ExperimentRunsSortToggle
         bsRole="toggle"
@@ -485,9 +485,6 @@ class ExperimentRunsTableCompactView extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
-    const baggedParamsLength = unbaggedParams.length === paramKeyList.length ? 0 : 1;
-    const baggedMetricsLength = unbaggedMetrics.length === metricKeyList.length ? 0 : 1;
-
     return (
       <Table hover>
         <colgroup span="9"/>
@@ -500,16 +497,14 @@ class ExperimentRunsTableCompactView extends Component {
             className="top-row left-border"
             scope="colgroup"
 
-            colSpan={unbaggedParams.length + baggedParamsLength}
+            colSpan={unbaggedParams.length + 1}
           >
             Parameters
-            {this.getBaggedHeaderDropdown("unbaggedParams", paramKeyList)}
           </th>
           <th className="top-row left-border" scope="colgroup"
-            colSpan={unbaggedMetrics.length + baggedMetricsLength}
+            colSpan={unbaggedMetrics.length + 1}
           >
             Metrics
-            {this.getBaggedHeaderDropdown("unbaggedMetrics", metricKeyList)}
           </th>
         </tr>
         <tr>

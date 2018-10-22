@@ -28,6 +28,10 @@
   border-left: 1px solid #e2e2e2;
 }
 
+.ExperimentView .right-border {
+  border-right: 1px solid #e2e2e2;
+}
+
 .ExperimentView-run-buttons .btn {
   margin-left: 16px;
 }
