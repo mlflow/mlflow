@@ -14,7 +14,7 @@ from mlflow.utils import cli_args
 @click.group("azureml")
 def commands():
     """
-    Serve models on Azure ML.
+    Serve models on Azure ML. **These commands require that MLflow be installed with Python 3.**
 
     To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
     environment variable to the URL of the desired server.
@@ -52,7 +52,7 @@ def build_image(model_path, workspace_name, subscription_id, run_id, image_name,
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
     """
-    # The Azure ML SDK is only compatible with Python 3. However, this CLI should  still be 
+    # The Azure ML SDK is only compatible with Python 3. However, this CLI should  still be
     # accessible for inspection rom Python 2. Therefore, we will only import from the SDK
     # upon command invocation.
     from azureml.core import Workspace

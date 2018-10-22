@@ -67,7 +67,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
              - An `azureml.core.image.ContainerImage` object containing metadata for the new image.
              - An `azureml.core.model.Model` object containing metadata for the new model.
     """
-    # The Azure ML SDK is only compatible with Python 3. However, the `mlflow.azureml` module should 
+    # The Azure ML SDK is only compatible with Python 3. However, the `mlflow.azureml` module should
     # still be accessible for import from Python 2. Therefore, we will only import from the SDK
     # upon method invocation.
     from azureml.core.image import ContainerImage
