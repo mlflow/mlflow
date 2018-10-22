@@ -290,10 +290,3 @@ def run(s):
     return get_jsonable_obj(model.predict(input_df))
 
 """
-
-if __name__ == "__main__":
-    from azureml.core import Workspace
-
-    model_path = sys.argv[1]
-    workspace = Workspace.get("corey-azuresdk-east1")
-    build_image(model_path=model_path, workspace=workspace)
