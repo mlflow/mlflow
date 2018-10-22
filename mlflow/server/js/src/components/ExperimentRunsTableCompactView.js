@@ -126,6 +126,7 @@ export default class ExperimentRunsTableCompactView extends Component {
         rowContents.push(<td className={className} key={keyName}/>);
       }
     });
+    // Add bagged params
     const filteredParamKeys = baggedParams.filter((paramKey) => paramsMap[paramKey] !== undefined);
     const paramsCellContents = filteredParamKeys.map((paramKey) => {
       const cellClass = classNames("metric-param-content",
@@ -233,6 +234,7 @@ export default class ExperimentRunsTableCompactView extends Component {
       }
     });
 
+    // Add bagged metrics
     const filteredMetricKeys = baggedMetrics.filter((key) => metricsMap[key] !== undefined);
     const metricsCellContents = filteredMetricKeys.map((metricKey) => {
       const keyname = "metric-" + metricKey;
@@ -341,7 +343,7 @@ export default class ExperimentRunsTableCompactView extends Component {
 
   getMetricParamHeaderCells() {
     const {
-      onSortBy,
+      setSortByHandler,
       sortState,
       paramKeyList,
       metricKeyList,
@@ -359,18 +361,48 @@ export default class ExperimentRunsTableCompactView extends Component {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
       const className = classNames("bottom-row", "sortable", { "left-border": i === 0 });
       const elemKey = (isParam ? "param-" : "metric-") + key;
+      const stateKeyToUpdate = isParam ? "unbaggedParams" : "unbaggedMetrics";
+      const removeBaggedArg = isParam ? unbaggedParams : unbaggedMetrics;
       return (
         <th
           key={elemKey} className={className}
-          onClick={() => onSortBy(isMetric, isParam, key)}
         >
           <span
             style={styles.metricParamNameContainer}
             className="run-table-container"
           >
-            {key}
+            <Dropdown id="dropdown-custom-1">
+              <ExperimentRunsSortToggle
+                bsRole="toggle"
+                className="metric-param-sort-toggle"
+              >
+                {key}
+                <span style={styles.sortIconContainer}>{sortIcon}</span>
+              </ExperimentRunsSortToggle>
+              <Dropdown.Menu className="mlflow-menu">
+                <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={() => setSortByHandler(!isParam, isParam, key, true)}
+                >
+                  Sort ascending
+                </MenuItem>
+                <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={() => setSortByHandler(!isParam, isParam, key, false)}
+                >
+                  Sort descending
+                </MenuItem>
+                <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={() => {
+                    this.setState({[stateKeyToUpdate]: BaggedArrayUtils.withAddBagged(removeBaggedArg, key)});
+                  }}
+                >
+                  Display bagged
+                </MenuItem>
+              </Dropdown.Menu>
+            </Dropdown>
           </span>
-          <span style={styles.sortIconContainer}>{sortIcon}</span>
         </th>);
     };
 

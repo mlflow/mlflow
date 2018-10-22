@@ -47,10 +47,11 @@ class BaggedArray {
 
 export default class BaggedArrayUtils {
 
-  // Mark a column as "bagged"
+  // Mark a column as "bagged" by removing it from the unbagged array
   static withAddBagged(unbagged, colName) {
     const idx = unbagged.indexOf(colName);
-    return idx >= 0 ? unbagged.splice(idx, 1) : unbagged;
+    return idx >= 0 ?
+      unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
   }
 
   // Split out a column (remove it from bagged cols)
