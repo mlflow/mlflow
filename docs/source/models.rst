@@ -287,7 +287,20 @@ platform for real-time serving.
     from azureml.core import Workspace
     from azureml.core.webservice import AciWebservice, Webservice
 
-    azure_workspace = Workspace.get("<workspace-name>")
+  
+    # Create or load an existing Azure ML workspace. You can also load an existing workspace using
+    # Workspace.get(name="<workspace_name>")
+    workspace_name = "<Name of your Azure ML workspace>"
+    subscription_id = "<Your Azure subscription ID>"
+    resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
+    location = "<Name of the Azure location (region) in which to create Azure ML resources>"
+    
+    ws = Workspace.create(name=workspace_name,
+                          subscription_id=subscription_id,
+                          resource_group=resource_group,
+                          create_resource_group=True,
+                          location=location)
+
     # Build an Azure ML container image for deployment
     azure_image, azure_model = mlflow.azureml.build_image(model_path="<path-to-model>",
                                                           workspace=azure_workspace,

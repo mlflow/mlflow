@@ -148,8 +148,11 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                                       image_config=image_configuration,
                                       models=[registered_model])
         eprint("Building an Azure Container Image with name: `{image_name}` and version:"
-               " `{image_version}`".format(image_name=image.name,
-                                           image_version=image.version))
+               " `{image_version}`. You can check the status of the build by accessing the"
+               " following URL: {build_status_url}".format(
+                   image_name=image.name,
+                   image_version=image.version,
+                   build_status_url=image.image_build_uri))
         if synchronous:
             image.wait_for_creation(show_output=True)
         return image, registered_model
