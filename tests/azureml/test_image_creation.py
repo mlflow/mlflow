@@ -21,7 +21,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.file_utils import TempDir
 
 
 class AzureMLMocks:
@@ -92,7 +92,7 @@ def test_build_image_with_run_relative_model_path_calls_expected_azure_routines(
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_synchronous_build_image_awaits_azure_image_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
-    with AzureMLMocks() as aml_mocks:
+    with AzureMLMocks():
         workspace = Workspace.get("test_workspace")
         image, _ = mlflow.azureml.build_image(
                 model_path=model_path, workspace=workspace, synchronous=True)
@@ -284,7 +284,7 @@ def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
     del model_config.flavors[pyfunc.FLAVOR_NAME]
     model_config.save(model_config_path)
 
-    with AzureMLMocks() as aml_mocks, pytest.raises(MlflowException) as exc:
+    with AzureMLMocks(), pytest.raises(MlflowException) as exc:
         workspace = Workspace.get("test_workspace")
         mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
@@ -299,7 +299,7 @@ def test_build_image_throws_exception_if_model_python_version_is_less_than_three
     model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION] = "2.7.6"
     model_config.save(model_config_path)
 
-    with AzureMLMocks() as aml_mocks, pytest.raises(MlflowException) as exc:
+    with AzureMLMocks(), pytest.raises(MlflowException) as exc:
         workspace = Workspace.get("test_workspace")
         mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
@@ -309,6 +309,7 @@ def test_build_image_throws_exception_if_model_python_version_is_less_than_three
 def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
         sklearn_model, model_path):
     def mock_create_dockerfile(output_path, *args, **kwargs):
+        # pylint: disable=unused-argument
         with open(output_path, "w") as f:
             f.write("Dockerfile contents")
 
@@ -354,17 +355,19 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
 
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
-        execution_script_file = mlflow.azureml._create_execution_script(
+        mlflow.azureml._create_execution_script(
                 output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
 
     # Define the `init` and `score` methods contained in the execution script
+    # pylint: disable=exec-used
     exec(execution_script, globals())
     with AzureMLMocks() as aml_mocks:
         aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script.
+        # pylint: disable=undefined-variable
         init()
 
         assert aml_mocks["get_model_path"].call_count == 1
@@ -385,23 +388,26 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
 
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
-        execution_script_file = mlflow.azureml._create_execution_script(
+        mlflow.azureml._create_execution_script(
                 output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
 
     # Define the `init` and `score` methods contained in the execution script
+    # pylint: disable=exec-used
     exec(execution_script, globals())
     with AzureMLMocks() as aml_mocks:
         aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script and load the sklearn model from the
         # mocked path
+        # pylint: disable=undefined-variable
         init()
 
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         input_data = datasets.load_iris().data[:, :2]
+        # pylint: disable=undefined-variable
         output_data = run(pd.DataFrame(data=input_data).to_json(orient="records"))
         assert len(output_data) == len(input_data)
 
