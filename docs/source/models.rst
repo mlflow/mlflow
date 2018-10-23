@@ -339,6 +339,7 @@ platform for real-time serving.
                   url=webservice.scoring_uri, data=json.dumps(sample_input),
                   headers={"Content-type": "application/json"})
     response_json = json.loads(response.text)
+    print(response_json)
 
 .. rubric:: Deployment example (CLI):
 

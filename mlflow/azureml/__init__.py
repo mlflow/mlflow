@@ -17,7 +17,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils import PYTHON_VERSION
+from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.utils.environment import _mlflow_conda_env
@@ -73,9 +73,12 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
 
-    relative_model_path = model_path
     if run_id is not None:
+        relative_model_path = model_path
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
+    else:
+        relative_model_path = os.path.abspath(model_path)
+    model_path = os.path.abspath(model_path)
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
@@ -89,11 +92,11 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                        model_python_version=model_python_version, user_tags=tags)
 
     if image_name is None:
-        image_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
+        image_name = _get_mlflow_azure_resource_name()
     if model_name is None:
-        model_name = "mlflow-{uid}".format(uid=_get_azureml_resource_unique_id())
+        model_name = _get_mlflow_azure_resource_name()
 
-    with TempDir() as tmp:
+    with TempDir(chdr=True) as tmp:
         model_directory_path = tmp.path("model")
         model_path = os.path.join(
             model_directory_path,
@@ -106,9 +109,12 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                " `{model_version}`".format(model_name=registered_model.name,
                                            model_version=registered_model.version))
 
-        # Create an execution script (entry point) for the image's model server in the
-        # current working directory
-        execution_script_file = _create_execution_script(azure_model=registered_model)
+        # Create an execution script (entry point) for the image's model server. Azure ML requires
+        # the container's execution script to be located in the current working directory during
+        # image creation, so we create the execution script as a temporary file in the current
+        # working directory.
+        execution_script_path = tmp.path("execution_script.py")
+        _create_execution_script(output_path=execution_script_path, azure_model=registered_model)
         # Azure ML copies the execution script into the image's application root directory by
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
@@ -116,12 +122,11 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         # resulting in a failure. To circumvent this problem, we provide Azure ML with the relative
         # script path. Because the execution script was created in the current working directory,
         # this relative path is the script path's base name.
-        execution_script_path = os.path.basename(execution_script_file.name)
+        execution_script_path = os.path.basename(execution_script_path)
 
         if mlflow_home is not None:
             eprint("Copying the specified mlflow_home directory: `{mlflow_home}` to a temporary"
                    " location for container creation".format(mlflow_home=mlflow_home))
-            tmp_mlflow_path = tmp.path("mlflow")
             mlflow_home = os.path.join(tmp.path(),
                                        _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
             image_file_dependencies = [mlflow_home]
@@ -148,11 +153,9 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                                       image_config=image_configuration,
                                       models=[registered_model])
         eprint("Building an Azure Container Image with name: `{image_name}` and version:"
-               " `{image_version}`. You can check the status of the build by accessing the"
-               " following URI: {build_status_url}".format(
+               " `{image_version}`".format(
                    image_name=image.name,
-                   image_version=image.version,
-                   build_status_url=image.image_build_uri))
+                   image_version=image.version))
         if synchronous:
             image.wait_for_creation(show_output=True)
         return image, registered_model
@@ -176,31 +179,21 @@ def _build_tags(model_path, run_id, model_python_version=None, user_tags=None):
     return tags
 
 
-def _create_execution_script(azure_model):
+def _create_execution_script(output_path, azure_model):
     """
     Creates an Azure-compatibele execution script (entry point) for a model server backed by
     the specified model. This script is created as a temporary file in the current working
     directory.
 
-    :param registered_model: The Azure Model that the execution script will load for inference.
+    :param output_path: The path where the execution script will be written.
+    :param azure_model: The Azure Model that the execution script will load for inference.
     :return: A reference to the temporary file containing the execution script.
     """
-    # Azure ML requires the container's execution script to be located
-    # in the current working directory during image creation, so we
-    # create the execution script as a temporary file in the current directory
-    execution_script_file = tempfile.NamedTemporaryFile(
-            dir=os.getcwd(), mode="w", prefix="driver", suffix=".py")
     execution_script_text = SCORE_SRC.format(
             model_name=azure_model.name, model_version=azure_model.version)
-    execution_script_file.write(execution_script_text)
-    # This file will be read from the current location of the file pointer, which was
-    # advanced during the write. Therefore, we seek to the beginning of the file so that
-    # its full contents can be read later
-    execution_script_file.seek(0)
-    # Temporary files created using the `tempfile.NamedTemporaryFile` constructor are deleted
-    # when their associated object reference goes out of scope. Therefore, We return a reference to
-    # the execution script file to prevent it from being deleted prematurely
-    return execution_script_file
+
+    with open(output_path, "w") as f:
+        f.write(execution_script_text)
 
 
 def _create_dockerfile(output_path, mlflow_path=None):
@@ -227,8 +220,9 @@ def _create_dockerfile(output_path, mlflow_path=None):
         raise MlflowException(
                 "You are running a 'dev' version of MLflow: `{mlflow_version}` that cannot be"
                 " installed from pip. In order to build a container image, either specify the"
-                " path to a local copy of the MLflow GitHub repository or install a release version"
-                " of MLflow from pip".format(mlflow_version=mlflow_version))
+                " path to a local copy of the MLflow GitHub repository using the `mlflow_home`"
+                " parameter or install a release version of MLflow from pip".format(
+                    mlflow_version=mlflow_version))
     docker_cmds.append(mlflow_install_cmd)
 
     with open(output_path, "w") as f:
@@ -263,24 +257,16 @@ def _load_pyfunc_conf(model_path):
     return model.flavors[pyfunc.FLAVOR_NAME]
 
 
-def _get_azureml_resource_unique_id():
+def _get_mlflow_azure_resource_name():
     """
-    :return: A unique identifier that can be appended to a user-readable resource name to avoid
-             naming collisions.
+    :return: A unique name for an Azure resource indicating that the resource was created by
+             MLflow
     """
-    import uuid
-    import base64
-    uuid_bytes = uuid.uuid4().bytes
-    # Use base64 encoding to shorten the UUID length. Note that the replacement of the
-    # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
-    # 16-byte length
-    uuid_b64 = base64.b64encode(uuid_bytes)
-    if sys.version_info >= (3, 0):
-        # In Python3, `uuid_b64` is a `bytes` object. It needs to be
-        # converted to a string
-        uuid_b64 = uuid_b64.decode("ascii")
-    uuid_b64 = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB")
-    return uuid_b64.lower()
+    azureml_max_resource_length = 32
+    resource_prefix = "mlflow-"
+    unique_id = get_unique_resource_id(
+            max_length=(azureml_max_resource_length - len(resource_prefix)))
+    return resource_prefix + unique_id
 
 
 SCORE_SRC = """

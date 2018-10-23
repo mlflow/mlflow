@@ -19,6 +19,7 @@ import mlflow.version
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils import get_unique_resource_id
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
@@ -618,32 +619,12 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           sage_client=sage_client)
 
 
-def _get_sagemaker_resource_unique_id():
-    """
-    :return: A unique identifier that can be appended to a user-readable resource name to avoid
-             naming collisions.
-    """
-    uuid_bytes = uuid.uuid4().bytes
-    # Use base64 encoding to shorten the UUID length. Note that the replacement of the
-    # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
-    # 16-byte length
-    uuid_b64 = base64.b64encode(uuid_bytes)
-    if sys.version_info >= (3, 0):
-        # In Python3, `uuid_b64` is a `bytes` object. It needs to be
-        # converted to a string
-        uuid_b64 = uuid_b64.decode("ascii")
-    uuid_b64 = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB")
-    return uuid_b64
-
-
 def _get_sagemaker_model_name(endpoint_name):
-    unique_id = _get_sagemaker_resource_unique_id()
-    return "{en}-model-{uid}".format(en=endpoint_name, uid=unique_id)
+    return "{en}-model-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
 def _get_sagemaker_config_name(endpoint_name):
-    unique_id = _get_sagemaker_resource_unique_id()
-    return "{en}-config-{uid}".format(en=endpoint_name, uid=unique_id)
+    return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
 def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
