@@ -21,3 +21,4 @@ torchvision
 pysftp
 keras
 cloudpickle
+attrdict==2.0.0
