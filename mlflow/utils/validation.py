@@ -59,3 +59,12 @@ def _validate_run_id(run_id):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
     if _RUN_ID_REGEX.match(run_id) is None:
         raise MlflowException("Invalid run ID: '%s'" % run_id, error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_experiment_id(exp_id):
+    """Check that `experiment_id`is a valid integer and raise an exception if it isn't."""
+    try:
+        int(exp_id)
+    except ValueError:
+        raise MlflowException("Invalid experiment ID: '%s'" % exp_id,
+                              error_code=INVALID_PARAMETER_VALUE)
