@@ -19,7 +19,7 @@ from mlflow.entities import RunStatus, SourceType, Param
 import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 import mlflow.tracking.fluent as fluent
-
+from mlflow.utils import databricks_utils
 
 import mlflow.projects.databricks
 from mlflow.utils import process
@@ -52,7 +52,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
     else:
-        active_run = _create_run(uri, exp_id, work_dir, entry_point)
+        active_run = _create_run(uri, exp_id, work_dir, entry_point, mode)
 
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
@@ -407,7 +407,7 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
 
 
-def _create_run(uri, experiment_id, work_dir, entry_point):
+def _create_run(uri, experiment_id, work_dir, entry_point, mode):
     """
     Create a ``Run`` against the current MLflow tracking server, logging metadata (e.g. the URI,
     entry point, and parameters of the project) about the run. Return an ``ActiveRun`` that can be
@@ -422,13 +422,17 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
         parent_run_id = existing_run.info.run_uuid
     else:
         parent_run_id = None
-    active_run = tracking.MlflowClient().create_run(
+    client = tracking.MlflowClient()
+    active_run = client.create_run(
         experiment_id=experiment_id,
         source_name=source_name,
         source_version=_get_git_commit(work_dir),
         entry_point_name=entry_point,
         source_type=SourceType.PROJECT,
         parent_run_id=parent_run_id)
+    if mode == "local" and databricks_utils.is_in_databricks_notebook():
+        for tag_key, tag_val in databricks_utils.get_databricks_tags():
+            client.set_tag(active_run.info.run_uuid, tag_key, tag_val)
     return active_run
 
 

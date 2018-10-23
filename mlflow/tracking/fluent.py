@@ -18,6 +18,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
+from mlflow.utils import databricks_utils
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
     MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
@@ -114,16 +115,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
 
         exp_id_for_run = experiment_id or _get_experiment_id()
         if is_in_databricks_notebook():
-            databricks_tags = {}
-            notebook_id = get_notebook_id()
+            databricks_tags = databricks_utils.get_databricks_tags()
             notebook_path = get_notebook_path()
-            webapp_url = get_webapp_url()
-            if notebook_id is not None:
-                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
-            if notebook_path is not None:
-                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
-            if webapp_url is not None:
-                databricks_tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
             active_run_obj = MlflowClient().create_run(
                 experiment_id=exp_id_for_run,
                 run_name=run_name,
