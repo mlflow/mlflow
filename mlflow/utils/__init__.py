@@ -53,8 +53,9 @@ def get_unique_resource_id(max_length=None):
     """
     import uuid
     import base64
-    if max_length <= 0:
-        raise Exception("The specified maximum length for the unique resource id must be positive!")
+    if max_length is not None and max_length <= 0:
+        raise ValueError(
+                "The specified maximum length for the unique resource id must be positive!")
 
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the
@@ -67,5 +68,5 @@ def get_unique_resource_id(max_length=None):
         uuid_b64 = uuid_b64.decode("ascii")
     unique_id = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB").lower()
     if max_length is not None:
-        unique_id = unique_id[:max_length]
+        unique_id = unique_id[:int(max_length)]
     return unique_id
