@@ -216,7 +216,8 @@ def test_run_databricks(
 def test_run_databricks_cluster_spec_json(
         before_run_validations_mock,  # pylint: disable=unused-argument
         tracking_uri_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
-        runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock):
+        runs_submit_mock, runs_get_mock,
+        cluster_spec_mock, set_tag_mock):  # pylint: disable=unused-argument
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
         cluster_spec_dict = {
