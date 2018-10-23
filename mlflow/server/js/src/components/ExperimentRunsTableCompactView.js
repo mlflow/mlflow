@@ -25,6 +25,9 @@ const styles = {
     display: "inline-block",
     maxWidth: 120,
   },
+  metricParamNameContainer: {
+    verticalAlign: "middle",
+  },
 };
 
 /**
@@ -201,7 +204,7 @@ class ExperimentRunsTableCompactView extends Component {
                   className="mlflow-menu-item"
                   onClick={() => this.removeBagged(true, paramKey)}
                 >
-                  Display in column
+                  Display in own column
                 </MenuItem>
               </Dropdown.Menu>
             </Dropdown>
@@ -304,7 +307,7 @@ class ExperimentRunsTableCompactView extends Component {
                   className="mlflow-menu-item"
                   onClick={() => this.removeBagged(false, metricKey)}
                 >
-                  Display in column
+                  Display in own column
                 </MenuItem>
               </Dropdown.Menu>
             </Dropdown>
@@ -367,7 +370,7 @@ class ExperimentRunsTableCompactView extends Component {
     const getHeaderCell = (isParam, key, i) => {
       const isMetric = !isParam;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
-      const className = classNames("bottom-row", "sortable", { "left-border": i === 0 });
+      const className = classNames("bottom-row", { "left-border": i === 0 });
       const elemKey = (isParam ? "param-" : "metric-") + key;
       return (
         <th
@@ -383,7 +386,7 @@ class ExperimentRunsTableCompactView extends Component {
                 className="metric-param-sort-toggle"
               >
                 {key}
-                <span style={styles.sortIconContainer}>{sortIcon}</span>
+                <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
               </ExperimentRunsSortToggle>
               <Dropdown.Menu className="mlflow-menu">
                 <MenuItem
@@ -402,7 +405,7 @@ class ExperimentRunsTableCompactView extends Component {
                   className="mlflow-menu-item"
                   onClick={() => this.addBagged(isParam, key)}
                 >
-                  Display bagged
+                  Collapse column
                 </MenuItem>
               </Dropdown.Menu>
             </Dropdown>
@@ -417,14 +420,17 @@ class ExperimentRunsTableCompactView extends Component {
     unbaggedParams.forEach((paramKey, i) => {
       columns.push(getHeaderCell(true, paramKey, i));
     });
-    columns.push(<th key="meta-bagged-params" className={paramClassName}>
-      {this.getBaggedHeaderDropdown(true)}
+
+    const hasBaggedParams = unbaggedParams.length !== paramKeyList.length;
+    columns.push(<th key="meta-bagged-params left-border" className={paramClassName}>
+      {hasBaggedParams ? this.getBaggedHeaderDropdown(true) : ""}
     </th>);
     unbaggedMetrics.forEach((metricKey, i) => {
       columns.push(getHeaderCell(false, metricKey, i));
     });
-    columns.push(<th key="meta-bagged-metrics" className={metricClassName}>
-      {this.getBaggedHeaderDropdown(false)}
+    const hasBaggedMetrics = unbaggedMetrics.length !== metricKeyList.length;
+    columns.push(<th key="meta-bagged-metrics left-border" className={metricClassName}>
+      {hasBaggedMetrics ? this.getBaggedHeaderDropdown(false) : ""}
     </th>);
     return columns;
   }
@@ -438,20 +444,20 @@ class ExperimentRunsTableCompactView extends Component {
         bsRole="toggle"
         className="metric-param-sort-toggle"
       >
-        <i className="fas fa-ellipsis-h" style={{cursor: "pointer", marginLeft: 10}}/>
+        <i className="fas fa-cog" style={{cursor: "pointer", marginLeft: 10, fontSize: '1.5em'}}/>
       </ExperimentRunsSortToggle>
       <Dropdown.Menu className="mlflow-menu">
         <MenuItem
           className="mlflow-menu-item"
           onClick={() => this.setState({[stateKeyToUpdate]: keyList.slice(0, keyList.length)})}
         >
-          Show all in columns
+          Display all in columns
         </MenuItem>
         <MenuItem
           className="mlflow-menu-item"
           onClick={() => this.setState({[stateKeyToUpdate]: []})}
         >
-          Merge all columns
+          Collapse all columns
         </MenuItem>
       </Dropdown.Menu>
     </Dropdown>;
@@ -487,6 +493,8 @@ class ExperimentRunsTableCompactView extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
+    const noBaggedParams = unbaggedParams.length === paramKeyList.length;
+    const noBaggedMetrics = unbaggedMetrics.length === metricKeyList.length;
     return (
       <Table hover>
         <colgroup span="9"/>
@@ -502,11 +510,13 @@ class ExperimentRunsTableCompactView extends Component {
             colSpan={unbaggedParams.length + 1}
           >
             Parameters
+            { noBaggedParams ? this.getBaggedHeaderDropdown(true) : ""}
           </th>
           <th className="top-row left-border" scope="colgroup"
             colSpan={unbaggedMetrics.length + 1}
           >
             Metrics
+            { noBaggedMetrics ? this.getBaggedHeaderDropdown(false) : ""}
           </th>
         </tr>
         <tr>

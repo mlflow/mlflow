@@ -30,7 +30,6 @@ if __name__ == '__main__':
     # Simple run
     for l1, alpha in itertools.product([0, 0.25, 0.5, 0.75, 1], [0, 0.5, 1]):
         with mlflow.start_run(source_name='ipython', source_version=SOURCE_VERSIONS[0]):
-            print("Started run with UUID %s" % mlflow.active_run().info.run_uuid)
             parameters = {
                 'l1': str(l1),
                 'alpha': str(alpha),
@@ -139,3 +138,8 @@ if __name__ == '__main__':
         for i in range(100):
             with mlflow.start_run(source_name='child-{}'.format(i), nested=True):
                 pass
+    mlflow.create_experiment("my-empty-experiment")
+    mlflow.set_experiment("runs-but-no-metrics-params")
+    for i in range(100):
+        with mlflow.start_run(source_name="empty-run-{}".format(i)):
+            pass
