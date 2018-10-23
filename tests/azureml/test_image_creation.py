@@ -163,23 +163,35 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
     dependencies:
         - scikit-learn
     """
-    with TempDir() as tmp:
+    with TempDir(chdr=True) as tmp:
         sklearn_conda_env_path = tmp.path("conda.yaml")
         with open(sklearn_conda_env_path, "w") as f:
             f.write(sklearn_conda_env_text)
 
         mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path,
                                   conda_env=sklearn_conda_env_path)
+       
+        with AzureMLMocks() as aml_mocks,\
+                mock.patch("mlflow.utils.file_utils.TempDir.path") as tmpdir_path_mock:
+            def get_mock_path(subpath=None):
+                # Our current working directory is a temporary directory. Therefore, it is safe to
+                # directly return the specified subpath.
+                # os.makedirs(subpath)
+                if subpath is None:
+                    subpath = "."
+                return subpath
+            tmpdir_path_mock.side_effect = get_mock_path
 
-    with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
-        mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
+            workspace = Workspace.get("test_workspace")
+            mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
 
-        create_image_call_args = aml_mocks["create_image"].call_args_list
-        assert len(create_image_call_args) == 1
-        _, create_image_call_kwargs = create_image_call_args[0]
-        image_config = create_image_call_kwargs["image_config"]
-        assert image_config.conda_file is not None
+            create_image_call_args = aml_mocks["create_image"].call_args_list
+            assert len(create_image_call_args) == 1
+            _, create_image_call_kwargs = create_image_call_args[0]
+            image_config = create_image_call_kwargs["image_config"]
+            assert image_config.conda_file is not None
+            print(os.path.exists(image_config.conda_file))
+            print(os.listdir(tmp.path()))
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
@@ -477,3 +489,23 @@ def test_cli_build_image_parses_and_includes_user_specified_tags_in_azureml_imag
         _, create_image_call_kwargs = create_image_call_args[0]
         image_config = create_image_call_kwargs["image_config"]
         assert custom_tags.items() <= image_config.tags.items()
+
+
+def testA():
+    with mock.patch("mlflow.utils.file_utils.TempDir.__exit__") as tmpdir_mock:
+        # def func(*args, **kwargs):
+        #     print("CAT")
+        #     return "COW" 
+        #
+        # tmpdir_mock.side_effect = func
+
+        with TempDir() as tmp:
+            print("TMPDIR", tmp)
+
+        print(os.path.exists(tmp.path()))
+
+
+        with TempDir() as tmp:
+            print("TMPDIR", tmp)
+
+        print(os.path.exists(tmp.path()))
