@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import json
 import sys
 
 import click
@@ -58,6 +59,11 @@ def cli():
                    "Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
+@click.option("--cluster-spec-json", metavar="STRING",
+              help="JSON string describing the cluster to use when launching a run on "
+                   "Databricks. See "
+                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
+                   "more info. Note that MLflow runs are currently launched against a new cluster.")
 @click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
               help="Username for HTTP(S) Git authentication.")
 @click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
@@ -71,8 +77,8 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, storage_dir, run_id):
+def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, cluster_spec_json,
+        git_username, git_password, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -96,6 +102,12 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
         param_dict[name] = value
+    cluster_spec_dict = None
+    if cluster_spec_json:
+        try:
+            cluster_spec_dict = json.loads(cluster_spec_json)
+        except ValueError as e:
+            print("Invalid cluster spec JSON. Parse error: %s" % e)
     try:
         projects.run(
             uri,
@@ -111,6 +123,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             storage_dir=storage_dir,
             block=mode == "local" or mode is None,
             run_id=run_id,
+            cluster_spec_dict=cluster_spec_dict
         )
     except projects.ExecutionException as e:
         eprint("=== %s ===" % e)
@@ -127,9 +140,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                    "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-@click.option("--gunicorn-opts", default=None,
-              help="Additional command line options forwarded to gunicorn processes.")
-def ui(file_store, host, port, gunicorn_opts):
+def ui(file_store, host, port):
     """
     Launch the MLflow tracking UI.
 
@@ -137,7 +148,7 @@ def ui(file_store, host, port, gunicorn_opts):
     """
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(file_store, file_store, host, port, 1, None, gunicorn_opts)
+        _run_server(file_store, file_store, host, port, 1, None)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
@@ -176,9 +187,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Number of gunicorn worker processes to handle requests (default: 4).")
 @click.option("--static-prefix", default=None, callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
-@click.option("--gunicorn-opts", default=None,
-              help="Additional command line options forwarded to gunicorn processes.")
-def server(file_store, default_artifact_root, host, port, workers, static_prefix, gunicorn_opts):
+def server(file_store, default_artifact_root, host, port, workers, static_prefix):
     """
     Run the MLflow tracking server.
 
@@ -187,8 +196,7 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
     try:
-        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix,
-                    gunicorn_opts)
+        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)

@@ -34,14 +34,15 @@ MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
-         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
+         mode=None, cluster_spec_dict=None, git_username=None, git_password=None, use_conda=True,
          storage_dir=None, block=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in mode.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
     if mode == "databricks":
-        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+        mlflow.projects.databricks.before_run_validations(
+            mlflow.get_tracking_uri(), cluster_spec_dict)
 
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
@@ -70,7 +71,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         return run_databricks(
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
-            experiment_id=exp_id, cluster_spec=cluster_spec)
+            experiment_id=exp_id, cluster_spec=cluster_spec_dict)
     elif mode == "local" or mode is None:
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
@@ -93,7 +94,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
 
 def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        storage_dir=None, block=True, run_id=None):
+        storage_dir=None, block=True, run_id=None, cluster_spec_dict=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -135,12 +136,25 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
+    :param cluster_spec_dict: When ``mode`` is "databricks", dictionary corresponding to a
+                              `Databricks cluster specification
+                              <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
+                              to use when launching a run. If specified, takes precedence over
+                              ``cluster_spec``.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
+    if cluster_spec_dict is None and cluster_spec:
+        with open(cluster_spec, 'r') as handle:
+            try:
+                cluster_spec_dict = json.load(handle)
+            except ValueError:
+                eprint("Error when attempting to load and parse JSON cluster spec from file "
+                       "%s. " % cluster_spec)
+                raise
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-        experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec,
+        experiment_id=experiment_id, mode=mode, cluster_spec_dict=cluster_spec_dict,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
         storage_dir=storage_dir, block=block, run_id=run_id)
     if block:
