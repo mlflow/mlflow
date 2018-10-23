@@ -307,6 +307,8 @@ platform for real-time serving.
                                                           workspace=azure_workspace,
                                                           description="Wine regression model 1",
                                                           synchronous=True)
+    # If your image build failed, you can access build logs at the following URI:
+    print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
 
     # Deploy the container image to ACI
     webservice_deployment_config = AciWebservice.deploy_configuration()

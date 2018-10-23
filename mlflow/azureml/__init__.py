@@ -104,10 +104,12 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     from azureml.core.model import Model as AzureModel
 
     if run_id is not None:
-        relative_model_path = model_path
+        run_relative_model_path = model_path
         model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
     else:
-        relative_model_path = os.path.abspath(model_path)
+        # No run id was specified, so the run-relative path to include in Azure image/model tags
+        # is the absolute model path
+        run_relative_model_path = os.path.abspath(model_path)
     model_path = os.path.abspath(model_path)
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
@@ -118,7 +120,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                 message="Azure ML can only deploy models trained in Python 3 or above!",
                 error_code=INVALID_PARAMETER_VALUE)
 
-    tags = _build_tags(model_path=relative_model_path, run_id=run_id,
+    tags = _build_tags(model_path=run_relative_model_path, run_id=run_id,
                        model_python_version=model_python_version, user_tags=tags)
 
     if image_name is None:
