@@ -212,7 +212,8 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    const baggedParamsClassname = classNames({"left-border": unbaggedParams.length !== paramKeyList.length});
+    const baggedParamsClassname =
+      classNames({"left-border": unbaggedParams.length !== paramKeyList.length});
     rowContents.push(
       <td key="params-container-cell" className={baggedParamsClassname}>
         <div>{paramsCellContents}</div>
@@ -315,7 +316,8 @@ class ExperimentRunsTableCompactView extends Component {
         </span>
       );
     });
-    const baggedMetricsClassname = classNames("metric-param-container-cell", {"left-border": unbaggedMetrics.length !== metricKeyList.length});
+    const baggedMetricsClassname = classNames("metric-param-container-cell",
+      {"left-border": unbaggedMetrics.length !== metricKeyList.length});
     rowContents.push(
       <td key="metrics-container-cell" className={baggedMetricsClassname}>
         <div>
