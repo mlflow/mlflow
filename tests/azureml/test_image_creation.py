@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import sys
 import os
 import json
 import pytest
@@ -9,7 +10,6 @@ from mock import Mock
 import pandas as pd
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
-from azureml.core import Workspace
 from click.testing import CliRunner
 
 import mlflow
@@ -22,6 +22,11 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.file_utils import TempDir
+
+
+pytestmark = pytest.mark.skipif(
+        (sys.version_info < (3, 0)),
+        reason="Tests require Python 3 to run!")
 
 
 class AzureMLMocks:
@@ -47,6 +52,11 @@ class AzureMLMocks:
             mock.__exit__(*args)
 
 
+def get_azure_workspace():
+    from azureml.core import Workspace
+    return Workspace.get("test_workspace")
+
+
 @pytest.fixture(scope="session")
 def sklearn_model():
     iris = datasets.load_iris()
@@ -67,7 +77,7 @@ def test_build_image_with_absolute_model_path_calls_expected_azure_routines(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
 
         assert aml_mocks["register_model"].call_count == 1
@@ -82,7 +92,7 @@ def test_build_image_with_run_relative_model_path_calls_expected_azure_routines(
         run_id = mlflow.active_run().info.run_uuid
 
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_path=artifact_path, run_id=run_id, workspace=workspace)
 
         assert aml_mocks["register_model"].call_count == 1
@@ -93,7 +103,7 @@ def test_build_image_with_run_relative_model_path_calls_expected_azure_routines(
 def test_synchronous_build_image_awaits_azure_image_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks():
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         image, _ = mlflow.azureml.build_image(
                 model_path=model_path, workspace=workspace, synchronous=True)
         image.wait_for_creation.assert_called_once()
@@ -103,7 +113,7 @@ def test_synchronous_build_image_awaits_azure_image_creation(sklearn_model, mode
 def test_asynchronous_build_image_does_not_await_azure_image_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         image, _ = mlflow.azureml.build_image(
                 model_path=model_path, workspace=workspace, synchronous=False)
         image.wait_for_creation.assert_not_called()
@@ -114,7 +124,7 @@ def test_build_image_registers_model_and_creates_image_with_specified_names(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         model_name = "MODEL_NAME_1"
         image_name = "IMAGE_NAME_1"
         mlflow.azureml.build_image(
@@ -139,7 +149,7 @@ def test_build_image_generates_model_and_image_names_meeting_azureml_resource_na
 
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
 
         register_model_call_args = aml_mocks["register_model"].call_args_list
@@ -182,7 +192,7 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
                 return subpath
             tmpdir_path_mock.side_effect = get_mock_path
 
-            workspace = Workspace.get("test_workspace")
+            workspace = get_azure_workspace()
             mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
 
             create_image_call_args = aml_mocks["create_image"].call_args_list
@@ -203,7 +213,7 @@ def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(skl
     model_config = Model.load(os.path.join(_get_model_log_dir(artifact_path, run_id), "MLmodel"))
 
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_path=artifact_path, run_id=run_id, workspace=workspace)
 
         register_model_call_args = aml_mocks["register_model"].call_args_list
@@ -236,7 +246,7 @@ def test_build_image_includes_user_specified_tags_in_azure_image_and_model_tags(
 
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_path=model_path, workspace=workspace, tags=custom_tags)
 
         register_model_call_args = aml_mocks["register_model"].call_args_list
@@ -259,7 +269,7 @@ def test_build_image_includes_user_specified_description_in_azure_image_and_mode
 
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(
                 model_path=model_path, workspace=workspace, description=custom_description)
 
@@ -285,7 +295,7 @@ def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
     model_config.save(model_config_path)
 
     with AzureMLMocks(), pytest.raises(MlflowException) as exc:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
 
@@ -300,7 +310,7 @@ def test_build_image_throws_exception_if_model_python_version_is_less_than_three
     model_config.save(model_config_path)
 
     with AzureMLMocks(), pytest.raises(MlflowException) as exc:
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_path=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
 
@@ -324,7 +334,7 @@ def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
         with open(os.path.join(mlflow_home, "setup.py"), "w") as f:
             f.write("setup instructions")
 
-        workspace = Workspace.get("test_workspace")
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(
                 model_path=model_path, workspace=workspace, mlflow_home=mlflow_home)
 
