@@ -170,15 +170,15 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
 
         mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path,
                                   conda_env=sklearn_conda_env_path)
-       
+
+        # Mock the TempDir.__exit__ function to ensure that the enclosing temporary
+        # directory is not deleted
         with AzureMLMocks() as aml_mocks,\
-                mock.patch("mlflow.utils.file_utils.TempDir.path") as tmpdir_path_mock:
-            def get_mock_path(subpath=None):
+                mock.patch("mlflow.utils.file_utils.TempDir.path") as tmpdir_path_mock,\
+                mock.patch("mlflow.utils.file_utils.TempDir.__exit__"):
+            def get_mock_path(subpath):
                 # Our current working directory is a temporary directory. Therefore, it is safe to
                 # directly return the specified subpath.
-                # os.makedirs(subpath)
-                if subpath is None:
-                    subpath = "."
                 return subpath
             tmpdir_path_mock.side_effect = get_mock_path
 
@@ -190,8 +190,8 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
             _, create_image_call_kwargs = create_image_call_args[0]
             image_config = create_image_call_kwargs["image_config"]
             assert image_config.conda_file is not None
-            print(os.path.exists(image_config.conda_file))
-            print(os.listdir(tmp.path()))
+            with open(image_config.conda_file, "r") as f:
+                assert f.read() == sklearn_conda_env_text
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
@@ -489,23 +489,3 @@ def test_cli_build_image_parses_and_includes_user_specified_tags_in_azureml_imag
         _, create_image_call_kwargs = create_image_call_args[0]
         image_config = create_image_call_kwargs["image_config"]
         assert custom_tags.items() <= image_config.tags.items()
-
-
-def testA():
-    with mock.patch("mlflow.utils.file_utils.TempDir.__exit__") as tmpdir_mock:
-        # def func(*args, **kwargs):
-        #     print("CAT")
-        #     return "COW" 
-        #
-        # tmpdir_mock.side_effect = func
-
-        with TempDir() as tmp:
-            print("TMPDIR", tmp)
-
-        print(os.path.exists(tmp.path()))
-
-
-        with TempDir() as tmp:
-            print("TMPDIR", tmp)
-
-        print(os.path.exists(tmp.path()))

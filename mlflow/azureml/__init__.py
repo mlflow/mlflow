@@ -101,8 +101,6 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         model_path = os.path.join(
             model_directory_path,
             _copy_file_or_tree(src=model_path, dst=model_directory_path))
-        print("MODEL PATH", model_path)
-        print(os.path.exists(model_path))
 
         registered_model = AzureModel.register(workspace=workspace, model_path=model_path,
                                                model_name=model_name, tags=tags,
