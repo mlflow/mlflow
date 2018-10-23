@@ -252,12 +252,18 @@ class FileStore(AbstractStore):
 
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
+        if run_info is None:
+            raise MlflowException("Run '%s' metadata is in invalid state." % run_id,
+                                  databricks_pb2.INVALID_STATE)
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=RunInfo.DELETED_LIFECYCLE)
         self._overwrite_run_info(new_info)
 
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)
+        if run_info is None:
+            raise MlflowException("Run '%s' metadata is in invalid state." % run_id,
+                                  databricks_pb2.INVALID_STATE)
         check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
         self._overwrite_run_info(new_info)
@@ -279,8 +285,8 @@ class FileStore(AbstractStore):
             runs = find(experiment_dir, run_uuid, full_path=True)
             if len(runs) == 0:
                 continue
-            return runs[0]
-        return None
+            return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
+        return None, None
 
     def update_run_info(self, run_uuid, run_status, end_time):
         _validate_run_id(run_uuid)
@@ -342,6 +348,9 @@ class FileStore(AbstractStore):
         """
         _validate_run_id(run_uuid)
         run_info = self._get_run_info(run_uuid)
+        if run_info is None:
+            raise MlflowException("Run '%s' metadata is in invalid state." % run_uuid,
+                                  databricks_pb2.INVALID_STATE)
         metrics = self.get_all_metrics(run_uuid)
         params = self.get_all_params(run_uuid)
         tags = self.get_all_tags(run_uuid)
@@ -351,15 +360,26 @@ class FileStore(AbstractStore):
         """
         Will get both active and deleted runs.
         """
-        run_dir = self._find_run_root(run_uuid)
-        if run_dir is not None:
-            meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-            return _read_persisted_run_info_dict(meta)
-        raise MlflowException("Run '%s' not found" % run_uuid,
-                              databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+        exp_id, run_dir = self._find_run_root(run_uuid)
+        if run_dir is None:
+            raise MlflowException("Run '%s' not found" % run_uuid,
+                                  databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+
+        meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+        run_info = _read_persisted_run_info_dict(meta)
+        if str(run_info.experiment_id) != str(exp_id):
+            logging.warning("Wrong experiment ID (%s) recorded for run '%s'. It should be %s. "
+                            "Run will be ignored.", str(run_info.experiment_id),
+                            str(run_info.run_uuid), str(exp_id), exc_info=True)
+            return None
+        return run_info
 
     def _get_run_files(self, run_uuid, resource_type):
         _validate_run_id(run_uuid)
+        run_info = self._get_run_info(run_uuid)
+        if run_info is None:
+            raise MlflowException("Run '%s' metadata is in invalid state." % run_uuid,
+                                  databricks_pb2.INVALID_STATE)
         if resource_type == "metric":
             subfolder_name = FileStore.METRICS_FOLDER_NAME
         elif resource_type == "param":
@@ -368,10 +388,8 @@ class FileStore(AbstractStore):
             subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
             raise Exception("Looking for unknown resource under run.")
-        run_dir = self._find_run_root(run_uuid)
-        if run_dir is None:
-            raise MlflowException("Run '%s' not found" % run_uuid,
-                                  databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+        _, run_dir = self._find_run_root(run_uuid)
+        # run_dir exists since run validity has been confirmed above.
         source_dirs = find(run_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
             return run_dir, []
@@ -484,6 +502,8 @@ class FileStore(AbstractStore):
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
                 run_info = self._get_run_info(r_id)
+                if run_info is None:
+                    continue
                 if self._lifecycle_stage_valid_for_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
             except MissingConfigException as rnfe:
