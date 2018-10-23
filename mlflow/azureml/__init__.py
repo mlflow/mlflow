@@ -68,7 +68,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
              - An `azureml.core.model.Model` object containing metadata for the new model.
 
     >>> import mlflow.azureml
-    >>> from azureml.core import Workspace 
+    >>> from azureml.core import Workspace
     >>> from azureml.core.webservice import AciWebservice, Webservice
     >>>
     >>> # Load or create an Azure ML Workspace
