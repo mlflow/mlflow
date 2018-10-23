@@ -104,15 +104,11 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     from azureml.core.model import Model as AzureModel
 
     if run_id is not None:
-        run_relative_model_path = model_path
-        model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
+        absolute_model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
     else:
-        # No run id was specified, so the run-relative path to include in Azure image/model tags
-        # is the absolute model path
-        run_relative_model_path = os.path.abspath(model_path)
-    model_path = os.path.abspath(model_path)
+        absolute_model_path = os.path.abspath(model_path)
 
-    model_pyfunc_conf = _load_pyfunc_conf(model_path=model_path)
+    model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
     if model_python_version is not None and\
             StrictVersion(model_python_version) < StrictVersion("3.0.0"):
@@ -120,7 +116,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                 message="Azure ML can only deploy models trained in Python 3 or above!",
                 error_code=INVALID_PARAMETER_VALUE)
 
-    tags = _build_tags(model_path=run_relative_model_path, run_id=run_id,
+    tags = _build_tags(relative_model_path=model_path, run_id=run_id,
                        model_python_version=model_python_version, user_tags=tags)
 
     if image_name is None:
@@ -130,11 +126,11 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
     with TempDir(chdr=True) as tmp:
         model_directory_path = tmp.path("model")
-        model_path = os.path.join(
+        tmp_model_path = os.path.join(
             model_directory_path,
-            _copy_file_or_tree(src=model_path, dst=model_directory_path))
+            _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path))
 
-        registered_model = AzureModel.register(workspace=workspace, model_path=model_path,
+        registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
                                                model_name=model_name, tags=tags,
                                                description=description)
         eprint("Registered an Azure Model with name: `{model_name}` and version:"
@@ -169,7 +165,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
         conda_env_path = None
         if pyfunc.ENV in model_pyfunc_conf:
-            conda_env_path = os.path.join(model_path, model_pyfunc_conf[pyfunc.ENV])
+            conda_env_path = os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV])
 
         image_configuration = ContainerImage.image_configuration(
                 execution_script=execution_script_path,
@@ -193,7 +189,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         return image, registered_model
 
 
-def _build_tags(model_path, run_id, model_python_version=None, user_tags=None):
+def _build_tags(relative_model_path, run_id, model_python_version=None, user_tags=None):
     """
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
@@ -203,7 +199,8 @@ def _build_tags(model_path, run_id, model_python_version=None, user_tags=None):
     :param user_tags: A collection of user-specified tags to append to the set of default tags.
     """
     tags = dict(user_tags) if user_tags is not None else {}
-    tags["model_path"] = model_path if run_id is not None else os.path.abspath(model_path)
+    tags["model_path"] = relative_model_path if run_id is not None\
+        else os.path.abspath(relative_model_path)
     if run_id is not None:
         tags["run_id"] = run_id
     if model_python_version is not None:
