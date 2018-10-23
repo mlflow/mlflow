@@ -1,4 +1,6 @@
+import json
 import hashlib
+import mock
 import os
 
 import pytest
@@ -9,7 +11,7 @@ from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI,\
     TEST_NO_SPEC_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
+from click.testing import CliRunner
 
 @pytest.mark.large
 def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
@@ -61,3 +63,22 @@ def test_run_git_ssh(tracking_uri_mock):  # pylint: disable=unused-argument
     assert SSH_PROJECT_URI.startswith("git@")
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+
+
+def test_run_databricks_cluster_spec():
+    cluster_spec_dict = {
+        "spark_version": "5.0.x-scala2.11",
+        "num_workers": 2,
+        "node_type_id": "i3.xlarge",
+    }
+    with mock.patch("mlflow.projects.run") as run_mock:
+        invoke_cli_runner(
+            cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec-json",
+                      json.dumps(cluster_spec_dict), "-e", "greeter", "-P", "name=hi"])
+        assert run_mock.call_count == 1
+        _, run_kwargs = run_mock.call_args_list[0]
+        assert run_kwargs["cluster_spec_dict"] == cluster_spec_dict
+        res = CliRunner().invoke(
+            cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec-json",
+                      json.dumps(cluster_spec_dict) + "JUNK", "-e", "greeter", "-P", "name=hi"])
+        assert res.exit_code == 1

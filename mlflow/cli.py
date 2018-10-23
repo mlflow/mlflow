@@ -108,6 +108,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             cluster_spec_dict = json.loads(cluster_spec_json)
         except ValueError as e:
             print("Invalid cluster spec JSON. Parse error: %s" % e)
+            raise
     try:
         projects.run(
             uri,
