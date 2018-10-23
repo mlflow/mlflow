@@ -20,5 +20,6 @@ torch
 torchvision
 pysftp
 keras
-azureml-sdk
 attrdict==2.0.0
+cloudpickle
+azureml-sdk
