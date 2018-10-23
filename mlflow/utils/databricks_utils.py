@@ -2,7 +2,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.logging_utils import eprint
 from databricks_cli.configure import provider
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID,\
+    MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
+
 
 def _get_dbutils():
     try:
@@ -32,6 +34,7 @@ def is_in_databricks_notebook():
         return _get_extra_context("aclPathOfAclRoot").startswith('/workspace')
     except Exception:  # pylint: disable=broad-except
         return False
+
 
 def get_databricks_tags():
     databricks_tags = {}
