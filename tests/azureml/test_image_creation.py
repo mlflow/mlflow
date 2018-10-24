@@ -338,7 +338,7 @@ def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
         assert dockerfile_mlflow_path in image_config.dependencies
 
 
-def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
+def test_python_3_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
@@ -352,7 +352,8 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+                output_path=execution_script_path, azure_model=model_mock,
+                model_python_version="3.0.0")
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
@@ -374,7 +375,7 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         assert get_model_path_call_kwargs["version"] == model_version
 
 
-def test_execution_script_run_method_scores_pandas_dataframes_successfully(
+def test_python_3_execution_script_run_method_scores_pandas_dataframes_successfully(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
@@ -385,7 +386,8 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+                output_path=execution_script_path, azure_model=model_mock,
+                model_python_version="3.0.0")
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()

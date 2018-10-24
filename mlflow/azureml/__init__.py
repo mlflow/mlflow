@@ -161,7 +161,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
             conda_env_path = tmp.path("py2_conda_env.yaml")
             _mlflow_conda_env(
                     path=conda_env_path, python_version=model_python_version)
-        image_file_dependencies.append(conda_env_path)
+        if conda_env_path is not None:
+            image_file_dependencies.append(conda_env_path)
 
         if mlflow_home is not None:
             eprint("Copying the specified mlflow_home directory: `{mlflow_home}` to a temporary"

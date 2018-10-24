@@ -17,8 +17,8 @@ def get_conda_bin_path():
 
 
 def init():
-    global py2_server_url
-    py2_server_url = "127.0.0.1:8080"
+    global py2_server_address
+    py2_server_address = "127.0.0.1:8080"
 
     model_path = Model.get_model_path(model_name="{model_name}", version={model_version})
     conda_bin_path = get_conda_bin_path()
@@ -37,7 +37,7 @@ def init():
         "exec 200>lock.lock && flock -n 200",
         ("gunicorn --timeout 60 -k gevent -b {{gunicorn_bind_address}}"
          " -w {{num_gunicorn_workers}} '{{gunicorn_target}}'".format(
-             gunicorn_bind_address=py2_server_url,
+             gunicorn_bind_address=py2_server_address,
              num_gunicorn_workers=num_gunicorn_workers,
              gunicorn_target=gunicorn_target))
     ]
@@ -49,7 +49,7 @@ def run(input_json):
     import requests
 
     response = requests.post(
-        url="{{url_base}}/invocations".format(url_base=py2_server_url),
+        url="http://{{url_base}}/invocations".format(url_base=py2_server_address),
         headers={{"Content-type": "application/json"}},
         data=input_json)
     return response.text
