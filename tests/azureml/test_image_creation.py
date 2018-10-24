@@ -338,8 +338,7 @@ def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
         assert dockerfile_mlflow_path in image_config.dependencies
 
 
-def test_python_2_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
-        sklearn_model, model_path):
+def test_python_2_execution_script_init_method_attempts_to_load_correct_azure_ml_model():
     model_name = "test_model_name"
     model_version = 1
 
