@@ -338,10 +338,43 @@ def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
         assert dockerfile_mlflow_path in image_config.dependencies
 
 
-def test_python_3_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
+def test_python_2_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         sklearn_model, model_path):
-    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    model_name = "test_model_name"
+    model_version = 1
 
+    model_mock = Mock()
+    model_mock.name = model_name
+    model_mock.version = model_version
+
+    with TempDir() as tmp:
+        execution_script_path = tmp.path("dest")
+        mlflow.azureml._create_execution_script(
+                output_path=execution_script_path, azure_model=model_mock,
+                model_python_version="2.7.0")
+
+        with open(execution_script_path, "r") as f:
+            execution_script = f.read()
+            print(execution_script)
+
+    # Define the `init` and `score` methods contained in the execution script
+    # pylint: disable=exec-used
+    exec(execution_script, globals())
+    with AzureMLMocks() as aml_mocks:
+        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
+        # Execute the `init` method of the execution script.
+        # pylint: disable=undefined-variable
+        init()
+
+        assert aml_mocks["get_model_path"].call_count == 1
+        get_model_path_call_args = aml_mocks["get_model_path"].call_args_list
+        assert len(get_model_path_call_args) == 1
+        _, get_model_path_call_kwargs = get_model_path_call_args[0]
+        assert get_model_path_call_kwargs["model_name"] == model_name
+        assert get_model_path_call_kwargs["version"] == model_version
+
+
+def test_python_3_execution_script_init_method_attempts_to_load_correct_azure_ml_model():
     model_name = "test_model_name"
     model_version = 1
 

@@ -34,7 +34,7 @@ def init():
             conda_activate_path=conda_activate_path),
         # Only a single Flask server should be started. We use an exclusive file lock to ensure that
         # the server is not started by multiple worker processes calling `init()`
-        "exec 200>lock.lock && flock -n 200",
+        "exec 200>lock.lock && flock -w 20 200",
         ("gunicorn --timeout 60 -k gevent -b {{gunicorn_bind_address}}"
          " -w {{num_gunicorn_workers}} '{{gunicorn_target}}'".format(
              gunicorn_bind_address=py2_server_address,
@@ -47,10 +47,14 @@ def init():
 
 def run(input_json):
     import requests
+    import json
 
     response = requests.post(
         url="http://{{url_base}}/invocations".format(url_base=py2_server_address),
         headers={{"Content-type": "application/json"}},
         data=input_json)
-    return response.text
+    if response.status_code == 200:
+        return json.loads(response.text)
+    else:
+        return response.text
 """
