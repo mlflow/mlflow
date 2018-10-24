@@ -3,7 +3,7 @@ CONDA_ENV_NAME = "py2_conda_env"
 SCORE_SRC = """\
 import os
 import multiprocessing
-from subprocess import check_output, Popen 
+from subprocess import check_output, Popen
 
 from azureml.core.model import Model
 

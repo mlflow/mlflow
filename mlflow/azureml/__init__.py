@@ -112,7 +112,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    
+
     tags = _build_tags(relative_model_path=model_path, run_id=run_id,
                        model_python_version=model_python_version, user_tags=tags)
 
@@ -171,14 +171,14 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
         dockerfile_path = tmp.path("Dockerfile")
         _create_dockerfile(
-                output_path=dockerfile_path, 
+                output_path=dockerfile_path,
                 # If the model was trained in Python 2, we will install its conda environment
                 # via the specified Dockerfile instead of passing it to the image configuration.
                 # This prevents Azure from removing the Python version from the environment
                 # configuration file.
                 conda_env_path=(
                     conda_env_path if _model_was_trained_in_python2(model_python_version)\
-                            else None),
+                    else None),
                 mlflow_path=mlflow_home)
 
         image_configuration = ContainerImage.image_configuration(
@@ -186,13 +186,13 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                 runtime="python",
                 docker_file=dockerfile_path,
                 dependencies=image_file_dependencies,
-                # If the model was trained in Python 2, we will use Azure's default conda 
-                # environment for the server entrypoint. At runtime, this entrypoint will activate 
+                # If the model was trained in Python 2, we will use Azure's default conda
+                # environment for the server entrypoint. At runtime, this entrypoint will activate
                 # the Python-2-compatible conda environment that was installed via the specified
                 # Dockerfile.
                 conda_file=(
                     conda_env_path if not _model_was_trained_in_python2(model_python_version)\
-                            else None),
+                    else None),
                 description=description,
                 tags=tags,
         )
@@ -289,9 +289,9 @@ def _create_dockerfile(output_path, conda_env_path=None, mlflow_path=None):
         # specified environment
         docker_cmds.append(
             "RUN conda env create -f {conda_env_path} --name {conda_env_name}".format(
-                conda_env_path=_get_container_path(conda_env_path), 
+                conda_env_path=_get_container_path(conda_env_path),
                 conda_env_name=CONDA_ENV_NAME_PYTHON_2))
-        
+
         bash_cmds = [
             "source $(dirname $(realpath `which conda`))/activate {conda_env_name}".format(
                 conda_env_name=CONDA_ENV_NAME_PYTHON_2),
@@ -302,7 +302,7 @@ def _create_dockerfile(output_path, conda_env_path=None, mlflow_path=None):
         docker_cmds.append(
             "RUN /bin/bash -c \"{bash_cmds}\"".format(bash_cmds=" && ".join(bash_cmds)))
     else:
-        # If no conda environment is specified, install MLflow in the base conda environment 
+        # If no conda environment is specified, install MLflow in the base conda environment
         docker_cmds.append(mlflow_install_cmd)
 
     with open(output_path, "w") as f:
