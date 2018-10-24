@@ -112,7 +112,9 @@ def _serve_pyfunc(model):
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
     cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
-           "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
+           "'mlflow.sagemaker.container.scoring_server.wsgi:app(\"{model_path}\")'").format(
+                   model_path=MODEL_PATH,
+                   nworkers=cpu_count)
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))

@@ -13,6 +13,8 @@ from distutils.version import StrictVersion
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.azureml.py2 import SCORE_SRC as SCORE_SRC_PYTHON_2
+from mlflow.azureml.py2 import CONDA_ENV_NAME as CONDA_ENV_NAME_PYTHON_2
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -110,12 +112,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    if model_python_version is not None and\
-            StrictVersion(model_python_version) < StrictVersion("3.0.0"):
-        raise MlflowException(
-                message="Azure ML can only deploy models trained in Python 3 or above!",
-                error_code=INVALID_PARAMETER_VALUE)
-
+    
     tags = _build_tags(relative_model_path=model_path, run_id=run_id,
                        model_python_version=model_python_version, user_tags=tags)
 
@@ -142,7 +139,9 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         # image creation, so we create the execution script as a temporary file in the current
         # working directory.
         execution_script_path = tmp.path("execution_script.py")
-        _create_execution_script(output_path=execution_script_path, azure_model=registered_model)
+        _create_execution_script(
+                output_path=execution_script_path, azure_model=registered_model,
+                model_python_version=model_python_version)
         # Azure ML copies the execution script into the image's application root directory by
         # prepending "/var/azureml-app" to the specified script path. The script is then executed
         # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
@@ -152,27 +151,49 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         # this relative path is the script path's base name.
         execution_script_path = os.path.basename(execution_script_path)
 
+        image_file_dependencies = []
+
+        conda_env_path = None
+        if pyfunc.ENV in model_pyfunc_conf:
+            conda_env_path = os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV])
+        elif _model_was_trained_in_python2(model_python_version):
+            conda_env_path = tmp.path("py2_conda_env.yaml")
+            _mlflow_conda_env(
+                    path=conda_env_path, python_version=model_python_version, 
+                    additional_conda_deps=["gevent", "gunicorn"])
+        image_file_dependencies.append(conda_env_path)
+
         if mlflow_home is not None:
             eprint("Copying the specified mlflow_home directory: `{mlflow_home}` to a temporary"
                    " location for container creation".format(mlflow_home=mlflow_home))
             mlflow_home = os.path.join(tmp.path(),
                                        _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
-            image_file_dependencies = [mlflow_home]
-        else:
-            image_file_dependencies = None
-        dockerfile_path = tmp.path("Dockerfile")
-        _create_dockerfile(output_path=dockerfile_path, mlflow_path=mlflow_home)
+            image_file_dependencies.append(mlflow_home)
 
-        conda_env_path = None
-        if pyfunc.ENV in model_pyfunc_conf:
-            conda_env_path = os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV])
+        dockerfile_path = tmp.path("Dockerfile")
+        _create_dockerfile(
+                output_path=dockerfile_path, 
+                # If the model was trained in Python 2, we will install its conda environment
+                # via the specified Dockerfile instead of passing it to the image configuration.
+                # This prevents Azure from removing the Python version from the environment
+                # configuration file.
+                conda_env_path=(
+                    conda_env_path if _model_was_trained_in_python2(model_python_version)\
+                            else None),
+                mlflow_path=mlflow_home)
 
         image_configuration = ContainerImage.image_configuration(
                 execution_script=execution_script_path,
                 runtime="python",
                 docker_file=dockerfile_path,
                 dependencies=image_file_dependencies,
-                conda_file=conda_env_path,
+                # If the model was trained in Python 2, we will use Azure's default conda 
+                # environment for the server entrypoint. At runtime, this entrypoint will activate 
+                # the Python-2-compatible conda environment that was installed via the specified
+                # Dockerfile.
+                conda_file=(
+                    conda_env_path if not _model_was_trained_in_python2(model_python_version)\
+                            else None),
                 description=description,
                 tags=tags,
         )
@@ -208,7 +229,7 @@ def _build_tags(relative_model_path, run_id, model_python_version=None, user_tag
     return tags
 
 
-def _create_execution_script(output_path, azure_model):
+def _create_execution_script(output_path, azure_model, model_python_version):
     """
     Creates an Azure-compatibele execution script (entry point) for a model server backed by
     the specified model. This script is created as a temporary file in the current working
@@ -218,14 +239,19 @@ def _create_execution_script(output_path, azure_model):
     :param azure_model: The Azure Model that the execution script will load for inference.
     :return: A reference to the temporary file containing the execution script.
     """
-    execution_script_text = SCORE_SRC.format(
-            model_name=azure_model.name, model_version=azure_model.version)
+    if _model_was_trained_in_python2(model_python_version=model_python_version):
+        execution_script_text = SCORE_SRC_PYTHON_2.format(
+                model_name=azure_model.name, model_version=azure_model.version,
+                conda_env_name=CONDA_ENV_NAME_PYTHON_2)
+    else:
+        execution_script_text = SCORE_SRC_PYTHON_3.format(
+                model_name=azure_model.name, model_version=azure_model.version)
 
     with open(output_path, "w") as f:
         f.write(execution_script_text)
 
 
-def _create_dockerfile(output_path, mlflow_path=None):
+def _create_dockerfile(output_path, conda_env_path=None, mlflow_path=None):
     """
     Creates a Dockerfile containing additional Docker build steps to execute
     when building the Azure container image. These build steps perform the following tasks:
@@ -237,14 +263,18 @@ def _create_dockerfile(output_path, mlflow_path=None):
                         Dockerfile command for MLflow installation will install MLflow from this
                         directory. Otherwise, it will install MLflow from pip.
     """
-    docker_cmds = ["RUN pip install azureml-sdk"]
-
     if mlflow_path is not None:
-        mlflow_install_cmd = "RUN pip install -e {mlflow_path}".format(
-            mlflow_path=_get_container_path(mlflow_path))
+        mlflow_install_cmd = "pip install -e {mlflow_path}".format(
+                mlflow_path=_get_container_path(mlflow_path))
+        # docker_cmds.append(
+        #     "RUN pip install -e {mlflow_path}".format(
+        #         mlflow_path=_get_container_path(mlflow_path)))
     elif not mlflow_version.endswith("dev"):
-        mlflow_install_cmd = "RUN pip install mlflow=={mlflow_version}".format(
-            mlflow_version=mlflow_version)
+        mlflow_install_cmd = "pip install mlflow=={mlflow_version}".format(
+                mlflow_version=mlflow_version)
+        # docker_cmds.append(
+        #     "RUN pip install mlflow=={mlflow_version}".format(
+        #         mlflow_version=mlflow_version))
     else:
         raise MlflowException(
                 "You are running a 'dev' version of MLflow: `{mlflow_version}` that cannot be"
@@ -252,7 +282,28 @@ def _create_dockerfile(output_path, mlflow_path=None):
                 " path to a local copy of the MLflow GitHub repository using the `mlflow_home`"
                 " parameter or install a release version of MLflow from pip".format(
                     mlflow_version=mlflow_version))
-    docker_cmds.append(mlflow_install_cmd)
+
+    docker_cmds = ["RUN pip install azureml-sdk"]
+
+    if conda_env_path is not None:
+        # If a conda environment is specified, activate it and install MLflow inside the
+        # specified environment
+        conda_env_name = "custom_env"
+        docker_cmds.append(
+            "RUN conda env create -f {conda_env_path} --name {conda_env_name}".format(
+                conda_env_path=_get_container_path(conda_env_path), 
+                conda_env_name=CONDA_ENV_NAME_PYTHON_2))
+        
+        bash_cmds = [
+            "source $(dirname $(realpath `which conda`))/activate {conda_env_name}".format(
+                conda_env_name=CONDA_ENV_NAME_PYTHON_2),
+            mlflow_install_cmd 
+        ]
+        docker_cmds.append(
+            "RUN /bin/bash -c \"{bash_cmds}\"".format(bash_cmds=" && ".join(bash_cmds)))
+    else:
+        # If no conda environment is specified, install MLflow in the base conda environment 
+        docker_cmds.append(mlflow_install_cmd)
 
     with open(output_path, "w") as f:
         f.write("\n".join(docker_cmds))
@@ -298,7 +349,13 @@ def _get_mlflow_azure_resource_name():
     return resource_prefix + unique_id
 
 
-SCORE_SRC = """
+def _model_was_trained_in_python2(model_python_version=None):
+    # If the model does not specify a python version, we assume that it was not trained in python 2.
+    return (model_python_version is not None) and\
+            (StrictVersion(model_python_version) < StrictVersion("3.0.0"))
+
+
+SCORE_SRC_PYTHON_3 = """\
 import pandas as pd
 
 from azureml.core.model import Model
