@@ -287,7 +287,6 @@ def _create_dockerfile(output_path, conda_env_path=None, mlflow_path=None):
     if conda_env_path is not None:
         # If a conda environment is specified, activate it and install MLflow inside the
         # specified environment
-        conda_env_name = "custom_env"
         docker_cmds.append(
             "RUN conda env create -f {conda_env_path} --name {conda_env_name}".format(
                 conda_env_path=_get_container_path(conda_env_path), 
