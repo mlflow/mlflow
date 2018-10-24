@@ -91,6 +91,7 @@ class ExperimentRunsTableCompactView extends Component {
     this.setState({[stateKey]: unbagged.concat([colName])});
   }
 
+
   // Builds a single row of table content (not header)
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
@@ -131,17 +132,7 @@ class ExperimentRunsTableCompactView extends Component {
 
     // Add params (unbagged, then bagged)
     unbaggedParams.forEach((paramKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyName = "param-" + paramKey;
-      if (paramsMap[paramKey]) {
-        rowContents.push(<td className={className} key={keyName}>
-          <div>
-            {paramsMap[paramKey].getValue()}
-          </div>
-        </td>);
-      } else {
-        rowContents.push(<td className={className} key={keyName}/>);
-      }
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(i, paramKey, paramsMap));
     });
     // Add bagged params
     const filteredParamKeys = baggedParams.filter((paramKey) => paramsMap[paramKey] !== undefined);
@@ -221,32 +212,8 @@ class ExperimentRunsTableCompactView extends Component {
 
     // Add metrics (unbagged, then bagged)
     unbaggedMetrics.forEach((metricKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyName = "metric-" + metricKey;
-      if (metricsMap[metricKey]) {
-        const metric = metricsMap[metricKey].getValue();
-        const range = metricRanges[metricKey];
-        let fraction = 1.0;
-        if (range.max > range.min) {
-          fraction = (metric - range.min) / (range.max - range.min);
-        }
-        const percent = (fraction * 100) + "%";
-        rowContents.push(
-          <td className={className} key={keyName}>
-            {/* We need the extra div because metric-filler-bg is inline-block */}
-            <div>
-              <div className="metric-filler-bg">
-                <div className="metric-filler-fg" style={{width: percent}}/>
-                <div className="metric-text">
-                  {Utils.formatMetric(metric)}
-                </div>
-              </div>
-            </div>
-          </td>
-        );
-      } else {
-        rowContents.push(<td className={className} key={keyName}/>);
-      }
+      rowContents.push(
+        ExperimentViewUtil.getUnbaggedMetricCell(i, metricKey, metricsMap, metricRanges));
     });
 
     // Add bagged metrics
@@ -434,7 +401,7 @@ class ExperimentRunsTableCompactView extends Component {
 
     if (this.showBaggedColumn(true)) {
       columns.push(<th key="meta-bagged-params left-border" className={paramClassName}>
-        {paramKeyList.length !== 0 ? "Other Params" : "(n/a)"}
+        {paramKeyList.length !== 0 ? "" : "(n/a)"}
       </th>);
     }
     unbaggedMetrics.forEach((metricKey, i) => {
@@ -442,7 +409,7 @@ class ExperimentRunsTableCompactView extends Component {
     });
     if (this.showBaggedColumn(false)) {
       columns.push(<th key="meta-bagged-metrics left-border" className={metricClassName}>
-        {metricKeyList.length !== 0 ? "Other Metrics" : "(n/a)"}
+        {metricKeyList.length !== 0 ? "" : "(n/a)"}
       </th>);
     }
     return columns;
