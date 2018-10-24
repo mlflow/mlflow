@@ -16,13 +16,9 @@ from mlflow.entities import Experiment, Run, SourceType, RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
-from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
-    get_notebook_path, get_webapp_url
+from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_path
 from mlflow.utils import databricks_utils
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
-    MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
-    MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
