@@ -101,7 +101,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     """
     # The Azure ML SDK is only compatible with Python 3. However, the `mlflow.azureml` module should
     # still be accessible for import from Python 2. Therefore, we will only import from the SDK
-    # upon method invocation.
+    # upon method invocation
     # pylint: disable=import-error
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
@@ -176,7 +176,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                 # If the model was trained in Python 2, we will install its conda environment
                 # via the specified Dockerfile instead of passing it to the image configuration.
                 # This prevents Azure from removing the Python version from the environment
-                # configuration file.
+                # configuration file
                 conda_env_path=(
                     conda_env_path if _model_was_trained_in_python2(model_python_version)\
                     else None),
@@ -190,7 +190,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                 # If the model was trained in Python 2, we will use Azure's default conda
                 # environment for the server entrypoint. At runtime, this entrypoint will activate
                 # the Python-2-compatible conda environment that was installed via the specified
-                # Dockerfile.
+                # Dockerfile
                 conda_file=(
                     conda_env_path if not _model_was_trained_in_python2(model_python_version)\
                     else None),
