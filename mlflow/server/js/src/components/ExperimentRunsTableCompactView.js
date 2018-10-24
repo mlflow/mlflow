@@ -131,8 +131,8 @@ class ExperimentRunsTableCompactView extends Component {
     const baggedMetrics = metricKeyList.filter((elem) => !unbaggedMetricSet.has(elem));
 
     // Add params (unbagged, then bagged)
-    unbaggedParams.forEach((paramKey, i) => {
-      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(i, paramKey, paramsMap));
+    unbaggedParams.forEach((paramKey) => {
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
     });
     // Add bagged params
     const filteredParamKeys = baggedParams.filter((paramKey) => paramsMap[paramKey] !== undefined);
@@ -211,9 +211,9 @@ class ExperimentRunsTableCompactView extends Component {
     }
 
     // Add metrics (unbagged, then bagged)
-    unbaggedMetrics.forEach((metricKey, i) => {
+    unbaggedMetrics.forEach((metricKey) => {
       rowContents.push(
-        ExperimentViewUtil.getUnbaggedMetricCell(i, metricKey, metricsMap, metricRanges));
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
     });
 
     // Add bagged metrics

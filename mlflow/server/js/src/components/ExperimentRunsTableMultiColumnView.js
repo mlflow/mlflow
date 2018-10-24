@@ -63,15 +63,15 @@ class ExperimentRunsTableMultiColumnView extends Component {
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent).forEach((col) =>
       rowContents.push(col));
-    paramKeyList.forEach((paramKey, i) => {
-      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(i, paramKey, paramsMap));
+    paramKeyList.forEach((paramKey) => {
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
     });
     if (numParams === 0) {
       rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
-    metricKeyList.forEach((metricKey, i) => {
+    metricKeyList.forEach((metricKey) => {
       rowContents.push(
-        ExperimentViewUtil.getUnbaggedMetricCell(i, metricKey, metricsMap, metricRanges));
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
     });
     if (numMetrics === 0) {
       rowContents.push(<td className="left-border" key="meta-metric-empty" />);

@@ -136,8 +136,8 @@ export default class ExperimentViewUtil {
   }
 
 
-  static getUnbaggedMetricCell(i, metricKey, metricsMap, metricRanges) {
-    const className = (i === 0 ? "left-border" : "") + " run-table-container";
+  static getUnbaggedMetricCell(metricKey, metricsMap, metricRanges) {
+    const className = "left-border run-table-container";
     const keyName = "metric-" + metricKey;
     if (metricsMap[metricKey]) {
       const metric = metricsMap[metricKey].getValue();
@@ -164,8 +164,8 @@ export default class ExperimentViewUtil {
     return <td className={className} key={keyName}/>;
   }
 
-  static getUnbaggedParamCell(i, paramKey, paramsMap) {
-    const className = (i === 0 ? "left-border" : "") + " run-table-container";
+  static getUnbaggedParamCell(paramKey, paramsMap) {
+    const className = "left-border run-table-container";
     const keyName = "param-" + paramKey;
     if (paramsMap[paramKey]) {
       return <td className={className} key={keyName}>
