@@ -200,9 +200,9 @@ cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
-cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
+cli.add_command(mlflow.azureml.cli.commands)
 
 if __name__ == '__main__':
     cli()
