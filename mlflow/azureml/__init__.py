@@ -266,15 +266,9 @@ def _create_dockerfile(output_path, conda_env_path=None, mlflow_path=None):
     if mlflow_path is not None:
         mlflow_install_cmd = "pip install -e {mlflow_path}".format(
                 mlflow_path=_get_container_path(mlflow_path))
-        # docker_cmds.append(
-        #     "RUN pip install -e {mlflow_path}".format(
-        #         mlflow_path=_get_container_path(mlflow_path)))
     elif not mlflow_version.endswith("dev"):
         mlflow_install_cmd = "pip install mlflow=={mlflow_version}".format(
                 mlflow_version=mlflow_version)
-        # docker_cmds.append(
-        #     "RUN pip install mlflow=={mlflow_version}".format(
-        #         mlflow_version=mlflow_version))
     else:
         raise MlflowException(
                 "You are running a 'dev' version of MLflow: `{mlflow_version}` that cannot be"
