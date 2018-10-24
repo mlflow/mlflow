@@ -53,6 +53,7 @@ class AzureMLMocks:
 
 
 def get_azure_workspace():
+    # pylint: disable=import-error
     from azureml.core import Workspace
     return Workspace.get("test_workspace")
 
@@ -112,7 +113,7 @@ def test_synchronous_build_image_awaits_azure_image_creation(sklearn_model, mode
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_asynchronous_build_image_does_not_await_azure_image_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
-    with AzureMLMocks() as aml_mocks:
+    with AzureMLMocks():
         workspace = get_azure_workspace()
         image, _ = mlflow.azureml.build_image(
                 model_path=model_path, workspace=workspace, synchronous=False)

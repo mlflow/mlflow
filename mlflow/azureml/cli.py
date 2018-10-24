@@ -55,6 +55,7 @@ def build_image(model_path, workspace_name, subscription_id, run_id, image_name,
     # The Azure ML SDK is only compatible with Python 3. However, this CLI should still be
     # accessible for inspection rom Python 2. Therefore, we will only import from the SDK
     # upon command invocation.
+    # pylint: disable=import-error
     from azureml.core import Workspace
 
     workspace = Workspace.get(name=workspace_name, subscription_id=subscription_id)
