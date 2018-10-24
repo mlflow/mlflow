@@ -13,12 +13,13 @@ import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 
-import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
+import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
+
 
 export const DEFAULT_EXPANDED_VALUE = true;
 

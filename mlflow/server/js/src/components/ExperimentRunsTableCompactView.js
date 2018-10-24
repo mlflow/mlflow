@@ -66,6 +66,9 @@ class ExperimentRunsTableCompactView extends Component {
 
   state = {
     hoverState: {isMetric: false, isParam: false, key: ""},
+    // Arrays of "unbagged", or split-out metrics and parameters. We maintain these as lists to help
+    // keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
+    // that have already been split out)
     unbaggedMetrics: [],
     unbaggedParams: [],
   };
@@ -127,16 +130,17 @@ class ExperimentRunsTableCompactView extends Component {
 
     const unbaggedParamSet = new Set(unbaggedParams);
     const unbaggedMetricSet = new Set(unbaggedMetrics);
-    const baggedParams = paramKeyList.filter((elem) => !unbaggedParamSet.has(elem));
-    const baggedMetrics = metricKeyList.filter((elem) => !unbaggedMetricSet.has(elem));
+    const baggedParams = paramKeyList.filter((paramKey) =>
+      !unbaggedParamSet.has(paramKey) && paramsMap[paramKey] !== undefined);
+    const baggedMetrics = metricKeyList.filter((metricKey) =>
+      !unbaggedMetricSet.has(metricKey) && metricsMap[metricKey] !== undefined);
 
     // Add params (unbagged, then bagged)
     unbaggedParams.forEach((paramKey) => {
       rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
     });
     // Add bagged params
-    const filteredParamKeys = baggedParams.filter((paramKey) => paramsMap[paramKey] !== undefined);
-    const paramsCellContents = filteredParamKeys.map((paramKey) => {
+    const paramsCellContents = baggedParams.map((paramKey) => {
       const cellClass = classNames("metric-param-content",
         { highlighted: hoverState.isParam && hoverState.key === paramKey });
       const keyname = "param-" + paramKey;
@@ -217,8 +221,7 @@ class ExperimentRunsTableCompactView extends Component {
     });
 
     // Add bagged metrics
-    const filteredMetricKeys = baggedMetrics.filter((key) => metricsMap[key] !== undefined);
-    const metricsCellContents = filteredMetricKeys.map((metricKey) => {
+    const metricsCellContents = baggedMetrics.map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const cellClass = classNames("metric-param-content",
         { highlighted: hoverState.isMetric && hoverState.key === metricKey });
@@ -344,7 +347,6 @@ class ExperimentRunsTableCompactView extends Component {
       unbaggedMetrics,
     } = this.state;
     const columns = [];
-
     const getHeaderCell = (isParam, key, i) => {
       const isMetric = !isParam;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
@@ -435,6 +437,7 @@ class ExperimentRunsTableCompactView extends Component {
       tagsList,
       runsExpanded,
       getRow: this.getRow });
+
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked),
       // placeholder for expander header cell,
