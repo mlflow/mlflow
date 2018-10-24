@@ -115,9 +115,9 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
             StrictVersion(model_python_version) < StrictVersion("3.0.0"):
         raise MlflowException(
                 message=("Azure ML can only deploy models trained in Python 3 or above! Please see"
-                         " the following GitHub issue for an explanation and a workaround to enable"
-                         " support for deploying models trained in Python 2:"
-                         " https://github.com/mlflow/mlflow/issues/668"),
+                         " the following GitHub issue for an thorough explanation of this"
+                         " limitation and a workaround to enable support for deploying models"
+                         " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
                 error_code=INVALID_PARAMETER_VALUE)
 
     tags = _build_tags(relative_model_path=model_path, run_id=run_id,
