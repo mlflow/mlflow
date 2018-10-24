@@ -212,12 +212,12 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     });
-    const baggedParamsClassname =
-      classNames({"left-border": unbaggedParams.length !== paramKeyList.length});
-    rowContents.push(
-      <td key="params-container-cell" className={baggedParamsClassname}>
-        <div>{paramsCellContents}</div>
-      </td>);
+    if (this.showBaggedColumn(true)) {
+      rowContents.push(
+        <td key="params-container-cell" className="left-border">
+          <div>{paramsCellContents}</div>
+        </td>);
+    }
 
     // Add metrics (unbagged, then bagged)
     unbaggedMetrics.forEach((metricKey, i) => {
@@ -316,15 +316,15 @@ class ExperimentRunsTableCompactView extends Component {
         </span>
       );
     });
-    const baggedMetricsClassname = classNames("metric-param-container-cell",
-      {"left-border": unbaggedMetrics.length !== metricKeyList.length});
-    rowContents.push(
-      <td key="metrics-container-cell" className={baggedMetricsClassname}>
-        <div>
-          {metricsCellContents}
-        </div>
-      </td>
-    );
+    if (this.showBaggedColumn(false)) {
+      rowContents.push(
+        <td key="metrics-container-cell" className="metric-param-container-cell left-border">
+          <div>
+            {metricsCellContents}
+          </div>
+        </td>
+      );
+    }
     const sortValue = ExperimentViewUtil.computeSortValue(
       sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
     return {
@@ -354,6 +354,15 @@ class ExperimentRunsTableCompactView extends Component {
       </span>);
     }
     return undefined;
+  }
+
+  showBaggedColumn(isParam) {
+    const { metricKeyList, paramKeyList } = this.props;
+    const { unbaggedMetrics, unbaggedParams} = this.state;
+    if (isParam) {
+      return unbaggedParams.length !== paramKeyList.length || paramKeyList.length === 0;
+    }
+    return unbaggedMetrics.length !== metricKeyList.length || metricKeyList.length === 0;
   }
 
   getMetricParamHeaderCells() {
@@ -423,46 +432,20 @@ class ExperimentRunsTableCompactView extends Component {
       columns.push(getHeaderCell(true, paramKey, i));
     });
 
-    const hasBaggedParams = unbaggedParams.length !== paramKeyList.length;
-    columns.push(<th key="meta-bagged-params left-border" className={paramClassName}>
-      {hasBaggedParams ? this.getBaggedHeaderDropdown(true) : ""}
-    </th>);
+    if (this.showBaggedColumn(true)) {
+      columns.push(<th key="meta-bagged-params left-border" className={paramClassName}>
+        {paramKeyList.length !== 0 ? "Other Params" : "(n/a)"}
+      </th>);
+    }
     unbaggedMetrics.forEach((metricKey, i) => {
       columns.push(getHeaderCell(false, metricKey, i));
     });
-    const hasBaggedMetrics = unbaggedMetrics.length !== metricKeyList.length;
-    columns.push(<th key="meta-bagged-metrics left-border" className={metricClassName}>
-      {hasBaggedMetrics ? this.getBaggedHeaderDropdown(false) : ""}
-    </th>);
+    if (this.showBaggedColumn(false)) {
+      columns.push(<th key="meta-bagged-metrics left-border" className={metricClassName}>
+        {metricKeyList.length !== 0 ? "Other Metrics" : "(n/a)"}
+      </th>);
+    }
     return columns;
-  }
-
-  getBaggedHeaderDropdown(isParam) {
-    // TODO rename toggle component to something appropriate, like EmptyToggle or something
-    const stateKeyToUpdate = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    const keyList = isParam ? this.props.paramKeyList : this.props.metricKeyList;
-    return <Dropdown id={stateKeyToUpdate + "-header"}>
-      <ExperimentRunsSortToggle
-        bsRole="toggle"
-        className="metric-param-sort-toggle"
-      >
-        <i className="fas fa-cog" style={{cursor: "pointer", marginLeft: 10, fontSize: '1.5em'}}/>
-      </ExperimentRunsSortToggle>
-      <Dropdown.Menu className="mlflow-menu">
-        <MenuItem
-          className="mlflow-menu-item"
-          onClick={() => this.setState({[stateKeyToUpdate]: keyList.slice(0, keyList.length)})}
-        >
-          Display all in columns
-        </MenuItem>
-        <MenuItem
-          className="mlflow-menu-item"
-          onClick={() => this.setState({[stateKeyToUpdate]: []})}
-        >
-          Collapse all columns
-        </MenuItem>
-      </Dropdown.Menu>
-    </Dropdown>;
   }
 
   render() {
@@ -474,8 +457,6 @@ class ExperimentRunsTableCompactView extends Component {
       sortState,
       tagsList,
       runsExpanded,
-      paramKeyList,
-      metricKeyList,
     } = this.props;
     const {
       unbaggedMetrics,
@@ -495,8 +476,6 @@ class ExperimentRunsTableCompactView extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
-    const noBaggedParams = unbaggedParams.length === paramKeyList.length;
-    const noBaggedMetrics = unbaggedMetrics.length === metricKeyList.length;
     return (
       <Table hover>
         <colgroup span="9"/>
@@ -509,16 +488,14 @@ class ExperimentRunsTableCompactView extends Component {
             className="top-row left-border"
             scope="colgroup"
 
-            colSpan={unbaggedParams.length + 1}
+            colSpan={unbaggedParams.length + this.showBaggedColumn(true)}
           >
             Parameters
-            { noBaggedParams ? this.getBaggedHeaderDropdown(true) : ""}
           </th>
           <th className="top-row left-border" scope="colgroup"
-            colSpan={unbaggedMetrics.length + 1}
+            colSpan={unbaggedMetrics.length + this.showBaggedColumn(false)}
           >
             Metrics
-            { noBaggedMetrics ? this.getBaggedHeaderDropdown(false) : ""}
           </th>
         </tr>
         <tr>

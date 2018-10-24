@@ -1,11 +1,12 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import classNames from 'classnames';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
 import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
@@ -13,6 +14,7 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
+import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
@@ -94,7 +96,6 @@ class ExperimentView extends Component {
     showMultiColumns: true,
     showDeleteRunModal: false,
     showRestoreRunModal: false,
-    baggedColumns: [],
   };
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -163,24 +164,6 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const compactView = (<ExperimentRunsTableCompactView
-      onCheckbox={this.onCheckbox}
-      runInfos={this.props.runInfos}
-      // Bagged param and metric keys
-      paramKeyList={paramKeyList}
-      metricKeyList={metricKeyList}
-      paramsList={this.props.paramsList}
-      metricsList={this.props.metricsList}
-      tagsList={this.props.tagsList}
-      onCheckAll={this.onCheckAll}
-      isAllChecked={this.isAllChecked()}
-      onSortBy={this.onSortBy}
-      sortState={this.state.sort}
-      runsSelected={this.state.runsSelected}
-      setSortByHandler={this.setSortBy}
-      runsExpanded={this.state.runsExpanded}
-      onExpand={this.onExpand}
-    />);
     return (
       <div className="ExperimentView">
         <DeleteRunModal
@@ -306,8 +289,61 @@ class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
+            <span style={{cursor: "pointer"}}>
+                <ButtonGroup style={styles.tableToggleButtonGroup}>
+                <Button
+                  onClick={() => this.setShowMultiColumns(true)}
+                  title="Grid view"
+                  className={classNames({ "active": this.state.showMultiColumns })}
+                >
+                  <i className={"fas fa-table"}/>
+                </Button>
+                <Button
+                  onClick={() => this.setShowMultiColumns(false)}
+                  title="Compact view"
+                  className={classNames({ "active": !this.state.showMultiColumns })}
+                >
+                  <i className={"fas fa-list"}/>
+                </Button>
+                </ButtonGroup>
+            </span>
           </div>
-          {compactView}
+          {this.state.showMultiColumns ?
+            <ExperimentRunsTableMultiColumnView
+              onCheckbox={this.onCheckbox}
+              runInfos={this.props.runInfos}
+              paramsList={this.props.paramsList}
+              metricsList={this.props.metricsList}
+              tagsList={this.props.tagsList}
+              paramKeyList={paramKeyList}
+              metricKeyList={metricKeyList}
+              onCheckAll={this.onCheckAll}
+              isAllChecked={this.isAllChecked()}
+              onSortBy={this.onSortBy}
+              sortState={this.state.sort}
+              runsSelected={this.state.runsSelected}
+              runsExpanded={this.state.runsExpanded}
+              onExpand={this.onExpand}
+            /> :
+            <ExperimentRunsTableCompactView
+              onCheckbox={this.onCheckbox}
+              runInfos={this.props.runInfos}
+              // Bagged param and metric keys
+              paramKeyList={paramKeyList}
+              metricKeyList={metricKeyList}
+              paramsList={this.props.paramsList}
+              metricsList={this.props.metricsList}
+              tagsList={this.props.tagsList}
+              onCheckAll={this.onCheckAll}
+              isAllChecked={this.isAllChecked()}
+              onSortBy={this.onSortBy}
+              sortState={this.state.sort}
+              runsSelected={this.state.runsSelected}
+              setSortByHandler={this.setSortBy}
+              runsExpanded={this.state.runsExpanded}
+              onExpand={this.onExpand}
+            />
+          }
         </div>
       </div>
     );
