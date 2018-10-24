@@ -159,8 +159,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         elif _model_was_trained_in_python2(model_python_version):
             conda_env_path = tmp.path("py2_conda_env.yaml")
             _mlflow_conda_env(
-                    path=conda_env_path, python_version=model_python_version, 
-                    additional_conda_deps=["gevent", "gunicorn"])
+                    path=conda_env_path, python_version=model_python_version)
         image_file_dependencies.append(conda_env_path)
 
         if mlflow_home is not None:
@@ -297,7 +296,9 @@ def _create_dockerfile(output_path, conda_env_path=None, mlflow_path=None):
         bash_cmds = [
             "source $(dirname $(realpath `which conda`))/activate {conda_env_name}".format(
                 conda_env_name=CONDA_ENV_NAME_PYTHON_2),
-            mlflow_install_cmd 
+            mlflow_install_cmd,
+            "conda install gunicorn",
+            "conda install gevent",
         ]
         docker_cmds.append(
             "RUN /bin/bash -c \"{bash_cmds}\"".format(bash_cmds=" && ".join(bash_cmds)))
