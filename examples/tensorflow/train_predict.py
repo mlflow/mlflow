@@ -22,7 +22,7 @@ def main(argv):
     steps = 1000
     regressor = tf.estimator.DNNRegressor(hidden_units=hidden_units, feature_columns=feat_cols)
     train_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_train}, y_train, num_epochs=None, shuffle=True)
-    with tracking.start_run() as tracked_run:
+    with mlflow.start_run() as tracked_run:
         mlflow.log_param("Hidden Units", hidden_units)
         mlflow.log_param("Steps", steps)
         regressor.train(train_input_fn, steps=steps)
