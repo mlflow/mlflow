@@ -14,7 +14,7 @@ const styles = {
   sortContainer: {
     minHeight: "18px",
   },
-  sortToggle: {
+  headerSortToggle: {
     cursor: "pointer",
   },
   sortKeyName: {
@@ -23,6 +23,13 @@ const styles = {
   metricParamCellContent: {
     display: "inline-block",
     maxWidth: 180,
+  },
+  sortDropdownToggle: {
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: "240px",
+    display: "inline-block"
   },
 };
 
@@ -113,7 +120,7 @@ class ExperimentRunsTableCompactView extends Component {
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className="metric-param-sort-toggle"
-                style={{whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "240px", display: "inline-block"}}
+                style={styles.sortDropdownToggle}
               >
                 <span
                   className="run-table-container"
@@ -133,7 +140,7 @@ class ExperimentRunsTableCompactView extends Component {
                   className="run-table-container"
                   style={{display: "inline-block", cursor: "default"}}
                   title={paramsMap[paramKey].getValue()}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); }}
                 >
                     : {paramsMap[paramKey].getValue()}
                 </span>
@@ -174,11 +181,11 @@ class ExperimentRunsTableCompactView extends Component {
           onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
         >
           <span className={cellClass}>
-            <Dropdown id="dropdown-custom-1" style={{whiteSpace: "nowrap", maxWidth: "240px"}}>
+            <Dropdown id="dropdown-custom-1">
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className={"metric-param-sort-toggle"}
-                style={{whiteSpace: "nowrap", overflow: "hidden", maxWidth: "240px", display: "inline-block"}}
+                style={styles.sortDropdownToggle}
               >
                 <span
                   className="run-table-container"
@@ -195,7 +202,7 @@ class ExperimentRunsTableCompactView extends Component {
                   className="run-table-container"
                   style={{display: "inline-block", cursor: "default"}}
                   title={Utils.formatMetric(metric)}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); }}
                 >
                 : {Utils.formatMetric(metric)}
                 </span>
@@ -245,7 +252,7 @@ class ExperimentRunsTableCompactView extends Component {
     if (sortState.isMetric === isMetric && sortState.isParam === isParam) {
       return (
         <span
-          style={styles.sortToggle}
+          style={styles.headerSortToggle}
           onClick={() => onSortBy(isMetric, isParam, sortState.key)}
         >
         <span style={styles.sortKeyName} className="run-table-container">

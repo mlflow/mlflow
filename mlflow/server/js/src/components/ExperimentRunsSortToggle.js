@@ -12,9 +12,9 @@ export default class ExperimentRunsSortToggle extends React.Component {
     // eslint-disable-next-line no-unused-vars
     const {bsRole, bsClass, ...otherProps} = this.props;
     return (
-      <div {...otherProps}>
+      <span {...otherProps}>
         {this.props.children}
-      </div>
+      </span>
     );
   }
 }
