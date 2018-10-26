@@ -116,21 +116,21 @@ class ExperimentRunsTableCompactView extends Component {
                 style={{whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "240px", display: "inline-block"}}
               >
                 <span
-                  className="run-table-container underline-on-hover"
+                  className="run-table-container"
                   style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
                     {sortIcon}
                   </span>
                   <span
-                    className="metric-param-name" title={paramKey}
+                    className="metric-param-name underline-on-hover" title={paramKey}
                     style={styles.metricParamCellContent}
                   >
                     {paramKey}
                   </span>
                 </span>
                 <span
-                  className="metric-param-value run-table-container"
+                  className="run-table-container"
                   style={{display: "inline-block", cursor: "default"}}
                   title={paramsMap[paramKey].getValue()}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -174,25 +174,25 @@ class ExperimentRunsTableCompactView extends Component {
           onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
         >
           <span className={cellClass}>
-            <Dropdown id="dropdown-custom-1" style={{whiteSpace: "nowrap", overflow: "hidden", maxWidth: "240px"}}>
+            <Dropdown id="dropdown-custom-1" style={{whiteSpace: "nowrap", maxWidth: "240px"}}>
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className={"metric-param-sort-toggle"}
                 style={{whiteSpace: "nowrap", overflow: "hidden", maxWidth: "240px", display: "inline-block"}}
               >
                 <span
-                  className="run-table-container underline-on-hover"
+                  className="run-table-container"
                   style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
                     {sortIcon}
                   </span>
-                  <span className="metric-param-name" title={metricKey}>
+                  <span className="metric-param-name underline-on-hover" title={metricKey}>
                     {metricKey}
                   </span>
                 </span>
                 <span
-                  className="metric-param-value run-table-container"
+                  className="run-table-container"
                   style={{display: "inline-block", cursor: "default"}}
                   title={Utils.formatMetric(metric)}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}

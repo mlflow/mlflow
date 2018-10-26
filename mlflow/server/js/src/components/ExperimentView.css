@@ -177,10 +177,6 @@ span.error-message {
   text-decoration: underline;
 }
 
-.ExperimentView .metric-param-value {
-  margin-left: 4px;
-}
-
 .ExperimentView .highlighted {
   border-radius: 5px;
   background-color: rgba(255, 242, 172, 0.5);
@@ -189,7 +185,7 @@ span.error-message {
 
 /** Container with a max width & text-truncation for use in the experiment runs table */
 .ExperimentView .run-table-container {
-  max-width: 240px;
+  max-width: 235px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
