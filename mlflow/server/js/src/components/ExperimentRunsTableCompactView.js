@@ -98,7 +98,7 @@ class ExperimentRunsTableCompactView extends Component {
       const cellClass = classNames("metric-param-content",
         { highlighted: hoverState.isParam && hoverState.key === paramKey });
       const keyname = "param-" + paramKey;
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, paramKey);
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (
         <div
           key={keyname}
@@ -113,10 +113,11 @@ class ExperimentRunsTableCompactView extends Component {
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className="metric-param-sort-toggle"
+                style={{whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "240px", display: "inline-block"}}
               >
                 <span
                   className="run-table-container underline-on-hover"
-                  style={styles.metricParamCellContent}
+                  style={{maxWidth: 200, display: "inline-block"}}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
                     {sortIcon}
@@ -128,14 +129,15 @@ class ExperimentRunsTableCompactView extends Component {
                     :
                   </span>
                 </span>
+                <span
+                  className="metric-param-value run-table-container"
+                  style={{maxWidth: 200, display: "inline-block", cursor: "default"}}
+                  title={paramsMap[paramKey].getValue()}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                >
+                    {paramsMap[paramKey].getValue()}
+                </span>
               </ExperimentRunsSortToggle>
-              <span
-                className="metric-param-value run-table-container"
-                style={styles.metricParamCellContent}
-                title={paramsMap[paramKey].getValue()}
-              >
-                  {paramsMap[paramKey].getValue()}
-              </span>
               <Dropdown.Menu className="mlflow-menu">
                 <MenuItem
                   className="mlflow-menu-item"
@@ -172,14 +174,15 @@ class ExperimentRunsTableCompactView extends Component {
           onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
         >
           <span className={cellClass}>
-            <Dropdown id="dropdown-custom-1">
+            <Dropdown id="dropdown-custom-1" style={{whiteSpace: "nowrap", overflow: "hidden", maxWidth: "240px"}}>
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className={"metric-param-sort-toggle"}
+                style={{whiteSpace: "nowrap", overflow: "hidden", maxWidth: "240px", display: "inline-block"}}
               >
                 <span
                   className="run-table-container underline-on-hover"
-                  style={styles.metricParamCellContent}
+                  style={{maxWidth: 200, display: "inline-block"}}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
                     {sortIcon}
@@ -194,7 +197,7 @@ class ExperimentRunsTableCompactView extends Component {
               </ExperimentRunsSortToggle>
               <span
                 className="metric-param-value run-table-container"
-                style={styles.metricParamCellContent}
+                style={{maxWidth: 200, display: "inline-block"}}
               >
                 {Utils.formatMetric(metric)}
               </span>

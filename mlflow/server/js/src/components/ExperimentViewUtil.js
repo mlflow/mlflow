@@ -317,11 +317,9 @@ export default class ExperimentViewUtil {
 
   static renderRows(rows) {
     return rows.map(row => {
-      const style = row.isChild ? { backgroundColor: "#fafafa" } : {};
       return (
         <tr
           key={row.key}
-          style={style}
           className='ExperimentView-row'
         >
           {row.contents}
