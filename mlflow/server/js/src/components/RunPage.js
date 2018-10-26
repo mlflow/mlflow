@@ -5,10 +5,12 @@ import { getExperimentApi, getRunApi, getUUID, listArtifactsApi } from '../Actio
 import { connect } from 'react-redux';
 import RunView from './RunView';
 import Routes from '../Routes';
+import Utils from '../utils/Utils';
+import ErrorCodes from '../sdk/ErrorCodes';
+import RunNotFoundView from './RunNotFoundView';
 
 class RunPage extends Component {
   static propTypes = {
-    match: PropTypes.object.isRequired,
     runUuid: PropTypes.string.isRequired,
     experimentId: PropTypes.number.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -30,11 +32,18 @@ class RunPage extends Component {
 
   render() {
     return (
-      <div>
+      <div className='App-content'>
         <RequestStateWrapper
           requestIds={[this.state.getRunRequestId,
             this.state.listArtifactRequestId,
             this.state.getExperimentRequestId]}
+          errorRenderFunc={(requests) => {
+            const getRunRequest = Utils.getRequestWithId(requests, this.state.getRunRequestId);
+            if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+              return <RunNotFoundView runId={this.props.runUuid}/>;
+            }
+            return undefined;
+          }}
         >
           <RunView
             runUuid={this.props.runUuid}
@@ -51,10 +60,13 @@ class RunPage extends Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
+  const runUuid = match.params.runUuid;
+  const experimentId = parseInt(match.params.experimentId, 10);
   return {
-    runUuid: match.params.runUuid,
-    match,
-    experimentId: parseInt(match.params.experimentId, 10)
+    runUuid,
+    experimentId,
+    // so that we re-render the component when the route changes
+    key: runUuid + experimentId
   };
 };
 

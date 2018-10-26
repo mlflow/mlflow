@@ -8,6 +8,7 @@ import tempfile
 import yaml
 
 from mlflow.entities import FileInfo
+from mlflow.exceptions import MissingConfigException
 
 ENCODING = "utf-8"
 
@@ -124,7 +125,7 @@ def write_yaml(root, file_name, data, overwrite=False):
     :param overwrite: If True, will overwrite existing files
     """
     if not exists(root):
-        raise Exception("Parent directory '%s' does not exist." % root)
+        raise MissingConfigException("Parent directory '%s' does not exist." % root)
 
     file_path = os.path.join(root, file_name)
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
@@ -149,11 +150,12 @@ def read_yaml(root, file_name):
     :return: Data in yaml file as dictionary
     """
     if not exists(root):
-        raise Exception("Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
+        raise MissingConfigException(
+            "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
-        raise Exception("Yaml file '%s' does not exist." % file_path)
+        raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
 
     try:
         with open(file_path, 'r') as yaml_file:
@@ -318,15 +320,24 @@ def _copy_project(src_path, dst_path=""):
     return mlflow_dir
 
 
-def _copy_file_or_tree(src, dst, dst_dir):
-    name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
-    if dst_dir:
-        os.mkdir(os.path.join(dst, dst_dir))
+def _copy_file_or_tree(src, dst, dst_dir=None):
+    """
+    :return: The path to the copied artifacts, relative to `dst`
+    """
+    dst_subpath = os.path.basename(os.path.abspath(src))
+    if dst_dir is not None:
+        dst_subpath = os.path.join(dst_dir, dst_subpath)
+    dst_path = os.path.join(dst, dst_subpath)
+
+    dst_dirpath = os.path.dirname(dst_path)
+    if not os.path.exists(dst_dirpath):
+        os.makedirs(dst_dirpath)
+
     if os.path.isfile(src):
-        shutil.copy(src=src, dst=os.path.join(dst, name))
+        shutil.copy(src=src, dst=dst_path)
     else:
-        shutil.copytree(src=src, dst=os.path.join(dst, name))
-    return name
+        shutil.copytree(src=src, dst=dst_path)
+    return dst_subpath
 
 
 def get_parent_dir(path):

@@ -9,6 +9,7 @@ import time
 from six.moves import shlex_quote
 
 from mlflow.entities import RunStatus
+from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
@@ -29,14 +30,6 @@ DB_PROJECTS_BASE = os.path.join(DB_CONTAINER_BASE, "projects")
 DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 # Base directory within DBFS for storing code for project runs for experiments
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
-
-
-def _check_response_status_code(response):
-    """
-    Throws MlflowException if the response status code is not 200.
-    """
-    if response.status_code != 200:
-        raise ExecutionException("The Databricks request failed. Error: {}".format(response.text))
 
 
 def before_run_validations(tracking_uri, cluster_spec):
@@ -64,13 +57,12 @@ class DatabricksJobRunner(object):
 
     def _databricks_api_request(self, endpoint, method, **kwargs):
         host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
-        return rest_utils.http_request(
+        return rest_utils.http_request_safe(
             host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
     def _jobs_runs_submit(self, req_body):
         response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/submit", method="POST", json=req_body)
-        _check_response_status_code(response)
         return json.loads(response.text)
 
     def _upload_to_dbfs(self, src_path, dbfs_fuse_uri):
@@ -81,8 +73,7 @@ class DatabricksJobRunner(object):
         eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
-            response = self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
-            _check_response_status_code(response)
+            self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
 
     def _dbfs_path_exists(self, dbfs_path):
         """
@@ -90,9 +81,16 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile. The path is expected to be a relative path to the DBFS root
         directory, e.g. 'path/to/file'.
         """
-        response = self._databricks_api_request(
-            endpoint="/api/2.0/dbfs/get-status", method="GET", json={"path": "/%s" % dbfs_path})
-        json_response_obj = json.loads(response.text)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
+        response = rest_utils.http_request(
+            host_creds=host_creds, endpoint="/api/2.0/dbfs/get-status", method="GET",
+            json={"path": "/%s" % dbfs_path})
+        try:
+            json_response_obj = json.loads(response.text)
+        except ValueError:
+            raise MlflowException(
+                "API request to check existence of file at DBFS path %s failed with status code "
+                "%s. Response body: %s" % (dbfs_path, response.status_code, response.text))
         # If request fails with a RESOURCE_DOES_NOT_EXIST error, the file does not exist on DBFS
         error_code_field = "error_code"
         if error_code_field in json_response_obj:
@@ -212,13 +210,11 @@ class DatabricksJobRunner(object):
     def jobs_runs_cancel(self, databricks_run_id):
         response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
-        _check_response_status_code(response)
         return json.loads(response.text)
 
     def jobs_runs_get(self, databricks_run_id):
         response = self._databricks_api_request(
             endpoint="/api/2.0/jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
-        _check_response_status_code(response)
         return json.loads(response.text)
 
 

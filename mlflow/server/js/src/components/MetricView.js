@@ -29,6 +29,24 @@ class MetricView extends Component {
     runNames: PropTypes.arrayOf(String).isRequired,
   };
 
+  static MAX_RUN_NAME_DISPLAY_LENGTH = 36;
+
+  // Returns payload to use in recharts Legend component
+  // Legend type must be one of the values in
+  // https://github.com/recharts/recharts/blob/1b523c1/src/util/ReactUtils.js#L139
+  getLegendPayload(legendType) {
+    const { runNames } = this.props;
+    return runNames.map((runName, idx) => {
+      return {
+        value: Utils.truncateString(runName, MetricView.MAX_RUN_NAME_DISPLAY_LENGTH),
+        id: idx,
+        type: legendType,
+        // Must specify legend item color, see https://github.com/recharts/recharts/issues/818
+        color: COLORS[idx % COLORS.length],
+      };
+    });
+  }
+
   render() {
     const { experiment, runUuids, title, metrics, runNames } = this.props;
     if (metrics.length === 1) {
@@ -47,14 +65,15 @@ class MetricView extends Component {
               data={metrics}
               margin={{top: 10, right: 10, left: 10, bottom: 10}}
             >
-              <XAxis dataKey="index"/>
               <Tooltip isAnimationActive={false} labelStyle={{display: "none"}}/>
+              <XAxis dataKey="index"/>
               <CartesianGrid strokeDasharray="3 3"/>
-              <Legend verticalAlign="bottom"/>
+              <Legend verticalAlign="bottom" payload={this.getLegendPayload('rect')} />
               <YAxis/>
               {runUuids.map((uuid, idx) => (
                 <Bar dataKey={uuid}
                      key={uuid}
+                     name={runNames[idx]}
                      isAnimationActive={false}
                      fill={COLORS[idx % COLORS.length]}/>
               ))}
@@ -79,14 +98,15 @@ class MetricView extends Component {
               margin={{top: 10, right: 10, left: 10, bottom: 10}}
             >
               <XAxis dataKey="index" type="number"/>
-              <Tooltip isAnimationActive={false} labelStyle={{display: "none"}}/>
+              <Tooltip isAnimationActive={false} labelStyle={{display: "none"}} />
               <CartesianGrid strokeDasharray="3 3"/>
-              <Legend verticalAlign="bottom"/>
+              <Legend verticalAlign="bottom" payload={this.getLegendPayload('line')}/>
               <YAxis/>
               {runUuids.map((uuid, idx) => (
                 <Line type="linear"
                       dataKey={uuid}
                       key={uuid}
+                      name={runNames[idx]}
                       isAnimationActive={false}
                       connectNulls
                       stroke={COLORS[idx % COLORS.length]}/>

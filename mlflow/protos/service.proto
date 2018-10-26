@@ -92,6 +92,20 @@ service MlflowService {
     };
   }
 
+  // Updates an experiment metadata.
+  //
+  rpc updateExperiment (UpdateExperiment) returns (UpdateExperiment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/experiments/update"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Update Experiment",
+    };
+  }
+
   // Create a new run within an experiment. A run is usually a single execution of a
   // machine learning or data ETL pipeline. MLflow uses runs to track :ref:`mlflowParam`,
   // :ref:`mlflowMetric`, and :ref:`mlflowRunTag` associated with a single execution.
@@ -515,8 +529,21 @@ message DeleteExperiment {
 message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // Identifier to get an experiment
+  optional int64 experiment_id = 1 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message UpdateExperiment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
   // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
+
+  // If provided, the experiment's name will be changed to this. The new name must be unique.
+  optional string new_name = 2;
 
   message Response {
   }

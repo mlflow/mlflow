@@ -1,10 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import Table from 'react-bootstrap/es/Table';
 import ExperimentViewUtil from "./ExperimentViewUtil";
 import { RunInfo } from '../sdk/MlflowMessages';
 import classNames from 'classnames';
-import { Dropdown, MenuItem } from 'react-bootstrap';
+import { Table, Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
 
@@ -90,7 +89,7 @@ class ExperimentRunsTableCompactView extends Component {
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds)),
+        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid),
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent)
       .forEach((col) => rowContents.push(col));
@@ -104,17 +103,19 @@ class ExperimentRunsTableCompactView extends Component {
         <div
           key={keyname}
           className="metric-param-cell"
-          onMouseEnter={() => this.onHover({isParam: true, isMetric: false, key: paramKey})}
-          onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
         >
-          <span className={cellClass}>
+          <span
+            className={cellClass}
+            onMouseEnter={() => this.onHover({isParam: true, isMetric: false, key: paramKey})}
+            onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
+          >
             <Dropdown id="dropdown-custom-1">
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className="metric-param-sort-toggle"
               >
                 <span
-                  className="run-table-container"
+                  className="run-table-container underline-on-hover"
                   style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
@@ -177,7 +178,7 @@ class ExperimentRunsTableCompactView extends Component {
                 className={"metric-param-sort-toggle"}
               >
                 <span
-                  className="run-table-container"
+                  className="run-table-container underline-on-hover"
                   style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
@@ -281,7 +282,7 @@ class ExperimentRunsTableCompactView extends Component {
       .forEach((headerCell) => headerCells.push(headerCell));
     return (
       <Table hover>
-        <colgroup span="8"/>
+        <colgroup span="9"/>
         <colgroup span="1"/>
         <colgroup span="1"/>
         <tbody>

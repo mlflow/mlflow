@@ -2,7 +2,6 @@
 # conda.yaml files in the test environment.
 name: tutorial
 channels:
-  - anaconda
   - defaults
 dependencies:
   - python=3.6

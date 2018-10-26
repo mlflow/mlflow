@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 import os
 import shutil
+import time
 import unittest
 import uuid
 
-import time
-
+import mock
 import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
@@ -148,6 +148,15 @@ class TestFileStore(unittest.TestCase):
             exp = fs.get_experiment_by_name(exp_names)
             self.assertIsNone(exp)
 
+    def test_create_first_experiment(self):
+        fs = FileStore(self.test_root)
+        fs.list_experiments = mock.Mock(return_value=[])
+        fs._create_experiment_with_id = mock.Mock()
+        fs.create_experiment(random_str(1))
+        fs._create_experiment_with_id.assert_called_once()
+        experiment_id = fs._create_experiment_with_id.call_args[0][1]
+        self.assertEqual(experiment_id, 0)
+
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
 
@@ -207,6 +216,29 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
                          Experiment.ACTIVE_LIFECYCLE)
+
+    def test_rename_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        exp_name = self.exp_data[exp_id]["name"]
+        new_name = exp_name + "!!!"
+        self.assertNotEqual(exp_name, new_name)
+        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
+        fs.rename_experiment(exp_id, new_name)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+
+        # Ensure that we cannot rename deleted experiments.
+        fs.delete_experiment(exp_id)
+        with pytest.raises(Exception) as e:
+            fs.rename_experiment(exp_id, exp_name)
+        assert 'non-active lifecycle' in str(e.value)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+
+        # Restore the experiment, and confirm that we acn now rename it.
+        fs.restore_experiment(exp_id)
+        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        fs.rename_experiment(exp_id, exp_name)
+        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
@@ -424,3 +456,96 @@ class TestFileStore(unittest.TestCase):
                             'entry_point_name', 0, None, [], 'test_parent_run_id')
         assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == 'test_parent_run_id'
                     for t in fs.get_all_tags(run.info.run_uuid)])
+
+    def test_default_experiment_initialization(self):
+        fs = FileStore(self.test_root)
+        fs.delete_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        fs = FileStore(self.test_root)
+        assert fs.get_experiment(0).lifecycle_stage == Experiment.DELETED_LIFECYCLE
+
+    def test_malformed_experiment(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+
+        experiments = len(fs.list_experiments(ViewType.ALL))
+
+        # delete metadata file.
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
+        os.remove(path)
+        with pytest.raises(MissingConfigException) as e:
+            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            assert e.message.contains("does not exist")
+
+        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
+
+    def test_malformed_run(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+
+        all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
+        assert len(all_runs) == len(all_run_ids)
+
+        # delete metadata file.
+        bad_run_id = self.exp_data[exp_0.experiment_id]['runs'][0]
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), str(bad_run_id), "meta.yaml")
+        os.remove(path)
+        with pytest.raises(MissingConfigException) as e:
+            fs.get_run(bad_run_id)
+            assert e.message.contains("does not exist")
+
+        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        assert len(valid_runs) == len(all_runs) - 1
+
+        for rid in all_run_ids:
+            if rid != bad_run_id:
+                fs.get_run(rid)
+
+    def test_mismatching_experiment_id(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+
+        experiments = len(fs.list_experiments(ViewType.ALL))
+
+        # mv experiment folder
+        target = 1
+        path_orig = os.path.join(self.test_root, str(exp_0.experiment_id))
+        path_new = os.path.join(self.test_root, str(target))
+        os.rename(path_orig, path_new)
+
+        with pytest.raises(MlflowException) as e:
+            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            assert e.message.contains("Could not find experiment with ID")
+
+        with pytest.raises(MlflowException) as e:
+            fs.get_experiment(target)
+            assert e.message.contains("does not exist")
+        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
+
+    def test_bad_experiment_id_recorded_for_run(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+
+        all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
+        assert len(all_runs) == len(all_run_ids)
+
+        # change experiment pointer in run
+        bad_run_id = str(self.exp_data[exp_0.experiment_id]['runs'][0])
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), bad_run_id)
+        experiment_data = read_yaml(path, "meta.yaml")
+        experiment_data["experiment_id"] = 1
+        write_yaml(path, "meta.yaml", experiment_data, True)
+
+        with pytest.raises(MlflowException) as e:
+            fs.get_run(bad_run_id)
+            assert e.message.contains("not found")
+
+        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        assert len(valid_runs) == len(all_runs) - 1
+
+        for rid in all_run_ids:
+            if rid != bad_run_id:
+                fs.get_run(rid)
