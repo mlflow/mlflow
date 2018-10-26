@@ -94,7 +94,7 @@ class ExperimentView extends Component {
       isParam: false,
       key: "start_time"
     },
-    showMultiColumns: true,
+    showMultiColumns: false,
     showDeleteRunModal: false,
     showRestoreRunModal: false,
   };

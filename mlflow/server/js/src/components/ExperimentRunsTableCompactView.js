@@ -22,7 +22,7 @@ const styles = {
   },
   metricParamCellContent: {
     display: "inline-block",
-    maxWidth: 120,
+    maxWidth: 180,
   },
 };
 
@@ -117,25 +117,25 @@ class ExperimentRunsTableCompactView extends Component {
               >
                 <span
                   className="run-table-container underline-on-hover"
-                  style={{maxWidth: 200, display: "inline-block"}}
+                  style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
                     {sortIcon}
                   </span>
-                  <span className="metric-param-name" title={paramKey}>
+                  <span
+                    className="metric-param-name" title={paramKey}
+                    style={styles.metricParamCellContent}
+                  >
                     {paramKey}
-                  </span>
-                  <span>
-                    :
                   </span>
                 </span>
                 <span
                   className="metric-param-value run-table-container"
-                  style={{maxWidth: 200, display: "inline-block", cursor: "default"}}
+                  style={{display: "inline-block", cursor: "default"}}
                   title={paramsMap[paramKey].getValue()}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 >
-                    {paramsMap[paramKey].getValue()}
+                    : {paramsMap[paramKey].getValue()}
                 </span>
               </ExperimentRunsSortToggle>
               <Dropdown.Menu className="mlflow-menu">
@@ -182,7 +182,7 @@ class ExperimentRunsTableCompactView extends Component {
               >
                 <span
                   className="run-table-container underline-on-hover"
-                  style={{maxWidth: 200, display: "inline-block"}}
+                  style={styles.metricParamCellContent}
                 >
                   <span style={{marginRight: sortIcon ? 2 : 0}}>
                     {sortIcon}
@@ -190,17 +190,16 @@ class ExperimentRunsTableCompactView extends Component {
                   <span className="metric-param-name" title={metricKey}>
                     {metricKey}
                   </span>
-                  <span>
-                    :
-                  </span>
+                </span>
+                <span
+                  className="metric-param-value run-table-container"
+                  style={{display: "inline-block", cursor: "default"}}
+                  title={Utils.formatMetric(metric)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                >
+                : {Utils.formatMetric(metric)}
                 </span>
               </ExperimentRunsSortToggle>
-              <span
-                className="metric-param-value run-table-container"
-                style={{maxWidth: 200, display: "inline-block"}}
-              >
-                {Utils.formatMetric(metric)}
-              </span>
               <Dropdown.Menu className="mlflow-menu">
                 <MenuItem
                   className="mlflow-menu-item"
