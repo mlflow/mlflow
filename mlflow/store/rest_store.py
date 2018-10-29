@@ -89,7 +89,7 @@ class RestStore(AbstractStore):
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
-        req_body = message_to_json(GetExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(GetExperiment(experiment_id=int(experiment_id)))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
@@ -100,16 +100,16 @@ class RestStore(AbstractStore):
         return None
 
     def delete_experiment(self, experiment_id):
-        req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(DeleteExperiment(experiment_id=int(experiment_id)))
         self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
-        req_body = message_to_json(RestoreExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(RestoreExperiment(experiment_id=int(experiment_id)))
         self._call_endpoint(RestoreExperiment, req_body)
 
     def rename_experiment(self, experiment_id, new_name):
         req_body = message_to_json(UpdateExperiment(
-            experiment_id=experiment_id, new_name=new_name))
+            experiment_id=int(experiment_id), new_name=new_name))
         self._call_endpoint(UpdateExperiment, req_body)
 
     def get_run(self, run_uuid):
