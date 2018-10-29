@@ -54,4 +54,4 @@ class Experiment(_MLflowObject):
 
     @classmethod
     def _properties(cls):
-        return [key.split('_',1)[1] for key in self.__dict__.keys() if key[0] is '_']
+        return [p for p in dir(cls) if isinstance(getattr(cls,p), property)]
