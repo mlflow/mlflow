@@ -54,4 +54,4 @@ class Experiment(_MLflowObject):
 
     @classmethod
     def _properties(cls):
-        return [p for p in dir(cls) if isinstance(getattr(cls,p), property)]
+        return [p for p in cls.__dict__ if isinstance(getattr(cls,p),property)]
