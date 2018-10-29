@@ -54,5 +54,4 @@ class Experiment(_MLflowObject):
 
     @classmethod
     def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["experiment_id", "name", "artifact_location", "lifecycle_stage"]
+        return [key.split('_',1)[1] for key in self.__dict__.keys() if key[0] is '_']
