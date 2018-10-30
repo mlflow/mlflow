@@ -173,10 +173,10 @@ class RunInfo(_MLflowObject):
         # An absent end time is represented with a NoneType in the `RunInfo` class
         if end_time == 0:
             end_time = None
-        return cls(run_uuid=proto.run_uuid, experiment_id=proto.experiment_id, name=proto.name, 
-                   source_type=proto.source_type, source_name=proto.source_name, 
-                   entry_point_name=proto.entry_point_name, user_id=proto.user_id, 
-                   status=proto.status, start_time=proto.start_time, end_time=end_time, 
+        return cls(run_uuid=proto.run_uuid, experiment_id=proto.experiment_id, name=proto.name,
+                   source_type=proto.source_type, source_name=proto.source_name,
+                   entry_point_name=proto.entry_point_name, user_id=proto.user_id,
+                   status=proto.status, start_time=proto.start_time, end_time=end_time,
                    source_version=proto.source_version, lifecycle_stage=proto.lifecycle_stage,
                    artifact_uri=proto.artifact_uri)
 

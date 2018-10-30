@@ -15,7 +15,7 @@ from click.testing import CliRunner
 
 import mlflow.experiments
 from mlflow.entities import RunStatus
-from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL  
+from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, FILE_STORE_ENV_VAR
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
@@ -104,7 +104,7 @@ def mlflow_client(tracking_server_uri):
 def cli_env(tracking_server_uri):
     """Provides an environment for the MLflow CLI pointed at the local tracking server."""
     cli_env = {
-        "LC_ALL": "en_US.UTF-8", 
+        "LC_ALL": "en_US.UTF-8",
         "LANG": "en_US.UTF-8",
         "MLFLOW_TRACKING_URI": tracking_server_uri,
     }
@@ -157,7 +157,7 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     CliRunner(env=cli_env).invoke(
-            mlflow.experiments.commands, 
+            mlflow.experiments.commands,
             ['rename', str(experiment_id), good_experiment_name])
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
@@ -184,14 +184,14 @@ def test_create_run_all_args(mlflow_client):
     run = mlflow_client.get_run(run_id)
     assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
-    assert run.info.user_id == create_run_kwargs["user_id"] 
+    assert run.info.user_id == create_run_kwargs["user_id"]
     assert run.info.source_type == SOURCE_TYPE_LOCAL
     assert run.info.source_name == create_run_kwargs["source_name"]
     assert run.info.entry_point_name == create_run_kwargs["entry_point_name"]
-    assert run.info.start_time == create_run_kwargs["start_time"] 
+    assert run.info.start_time == create_run_kwargs["start_time"]
     assert run.info.source_version == create_run_kwargs["source_version"]
     actual_tags = {t.key: t.value for t in run.data.tags}
-    for tag in create_run_kwargs["tags"]: 
+    for tag in create_run_kwargs["tags"]:
         assert tag in actual_tags
     assert actual_tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
     assert actual_tags.get(MLFLOW_PARENT_RUN_ID) == create_run_kwargs["parent_run_id"]
