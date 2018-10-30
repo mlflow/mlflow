@@ -53,7 +53,7 @@ def list_experiments(view):
 
 
 @commands.command("delete")
-@click.argument("experiment_id")
+@click.argument("experiment_id", type=click.INT)
 def delete_experiment(experiment_id):
     """
     Mark an experiment for deletion. Return an error if the experiment does not exist or
