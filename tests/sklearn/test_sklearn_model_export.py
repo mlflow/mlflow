@@ -15,6 +15,7 @@ from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.sklearn
+import mlflow.utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -168,12 +169,17 @@ def test_model_save_without_conda_env_specification_uses_default_env_with_expect
         sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
     mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
+
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
+
+    expected_dependencies = (
+            mlflow.sklearn.CONDA_DEPENDENCIES + 
+            ["python={python_version}".format(python_version=mlflow.utils.PYTHON_VERSION)])
     conda_dependencies = conda_env.get("dependencies", [])
-    for expected_dependency in mlflow.sklearn.CONDA_DEPENDENCIES:
+    for expected_dependency in expected_dependencies:
         assert expected_dependency in conda_dependencies
 
 
@@ -185,10 +191,15 @@ def test_model_log_without_conda_env_specification_uses_default_env_with_expecte
         mlflow.sklearn.log_model(sk_model=knn_model, artifact_path=artifact_path)
         run_id = mlflow.active_run().info.run_uuid
     model_path = _get_model_log_dir(artifact_path, run_id)
+
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
+
+    expected_dependencies = (
+            mlflow.sklearn.CONDA_DEPENDENCIES + 
+            ["python={python_version}".format(python_version=mlflow.utils.PYTHON_VERSION)])
     conda_dependencies = conda_env.get("dependencies", [])
-    for expected_dependency in mlflow.sklearn.CONDA_DEPENDENCIES:
+    for expected_dependency in expected_dependencies:
         assert expected_dependency in conda_dependencies

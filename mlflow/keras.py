@@ -56,8 +56,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
     os.makedirs(path)
-    model_file = os.path.join(path, "model.h5")
-    keras_model.save(model_file)
+    model_data_subpath = "model.h5"
+    keras_model.save(os.path.join(path, model_data_subpath))
 
     conda_env_subpath = "conda.yaml"
     if conda_env is not None:
@@ -68,8 +68,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
                 additional_conda_deps=CONDA_DEPENDENCIES)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
-                        data="model.h5", env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__)
+                        data=model_data_subpath, env=conda_env_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -101,6 +101,7 @@ def _load_model(model_file):
     import h5py
     # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead of
     # string to avoid issues.
+    print("MODEL FILE", model_file, os.path.exists(model_file))
     model_file = h5py.File(os.path.abspath(model_file),)
     return keras.models.load_model(model_file)
 
@@ -155,5 +156,7 @@ def load_model(path, run_id=None):
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    keras_model_artifacts_path = os.path.join(path, flavor_conf['data']) 
+    # Flavor configurations for models saved in MLflow version <= 0.7.0 may not contain a
+    # `data` key; in this case, we assume the model artifact path to be `model.h5`
+    keras_model_artifacts_path = os.path.join(path, flavor_conf.get("data", "model.h5")) 
     return _load_model(model_file=keras_model_artifacts_path)
