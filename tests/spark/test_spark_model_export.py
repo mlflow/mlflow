@@ -25,17 +25,16 @@ from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.flavor_utils import _get_flavor_configuration
-
 from mlflow.utils.environment import _mlflow_conda_env
-from tests.helper_functions import score_model_in_sagemaker_docker_container
 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 
 
 @pytest.fixture
 def spark_conda_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
+    _mlflow_conda_env(conda_env, additional_conda_deps=sparkm.CONDA_DEPENDENCIES)
     return conda_env
 
 
@@ -192,6 +191,32 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 x = dfs_tmp_dir or sparkm.DFS_TMP
                 shutil.rmtree(x)
                 shutil.rmtree(tracking_dir)
+
+
+def test_sparkml_model_save_copies_specified_conda_env_to_mlflow_model_directory(
+        spark_model_iris, model_path, spark_conda_env):
+    sparkm.save_model(spark_model=spark_model_iris.model, 
+                      path=model_path, 
+                      conda_env=spark_conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != spark_conda_env
+
+
+def test_sparkml_model_log_copies_specified_conda_env_to_mlflow_model_directory(
+        spark_model_iris, model_path, spark_conda_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        sparkm.log_model(spark_model=spark_model_iris.model, artifact_path=artifact_path)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != spark_conda_env 
 
 
 def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(

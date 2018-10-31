@@ -8,6 +8,7 @@ import yaml
 from collections import namedtuple
 
 import numpy as np
+import sklearn
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
@@ -65,6 +66,15 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
+@pytest.fixture
+def sklearn_conda_env(tmpdir):
+    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+    _mlflow_conda_env(
+            conda_env,
+            additional_conda_deps=mlflow.sklearn.CONDA_DEPENDENCIES)
+    return conda_env
+
+
 def test_model_save_load(sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
 
@@ -92,7 +102,7 @@ def test_model_log(sklearn_logreg_model, model_path):
 
                 artifact_path = "linear"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_pip_deps=["sklearn"])
+                _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
 
                 mlflow.sklearn.log_model(
                         sk_model=sklearn_logreg_model.model,
@@ -149,6 +159,33 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
             custom_transformer_model.predict(sklearn_custom_transformer_model.inference_data),
             reloaded_custom_transformer_model.predict(
                 sklearn_custom_transformer_model.inference_data))
+
+
+def test_model_save_copies_specified_conda_env_to_mlflow_model_directory(
+        sklearn_knn_model, model_path, sklearn_conda_env):
+    mlflow.sklearn.save_model(
+            sk_model=sklearn_knn_model.model, path=model_path, conda_env=sklearn_conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != sklearn_conda_env 
+
+
+def test_model_log_copies_specified_conda_env_to_mlflow_model_directory(
+        sklearn_knn_model, sklearn_conda_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model, 
+                                 artifact_path=artifact_path, 
+                                 conda_env=sklearn_conda_env)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != sklearn_conda_env 
 
 
 def test_model_save_throws_exception_if_serialization_format_is_unrecognized(

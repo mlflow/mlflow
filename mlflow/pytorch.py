@@ -192,7 +192,7 @@ def _load_pyfunc(path, **kwargs):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
-    return _PyTorchWrapper(_load_model(os.path.dirname(path), **kwargs))
+    return _PyTorchWrapper(_load_model(path, **kwargs))
 
 
 class _PyTorchWrapper(object):

@@ -16,6 +16,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model 
 from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils.environment import _mlflow_conda_env 
 from mlflow.utils.flavor_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -50,6 +51,15 @@ def predicted(model, data):
 @pytest.fixture
 def model_path(tmpdir):
     return os.path.join(tmpdir.strpath, "model")
+
+
+@pytest.fixture
+def keras_conda_env(tmpdir):
+    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+    _mlflow_conda_env(
+            conda_env,
+            additional_conda_deps=mlflow.keras.CONDA_DEPENDENCIES)
+    return conda_env
 
 
 def test_model_save_load(model, model_path, data, predicted):
@@ -92,6 +102,30 @@ def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disabl
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
             mlflow.end_run()
+
+
+def test_model_save_copies_specified_conda_env_to_mlflow_model_directory(
+        model, model_path, keras_conda_env):
+    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != keras_conda_env 
+
+
+def test_model_log_copies_specified_conda_env_to_mlflow_model_directory(model, keras_conda_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.keras.log_model(
+                keras_model=model, artifact_path=artifact_path, conda_env=keras_conda_env)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != keras_conda_env 
 
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
