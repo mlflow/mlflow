@@ -20,6 +20,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.flavor_utils import _get_flavor_configuration 
 
 FLAVOR_NAME = "h2o"
 
@@ -96,7 +97,6 @@ class _H2OModelWrapper:
         self.h2o_model = h2o_model
 
     def predict(self, dataframe):
-        import h2o
         predicted = self.h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()
         predicted.index = dataframe.index
         return predicted
@@ -120,8 +120,7 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(os.path.join(path, 'MLmodel'))
-    if FLAVOR_NAME not in m.flavors:
-        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
-    conf = m.flavors[FLAVOR_NAME]
-    return _load_model(os.path.join(path, conf['data']))
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    h2o_model_artifacts_path = os.path.join(path, flavor_conf['data'])
+    return _load_model(path=h2o_model_artifacts_path)

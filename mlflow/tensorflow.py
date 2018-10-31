@@ -24,10 +24,16 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils.environment import _mlflow_conda_env 
 from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.flavor_utils import _get_flavor_configuration 
 from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "tensorflow"
+
+CONDA_DEPENDENCIES = [
+    "tensorflow={}".format(tf.__version__),
+]
 
 
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
@@ -102,16 +108,18 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     model_dir_subpath = "tfmodel"
     shutil.move(os.path.join(path, root_relative_path), os.path.join(path, model_dir_subpath))
 
+    conda_env_subpath = "conda.yaml"
+    if conda_env is not None:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        _mlflow_conda_env(
+                path=os.path.join(path, conda_env_subpath), 
+                additional_conda_deps=CONDA_DEPENDENCIES)
+
     mlflow_model.add_flavor(FLAVOR_NAME, saved_model_dir=model_dir_subpath,
                             meta_graph_tags=tf_meta_graph_tags,
                             signature_def_key=tf_signature_def_key)
-
-    model_conda_env = None
-    if conda_env:
-        model_conda_env = os.path.basename(os.path.abspath(conda_env))
-        _copy_file_or_tree(src=conda_env, dst=path)
-
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=model_conda_env)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -154,14 +162,12 @@ def load_model(path, tf_sess, run_id=None):
     """
     if run_id is not None:
         path = _get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(os.path.join(path, 'MLmodel'))
-    if FLAVOR_NAME not in m.flavors:
-        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
-    conf = m.flavors[FLAVOR_NAME]
-    saved_model_dir = os.path.join(path, conf['saved_model_dir'])
-    return _load_model(tf_saved_model_dir=saved_model_dir, tf_sess=tf_sess,
-                       tf_meta_graph_tags=conf['meta_graph_tags'],
-                       tf_signature_def_key=conf['signature_def_key'])
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME) 
+    tf_saved_model_dir = os.path.join(path, flavor_conf['saved_model_dir'])
+    return _load_model(tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess,
+                       tf_meta_graph_tags=flavor_conf['meta_graph_tags'],
+                       tf_signature_def_key=flavor_conf['signature_def_key'])
 
 
 def _load_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags, tf_signature_def_key):

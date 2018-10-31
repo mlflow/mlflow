@@ -23,6 +23,7 @@ import sklearn
 
 from mlflow.utils import cli_args
 from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.utils.flavor_utils import _get_flavor_configuration 
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -43,10 +44,8 @@ SUPPORTED_SERIALIZATION_FORMATS = [
     SERIALIZATION_FORMAT_CLOUDPICKLE
 ]
 
-DEFAULT_CONDA_ENV = "default"
 
-
-def save_model(sk_model, path, conda_env=DEFAULT_CONDA_ENV, mlflow_model=Model(),
+def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
     """
     Save a scikit-learn model to a path on the local file system.
@@ -94,11 +93,17 @@ def save_model(sk_model, path, conda_env=DEFAULT_CONDA_ENV, mlflow_model=Model()
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
     os.makedirs(path)
-    model_data_subpath = os.path.join(path, "model.pkl")
+    model_data_subpath = "model.pkl"
     _save_model(sk_model=sk_model, output_path=os.path.join(path, model_data_subpath),
                 serialization_format=serialization_format)
 
-    conda_env_subpath = _add_conda_env(model_path=path, env_path=conda_env)
+    conda_env_subpath = "conda.yaml"
+    if conda_env is not None:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        _mlflow_conda_env(
+                path=os.path.join(path, conda_env_subpath), 
+                additional_conda_deps=CONDA_DEPENDENCIES)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data=model_data_subpath,
                         env=conda_env_subpath)
@@ -107,29 +112,6 @@ def save_model(sk_model, path, conda_env=DEFAULT_CONDA_ENV, mlflow_model=Model()
                             sklearn_version=sklearn.__version__,
                             serialization_format=serialization_format)
     mlflow_model.save(os.path.join(path, "MLmodel"))
-
-
-def _add_conda_env(model_path, env_path=None):
-    """
-    Adds the specified conda environment definition to the model at the specified path
-
-    :param model_path: The path to the root directory of the MLflow model to which to add the
-                       conda environment.
-    :param env_path: The path to the conda environment YAML definition to add to the specified
-                     model.
-    """
-    if env_path is not None:
-        model_env_subpath = "conda.yaml"
-        model_env_path = os.path.join(model_path, model_env_subpath)
-        if env_path == DEFAULT_CONDA_ENV:
-            _mlflow_conda_env(
-                    model_env_path,
-                    additional_conda_deps=CONDA_DEPENDENCIES)
-        else:
-            shutil.copyfile(env_path, model_env_path)
-        return model_env_subpath
-    else:
-        return None
 
 
 def log_model(sk_model, artifact_path, conda_env=None,
@@ -222,11 +204,10 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(os.path.join(path, 'MLmodel'))
-    if FLAVOR_NAME not in m.flavors:
-        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
-    conf = m.flavors[FLAVOR_NAME]
-    return _load_model_from_local_file(os.path.join(path, conf['pickled_model']))
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    sklearn_model_artifacts_path = os.path.join(path, flavor_conf['pickled_model'])
+    return _load_model_from_local_file(path=sklearn_model_artifacts_path)
 
 
 @click.group("sklearn")

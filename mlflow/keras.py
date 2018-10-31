@@ -21,6 +21,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.flavor_utils import _get_flavor_configuration 
 
 FLAVOR_NAME = "keras"
 
@@ -59,7 +60,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     keras_model.save(model_file)
 
     conda_env_subpath = "conda.yaml"
-    if conda_env:
+    if conda_env is not None:
         shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
     else:
         _mlflow_conda_env(
@@ -152,8 +153,7 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(os.path.join(path, 'MLmodel'))
-    if FLAVOR_NAME not in m.flavors:
-        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
-    conf = m.flavors[FLAVOR_NAME]
-    return _load_model(os.path.join(path, conf['data']))
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    keras_model_artifacts_path = os.path.join(path, flavor_conf['data']) 
+    return _load_model(model_file=keras_model_artifacts_path)

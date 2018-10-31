@@ -212,7 +212,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     pyspark_version = pyspark.version.__version__
     
     conda_env_subpath = "conda.yaml"
-    if conda_env:
+    if conda_env is not None:
         shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
     else:
         _mlflow_conda_env(
@@ -261,11 +261,10 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    conf = _get_flavor_configuration(
-            model_configuration_path=os.path.join(path, "MLmodel"),
-            flavor_name=FLAVOR_NAME)
-    model_path = os.path.join(path, conf['model_data'])
-    return _load_model(model_path=model_path, dfs_tmpdir=dfs_tmpdir)
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    spark_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
+    return _load_model(model_path=spark_model_artifacts_path, dfs_tmpdir=dfs_tmpdir)
 
 
 def _load_pyfunc(path):

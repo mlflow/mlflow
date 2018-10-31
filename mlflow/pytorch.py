@@ -136,7 +136,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     model_file = os.path.basename(model_path)
 
     conda_env_subpath = "conda.yaml"
-    if conda_env:
+    if conda_env is not None:
         shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
     else:
         _mlflow_conda_env(
@@ -150,22 +150,9 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
 
 
 def _load_model(path, **kwargs):
-    mlflow_model_path = os.path.join(path, "MLmodel")
-    if not os.path.exists(mlflow_model_path):
-        raise RuntimeError("MLmodel is not found at '{}'".format(path))
-
-    flavor = _get_flavor_configuration(
-            model_configuration_path=mlflow_model_path,
-            flavor_name=FLAVOR_NAME)
-
-    # This maybe replaced by a warning and then try/except torch.load
-    if torch.__version__ != flavor["pytorch_version"]:
-        raise ValueError("Stored model version '{}' does not match "
-                         "installed PyTorch version '{}'"
-                         .format(flavor["pytorch_version"], torch.__version__))
-
-    path = os.path.abspath(path)
-    path = os.path.join(path, flavor['model_data'])
+    """
+    :param path: The path to a serialized PyTorch model 
+    """
     return torch.load(path, **kwargs)
 
 
@@ -189,8 +176,16 @@ def load_model(path, run_id=None, **kwargs):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
 
-    return _load_model(path, **kwargs)
+    if torch.__version__ != flavor_conf["pytorch_version"]:
+        raise ValueError("Stored model version '{}' does not match "
+                         "installed PyTorch version '{}'"
+                         .format(flavor_conf["pytorch_version"], torch.__version__))
+
+    torch_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
+    return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
 def _load_pyfunc(path, **kwargs):
