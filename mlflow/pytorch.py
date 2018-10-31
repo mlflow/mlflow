@@ -141,7 +141,8 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     else:
         _mlflow_conda_env(
                 path=os.path.join(path, conda_env_subpath), 
-                additional_conda_deps=CONDA_DEPENDENCIES)
+                additional_conda_deps=CONDA_DEPENDENCIES,
+                additional_conda_channels=CONDA_CHANNELS)
 
     mlflow_model.add_flavor(FLAVOR_NAME, model_data=model_file, pytorch_version=torch.__version__)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch",

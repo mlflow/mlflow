@@ -217,6 +217,10 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     for expected_dependency in expected_dependencies:
         assert expected_dependency in conda_dependencies
 
+    conda_channels = conda_env.get("channels", [])
+    for expected_channel in mlflow.pytorch.CONDA_CHANNELS:
+        assert expected_channel in conda_channels
+
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model):
@@ -239,3 +243,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     conda_dependencies = conda_env.get("dependencies", [])
     for expected_dependency in expected_dependencies:
         assert expected_dependency in conda_dependencies
+
+    conda_channels = conda_env.get("channels", [])
+    for expected_channel in mlflow.pytorch.CONDA_CHANNELS:
+        assert expected_channel in conda_channels
