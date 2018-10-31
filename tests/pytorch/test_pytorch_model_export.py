@@ -8,6 +8,7 @@ import pandas as pd
 import sklearn.datasets as datasets
 import torch
 import torch.nn as nn
+import yaml
 from torch.utils.data import DataLoader
 
 import mlflow.pyfunc as pyfunc
@@ -185,4 +186,43 @@ def test_model_log_copies_specified_conda_env_to_mlflow_model_directory(model, p
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != pytorch_conda_env 
+    assert saved_conda_env_path != pytorch_conda_env
+
+
+def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        model, model_path):
+    mlflow.pytorch.save_model(pytorch_model=model, path=model_path)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    expected_dependencies = (
+            mlflow.pytorch.CONDA_DEPENDENCIES + 
+            ["python={python_version}".format(python_version=mlflow.utils.PYTHON_VERSION)])
+    conda_dependencies = conda_env.get("dependencies", [])
+    for expected_dependency in expected_dependencies:
+        assert expected_dependency in conda_dependencies
+
+
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        model):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(pytorch_model=model, 
+                                 artifact_path=artifact_path) 
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    expected_dependencies = (
+            mlflow.pytorch.CONDA_DEPENDENCIES + 
+            ["python={python_version}".format(python_version=mlflow.utils.PYTHON_VERSION)])
+    conda_dependencies = conda_env.get("dependencies", [])
+    for expected_dependency in expected_dependencies:
+        assert expected_dependency in conda_dependencies
