@@ -168,10 +168,17 @@ class RunInfo(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.run_uuid, proto.experiment_id, proto.name, proto.source_type,
-                   proto.source_name, proto.entry_point_name, proto.user_id, proto.status,
-                   proto.start_time, proto.end_time, proto.source_version, proto.lifecycle_stage,
-                   proto.artifact_uri)
+        end_time = proto.end_time
+        # The proto2 default scalar value of zero indicates that the run's end time is absent.
+        # An absent end time is represented with a NoneType in the `RunInfo` class
+        if end_time == 0:
+            end_time = None
+        return cls(run_uuid=proto.run_uuid, experiment_id=proto.experiment_id, name=proto.name,
+                   source_type=proto.source_type, source_name=proto.source_name,
+                   entry_point_name=proto.entry_point_name, user_id=proto.user_id,
+                   status=proto.status, start_time=proto.start_time, end_time=end_time,
+                   source_version=proto.source_version, lifecycle_stage=proto.lifecycle_stage,
+                   artifact_uri=proto.artifact_uri)
 
     @classmethod
     def _properties(cls):
