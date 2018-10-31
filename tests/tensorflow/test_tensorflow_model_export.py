@@ -358,7 +358,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == tf_conda_env_text
 
 
-def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
@@ -379,7 +379,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
         assert expected_dependency in conda_dependencies
 
 
-def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         saved_tf_iris_model, model_path):
     artifact_path = "model"
     with mlflow.start_run():

@@ -40,11 +40,12 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
-    model_dir = os.path.join(path, "model.h2o")
-    os.makedirs(model_dir)
+    model_data_subpath = "model.h2o"
+    model_data_path = os.path.join(path, model_data_subpath)
+    os.makedirs(model_data_path)
 
     # Save h2o-model
-    h2o_save_location = h2o.save_model(model=h2o_model, path=model_dir, force=True)
+    h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
@@ -52,8 +53,8 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
         settings = {}
     settings['full_file'] = h2o_save_location
     settings['model_file'] = model_file
-    settings['model_dir'] = model_dir
-    with open(os.path.join(model_dir, "h2o.yaml"), 'w') as settings_file:
+    settings['model_dir'] = model_data_path 
+    with open(os.path.join(model_data_path, "h2o.yaml"), 'w') as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 
     conda_env_subpath = "conda.yaml"
@@ -65,8 +66,8 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
                 additional_conda_deps=CONDA_DEPENDENCIES)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
-                        data="model.h2o", env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, saved_model=model_file, h2o_version=h2o.__version__)
+                        data=model_data_subpath, env=conda_env_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -122,5 +123,7 @@ def load_model(path, run_id=None):
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    h2o_model_artifacts_path = os.path.join(path, flavor_conf['data'])
-    return _load_model(path=h2o_model_artifacts_path)
+    # Flavor configurations for models saved in MLflow version <= 0.7.0 may not contain a
+    # `data` key; in this case, we assume the model artifact path to be `model.h2o`
+    h2o_model_file_path = os.path.join(path, flavor_conf.get("data", "model.h2o"))
+    return _load_model(path=h2o_model_file_path)
