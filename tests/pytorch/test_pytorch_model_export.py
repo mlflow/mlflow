@@ -163,7 +163,7 @@ def test_save_and_load_model(model, model_path, data, predicted):
     np.testing.assert_array_almost_equal(pyfunc_loaded.predict(x).values[:, 0], predicted, decimal=4)
 
 
-def test_model_save_copies_specified_conda_env_to_mlflow_model_directory(
+def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         model, model_path, pytorch_conda_env):
     mlflow.pytorch.save_model(
             pytorch_model=model, path=model_path, conda_env=pytorch_conda_env)
@@ -171,10 +171,16 @@ def test_model_save_copies_specified_conda_env_to_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != pytorch_conda_env 
+    assert saved_conda_env_path != pytorch_conda_env
+
+    with open(pytorch_conda_env, "r") as f:
+        pytorch_conda_env_text = f.read() 
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_text = f.read()
+    assert saved_conda_env_text == pytorch_conda_env_text 
 
 
-def test_model_log_copies_specified_conda_env_to_mlflow_model_directory(model, pytorch_conda_env):
+def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, pytorch_conda_env):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.pytorch.log_model(pytorch_model=model, 
@@ -188,10 +194,16 @@ def test_model_log_copies_specified_conda_env_to_mlflow_model_directory(model, p
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pytorch_conda_env
 
+    with open(pytorch_conda_env, "r") as f:
+        pytorch_conda_env_text = f.read() 
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_text = f.read()
+    assert saved_conda_env_text == pytorch_conda_env_text 
+
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model, model_path):
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path)
+    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -211,7 +223,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.pytorch.log_model(pytorch_model=model, 
-                                 artifact_path=artifact_path) 
+                                 artifact_path=artifact_path,
+                                 conda_env=None)
         run_id = mlflow.active_run().info.run_uuid
     model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
 
