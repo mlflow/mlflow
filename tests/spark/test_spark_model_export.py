@@ -142,8 +142,19 @@ def test_model_export(spark_model_iris, model_path, spark_conda_env):
     assert os.path.exists(sparkm.DFS_TMP)
 
 
+# @pytest.mark.large
+def test_model_deployment_with_default_conda_env(spark_model_iris, model_path):
+    sparkm.save_model(spark_model_iris.model, path=model_path)
+
+    deployed_model_preds = score_model_in_sagemaker_docker_container(
+            model_path=model_path, data=spark_model_iris.pandas_df,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    assert deployed_model_preds == spark_model_iris.predictions 
+
+
 @pytest.mark.large
-def test_model_deployment(spark_model_iris, model_path, spark_conda_env):
+def test_model_deployment_with_mleap_and_custom_conda_env(
+        spark_model_iris, model_path, spark_conda_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_conda_env,
                       # Test both spark ml and mleap
@@ -268,7 +279,6 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     conda_dependencies = conda_env.get("dependencies", [])
     for expected_dependency in expected_dependencies:
         assert expected_dependency in conda_dependencies
-    
     
 
 def test_mleap_model_log(spark_model_iris):
