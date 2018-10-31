@@ -51,7 +51,7 @@ mlflow_timestamp <- function() {
 }
 
 mlflow_write_model_spec <- function(path, content) {
-  content$time_created <- mlflow_timestamp()
+  content$utc_time_created <- mlflow_timestamp()
   content$run_id <- active_run_id()
 
   write_yaml(

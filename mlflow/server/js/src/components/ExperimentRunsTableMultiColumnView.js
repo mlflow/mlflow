@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import Table from 'react-bootstrap/es/Table';
+import { Table } from 'react-bootstrap';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import classNames from 'classnames';
 import Utils from '../utils/Utils';
@@ -35,6 +36,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     sortState: PropTypes.object.isRequired,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
+    metricRanges: PropTypes.object.isRequired,
   };
 
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
@@ -49,8 +51,8 @@ class ExperimentRunsTableMultiColumnView extends Component {
       runsSelected,
       tagsList,
       onExpand,
+      metricRanges,
     } = this.props;
-    const metricRanges = ExperimentViewUtil.computeMetricRanges(metricsList);
     const runInfo = runInfos[idx];
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
@@ -195,12 +197,12 @@ class ExperimentRunsTableMultiColumnView extends Component {
       .forEach((cell) => columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
     return (<Table className="ExperimentViewMultiColumn" hover>
-      <colgroup span="8"/>
+      <colgroup span="9"/>
       <colgroup span={paramKeyList.length}/>
       <colgroup span={metricKeyList.length}/>
       <tbody>
       <tr>
-        <th className="top-row" scope="colgroup" colSpan="6"/>
+        <th className="top-row" scope="colgroup" colSpan="7"/>
         <th
           className="top-row left-border"
           scope="colgroup"
@@ -233,4 +235,9 @@ const styles = {
   },
 };
 
-export default ExperimentRunsTableMultiColumnView;
+const mapStateToProps = (state, ownProps) => {
+  const { metricsList } = ownProps;
+  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList)};
+};
+
+export default connect(mapStateToProps)(ExperimentRunsTableMultiColumnView);

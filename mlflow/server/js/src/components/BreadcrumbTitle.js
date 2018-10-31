@@ -21,18 +21,29 @@ export default class BreadcrumbTitle extends Component {
     const {experiment, runUuids, runNames, title} = this.props;
     const experimentId = experiment.getExperimentId();
     const experimentLink = (
-      <Link to={Routes.getExperimentPageRoute(experimentId)}>
+      <Link
+        to={Routes.getExperimentPageRoute(experimentId)}
+        className="truncate-text single-line breadcrumb-title"
+      >
         {experiment.getName()}
       </Link>
     );
     let runsLink = null;
     if (runUuids) {
       runsLink = (runUuids.length === 1 ?
-        <Link to={Routes.getRunPageRoute(experimentId, runUuids[0])} key="link">
+        <Link
+          to={Routes.getRunPageRoute(experimentId, runUuids[0])}
+          key="link"
+          className="truncate-text single-line breadcrumb-title"
+        >
           {runNames[0]}
         </Link>
         :
-        <Link to={Routes.getCompareRunPageRoute(runUuids, experimentId)} key="link">
+        <Link
+          to={Routes.getCompareRunPageRoute(runUuids, experimentId)}
+          key="link"
+          className="truncate-text single-line breadcrumb-title"
+        >
           Comparing {runUuids.length} Runs
         </Link>
       );
@@ -43,7 +54,9 @@ export default class BreadcrumbTitle extends Component {
         {experimentLink}
         {chevron}
         { runsLink ? [runsLink, chevron] : [] }
-        {title}
+        <span className="truncate-text single-line breadcrumb-title">
+          {title}
+        </span>
       </h1>
     );
   }

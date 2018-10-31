@@ -1,6 +1,7 @@
 import os
+import shlex
 
-from flask import Flask, send_from_directory, make_response
+from flask import Flask, send_from_directory
 
 from mlflow.server import handlers
 from mlflow.server.handlers import get_artifact_handler
@@ -50,7 +51,8 @@ def serve():
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
-def _run_server(file_store_path, default_artifact_root, host, port, workers, static_prefix):
+def _run_server(file_store_path, default_artifact_root, host, port, workers, static_prefix,
+                gunicorn_opts):
     """
     Run the MLflow server, wrapping it in gunicorn
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
@@ -65,5 +67,6 @@ def _run_server(file_store_path, default_artifact_root, host, port, workers, sta
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
     bind_address = "%s:%s" % (host, port)
-    exec_cmd(["gunicorn", "-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
+    opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
+    exec_cmd(["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
              env=env_map, stream_output=True)

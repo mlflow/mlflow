@@ -78,7 +78,11 @@ def log_model(keras_model, artifact_path, **kwargs):
 
 def _load_model(model_file):
     import keras.models
-    return keras.models.load_model(os.path.abspath(model_file))
+    import h5py
+    # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead of
+    # string to avoid issues.
+    model_file = h5py.File(os.path.abspath(model_file),)
+    return keras.models.load_model(model_file)
 
 
 class _KerasModelWrapper:
