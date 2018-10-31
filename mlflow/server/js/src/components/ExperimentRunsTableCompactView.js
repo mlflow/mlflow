@@ -62,38 +62,19 @@ class ExperimentRunsTableCompactView extends Component {
     paramKeyList: PropTypes.arrayOf(String).isRequired,
     metricKeyList: PropTypes.arrayOf(String).isRequired,
     metricRanges: PropTypes.object.isRequired,
+    onAddBagged: PropTypes.func.isRequired,
+    onRemoveBagged: PropTypes.func.isRequired,
+    unbaggedParams: PropTypes.arrayOf(String).isRequired,
+    unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
   };
 
   state = {
     hoverState: {isMetric: false, isParam: false, key: ""},
-    // Arrays of "unbagged", or split-out metrics and parameters. We maintain these as lists to help
-    // keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
-    // that have already been split out)
-    unbaggedMetrics: [],
-    unbaggedParams: [],
   };
 
   onHover({isParam, isMetric, key}) {
     this.setState({ hoverState: {isParam, isMetric, key} });
   }
-
-  // Mark a column as "bagged" by removing it from the unbagged array
-  addBagged(isParam, colName) {
-    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
-    const idx = unbagged.indexOf(colName);
-    const newUnbagged = idx >= 0 ?
-      unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
-    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: newUnbagged});
-  }
-
-  // Split out a column (add it to array of unbagged cols)
-  removeBagged(isParam, colName) {
-    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
-    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: unbagged.concat([colName])});
-  }
-
 
   // Builds a single row of table content (not header)
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
@@ -110,11 +91,10 @@ class ExperimentRunsTableCompactView extends Component {
       paramKeyList,
       metricKeyList,
       metricRanges,
-    } = this.props;
-    const {
-      unbaggedParams,
       unbaggedMetrics,
-    } = this.state;
+      unbaggedParams,
+      onRemoveBagged,
+    } = this.props;
     const hoverState = this.state.hoverState;
     const runInfo = runInfos[idx];
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
@@ -197,7 +177,7 @@ class ExperimentRunsTableCompactView extends Component {
                 </MenuItem>
                 <MenuItem
                   className="mlflow-menu-item"
-                  onClick={() => this.removeBagged(true, paramKey)}
+                  onClick={() => onRemoveBagged(true, paramKey)}
                 >
                   Display in own column
                 </MenuItem>
@@ -276,7 +256,7 @@ class ExperimentRunsTableCompactView extends Component {
                 </MenuItem>
                 <MenuItem
                   className="mlflow-menu-item"
-                  onClick={() => this.removeBagged(false, metricKey)}
+                  onClick={() => onRemoveBagged(false, metricKey)}
                 >
                   Display in own column
                 </MenuItem>
@@ -327,8 +307,7 @@ class ExperimentRunsTableCompactView extends Component {
   }
 
   showBaggedColumn(isParam) {
-    const { metricKeyList, paramKeyList } = this.props;
-    const { unbaggedMetrics, unbaggedParams} = this.state;
+    const { metricKeyList, paramKeyList, unbaggedMetrics, unbaggedParams } = this.props;
     if (isParam) {
       return unbaggedParams.length !== paramKeyList.length || paramKeyList.length === 0;
     }
@@ -341,11 +320,10 @@ class ExperimentRunsTableCompactView extends Component {
       sortState,
       paramKeyList,
       metricKeyList,
-    } = this.props;
-    const {
-      unbaggedParams,
       unbaggedMetrics,
-    } = this.state;
+      unbaggedParams,
+      onAddBagged,
+    } = this.props;
     const columns = [];
     const getHeaderCell = (isParam, key, i) => {
       const isMetric = !isParam;
@@ -383,7 +361,7 @@ class ExperimentRunsTableCompactView extends Component {
                 </MenuItem>
                 <MenuItem
                   className="mlflow-menu-item"
-                  onClick={() => this.addBagged(isParam, key)}
+                  onClick={() => onAddBagged(isParam, key)}
                 >
                   Collapse column
                 </MenuItem>
@@ -426,11 +404,9 @@ class ExperimentRunsTableCompactView extends Component {
       sortState,
       tagsList,
       runsExpanded,
-    } = this.props;
-    const {
       unbaggedMetrics,
       unbaggedParams,
-    } = this.state;
+    } = this.props;
     const rows = ExperimentViewUtil.getRows({
       runInfos,
       sortState,

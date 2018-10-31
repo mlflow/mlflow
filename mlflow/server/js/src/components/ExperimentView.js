@@ -46,6 +46,8 @@ class ExperimentView extends Component {
     this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
     this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
     this.onExpand = this.onExpand.bind(this);
+    this.addBagged = this.addBagged.bind(this);
+    this.removeBagged = this.removeBagged.bind(this);
   }
 
   static propTypes = {
@@ -97,6 +99,11 @@ class ExperimentView extends Component {
     showMultiColumns: true,
     showDeleteRunModal: false,
     showRestoreRunModal: false,
+    // Arrays of "unbagged", or split-out metrics and parameters. We maintain these as lists to help
+    // keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
+    // that have already been split out)
+    unbaggedMetrics: [],
+    unbaggedParams: [],
   };
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -148,6 +155,23 @@ class ExperimentView extends Component {
 
   onCloseRestoreRunModal() {
     this.setState({ showRestoreRunModal: false });
+  }
+
+  // Mark a column as "bagged" by removing it from the unbagged array
+  addBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const idx = unbagged.indexOf(colName);
+    const newUnbagged = idx >= 0 ?
+      unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: newUnbagged});
+  }
+
+  // Split out a column (add it to array of unbagged cols)
+  removeBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: unbagged.concat([colName])});
   }
 
   render() {
@@ -343,6 +367,10 @@ class ExperimentView extends Component {
               setSortByHandler={this.setSortBy}
               runsExpanded={this.state.runsExpanded}
               onExpand={this.onExpand}
+              unbaggedMetrics={this.state.unbaggedMetrics}
+              unbaggedParams={this.state.unbaggedParams}
+              onAddBagged={this.addBagged}
+              onRemoveBagged={this.removeBagged}
             />
           }
         </div>
