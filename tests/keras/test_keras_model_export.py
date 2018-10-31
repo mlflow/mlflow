@@ -94,7 +94,7 @@ def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disabl
             mlflow.end_run()
 
 
-def test_model_save_without_conda_env_specification_uses_default_env_with_expected_dependencies(
+def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model, model_path):
     mlflow.keras.save_model(keras_model=model, path=model_path)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -109,7 +109,7 @@ def test_model_save_without_conda_env_specification_uses_default_env_with_expect
         assert expected_dependency in conda_dependencies
 
 
-def test_model_log_without_conda_env_specification_uses_default_env_with_expected_dependencies(
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model):
     artifact_path = "model"
     with mlflow.start_run():

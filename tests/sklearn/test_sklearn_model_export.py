@@ -165,7 +165,7 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
 
-def test_model_save_without_conda_env_specification_uses_default_env_with_expected_dependencies(
+def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
     mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
@@ -183,7 +183,7 @@ def test_model_save_without_conda_env_specification_uses_default_env_with_expect
         assert expected_dependency in conda_dependencies
 
 
-def test_model_log_without_conda_env_specification_uses_default_env_with_expected_dependencies(
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sklearn_knn_model):
     artifact_path = "model"
     knn_model = sklearn_knn_model.model

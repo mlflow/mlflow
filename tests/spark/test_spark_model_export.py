@@ -15,13 +15,16 @@ import pytest
 from sklearn import datasets
 import shutil
 from collections import namedtuple
+import yaml
 
 import mlflow
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.models import Model
+from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.flavor_utils import _get_flavor_configuration
 
 from mlflow.utils.environment import _mlflow_conda_env
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -191,13 +194,52 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 shutil.rmtree(tracking_dir)
 
 
+def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        spark_model_iris, model_path):
+    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    expected_dependencies = (
+            sparkm.CONDA_DEPENDENCIES + 
+            ["python={python_version}".format(python_version=mlflow.utils.PYTHON_VERSION)])
+    conda_dependencies = conda_env.get("dependencies", [])
+    for expected_dependency in expected_dependencies:
+        assert expected_dependency in conda_dependencies
+
+
+def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        spark_model_iris):
+    artifact_path = "model"
+    with mlflow.start_run():
+        sparkm.log_model(spark_model=spark_model_iris.model, artifact_path=artifact_path)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    expected_dependencies = (
+            sparkm.CONDA_DEPENDENCIES + 
+            ["python={python_version}".format(python_version=mlflow.utils.PYTHON_VERSION)])
+    conda_dependencies = conda_env.get("dependencies", [])
+    for expected_dependency in expected_dependencies:
+        assert expected_dependency in conda_dependencies
+    
+    
+
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     sparkm.log_model(spark_model=spark_model_iris.model,
                      sample_input=spark_model_iris.spark_df,
                      artifact_path=artifact_path)
     rid = active_run().info.run_uuid
-    model_path = mlflow.tracking.utils._get_model_log_dir(model_name=artifact_path, run_id=rid)
+    model_path = _get_model_log_dir(model_name=artifact_path, run_id=rid)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
