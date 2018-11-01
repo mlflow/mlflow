@@ -4,10 +4,13 @@ import sys
 import os
 import pickle
 import pytest
+import json
 import yaml
 from collections import namedtuple
 
 import numpy as np
+import pandas as pd
+import pandas.testing
 import sklearn
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
@@ -26,6 +29,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.flavor_utils import _get_flavor_configuration
 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -252,3 +256,20 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     conda_dependencies = conda_env.get("dependencies", [])
     for expected_dependency in expected_dependencies:
         assert expected_dependency in conda_dependencies
+
+
+@pytest.mark.release
+def test_model_deployment_with_default_conda_env(sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
+    reloaded_knn_pyfunc = pyfunc.load_pyfunc(path=model_path)
+
+    inference_df = pd.DataFrame(sklearn_knn_model.inference_data)
+    deployed_model_preds = score_model_in_sagemaker_docker_container(
+            model_path=model_path, 
+            data=inference_df,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    pandas.testing.assert_frame_equal(
+        pd.DataFrame(deployed_model_preds),
+        pd.DataFrame(reloaded_knn_pyfunc.predict(inference_df)),
+        check_dtype=False,
+        check_less_precise=6)

@@ -162,9 +162,9 @@ def test_model_deployment(
     assert spark_model_iris.predictions == preds2
 
 
-@pytest.mark.large
+@pytest.mark.release
 def test_model_deployment_with_default_conda_env(spark_model_iris, model_path):
-    sparkm.save_model(spark_model_iris.model, path=model_path)
+    sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
 
     deployed_model_preds = score_model_in_sagemaker_docker_container(
             model_path=model_path, data=spark_model_iris.pandas_df,

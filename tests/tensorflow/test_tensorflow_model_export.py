@@ -22,6 +22,8 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAME
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.flavor_utils import _get_flavor_configuration
+from tests.helper_functions import score_model_in_sagemaker_docker_container
+
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
@@ -426,3 +428,21 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6)
+
+
+@pytest.mark.release
+def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path,
+                                 conda_env=None)
+
+    deployed_model_preds = score_model_in_sagemaker_docker_container(
+            model_path=model_path, data=saved_tf_iris_model.inference_df,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    pandas.testing.assert_frame_equal(
+        pd.DataFrame(deployed_model_preds), 
+        saved_tf_iris_model.expected_results_df,
+        check_dtype=False,
+        check_less_precise=6)

@@ -5,6 +5,7 @@ import os
 import pytest
 import numpy as np
 import pandas as pd
+import pandas.testing
 import sklearn.datasets as datasets
 import torch
 import torch.nn as nn
@@ -18,6 +19,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.flavor_utils import _get_flavor_configuration
+
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 
 @pytest.fixture(scope='module')
@@ -247,3 +250,19 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     conda_channels = conda_env.get("channels", [])
     for expected_channel in mlflow.pytorch.CONDA_CHANNELS:
         assert expected_channel in conda_channels
+
+
+# @pytest.mark.release
+def test_model_deployment_with_default_conda_env(model, model_path, data, predicted):
+    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
+    inference_df = pd.DataFrame(data[0])
+
+    deployed_model_preds = score_model_in_sagemaker_docker_container(
+            model_path=model_path, 
+            data=inference_df,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    pandas.testing.assert_frame_equal(
+        pd.DataFrame(deployed_model_preds),
+        pd.DataFrame(predicted),
+        check_dtype=False,
+        check_less_precise=6)
