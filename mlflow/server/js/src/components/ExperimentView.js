@@ -20,6 +20,7 @@ import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
 
+import _ from 'lodash';
 
 export const DEFAULT_EXPANDED_VALUE = true;
 
@@ -80,7 +81,7 @@ class ExperimentView extends Component {
     searchInput: PropTypes.string.isRequired,
   };
 
-  state = {
+  defaultState = {
     runsHiddenByExpander: {},
     // By default all runs are expanded. In this state, runs are explicitly expanded or unexpanded.
     runsExpanded: {},
@@ -105,6 +106,30 @@ class ExperimentView extends Component {
     unbaggedMetrics: [],
     unbaggedParams: [],
   };
+
+  state = this.loadState();
+
+  getStateKey() {
+    return "mlflow-experiment-" + this.props.experiment.id;
+  }
+
+  setStateWrapper(newState) {
+    this.setState(newState, () => {
+      window.localStorage.setItem(this.getStateKey(), JSON.stringify(this.state));
+    });
+  }
+
+  loadState() {
+    const cachedState = JSON.parse(window.localStorage.getItem(this.getStateKey()));
+    const runsSelected = this.defaultState.runsSelected;
+    if (cachedState) {
+      return  {
+        ...cachedState,
+        runsSelected, // Don't save selected runs across page reloads
+      };
+    }
+    return _.cloneDeep(this.defaultState);
+  }
 
   shouldComponentUpdate(nextProps, nextState) {
     // Don't update the component if a modal is showing before and after the update try.
@@ -138,23 +163,23 @@ class ExperimentView extends Component {
   }
 
   setShowMultiColumns(value) {
-    this.setState({ showMultiColumns: value });
+    this.setStateWrapper({ showMultiColumns: value });
   }
 
   onDeleteRun() {
-    this.setState({ showDeleteRunModal: true });
+    this.setStateWrapper({ showDeleteRunModal: true });
   }
 
   onRestoreRun() {
-    this.setState({ showRestoreRunModal: true });
+    this.setStateWrapper({ showRestoreRunModal: true });
   }
 
   onCloseDeleteRunModal() {
-    this.setState({ showDeleteRunModal: false });
+    this.setStateWrapper({ showDeleteRunModal: false });
   }
 
   onCloseRestoreRunModal() {
-    this.setState({ showRestoreRunModal: false });
+    this.setStateWrapper({ showRestoreRunModal: false });
   }
 
   // Mark a column as "bagged" by removing it from the unbagged array
@@ -164,14 +189,14 @@ class ExperimentView extends Component {
     const newUnbagged = idx >= 0 ?
       unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: newUnbagged});
+    this.setStateWrapper({[stateKey]: newUnbagged});
   }
 
   // Split out a column (add it to array of unbagged cols)
   removeBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: unbagged.concat([colName])});
+    this.setStateWrapper({[stateKey]: unbagged.concat([colName])});
   }
 
   render() {
@@ -384,7 +409,7 @@ class ExperimentView extends Component {
   }
 
   setSortBy(isMetric, isParam, key, ascending) {
-    this.setState({sort: {
+    this.setStateWrapper({sort: {
       ascending: ascending,
       key: key,
       isMetric: isMetric,
@@ -396,9 +421,9 @@ class ExperimentView extends Component {
     const newState = Object.assign({}, this.state);
     if (this.state.runsSelected[runUuid]) {
       delete newState.runsSelected[runUuid];
-      this.setState(newState);
+      this.setStateWrapper(newState);
     } else {
-      this.setState({
+      this.setStateWrapper({
         runsSelected: {
           ...this.state.runsSelected,
           [runUuid]: true,
@@ -413,13 +438,13 @@ class ExperimentView extends Component {
 
   onCheckAll() {
     if (this.isAllChecked()) {
-      this.setState({runsSelected: {}});
+      this.setStateWrapper({runsSelected: {}});
     } else {
       const runsSelected = {};
       this.props.runInfos.forEach(({run_uuid}) => {
         runsSelected[run_uuid] = true;
       });
-      this.setState({runsSelected: runsSelected});
+      this.setStateWrapper({runsSelected: runsSelected});
     }
   }
 
@@ -429,7 +454,7 @@ class ExperimentView extends Component {
     childrenIds.forEach((childId) => {
       newRunsHiddenByExpander[childId] = !newExpanderState;
     });
-    this.setState({
+    this.setStateWrapper({
       runsExpanded: {
         ...this.state.runsExpanded,
         [runId]: newExpanderState,
@@ -444,24 +469,24 @@ class ExperimentView extends Component {
           delete newRunsSelected[childId];
         }
       });
-      this.setState({ runsSelected: newRunsSelected });
+      this.setStateWrapper({ runsSelected: newRunsSelected });
     }
   }
 
   onParamKeyFilterInput(event) {
-    this.setState({ paramKeyFilterInput: event.target.value });
+    this.setStateWrapper({ paramKeyFilterInput: event.target.value });
   }
 
   onMetricKeyFilterInput(event) {
-    this.setState({ metricKeyFilterInput: event.target.value });
+    this.setStateWrapper({ metricKeyFilterInput: event.target.value });
   }
 
   onSearchInput(event) {
-    this.setState({ searchInput: event.target.value });
+    this.setStateWrapper({ searchInput: event.target.value });
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
+    this.setStateWrapper({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
   }
 
   onSearch(e) {
@@ -474,22 +499,18 @@ class ExperimentView extends Component {
       searchInput,
       lifecycleFilterInput
     } = this.state;
-    const paramKeyFilter = new KeyFilter(paramKeyFilterInput);
-    const metricKeyFilter = new KeyFilter(metricKeyFilterInput);
     try {
       const andedExpressions = SearchUtils.parseSearchInput(searchInput);
-      this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, searchInput,
+      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, andedExpressions, searchInput,
         lifecycleFilterInput);
     } catch (ex) {
-      this.setState({ searchErrorMessage: ex.errorMessage });
+      this.setStateWrapper({ searchErrorMessage: ex.errorMessage });
     }
   }
 
   onClear() {
-    const paramKeyFilter = new KeyFilter();
-    const metricKeyFilter = new KeyFilter();
     const andedExpressions = [];
-    this.props.onSearch(paramKeyFilter, metricKeyFilter, andedExpressions, "",
+    this.props.onSearch("", "", andedExpressions, "",
       LIFECYCLE_FILTER.ACTIVE);
   }
 
