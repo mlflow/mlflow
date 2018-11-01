@@ -163,7 +163,8 @@ def test_save_and_load_model(model, model_path, data, predicted):
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
-    np.testing.assert_array_almost_equal(pyfunc_loaded.predict(x).values[:, 0], predicted, decimal=4)
+    np.testing.assert_array_almost_equal(
+            pyfunc_loaded.predict(x).values[:, 0], predicted, decimal=4)
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
@@ -255,14 +256,16 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 # @pytest.mark.release
 def test_model_deployment_with_default_conda_env(model, model_path, data, predicted):
     mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
-    inference_df = pd.DataFrame(data[0])
 
     deployed_model_preds = score_model_in_sagemaker_docker_container(
             model_path=model_path, 
-            data=inference_df,
+            data=data[0],
             flavor=mlflow.pyfunc.FLAVOR_NAME)
-    pandas.testing.assert_frame_equal(
-        pd.DataFrame(deployed_model_preds),
-        pd.DataFrame(predicted),
-        check_dtype=False,
-        check_less_precise=6)
+    # pandas.testing.assert_frame_equal(
+    #     pd.DataFrame(deployed_model_preds).values[:, 0],
+    #     predicted,
+    #     check_dtype=False,
+    #     check_less_precise=6)
+
+    np.testing.assert_array_almost_equal(
+            pd.DataFrame(deployed_model_preds).values[:, 0], predicted, decimal=4)
