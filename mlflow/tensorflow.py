@@ -58,9 +58,11 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                  `signature_def_map` parameter of the
                                  `tf.saved_model.builder.SavedModelBuilder` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
-    :param conda_env: Path to a Conda environment file. If provided, defines an environment for the
-                      model. At minimum, it should specify python, tensorflow, and mlflow with
-                      appropriate versions.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.tensorflow.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.tensorflow.CONDA_DEPENDENCIES` will be used.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
@@ -90,9 +92,11 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                                  `tf.saved_model.builder.savedmodelbuilder` method.
     :param path: Local path where the MLflow model is to be saved.
     :param mlflow_model: MLflow model configuration to which this flavor will be added.
-    :param conda_env: Path to a Conda environment file. If provided, defines an environment for the
-                      model. At minimum, it should specify python, tensorflow, and mlflow with
-                      appropriate versions.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.tensorflow.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.tensorflow.CONDA_DEPENDENCIES` will be used.
     """
     eprint("Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
            " graph...")

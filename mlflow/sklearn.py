@@ -53,8 +53,10 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-           this model should be run in. At minimum, it should specify python, scikit-learn,
-           and mlflow with appropriate versions.
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.sklearn.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.sklearn.CONDA_DEPENDENCIES` will be used.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
@@ -122,8 +124,10 @@ def log_model(sk_model, artifact_path, conda_env=None,
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-           this model should be run in. At minimum, it should specify python, scikit-learn,
-           and mlflow with appropriate versions.
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.sklearn.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.sklearn.CONDA_DEPENDENCIES` will be used.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the following: `mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`,
                                  `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`.

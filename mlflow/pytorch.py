@@ -43,9 +43,11 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
                           input and produce a single output tensor.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this defines the environment
-           for the model. At minimum, it should specify python, pytorch, and mlflow with appropriate
-           versions.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.pytorch.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.pytorch.CONDA_DEPENDENCIES` will be used.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -102,8 +104,10 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
                           input and produce a single output tensor.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify python, pytorch,
-                      and mlflow with appropriate versions.
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.pytorch.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.pytorch.CONDA_DEPENDENCIES` will be used.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 

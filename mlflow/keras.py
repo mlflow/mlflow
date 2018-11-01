@@ -40,6 +40,11 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
 
     :param keras_model: Keras model to be saved.
     :param path: Local path where the model is to be saved.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.keras.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.keras.CONDA_DEPENDENCIES` will be used.
     :param mlflow_model: MLflow model config this flavor is being added to.
 
     >>> import mlflow
@@ -73,12 +78,17 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(keras_model, artifact_path, **kwargs):
+def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
     :param keras_model: Keras model to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.keras.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.keras.CONDA_DEPENDENCIES` will be used.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -93,7 +103,7 @@ def log_model(keras_model, artifact_path, **kwargs):
     >>>   mlflow.keras.log_model(keras_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
-              keras_model=keras_model, **kwargs)
+              keras_model=keras_model, conda_env=conda_env, **kwargs)
 
 
 def _load_model(model_file):

@@ -35,6 +35,11 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
 
     :param h2o_model: H2O model to be saved.
     :param path: Local path where the model is to be saved.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.h2o.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.h2o.CONDA_DEPENDENCIES` will be used.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     path = os.path.abspath(path)
@@ -71,16 +76,21 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(h2o_model, artifact_path, **kwargs):
+def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
     """
     Log an H2O model as an MLflow artifact for the current run.
 
     :param h2o_model: H2O model to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.h2o.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.h2o.CONDA_DEPENDENCIES` will be used.
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
-              h2o_model=h2o_model, **kwargs)
+              h2o_model=h2o_model, conda_env=conda_env, **kwargs)
 
 
 def _load_model(path, init=False):

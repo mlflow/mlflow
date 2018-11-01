@@ -53,9 +53,11 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, defines environment for the
-                      model. At minimum, it should specify python, pyspark, and mlflow with
-                      appropriate versions.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.spark.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.spark.CONDA_DEPENDENCIES` will be used.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be writen in this
@@ -172,7 +174,11 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
-    :param conda_env: Conda environment this model depends on.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      listed in `mlflow.spark.CONDA_DEPENDENCIES` with appropriate versions. 
+                      If `None`, a default Conda environment file containing the dependencies 
+                      specified in `mlflow.spark.CONDA_DEPENDENCIES` will be used.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be written in this
