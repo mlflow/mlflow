@@ -253,7 +253,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         assert expected_channel in conda_channels
 
 
-# @pytest.mark.release
+@pytest.mark.release
 def test_model_deployment_with_default_conda_env(model, model_path, data, predicted):
     mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
 
@@ -261,11 +261,6 @@ def test_model_deployment_with_default_conda_env(model, model_path, data, predic
             model_path=model_path, 
             data=data[0],
             flavor=mlflow.pyfunc.FLAVOR_NAME)
-    # pandas.testing.assert_frame_equal(
-    #     pd.DataFrame(deployed_model_preds).values[:, 0],
-    #     predicted,
-    #     check_dtype=False,
-    #     check_less_precise=6)
 
     np.testing.assert_array_almost_equal(
             pd.DataFrame(deployed_model_preds).values[:, 0], predicted, decimal=4)
