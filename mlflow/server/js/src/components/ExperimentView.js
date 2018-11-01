@@ -113,9 +113,12 @@ class ExperimentView extends Component {
     return "mlflow-experiment-" + this.props.experiment.id;
   }
 
-  setStateWrapper(newState) {
+  setStateWrapper(newState, callback) {
     this.setState(newState, () => {
       window.localStorage.setItem(this.getStateKey(), JSON.stringify(this.state));
+      if (callback) {
+        callback();
+      }
     });
   }
 
@@ -124,6 +127,8 @@ class ExperimentView extends Component {
     const runsSelected = this.defaultState.runsSelected;
     if (cachedState) {
       return  {
+        // Include default state as a safeguard against bad data in localstorage
+        ..._.cloneDeep(this.defaultState),
         ...cachedState,
         runsSelected, // Don't save selected runs across page reloads
       };
@@ -474,15 +479,15 @@ class ExperimentView extends Component {
   }
 
   onParamKeyFilterInput(event) {
-    this.setStateWrapper({ paramKeyFilterInput: event.target.value });
+    this.setState({ paramKeyFilterInput: event.target.value });
   }
 
   onMetricKeyFilterInput(event) {
-    this.setStateWrapper({ metricKeyFilterInput: event.target.value });
+    this.setState({ metricKeyFilterInput: event.target.value });
   }
 
   onSearchInput(event) {
-    this.setStateWrapper({ searchInput: event.target.value });
+    this.setState({ searchInput: event.target.value });
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
@@ -500,18 +505,21 @@ class ExperimentView extends Component {
       lifecycleFilterInput
     } = this.state;
     try {
-      const andedExpressions = SearchUtils.parseSearchInput(searchInput);
-      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, andedExpressions, searchInput,
-        lifecycleFilterInput);
+      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput);
     } catch (ex) {
       this.setStateWrapper({ searchErrorMessage: ex.errorMessage });
     }
   }
 
   onClear() {
-    const andedExpressions = [];
-    this.props.onSearch("", "", andedExpressions, "",
-      LIFECYCLE_FILTER.ACTIVE);
+    // When user clicks "Clear", preserve multicolumn toggle state.
+    const clearState = {
+      ..._.cloneDeep(this.defaultState),
+      showMultiColumns: this.state.showMultiColumns,
+    };
+    this.setStateWrapper(clearState, () => {
+      this.props.onSearch("", "", "", LIFECYCLE_FILTER.ACTIVE);
+    });
   }
 
   onCompare() {

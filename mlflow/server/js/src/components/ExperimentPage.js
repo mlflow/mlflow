@@ -8,6 +8,7 @@ import RequestStateWrapper from './RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
 import _ from "lodash";
+import {SearchUtils} from "../utils/SearchUtils";
 
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
@@ -44,12 +45,16 @@ class ExperimentPage extends Component {
   setStateWrapper(newState) {
     // Wrapper over setState that caches certain fields in local storage. New fields can be
     // persisted in local storage here.
-    const { paramKeyFilterString, metricKeyFilterString } = newState;
+    const { paramKeyFilterString, metricKeyFilterString, searchInput } = newState;
     this.setState(newState, () => {
-      window.localStorage.setItem(ExperimentPage.getStateKey(), JSON.stringify({
-        paramKeyFilterString,
-        metricKeyFilterString,
-      }));
+      window.localStorage.setItem(
+        ExperimentPage.getStateKey(this.props.experimentId),
+        JSON.stringify({
+          paramKeyFilterString,
+          metricKeyFilterString,
+          searchInput,
+        })
+      );
     });
   }
 
@@ -80,7 +85,7 @@ class ExperimentPage extends Component {
       props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
       props.dispatch(searchRunsApi(
         [props.experimentId],
-        [],
+        SearchUtils.parseSearchInput(newState.searchInput),
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
         newState.searchRunsRequestId));
       return newState;
@@ -88,7 +93,8 @@ class ExperimentPage extends Component {
     return null;
   }
 
-  onSearch(paramKeyFilterString, metricKeyFilterString, andedExpressions, searchInput, lifecycleFilterInput) {
+  onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
+    const andedExpressions = SearchUtils.parseSearchInput(searchInput);
     this.setStateWrapper({
       paramKeyFilterString,
       metricKeyFilterString,
