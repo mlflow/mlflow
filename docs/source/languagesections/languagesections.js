@@ -62,10 +62,10 @@ $(function() {
       var my_sel_class = sel_class;
       // When the target language is not available, default to bash or python.
       if (!$('div.' + sel_class, parent).length) {
-        if ($('div.bash', parent).length)
-          my_sel_class = 'bash';
+        if ($('div.highlight-bash', parent).length)
+          my_sel_class = 'highlight-bash';
         else
-          my_sel_class = 'python';
+          my_sel_class = 'highlight-python';
       }
 
       $('div.example', parent).hide();
