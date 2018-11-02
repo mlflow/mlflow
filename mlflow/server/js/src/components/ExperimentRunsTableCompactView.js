@@ -140,7 +140,7 @@ class ExperimentRunsTableCompactView extends Component {
                   className="run-table-container"
                   style={{display: "inline-block", cursor: "default"}}
                   title={paramsMap[paramKey].getValue()}
-                  onClick={(e) => { e.stopPropagation(); }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                     : {paramsMap[paramKey].getValue()}
                 </span>
@@ -202,7 +202,7 @@ class ExperimentRunsTableCompactView extends Component {
                   className="run-table-container"
                   style={{display: "inline-block", cursor: "default"}}
                   title={Utils.formatMetric(metric)}
-                  onClick={(e) => { e.stopPropagation(); }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                 : {Utils.formatMetric(metric)}
                 </span>
