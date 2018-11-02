@@ -157,7 +157,12 @@ class ExperimentView extends Component {
     this.setState({ showRestoreRunModal: false });
   }
 
-  // Mark a column as "bagged" by removing it from the unbagged array
+  /**
+   * Mark a column as bagged by removing it from the appropriate array of unbagged columns.
+   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
+   *                assumed to be a param column.
+   * @param colName Name of the column (metric or param key).
+   */
   addBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const idx = unbagged.indexOf(colName);
@@ -167,7 +172,12 @@ class ExperimentView extends Component {
     this.setState({[stateKey]: newUnbagged});
   }
 
-  // Split out a column (add it to array of unbagged cols)
+  /**
+   * Mark a column as unbagged by adding it to the appropriate array of unbagged columns.
+   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
+   *                assumed to be a param column.
+   * @param colName Name of the column (metric or param key).
+   */
   removeBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";

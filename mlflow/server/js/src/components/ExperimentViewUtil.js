@@ -136,6 +136,14 @@ export default class ExperimentViewUtil {
   }
 
 
+  /**
+   * Returns a table cell corresponding to a single metric value. The metric is assumed to be
+   * unbagged (marked to be displayed in its own column).
+   * @param metricKey The key of the desired metric
+   * @param metricsMap Object mapping metric keys to their latest values for a single run
+   * @param metricRanges Object mapping metric keys to objects of the form {min: ..., max: ...}
+   *                     containing min and max values of the metric across all visible runs.
+   */
   static getUnbaggedMetricCell(metricKey, metricsMap, metricRanges) {
     const className = "left-border run-table-container";
     const keyName = "metric-" + metricKey;
