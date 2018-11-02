@@ -120,9 +120,9 @@ either a local directory or a GitHub URI:
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
-specifies its dependencies. All projects that run also log their Tracking API data in the local
-``mlruns`` directory (or on your tracking server if you've configured one), so you should be able
-to see these runs using ``mlflow ui``.
+specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
+projects log their Tracking API data in the local ``mlruns`` directory so you can see these 
+runs using ``mlflow ui``.
 
 .. note::
     By default ``mlflow run`` installs all dependencies using `conda <https://conda.io/>`_.
