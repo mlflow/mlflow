@@ -67,7 +67,7 @@ def pyfunc_serve_and_score_model(model_path, data):
 
 def _score_proc(proc, port, data, data_type):
     try:
-        for i in range(0, 100):
+        for i in range(0, 130):
             assert proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException

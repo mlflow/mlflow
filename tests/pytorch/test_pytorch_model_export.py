@@ -254,13 +254,46 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 @pytest.mark.release
-def test_model_deployment_with_default_conda_env(model, model_path, data, predicted):
+def test_model_deployment_with_default_conda_env(model, model_path, predicted):
     mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
+    with open("/tmp/data.txt", "r") as f:
+        import json
+        data = [None, None]
+        data[0] = pd.read_json(f)
+    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+    expected_result = loaded_pyfunc_model.predict(pd.DataFrame(data[0]))
 
     deployed_model_preds = score_model_in_sagemaker_docker_container(
             model_path=model_path, 
             data=data[0],
             flavor=mlflow.pyfunc.FLAVOR_NAME)
 
+    # from tests.helper_functions import pyfunc_serve_and_score_model
+    # deployed_model_preds = pyfunc_serve_and_score_model(
+    #         model_path=model_path, 
+    #         data=data[0])
+
+
+    # with open("/tmp/preds.txt", "w") as f:
+    #     import json
+    #     f.write(json.dumps(deployed_model_preds))
+
+    # with open("/tmp/deployed.txt", "w") as f:
+    #     f.write(pd.DataFrame(deployed_model_preds).to_json(orient="records"))
+    #
+    # with open("/tmp/local.txt", "w") as f:
+    #     f.write(pd.DataFrame(predicted).to_json(orient="records"))
+
+
+    # pandas.testing.assert_frame_equal(
+    #     pd.DataFrame(deployed_model_preds).values[:, 0],
+    #     loaded_pyfunc_model.predict(data[0]).values[:, 0],
+    #     check_dtype=False,
+    #     check_less_precise=6)
+
+    print(pd.DataFrame(deployed_model_preds))
+
     np.testing.assert_array_almost_equal(
-            pd.DataFrame(deployed_model_preds).values[:, 0], predicted, decimal=4)
+        pd.DataFrame(deployed_model_preds).values[:, 0],
+        expected_result.values[:, 0],
+        decimal=4)
