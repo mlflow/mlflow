@@ -35,5 +35,5 @@ class TestExperiment(unittest.TestCase):
     def test_string_repr(self):
         exp = Experiment(experiment_id=0, name="myname", artifact_location="hi",
                          lifecycle_stage=Experiment.ACTIVE_LIFECYCLE)
-        assert str(exp) == "<Experiment: experiment_id=0, name='myname', artifact_location='hi', " \
-                           "lifecycle_stage='active'>"
+        assert str(exp) == "<Experiment: artifact_location='hi', experiment_id=0, " \
+                           "lifecycle_stage='active', name='myname'>"
