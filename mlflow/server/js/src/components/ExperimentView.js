@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import classNames from 'classnames';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
 import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
@@ -8,7 +9,6 @@ import Routes from '../Routes';
 import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { SearchUtils } from '../utils/SearchUtils';
-import classNames from 'classnames';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
@@ -46,6 +46,8 @@ class ExperimentView extends Component {
     this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
     this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
     this.onExpand = this.onExpand.bind(this);
+    this.addBagged = this.addBagged.bind(this);
+    this.removeBagged = this.removeBagged.bind(this);
   }
 
   static propTypes = {
@@ -97,6 +99,11 @@ class ExperimentView extends Component {
     showMultiColumns: true,
     showDeleteRunModal: false,
     showRestoreRunModal: false,
+    // Arrays of "unbagged", or split-out metrics and parameters. We maintain these as lists to help
+    // keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
+    // that have already been split out)
+    unbaggedMetrics: [],
+    unbaggedParams: [],
   };
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -148,6 +155,33 @@ class ExperimentView extends Component {
 
   onCloseRestoreRunModal() {
     this.setState({ showRestoreRunModal: false });
+  }
+
+  /**
+   * Mark a column as bagged by removing it from the appropriate array of unbagged columns.
+   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
+   *                assumed to be a param column.
+   * @param colName Name of the column (metric or param key).
+   */
+  addBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const idx = unbagged.indexOf(colName);
+    const newUnbagged = idx >= 0 ?
+      unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: newUnbagged});
+  }
+
+  /**
+   * Mark a column as unbagged by adding it to the appropriate array of unbagged columns.
+   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
+   *                assumed to be a param column.
+   * @param colName Name of the column (metric or param key).
+   */
+  removeBagged(isParam, colName) {
+    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    this.setState({[stateKey]: unbagged.concat([colName])});
   }
 
   render() {
@@ -290,7 +324,7 @@ class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
-              <span style={{cursor: "pointer"}}>
+            <span style={{cursor: "pointer"}}>
                 <ButtonGroup style={styles.tableToggleButtonGroup}>
                 <Button
                   onClick={() => this.setShowMultiColumns(true)}
@@ -307,43 +341,48 @@ class ExperimentView extends Component {
                   <i className={"fas fa-list"}/>
                 </Button>
                 </ButtonGroup>
-              </span>
+            </span>
           </div>
-            {this.state.showMultiColumns ?
-              <ExperimentRunsTableMultiColumnView
-                onCheckbox={this.onCheckbox}
-                runInfos={this.props.runInfos}
-                paramsList={this.props.paramsList}
-                metricsList={this.props.metricsList}
-                tagsList={this.props.tagsList}
-                paramKeyList={paramKeyList}
-                metricKeyList={metricKeyList}
-                onCheckAll={this.onCheckAll}
-                isAllChecked={this.isAllChecked()}
-                onSortBy={this.onSortBy}
-                sortState={this.state.sort}
-                runsSelected={this.state.runsSelected}
-                runsExpanded={this.state.runsExpanded}
-                onExpand={this.onExpand}
-              /> :
-              <ExperimentRunsTableCompactView
-                onCheckbox={this.onCheckbox}
-                runInfos={this.props.runInfos}
-                paramsList={this.props.paramsList}
-                metricsList={this.props.metricsList}
-                paramKeyList={paramKeyList}
-                metricKeyList={metricKeyList}
-                tagsList={this.props.tagsList}
-                onCheckAll={this.onCheckAll}
-                isAllChecked={this.isAllChecked()}
-                onSortBy={this.onSortBy}
-                sortState={this.state.sort}
-                runsSelected={this.state.runsSelected}
-                setSortByHandler={this.setSortBy}
-                runsExpanded={this.state.runsExpanded}
-                onExpand={this.onExpand}
-              />
-            }
+          {this.state.showMultiColumns ?
+            <ExperimentRunsTableMultiColumnView
+              onCheckbox={this.onCheckbox}
+              runInfos={this.props.runInfos}
+              paramsList={this.props.paramsList}
+              metricsList={this.props.metricsList}
+              tagsList={this.props.tagsList}
+              paramKeyList={paramKeyList}
+              metricKeyList={metricKeyList}
+              onCheckAll={this.onCheckAll}
+              isAllChecked={this.isAllChecked()}
+              onSortBy={this.onSortBy}
+              sortState={this.state.sort}
+              runsSelected={this.state.runsSelected}
+              runsExpanded={this.state.runsExpanded}
+              onExpand={this.onExpand}
+            /> :
+            <ExperimentRunsTableCompactView
+              onCheckbox={this.onCheckbox}
+              runInfos={this.props.runInfos}
+              // Bagged param and metric keys
+              paramKeyList={paramKeyList}
+              metricKeyList={metricKeyList}
+              paramsList={this.props.paramsList}
+              metricsList={this.props.metricsList}
+              tagsList={this.props.tagsList}
+              onCheckAll={this.onCheckAll}
+              isAllChecked={this.isAllChecked()}
+              onSortBy={this.onSortBy}
+              sortState={this.state.sort}
+              runsSelected={this.state.runsSelected}
+              setSortByHandler={this.setSortBy}
+              runsExpanded={this.state.runsExpanded}
+              onExpand={this.onExpand}
+              unbaggedMetrics={this.state.unbaggedMetrics}
+              unbaggedParams={this.state.unbaggedParams}
+              onAddBagged={this.addBagged}
+              onRemoveBagged={this.removeBagged}
+            />
+          }
         </div>
       </div>
     );
