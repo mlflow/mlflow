@@ -11,7 +11,7 @@ class _MLflowObject(object):
     @classmethod
     @abstractmethod
     def _properties(cls):
-        pass
+        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), property)])
 
     @classmethod
     @abstractmethod

@@ -51,7 +51,3 @@ class Experiment(_MLflowObject):
         proto.artifact_location = self.artifact_location
         proto.lifecycle_stage = self.lifecycle_stage
         return proto
-
-    @classmethod
-    def _properties(cls):
-        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), property)])

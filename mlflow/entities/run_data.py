@@ -77,8 +77,3 @@ class RunData(_MLflowObject):
         for t in the_dict.get("tags", []):
             run_data._add_tag(t)
         return run_data
-
-    @classmethod
-    def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["metrics", "params", "tags"]

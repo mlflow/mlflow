@@ -33,8 +33,3 @@ class RunTag(_MLflowObject):
     @classmethod
     def from_proto(cls, proto):
         return cls(proto.key, proto.value)
-
-    @classmethod
-    def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["key", "value"]
