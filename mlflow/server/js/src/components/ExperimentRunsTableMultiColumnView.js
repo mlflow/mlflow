@@ -4,7 +4,6 @@ import PropTypes from 'prop-types';
 import { Table } from 'react-bootstrap';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import classNames from 'classnames';
-import Utils from '../utils/Utils';
 import { RunInfo } from '../sdk/MlflowMessages';
 
 /**
@@ -66,49 +65,15 @@ class ExperimentRunsTableMultiColumnView extends Component {
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent).forEach((col) =>
       rowContents.push(col));
-    paramKeyList.forEach((paramKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyName = "param-" + paramKey;
-      if (paramsMap[paramKey]) {
-        rowContents.push(<td className={className} key={keyName}>
-          <div>
-            {paramsMap[paramKey].getValue()}
-          </div>
-        </td>);
-      } else {
-        rowContents.push(<td className={className} key={keyName}/>);
-      }
+    paramKeyList.forEach((paramKey) => {
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
     });
     if (numParams === 0) {
       rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
-    metricKeyList.forEach((metricKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyName = "metric-" + metricKey;
-      if (metricsMap[metricKey]) {
-        const metric = metricsMap[metricKey].getValue();
-        const range = metricRanges[metricKey];
-        let fraction = 1.0;
-        if (range.max > range.min) {
-          fraction = (metric - range.min) / (range.max - range.min);
-        }
-        const percent = (fraction * 100) + "%";
-        rowContents.push(
-          <td className={className} key={keyName}>
-            {/* We need the extra div because metric-filler-bg is inline-block */}
-            <div>
-              <div className="metric-filler-bg">
-                <div className="metric-filler-fg" style={{width: percent}}/>
-                <div className="metric-text">
-                  {Utils.formatMetric(metric)}
-                </div>
-              </div>
-            </div>
-          </td>
-        );
-      } else {
-        rowContents.push(<td className={className} key={keyName}/>);
-      }
+    metricKeyList.forEach((metricKey) => {
+      rowContents.push(
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
     });
     if (numMetrics === 0) {
       rowContents.push(<td className="left-border" key="meta-metric-empty" />);
