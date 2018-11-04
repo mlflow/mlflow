@@ -16,7 +16,7 @@ You install MLflow by running:
     .. code-block:: R
 
         devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
-        mlflow_install()
+        mlflow::mlflow_install()
 
 .. note::
 
@@ -120,9 +120,9 @@ either a local directory or a GitHub URI:
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
-specifies its dependencies. All projects that run also log their Tracking API data in the local
-``mlruns`` directory (or on your tracking server if you've configured one), so you should be able
-to see these runs using ``mlflow ui``.
+specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
+projects log their Tracking API data in the local ``mlruns`` directory so you can see these 
+runs using ``mlflow ui``.
 
 .. note::
     By default ``mlflow run`` installs all dependencies using `conda <https://conda.io/>`_.
@@ -157,12 +157,12 @@ simple REST server for scikit-learn models:
 
 .. code:: bash
 
-    mlflow sklearn serve -r <RUN_ID> model
+    mlflow sklearn serve -r <RUN_ID> -m model
 
 .. note::
 
     By default the server runs on port 5000. If that port is already in use, use the `--port` option to
-    specify a different port. For example: ``mlflow sklearn serve --port 1234 -r <RUN_ID> model``
+    specify a different port. For example: ``mlflow sklearn serve --port 1234 -r <RUN_ID> -m model``
 
 Once you have started the server, you can pass it some sample data with ``curl`` and see the
 predictions:

@@ -136,6 +136,9 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
         raise Exception("The sample input must be a PySpark dataframe of type `{df_type}`".format(
             df_type=DataFrame.__module__))
 
+    # MLeap's model serialization routine requires an absolute output path
+    path = os.path.abspath(path)
+
     mleap_path_full = os.path.join(path, "mleap")
     mleap_datapath_sub = os.path.join("mleap", "model")
     mleap_datapath_full = os.path.join(path, mleap_datapath_sub)

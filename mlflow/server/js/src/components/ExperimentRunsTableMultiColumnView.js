@@ -1,9 +1,9 @@
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { Table } from 'react-bootstrap';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import classNames from 'classnames';
-import Utils from '../utils/Utils';
 import { RunInfo } from '../sdk/MlflowMessages';
 
 /**
@@ -35,6 +35,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     sortState: PropTypes.object.isRequired,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
+    metricRanges: PropTypes.object.isRequired,
   };
 
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
@@ -49,8 +50,8 @@ class ExperimentRunsTableMultiColumnView extends Component {
       runsSelected,
       tagsList,
       onExpand,
+      metricRanges,
     } = this.props;
-    const metricRanges = ExperimentViewUtil.computeMetricRanges(metricsList);
     const runInfo = runInfos[idx];
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
@@ -64,49 +65,15 @@ class ExperimentRunsTableMultiColumnView extends Component {
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent).forEach((col) =>
       rowContents.push(col));
-    paramKeyList.forEach((paramKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyName = "param-" + paramKey;
-      if (paramsMap[paramKey]) {
-        rowContents.push(<td className={className} key={keyName}>
-          <div>
-            {paramsMap[paramKey].getValue()}
-          </div>
-        </td>);
-      } else {
-        rowContents.push(<td className={className} key={keyName}/>);
-      }
+    paramKeyList.forEach((paramKey) => {
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
     });
     if (numParams === 0) {
       rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
-    metricKeyList.forEach((metricKey, i) => {
-      const className = (i === 0 ? "left-border" : "") + " run-table-container";
-      const keyName = "metric-" + metricKey;
-      if (metricsMap[metricKey]) {
-        const metric = metricsMap[metricKey].getValue();
-        const range = metricRanges[metricKey];
-        let fraction = 1.0;
-        if (range.max > range.min) {
-          fraction = (metric - range.min) / (range.max - range.min);
-        }
-        const percent = (fraction * 100) + "%";
-        rowContents.push(
-          <td className={className} key={keyName}>
-            {/* We need the extra div because metric-filler-bg is inline-block */}
-            <div>
-              <div className="metric-filler-bg">
-                <div className="metric-filler-fg" style={{width: percent}}/>
-                <div className="metric-text">
-                  {Utils.formatMetric(metric)}
-                </div>
-              </div>
-            </div>
-          </td>
-        );
-      } else {
-        rowContents.push(<td className={className} key={keyName}/>);
-      }
+    metricKeyList.forEach((metricKey) => {
+      rowContents.push(
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
     });
     if (numMetrics === 0) {
       rowContents.push(<td className="left-border" key="meta-metric-empty" />);
@@ -233,4 +200,9 @@ const styles = {
   },
 };
 
-export default ExperimentRunsTableMultiColumnView;
+const mapStateToProps = (state, ownProps) => {
+  const { metricsList } = ownProps;
+  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList)};
+};
+
+export default connect(mapStateToProps)(ExperimentRunsTableMultiColumnView);
