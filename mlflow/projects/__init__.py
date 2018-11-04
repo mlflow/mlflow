@@ -41,8 +41,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
     if mode == "databricks":
-        mlflow.projects.databricks.before_run_validations(
-            mlflow.get_tracking_uri(), cluster_spec)
+        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
 
     exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
@@ -141,7 +140,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     """
     cluster_spec_dict = cluster_spec
     if (cluster_spec and type(cluster_spec) != dict
-        and os.path.splitext(cluster_spec)[-1] == ".json"):
+            and os.path.splitext(cluster_spec)[-1] == ".json"):
         with open(cluster_spec, 'r') as handle:
             try:
                 cluster_spec_dict = json.load(handle)
