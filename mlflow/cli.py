@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import json
+import os
 import sys
 
 import click
@@ -55,13 +56,8 @@ def cli():
                    "See https://github.com/databricks/databricks-cli for more info on configuring "
                    "a Databricks CLI profile.")
 @click.option("--cluster-spec", "-c", metavar="FILE",
-              help="Path to JSON file describing the cluster to use when launching a run on "
-                   "Databricks. See "
-                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
-                   "more info. Note that MLflow runs are currently launched against a new cluster.")
-@click.option("--cluster-spec-json", metavar="STRING",
-              help="JSON string describing the cluster to use when launching a run on "
-                   "Databricks. See "
+              help="Path to JSON file (must end in '.json') or JSON string describing the cluster"
+                   "to use when launching a run on Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
 @click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
@@ -77,8 +73,8 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, cluster_spec_json,
-        git_username, git_password, no_conda, storage_dir, run_id):
+def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
+        git_password, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -102,10 +98,10 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
         param_dict[name] = value
-    cluster_spec_dict = None
-    if cluster_spec_json:
+    cluster_spec_arg = cluster_spec
+    if os.path.splitext(cluster_spec)[-1] != ".json":
         try:
-            cluster_spec_dict = json.loads(cluster_spec_json)
+            cluster_spec_arg = json.loads(cluster_spec)
         except ValueError as e:
             print("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
@@ -117,14 +113,13 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             experiment_id=experiment_id,
             parameters=param_dict,
             mode=mode,
-            cluster_spec=cluster_spec,
+            cluster_spec=cluster_spec_arg,
             git_username=git_username,
             git_password=git_password,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
             block=mode == "local" or mode is None,
             run_id=run_id,
-            cluster_spec_dict=cluster_spec_dict
         )
     except projects.ExecutionException as e:
         eprint("=== %s ===" % e)

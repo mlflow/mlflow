@@ -220,17 +220,17 @@ def test_run_databricks_cluster_spec_json(
         cluster_spec_mock, set_tag_mock):  # pylint: disable=unused-argument
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
-        cluster_spec_dict = {
+        cluster_spec = {
             "spark_version": "5.0.x-scala2.11",
             "num_workers": 2,
             "node_type_id": "i3.xlarge",
         }
         # Run project synchronously, verify that it succeeds (doesn't throw)
-        run_databricks_project(cluster_spec=None, cluster_spec_dict=cluster_spec_dict, block=True)
+        run_databricks_project(cluster_spec=cluster_spec, block=True)
         assert runs_submit_mock.call_count == 1
         runs_submit_args, _ = runs_submit_mock.call_args_list[0]
         req_body = runs_submit_args[0]
-        assert req_body["new_cluster"] == cluster_spec_dict
+        assert req_body["new_cluster"] == cluster_spec
 
 
 def test_run_databricks_cancel(
