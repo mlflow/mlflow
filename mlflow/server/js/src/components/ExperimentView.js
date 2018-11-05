@@ -8,7 +8,6 @@ import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
-import { SearchUtils } from '../utils/SearchUtils';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
@@ -108,15 +107,20 @@ class ExperimentView extends Component {
     unbaggedParams: [],
   };
 
-  store = LocalStorageUtils.getStore("ExperimentPage", this.props.experimentId);
-  state = LocalStorageUtils.loadComponentState(this.store, this.defaultState);
+  store = LocalStorageUtils.getStore("ExperimentView", this.props.experiment.experiment_id);
+  state = {
+    ...LocalStorageUtils.loadComponentState(this.store, this.defaultState),
+    // Don't reload selected runs from local storage
+    runsSelected: _.cloneDeep(this.defaultState.runsSelected),
+  };
 
   setStateWrapper(newState, callback) {
     this.setState(newState, () => {
       LocalStorageUtils.saveComponentState(this.store, this.state);
       if (callback) {
-        callback();
+        return callback();
       }
+      return undefined;
     });
   }
 
@@ -176,7 +180,8 @@ class ExperimentView extends Component {
    * @param isParam If true, the column is assumed to be a metric column; if false, the column is
    *                assumed to be a param column.
    * @param colName Name of the column (metric or param key).
-   */  addBagged(isParam, colName) {
+   */
+  addBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const idx = unbagged.indexOf(colName);
     const newUnbagged = idx >= 0 ?
@@ -190,7 +195,8 @@ class ExperimentView extends Component {
    * @param isParam If true, the column is assumed to be a metric column; if false, the column is
    *                assumed to be a param column.
    * @param colName Name of the column (metric or param key).
-   */  removeBagged(isParam, colName) {
+   */
+  removeBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
     this.setStateWrapper({[stateKey]: unbagged.concat([colName])});
@@ -497,7 +503,8 @@ class ExperimentView extends Component {
       lifecycleFilterInput
     } = this.state;
     try {
-      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput);
+      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
+        lifecycleFilterInput);
     } catch (ex) {
       this.setStateWrapper({ searchErrorMessage: ex.errorMessage });
     }

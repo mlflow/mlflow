@@ -53,7 +53,7 @@ export class LocalStorageStore {
    * local storage.
    */
   withScopePrefix(key) {
-    return ["MLflow", LocalStorageUtils.version, this.scope, key].join("-");
+    return ["MLflowLocalStorage", LocalStorageUtils.version, this.scope, key].join("-");
   }
 
   /** Save the specified key-value pair in local storage. */

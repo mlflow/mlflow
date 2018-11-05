@@ -7,7 +7,6 @@ import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
-import _ from "lodash";
 import {SearchUtils} from "../utils/SearchUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 
