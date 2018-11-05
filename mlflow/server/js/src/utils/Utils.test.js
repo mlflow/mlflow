@@ -116,7 +116,6 @@ test("formatSource & renderSource", () => {
   expect(Utils.renderSource(github_url)).toEqual(
     <a href="https://github.com/mlflow/mlflow-apps">mlflow-apps:entry</a>);
 
-
   const databricksRun = RunInfo.fromJs({
     "source_name": "/Users/admin/test",
     "source_type": "NOTEBOOK"
@@ -128,6 +127,15 @@ test("formatSource & renderSource", () => {
   const wrapper = shallow(Utils.renderSource(databricksRun, databricksRunTags));
   expect(wrapper.is("a")).toEqual(true);
   expect(wrapper.props().href).toEqual("https://databricks.com/#notebook/13");
+
+  const databricksRunRevisionTags = {
+    "mlflow.databricks.notebookRevisionID": { value: "42" },
+    "mlflow.databricks.notebookID": { value: "13" },
+    "mlflow.databricks.webappURL": { value: "https://databricks.com" },
+  };
+  const wrapper2 = shallow(Utils.renderSource(databricksRun, databricksRunRevisionTags));
+  expect(wrapper2.is("a")).toEqual(true);
+  expect(wrapper2.props().href).toEqual("https://databricks.com/#notebook/13/revision/42");
 });
 
 test("dropExtension", () => {
