@@ -109,6 +109,9 @@ class ArtifactRepository:
         elif artifact_uri.startswith("wasbs:/"):
             from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
             return AzureBlobArtifactRepository(artifact_uri)
+        elif artifact_uri.startswith("ftp:/"):
+            from mlflow.store.ftp_artifact_repo import FTPArtifactRepository
+            return FTPArtifactRepository(artifact_uri)
         elif artifact_uri.startswith("sftp:/"):
             from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
             return SFTPArtifactRepository(artifact_uri)
