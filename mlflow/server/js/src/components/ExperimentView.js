@@ -19,6 +19,7 @@ import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
+import SelectizeTextField from './fields/SelectizeTextField';
 
 
 export const DEFAULT_EXPANDED_VALUE = true;
@@ -282,20 +283,25 @@ class ExperimentView extends Component {
                 <div className="ExperimentView-paramKeyFilter">
                   <label className="filter-label">Filter Params:</label>
                   <div className="filter-wrapper">
-                    <input type="text"
-                           placeholder="alpha, lr"
-                           value={this.state.paramKeyFilterInput}
-                           onChange={this.onParamKeyFilterInput}
+                    <SelectizeTextField
+                      options={this.props.paramKeyList}
+                      placeholder={this.props.paramKeyList.slice(0, 2).join(", ")}
+                      // defaultOptions={this.splitFilterInput(this.state.paramKeyFilterInput)}
+                      value={this.splitFilterInput(this.state.paramKeyFilterInput)}
+                      isMulti
+                      onChange={this.onParamKeyFilterInput}
                     />
                   </div>
                 </div>
                 <div className="ExperimentView-metricKeyFilter">
                   <label className="filter-label">Filter Metrics:</label>
                   <div className="filter-wrapper">
-                    <input type="text"
-                           placeholder="rmse, r2"
-                           value={this.state.metricKeyFilterInput}
-                           onChange={this.onMetricKeyFilterInput}
+                    <SelectizeTextField
+                      options={this.props.metricKeyList}
+                      placeholder={this.props.metricKeyList.slice(0, 2).join(", ")}
+                      value={this.splitFilterInput(this.state.metricKeyFilterInput)}
+                      isMulti
+                      onChange={this.onMetricKeyFilterInput}
                     />
                   </div>
                 </div>
@@ -458,12 +464,27 @@ class ExperimentView extends Component {
     }
   }
 
-  onParamKeyFilterInput(event) {
-    this.setState({ paramKeyFilterInput: event.target.value });
+  splitFilterInput(filterInput) {
+    if (filterInput.length === 0) {
+      return "";
+    }
+    return filterInput.split(",").map((fieldName) => {
+      return {label: fieldName, value: fieldName};
+    });
   }
 
-  onMetricKeyFilterInput(event) {
-    this.setState({ metricKeyFilterInput: event.target.value });
+  joinSelectedFilterOptions(selectedOptions) {
+    const res = selectedOptions.map((option) => option.label).join(", ");
+    console.log("Got filter options " + res);
+    return res;
+  }
+
+  onParamKeyFilterInput(selectedOptions) {
+    this.setState({ paramKeyFilterInput: this.joinSelectedFilterOptions(selectedOptions) });
+  }
+
+  onMetricKeyFilterInput(selectedOptions) {
+    this.setState({ metricKeyFilterInput: this.joinSelectedFilterOptions(selectedOptions) });
   }
 
   onSearchInput(event) {
@@ -484,6 +505,7 @@ class ExperimentView extends Component {
       searchInput,
       lifecycleFilterInput
     } = this.state;
+    console.log("In onSearch, got metricKeyFilterInput: " + metricKeyFilterInput);
     const paramKeyFilter = new KeyFilter(paramKeyFilterInput);
     const metricKeyFilter = new KeyFilter(metricKeyFilterInput);
     try {
@@ -679,6 +701,7 @@ const styles = {
   },
   tableToggleButtonGroup: {
     marginLeft: '16px',
+    zIndex: -1,
   },
 };
 
