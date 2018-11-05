@@ -286,7 +286,6 @@ class ExperimentView extends Component {
                     <SelectizeTextField
                       options={this.props.paramKeyList}
                       placeholder={this.props.paramKeyList.slice(0, 2).join(", ")}
-                      // defaultOptions={this.splitFilterInput(this.state.paramKeyFilterInput)}
                       value={this.splitFilterInput(this.state.paramKeyFilterInput)}
                       isMulti
                       onChange={this.onParamKeyFilterInput}
