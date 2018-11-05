@@ -57,7 +57,7 @@ def init(model):
         elif flask.request.content_type == 'application/json':
             data = flask.request.data.decode('utf-8')
             s = StringIO(data)
-            data = pd.read_json(s, orient="records")
+            data = pd.read_json(s, orient="split")
         else:
             return flask.Response(
                 response='This predictor only supports CSV or JSON  data, got %s' % str(

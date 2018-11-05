@@ -38,8 +38,10 @@ def score_model_in_sagemaker_docker_container(model_path, data, flavor=mlflow.py
                  stderr=STDOUT,
                  universal_newlines=True, env=env)
     r = _score_proc(proc, 5000, data, "json").content
-    import json
-    return json.loads(r)  # TODO: we should return pd.Dataframe the same as pyfunc serve
+    return pd.read_json(r, orient="records")
+    #
+    # import json
+    # return json.loads(r)  # TODO: we should return pd.Dataframe the same as pyfunc serve
 
 
 def pyfunc_serve_and_score_model(model_path, data):
@@ -86,9 +88,12 @@ def _score_proc(proc, port, data, data_type):
             raise Exception("ping failed, server is not happy")
         if data_type == "json":
             if type(data) == pd.DataFrame:
-                data = data.to_dict(orient="records")
+                # Convert the dataframe to a JSON-serialized string in the Pandas `split` format 
+                # to preserve the dataframe's column ordering
+                data = data.to_json(orient="split")
             r = requests.post(url='http://localhost:%d/invocations' % port,
-                              json=data)
+                              headers={"Content-Type": "application/json"},
+                              data=data)
         elif data_type == "csv":
             data = data.to_csv(index=False, header=True)
             r = requests.post(url='http://localhost:%d/invocations' % port,
@@ -106,5 +111,5 @@ def _score_proc(proc, port, data, data_type):
             proc.terminate()
         print("captured output of the scoring process")
         print("-------------------------STDOUT------------------------------")
-        print(proc.stdout.read())
+        # print(proc.stdout.read())
         print("==============================================================")

@@ -191,3 +191,16 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     conda_dependencies = conda_env.get("dependencies", [])
     for expected_dependency in expected_dependencies:
         assert expected_dependency in conda_dependencies
+
+
+@pytest.mark.release
+def test_model_deployment_with_default_conda_env(h2o_iris_model, model_path):
+    mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=None)
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+
+    deployed_model_preds = score_model_in_sagemaker_docker_container(
+            model_path=model_path, 
+            data=inference_df,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    
+    pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame())
