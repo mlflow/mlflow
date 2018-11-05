@@ -99,7 +99,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             sys.exit(1)
         param_dict[name] = value
     cluster_spec_arg = cluster_spec
-    if os.path.splitext(cluster_spec)[-1] != ".json":
+    if cluster_spec is not None and os.path.splitext(cluster_spec)[-1] != ".json":
         try:
             cluster_spec_arg = json.loads(cluster_spec)
         except ValueError as e:
