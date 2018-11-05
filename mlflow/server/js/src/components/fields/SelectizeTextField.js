@@ -7,15 +7,20 @@ export default class SelectizeTextField extends Component {
     options: PropTypes.arrayOf(String).isRequired,
   };
 
-  // render :: a -> ReactElement
   render() {
     const { options, ...otherProps } = this.props;
     const formattedOptions = options.map((option) => {
       return {label: option, value: option};
     });
+
     return <Select
       options={formattedOptions}
       {...otherProps}
+      styles={{
+        container: (provided) => {
+          return { ...provided, zIndex: 4 };
+        }
+      }}
     />;
   }
 }

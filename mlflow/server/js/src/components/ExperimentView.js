@@ -701,7 +701,6 @@ const styles = {
   },
   tableToggleButtonGroup: {
     marginLeft: '16px',
-    zIndex: -1,
   },
 };
 
