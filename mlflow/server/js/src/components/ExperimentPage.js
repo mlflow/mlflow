@@ -107,10 +107,6 @@ class ExperimentPage extends Component {
   }
 
   render() {
-    console.log(JSON.stringify(this.state));
-    console.log("ExperimentPage.render(), paramKeyFilter: " + this.state.paramKeyFilterString);
-    console.log("ExperimentPage.render(), metricKeyFilterString: " + this.state.metricKeyFilterString);
-
     return (
       <div className="ExperimentPage">
         <RequestStateWrapper requestIds={this.getRequestIds()}>

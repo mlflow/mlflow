@@ -187,8 +187,12 @@ class ExperimentView extends Component {
     this.setStateWrapper({ showRestoreRunModal: false });
   }
 
-  // Mark a column as "bagged" by removing it from the unbagged array
-  addBagged(isParam, colName) {
+  /**
+   * Mark a column as bagged by removing it from the appropriate array of unbagged columns.
+   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
+   *                assumed to be a param column.
+   * @param colName Name of the column (metric or param key).
+   */  addBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const idx = unbagged.indexOf(colName);
     const newUnbagged = idx >= 0 ?
@@ -197,38 +201,15 @@ class ExperimentView extends Component {
     this.setStateWrapper({[stateKey]: newUnbagged});
   }
 
-  // Split out a column (add it to array of unbagged cols)
-  removeBagged(isParam, colName) {
-    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
-    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setStateWrapper({[stateKey]: unbagged.concat([colName])});
-  }
-
-  /**
-   * Mark a column as bagged by removing it from the appropriate array of unbagged columns.
-   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
-   *                assumed to be a param column.
-   * @param colName Name of the column (metric or param key).
-   */
-  addBagged(isParam, colName) {
-    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
-    const idx = unbagged.indexOf(colName);
-    const newUnbagged = idx >= 0 ?
-      unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
-    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: newUnbagged});
-  }
-
   /**
    * Mark a column as unbagged by adding it to the appropriate array of unbagged columns.
    * @param isParam If true, the column is assumed to be a metric column; if false, the column is
    *                assumed to be a param column.
    * @param colName Name of the column (metric or param key).
-   */
-  removeBagged(isParam, colName) {
+   */  removeBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: unbagged.concat([colName])});
+    this.setStateWrapper({[stateKey]: unbagged.concat([colName])});
   }
 
   render() {
