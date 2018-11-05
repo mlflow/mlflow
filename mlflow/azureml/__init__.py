@@ -317,7 +317,7 @@ def init():
 
 
 def run(s):
-    input_df = pd.read_json(s, orient="records")
+    input_df = pd.read_json(s, orient="split")
     return get_jsonable_obj(model.predict(input_df))
 
 """

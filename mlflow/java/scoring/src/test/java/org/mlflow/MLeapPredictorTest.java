@@ -47,11 +47,16 @@ public class MLeapPredictorTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    List<Map<String, Object>> sampleInput =
-        SerializationUtils.fromJson(sampleInputJson, List.class);
-
-    sampleInput.get(0).remove("topic");
+    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    List<List<Object>> rows = (List<List<Object>>) sampleInput.get("data");
+    List<String> columnNames = (List<String>) sampleInput.get("columns");
+    int topicIndex = columnNames.indexOf("topic");
+    columnNames.remove("topic");
+    for (List<Object> row : rows) {
+      row.remove(topicIndex);
+    }
     String badInputJson = SerializationUtils.toJson(sampleInput);
+
     PredictorDataWrapper inputData =
         new PredictorDataWrapper(badInputJson, PredictorDataWrapper.ContentType.Json);
     try {

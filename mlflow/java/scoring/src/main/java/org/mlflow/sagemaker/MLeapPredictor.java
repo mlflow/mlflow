@@ -46,26 +46,36 @@ public class MLeapPredictor extends Predictor {
       this.inputSchema = LeapFrameSchema.fromPath(inputSchemaPath);
     } catch (IOException e) {
       logger.error("Could not read the model input schema from the specified path", e);
-      throw new PredictorLoadingException(
-          String.format(
-              "Failed to load model input schema from specified path: %s", inputSchemaPath));
+      throw new PredictorLoadingException(String.format(
+          "Failed to load model input schema from specified path: %s", inputSchemaPath));
     }
   }
 
   @Override
   protected PredictorDataWrapper predict(PredictorDataWrapper input)
       throws PredictorEvaluationException {
-    PandasRecordOrientedDataFrame pandasFrame = null;
+    PandasSplitOrientedDataFrame pandasFrame = null;
     try {
-      pandasFrame = PandasRecordOrientedDataFrame.fromJson(input.toJson());
+      pandasFrame = PandasSplitOrientedDataFrame.fromJson(input.toJson());
     } catch (IOException e) {
       logger.error(
-          "Encountered a JSON conversion error during conversion of Pandas dataframe to LeapFrame.",
+          "Encountered a JSON parsing error during conversion of input to a Pandas Dataframe"
+              + " representation.",
           e);
       throw new PredictorEvaluationException(
-          "Failed to transform input into a JSON representation of an MLeap dataframe."
-              + " Please ensure that the input is a JSON-serialized Pandas Dataframe"
-              + " with the `record` orientation.",
+          "Encountered a JSON parsing error while transforming the input into a Pandas Dataframe"
+              + " representation. Please ensure that the input is a JSON-serialized Pandas"
+              + " Dataframe with the `split` orientation.",
+          e);
+    } catch (InvalidSchemaException e) {
+      logger.error(
+          "Encountered a schema mismatch while transforming the input into a Pandas Dataframe"
+              + " representation.",
+          e);
+      throw new PredictorEvaluationException(
+          "Encountered a schema mismatch while transforming the input into a Pandas Dataframe"
+              + " representation. Please ensure that the input is a JSON-serialized Pandas"
+              + " Dataframe with the `split` orientation.",
           e);
     }
 
@@ -91,12 +101,10 @@ public class MLeapPredictor extends Predictor {
         JavaConverters.asScalaIteratorConverter(Arrays.asList(PREDICTION_COLUMN_NAME).iterator())
             .asScala()
             .toSeq();
-    DefaultLeapFrame predictionsFrame =
-        this.pipelineTransformer
-            .transform(leapFrame)
-            .get()
-            .select(predictionColumnSelectionArgs)
-            .get();
+    DefaultLeapFrame predictionsFrame = this.pipelineTransformer.transform(leapFrame)
+                                            .get()
+                                            .select(predictionColumnSelectionArgs)
+                                            .get();
     Seq<Row> predictionRows = predictionsFrame.collect();
     Iterable<Row> predictionRowsIterable =
         JavaConverters.asJavaIterableConverter(predictionRows).asJava();

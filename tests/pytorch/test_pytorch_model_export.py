@@ -147,3 +147,7 @@ def test_save_and_load_model(model, data, predicted):
         # Loading pyfunc model
         pyfunc_loaded = mlflow.pyfunc.load_pyfunc(path)
         assert np.all(pyfunc_loaded.predict(x).values[:, 0] == predicted)
+
+def test_write_data(data):
+    with open("/tmp/splitdata.txt", "w") as f:
+        f.write(data[0].to_json(orient="split"))

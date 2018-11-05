@@ -21,8 +21,8 @@ public class PandasDataFrameTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    PandasRecordOrientedDataFrame pandasFrame =
-        PandasRecordOrientedDataFrame.fromJson(sampleInputJson);
+    PandasSplitOrientedDataFrame pandasFrame =
+        PandasSplitOrientedDataFrame.fromJson(sampleInputJson);
     Assert.assertEquals((pandasFrame.size() == 1), true);
   }
 
@@ -30,10 +30,30 @@ public class PandasDataFrameTest {
   public void testLoadingPandasDataFrameFromInvalidJsonThrowsIOException() {
     String badFrameJson = "this is not valid frame json";
     try {
-      PandasRecordOrientedDataFrame pandasFrame =
-          PandasRecordOrientedDataFrame.fromJson(badFrameJson);
+      PandasSplitOrientedDataFrame pandasFrame =
+          PandasSplitOrientedDataFrame.fromJson(badFrameJson);
       Assert.fail("Expected parsing a pandas dataframe from invalid json to throw an IOException.");
     } catch (IOException e) {
+      // Succeed
+    }
+  }
+
+  @Test
+  public void testLoadingPandasDataFrameFromJsonWithInvalidSplitOrientationSchemaThrowsException()
+      throws IOException, JsonProcessingException {
+    String sampleInputPath =
+        MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
+    String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
+    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    sampleInput.remove("columns");
+    String missingSchemaFieldJson = SerializationUtils.toJson(sampleInput);
+
+    try {
+      PandasSplitOrientedDataFrame pandasFrame =
+          PandasSplitOrientedDataFrame.fromJson(missingSchemaFieldJson);
+      Assert.fail("Expected parsing a pandas dataframe with an invalid `split` orientation schema"
+          + " to throw an exception.");
+    } catch (InvalidSchemaException e) {
       // Succeed
     }
   }
@@ -47,8 +67,8 @@ public class PandasDataFrameTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    PandasRecordOrientedDataFrame pandasFrame =
-        PandasRecordOrientedDataFrame.fromJson(sampleInputJson);
+    PandasSplitOrientedDataFrame pandasFrame =
+        PandasSplitOrientedDataFrame.fromJson(sampleInputJson);
 
     DefaultLeapFrame leapFrame = pandasFrame.toLeapFrame(leapFrameSchema);
   }
@@ -67,13 +87,18 @@ public class PandasDataFrameTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    List<Map<String, Object>> sampleInput =
-        SerializationUtils.fromJson(sampleInputJson, List.class);
-    sampleInput.get(0).remove("topic");
-    String missingFieldJson = SerializationUtils.toJson(sampleInput);
+    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    List<List<Object>> rows = (List<List<Object>>) sampleInput.get("data");
+    List<String> columnNames = (List<String>) sampleInput.get("columns");
+    int topicIndex = columnNames.indexOf("topic");
+    columnNames.remove("topic");
+    for (List<Object> row : rows) {
+      row.remove(topicIndex);
+    }
+    String missingDataColumnJson = SerializationUtils.toJson(sampleInput);
 
-    PandasRecordOrientedDataFrame pandasFrame =
-        PandasRecordOrientedDataFrame.fromJson(missingFieldJson);
+    PandasSplitOrientedDataFrame pandasFrame =
+        PandasSplitOrientedDataFrame.fromJson(missingDataColumnJson);
     try {
       pandasFrame.toLeapFrame(leapFrameSchema);
       Assert.fail(

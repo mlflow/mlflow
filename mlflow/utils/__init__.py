@@ -31,9 +31,9 @@ def get_jsonable_obj(data):
     if isinstance(data, np.ndarray):
         return ndarray2list(data)
     if isinstance(data, pd.DataFrame):
-        return data.to_dict(orient='records')
+        return data.to_dict(orient="split")
     if isinstance(data, pd.Series):
-        return pd.DataFrame(data).to_dict(orient='records')
+        return pd.DataFrame(data).to_dict(orient="split")
     else:  # by default just return whatever this is and hope for the best
         return data
 
