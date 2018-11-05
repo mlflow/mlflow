@@ -86,9 +86,12 @@ def _score_proc(proc, port, data, data_type):
             raise Exception("ping failed, server is not happy")
         if data_type == "json":
             if type(data) == pd.DataFrame:
-                data = data.to_dict(orient="records")
+                # Convert the dataframe to a JSON-serialized string in the Pandas `split` format 
+                # to preserve the dataframe's column ordering
+                data = data.to_json(orient="split")
             r = requests.post(url='http://localhost:%d/invocations' % port,
-                              json=data)
+                              headers={"Content-Type": "application/json"},
+                              data=data)
         elif data_type == "csv":
             data = data.to_csv(index=False, header=True)
             r = requests.post(url='http://localhost:%d/invocations' % port,
