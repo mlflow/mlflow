@@ -5,7 +5,7 @@ MLflow Models
 
 An MLflow Model is a standard format for packaging machine learning models that can be used in a
 variety of downstream tools---for example, real-time serving through a REST API or batch inference
-on Apache Spark. The format defines a convention that lets you save a model in different "flavors" 
+on Apache Spark. The format defines a convention that lets you save a model in different "flavors"
 that can be understood by different downstream tools.
 
 .. contents:: Table of Contents
@@ -162,9 +162,9 @@ A ``python_function`` model directory must contain an ``MLmodel`` file in its ro
 .. code:: bash
 
    tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
-   
+
 ::
- 
+
    ├── MLmodel
    ├── code
    │   ├── sklearn_iris.py
@@ -176,9 +176,9 @@ A ``python_function`` model directory must contain an ``MLmodel`` file in its ro
 .. code:: bash
 
    cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
-   
+
 ::
-  
+
    python_function:
      code: code
      data: data/model.pkl
@@ -215,7 +215,7 @@ Scikit-learn (``sklearn``)
 
 The ``sklearn`` model flavor provides an easy to use interface for handling scikit-learn models with no
 external dependencies. It saves and loads models using Python's pickle module and also generates a valid
-``python_function`` flavor model. For more information, see :py:mod:`mlflow.sklearn`. 
+``python_function`` flavor model. For more information, see :py:mod:`mlflow.sklearn`.
 
 
 Spark MLlib (``spark``)
@@ -244,7 +244,7 @@ Built-In Deployment Tools
 -------------------------
 
 MLflow provides tools for deploying models on a local machine and to several production environments.
-Not all deployment methods are available for all model flavors. Deployment is supported for the 
+Not all deployment methods are available for all model flavors. Deployment is supported for the
 Python Function format and all compatible formats.
 
 Deploy a ``python_function`` model as a local REST API endpoint
@@ -266,60 +266,132 @@ For more info, see:
     mlflow pyfunc serve --help
     mlflow pyfunc predict --help
 
-Deploy a ``python_function`` model on Microsoft AzureML
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Microsoft Azure ML
+^^^^^^^^^^^^^^^^^^
+The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
+These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
+platform for real-time serving.
 
-The :py:mod:`mlflow.azureml` module can export ``python_function`` models as Azure ML models and
-directly deploy and serve models on Azure ML, provided the environment has been set up.
+* :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow model with an existing Azure ML
+  workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is
+  required in order to use this function. **The Azure ML SDK requires Python 3. It cannot be installed with
+  earlier versions of Python.**
 
-* :py:func:`export <mlflow.azureml.export>` exports the model as a 
-  directory with the dependencies necessary to deploy the model on Azure ML.
+  .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
 
-* :py:func:`deploy <mlflow.azureml.deploy>` deploys the model directly to Azure ML.
-  You need to set up your environment to work with the Azure ML CLI. You can do this by
-  starting a shell from the Azure ML Workbench application. You also have to set up all accounts
-  required to run and deploy on Azure ML. Where the model is deployed is dependent on your
-  active Azure ML environment. If the active environment is set up for local deployment, the model
-  is deployed locally in a Docker container (Docker is required).
+.. rubric:: Deployment example (Python API):
 
-.. rubric:: Model export example
+.. code:: python
+
+    import mlflow.azureml
+
+    from azureml.core import Workspace
+    from azureml.core.webservice import AciWebservice, Webservice
+
+
+    # Create or load an existing Azure ML workspace. You can also load an existing workspace using
+    # Workspace.get(name="<workspace_name>")
+    workspace_name = "<Name of your Azure ML workspace>"
+    subscription_id = "<Your Azure subscription ID>"
+    resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
+    location = "<Name of the Azure location (region) in which to create Azure ML resources>"
+    azure_workspace = Workspace.create(name=workspace_name,
+                                       subscription_id=subscription_id,
+                                       resource_group=resource_group,
+                                       location=location,
+                                       create_resource_group=True,
+                                       exist_okay=True)
+
+    # Build an Azure ML container image for deployment
+    azure_image, azure_model = mlflow.azureml.build_image(model_path="<path-to-model>",
+                                                          workspace=azure_workspace,
+                                                          description="Wine regression model 1",
+                                                          synchronous=True)
+    # If your image build failed, you can access build logs at the following URI:
+    print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
+
+    # Deploy the container image to ACI
+    webservice_deployment_config = AciWebservice.deploy_configuration()
+    webservice = Webservice.deploy_from_image(
+                        image=azure_image, workspace=azure_workspace, name="<deployment-name>")
+    webservice.wait_for_deployment()
+
+    # After the image deployment completes, requests can be posted via HTTP to the new ACI
+    # webservice's scoring URI. The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    print("Scoring URI is: %s", webservice.scoring_uri)
+
+    import requests
+    import json
+    sample_input = {
+        "residual sugar": {"0": 20.7},
+        "alcohol": {"0": 8.8},
+        "chlorides": {"0": 0.045},
+        "density": {"0": 1.001},
+        "sulphates": {"0": 0.45},
+        "total sulfur dioxide": {"0": 170.0},
+        "fixed acidity": {"0": 7.0},
+        "citric acid": {"0": 0.36},
+        "pH": {"0": 3.0},
+        "volatile acidity": {"0": 0.27},
+        "free sulfur dioxide": {"0": 45.0}
+    }
+    response = requests.post(
+                  url=webservice.scoring_uri, data=json.dumps(sample_input),
+                  headers={"Content-type": "application/json"})
+    response_json = json.loads(response.text)
+    print(response_json)
+
+.. rubric:: Deployment example (CLI):
 
 .. code:: bash
 
-    mlflow azureml export -m <path-to-model> -o test-output
-    tree test-output
+    mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
 
-::
-  
-    test-output
-    ├── create_service.sh  - use this script to upload the model to Azure ML
-    ├── score.py - main module required by Azure ML
-    └── test-output - directory containing MLflow model in Python Function flavor
+    az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
 
-.. rubric:: Example workflow using the MLflow CLI
+    # After the image deployment completes, requests can be posted via HTTP to the new ACI
+    # webservice's scoring URI. The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
 
-.. code:: bash
+    scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
 
-    az ml env set -n <local-env-name> -g <local-env-resource-group> - set environment to local deployment
-    mlflow azureml deploy <parameters> - deploy locally to test the model
-    az ml env set -n <cluster-env-name> -g <cluster-env-resource-group> - set environment to cluster
-    mlflow azureml deploy <parameters> - deploy to the cloud
+    sample_input='
+    {
+         "residual sugar": {"0": 20.7},
+         "alcohol": {"0": 8.8},
+         "chlorides": {"0": 0.045},
+         "density": {"0": 1.001},
+         "sulphates": {"0": 0.45},
+         "total sulfur dioxide": {"0": 170.0},
+         "fixed acidity": {"0": 7.0},
+         "citric acid": {"0": 0.36},
+         "pH": {"0": 3.0},
+         "volatile acidity": {"0": 0.27},
+         "free sulfur dioxide": {"0": 45.0}
+    }'
+
+    echo $sample_input | curl -s -X POST $scoring_uri\
+    -H 'Cache-Control: no-cache'\
+    -H 'Content-Type: application/json'\
+    -d @-
 
 For more info, see:
 
 .. code:: bash
 
     mlflow azureml --help
-    mlflow azureml export --help
-    mlflow azureml deploy --help
+    mlflow azureml build-image --help
 
 Deploy a ``python_function`` model on Amazon SageMaker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.sagemaker` module can deploy ``python_function`` models locally in a Docker 
+The :py:mod:`mlflow.sagemaker` module can deploy ``python_function`` models locally in a Docker
 container with SageMaker compatible environment and remotely on SageMaker.
 To deploy remotely to SageMaker you need to set up your environment and user accounts.
-To export a custom model to SageMaker, you need a MLflow-compatible Docker image to be available on Amazon ECR. 
+To export a custom model to SageMaker, you need a MLflow-compatible Docker image to be available on Amazon ECR.
 MLflow provides a default Docker image definition; however, it is up to you to build the image and upload it to ECR.
 MLflow includes the utility function ``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow
 container for all MLflow models.
@@ -327,7 +399,7 @@ container for all MLflow models.
 * :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker
   container. The image and the environment should be identical to how the model would be run
   remotely and it is therefore useful for testing the model prior to deployment.
-  
+
 * The :py:func:`build-and-push-container <mlflow.sagemaker.cli.build_and_push_container>` CLI command builds an MLfLow
   Docker image and uploads it to ECR. The caller must have the correct permissions set up. The image
   is built locally and requires Docker to be present on the machine that performs this step.
@@ -358,7 +430,7 @@ For more info, see:
 Export a ``python_function`` model as an Apache Spark UDF
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can output a ``python_function`` model as an Apache Spark UDF, which can be uploaded to a 
+You can output a ``python_function`` model as an Apache Spark UDF, which can be uploaded to a
 Spark cluster and used to score the model.
 
 .. rubric:: Example

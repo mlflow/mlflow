@@ -12,7 +12,7 @@ import pytest
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
@@ -494,6 +494,54 @@ class TestFileStore(unittest.TestCase):
         with pytest.raises(MissingConfigException) as e:
             fs.get_run(bad_run_id)
             assert e.message.contains("does not exist")
+
+        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        assert len(valid_runs) == len(all_runs) - 1
+
+        for rid in all_run_ids:
+            if rid != bad_run_id:
+                fs.get_run(rid)
+
+    def test_mismatching_experiment_id(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+
+        experiments = len(fs.list_experiments(ViewType.ALL))
+
+        # mv experiment folder
+        target = 1
+        path_orig = os.path.join(self.test_root, str(exp_0.experiment_id))
+        path_new = os.path.join(self.test_root, str(target))
+        os.rename(path_orig, path_new)
+
+        with pytest.raises(MlflowException) as e:
+            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            assert e.message.contains("Could not find experiment with ID")
+
+        with pytest.raises(MlflowException) as e:
+            fs.get_experiment(target)
+            assert e.message.contains("does not exist")
+        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
+
+    def test_bad_experiment_id_recorded_for_run(self):
+        fs = FileStore(self.test_root)
+        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+
+        all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
+        assert len(all_runs) == len(all_run_ids)
+
+        # change experiment pointer in run
+        bad_run_id = str(self.exp_data[exp_0.experiment_id]['runs'][0])
+        path = os.path.join(self.test_root, str(exp_0.experiment_id), bad_run_id)
+        experiment_data = read_yaml(path, "meta.yaml")
+        experiment_data["experiment_id"] = 1
+        write_yaml(path, "meta.yaml", experiment_data, True)
+
+        with pytest.raises(MlflowException) as e:
+            fs.get_run(bad_run_id)
+            assert e.message.contains("not found")
 
         valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
         assert len(valid_runs) == len(all_runs) - 1
