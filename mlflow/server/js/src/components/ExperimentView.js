@@ -21,6 +21,7 @@ import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
 
 import _ from 'lodash';
+import LocalStorageUtils from "../utils/LocalStorageUtils";
 
 export const DEFAULT_EXPANDED_VALUE = true;
 
@@ -107,33 +108,16 @@ class ExperimentView extends Component {
     unbaggedParams: [],
   };
 
-  state = this.loadState();
-
-  getStateKey() {
-    return "mlflow-experiment-" + this.props.experiment.id;
-  }
+  store = LocalStorageUtils.getStore("ExperimentPage", this.props.experimentId);
+  state = LocalStorageUtils.loadComponentState(this.store, this.defaultState);
 
   setStateWrapper(newState, callback) {
     this.setState(newState, () => {
-      window.localStorage.setItem(this.getStateKey(), JSON.stringify(this.state));
+      LocalStorageUtils.saveComponentState(this.store, this.state);
       if (callback) {
         callback();
       }
     });
-  }
-
-  loadState() {
-    const cachedState = JSON.parse(window.localStorage.getItem(this.getStateKey()));
-    const runsSelected = this.defaultState.runsSelected;
-    if (cachedState) {
-      return  {
-        // Include default state as a safeguard against bad data in localstorage
-        ..._.cloneDeep(this.defaultState),
-        ...cachedState,
-        runsSelected, // Don't save selected runs across page reloads
-      };
-    }
-    return _.cloneDeep(this.defaultState);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
