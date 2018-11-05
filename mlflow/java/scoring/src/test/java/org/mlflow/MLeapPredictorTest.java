@@ -39,8 +39,8 @@ public class MLeapPredictorTest {
 
   @Test
   public void
-  testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingInputWithMissingField()
-      throws IOException, JsonProcessingException {
+      testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingInputWithMissingField()
+          throws IOException, JsonProcessingException {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
 
@@ -82,8 +82,9 @@ public class MLeapPredictorTest {
 
     try {
       predictor.predict(badInputData);
-      Assert.fail("Expected predictor evaluation on a bad JSON input"
-          + "to throw a PredictorEvaluationException.");
+      Assert.fail(
+          "Expected predictor evaluation on a bad JSON input"
+              + "to throw a PredictorEvaluationException.");
     } catch (PredictorEvaluationException e) {
       // Success
     }

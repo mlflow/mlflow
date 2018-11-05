@@ -7,6 +7,7 @@ import org.junit.Test;
 import java.io.File;
 import org.mlflow.utils.SerializationUtils;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,6 +55,42 @@ public class PandasDataFrameTest {
       Assert.fail("Expected parsing a pandas dataframe with an invalid `split` orientation schema"
           + " to throw an exception.");
     } catch (InvalidSchemaException e) {
+      // Succeed
+    }
+  }
+
+  @Test
+  public void testLoadingPandasDataFrameFromJsonWithInvalidFrameDataThrowsException()
+      throws IOException, JsonProcessingException {
+    String sampleInputPath =
+        MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
+    String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
+    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+
+    // Remove a column from the first row of the sample input and check for an exception
+    // during parsing
+    Map<String, List<?>> missingColumnInFirstRowInput = new HashMap<>(sampleInput);
+    List<List<Object>> rows = (List<List<Object>>) missingColumnInFirstRowInput.get("data");
+    rows.get(0).remove(0);
+    String missingColumnInFirstRowJson = SerializationUtils.toJson(missingColumnInFirstRowInput);
+    try {
+      PandasSplitOrientedDataFrame pandasFrame =
+          PandasSplitOrientedDataFrame.fromJson(missingColumnInFirstRowJson);
+      Assert.fail("Expected parsing a pandas dataframe with invalid data to throw an exception.");
+    } catch (IllegalArgumentException e) {
+      // Succeed
+    }
+
+    // Remove a row from the sample input without adjusting the row count and check for an
+    // exception during parsing
+    Map<String, List<?>> missingRowInput = new HashMap<>(sampleInput);
+    missingRowInput.get("data").remove(0);
+    String missingRowJson = SerializationUtils.toJson(missingRowInput);
+    try {
+      PandasSplitOrientedDataFrame pandasFrame =
+          PandasSplitOrientedDataFrame.fromJson(missingRowJson);
+      Assert.fail("Expected parsing a pandas dataframe with invalid data to throw an exception.");
+    } catch (IllegalArgumentException e) {
       // Succeed
     }
   }
