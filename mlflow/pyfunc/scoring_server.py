@@ -12,11 +12,17 @@ Defines two endpoints:
 """
 from __future__ import print_function
 
+import sys
 import json
 
 import pandas as pd
 import flask
+from six import reraise
+
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST 
 from mlflow.utils.rest_utils import NumpyEncoder
+from mlflow.server.handlers import catch_mlflow_exception 
 
 try:
     from StringIO import StringIO
@@ -24,6 +30,43 @@ except ImportError:
     from io import StringIO
 
 from mlflow.utils import get_jsonable_obj
+
+
+def parse_json_input(json_input):
+    """
+    :param json_input: A JSON-formatted string representation of a Pandas Dataframe, or a stream 
+                       containing such a string representation.
+    """
+    try:
+        return pd.read_json(json_input, orient="split")
+    except Exception as e:
+        _handle_input_parsing_error(reraised_error_text=
+                ("Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
+                 " a valid JSON-formatted Pandas Dataframe with the `split` orientation produced"
+                 " using the `pandas.DataFrame.to_json(..., orient='split')` method. Original"
+                 " exception text: {exception_text}".format(exception_text=str(e))))
+
+
+def parse_csv_input(csv_input):
+    """
+    :param csv_input: A CSV-formatted string representation of a Pandas Dataframe, or a stream
+                      containing such a string representation.
+    """
+    try:
+        return pd.read_csv(csv_input, orient="split")
+    except Exception as e:
+        _handle_input_parsing_error(reraised_error_text=
+                ("Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
+                 " a valid CSV-formatted Pandas Dataframe produced using the" 
+                 " `pandas.DataFrame.to_csv()` method. Original exception text:" 
+                 " {exception_text}".format(exception_text=str(e))))
+
+
+def _handle_input_parsing_error(reraised_error_text):
+    traceback = sys.exc_info()[2]
+    reraise(MlflowException,
+            MlflowException(message=reraised_error_text, error_code=MALFORMED_REQUEST),
+            traceback)
 
 
 def init(model):
@@ -43,6 +86,7 @@ def init(model):
         return flask.Response(response='\n', status=status, mimetype='application/json')
 
     @app.route('/invocations', methods=['POST'])
+    @catch_mlflow_exception
     def transformation():  # pylint: disable=unused-variable
         """
         Do an inference on a single batch of data. In this sample server,
@@ -52,12 +96,12 @@ def init(model):
         # Convert from CSV to pandas
         if flask.request.content_type == 'text/csv':
             data = flask.request.data.decode('utf-8')
-            s = StringIO(data)
-            data = pd.read_csv(s)
+            csv_input = StringIO(data)
+            data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == 'application/json':
             data = flask.request.data.decode('utf-8')
-            s = StringIO(data)
-            data = pd.read_json(s, orient="split")
+            json_input = StringIO(data)
+            data = parse_json_input(json_input=json_input)
         else:
             return flask.Response(
                 response='This predictor only supports CSV or JSON  data, got %s' % str(
