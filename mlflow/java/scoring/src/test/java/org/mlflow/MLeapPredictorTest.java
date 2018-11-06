@@ -38,9 +38,8 @@ public class MLeapPredictorTest {
   }
 
   @Test
-  public void
-      testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingInputWithMissingField()
-          throws IOException, JsonProcessingException {
+  public void testMLeapPredictorThrowsPredictorEvaluationExceptionWhenInputIsMissingField()
+      throws IOException, JsonProcessingException {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
 
