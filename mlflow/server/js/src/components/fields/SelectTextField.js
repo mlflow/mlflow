@@ -23,4 +23,3 @@ export default class SelectTextField extends Component {
     />;
   }
 }
-

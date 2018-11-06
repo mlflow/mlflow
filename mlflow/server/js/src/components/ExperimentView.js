@@ -290,6 +290,7 @@ class ExperimentView extends Component {
                       isMulti
                       onChange={this.onParamKeyFilterInput}
                       styles={styles.metricParamFilterInput}
+                      theme={themes.metricParamFilterInput}
                     />
                   </div>
                 </div>
@@ -303,6 +304,7 @@ class ExperimentView extends Component {
                       isMulti
                       onChange={this.onMetricKeyFilterInput}
                       styles={styles.metricParamFilterInput}
+                      theme={themes.metricParamFilterInput}
                     />
                   </div>
                 </div>
@@ -723,20 +725,23 @@ const styles = {
         zIndex: 4,
       };
     },
-    control: (base, state) => {
-      const focusedState = {
-        borderColor: "rgb(59, 153, 252)",
-        boxShadow: "none",
-        outline: "rgb(59, 153, 252) auto 3px",
-      };
-      return {
-        ...base,
-        height: '32px',
-        minHeight: '32px',
-        ...(state.isFocused ? focusedState : {}),
-      }
-    },
+    control: (base) => ({
+      ...base,
+      height: '32px',
+      minHeight: '32px',
+    }),
   },
 };
+
+const themes = {
+  metricParamFilterInput: (theme) => ({
+    ...theme,
+    colors: {
+      ...theme.colors,
+      primary: "rgb(59, 153, 252)",
+    },
+  }),
+};
+
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));
