@@ -153,23 +153,23 @@ When you run the example, it outputs an MLflow run ID for that experiment. If yo
 ``mlflow ui``, you will also see that the run saved a ``model`` folder containing an ``MLmodel``
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here "model") to various tools. For example, MLflow includes a
-simple REST server for scikit-learn models:
+simple REST server for python-based models:
 
 .. code:: bash
 
-    mlflow sklearn serve -r <RUN_ID> -m model
+    mlflow pyfunc serve -r <RUN_ID> -m model
 
 .. note::
 
     By default the server runs on port 5000. If that port is already in use, use the `--port` option to
-    specify a different port. For example: ``mlflow sklearn serve --port 1234 -r <RUN_ID> -m model``
+    specify a different port. For example: ``mlflow pyfunc serve --port 1234 -r <RUN_ID> -m model``
 
 Once you have started the server, you can pass it some sample data with ``curl`` and see the
 predictions:
 
 .. code:: bash
 
-    curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
+    curl -d '{"columns":["x"],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
 
 which returns::
 
@@ -178,7 +178,7 @@ which returns::
 .. note::
 
     The ``sklearn_logistic_regression/train.py`` script must be run with the same Python version as
-    the version of Python that runs ``mlflow sklearn serve``. If they are not the same version,
+    the version of Python that runs ``mlflow pyfunc serve``. If they are not the same version,
     the stacktrace below may appear::
 
         File "/usr/local/lib/python3.6/site-packages/mlflow/sklearn.py", line 54, in _load_model_from_local_file
