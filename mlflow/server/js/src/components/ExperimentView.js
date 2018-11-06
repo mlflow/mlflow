@@ -21,6 +21,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 
 import _ from 'lodash';
 import LocalStorageUtils from "../utils/LocalStorageUtils";
+import { ExperimentViewState } from "../sdk/MlflowLocalStorageMessages";
 
 export const DEFAULT_EXPANDED_VALUE = true;
 
@@ -107,22 +108,16 @@ class ExperimentView extends Component {
     unbaggedParams: [],
   };
 
-  store = LocalStorageUtils.getStore("ExperimentView", this.props.experiment.experiment_id);
+  static getStore(experimentId) {
+    return LocalStorageUtils.getStore("ExperimentView", experimentId);
+  }
+
+  store = ExperimentView.getStore(this.props.experiment.experiment_id);
   state = {
-    ...LocalStorageUtils.loadComponentState(this.store, this.defaultState),
+    ...this.store.loadComponentState(this.defaultState),
     // Don't reload selected runs from local storage
     runsSelected: _.cloneDeep(this.defaultState.runsSelected),
   };
-
-  setStateWrapper(newState, callback) {
-    this.setState(newState, () => {
-      LocalStorageUtils.saveComponentState(this.store, this.state);
-      if (callback) {
-        return callback();
-      }
-      return undefined;
-    });
-  }
 
   shouldComponentUpdate(nextProps, nextState) {
     // Don't update the component if a modal is showing before and after the update try.
@@ -131,6 +126,22 @@ class ExperimentView extends Component {
     return true;
   }
 
+  /** Returns true if search filter text was updated */
+  filtersDidUpdate(prevState) {
+    return prevState.paramKeyFilterInput !== this.state.paramKeyFilterInput ||
+      prevState.metricKeyFilterInput !== this.state.metricKeyFilterInput ||
+      prevState.searchInput !== this.state.searchInput;
+  }
+
+  componentDidUpdate(_, prevState) {
+    // Don't snapshot state on changes to search filter text; we only want to save these on search
+    // in ExperimentPage
+    if (!this.filtersDidUpdate(prevState)) {
+      console.log("Snapshotting state in componentDidUpdate");
+      const store = ExperimentView.getStore(this.props.experimentId);
+      store.saveComponentState(new ExperimentViewState(this.state));
+    }
+  }
 
   static getDerivedStateFromProps(nextProps, prevState) {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
@@ -156,23 +167,23 @@ class ExperimentView extends Component {
   }
 
   setShowMultiColumns(value) {
-    this.setStateWrapper({ showMultiColumns: value });
+    this.setState({ showMultiColumns: value });
   }
 
   onDeleteRun() {
-    this.setStateWrapper({ showDeleteRunModal: true });
+    this.setState({ showDeleteRunModal: true });
   }
 
   onRestoreRun() {
-    this.setStateWrapper({ showRestoreRunModal: true });
+    this.setState({ showRestoreRunModal: true });
   }
 
   onCloseDeleteRunModal() {
-    this.setStateWrapper({ showDeleteRunModal: false });
+    this.setState({ showDeleteRunModal: false });
   }
 
   onCloseRestoreRunModal() {
-    this.setStateWrapper({ showRestoreRunModal: false });
+    this.setState({ showRestoreRunModal: false });
   }
 
   /**
@@ -187,7 +198,7 @@ class ExperimentView extends Component {
     const newUnbagged = idx >= 0 ?
       unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setStateWrapper({[stateKey]: newUnbagged});
+    this.setState({[stateKey]: newUnbagged});
   }
 
   /**
@@ -199,7 +210,7 @@ class ExperimentView extends Component {
   removeBagged(isParam, colName) {
     const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setStateWrapper({[stateKey]: unbagged.concat([colName])});
+    this.setState({[stateKey]: unbagged.concat([colName])});
   }
 
   render() {
@@ -412,7 +423,7 @@ class ExperimentView extends Component {
   }
 
   setSortBy(isMetric, isParam, key, ascending) {
-    this.setStateWrapper({sort: {
+    this.setState({sort: {
       ascending: ascending,
       key: key,
       isMetric: isMetric,
@@ -424,9 +435,9 @@ class ExperimentView extends Component {
     const newState = Object.assign({}, this.state);
     if (this.state.runsSelected[runUuid]) {
       delete newState.runsSelected[runUuid];
-      this.setStateWrapper(newState);
+      this.setState(newState);
     } else {
-      this.setStateWrapper({
+      this.setState({
         runsSelected: {
           ...this.state.runsSelected,
           [runUuid]: true,
@@ -441,13 +452,13 @@ class ExperimentView extends Component {
 
   onCheckAll() {
     if (this.isAllChecked()) {
-      this.setStateWrapper({runsSelected: {}});
+      this.setState({runsSelected: {}});
     } else {
       const runsSelected = {};
       this.props.runInfos.forEach(({run_uuid}) => {
         runsSelected[run_uuid] = true;
       });
-      this.setStateWrapper({runsSelected: runsSelected});
+      this.setState({runsSelected: runsSelected});
     }
   }
 
@@ -457,7 +468,7 @@ class ExperimentView extends Component {
     childrenIds.forEach((childId) => {
       newRunsHiddenByExpander[childId] = !newExpanderState;
     });
-    this.setStateWrapper({
+    this.setState({
       runsExpanded: {
         ...this.state.runsExpanded,
         [runId]: newExpanderState,
@@ -472,7 +483,7 @@ class ExperimentView extends Component {
           delete newRunsSelected[childId];
         }
       });
-      this.setStateWrapper({ runsSelected: newRunsSelected });
+      this.setState({ runsSelected: newRunsSelected });
     }
   }
 
@@ -489,7 +500,9 @@ class ExperimentView extends Component {
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    this.setStateWrapper({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
+    // TODO: Will componentDidUpdate work properly here? A: it seems not, but maybe that's ok
+    // (We don't need to save lifecycle filter state).
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
   }
 
   onSearch(e) {
@@ -506,7 +519,7 @@ class ExperimentView extends Component {
       this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
         lifecycleFilterInput);
     } catch (ex) {
-      this.setStateWrapper({ searchErrorMessage: ex.errorMessage });
+      this.setState({ searchErrorMessage: ex.errorMessage });
     }
   }
 
@@ -516,7 +529,7 @@ class ExperimentView extends Component {
       ..._.cloneDeep(this.defaultState),
       showMultiColumns: this.state.showMultiColumns,
     };
-    this.setStateWrapper(clearState, () => {
+    this.setState(clearState, () => {
       this.props.onSearch("", "", "", LIFECYCLE_FILTER.ACTIVE);
     });
   }
