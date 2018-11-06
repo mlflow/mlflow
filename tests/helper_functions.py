@@ -25,7 +25,8 @@ def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
 
 
-def score_model_in_sagemaker_docker_container(model_path, data, data_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
+def score_model_in_sagemaker_docker_container(
+        model_path, data, data_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
@@ -91,7 +92,7 @@ def _score_proc(proc, port, data, data_type):
             raise Exception("ping failed, server is not happy")
         if data_type == "json":
             if type(data) == pd.DataFrame:
-                # Convert the dataframe to a JSON-serialized string in the Pandas `split` format 
+                # Convert the dataframe to a JSON-serialized string in the Pandas `split` format
                 # to preserve the dataframe's column ordering
                 data = data.to_json(orient="split")
             response = requests.post(url='http://localhost:%d/invocations' % port,

@@ -21,9 +21,9 @@ import flask
 from six import reraise
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST 
+from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.utils.rest_utils import NumpyEncoder
-from mlflow.server.handlers import catch_mlflow_exception 
+from mlflow.server.handlers import catch_mlflow_exception
 
 try:
     from StringIO import StringIO
@@ -35,7 +35,7 @@ from mlflow.utils import get_jsonable_obj
 
 def parse_json_input(json_input):
     """
-    :param json_input: A JSON-formatted string representation of a Pandas Dataframe, or a stream 
+    :param json_input: A JSON-formatted string representation of a Pandas Dataframe, or a stream
                        containing such a string representation.
     """
     try:
@@ -60,7 +60,7 @@ def parse_csv_input(csv_input):
         _handle_serving_error(
                 error_text=(
                     "Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
-                    " a valid CSV-formatted Pandas Dataframe produced using the" 
+                    " a valid CSV-formatted Pandas Dataframe produced using the"
                     " `pandas.DataFrame.to_csv()` method."),
                 error_code=MALFORMED_REQUEST)
 

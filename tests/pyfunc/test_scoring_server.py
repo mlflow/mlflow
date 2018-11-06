@@ -61,7 +61,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
-    
+
     # The pyfunc scoring server expects a serialized Pandas Dataframe in `split` format; passing
     # a serialized Dataframe in `records` format should yield a readable error
     pandas_record_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="records")
