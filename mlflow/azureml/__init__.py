@@ -317,8 +317,8 @@ def init():
     model = load_pyfunc(model_path)
 
 
-def run(s):
-    input_df = parse_json_input(json_input=s)
+def run(json_input):
+    input_df = parse_json_input(json_input=json_input)
     return get_jsonable_obj(model.predict(input_df))
 
 """
