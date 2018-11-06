@@ -723,12 +723,20 @@ const styles = {
         zIndex: 4,
       };
     },
-    control: (base) => ({
-      ...base,
-      height: '32px',
-      minHeight: '32px',
-    }),
-  }
+    control: (base, state) => {
+      const focusedState = {
+        borderColor: "rgb(59, 153, 252)",
+        boxShadow: "none",
+        outline: "rgb(59, 153, 252) auto 3px",
+      };
+      return {
+        ...base,
+        height: '32px',
+        minHeight: '32px',
+        ...(state.isFocused ? focusedState : {}),
+      }
+    },
+  },
 };
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));
