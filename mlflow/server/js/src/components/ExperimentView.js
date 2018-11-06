@@ -714,12 +714,20 @@ const styles = {
     marginLeft: '16px',
   },
   metricParamFilterInput: {
+    // See https://react-select.com/styles for info on the style keys used here
     container: (provided) => {
-      // Set z-index of the multiselect dropdown container so that it properly appears on top of
-      // other components in the UI (e.g. the toggle between different runs-table views)
-      // See https://react-select.com/styles for more info.
-      return { ...provided, zIndex: 4 };
-    }
+      return {
+        ...provided,
+        // Set z-index of the multiselect dropdown container so that it properly appears on top of
+        // other components in the UI (e.g. the toggle between different runs-table views)
+        zIndex: 4,
+      };
+    },
+    control: (base) => ({
+      ...base,
+      height: '32px',
+      minHeight: '32px',
+    }),
   }
 };
 
