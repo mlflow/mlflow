@@ -14,6 +14,7 @@ from __future__ import print_function
 
 import sys
 import json
+import traceback
 
 import pandas as pd
 import flask
@@ -63,10 +64,11 @@ def parse_csv_input(csv_input):
 
 
 def _handle_input_parsing_error(reraised_error_text):
-    traceback = sys.exc_info()[2]
+    traceback.print_exc()
+    tb = sys.exc_info()[2]
     reraise(MlflowException,
             MlflowException(message=reraised_error_text, error_code=MALFORMED_REQUEST),
-            traceback)
+            tb)
 
 
 def init(model):
