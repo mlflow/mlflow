@@ -1,6 +1,7 @@
 import os
 import json
 import pandas as pd
+import numpy as np
 from collections import namedtuple
 
 import pytest
@@ -8,7 +9,7 @@ import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
 import mlflow.sklearn
-from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
+from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
@@ -31,7 +32,7 @@ def model_path(tmpdir):
     return str(os.path.join(tmpdir.strpath, "model"))
 
 
-def test_pyfunc_scoring_server_responds_to_invalid_json_input_with_mlflow_exception_text(
+def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
@@ -41,10 +42,10 @@ def test_pyfunc_scoring_server_responds_to_invalid_json_input_with_mlflow_except
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
     assert "message" in response_json
-    assert "Original exception text" in response_json["message"]
+    assert "Original exception trace" in response_json["message"]
 
 
-def test_pyfunc_scoring_server_responds_to_malformed_json_input_with_mlflow_exception_text(
+def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
@@ -54,10 +55,10 @@ def test_pyfunc_scoring_server_responds_to_malformed_json_input_with_mlflow_exce
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
     assert "message" in response_json
-    assert "Original exception text" in response_json["message"]
+    assert "Original exception trace" in response_json["message"]
 
 
-def test_pyfunc_scoring_server_responds_to_invalid_pandas_input_format_with_mlflow_exception_text(
+def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
     
@@ -69,32 +70,32 @@ def test_pyfunc_scoring_server_responds_to_invalid_pandas_input_format_with_mlfl
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
     assert "message" in response_json
-    assert "Original exception text" in response_json["message"]
+    assert "Original exception trace" in response_json["message"]
 
 
-# def test_pyfunc_scoring_server_responds_to_invalid_csv_input_with_mlflow_exception_text(
-#         sklearn_model, model_path):
-#     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
-#     
-#     incorrect_csv_content = ",not,a,pandas,dataframe,0.1"
-#     response_json = pyfunc_serve_and_score_model(
-#             model_path=os.path.abspath(model_path), data=incorrect_csv_content, data_type="csv")
-#     print(response_json)
-#     assert "error_code" in response_json
-#     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
-#     assert "message" in response_json
-#     assert "Original exception text" in response_json["message"]
+def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stacktrace_and_error_code(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    incompatible_df = pd.DataFrame(np.array(range(10)))
+
+    response_json = pyfunc_serve_and_score_model(
+            model_path=os.path.abspath(model_path), data=incompatible_df, data_type="csv")
+    assert "error_code" in response_json
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
+    assert "message" in response_json
+    assert "Original exception trace" in response_json["message"]
 
 
-# def test_pyfunc_scoring_server_responds_to_malformed_csv_input_with_mlflow_exception_text(
-#         sklearn_model, model_path):
-#     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
-#     
-#     incorrect_csv_content = "''''"
-#     response_json = pyfunc_serve_and_score_model(
-#             model_path=os.path.abspath(model_path), data=incorrect_csv_content, data_type="csv")
-#     assert "error_code" in response_json
-#     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
-#     assert "message" in response_json
-#     assert "Original exception text" in response_json["message"]
+def test_scoring_server_responds_to_invalid_csv_input_with_mlflow_exception_text(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
+    # Any empty string is not valid pandas CSV
+    incorrect_csv_content = ""
+    response_json = pyfunc_serve_and_score_model(
+            model_path=os.path.abspath(model_path), data=incorrect_csv_content, data_type="csv")
+    print(response_json)
+    assert "error_code" in response_json
+    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert "message" in response_json
+    assert "Original exception trace" in response_json["message"]

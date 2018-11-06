@@ -21,7 +21,7 @@ import flask
 from six import reraise
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST 
+from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST 
 from mlflow.utils.rest_utils import NumpyEncoder
 from mlflow.server.handlers import catch_mlflow_exception 
 
@@ -41,11 +41,12 @@ def parse_json_input(json_input):
     try:
         return pd.read_json(json_input, orient="split")
     except Exception as e:
-        _handle_input_parsing_error(reraised_error_text=
-                ("Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
-                 " a valid JSON-formatted Pandas Dataframe with the `split` orientation produced"
-                 " using the `pandas.DataFrame.to_json(..., orient='split')` method. Original"
-                 " exception text: {exception_text}".format(exception_text=str(e))))
+        _handle_serving_error(
+                error_text=(
+                    "Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
+                    " a valid JSON-formatted Pandas Dataframe with the `split` orientation produced"
+                    " using the `pandas.DataFrame.to_json(..., orient='split')` method."),
+                error_code=MALFORMED_REQUEST)
 
 
 def parse_csv_input(csv_input):
@@ -56,19 +57,22 @@ def parse_csv_input(csv_input):
     try:
         return pd.read_csv(csv_input)
     except Exception as e:
-        _handle_input_parsing_error(reraised_error_text=
-                ("Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
-                 " a valid CSV-formatted Pandas Dataframe produced using the" 
-                 " `pandas.DataFrame.to_csv()` method. Original exception text:" 
-                 " {exception_text}".format(exception_text=str(e))))
+        _handle_serving_error(
+                error_text=(
+                    "Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
+                    " a valid CSV-formatted Pandas Dataframe produced using the" 
+                    " `pandas.DataFrame.to_csv()` method."),
+                error_code=MALFORMED_REQUEST)
 
 
-def _handle_input_parsing_error(reraised_error_text):
-    traceback.print_exc()
-    tb = sys.exc_info()[2]
+def _handle_serving_error(error_text, error_code):
+    traceback_buf = StringIO()
+    traceback.print_exc(file=traceback_buf)
     reraise(MlflowException,
-            MlflowException(message=reraised_error_text, error_code=MALFORMED_REQUEST),
-            tb)
+            MlflowException(
+                message="{error_text}. Original exception trace: {tb}".format(
+                    error_text=error_text, tb=traceback_buf.getvalue()),
+                error_code=error_code))
 
 
 def init(model):
@@ -110,6 +114,16 @@ def init(model):
                     flask.request.content_type), status=415, mimetype='text/plain')
 
         # Do the prediction
+        try:
+            raw_predictions = model.predict(data)
+        except Exception as e:
+            _handle_serving_error(
+                    error_text=(
+                        "Encountered an unexpected error while evaluating the model. Please verify"
+                        " that the serialized input Dataframe is compatible with the model for"
+                        " inference."),
+                    error_code=BAD_REQUEST)
+
         predictions = get_jsonable_obj(model.predict(data))
         result = json.dumps(predictions, cls=NumpyEncoder)
         return flask.Response(response=result, status=200, mimetype='application/json')
