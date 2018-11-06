@@ -19,7 +19,7 @@ import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
-import SelectizeTextField from './fields/SelectizeTextField';
+import SelectTextField from './fields/SelectTextField';
 
 
 export const DEFAULT_EXPANDED_VALUE = true;
@@ -283,24 +283,26 @@ class ExperimentView extends Component {
                 <div className="ExperimentView-paramKeyFilter">
                   <label className="filter-label">Filter Params:</label>
                   <div className="filter-wrapper">
-                    <SelectizeTextField
+                    <SelectTextField
                       options={this.props.paramKeyList}
                       placeholder={this.props.paramKeyList.slice(0, 2).join(", ")}
                       value={this.splitFilterInput(this.state.paramKeyFilterInput)}
                       isMulti
                       onChange={this.onParamKeyFilterInput}
+                      styles={styles.metricParamFilterInput}
                     />
                   </div>
                 </div>
                 <div className="ExperimentView-metricKeyFilter">
                   <label className="filter-label">Filter Metrics:</label>
                   <div className="filter-wrapper">
-                    <SelectizeTextField
+                    <SelectTextField
                       options={this.props.metricKeyList}
                       placeholder={this.props.metricKeyList.slice(0, 2).join(", ")}
                       value={this.splitFilterInput(this.state.metricKeyFilterInput)}
                       isMulti
                       onChange={this.onMetricKeyFilterInput}
+                      styles={styles.metricParamFilterInput}
                     />
                   </div>
                 </div>
@@ -463,6 +465,11 @@ class ExperimentView extends Component {
     }
   }
 
+  /**
+   * Converts a comma-separated list of metric or param names (to filter on) into a list of objects
+   * of the form {label: <string>, value: <string>} that can be passed as options to our multiselect
+   * component.
+   */
   splitFilterInput(filterInput) {
     if (filterInput.length === 0) {
       return "";
@@ -472,16 +479,21 @@ class ExperimentView extends Component {
     });
   }
 
+  /**
+   * Given a list of 'option' objects of the form {label: <string>, value: <string} corresponding to
+   * metric or param names (keys) to filter on, serializes the options into a comma-separated list
+   * that can be processed by the SearchRuns API.
+   */
   joinSelectedFilterOptions(selectedOptions) {
-    const res = selectedOptions.map((option) => option.label).join(", ");
-    console.log("Got filter options " + res);
-    return res;
+    return selectedOptions.map((option) => option.label).join(", ");
   }
 
+  /** Handler for changes to the set of params to filter on. */
   onParamKeyFilterInput(selectedOptions) {
     this.setState({ paramKeyFilterInput: this.joinSelectedFilterOptions(selectedOptions) });
   }
 
+  /** Handler for changes to the set of metrics to filter on. */
   onMetricKeyFilterInput(selectedOptions) {
     this.setState({ metricKeyFilterInput: this.joinSelectedFilterOptions(selectedOptions) });
   }
@@ -701,6 +713,14 @@ const styles = {
   tableToggleButtonGroup: {
     marginLeft: '16px',
   },
+  metricParamFilterInput: {
+    container: (provided) => {
+      // Set z-index of the multiselect dropdown container so that it properly appears on top of
+      // other components in the UI (e.g. the toggle between different runs-table views)
+      // See https://react-select.com/styles for more info.
+      return { ...provided, zIndex: 4 };
+    }
+  }
 };
 
 export default withRouter(connect(mapStateToProps)(ExperimentView));
