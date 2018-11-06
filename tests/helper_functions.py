@@ -1,6 +1,7 @@
 import os
 import random
 
+import json
 import re
 import requests
 import string
@@ -24,11 +25,13 @@ def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
 
 
-def score_model_in_sagemaker_docker_container(model_path, data, flavor=mlflow.pyfunc.FLAVOR_NAME):
+def score_model_in_sagemaker_docker_container(model_path, data, data_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
-                 Pandas dataframe or a JSON-formatted string.
+                 Pandas dataframe or string of the format specified by `data_type`.
+    :param data_type: The type of the data to send to the docker container for testing.
+                      This is either `json` or `csv`.
     :param flavor: Model flavor to be deployed.
     """
     env = dict(os.environ)
@@ -37,15 +40,17 @@ def score_model_in_sagemaker_docker_container(model_path, data, flavor=mlflow.py
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True, env=env)
-    r = _score_proc(proc, 5000, data, "json").content
-    import json
-    return json.loads(r)  # TODO: we should return pd.Dataframe the same as pyfunc serve
+    response_content = _score_proc(proc, 5000, data, data_type).content
+    return json.loads(response_content)
 
 
-def pyfunc_serve_and_score_model(model_path, data):
+def pyfunc_serve_and_score_model(model_path, data, data_type):
     """
     :param model_path: Path to the model to be served.
-    :param data: Data in pandas.DataFrame format to send to the docker container for testing.
+    :param data: The data to send to the pyfunc server for testing. This is either a
+                 Pandas dataframe or string of the format specified by `data_type`.
+    :param data_type: The type of the data to send to the pyfunc server for testing.
+                      This is either `json` or `csv`.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -59,8 +64,8 @@ def pyfunc_serve_and_score_model(model_path, data):
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
         if m:
-            return pd.read_json(_score_proc(proc, int(m.group(1)), data, data_type="csv").content,
-                                orient="records")
+            response_content = _score_proc(proc, int(m.group(1)), data, data_type=data_type).content
+            return json.loads(response_content)
 
     raise Exception("Failed to start server")
 
@@ -89,21 +94,19 @@ def _score_proc(proc, port, data, data_type):
                 # Convert the dataframe to a JSON-serialized string in the Pandas `split` format 
                 # to preserve the dataframe's column ordering
                 data = data.to_json(orient="split")
-            r = requests.post(url='http://localhost:%d/invocations' % port,
-                              headers={"Content-Type": "application/json"},
-                              data=data)
+            response = requests.post(url='http://localhost:%d/invocations' % port,
+                                     headers={"Content-Type": "application/json"},
+                                     data=data)
         elif data_type == "csv":
-            data = data.to_csv(index=False, header=True)
-            r = requests.post(url='http://localhost:%d/invocations' % port,
-                              data=data,
-                              headers={"Content-Type": "text/csv"})
+            if type(data) == pd.DataFrame:
+                data = data.to_csv(index=False, header=True)
+            response = requests.post(url='http://localhost:%d/invocations' % port,
+                                     data=data,
+                                     headers={"Content-Type": "text/csv"})
+            print("RESPONSE CONTENT", response.content)
         else:
             raise Exception("Unexpected data_type %s" % data_type)
-        if r.status_code != 200:
-            raise Exception("scoring failed, status code = {}. Response = '{}' ".format(
-                r.status_code,
-                r))
-        return r
+        return response
     finally:
         if proc.poll() is None:
             proc.terminate()

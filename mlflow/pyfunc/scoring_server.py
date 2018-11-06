@@ -54,7 +54,7 @@ def parse_csv_input(csv_input):
                       containing such a string representation.
     """
     try:
-        return pd.read_csv(csv_input, orient="split")
+        return pd.read_csv(csv_input)
     except Exception as e:
         _handle_input_parsing_error(reraised_error_text=
                 ("Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
