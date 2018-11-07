@@ -60,30 +60,30 @@ public class MLeapPredictor extends Predictor {
       pandasFrame = PandasSplitOrientedDataFrame.fromJson(input.toJson());
     } catch (IOException e) {
       logger.error(
-          "Encountered a JSON parsing error during conversion of input to a Pandas Dataframe"
+          "Encountered a JSON parsing error during conversion of input to a Pandas DataFrame"
               + " representation.",
           e);
       throw new PredictorEvaluationException(
-          "Encountered a JSON parsing error while transforming input into a Pandas Dataframe"
+          "Encountered a JSON parsing error while transforming input into a Pandas DataFrame"
               + " representation. Please ensure that the input is a JSON-serialized Pandas"
               + " Dataframe with the `split` orientation.",
           e);
     } catch (InvalidSchemaException e) {
       logger.error(
-          "Encountered a schema mismatch while transforming input into a Pandas Dataframe"
+          "Encountered a schema mismatch while transforming input into a Pandas DataFrame"
               + " representation.",
           e);
       throw new PredictorEvaluationException(
-          "Encountered a schema mismatch while transforming input into a Pandas Dataframe"
+          "Encountered a schema mismatch while transforming input into a Pandas DataFrame"
               + " representation. Please ensure that the input is a JSON-serialized Pandas"
               + " Dataframe with the `split` orientation.",
           e);
     } catch (IllegalArgumentException e) {
       logger.error(
-          "Failed to transform input into a Pandas Dataframe because the parsed frame is invalid.",
+          "Failed to transform input into a Pandas DataFrame because the parsed frame is invalid.",
           e);
       throw new PredictorEvaluationException(
-          "Failed to transform input into a Pandas Dataframe because the parsed frame is invalid."
+          "Failed to transform input into a Pandas DataFrame because the parsed frame is invalid."
               + " Please ensure that the input is a JSON-serialized Pandas"
               + " Dataframe with the `split` orientation.",
           e);

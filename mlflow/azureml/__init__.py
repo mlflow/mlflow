@@ -34,11 +34,11 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     The resulting Azure ML ContainerImage will contain a webserver that accepts the following
     data formats as input:
 
-    - JSON-serialized Pandas Dataframes in the `split` orientation. For example,
+    - JSON-serialized Pandas DataFrames in the `split` orientation. For example,
       `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
       request header value of `application/json`.
 
-    For more information about serializing Pandas Dataframes, see
+    For more information about serializing Pandas DataFrames, see
     https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
 
     :param model_path: The path to MLflow model for which the image will be built. If a run id

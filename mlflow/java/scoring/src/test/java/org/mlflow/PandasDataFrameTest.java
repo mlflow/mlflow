@@ -1,20 +1,17 @@
 package org.mlflow.sagemaker;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import org.junit.Assert;
-import org.junit.Test;
-import java.io.File;
-import org.mlflow.utils.SerializationUtils;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.mlflow.MLflowRootResourceProvider;
-
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import org.junit.Assert;
+import org.junit.Test;
+import org.mlflow.MLflowRootResourceProvider;
+import org.mlflow.utils.SerializationUtils;
 
 public class PandasDataFrameTest {
   @Test
@@ -33,7 +30,7 @@ public class PandasDataFrameTest {
     try {
       PandasSplitOrientedDataFrame pandasFrame =
           PandasSplitOrientedDataFrame.fromJson(badFrameJson);
-      Assert.fail("Expected parsing a pandas dataframe from invalid json to throw an IOException.");
+      Assert.fail("Expected parsing a pandas DataFrame from invalid json to throw an IOException.");
     } catch (IOException e) {
       // Succeed
     }
@@ -52,8 +49,9 @@ public class PandasDataFrameTest {
     try {
       PandasSplitOrientedDataFrame pandasFrame =
           PandasSplitOrientedDataFrame.fromJson(missingSchemaFieldJson);
-      Assert.fail("Expected parsing a pandas dataframe with an invalid `split` orientation schema"
-          + " to throw an exception.");
+      Assert.fail(
+          "Expected parsing a pandas DataFrame with an invalid `split` orientation schema"
+              + " to throw an exception.");
     } catch (InvalidSchemaException e) {
       // Succeed
     }
@@ -76,7 +74,7 @@ public class PandasDataFrameTest {
     try {
       PandasSplitOrientedDataFrame pandasFrame =
           PandasSplitOrientedDataFrame.fromJson(missingColumnInFirstRowJson);
-      Assert.fail("Expected parsing a pandas dataframe with invalid data to throw an exception.");
+      Assert.fail("Expected parsing a pandas DataFrame with invalid data to throw an exception.");
     } catch (IllegalArgumentException e) {
       // Succeed
     }
@@ -89,7 +87,7 @@ public class PandasDataFrameTest {
     try {
       PandasSplitOrientedDataFrame pandasFrame =
           PandasSplitOrientedDataFrame.fromJson(missingRowJson);
-      Assert.fail("Expected parsing a pandas dataframe with invalid data to throw an exception.");
+      Assert.fail("Expected parsing a pandas DataFrame with invalid data to throw an exception.");
     } catch (IllegalArgumentException e) {
       // Succeed
     }
@@ -111,9 +109,9 @@ public class PandasDataFrameTest {
   }
 
   /**
-   * In order to produce a leap frame from a pandas dataframe, the pandas dataframe
-   * must contain all of the fields specified by the intended leap frame's schema.
-   * This test ensures that an exception is thrown if such a field is missing
+   * In order to produce a leap frame from a Pandas DataFrame, the Pandas DataFrame must contain all
+   * of the fields specified by the intended leap frame's schema. This test ensures that an
+   * exception is thrown if such a field is missing
    */
   @Test
   public void testConvertingPandasDataFrameWithMissingMLeapSchemaFieldThrowsException()
@@ -139,7 +137,7 @@ public class PandasDataFrameTest {
     try {
       pandasFrame.toLeapFrame(leapFrameSchema);
       Assert.fail(
-          "Expected leap frame conversion of a pandas dataframe with a missing field to fail.");
+          "Expected leap frame conversion of a pandas DataFrame with a missing field to fail.");
     } catch (InvalidSchemaException e) {
       // Succeed
     }

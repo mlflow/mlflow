@@ -376,13 +376,36 @@ in MLflow saved the model as an artifact within the run.
           ``UnicodeDecodeError: 'ascii' codec can't decode byte 0x9f in position 1: ordinal not in range(128)``
           or ``raise ValueError, "unsupported pickle protocol: %d"``.
 
-      To serve a prediction, run:
+      Once you have deployed the server, you can pass it some sample data and see the
+      predictions. The server accepts the following data formats as inputs:
+
+          - JSON-serialized Pandas DataFrames in the `split` orientation. For example,
+            `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
+            request header value of `application/json; pandasformat=split`. **In the next release of
+            MLflow, this format will also be specified using the `application/json` content type.**
+
+          - JSON-serialized Pandas DataFrames in the `records` orientation. **THIS FORMAT IS DEPRECATED.
+            It is not guaranteed to preserve column ordering.** Currently, this format is specified
+            using a `Content-Type` request header value of `application/json; pandasformat=records` or
+            `application/json`. However, **in the next release of MLflow, `application/json` will refer to
+            the `split` format instead. For forwards compatibility, we recommend using the `split` format
+            or specifying the `application/json; pandasformat=records` content type.**
+
+          - CSV-serialized Pandas DataFrames. For example, `data = pandas_df.to_csv()`. This format is
+            specified using a `Content-Type` request header value of `text/csv`.
+
+      For more information about serializing Pandas DataFrames, see
+      https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
+
+      The following example uses ``curl`` to send a JSON-serialized Pandas DataFrame with the `split`
+      orientation to the pyfunc server. Note: The optional *index* field that provides labels for
+      DataFrame rows is omitted from this example.
 
       .. code::
 
-          curl -X POST -H "Content-Type:application/json.pandas.split.oriented" --data '{"columns":["alcohol","chlorides","citric acid","density","fixed acidity","free sulfur dioxide","pH","residual sugar","sulphates","total sulfur dioxide","volatile acidity"],"index":[0],"data":[[12.8,0.029,0.48,0.98,6.2,29,3.33,1.2,0.39,75,0.66]]}' http://127.0.0.1:1234/invocations
+          curl -X POST -H "Content-Type:application/json; pandasformat=split" --data '{"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
 
-      which should return something like::
+      the server should respond with output similar to::
 
           {"predictions": [6.379428821398614]}
 

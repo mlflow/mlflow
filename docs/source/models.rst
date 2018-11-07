@@ -324,6 +324,11 @@ platform for real-time serving.
 
     import requests
     import json
+
+    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation. The optional
+    # `index` field, which provides labels for DataFrame rows, is not present in this example.
+    # For more information about supported data formats for AzureML webserver inputs, see the 
+    # documentation for the mlflow.azureml.build_image function` 
     sample_input = {
         "columns": [
             "alcohol",
@@ -338,7 +343,6 @@ platform for real-time serving.
             "total sulfur dioxide",
             "volatile acidity"
         ],
-        "index": [0],
         "data": [
             [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
         ]
@@ -364,6 +368,10 @@ platform for real-time serving.
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
 
+    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation. The optional
+    # `index` field, which provides labels for DataFrame rows, is not present in this example.
+    # For more information about supported data formats for AzureML webserver inputs, see
+    # the MLflow CLI documentation: `mlflow azureml build-image --help`.
     sample_input='
     {
         "columns": [
@@ -379,7 +387,6 @@ platform for real-time serving.
             "total sulfur dioxide",
             "volatile acidity"
         ],
-        "index": [0],
         "data": [
             [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
         ]

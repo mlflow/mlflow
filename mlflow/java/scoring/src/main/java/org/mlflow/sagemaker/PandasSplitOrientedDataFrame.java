@@ -11,7 +11,7 @@ import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import org.mlflow.utils.SerializationUtils;
 
 /**
- * A representation of a serialized Pandas dataframe in split-oriented format. For more information,
+ * A representation of a serialized Pandas DataFrame in split-oriented format. For more information,
  * see `pandas.DataFrame.toJson(orient="split")`
  * (https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html)
  */
@@ -30,14 +30,14 @@ class PandasSplitOrientedDataFrame {
     this.entries = new ArrayList<>();
     if (rowIndices.size() != rows.size()) {
       throw new IllegalArgumentException(
-          "The number of row indices does not match the number of dataframe rows!");
+          "The number of row indices does not match the number of DataFrame rows!");
     }
     for (int rowIndex : rowIndices) {
       List<Object> row = rows.get(rowIndex);
       if (row.size() != columnNames.size()) {
         throw new IllegalArgumentException(
             String.format(
-                "Row %d of the dataframe does not contain the expected number of columns! Found %d"
+                "Row %d of the DataFrame does not contain the expected number of columns! Found %d"
                     + " columns, expected %d columns",
                 rowIndex, row.size(), columnNames.size()));
       }
@@ -52,7 +52,7 @@ class PandasSplitOrientedDataFrame {
   /**
    * Constructs a {@link PandasSplitOrientedDataFrame}
    *
-   * @param frameJson A representation of the dataframe
+   * @param frameJson A representation of the DataFrame
    */
   static PandasSplitOrientedDataFrame fromJson(String frameJson) throws IOException {
     Map<String, List<?>> parsedFrame = SerializationUtils.fromJson(frameJson, Map.class);
@@ -73,23 +73,23 @@ class PandasSplitOrientedDataFrame {
       if (!parsedFrame.containsKey(columnName)) {
         throw new InvalidSchemaException(
             String.format(
-                "The JSON representation of the serialized Pandas Dataframe is missing an expected "
+                "The JSON representation of the serialized Pandas DataFrame is missing an expected "
                     + " column with name: `%s` that is required by the Pandas `split` orientation.",
                 columnName));
       }
     }
   }
 
-  /** @return The number of rows contained in the dataframe */
+  /** @return The number of rows contained in the DataFrame */
   int size() {
     return this.entries.size();
   }
 
   /**
-   * Applies the specified MLeap frame schema ({@link LeapFrameSchema}) to this dataframe, producing
+   * Applies the specified MLeap frame schema ({@link LeapFrameSchema}) to this DataFrame, producing
    * a {@link DefaultLeapFrame}
    *
-   * @throws InvalidSchemaException If the supplied pandas dataframe is invalid (missing a required
+   * @throws InvalidSchemaException If the supplied pandas DataFrame is invalid (missing a required
    *     field, etc)
    */
   DefaultLeapFrame toLeapFrame(LeapFrameSchema leapFrameSchema) throws JsonProcessingException {
@@ -99,7 +99,7 @@ class PandasSplitOrientedDataFrame {
       for (String fieldName : leapFrameSchema.getFieldNames()) {
         if (!entry.containsKey(fieldName)) {
           throw new InvalidSchemaException(
-              String.format("Pandas dataframe is missing a required field: `%s`", fieldName));
+              String.format("Pandas DataFrame is missing a required field: `%s`", fieldName));
         }
         mleapRow.add(entry.get(fieldName));
       }

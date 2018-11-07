@@ -48,9 +48,9 @@ CONTENT_TYPES = [
 
 def parse_json_input(json_input, orientation="split"):
     """
-    :param json_input: A JSON-formatted string representation of a Pandas Dataframe, or a stream
+    :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
                        containing such a string representation.
-    :param orientation: The Pandas Dataframe orientation of the JSON input. This is either 'split'
+    :param orientation: The Pandas DataFrame orientation of the JSON input. This is either 'split'
                         or 'records'.
     """
     try:
@@ -58,8 +58,8 @@ def parse_json_input(json_input, orientation="split"):
     except Exception as e:
         _handle_serving_error(
                 error_text=(
-                    "Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
-                    " a valid JSON-formatted Pandas Dataframe with the `{orientation}` orientation"
+                    "Failed to parse input as a Pandas DataFrame. Please ensure that the input is"
+                    " a valid JSON-formatted Pandas DataFrame with the `{orientation}` orientation"
                     " produced using the `pandas.DataFrame.to_json(..., orient='{orientation}')`"
                     " method.".format(orientation=orientation)),
                 error_code=MALFORMED_REQUEST)
@@ -67,7 +67,7 @@ def parse_json_input(json_input, orientation="split"):
 
 def parse_csv_input(csv_input):
     """
-    :param csv_input: A CSV-formatted string representation of a Pandas Dataframe, or a stream
+    :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
                       containing such a string representation.
     """
     try:
@@ -75,8 +75,8 @@ def parse_csv_input(csv_input):
     except Exception as e:
         _handle_serving_error(
                 error_text=(
-                    "Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
-                    " a valid CSV-formatted Pandas Dataframe produced using the"
+                    "Failed to parse input as a Pandas DataFrame. Please ensure that the input is"
+                    " a valid CSV-formatted Pandas DataFrame produced using the"
                     " `pandas.DataFrame.to_csv()` method."),
                 error_code=MALFORMED_REQUEST)
 
