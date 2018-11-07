@@ -7,7 +7,7 @@ import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
-import {SearchUtils} from "../utils/SearchUtils";
+import { SearchUtils } from "../utils/SearchUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
 
