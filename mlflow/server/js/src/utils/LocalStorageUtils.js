@@ -1,7 +1,3 @@
-import _ from 'lodash';
-import {LIFECYCLE_FILTER} from "../components/ExperimentPage";
-import { ExperimentViewState, ExperimentPageState} from "../sdk/MlflowLocalStorageMessages";
-
 /**
  * Utils for working with local storage.
  */
@@ -36,15 +32,12 @@ class LocalStorageStore {
   /**
    * Loads React component state cached in local storage into a vanilla JS object.
    */
-  loadComponentState(defaultState) {
-    const cachedState = JSON.parse(this.getItem(LocalStorageStore.reactComponentStateKey));
-    if (cachedState) {
-      return {
-        ...defaultState,
-        ...cachedState,
-      };
+  loadComponentState() {
+    const storedVal = this.getItem(LocalStorageStore.reactComponentStateKey);
+    if (storedVal) {
+      return JSON.parse(storedVal);
     }
-    return _.cloneDeep(defaultState);
+    return {};
   }
 
   /**
@@ -73,94 +66,4 @@ class LocalStorageStore {
   getItem(key) {
     return window.localStorage.getItem(this.withScopePrefix(key));
   }
-}
-
-export class ExperimentPageState2 {
-  constructor({
-    paramKeyFilterString,
-    metricKeyFilterString,
-    getExperimentRequestId,
-    searchRunsRequestId,
-    searchInput,
-    lastExperimentId,
-    lifecycleFilter,
-  }) {
-    this.paramKeyFilterString = paramKeyFilterString;
-    this.metricKeyFilterString = metricKeyFilterString;
-    this.getExperimentRequestId = getExperimentRequestId;
-    this.searchRunsRequestId = searchRunsRequestId;
-    this.searchInput = searchInput;
-    this.lastExperimentId = lastExperimentId;
-    this.lifecycleFilter = lifecycleFilter;
-  }
-
-  toDict() {
-    return {
-      paramKeyFilterString: this.paramKeyFilterString,
-      metricKeyFilterString: this.metricKeyFilterString,
-      getExperimentRequestId: this.getExperimentRequestId,
-      searchRunsRequestId: this.searchRunsRequestId,
-      searchInput: this.searchInput,
-      lastExperimentId: this.lastExperimentId,
-      lifecycleFilter: this.lifecycleFilter,
-    }
-  }
-}
-
-export class ExperimentViewState2 {
-  constructor({
-    runsHiddenByExpander,
-    // By default all runs are expanded. In this state, runs are explicitly expanded or unexpanded.
-    runsExpanded,
-    runsSelected,
-    paramKeyFilterInput,
-    metricKeyFilterInput,
-    lifecycleFilterInput,
-    searchInput,
-    searchErrorMessage,
-    sort,
-    showMultiColumns,
-    showDeleteRunModal,
-    showRestoreRunModal,
-    // Arrays of "unbagged", or split-out metrics and parameters. We maintain these as lists to help
-    // keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
-    // that have already been split out)
-    unbaggedMetrics,
-    unbaggedParams,
-  }) {
-    this.runsHiddenByExpander = runsHiddenByExpander;
-    this.runsExpanded = runsExpanded;
-    this.runsSelected = runsSelected;
-    this.paramKeyFilterInput = paramKeyFilterInput;
-    this.metricKeyFilterInput = metricKeyFilterInput;
-    this.lifecycleFilterInput = lifecycleFilterInput;
-    this.searchInput = searchInput;
-    this.searchErrorMessage = searchErrorMessage;
-    this.sort = sort;
-    this.showMultiColumns = showMultiColumns;
-    this.showDeleteRunModal = showDeleteRunModal;
-    this.showRestoreRunModal = showRestoreRunModal;
-    this.unbaggedMetrics = unbaggedMetrics;
-    this.unbaggedParams = unbaggedParams;
-  }
-
-  toDict() {
-    return {
-      runsHiddenByExpander: this.runsHiddenByExpander,
-      runsExpanded: this.runsExpanded,
-      runsSelected: this.runsSelected,
-      paramKeyFilterInput: this.paramKeyFilterInput,
-      metricKeyFilterInput: this.metricKeyFilterInput,
-      lifecycleFilterInput: this.lifecycleFilterInput,
-      searchInput: this.searchInput,
-      searchErrorMessage: this.searchErrorMessage,
-      sort: this.sort,
-      showMultiColumns: this.showMultiColumns,
-      showDeleteRunModal: this.showDeleteRunModal,
-      showRestoreRunModal: this.showRestoreRunModal,
-      unbaggedMetrics: this.unbaggedMetrics,
-      unbaggedParams: this.unbaggedParams,
-    }
-  }
-
 }

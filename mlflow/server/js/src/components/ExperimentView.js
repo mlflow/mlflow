@@ -19,9 +19,8 @@ import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
 
-import _ from 'lodash';
 import LocalStorageUtils from "../utils/LocalStorageUtils";
-import { ExperimentViewState } from "../sdk/MlflowLocalStorageMessages";
+import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 
 export const DEFAULT_EXPANDED_VALUE = true;
 
@@ -50,6 +49,12 @@ class ExperimentView extends Component {
     this.onExpand = this.onExpand.bind(this);
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
+    const store = ExperimentView.getStore(this.props.experiment.experiment_id);
+    const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
+    this.state = {
+      ...ExperimentView.getDefaultUnpersistedState(),
+      ...persistedState.toJSON(),
+    };
   }
 
   static propTypes = {
@@ -82,42 +87,32 @@ class ExperimentView extends Component {
     searchInput: PropTypes.string.isRequired,
   };
 
-  defaultState = {
-    runsHiddenByExpander: {},
-    // By default all runs are expanded. In this state, runs are explicitly expanded or unexpanded.
-    runsExpanded: {},
-    runsSelected: {},
-    paramKeyFilterInput: '',
-    metricKeyFilterInput: '',
-    lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-    searchInput: '',
-    searchErrorMessage: undefined,
-    sort: {
-      ascending: false,
-      isMetric: false,
-      isParam: false,
-      key: "start_time"
-    },
-    showMultiColumns: true,
-    showDeleteRunModal: false,
-    showRestoreRunModal: false,
-    // Arrays of "unbagged", or split-out metrics and parameters. We maintain these as lists to help
-    // keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
-    // that have already been split out)
-    unbaggedMetrics: [],
-    unbaggedParams: [],
-  };
+  /** Returns default values for state attributes that aren't persisted in local storage. */
+  static getDefaultUnpersistedState() {
+    return {
+      // Object mapping from run UUID -> boolean (whether the run is selected)
+      runsSelected: {},
+      // Text entered into the param filter field
+      paramKeyFilterInput: '',
+      // Text entered into the metric filter field
+      metricKeyFilterInput: '',
+      // Lifecycle stage of runs to display
+      lifecycleFilterInput: '',
+      // Text entered into the runs-search field
+      searchInput: '',
+      // String error message, if any, from an attempted search
+      searchErrorMessage: undefined,
+      // True if a model for deleting one or more runs should be displayed
+      showDeleteRunModal: false,
+      // True if a model for restoring one or more runs should be displayed
+      showRestoreRunModal: false,
+    };
+  }
 
   static getStore(experimentId) {
     return LocalStorageUtils.getStore("ExperimentView", experimentId);
   }
 
-  store = ExperimentView.getStore(this.props.experiment.experiment_id);
-  state = {
-    ...this.store.loadComponentState(this.defaultState),
-    // Don't reload selected runs from local storage
-    runsSelected: _.cloneDeep(this.defaultState.runsSelected),
-  };
 
   shouldComponentUpdate(nextProps, nextState) {
     // Don't update the component if a modal is showing before and after the update try.
@@ -133,13 +128,17 @@ class ExperimentView extends Component {
       prevState.searchInput !== this.state.searchInput;
   }
 
-  componentDidUpdate(_, prevState) {
+  /** Snapshots the component's current state in local storage. */
+  snapshotComponentState() {
+    const store = ExperimentView.getStore(this.props.experiment.experiment_id);
+    store.saveComponentState(new ExperimentViewPersistedState(this.state));
+  }
+
+  componentDidUpdate(prevProps, prevState) {
     // Don't snapshot state on changes to search filter text; we only want to save these on search
     // in ExperimentPage
-    if (!this.filtersDidUpdate(prevState)) {
-      console.log("Snapshotting state in componentDidUpdate");
-      const store = ExperimentView.getStore(this.props.experimentId);
-      store.saveComponentState(new ExperimentViewState(this.state));
+    if (!this.filtersDidUpdate(prevState) && this.props.experiment.id === prevProps.experiment.id) {
+      this.snapshotComponentState();
     }
   }
 
@@ -500,9 +499,10 @@ class ExperimentView extends Component {
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    // TODO: Will componentDidUpdate work properly here? A: it seems not, but maybe that's ok
-    // (We don't need to save lifecycle filter state).
-    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, () => {
+      this.snapshotComponentState();
+      this.onSearch();
+    });
   }
 
   onSearch(e) {
@@ -524,12 +524,13 @@ class ExperimentView extends Component {
   }
 
   onClear() {
-    // When user clicks "Clear", preserve multicolumn toggle state.
-    const clearState = {
-      ..._.cloneDeep(this.defaultState),
+    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
+    // attributes to their default values.
+    const newPersistedState = new ExperimentViewPersistedState({
       showMultiColumns: this.state.showMultiColumns,
-    };
-    this.setState(clearState, () => {
+    });
+    this.setState(newPersistedState.toJSON(), () => {
+      this.snapshotComponentState();
       this.props.onSearch("", "", "", LIFECYCLE_FILTER.ACTIVE);
     });
   }

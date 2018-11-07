@@ -9,8 +9,7 @@ import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
 import {SearchUtils} from "../utils/SearchUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
-import { ExperimentPageState } from "../sdk/MlflowLocalStorageMessages";
-import _ from 'lodash';
+import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
@@ -19,18 +18,15 @@ class ExperimentPage extends Component {
     super(props);
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
-    this.store = ExperimentPage.getLocalStore(this.props.experimentId);
-    const { paramKeyFilterString, metricKeyFilterString, searchInput } = this.store.loadComponentState();
-
-    this.state =  new ExperimentPageState({}).toJSON();
-    // TODO: We could use default values in ExperimentPageState to avoid having to maintain
-    // defaultState here.
+    const store = ExperimentPage.getLocalStore(this.props.experimentId);
+    // Load state data persisted in localStorage. If data isn't present in localStorage (e.g. the
+    // first time we construct this component in a browser), the default values in
+    // ExperimentPagePersistedState will take precedence.
+    const persistedState = new ExperimentPagePersistedState(store.loadComponentState());
     this.state = {
-      ..._.cloneDeep(ExperimentPage.getDefaultState()),
-      paramKeyFilterString,
-      metricKeyFilterString,
-      searchInput,
-    }
+      ...ExperimentPage.getDefaultUnpersistedState(),
+      ...persistedState.toJSON(),
+    };
   }
 
   static propTypes = {
@@ -38,41 +34,47 @@ class ExperimentPage extends Component {
     dispatchSearchRuns: PropTypes.func.isRequired,
   };
 
-  static getDefaultState() {
+  /** Returns default values for state attributes that aren't persisted in local storage. */
+  static getDefaultUnpersistedState() {
     return {
-      paramKeyFilterString: "",
-      metricKeyFilterString: "",
+      // String UUID associated with a GetExperiment API request
       getExperimentRequestId: getUUID(),
+      // String UUID associated with a SearchRuns API request
       searchRunsRequestId: getUUID(),
-      searchInput: '',
+      // Last experiment, if any, displayed by this instance of ExperimentPage
       lastExperimentId: undefined,
+      // Lifecycle filter of runs to display
       lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     };
   }
 
+  /**
+   * Get LocalStorageStore instance that can be used to persist data associated with the specified
+   * experiment.
+   */
   static getLocalStore(experimentId) {
     return LocalStorageUtils.getStore("ExperimentPage", experimentId);
   }
 
-  componentDidUpdate() {
-    const { paramKeyFilterString, metricKeyFilterString, searchInput } = this.state;
-    this.store.saveComponentState(new ExperimentPageState({
-      paramKeyFilterString,
-      metricKeyFilterString,
-      searchInput,
-    }));
+  componentDidUpdate(prevProps) {
+    if (this.props.experimentId === prevProps.experimentId) {
+      const { paramKeyFilterString, metricKeyFilterString, searchInput } = this.state;
+      const store = ExperimentPage.getLocalStore(this.props.experimentId);
+      store.saveComponentState(new ExperimentPagePersistedState({
+        paramKeyFilterString,
+        metricKeyFilterString,
+        searchInput,
+      }));
+    }
   }
 
   static getDerivedStateFromProps(props, state) {
     if (props.experimentId !== state.lastExperimentId) {
       const store = ExperimentPage.getLocalStore(props.experimentId);
-      const loadedState = new ExperimentPageState(store.loadComponentState()).toJSON();
-      const { paramKeyFilterString, metricKeyFilterString, searchInput } = loadedState;
+      const loadedState = new ExperimentPagePersistedState(store.loadComponentState()).toJSON();
       const newState = {
-        ..._.cloneDeep(ExperimentPage.getDefaultState()),
-        paramKeyFilterString,
-        metricKeyFilterString,
-        searchInput,
+        ...ExperimentPage.getDefaultUnpersistedState(),
+        ...loadedState,
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
