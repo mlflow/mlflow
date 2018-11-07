@@ -59,7 +59,7 @@ def parse_json_input(json_input, orientation="split"):
         _handle_serving_error(
                 error_text=(
                     "Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
-                    " a valid JSON-formatted Pandas Dataframe with the `{orientation}` orientation" 
+                    " a valid JSON-formatted Pandas Dataframe with the `{orientation}` orientation"
                     " produced using the `pandas.DataFrame.to_json(..., orient='{orientation}')`"
                     " method.".format(orientation=orientation)),
                 error_code=MALFORMED_REQUEST)
@@ -121,8 +121,8 @@ def init(model):
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == CONTENT_TYPE_JSON:
-            eprint("The Pandas `records` orientation is deprecated in MLflow. The" 
-                   " {json_content_type} content type will interpret inputs using the Pandas" 
+            eprint("The Pandas `records` orientation is deprecated in MLflow. The"
+                   " {json_content_type} content type will interpret inputs using the Pandas"
                    " `split` orientation in the next release of MLflow. In order to continue"
                    " using the deprecated `records` orientation, please specify the"
                    " {records_json_content_type} header instead.".format(
