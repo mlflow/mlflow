@@ -61,8 +61,8 @@ def serve(model_path, run_id, port, host, no_conda):
 
     - CSV-serialized Pandas dataframes. For example, `data = pandas_df.to_csv()`.
 
-    For more information about serializing Pandas dataframes, see 
-    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html 
+    For more information about serializing Pandas dataframes, see
+    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
 
     If a ``run_id`` is specified, ``model-path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.

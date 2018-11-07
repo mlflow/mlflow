@@ -59,8 +59,8 @@ def test_model_save_load(tmpdir, model, data, predicted):
 
     # pyfunc serve
     preds = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(path), 
-            data=pd.DataFrame(x), 
+            model_path=os.path.abspath(path),
+            data=pd.DataFrame(x),
             data_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(preds.values.astype(np.float32) == predicted)
 

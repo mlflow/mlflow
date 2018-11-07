@@ -23,7 +23,7 @@ from six import reraise
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.utils.rest_utils import NumpyEncoder
-from mlflow.utils.logging_utils import eprint 
+from mlflow.utils.logging_utils import eprint
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -132,9 +132,9 @@ def init(model):
                                     orientation="split")
         else:
             return flask.Response(
-                    response=("This predictor only supports the following content types:" 
+                    response=("This predictor only supports the following content types:"
                               " {supported_content_types}. Got: {received_content_type}".format(
-                                  supported_content_types=CONTENT_TYPES, 
+                                  supported_content_types=CONTENT_TYPES,
                                   received_content_type=flask.request.content_type)),
                     status=415,
                     mimetype='text/plain')

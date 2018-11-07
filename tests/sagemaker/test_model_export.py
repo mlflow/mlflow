@@ -50,8 +50,8 @@ class TestModelExport(unittest.TestCase):
                                   data_path=model_pkl,
                                   conda_env=_mlflow_conda_env(tmp.path(conda_env)))
                 xpred = score_model_in_sagemaker_docker_container(
-                        model_path=input_path, 
-                        data=self._iris_df, 
+                        model_path=input_path,
+                        data=self._iris_df,
                         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
                         flavor=pyfunc.FLAVOR_NAME)
                 print('expected', self._linear_lr_predict)

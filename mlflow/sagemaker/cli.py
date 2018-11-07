@@ -69,8 +69,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
 
     - CSV-serialized Pandas dataframes. For example, `data = pandas_df.to_csv()`.
 
-    For more information about serializing Pandas dataframes, see 
-    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html 
+    For more information about serializing Pandas dataframes, see
+    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
     """
     if vpc_config is not None:
         with open(vpc_config, "r") as f:

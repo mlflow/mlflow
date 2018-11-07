@@ -215,8 +215,8 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
 
         - CSV-serialized Pandas dataframes. For example, `data = pandas_df.to_csv()`.
 
-    For more information about serializing Pandas dataframes, see 
-    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html 
+    For more information about serializing Pandas dataframes, see
+    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
 
     :param app_name: Name of the deployed application.
     :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``
