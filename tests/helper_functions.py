@@ -10,6 +10,7 @@ import time
 
 import pandas as pd
 
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 
 
@@ -26,13 +27,13 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_path, data, data_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
+        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
-                 Pandas dataframe or string of the format specified by `data_type`.
-    :param data_type: The type of the data to send to the docker container for testing.
-                      This is either `json` or `csv`.
+                 Pandas dataframe or string of the format specified by `content_type`.
+    :param content_type: The type of the data to send to the docker container for testing. This is
+                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
     :param flavor: Model flavor to be deployed.
     """
     env = dict(os.environ)
@@ -41,17 +42,17 @@ def score_model_in_sagemaker_docker_container(
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True, env=env)
-    response_content = _score_proc(proc, 5000, data, data_type).content
+    response_content = _score_proc(proc, 5000, data, content_type).content
     return json.loads(response_content)
 
 
-def pyfunc_serve_and_score_model(model_path, data, data_type):
+def pyfunc_serve_and_score_model(model_path, data, content_type):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
-                 Pandas dataframe or string of the format specified by `data_type`.
-    :param data_type: The type of the data to send to the pyfunc server for testing.
-                      This is either `json` or `csv`.
+                 Pandas dataframe or string of the format specified by `content_type`.
+    :param content_type: The type of the data to send to the pyfunc server for testing. This is
+                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -65,13 +66,14 @@ def pyfunc_serve_and_score_model(model_path, data, data_type):
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
         if m:
-            response_content = _score_proc(proc, int(m.group(1)), data, data_type=data_type).content
+            response_content = _score_proc(
+                    proc, int(m.group(1)), data, content_type=content_type).content
             return json.loads(response_content)
 
     raise Exception("Failed to start server")
 
 
-def _score_proc(proc, port, data, data_type):
+def _score_proc(proc, port, data, content_type):
     try:
         for i in range(0, 50):
             assert proc.poll() is None, "scoring process died"
@@ -90,23 +92,26 @@ def _score_proc(proc, port, data, data_type):
         print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        if data_type == "json":
+        if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON:
             if type(data) == pd.DataFrame:
-                # Convert the dataframe to a JSON-serialized string in the Pandas `split` format
-                # to preserve the dataframe's column ordering
+                data = data.to_json(orient="records")
+            response = requests.post(url='http://localhost:%d/invocations' % port,
+                                     headers={"Content-Type": content_type},
+                                     data=data)
+        elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+            if type(data) == pd.DataFrame:
                 data = data.to_json(orient="split")
             response = requests.post(url='http://localhost:%d/invocations' % port,
-                                     headers={"Content-Type": "application/json"},
+                                     headers={"Content-Type": content_type},
                                      data=data)
-        elif data_type == "csv":
+        elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
             if type(data) == pd.DataFrame:
                 data = data.to_csv(index=False, header=True)
             response = requests.post(url='http://localhost:%d/invocations' % port,
                                      data=data,
-                                     headers={"Content-Type": "text/csv"})
-            print("RESPONSE CONTENT", response.content)
+                                     headers={"Content-Type": content_type})
         else:
-            raise Exception("Unexpected data_type %s" % data_type)
+            raise Exception("Unexpected content type %s" % content_type)
         return response
     finally:
         if proc.poll() is None:

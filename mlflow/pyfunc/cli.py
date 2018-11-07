@@ -50,7 +50,19 @@ def commands():
 @cli_args.NO_CONDA
 def serve(model_path, run_id, port, host, no_conda):
     """
-    Serve a PythonFunction model saved with MLflow.
+    Serve a PythonFunction model saved with MLflow. This command will start a webserver that
+    accepts the following data formats as input:
+
+    - JSON-serialized Pandas dataframes in the `split` orientation. For example,
+    `data = pandas_df.to_json(orient='split')`.
+
+    - JSON-serialized Pandas dataframes in the `records` orientation. **THIS WILL
+    BE DEPRECATED IN THE NEXT RELEASE OF MLFLOW**.
+
+    - CSV-serialized Pandas dataframes. For example, `data = pandas_df.to_csv()`.
+
+    For more information about serializing Pandas dataframes, see 
+    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html 
 
     If a ``run_id`` is specified, ``model-path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.

@@ -58,6 +58,19 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
+
+    The SageMaker REST API endpoint will accept the following data formats as input:
+
+    - JSON-serialized Pandas dataframes in the `split` orientation. For example,
+    `data = pandas_df.to_json(orient='split')`.
+
+    - JSON-serialized Pandas dataframes in the `records` orientation. **THIS WILL
+    BE DEPRECATED IN THE NEXT RELEASE OF MLFLOW**.
+
+    - CSV-serialized Pandas dataframes. For example, `data = pandas_df.to_csv()`.
+
+    For more information about serializing Pandas dataframes, see 
+    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html 
     """
     if vpc_config is not None:
         with open(vpc_config, "r") as f:

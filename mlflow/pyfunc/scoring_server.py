@@ -23,6 +23,7 @@ from six import reraise
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.utils.rest_utils import NumpyEncoder
+from mlflow.utils.logging_utils import eprint 
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -32,14 +33,26 @@ except ImportError:
 
 from mlflow.utils import get_jsonable_obj
 
+CONTENT_TYPE_CSV = "text/csv"
+CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json.pandas.split.oriented"
 
-def parse_json_input(json_input):
+CONTENT_TYPES = [
+    CONTENT_TYPE_CSV,
+    CONTENT_TYPE_JSON,
+    CONTENT_TYPE_JSON_SPLIT_ORIENTED
+]
+
+
+def parse_json_input(json_input, orientation="split"):
     """
     :param json_input: A JSON-formatted string representation of a Pandas Dataframe, or a stream
                        containing such a string representation.
+    :param orientation: The Pandas Dataframe orientation of the JSON input. This is either 'split'
+                        or 'records'.
     """
     try:
-        return pd.read_json(json_input, orient="split")
+        return pd.read_json(json_input, orient=orientation)
     except Exception as e:
         _handle_serving_error(
                 error_text=(
@@ -100,18 +113,31 @@ def init(model):
         generate predictions and convert them back to CSV.
         """
         # Convert from CSV to pandas
-        if flask.request.content_type == 'text/csv':
+        if flask.request.content_type == CONTENT_TYPE_CSV:
             data = flask.request.data.decode('utf-8')
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type == 'application/json':
-            data = flask.request.data.decode('utf-8')
-            json_input = StringIO(data)
-            data = parse_json_input(json_input=json_input)
+        elif flask.request.content_type == CONTENT_TYPE_JSON:
+            eprint("The {json_content_type} content type will be deprecated in the next release"
+                   " of MLflow! Please use the {split_json_content_type} and send serialized Pandas"
+                   " dataframes in the `split` orientation instead. For more information, see"
+                   " https://pandas.pydata.org/pandas-docs/stable/generated/"
+                   " pandas.DataFrame.to_json.html#pandas.DataFrame.to_json".format(
+                       json_content_type=CONTENT_TYPE_JSON,
+                       split_json_content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED))
+            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
+                                    orientation="records")
+        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
+                                    orientation="split")
         else:
             return flask.Response(
-                response='This predictor only supports CSV or JSON  data, got %s' % str(
-                    flask.request.content_type), status=415, mimetype='text/plain')
+                    response=("This predictor only supports the following content types:" 
+                              " {supported_content_types}. Got: {received_content_type}".format(
+                                  supported_content_types=CONTENT_TYPES, 
+                                  received_content_type=flask.request.content_type)),
+                    status=415,
+                    mimetype='text/plain')
 
         # Do the prediction
         try:

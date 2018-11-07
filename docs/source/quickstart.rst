@@ -169,7 +169,7 @@ predictions:
 
 .. code:: bash
 
-    curl -d '{"columns":["x"],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
+    curl -d '{"columns":["x"],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json.pandas.split.oriented' -X POST localhost:5000/invocations
 
 which returns::
 

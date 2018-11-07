@@ -31,6 +31,12 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
 
+    The resulting Azure ML ContainerImage will contain a webserver that accepts the following
+    data formats as input:
+
+    - JSON-serialized Pandas dataframes in the `split` orientation. For example,
+    `data = pandas_df.to_json(orient='split')`.
+
     :param model_path: The path to MLflow model for which the image will be built. If a run id
                        is specified, this is should be a run-relative path. Otherwise, it
                        should be a local path.
