@@ -49,8 +49,9 @@ class ExperimentPage extends Component {
   }
 
   /**
-   * Get LocalStorageStore instance that can be used to persist data associated with the specified
-   * experiment.
+   * Returns a LocalStorageStore instance that can be used to persist data associated with the
+   * ExperimentPage component (e.g. component state like metric/param filter info), for the
+   * specified experiment.
    */
   static getLocalStore(experimentId) {
     return LocalStorageUtils.getStore("ExperimentPage", experimentId);

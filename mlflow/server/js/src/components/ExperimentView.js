@@ -109,6 +109,11 @@ class ExperimentView extends Component {
     };
   }
 
+  /**
+   * Returns a LocalStorageStore instance that can be used to persist data associated with the
+   * ExperimentView component (e.g. component state such as table sort settings), for the
+   * specified experiment.
+   */
   static getLocalStore(experimentId) {
     return LocalStorageUtils.getStore("ExperimentView", experimentId);
   }
