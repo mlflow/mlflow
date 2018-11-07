@@ -42,8 +42,7 @@ def score_model_in_sagemaker_docker_container(
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True, env=env)
-    response_content = _score_proc(proc, 5000, data, content_type).content
-    return json.loads(response_content)
+    return _score_proc(proc, 5000, data, content_type)
 
 
 def pyfunc_serve_and_score_model(model_path, data, content_type):
@@ -66,9 +65,7 @@ def pyfunc_serve_and_score_model(model_path, data, content_type):
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
         if m:
-            response_content = _score_proc(
-                    proc, int(m.group(1)), data, content_type=content_type).content
-            return json.loads(response_content)
+            return _score_proc(proc, int(m.group(1)), data, content_type=content_type)
 
     raise Exception("Failed to start server")
 
@@ -92,26 +89,19 @@ def _score_proc(proc, port, data, content_type):
         print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON:
-            if type(data) == pd.DataFrame:
+        if type(data) == pd.DataFrame:
+            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON:
                 data = data.to_json(orient="records")
-            response = requests.post(url='http://localhost:%d/invocations' % port,
-                                     headers={"Content-Type": content_type},
-                                     data=data)
-        elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
-            if type(data) == pd.DataFrame:
+            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
                 data = data.to_json(orient="split")
-            response = requests.post(url='http://localhost:%d/invocations' % port,
-                                     headers={"Content-Type": content_type},
-                                     data=data)
-        elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
-            if type(data) == pd.DataFrame:
-                data = data.to_csv(index=False, header=True)
-            response = requests.post(url='http://localhost:%d/invocations' % port,
-                                     data=data,
-                                     headers={"Content-Type": content_type})
-        else:
-            raise Exception("Unexpected content type %s" % content_type)
+            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
+                data = data.to_csv()
+            else:
+                raise Exception(
+                        "Unexpected content type for Pandas dataframe input %s" % content_type)
+        response = requests.post(url='http://localhost:%d/invocations' % port,
+                                 data=data,
+                                 headers={"Content-Type": content_type})
         return response
     finally:
         if proc.poll() is None:

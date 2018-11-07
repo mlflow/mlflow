@@ -17,6 +17,7 @@ import shutil
 from collections import namedtuple
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
@@ -148,14 +149,18 @@ def test_model_deployment(spark_model_iris, model_path, spark_conda_env):
                       sample_input=spark_model_iris.spark_df)
 
     # 1. score and compare pyfunc deployed in Sagemaker docker container
-    preds1 = score_model_in_sagemaker_docker_container(model_path=model_path,
-                                                       data=spark_model_iris.pandas_df,
-                                                       flavor=mlflow.pyfunc.FLAVOR_NAME)
+    preds1 = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
     assert spark_model_iris.predictions == preds1
     # 2. score and compare mleap deployed in Sagemaker docker container
-    preds2 = score_model_in_sagemaker_docker_container(model_path=model_path,
-                                                       data=spark_model_iris.pandas_df,
-                                                       flavor=mlflow.mleap.FLAVOR_NAME)
+    preds2 = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.mleap.FLAVOR_NAME)
     assert spark_model_iris.predictions == preds2
 
 

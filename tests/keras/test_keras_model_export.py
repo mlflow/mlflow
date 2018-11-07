@@ -10,8 +10,9 @@ import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 
-import mlflow.keras
 import mlflow
+import mlflow.keras
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -58,7 +59,9 @@ def test_model_save_load(tmpdir, model, data, predicted):
 
     # pyfunc serve
     preds = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(path), data=pd.DataFrame(x), data_type="csv")
+            model_path=os.path.abspath(path), 
+            data=pd.DataFrame(x), 
+            data_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(preds.values.astype(np.float32) == predicted)
 
 
