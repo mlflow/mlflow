@@ -150,7 +150,7 @@ def init(model):
                         " inference."),
                     error_code=BAD_REQUEST)
 
-        predictions = get_jsonable_obj(model.predict(data))
+        predictions = get_jsonable_obj(model.predict(data), pandas_orientation="records")
         result = json.dumps(predictions, cls=NumpyEncoder)
         return flask.Response(response=result, status=200, mimetype='application/json')
 
