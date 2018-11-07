@@ -54,6 +54,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                                  format, `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`, provides
                                  better cross-system compatibility by identifying and packaging
                                  code dependencies with the serialized model.
+
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
     >>> from sklearn import tree

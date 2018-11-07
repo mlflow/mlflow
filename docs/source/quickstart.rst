@@ -164,8 +164,25 @@ simple REST server for python-based models:
     By default the server runs on port 5000. If that port is already in use, use the `--port` option to
     specify a different port. For example: ``mlflow pyfunc serve --port 1234 -r <RUN_ID> -m model``
 
-Once you have started the server, you can pass it some sample data with ``curl`` and see the
-predictions:
+Once you have started the server, you can pass it some sample data and see the
+predictions. The server accepts the following data formats as inputs:
+
+    - JSON-serialized Pandas Dataframes in the `split` orientation. 
+      For example, `data = pandas_df.to_json(orient='split')`. This format is specified using a
+      `Content-Type` request header value of `application/json.pandas.split.oriented`.
+
+    - JSON-serialized Pandas Dataframes in the `records` orientation. This format is specified using
+      a `Content-Type` request header value of `application/json`.
+      *THIS WILL BE DEPRECATED IN THE NEXT RELEASE OF MLFLOW*.
+
+    - CSV-serialized Pandas Dataframes. For example, `data = pandas_df.to_csv()`. This format is 
+      specified using a `Content-Type` request header value of `text/csv`.
+
+For more information about serializing Pandas Dataframes, see
+https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
+
+The following example uses ``curl`` to send a JSON-serialized Pandas Dataframe with the `split` 
+orientation to the pyfunc server:
 
 .. code:: bash
 
