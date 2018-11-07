@@ -325,17 +325,23 @@ platform for real-time serving.
     import requests
     import json
     sample_input = {
-        "residual sugar": {"0": 20.7},
-        "alcohol": {"0": 8.8},
-        "chlorides": {"0": 0.045},
-        "density": {"0": 1.001},
-        "sulphates": {"0": 0.45},
-        "total sulfur dioxide": {"0": 170.0},
-        "fixed acidity": {"0": 7.0},
-        "citric acid": {"0": 0.36},
-        "pH": {"0": 3.0},
-        "volatile acidity": {"0": 0.27},
-        "free sulfur dioxide": {"0": 45.0}
+        "columns": [
+            "alcohol",
+            "chlorides",
+            "citric acid",
+            "density",
+            "fixed acidity",
+            "free sulfur dioxide",
+            "pH",
+            "residual sugar",
+            "sulphates",
+            "total sulfur dioxide",
+            "volatile acidity"
+        ],
+        "index": [0],
+        "data": [
+            [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
+        ]
     }
     response = requests.post(
                   url=webservice.scoring_uri, data=json.dumps(sample_input),
@@ -360,17 +366,23 @@ platform for real-time serving.
 
     sample_input='
     {
-         "residual sugar": {"0": 20.7},
-         "alcohol": {"0": 8.8},
-         "chlorides": {"0": 0.045},
-         "density": {"0": 1.001},
-         "sulphates": {"0": 0.45},
-         "total sulfur dioxide": {"0": 170.0},
-         "fixed acidity": {"0": 7.0},
-         "citric acid": {"0": 0.36},
-         "pH": {"0": 3.0},
-         "volatile acidity": {"0": 0.27},
-         "free sulfur dioxide": {"0": 45.0}
+        "columns": [
+            "alcohol",
+            "chlorides",
+            "citric acid",
+            "density",
+            "fixed acidity",
+            "free sulfur dioxide",
+            "pH",
+            "residual sugar",
+            "sulphates",
+            "total sulfur dioxide",
+            "volatile acidity"
+        ],
+        "index": [0],
+        "data": [
+            [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
+        ]
     }'
 
     echo $sample_input | curl -s -X POST $scoring_uri\
