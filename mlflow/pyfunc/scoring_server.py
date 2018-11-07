@@ -118,10 +118,10 @@ def init(model):
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == CONTENT_TYPE_JSON:
-            eprint("The {json_content_type} content type will be deprecated in the next release"
-                   " of MLflow! Please use the {split_json_content_type} and send serialized Pandas"
-                   " dataframes in the `split` orientation instead. For more information, see"
-                   " https://pandas.pydata.org/pandas-docs/stable/generated/"
+            eprint("The {json_content_type} content type is deprecated and will be removed in the"
+                   " next release of MLflow! Please use the {split_json_content_type} and send"
+                   " serialized Pandas dataframes in the `split` orientation instead. For more"
+                   " information, see https://pandas.pydata.org/pandas-docs/stable/generated/"
                    " pandas.DataFrame.to_json.html#pandas.DataFrame.to_json".format(
                        json_content_type=CONTENT_TYPE_JSON,
                        split_json_content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED))

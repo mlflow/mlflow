@@ -59,7 +59,8 @@ def serve(model_path, run_id, port, host, no_conda):
 
     - JSON-serialized Pandas Dataframes in the `records` orientation. This format is specified using
     a `Content-Type` request header value of `application/json`.
-    **THIS WILL BE DEPRECATED IN THE NEXT RELEASE OF MLFLOW**.
+    **THIS FORMAT IS DEPRECATED. It is not guaranteed to preserve column ordering and will be removed
+    in the next release of MLflow**.
 
     - CSV-serialized Pandas Dataframes. For example, `data = pandas_df.to_csv()`. This format is
     specified using a `Content-Type` request header value of `text/csv`.
