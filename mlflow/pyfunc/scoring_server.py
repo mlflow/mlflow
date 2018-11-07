@@ -35,7 +35,8 @@ from mlflow.utils import get_jsonable_obj
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json.pandas.split.oriented"
+CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; pandasformat=records"
+CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; pandasformat=split"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
@@ -109,7 +110,7 @@ def init(model):
     def transformation():  # pylint: disable=unused-variable
         """
         Do an inference on a single batch of data. In this sample server,
-        we take data as CSV or json, convert it to a pandas data frame,
+        we take data as CSV or json, convert it to a Pandas DataFrame,
         generate predictions and convert them back to CSV.
         """
         # Convert from CSV to pandas
@@ -118,13 +119,16 @@ def init(model):
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == CONTENT_TYPE_JSON:
-            eprint("The {json_content_type} content type is deprecated and will be removed in the"
-                   " next release of MLflow! Please use the {split_json_content_type} and send"
-                   " serialized Pandas dataframes in the `split` orientation instead. For more"
-                   " information, see https://pandas.pydata.org/pandas-docs/stable/generated/"
-                   " pandas.DataFrame.to_json.html#pandas.DataFrame.to_json".format(
+            eprint("The Pandas `records` orientation is deprecated in MLflow. The" 
+                   " {json_content_type} content type will interpret inputs using the Pandas" 
+                   " `split` orientation in the next release of MLflow. In order to continue"
+                   " using the deprecated `records` orientation, please specify the"
+                   " {records_json_content_type} header instead.".format(
                        json_content_type=CONTENT_TYPE_JSON,
-                       split_json_content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED))
+                       records_json_content_type=CONTENT_TYPE_JSON_RECORDS_ORIENTED))
+            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
+                                    orientation="records")
+        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orientation="records")
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
@@ -150,7 +154,7 @@ def init(model):
                         " inference."),
                     error_code=BAD_REQUEST)
 
-        predictions = get_jsonable_obj(model.predict(data), pandas_orientation="records")
+        predictions = get_jsonable_obj(raw_predictions, pandas_orientation="records")
         result = json.dumps(predictions, cls=NumpyEncoder)
         return flask.Response(response=result, status=200, mimetype='application/json')
 
