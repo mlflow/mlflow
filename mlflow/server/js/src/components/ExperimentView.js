@@ -49,7 +49,7 @@ class ExperimentView extends Component {
     this.onExpand = this.onExpand.bind(this);
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
-    const store = ExperimentView.getStore(this.props.experiment.experiment_id);
+    const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
@@ -109,7 +109,7 @@ class ExperimentView extends Component {
     };
   }
 
-  static getStore(experimentId) {
+  static getLocalStore(experimentId) {
     return LocalStorageUtils.getStore("ExperimentView", experimentId);
   }
 
@@ -130,7 +130,7 @@ class ExperimentView extends Component {
 
   /** Snapshots the component's current state in local storage. */
   snapshotComponentState() {
-    const store = ExperimentView.getStore(this.props.experiment.experiment_id);
+    const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     store.saveComponentState(new ExperimentViewPersistedState(this.state));
   }
 
