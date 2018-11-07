@@ -55,12 +55,15 @@ def serve(model_path, run_id, port, host, no_conda):
 
     - JSON-serialized Pandas Dataframes in the `split` orientation. For example,
     `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-    request header value of `application/json.pandas.split.oriented`.
+    request header value of `application/json; pandasformat=split`. **In the next release of MLflow,
+    this format will also be specified using the `application/json` content type.**
 
-    - JSON-serialized Pandas Dataframes in the `records` orientation. This format is specified using
-    a `Content-Type` request header value of `application/json`.
-    **THIS FORMAT IS DEPRECATED. It is not guaranteed to preserve column ordering and will be removed
-    in the next release of MLflow**.
+    - JSON-serialized Pandas Dataframes in the `records` orientation. **THIS FORMAT IS DEPRECATED. 
+    It is not guaranteed to preserve column ordering.** Currently, this format is specified
+    using a `Content-Type` request header value of `application/json; pandasformat=records` or
+    `application/json`. However, **in the next release of MLflow, `application/json` will refer to 
+    the `split` format instead. For forwards compatibility, we recommend using the `split` format
+    or specifying the `application/json; pandasformat=records` content type.**
 
     - CSV-serialized Pandas Dataframes. For example, `data = pandas_df.to_csv()`. This format is
     specified using a `Content-Type` request header value of `text/csv`.

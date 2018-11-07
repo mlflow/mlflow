@@ -41,6 +41,7 @@ CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; pandasformat=split"
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
+    CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_ORIENTED
 ]
 
@@ -58,8 +59,9 @@ def parse_json_input(json_input, orientation="split"):
         _handle_serving_error(
                 error_text=(
                     "Failed to parse input as a Pandas Dataframe. Please ensure that the input is"
-                    " a valid JSON-formatted Pandas Dataframe with the `split` orientation produced"
-                    " using the `pandas.DataFrame.to_json(..., orient='split')` method."),
+                    " a valid JSON-formatted Pandas Dataframe with the `{orientation}` orientation" 
+                    " produced using the `pandas.DataFrame.to_json(..., orient='{orientation}')`"
+                    " method.".format(orientation=orientation)),
                 error_code=MALFORMED_REQUEST)
 
 

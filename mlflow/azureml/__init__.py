@@ -36,7 +36,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
     - JSON-serialized Pandas Dataframes in the `split` orientation. For example,
       `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-      request header value of `application/json.pandas.split.oriented`.
+      request header value of `application/json`.
 
     For more information about serializing Pandas Dataframes, see
     https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
