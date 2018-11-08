@@ -1,6 +1,9 @@
+import json
 import hashlib
+import mock
 import os
 
+from click.testing import CliRunner
 import pytest
 
 from mlflow import cli
@@ -61,3 +64,28 @@ def test_run_git_ssh(tracking_uri_mock):  # pylint: disable=unused-argument
     assert SSH_PROJECT_URI.startswith("git@")
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+
+
+def test_run_databricks_cluster_spec(tmpdir):
+    cluster_spec = {
+        "spark_version": "5.0.x-scala2.11",
+        "num_workers": 2,
+        "node_type_id": "i3.xlarge",
+    }
+    cluster_spec_path = str(tmpdir.join("cluster-spec.json"))
+    with open(cluster_spec_path, "w") as handle:
+        json.dump(cluster_spec, handle)
+
+    with mock.patch("mlflow.projects._run") as run_mock:
+        for cluster_spec_arg in [json.dumps(cluster_spec), cluster_spec_path]:
+            invoke_cli_runner(
+                cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
+                          cluster_spec_arg, "-e", "greeter", "-P", "name=hi"])
+            assert run_mock.call_count == 1
+            _, run_kwargs = run_mock.call_args_list[0]
+            assert run_kwargs["cluster_spec"] == cluster_spec
+            run_mock.reset_mock()
+        res = CliRunner().invoke(
+            cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
+                      json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"])
+        assert res.exit_code != 0

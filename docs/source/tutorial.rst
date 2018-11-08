@@ -38,7 +38,7 @@ To run this tutorial, you'll need to:
     .. container:: R
 
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
-       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")``)
+       - Install the MLflow package (via ``install.packages("mlflow")``)
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
