@@ -96,11 +96,11 @@ class ExperimentPage extends Component {
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
     const andedExpressions = SearchUtils.parseSearchInput(searchInput);
     this.setState({
-      persistedState: {
+      persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
         metricKeyFilterString,
         searchInput,
-      },
+      }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
     const searchRunsRequestId = this.props.dispatchSearchRuns(

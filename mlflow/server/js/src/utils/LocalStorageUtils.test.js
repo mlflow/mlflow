@@ -1,10 +1,6 @@
 import LocalStorageUtils from './LocalStorageUtils';
 import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
 
-// global.window = {};
-// import 'mock-local-storage';
-// window.localStorage = global.localStorage;
-
 test('Setting key-value pairs in one scope does not affect the other', () => {
   const store0 = LocalStorageUtils.getStoreForComponent("SomeTestComponent", 1);
   const store1 = LocalStorageUtils.getStoreForComponent("AnotherTestComponent", 1);

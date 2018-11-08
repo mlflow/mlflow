@@ -181,10 +181,10 @@ class ExperimentView extends Component {
 
   setShowMultiColumns(value) {
     this.setState({
-      persistedState: {
+      persistedState: new ExperimentViewPersistedState({
         ...this.state.persistedState,
         showMultiColumns: value,
-      }
+      }).toJSON(),
     });
   }
 
@@ -219,10 +219,10 @@ class ExperimentView extends Component {
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
     this.setState(
       {
-        persistedState: {
+        persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
           [stateKey]: newUnbagged,
-        }
+        }).toJSON(),
       });
   }
 
@@ -238,10 +238,10 @@ class ExperimentView extends Component {
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
     this.setState(
       {
-        persistedState: {
+        persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
           [stateKey]: unbagged.concat([colName])
-        }
+        }).toJSON()
       });
   }
 
@@ -463,10 +463,10 @@ class ExperimentView extends Component {
     };
     this.setState(
       {
-        persistedState: {
+        persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
           sort: newSortState,
-        },
+        }).toJSON(),
       });
   }
 
@@ -516,10 +516,10 @@ class ExperimentView extends Component {
       runsHiddenByExpander: newRunsHiddenByExpander,
     };
     this.setState({
-      persistedState: {
+      persistedState: new ExperimentViewPersistedState({
         ...this.state.persistedState,
         ...newPersistedStateFields,
-      }
+      }).toJSON(),
     });
     // Deselect the children
     const newRunsSelected = {...this.state.runsSelected};
