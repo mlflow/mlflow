@@ -257,6 +257,9 @@ class ExperimentView extends Component {
     // of parameter and metric names around later
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
+    const unbaggedParamKeyList = paramKeyFilter.apply(this.state.persistedState.unbaggedParams);
+    const unbaggedMetricKeyList = paramKeyFilter.apply(this.state.persistedState.unbaggedMetrics);
+
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
@@ -438,8 +441,8 @@ class ExperimentView extends Component {
               setSortByHandler={this.setSortBy}
               runsExpanded={this.state.persistedState.runsExpanded}
               onExpand={this.onExpand}
-              unbaggedMetrics={this.state.persistedState.unbaggedMetrics}
-              unbaggedParams={this.state.persistedState.unbaggedParams}
+              unbaggedMetrics={unbaggedMetricKeyList}
+              unbaggedParams={unbaggedParamKeyList}
               onAddBagged={this.addBagged}
               onRemoveBagged={this.removeBagged}
             />
