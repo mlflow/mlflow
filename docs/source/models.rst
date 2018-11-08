@@ -439,7 +439,7 @@ To export a custom model to SageMaker, you need a MLflow-compatible Docker image
 MLflow provides a default Docker image definition; however, it is up to you to build the image and upload it to ECR.
 MLflow includes the utility function ``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow
 container for all MLflow models. Model webservers deployed using the :py:mod:`mlflow.sagemaker`
-module will accept the following data formats as input, depending on the deployment flavor:
+module accept the following data formats as input, depending on the deployment flavor:
 
   * ``python_function``: For this deployment flavor, The endpoint accepts the same formats
     as the pyfunc server. These formats are described in the
