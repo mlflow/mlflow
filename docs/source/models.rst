@@ -262,14 +262,14 @@ The local REST API server accepts the following data formats as inputs:
     request header value of `application/json; format=pandas-split`. Starting in MLflow 0.9.0,
     this will be the default format if `Content-Type` is `application/json` (i.e, with no format
     specification).
-  
-  * JSON-serialized Pandas DataFrames in the `records` orientation. **THIS FORMAT IS NOT 
-    RECOMMENDED. It is not guaranteed to preserve column ordering.** Currently, this format is 
-    specified using a `Content-Type` request header value of  `application/json; format=pandas-records` 
-    or `application/json`. However, Starting in MLflow 0.9.0, `application/json` will refer to the 
-    `split` format instead. For forwards compatibility, we recommend using the `split` format or 
+
+  * JSON-serialized Pandas DataFrames in the `records` orientation. **THIS FORMAT IS NOT
+    RECOMMENDED. It is not guaranteed to preserve column ordering.** Currently, this format is
+    specified using a `Content-Type` request header value of  `application/json; format=pandas-records`
+    or `application/json`. However, starting in MLflow 0.9.0, `application/json` will refer to the
+    `split` format instead. For forwards compatibility, we recommend using the `split` format or
     specifying the `application/json; format=pandas-records` content type.
-  
+
   * CSV-serialized Pandas DataFrames. For example, `data = pandas_df.to_csv()`. This format is
     specified using a `Content-Type` request header value of `text/csv`.
 
@@ -279,7 +279,6 @@ https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.
 * :py:func:`serve <mlflow.pyfunc.cli.serve>` deploys the model as a local REST API server.
 * :py:func:`predict <mlflow.pyfunc.cli.predict>` uses the model to generate a prediction for a local
   CSV file.
-
 
 For more info, see:
 
@@ -295,7 +294,7 @@ Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^
 The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
 These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
-platform for real-time serving. The resulting Azure ML ContainerImage will contain a webserver that 
+platform for real-time serving. The resulting Azure ML ContainerImage will contain a webserver that
 accepts the following data formats as input:
 
   * JSON-serialized Pandas DataFrames in the `split` orientation. For example,
@@ -357,8 +356,8 @@ accepts the following data formats as input:
 
     # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation. The optional
     # `index` field, which provides labels for DataFrame rows, is not present in this example.
-    # For more information about supported data formats for AzureML webserver inputs, see the 
-    # documentation for the mlflow.azureml.build_image function` 
+    # For more information about supported data formats for AzureML webserver inputs, see the
+    # documentation for the mlflow.azureml.build_image function`
     sample_input = {
         "columns": [
             "alcohol",
@@ -445,16 +444,16 @@ To deploy remotely to SageMaker you need to set up your environment and user acc
 To export a custom model to SageMaker, you need a MLflow-compatible Docker image to be available on Amazon ECR.
 MLflow provides a default Docker image definition; however, it is up to you to build the image and upload it to ECR.
 MLflow includes the utility function ``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow
-container for all MLflow models. Model webservers deployed using the :py:mod:`mlflow.sagemaker` 
+container for all MLflow models. Model webservers deployed using the :py:mod:`mlflow.sagemaker`
 module will accept the following data formats as input, depending on the deployment flavor:
 
-  * `mlflow.pyfunc.FLAVOR_NAME`: For this deployment flavor, The endpoint accepts the same formats 
+  * `mlflow.pyfunc.FLAVOR_NAME`: For this deployment flavor, The endpoint accepts the same formats
     as the pyfunc server. These formats are described :ref:`in the pyfunc deployment documentation <pyfunc_deployment>`.
 
-  * `mlflow.mleap.FLAVOR_NAME`: For this deployment flavor, the endpoint ONLY accepts 
+  * `mlflow.mleap.FLAVOR_NAME`: For this deployment flavor, the endpoint ONLY accepts
     JSON-serialized Pandas DataFrames in the `split` orientation. For example,
     `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-    request header value of `application/json`. 
+    request header value of `application/json`.
 
 * :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker
   container. The image and the environment should be identical to how the model would be run
@@ -467,7 +466,6 @@ module will accept the following data formats as input, depending on the deploym
 * :py:func:`deploy <mlflow.sagemaker.deploy>` deploys the model on Amazon SageMaker. MLflow
   uploads the Python Function model into S3 and starts an Amazon SageMaker endpoint serving
   the model.
-
 
 .. rubric:: Example workflow using the MLflow CLI
 

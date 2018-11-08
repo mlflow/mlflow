@@ -168,8 +168,10 @@ Once you have started the server, you can pass it some sample data and see the
 predictions.
 
 The following example uses ``curl`` to send a JSON-serialized Pandas DataFrame with the `split`
-orientation to the pyfunc server. Note: The optional *index* field that provides labels for 
-DataFrame rows is omitted from this example.
+orientation to the pyfunc server. Note: The optional *index* field that provides labels for
+DataFrame rows is omitted from this example. For more information about the input data formats
+accepted by the pyfunc model server, see the
+:ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 
 .. code:: bash
 
