@@ -32,9 +32,9 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     Azure Kubernetes Service (AKS).
 
     The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
-    For information about the input data formats accepted by this webserver, see the 
+    For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
-    
+
     :param model_path: The path to MLflow model for which the image will be built. If a run id
                        is specified, this is should be a run-relative path. Otherwise, it
                        should be a local path.
