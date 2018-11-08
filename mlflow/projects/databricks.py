@@ -139,8 +139,7 @@ class DatabricksJobRunner(object):
         :param project_uri: URI of the project from which the shell command originates.
         :param command: Shell command to run.
         :param env_vars: Environment variables to set in the process running ``command``.
-        :param cluster_spec: Path to a JSON file containing a
-                             `Databricks cluster specification
+        :param cluster_spec: Dictionary containing a `Databricks cluster specification
                              <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
                              to use when launching a run.
         :return: ID of the Databricks job run. Can be used to query the run's status via the
@@ -174,13 +173,6 @@ class DatabricksJobRunner(object):
         }
         eprint("=== Running entry point %s of project %s on Databricks ===" % (entry_point, uri))
         # Launch run on Databricks
-        with open(cluster_spec, 'r') as handle:
-            try:
-                cluster_spec = json.load(handle)
-            except ValueError:
-                eprint("Error when attempting to load and parse JSON cluster spec from file "
-                       "%s. " % cluster_spec)
-                raise
         command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
 

@@ -138,3 +138,8 @@ if __name__ == '__main__':
         for i in range(100):
             with mlflow.start_run(source_name='child-{}'.format(i), nested=True):
                 pass
+    mlflow.create_experiment("my-empty-experiment")
+    mlflow.set_experiment("runs-but-no-metrics-params")
+    for i in range(100):
+        with mlflow.start_run(source_name="empty-run-{}".format(i)):
+            pass
