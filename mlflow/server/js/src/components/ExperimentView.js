@@ -53,7 +53,7 @@ class ExperimentView extends Component {
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
-      ...persistedState.toJSON(),
+      persistedState: persistedState.toJSON(),
     };
   }
 
@@ -115,7 +115,7 @@ class ExperimentView extends Component {
    * specified experiment.
    */
   static getLocalStore(experimentId) {
-    return LocalStorageUtils.getStore("ExperimentView", experimentId);
+    return LocalStorageUtils.getStoreForComponent("ExperimentView", experimentId);
   }
 
 
@@ -126,23 +126,26 @@ class ExperimentView extends Component {
     return true;
   }
 
-  /** Returns true if search filter text was updated */
+  /**
+   * Returns true if search filter text was updated, e.g. if a user entered new text into the
+   * param filter, metric filter, or search text boxes.
+   */
   filtersDidUpdate(prevState) {
     return prevState.paramKeyFilterInput !== this.state.paramKeyFilterInput ||
       prevState.metricKeyFilterInput !== this.state.metricKeyFilterInput ||
       prevState.searchInput !== this.state.searchInput;
   }
 
-  /** Snapshots the component's current state in local storage. */
+  /** Snapshots desired attributes of the component's current state in local storage. */
   snapshotComponentState() {
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
-    store.saveComponentState(new ExperimentViewPersistedState(this.state));
+    store.saveComponentState(new ExperimentViewPersistedState(this.state.persistedState));
   }
 
   componentDidUpdate(prevProps, prevState) {
     // Don't snapshot state on changes to search filter text; we only want to save these on search
     // in ExperimentPage
-    if (!this.filtersDidUpdate(prevState) && this.props.experiment.id === prevProps.experiment.id) {
+    if (!this.filtersDidUpdate(prevState)) {
       this.snapshotComponentState();
     }
   }
@@ -171,7 +174,12 @@ class ExperimentView extends Component {
   }
 
   setShowMultiColumns(value) {
-    this.setState({ showMultiColumns: value });
+    this.setState({
+      persistedState: {
+        ...this.state.persistedState,
+        showMultiColumns: value,
+      }
+    });
   }
 
   onDeleteRun() {
@@ -197,12 +205,19 @@ class ExperimentView extends Component {
    * @param colName Name of the column (metric or param key).
    */
   addBagged(isParam, colName) {
-    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const unbagged = isParam ? this.state.persistedState.unbaggedParams :
+      this.state.persistedState.unbaggedMetrics;
     const idx = unbagged.indexOf(colName);
     const newUnbagged = idx >= 0 ?
       unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: newUnbagged});
+    this.setState(
+      {
+        persistedState: {
+          ...this.state.persistedState,
+          [stateKey]: newUnbagged,
+        }
+      });
   }
 
   /**
@@ -212,9 +227,16 @@ class ExperimentView extends Component {
    * @param colName Name of the column (metric or param key).
    */
   removeBagged(isParam, colName) {
-    const unbagged = isParam ? this.state.unbaggedParams : this.state.unbaggedMetrics;
+    const unbagged = isParam ? this.state.persistedState.unbaggedParams :
+      this.state.persistedState.unbaggedMetrics;
     const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
-    this.setState({[stateKey]: unbagged.concat([colName])});
+    this.setState(
+      {
+        persistedState: {
+          ...this.state.persistedState,
+          [stateKey]: unbagged.concat([colName])
+        }
+      });
   }
 
   render() {
@@ -362,21 +384,21 @@ class ExperimentView extends Component {
                 <Button
                   onClick={() => this.setShowMultiColumns(true)}
                   title="Grid view"
-                  className={classNames({ "active": this.state.showMultiColumns })}
+                  className={classNames({ "active": this.state.persistedState.showMultiColumns })}
                 >
                   <i className={"fas fa-table"}/>
                 </Button>
                 <Button
                   onClick={() => this.setShowMultiColumns(false)}
                   title="Compact view"
-                  className={classNames({ "active": !this.state.showMultiColumns })}
+                  className={classNames({ "active": !this.state.persistedState.showMultiColumns })}
                 >
                   <i className={"fas fa-list"}/>
                 </Button>
                 </ButtonGroup>
             </span>
           </div>
-          {this.state.showMultiColumns ?
+          {this.state.persistedState.showMultiColumns ?
             <ExperimentRunsTableMultiColumnView
               onCheckbox={this.onCheckbox}
               runInfos={this.props.runInfos}
@@ -388,9 +410,9 @@ class ExperimentView extends Component {
               onCheckAll={this.onCheckAll}
               isAllChecked={this.isAllChecked()}
               onSortBy={this.onSortBy}
-              sortState={this.state.sort}
+              sortState={this.state.persistedState.sort}
               runsSelected={this.state.runsSelected}
-              runsExpanded={this.state.runsExpanded}
+              runsExpanded={this.state.persistedState.runsExpanded}
               onExpand={this.onExpand}
             /> :
             <ExperimentRunsTableCompactView
@@ -405,13 +427,13 @@ class ExperimentView extends Component {
               onCheckAll={this.onCheckAll}
               isAllChecked={this.isAllChecked()}
               onSortBy={this.onSortBy}
-              sortState={this.state.sort}
+              sortState={this.state.persistedState.sort}
               runsSelected={this.state.runsSelected}
               setSortByHandler={this.setSortBy}
-              runsExpanded={this.state.runsExpanded}
+              runsExpanded={this.state.persistedState.runsExpanded}
               onExpand={this.onExpand}
-              unbaggedMetrics={this.state.unbaggedMetrics}
-              unbaggedParams={this.state.unbaggedParams}
+              unbaggedMetrics={this.state.persistedState.unbaggedMetrics}
+              unbaggedParams={this.state.persistedState.unbaggedParams}
               onAddBagged={this.addBagged}
               onRemoveBagged={this.removeBagged}
             />
@@ -422,17 +444,24 @@ class ExperimentView extends Component {
   }
 
   onSortBy(isMetric, isParam, key) {
-    const sort = this.state.sort;
+    const sort = this.state.persistedState.sort;
     this.setSortBy(isMetric, isParam, key, !sort.ascending);
   }
 
   setSortBy(isMetric, isParam, key, ascending) {
-    this.setState({sort: {
+    const newSortState = {
       ascending: ascending,
       key: key,
       isMetric: isMetric,
       isParam: isParam
-    }});
+    };
+    this.setState(
+      {
+        persistedState: {
+          ...this.state.persistedState,
+          sort: newSortState,
+        },
+      });
   }
 
   onCheckbox(runUuid) {
@@ -467,17 +496,24 @@ class ExperimentView extends Component {
   }
 
   onExpand(runId, childrenIds) {
-    const newExpanderState = !ExperimentViewUtil.isExpanderOpen(this.state.runsExpanded, runId);
-    const newRunsHiddenByExpander = {...this.state.runsHiddenByExpander};
+    const newExpanderState = !ExperimentViewUtil.isExpanderOpen(
+      this.state.persistedState.runsExpanded, runId);
+    const newRunsHiddenByExpander = {...this.state.persistedState.runsHiddenByExpander};
     childrenIds.forEach((childId) => {
       newRunsHiddenByExpander[childId] = !newExpanderState;
     });
-    this.setState({
+    const newPersistedStateFields = {
       runsExpanded: {
-        ...this.state.runsExpanded,
+        ...this.state.persistedState.runsExpanded,
         [runId]: newExpanderState,
       },
       runsHiddenByExpander: newRunsHiddenByExpander,
+    };
+    this.setState({
+      persistedState: {
+        ...this.state.persistedState,
+        ...newPersistedStateFields,
+      }
     });
     // Deselect the children
     const newRunsSelected = {...this.state.runsSelected};
@@ -532,9 +568,9 @@ class ExperimentView extends Component {
     // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
     // attributes to their default values.
     const newPersistedState = new ExperimentViewPersistedState({
-      showMultiColumns: this.state.showMultiColumns,
+      showMultiColumns: this.state.persistedState.showMultiColumns,
     });
-    this.setState(newPersistedState.toJSON(), () => {
+    this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();
       this.props.onSearch("", "", "", LIFECYCLE_FILTER.ACTIVE);
     });

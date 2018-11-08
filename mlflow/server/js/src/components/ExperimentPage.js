@@ -25,7 +25,7 @@ class ExperimentPage extends Component {
     const persistedState = new ExperimentPagePersistedState(store.loadComponentState());
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
-      ...persistedState.toJSON(),
+      persistedState: persistedState.toJSON(),
     };
   }
 
@@ -54,19 +54,17 @@ class ExperimentPage extends Component {
    * specified experiment.
    */
   static getLocalStore(experimentId) {
-    return LocalStorageUtils.getStore("ExperimentPage", experimentId);
+    return LocalStorageUtils.getStoreForComponent("ExperimentPage", experimentId);
   }
 
-  componentDidUpdate(prevProps) {
-    if (this.props.experimentId === prevProps.experimentId) {
-      const { paramKeyFilterString, metricKeyFilterString, searchInput } = this.state;
-      const store = ExperimentPage.getLocalStore(this.props.experimentId);
-      store.saveComponentState(new ExperimentPagePersistedState({
-        paramKeyFilterString,
-        metricKeyFilterString,
-        searchInput,
-      }));
-    }
+  componentDidUpdate() {
+    const {paramKeyFilterString, metricKeyFilterString, searchInput} = this.state.persistedState;
+    const store = ExperimentPage.getLocalStore(this.props.experimentId);
+    store.saveComponentState(new ExperimentPagePersistedState({
+      paramKeyFilterString,
+      metricKeyFilterString,
+      searchInput,
+    }));
   }
 
   static getDerivedStateFromProps(props, state) {
@@ -75,14 +73,14 @@ class ExperimentPage extends Component {
       const loadedState = new ExperimentPagePersistedState(store.loadComponentState()).toJSON();
       const newState = {
         ...ExperimentPage.getDefaultUnpersistedState(),
-        ...loadedState,
+        persistedState: loadedState,
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
       props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
       props.dispatch(searchRunsApi(
         [props.experimentId],
-        SearchUtils.parseSearchInput(newState.searchInput),
+        SearchUtils.parseSearchInput(newState.persistedState.searchInput),
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
         newState.searchRunsRequestId));
       return newState;
@@ -93,10 +91,12 @@ class ExperimentPage extends Component {
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
     const andedExpressions = SearchUtils.parseSearchInput(searchInput);
     this.setState({
-      paramKeyFilterString,
-      metricKeyFilterString,
-      searchInput,
-      lifecycleFilter: lifecycleFilterInput
+      persistedState: {
+        paramKeyFilterString,
+        metricKeyFilterString,
+        searchInput,
+      },
+      lifecycleFilter: lifecycleFilterInput,
     });
     const searchRunsRequestId = this.props.dispatchSearchRuns(
       this.props.experimentId, andedExpressions, lifecycleFilterInput);
@@ -108,13 +108,13 @@ class ExperimentPage extends Component {
       <div className="ExperimentPage">
         <RequestStateWrapper requestIds={this.getRequestIds()}>
           <ExperimentView
-            paramKeyFilter={new KeyFilter(this.state.paramKeyFilterString)}
-            metricKeyFilter={new KeyFilter(this.state.metricKeyFilterString)}
+            paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
+            metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
             experimentId={this.props.experimentId}
             searchRunsRequestId={this.state.searchRunsRequestId}
             lifecycleFilter={this.state.lifecycleFilter}
             onSearch={this.onSearch}
-            searchInput={this.state.searchInput}
+            searchInput={this.state.persistedState.searchInput}
           />
         </RequestStateWrapper>
       </div>

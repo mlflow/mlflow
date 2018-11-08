@@ -14,7 +14,7 @@ export default class LocalStorageUtils {
    * can be used to disambiguate between multiple instances of cached data for the same component
    * (e.g. cached data for multiple experiments).
    */
-  static getStore(componentName, id) {
+  static getStoreForComponent(componentName, id) {
     return new LocalStorageStore([componentName, id].join("-"));
   }
 }
