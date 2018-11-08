@@ -38,21 +38,20 @@ Features:
 
 Bug fixes and documentation updates:
 
-- [Server] Improve errors returned by RestStore (#582, @andrewmchen; #560, @smurching)
-- [Python] Avoid lower-casing profile name for Databricks Tracking URIs (#583, @andrewmchen)
-- [R] Don't require user to explicitly load keras module at predict time (#586, @kevinykuo)
-- [UI] Improve error page when viewing nonexistent runs or views (#600, @andrewmchen; #560, @andrewmchen)
-- [Docs] Include diagram of workflow for multistep example (#581, @dennyglee)
-- [Docs/R] Use CRAN installation (#686, @javierluraschi)
-- [Server] Deleting the default experiment no longer causes it to be immediately recreated (#604, @andrewmchen; #641, @schipiga)
-- [UI] Don't throw an error if all experiments are deleted (#605, @andrewmchen)
 - [Python] Update TensorFlow integration to match API provided by other flavors (#612, @dbczumar; #670, @mlaradji)
 - [Python] Support for TensorFlow 1.12 (#692, @smurching)
-- [Docs] Reference tags and R and Java APIs from tracking documentation (#514, @stbof)
+- [R] Don't require user to explicitly load keras module at predict time (#586, @kevinykuo)
+- [Server] Improve errors returned by RestStore (#582, @andrewmchen; #560, @smurching)
+- [Server] Deleting the default experiment no longer causes it to be immediately recreated (#604, @andrewmchen; #641, @schipiga)
 - [Server] Azure Blob Storage artifact repo supports Windows paths (#642, @marcusrehm)
 - [Server] Improve behavior when environment and run files are corrupted (#632, #654, #661, @mparkhe)
+- [UI] Improve error page when viewing nonexistent runs or views (#600, @andrewmchen; #560, @andrewmchen)
+- [UI] Don't throw an error if all experiments are deleted (#605, @andrewmchen)
+- [Docs] Include diagram of workflow for multistep example (#581, @dennyglee)
+- [Docs] Reference tags and R and Java APIs from tracking documentation (#514, @stbof)
+- [Docs/R] Use CRAN installation (#686, @javierluraschi)
 
-Small bug fixes and doc updates (#576, #594, @javierluraschi; #585, @kevinykuo; #593, #601, #611, #650, #669, #671, #679, @dbczumar; #607, @suzil; #615, @andrewmchen; #622, #681, @aarondav; #625, @pogil; #589, #634, @tomasatdatabricks; #529, #635, #684, @stbof; #657, @mvsusp; #682, @mateiz; #678, vfdev-5; #596, @yutannihilation; #663, @smurching)
+Small bug fixes and doc updates (#576, #594, @javierluraschi; #585, @kevinykuo; #593, #601, #611, #650, #669, #671, #679, @dbczumar; #607, @suzil; #583, #615, @andrewmchen; #622, #681, @aarondav; #625, @pogil; #589, #634, @tomasatdatabricks; #529, #635, #684, @stbof; #657, @mvsusp; #682, @mateiz; #678, vfdev-5; #596, @yutannihilation; #663, @smurching)
 
 
 0.7.0 (2018-10-01)
