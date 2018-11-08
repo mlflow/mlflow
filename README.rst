@@ -1,6 +1,9 @@
 ====================
-MLflow Alpha Release
+MLflow Alpha Release 
 ====================
+
+.. image:: https://mybinder.org/badge.svg 
+ :target: https://mybinder.org/v2/gh/mlflow/mlflow/master
 
 **Note:** The current version of MLflow is an alpha release. This means that APIs and data formats
 are subject to change!
@@ -26,6 +29,12 @@ To discuss MLflow or get help, please subscribe to our mailing list (mlflow-user
 join us on Slack at https://tinyurl.com/mlflow-slack.
 
 To report bugs, please use GitHub issues.
+
+Running a sample notebook in Binder
+-----------------------------------
+An example notebook showing how to use elasticnet for diabetes in MLflow can be run interactively in the browser using the following mybinder link
+<https://mybinder.org/v2/gh/mlflow/mlflow/master?filepath=examples%2Fsklearn_elasticnet_diabetes%2Ftrain_diabetes.ipynb>
+
 
 Running a Sample App With the Tracking API
 ------------------------------------------

@@ -1,0 +1,11 @@
+name: mlflow
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - scipy
+  - matplotlib
+  - pandas
+  - pyspark
+  - pip:
+    - git+https://github.com/mlflow/mlflow
