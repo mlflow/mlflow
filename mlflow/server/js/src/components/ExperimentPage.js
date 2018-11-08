@@ -57,14 +57,19 @@ class ExperimentPage extends Component {
     return LocalStorageUtils.getStoreForComponent("ExperimentPage", experimentId);
   }
 
-  componentDidUpdate() {
-    const {paramKeyFilterString, metricKeyFilterString, searchInput} = this.state.persistedState;
+  snapshotComponentState() {
     const store = ExperimentPage.getLocalStore(this.props.experimentId);
-    store.saveComponentState(new ExperimentPagePersistedState({
-      paramKeyFilterString,
-      metricKeyFilterString,
-      searchInput,
-    }));
+    store.saveComponentState(new ExperimentPagePersistedState(this.state.persistedState));
+  }
+
+  componentDidUpdate() {
+    this.snapshotComponentState();
+  }
+
+  componentWillUnmount() {
+    // Snapshot component state on unmounts to ensure we've captured component state in cases where
+    // componentDidUpdate doesn't fire.
+    this.snapshotComponentState();
   }
 
   static getDerivedStateFromProps(props, state) {

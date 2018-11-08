@@ -150,6 +150,12 @@ class ExperimentView extends Component {
     }
   }
 
+  componentWillUnmount() {
+    // Snapshot component state on unmounts to ensure we've captured component state in cases where
+    // componentDidUpdate doesn't fire.
+    this.snapshotComponentState();
+  }
+
   static getDerivedStateFromProps(nextProps, prevState) {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
     // prop)
@@ -540,10 +546,7 @@ class ExperimentView extends Component {
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    this.setState({ lifecycleFilterInput: newLifecycleInput }, () => {
-      this.snapshotComponentState();
-      this.onSearch();
-    });
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch());
   }
 
   onSearch(e) {
