@@ -35,8 +35,8 @@ from mlflow.utils import get_jsonable_obj
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; pandasformat=records"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; pandasformat=split"
+CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
+CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,

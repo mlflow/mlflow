@@ -175,7 +175,7 @@ accepted by the pyfunc model server, see the
 
 .. code:: bash
 
-    curl -d '{"columns":["x"], "data":[[1], [-1]]}' -H 'Content-Type: application/json; pandasformat=split' -X POST localhost:5000/invocations
+    curl -d '{"columns":["x"], "data":[[1], [-1]]}' -H 'Content-Type: application/json; format=pandas-split' -X POST localhost:5000/invocations
 
 which returns::
 
