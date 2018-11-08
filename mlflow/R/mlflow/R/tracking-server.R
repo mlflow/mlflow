@@ -42,7 +42,7 @@ mlflow_cli_param <- function(args, param, value) {
   args
 }
 
-#' Run the MLflow Tracking Server
+#' Run MLflow Tracking Server
 #'
 #' Wrapper for `mlflow server`.
 #'

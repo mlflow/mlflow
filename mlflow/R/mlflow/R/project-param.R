@@ -1,12 +1,12 @@
-#' Read Command Line Parameter
+#' Read Command-Line Parameter
 #'
-#' Reads a command line parameter.
+#' Reads a command-line parameter.
 #'
-#' @param name The name for this parameter.
-#' @param default The default value for this parameter.
+#' @param name The name of the parameter.
+#' @param default The default value of the parameter.
 #' @param type Type of this parameter. Required if `default` is not set. If specified,
 #'  must be one of "numeric", "integer", or "string".
-#' @param description Optional description for this parameter.
+#' @param description Optional description for the parameter.
 #'
 #' @import forge
 #' @export
