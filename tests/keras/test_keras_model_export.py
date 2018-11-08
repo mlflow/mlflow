@@ -58,11 +58,12 @@ def test_model_save_load(tmpdir, model, data, predicted):
     assert all(pyfunc_loaded.predict(x).values == predicted)
 
     # pyfunc serve
-    preds = pyfunc_serve_and_score_model(
+    scoring_response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(path),
             data=pd.DataFrame(x),
-            data_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert all(preds.values.astype(np.float32) == predicted)
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
+               == predicted)
 
 
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
