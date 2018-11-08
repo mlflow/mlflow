@@ -50,8 +50,8 @@ Training the Model
 ------------------
 
 
-First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. 
-      
+First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``.
+
 .. plain-section::
 
   .. container:: python
@@ -220,7 +220,7 @@ On this page, you can see a list of experiment runs with metrics you can use to 
     .. image:: _static/images/tutorial-compare.png
 
   .. container:: R
-  
+
       .. image:: _static/images/tutorial-compare-R.png
 
 You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
@@ -377,10 +377,9 @@ in MLflow saved the model as an artifact within the run.
           or ``raise ValueError, "unsupported pickle protocol: %d"``.
 
       Once you have deployed the server, you can pass it some sample data and see the
-      predictions.  The following example uses ``curl`` to send a JSON-serialized Pandas DataFrame 
-      with the `split` orientation to the pyfunc server. Note: The optional *index* field that 
-      provides labels for DataFrame rows is omitted from this example. For more information
-      about the input data formats accepted by the pyfunc model server, see the 
+      predictions.  The following example uses ``curl`` to send a JSON-serialized Pandas DataFrame
+      with the `split` orientation to the pyfunc server. For more information about the input data
+      formats accepted by the pyfunc model server, see the
       :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 
       .. code::
@@ -421,7 +420,7 @@ in MLflow saved the model as an artifact within the run.
       .. image:: _static/images/tutorial-serving-r.png
 
       .. note::
-        
+
           By default, a model is served using the R packages available. To ensure the environment serving
           the prediction function matches the model, set ``restore = TRUE`` when calling
           ``mlflow_rfunc_serve()``.
