@@ -106,8 +106,8 @@ def init(model):
     """
     app = flask.Flask(__name__)
 
-    eprint("**IMPORTANT UPDATE**: In the next release of MLflow, requests received"
-           " with a `Content-Type` header value of `{json_content_type}` will be interpreted as"
+    eprint("**IMPORTANT UPDATE**: Starting in MLflow 0.9.0, requests received with a"
+           " `Content-Type` header value of `{json_content_type}` will be interpreted as"
            " JSON-serialized Pandas DataFrames with the `split` orientation, instead of the"
            " `records` orientation. Client code should be updated to either send serialized"
            " DataFrames with the `split` orientation and the `{split_json_content_type}` content"
