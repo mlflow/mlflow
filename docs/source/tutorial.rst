@@ -378,7 +378,7 @@ in MLflow saved the model as an artifact within the run.
 
       Once you have deployed the server, you can pass it some sample data and see the
       predictions. The following example uses ``curl`` to send a JSON-serialized Pandas DataFrame
-      with the `split` orientation to the pyfunc server. For more information about the input data
+      with the ``split`` orientation to the pyfunc server. For more information about the input data
       formats accepted by the pyfunc model server, see the
       :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 

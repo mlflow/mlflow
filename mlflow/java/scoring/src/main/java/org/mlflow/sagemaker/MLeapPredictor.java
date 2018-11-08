@@ -65,8 +65,8 @@ public class MLeapPredictor extends Predictor {
           e);
       throw new PredictorEvaluationException(
           "Encountered a JSON parsing error while transforming input into a Pandas DataFrame"
-              + " representation. Please ensure that the input is a JSON-serialized Pandas"
-              + " Dataframe with the `split` orientation.",
+              + " representation. Ensure that the input is a JSON-serialized Pandas DataFrame"
+              + " with the `split` orientation.",
           e);
     } catch (InvalidSchemaException e) {
       logger.error(
@@ -75,8 +75,8 @@ public class MLeapPredictor extends Predictor {
           e);
       throw new PredictorEvaluationException(
           "Encountered a schema mismatch while transforming input into a Pandas DataFrame"
-              + " representation. Please ensure that the input is a JSON-serialized Pandas"
-              + " Dataframe with the `split` orientation.",
+              + " representation. Ensure that the input is a JSON-serialized Pandas DataFrame"
+              + " with the `split` orientation.",
           e);
     } catch (IllegalArgumentException e) {
       logger.error(
@@ -84,8 +84,8 @@ public class MLeapPredictor extends Predictor {
           e);
       throw new PredictorEvaluationException(
           "Failed to transform input into a Pandas DataFrame because the parsed frame is invalid."
-              + " Please ensure that the input is a JSON-serialized Pandas"
-              + " Dataframe with the `split` orientation.",
+              + " Ensure that the input is a JSON-serialized Pandas DataFrame with the `split`"
+              + " orientation.",
           e);
     }
 
