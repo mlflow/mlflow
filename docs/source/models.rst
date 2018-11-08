@@ -354,7 +354,7 @@ accepts the following data formats as input:
     import requests
     import json
 
-    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation.
+    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation
     sample_input = {
         "columns": [
             "alcohol",
@@ -394,7 +394,7 @@ accepts the following data formats as input:
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
 
-    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation.
+    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation
     sample_input='
     {
         "columns": [
