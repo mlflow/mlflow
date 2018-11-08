@@ -205,7 +205,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     Deploy an MLflow model on AWS SageMaker.
     The currently active AWS account must have correct permissions set up.
 
-    This function will create a SageMaker endpoint. For more information about the input data
+    This function creates a SageMaker endpoint. For more information about the input data
     formats accepted by this endpoint, see the
     :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 

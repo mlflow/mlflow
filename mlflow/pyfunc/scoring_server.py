@@ -58,7 +58,7 @@ def parse_json_input(json_input, orientation="split"):
     except Exception as e:
         _handle_serving_error(
                 error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Please ensure that the input is"
+                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                     " a valid JSON-formatted Pandas DataFrame with the `{orientation}` orientation"
                     " produced using the `pandas.DataFrame.to_json(..., orient='{orientation}')`"
                     " method.".format(orientation=orientation)),
@@ -75,7 +75,7 @@ def parse_csv_input(csv_input):
     except Exception as e:
         _handle_serving_error(
                 error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Please ensure that the input is"
+                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                     " a valid CSV-formatted Pandas DataFrame produced using the"
                     " `pandas.DataFrame.to_csv()` method."),
                 error_code=MALFORMED_REQUEST)
@@ -173,7 +173,7 @@ def init(model):
         except Exception as e:
             _handle_serving_error(
                     error_message=(
-                        "Encountered an unexpected error while evaluating the model. Please verify"
+                        "Encountered an unexpected error while evaluating the model. Verify"
                         " that the serialized input Dataframe is compatible with the model for"
                         " inference."),
                     error_code=BAD_REQUEST)
