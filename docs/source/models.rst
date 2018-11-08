@@ -257,21 +257,21 @@ This functionality is a convenient way of testing models before deploying to a r
 You deploy the Python Function flavor locally using the CLI interface to the :py:mod:`mlflow.pyfunc` module.
 The local REST API server accepts the following data formats as inputs:
 
-  * JSON-serialized Pandas DataFrames in the `split` orientation. For example,
-    `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-    request header value of `application/json; format=pandas-split`. Starting in MLflow 0.9.0,
-    this will be the default format if `Content-Type` is `application/json` (i.e, with no format
+  * JSON-serialized Pandas DataFrames in the ``split`` orientation. For example,
+    ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
+    request header value of ``application/json; format=pandas-split``. Starting in MLflow 0.9.0,
+    this will be the default format if ``Content-Type`` is ``application/json`` (i.e, with no format
     specification).
 
-  * JSON-serialized Pandas DataFrames in the `records` orientation. **THIS FORMAT IS NOT
-    RECOMMENDED. It is not guaranteed to preserve column ordering.** Currently, this format is
-    specified using a `Content-Type` request header value of  `application/json; format=pandas-records`
-    or `application/json`. However, starting in MLflow 0.9.0, `application/json` will refer to the
-    `split` format instead. For forwards compatibility, we recommend using the `split` format or
-    specifying the `application/json; format=pandas-records` content type.
+  * JSON-serialized Pandas DataFrames in the ``records`` orientation. *We do not recommend using
+    this format because it is not guaranteed to preserve column ordering.* Currently, this format is
+    specified using a ``Content-Type`` request header value of  ``application/json; format=pandas-records``
+    or ``application/json``. Starting in MLflow 0.9.0, ``application/json`` will refer to the
+    ``split`` format instead. For forwards compatibility, we recommend using the ``split`` format
+    or specifying the ``application/json; format=pandas-records`` content type.
 
-  * CSV-serialized Pandas DataFrames. For example, `data = pandas_df.to_csv()`. This format is
-    specified using a `Content-Type` request header value of `text/csv`.
+  * CSV-serialized Pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
+    specified using a ``Content-Type`` request header value of ``text/csv``.
 
 For more information about serializing Pandas DataFrames, see
 https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
@@ -297,14 +297,14 @@ These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Con
 platform for real-time serving. The resulting Azure ML ContainerImage will contain a webserver that
 accepts the following data formats as input:
 
-  * JSON-serialized Pandas DataFrames in the `split` orientation. For example,
-    `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-    request header value of `application/json`.
+  * JSON-serialized Pandas DataFrames in the ``split`` orientation. For example,
+    ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
+    request header value of ``application/json``.
 
 * :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow model with an existing Azure ML
   workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is
-  required in order to use this function. **The Azure ML SDK requires Python 3. It cannot be installed with
-  earlier versions of Python.**
+  required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with
+  earlier versions of Python.*
 
   .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
 
@@ -354,8 +354,7 @@ accepts the following data formats as input:
     import requests
     import json
 
-    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation. The optional
-    # `index` field, which provides labels for DataFrame rows, is not present in this example.
+    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation.
     sample_input = {
         "columns": [
             "alcohol",
@@ -395,8 +394,7 @@ accepts the following data formats as input:
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
 
-    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation. The optional
-    # `index` field, which provides labels for DataFrame rows, is not present in this example.
+    # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation.
     sample_input='
     {
         "columns": [
@@ -443,14 +441,14 @@ MLflow includes the utility function ``build_and_push_container`` to perform thi
 container for all MLflow models. Model webservers deployed using the :py:mod:`mlflow.sagemaker`
 module will accept the following data formats as input, depending on the deployment flavor:
 
-  * `mlflow.pyfunc.FLAVOR_NAME`: For this deployment flavor, The endpoint accepts the same formats
+  * ``python_function``: For this deployment flavor, The endpoint accepts the same formats
     as the pyfunc server. These formats are described in the
     :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
 
-  * `mlflow.mleap.FLAVOR_NAME`: For this deployment flavor, the endpoint ONLY accepts
-    JSON-serialized Pandas DataFrames in the `split` orientation. For example,
-    `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-    request header value of `application/json`.
+  * ``mleap``: For this deployment flavor, the endpoint ONLY accepts
+    JSON-serialized Pandas DataFrames in the ``split`` orientation. For example,
+    ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
+    request header value of ``application/json``.
 
 * :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker
   container. The image and the environment should be identical to how the model would be run
