@@ -445,7 +445,7 @@ module will accept the following data formats as input, depending on the deploym
     as the pyfunc server. These formats are described in the
     :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
 
-  * ``mleap``: For this deployment flavor, the endpoint ONLY accepts
+  * ``mleap``: For this deployment flavor, the endpoint accepts `only`
     JSON-serialized Pandas DataFrames in the ``split`` orientation. For example,
     ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
     request header value of ``application/json``.
