@@ -53,7 +53,7 @@ export const ExperimentViewPersistedState = Immutable.Record({
     key: "start_time"
   },
   // If true, shows the multi-column table view instead of the compact table view.
-  showMultiColumns: true,
+  showMultiColumns: false,
   // Arrays of "unbagged", or split-out metric and param keys (strings). We maintain these as lists
   // to help keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
   // that have already been split out)

@@ -391,18 +391,18 @@ class ExperimentView extends Component {
             <span style={{cursor: "pointer"}}>
                 <ButtonGroup style={styles.tableToggleButtonGroup}>
                 <Button
-                  onClick={() => this.setShowMultiColumns(true)}
-                  title="Grid view"
-                  className={classNames({ "active": this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={"fas fa-table"}/>
-                </Button>
-                <Button
                   onClick={() => this.setShowMultiColumns(false)}
                   title="Compact view"
                   className={classNames({ "active": !this.state.persistedState.showMultiColumns })}
                 >
                   <i className={"fas fa-list"}/>
+                </Button>
+                <Button
+                  onClick={() => this.setShowMultiColumns(true)}
+                  title="Grid view"
+                  className={classNames({ "active": this.state.persistedState.showMultiColumns })}
+                >
+                  <i className={"fas fa-table"}/>
                 </Button>
                 </ButtonGroup>
             </span>
