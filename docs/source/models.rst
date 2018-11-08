@@ -356,8 +356,6 @@ accepts the following data formats as input:
 
     # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation. The optional
     # `index` field, which provides labels for DataFrame rows, is not present in this example.
-    # For more information about supported data formats for AzureML webserver inputs, see the
-    # documentation for the mlflow.azureml.build_image function`
     sample_input = {
         "columns": [
             "alcohol",
@@ -399,8 +397,6 @@ accepts the following data formats as input:
 
     # `sample_input` is a JSON-serialized Pandas DatFrame with the `split` orientation. The optional
     # `index` field, which provides labels for DataFrame rows, is not present in this example.
-    # For more information about supported data formats for AzureML webserver inputs, see
-    # the MLflow CLI documentation: `mlflow azureml build-image --help`.
     sample_input='
     {
         "columns": [
