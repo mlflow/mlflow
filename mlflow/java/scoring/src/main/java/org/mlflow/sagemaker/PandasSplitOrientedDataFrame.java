@@ -19,20 +19,14 @@ class PandasSplitOrientedDataFrame {
   private List<LinkedHashMap<String, Object>> entries;
 
   private static final String PANDAS_FRAME_KEY_COLUMN_NAMES = "columns";
-  private static final String PANDAS_FRAME_KEY_ROW_INDICES = "index";
   private static final String PANDAS_FRAME_KEY_ROWS = "data";
 
   private static final String LEAP_FRAME_KEY_ROWS = "rows";
   private static final String LEAP_FRAME_KEY_SCHEMA = "schema";
 
-  private PandasSplitOrientedDataFrame(
-      List<String> columnNames, List<Integer> rowIndices, List<List<Object>> rows) {
+  private PandasSplitOrientedDataFrame(List<String> columnNames, List<List<Object>> rows) {
     this.entries = new ArrayList<>();
-    if (rowIndices.size() != rows.size()) {
-      throw new IllegalArgumentException(
-          "The number of row indices does not match the number of DataFrame rows!");
-    }
-    for (int rowIndex : rowIndices) {
+    for (int rowIndex = 0; rowIndex < rows.size(); ++rowIndex) {
       List<Object> row = rows.get(rowIndex);
       if (row.size() != columnNames.size()) {
         throw new IllegalArgumentException(
@@ -59,16 +53,13 @@ class PandasSplitOrientedDataFrame {
     validatePandasDataFrameJsonRepresentation(parsedFrame);
     return new PandasSplitOrientedDataFrame(
         (List<String>) parsedFrame.get(PANDAS_FRAME_KEY_COLUMN_NAMES),
-        (List<Integer>) parsedFrame.get(PANDAS_FRAME_KEY_ROW_INDICES),
         (List<List<Object>>) parsedFrame.get(PANDAS_FRAME_KEY_ROWS));
   }
 
   private static void validatePandasDataFrameJsonRepresentation(Map<String, List<?>> parsedFrame)
       throws InvalidSchemaException {
     String[] expectedColumnNames =
-        new String[] {
-          PANDAS_FRAME_KEY_COLUMN_NAMES, PANDAS_FRAME_KEY_ROW_INDICES, PANDAS_FRAME_KEY_ROWS
-        };
+        new String[] {PANDAS_FRAME_KEY_COLUMN_NAMES, PANDAS_FRAME_KEY_ROWS};
     for (String columnName : expectedColumnNames) {
       if (!parsedFrame.containsKey(columnName)) {
         throw new InvalidSchemaException(

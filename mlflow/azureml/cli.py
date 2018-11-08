@@ -52,12 +52,9 @@ def build_image(model_path, workspace_name, subscription_id, run_id, image_name,
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
 
-    - JSON-serialized Pandas DataFrames in the `split` orientation. For example,
-    `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-    request header value of `application/json`.
-
-    For more information about serializing Pandas DataFrames, see
-    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
+    The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
+    For information about the input data formats accepted by this webserver, see the following
+    documentation: https://www.mlflow.org/docs/latest/models.html#azureml-deployment.
     """
     # The Azure ML SDK is only compatible with Python 3. However, this CLI should still be
     # accessible for inspection rom Python 2. Therefore, we will only import from the SDK

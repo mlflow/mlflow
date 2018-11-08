@@ -121,10 +121,10 @@ def init(model):
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == CONTENT_TYPE_JSON:
-            eprint("The Pandas `records` orientation is deprecated in MLflow. The"
+            eprint("The Pandas `records` orientation is not recommend for use in MLflow. The"
                    " {json_content_type} content type will interpret inputs using the Pandas"
                    " `split` orientation in the next release of MLflow. In order to continue"
-                   " using the deprecated `records` orientation, please specify the"
+                   " using the `records` orientation, please specify the"
                    " {records_json_content_type} header instead.".format(
                        json_content_type=CONTENT_TYPE_JSON,
                        records_json_content_type=CONTENT_TYPE_JSON_RECORDS_ORIENTED))
@@ -138,8 +138,8 @@ def init(model):
                                     orientation="split")
         else:
             return flask.Response(
-                    response=("This predictor only supports the following content types:"
-                              " {supported_content_types}. Got: {received_content_type}".format(
+                    response=("This predictor only supports the following content types,"
+                              " '{supported_content_types}'. Got '{received_content_type}'".format(
                                   supported_content_types=CONTENT_TYPES,
                                   received_content_type=flask.request.content_type)),
                     status=415,

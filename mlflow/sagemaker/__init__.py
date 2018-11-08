@@ -205,25 +205,9 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     Deploy an MLflow model on AWS SageMaker.
     The currently active AWS account must have correct permissions set up.
 
-    This function will create a SageMaker endpoint that accepts the following data formats as input:
-
-    - JSON-serialized Pandas DataFrames in the `split` orientation. For example,
-      `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-      request header value of `application/json; pandasformat=split`. **In the next release of
-      MLflow, this format will also be specified using the `application/json` content type.**
-
-    - JSON-serialized Pandas DataFrames in the `records` orientation. **THIS FORMAT IS DEPRECATED.
-      It is not guaranteed to preserve column ordering.** Currently, this format is specified
-      using a `Content-Type` request header value of `application/json; pandasformat=records` or
-      `application/json`. However, **in the next release of MLflow, `application/json` will refer to
-      the `split` format instead. For forwards compatibility, we recommend using the `split` format
-      or specifying the `application/json; pandasformat=records` content type.**
-
-    - CSV-serialized Pandas DataFrames. For example, `data = pandas_df.to_csv()`. This format is
-      specified using a `Content-Type` request header value of `text/csv`.
-
-    For more information about serializing Pandas DataFrames, see
-    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
+    This function will create a SageMaker endpoint. For more information about the input data
+    formats accepted by this endpoint, see the 
+    :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
     :param app_name: Name of the deployed application.
     :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``

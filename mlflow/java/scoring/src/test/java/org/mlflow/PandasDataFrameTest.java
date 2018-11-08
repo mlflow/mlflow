@@ -78,19 +78,6 @@ public class PandasDataFrameTest {
     } catch (IllegalArgumentException e) {
       // Succeed
     }
-
-    // Remove a row from the sample input without adjusting the row count and check for an
-    // exception during parsing
-    Map<String, List<?>> missingRowInput = new HashMap<>(sampleInput);
-    missingRowInput.get("data").remove(0);
-    String missingRowJson = SerializationUtils.toJson(missingRowInput);
-    try {
-      PandasSplitOrientedDataFrame pandasFrame =
-          PandasSplitOrientedDataFrame.fromJson(missingRowJson);
-      Assert.fail("Expected parsing a pandas DataFrame with invalid data to throw an exception.");
-    } catch (IllegalArgumentException e) {
-      // Succeed
-    }
   }
 
   @Test

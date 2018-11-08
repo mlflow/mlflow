@@ -59,25 +59,9 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
 
-    The SageMaker REST API endpoint will accept the following data formats as input:
-
-    - JSON-serialized Pandas DataFrames in the `split` orientation. For example,
-    `data = pandas_df.to_json(orient='split')`. This format is specified using a `Content-Type`
-    request header value of `application/json; pandasformat=split`. **In the next release of MLflow,
-    this format will also be specified using the `application/json` content type.**
-
-    - JSON-serialized Pandas DataFrames in the `records` orientation. **THIS FORMAT IS DEPRECATED.
-    It is not guaranteed to preserve column ordering.** Currently, this format is specified
-    using a `Content-Type` request header value of `application/json; pandasformat=records` or
-    `application/json`. However, **in the next release of MLflow, `application/json` will refer to
-    the `split` format instead. For forwards compatibility, we recommend using the `split` format
-    or specifying the `application/json; pandasformat=records` content type.**
-
-    - CSV-serialized Pandas DataFrames. For example, `data = pandas_df.to_csv()`. This format is
-    specified using a `Content-Type` request header value of `text/csv`.
-
-    For more information about serializing Pandas DataFrames, see
-    https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html
+    For more information about the input data formats accepted by the deployed REST API endpoint, 
+    see the following documentation: 
+    https://www.mlflow.org/docs/latest/models.html#sagemaker-deployment.
     """
     if vpc_config is not None:
         with open(vpc_config, "r") as f:
