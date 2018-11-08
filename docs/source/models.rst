@@ -444,7 +444,8 @@ container for all MLflow models. Model webservers deployed using the :py:mod:`ml
 module will accept the following data formats as input, depending on the deployment flavor:
 
   * `mlflow.pyfunc.FLAVOR_NAME`: For this deployment flavor, The endpoint accepts the same formats
-    as the pyfunc server. These formats are described :ref:`in the pyfunc deployment documentation <pyfunc_deployment>`.
+    as the pyfunc server. These formats are described in the
+    :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
 
   * `mlflow.mleap.FLAVOR_NAME`: For this deployment flavor, the endpoint ONLY accepts
     JSON-serialized Pandas DataFrames in the `split` orientation. For example,
