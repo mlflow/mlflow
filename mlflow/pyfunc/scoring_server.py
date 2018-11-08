@@ -97,6 +97,19 @@ def init(model):
     """
     app = flask.Flask(__name__)
 
+    eprint("**IMPORTANT UPDATE**: In the next release of MLflow, requests received"
+           " with a `Content-Type` header value of `{json_content_type}` will be interpreted as" 
+           " JSON-serialized Pandas DataFrames with the `split` orientation, instead of the"
+           " `records` orientation. Client code should be updated to either send serialized" 
+           " DataFrames with the `split` orientation and the `{split_json_content_type}` content"
+           " type (recommended) or use the `{records_json_content_type}` content type with the" 
+           " `records` orientation. The `records` orientation is unsafe because it may not preserve"
+           " column ordering. For more information, see"
+           " https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.\n".format(
+               json_content_type=CONTENT_TYPE_JSON,
+               split_json_content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+               records_json_content_type=CONTENT_TYPE_JSON_RECORDS_ORIENTED))
+
     @app.route('/ping', methods=['GET'])
     def ping():  # pylint: disable=unused-variable
         """
@@ -120,17 +133,7 @@ def init(model):
             data = flask.request.data.decode('utf-8')
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type == CONTENT_TYPE_JSON:
-            eprint("The Pandas `records` orientation is not recommend for use in MLflow. The"
-                   " {json_content_type} content type will interpret inputs using the Pandas"
-                   " `split` orientation in the next release of MLflow. In order to continue"
-                   " using the `records` orientation, please specify the"
-                   " {records_json_content_type} header instead.".format(
-                       json_content_type=CONTENT_TYPE_JSON,
-                       records_json_content_type=CONTENT_TYPE_JSON_RECORDS_ORIENTED))
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orientation="records")
-        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
+        elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_RECORDS_ORIENTED]:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orientation="records")
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
