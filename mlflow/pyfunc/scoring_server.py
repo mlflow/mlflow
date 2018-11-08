@@ -57,7 +57,7 @@ def parse_json_input(json_input, orientation="split"):
         return pd.read_json(json_input, orient=orientation)
     except Exception as e:
         _handle_serving_error(
-                error_text=(
+                error_message=(
                     "Failed to parse input as a Pandas DataFrame. Please ensure that the input is"
                     " a valid JSON-formatted Pandas DataFrame with the `{orientation}` orientation"
                     " produced using the `pandas.DataFrame.to_json(..., orient='{orientation}')`"
@@ -74,21 +74,30 @@ def parse_csv_input(csv_input):
         return pd.read_csv(csv_input)
     except Exception as e:
         _handle_serving_error(
-                error_text=(
+                error_message=(
                     "Failed to parse input as a Pandas DataFrame. Please ensure that the input is"
                     " a valid CSV-formatted Pandas DataFrame produced using the"
                     " `pandas.DataFrame.to_csv()` method."),
                 error_code=MALFORMED_REQUEST)
 
 
-def _handle_serving_error(error_text, error_code):
+def _handle_serving_error(error_message, error_code):
+    """
+    Logs information about an exception thrown by model inference code that is currently being
+    handled and reraises it with the specified error message. The exception stack trace
+    is also included in the reraised error message.
+
+    :param error_message: A message for the reraised exception.
+    :param error_code: An appropriate error code for the reraised exception. This should be one of
+                       the codes listed in the `mlflow.protos.databricks_pb2` proto.
+    """
     traceback_buf = StringIO()
     traceback.print_exc(file=traceback_buf)
     reraise(MlflowException,
             MlflowException(
-                message="{error_text}. Original exception trace: {tb}".format(
-                    error_text=error_text, tb=traceback_buf.getvalue()),
-                error_code=error_code))
+                message=error_message,
+                error_code=error_code,
+                stack_trace=traceback_buf.getvalue()))
 
 
 def init(model):
@@ -153,7 +162,7 @@ def init(model):
             raw_predictions = model.predict(data)
         except Exception as e:
             _handle_serving_error(
-                    error_text=(
+                    error_message=(
                         "Encountered an unexpected error while evaluating the model. Please verify"
                         " that the serialized input Dataframe is compatible with the model for"
                         " inference."),

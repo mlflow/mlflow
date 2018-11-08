@@ -46,7 +46,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
     assert "message" in response_json
-    assert "Original exception trace" in response_json["message"]
+    assert "stack_trace" in response_json
 
 
 def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_error_code(
@@ -62,7 +62,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
     assert "message" in response_json
-    assert "Original exception trace" in response_json["message"]
+    assert "stack_trace" in response_json
 
 
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
@@ -78,10 +78,9 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
     assert "error_code" in response_json
-    print(response_json)
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
     assert "message" in response_json
-    assert "Original exception trace" in response_json["message"]
+    assert "stack_trace" in response_json
 
 
 def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stacktrace_and_error_code(
@@ -97,10 +96,10 @@ def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stackt
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
     assert "message" in response_json
-    assert "Original exception trace" in response_json["message"]
+    assert "stack_trace" in response_json
 
 
-def test_scoring_server_responds_to_invalid_csv_input_with_mlflow_exception_text(
+def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
@@ -109,12 +108,12 @@ def test_scoring_server_responds_to_invalid_csv_input_with_mlflow_exception_text
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=incorrect_csv_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV)
     response_json = json.loads(response.content)
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
     assert "message" in response_json
-    assert "Original exception trace" in response_json["message"]
+    assert "stack_trace" in response_json
 
 
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_records_orientation(
