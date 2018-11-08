@@ -109,7 +109,6 @@ def init(model):
     """
     app = flask.Flask(__name__)
 
-
     @app.route('/ping', methods=['GET'])
     def ping():  # pylint: disable=unused-variable
         """
@@ -137,11 +136,11 @@ def init(model):
             global logged_pandas_records_format_warning
             if not logged_pandas_records_format_warning:
                 eprint("**IMPORTANT UPDATE**: Starting in MLflow 0.9.0, requests received with a"
-                       " `Content-Type` header value of `{json_content_type}` will be interpreted as"
-                       " JSON-serialized Pandas DataFrames with the `split` orientation, instead of"
-                       " the `records` orientation. The `records` orientation is unsafe because it"
-                       " may not preserve column ordering. Client code should be updated to either"
-                       " send serialized DataFrames with the `split` orientation and the"
+                       " `Content-Type` header value of `{json_content_type}` will be interpreted"
+                       " as JSON-serialized Pandas DataFrames with the `split` orientation, instead"
+                       " of the `records` orientation. The `records` orientation is unsafe because"
+                       " it may not preserve column ordering. Client code should be updated to"
+                       " either send serialized DataFrames with the `split` orientation and the"
                        " `{split_json_content_type}` content type (recommended) or use the"
                        " `{records_json_content_type}` content type with the `records` orientation."
                        " For more information, see"

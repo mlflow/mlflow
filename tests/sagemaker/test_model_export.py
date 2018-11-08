@@ -4,6 +4,7 @@ import os
 import pickle
 import tempfile
 import unittest
+import json
 
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
@@ -49,14 +50,13 @@ class TestModelExport(unittest.TestCase):
                 pyfunc.save_model(input_path, loader_module="mlflow.sklearn",
                                   data_path=model_pkl,
                                   conda_env=_mlflow_conda_env(tmp.path(conda_env)))
-                xpred = score_model_in_sagemaker_docker_container(
+                scoring_response = score_model_in_sagemaker_docker_container(
                         model_path=input_path,
                         data=self._iris_df,
                         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
                         flavor=pyfunc.FLAVOR_NAME)
-                print('expected', self._linear_lr_predict)
-                print('actual  ', xpred)
-                np.testing.assert_array_equal(self._linear_lr_predict, xpred)
+                np.testing.assert_array_equal(
+                        self._linear_lr_predict, np.array(json.loads(scoring_response.content)))
         finally:
             if path_to_remove:
                 try:
