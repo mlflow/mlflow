@@ -23,7 +23,7 @@ import sklearn
 
 from mlflow.utils import cli_args
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.flavor_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
