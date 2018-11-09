@@ -42,6 +42,7 @@ Bug fixes and documentation updates:
 - [Python] Support for TensorFlow 1.12 (#692, @smurching)
 - [R] Explicitly loading Keras module at predict time no longer required (#586, @kevinykuo)
 - [R] pyfunc serve can correctly load models saved with the R Keras support (#634, @tomasatdatabricks)
+- [R] Increase network timeout of calls to the RestStore from 1 second to 60 seconds (#704, @aarondav)
 - [Server] Improve errors returned by RestStore (#582, @andrewmchen; #560, @smurching)
 - [Server] Deleting the default experiment no longer causes it to be immediately recreated (#604, @andrewmchen; #641, @schipiga)
 - [Server] Azure Blob Storage artifact repo supports Windows paths (#642, @marcusrehm)
