@@ -15,7 +15,7 @@ def test_mlflow_conda_env_returns_none_when_output_path_is_specified(conda_env_p
             additional_conda_deps=["conda-dep-1=0.0.1", "conda-dep-2"],
             additional_pip_deps=["pip-dep-1", "pip-dep2==0.1.0"])
 
-    assert env_creation_output == None
+    assert env_creation_output is None
 
 
 def test_mlflow_conda_env_returns_expected_env_dict_when_output_path_is_not_specified():
