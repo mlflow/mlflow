@@ -55,17 +55,37 @@ public class MLeapPredictor extends Predictor {
   @Override
   protected PredictorDataWrapper predict(PredictorDataWrapper input)
       throws PredictorEvaluationException {
-    PandasRecordOrientedDataFrame pandasFrame = null;
+    PandasSplitOrientedDataFrame pandasFrame = null;
     try {
-      pandasFrame = PandasRecordOrientedDataFrame.fromJson(input.toJson());
+      pandasFrame = PandasSplitOrientedDataFrame.fromJson(input.toJson());
     } catch (IOException e) {
       logger.error(
-          "Encountered a JSON conversion error during conversion of Pandas dataframe to LeapFrame.",
+          "Encountered a JSON parsing error during conversion of input to a Pandas DataFrame"
+              + " representation.",
           e);
       throw new PredictorEvaluationException(
-          "Failed to transform input into a JSON representation of an MLeap dataframe."
-              + " Please ensure that the input is a JSON-serialized Pandas Dataframe"
-              + " with the `record` orientation.",
+          "Encountered a JSON parsing error while transforming input into a Pandas DataFrame"
+              + " representation. Ensure that the input is a JSON-serialized Pandas DataFrame"
+              + " with the `split` orientation.",
+          e);
+    } catch (InvalidSchemaException e) {
+      logger.error(
+          "Encountered a schema mismatch while transforming input into a Pandas DataFrame"
+              + " representation.",
+          e);
+      throw new PredictorEvaluationException(
+          "Encountered a schema mismatch while transforming input into a Pandas DataFrame"
+              + " representation. Ensure that the input is a JSON-serialized Pandas DataFrame"
+              + " with the `split` orientation.",
+          e);
+    } catch (IllegalArgumentException e) {
+      logger.error(
+          "Failed to transform input into a Pandas DataFrame because the parsed frame is invalid.",
+          e);
+      throw new PredictorEvaluationException(
+          "Failed to transform input into a Pandas DataFrame because the parsed frame is invalid."
+              + " Ensure that the input is a JSON-serialized Pandas DataFrame with the `split`"
+              + " orientation.",
           e);
     }
 

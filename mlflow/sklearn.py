@@ -11,17 +11,12 @@ Python (native) `pickle <http://scikit-learn.org/stable/modules/model_persistenc
 
 from __future__ import absolute_import
 
-import json
 import os
 import pickle
 import shutil
 
-import click
-import flask
-import pandas
 import sklearn
 
-from mlflow.utils import cli_args
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -54,6 +49,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                                  format, `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`, provides
                                  better cross-system compatibility by identifying and packaging
                                  code dependencies with the serialized model.
+
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
     >>> from sklearn import tree
@@ -195,45 +191,3 @@ def load_model(path, run_id=None):
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     return _load_model_from_local_file(path)
-
-
-@click.group("sklearn")
-def commands():
-    """
-    Serve scikit-learn models locally.
-
-    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
-    environment variable to the URL of the desired server.
-    """
-    pass
-
-
-@commands.command("serve")
-@cli_args.MODEL_PATH
-@click.option("--run_id", "-r", metavar="RUN_ID", help="Run ID to look for the model in.")
-@click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-@click.option("--host", default="127.0.0.1",
-              help="The networking interface on which the prediction server listens. Defaults to "
-                   "127.0.0.1.  Use 0.0.0.0 to bind to all addresses, which is useful for running "
-                   "inside of docker.")
-def serve_model(model_path, run_id=None, port=None, host="127.0.0.1"):
-    """
-    Serve a scikit-learn model saved with MLflow.
-
-    If ``run_id`` is specified, ``model_path`` is treated as an artifact path within that run;
-    otherwise it is treated as a local path.
-    """
-    model = load_model(run_id=run_id, path=model_path)
-    app = flask.Flask(__name__)
-
-    @app.route('/invocations', methods=['POST'])
-    def predict():  # pylint: disable=unused-variable
-        if flask.request.content_type != 'application/json':
-            return flask.Response(status=415, response='JSON data expected', mimetype='text/plain')
-        data = flask.request.data.decode('utf-8')
-        records = pandas.read_json(data, orient="records")
-        predictions = model.predict(records)
-        result = json.dumps({"predictions": predictions.tolist()})
-        return flask.Response(status=200, response=result + "\n", mimetype='application/json')
-
-    app.run(host, port=port)

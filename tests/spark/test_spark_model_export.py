@@ -1,6 +1,7 @@
 import os
 
 import json
+import numpy as np
 import pandas as pd
 import pyspark
 from pyspark.ml.classification import LogisticRegression
@@ -17,15 +18,15 @@ import shutil
 from collections import namedtuple
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
-
 from mlflow.utils.environment import _mlflow_conda_env
-from tests.helper_functions import score_model_in_sagemaker_docker_container
 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 
 
@@ -148,15 +149,25 @@ def test_model_deployment(spark_model_iris, model_path, spark_conda_env):
                       sample_input=spark_model_iris.spark_df)
 
     # 1. score and compare pyfunc deployed in Sagemaker docker container
-    preds1 = score_model_in_sagemaker_docker_container(model_path=model_path,
-                                                       data=spark_model_iris.pandas_df,
-                                                       flavor=mlflow.pyfunc.FLAVOR_NAME)
-    assert spark_model_iris.predictions == preds1
+    scoring_response_1 = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    np.testing.assert_array_almost_equal(
+            spark_model_iris.predictions,
+            np.array(json.loads(scoring_response_1.content)),
+            decimal=4)
     # 2. score and compare mleap deployed in Sagemaker docker container
-    preds2 = score_model_in_sagemaker_docker_container(model_path=model_path,
-                                                       data=spark_model_iris.pandas_df,
-                                                       flavor=mlflow.mleap.FLAVOR_NAME)
-    assert spark_model_iris.predictions == preds2
+    scoring_response_2 = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df.to_json(orient="split"),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            flavor=mlflow.mleap.FLAVOR_NAME)
+    np.testing.assert_array_almost_equal(
+            spark_model_iris.predictions,
+            np.array(json.loads(scoring_response_2.content)),
+            decimal=4)
 
 
 def test_sparkml_model_log(tmpdir, spark_model_iris):
