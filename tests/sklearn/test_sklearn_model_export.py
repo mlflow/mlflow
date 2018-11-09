@@ -246,20 +246,3 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == yaml.safe_load(mlflow.sklearn.DEFAULT_CONDA_ENV)
-
-
-@pytest.mark.release
-def test_model_deployment_with_default_conda_env(sklearn_knn_model, model_path):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(path=model_path)
-
-    inference_df = pd.DataFrame(sklearn_knn_model.inference_data)
-    deployed_model_preds = score_model_in_sagemaker_docker_container(
-            model_path=model_path, 
-            data=inference_df,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
-    pandas.testing.assert_frame_equal(
-        pd.DataFrame(deployed_model_preds),
-        pd.DataFrame(reloaded_knn_pyfunc.predict(inference_df)),
-        check_dtype=False,
-        check_less_precise=6)
