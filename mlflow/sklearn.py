@@ -11,17 +11,12 @@ Python (native) `pickle <http://scikit-learn.org/stable/modules/model_persistenc
 
 from __future__ import absolute_import
 
-import json
 import os
 import pickle
 import shutil
 
-import click
-import flask
-import pandas
 import sklearn
 
-from mlflow.utils import cli_args
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
