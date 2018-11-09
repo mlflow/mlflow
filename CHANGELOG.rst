@@ -9,11 +9,11 @@ MLflow 0.8.0 introduces several major features:
 - Dramatically improved UI for comparing experiment run results:
 
   - Metrics and parameters are by default grouped into a single column, to avoid an explosion of mostly-empty columns. Individual metrics and parameters can be moved into their own column to help compare across rows.
-  - Runs which are "nested" inside other runs (e.g., as part of a hyperparameter search or multistep workflow) now show up grouped by their parent run, and can be expanded or collapsed altogether.
-  - Run names (as opposed to automatically generated run UUIDs) now show up instead of the run id, making comparing runs in graphs easier.
+  - Runs which are "nested" inside other runs (e.g., as part of a hyperparameter search or multistep workflow) now show up grouped by their parent run, and can be expanded or collapsed altogether. Runs can be nested by calling ``mlflow.start_run`` or ``mlflow.run`` while already within a run.
+  - Run names (as opposed to automatically generated run UUIDs) now show up instead of the run ID, making comparing runs in graphs easier.
   - The state of the run results table, including filters, sorting, and expanded rows, is persisted in browser local storage, making it easier to go back and forth between an individual run view and the table.
 
-- Support for deploying models as Docker containers directly to Azure Machine Learning Studio Workspace. This joins our SageMaker support to make it easy to deploy models saved using MLflow to the cloud.
+- Support for deploying models as Docker containers directly to Azure Machine Learning Service Workspace (as opposed to the previously-recommended solution of Azure ML Workbench).
 
 
 Breaking changes:
@@ -23,12 +23,12 @@ Breaking changes:
 
 Features:
 
+- [Scoring] pyfunc server and SageMaker now support the pandas "split" JSON format in addition to the "records" format. The split format allows the client to specify the order of columns, which is necessary for some model formats. We recommend switching client code over to use this new format (by sending the Content-Type header `application/json; format=pandas-split`), as it will become the default JSON format in MLflow 0.9.0. (#690, @dbczumar)
 - [UI] Add compact experiment view (#546, #620, #662, #665, @smurching)
 - [UI] Add support for viewing & tracking nested runs in experiment view (#588, @andrewmchen; #618, #619, @aarondav)
 - [UI] Persist experiments view filters and sorting in browser local storage (#687, @smurching)
-- [UI] Show run name instead of run id when present (#476, @smurching)
-- [Scoring] Support for deploying Models directly to Azure Machine Learning Studio Workspace (#631, @dbczumar)
-- [Scoring] pyfunc server and SageMaker now support the pandas "split" JSON format in addition to the "records" format. The split format allows the client to specify the order of columns, which is necessary for some model formats. We recommend switching client code over to use this new format (by sending the Content-Type header `application/json; format=pandas-split`), as it will become the default JSON format in MLflow 0.9.0. (#690, @dbczumar)
+- [UI] Show run name instead of run ID when present (#476, @smurching)
+- [Scoring] Support for deploying Models directly to Azure Machine Learning Service Workspace (#631, @dbczumar)
 - [Server/Python/Java] Add rename_experiment to Tracking API (#570, @aarondav)
 - [Server] Add get_experiment_by_name to RestStore (#592, @dmarkhas)
 - [Server] Allow passing gunicorn options when starting mlflow server (#626, @mparkhe)
