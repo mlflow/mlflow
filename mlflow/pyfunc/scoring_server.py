@@ -12,7 +12,6 @@ Defines two endpoints:
 """
 from __future__ import print_function
 
-import sys
 import json
 import traceback
 
@@ -53,9 +52,10 @@ def parse_json_input(json_input, orientation="split"):
     :param orientation: The Pandas DataFrame orientation of the JSON input. This is either 'split'
                         or 'records'.
     """
+    # pylint: disable=broad-except
     try:
         return pd.read_json(json_input, orient=orientation)
-    except Exception as e:
+    except Exception:
         _handle_serving_error(
                 error_message=(
                     "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
@@ -70,9 +70,10 @@ def parse_csv_input(csv_input):
     :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
                       containing such a string representation.
     """
+    # pylint: disable=broad-except
     try:
         return pd.read_csv(csv_input)
-    except Exception as e:
+    except Exception:
         _handle_serving_error(
                 error_message=(
                     "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
@@ -168,9 +169,10 @@ def init(model):
                     mimetype='text/plain')
 
         # Do the prediction
+        # pylint: disable=broad-except
         try:
             raw_predictions = model.predict(data)
-        except Exception as e:
+        except Exception:
             _handle_serving_error(
                     error_message=(
                         "Encountered an unexpected error while evaluating the model. Verify"
