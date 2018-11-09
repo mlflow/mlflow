@@ -21,7 +21,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "keras"
 
@@ -168,5 +168,5 @@ def load_model(path, run_id=None):
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     # Flavor configurations for models saved in MLflow version <= 0.7.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h5`
-    keras_model_artifacts_path = os.path.join(path, flavor_conf.get("data", "model.h5")) 
+    keras_model_artifacts_path = os.path.join(path, flavor_conf.get("data", "model.h5"))
     return _load_model(model_file=keras_model_artifacts_path)

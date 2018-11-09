@@ -15,12 +15,12 @@ import mlflow
 import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.models import Model 
+from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.flavor_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
-from tests.helper_functions import score_model_in_sagemaker_docker_container 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
@@ -116,13 +116,13 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != keras_custom_env 
+    assert saved_conda_env_path != keras_custom_env
 
     with open(keras_custom_env, "r") as f:
         keras_custom_env_parsed = yaml.safe_load(f)
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == keras_custom_env_parsed 
+    assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
@@ -136,13 +136,13 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != keras_custom_env 
+    assert saved_conda_env_path != keras_custom_env
 
     with open(keras_custom_env, "r") as f:
         keras_custom_env_parsed = yaml.safe_load(f)
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == keras_custom_env_parsed 
+    assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
