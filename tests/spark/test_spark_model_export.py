@@ -24,10 +24,9 @@ from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
-
 from mlflow.utils.environment import _mlflow_conda_env
-from tests.helper_functions import score_model_in_sagemaker_docker_container
 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 
 
@@ -162,8 +161,8 @@ def test_model_deployment(spark_model_iris, model_path, spark_conda_env):
     # 2. score and compare mleap deployed in Sagemaker docker container
     scoring_response_2 = score_model_in_sagemaker_docker_container(
             model_path=model_path,
-            data=spark_model_iris.pandas_df,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            data=spark_model_iris.pandas_df.to_json(orient="split"),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             flavor=mlflow.mleap.FLAVOR_NAME)
     np.testing.assert_array_almost_equal(
             spark_model_iris.predictions,
