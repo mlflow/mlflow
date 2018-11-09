@@ -9,7 +9,6 @@ from click import UsageError
 
 import mlflow.azureml.cli
 import mlflow.projects as projects
-import mlflow.sklearn
 import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
@@ -204,7 +203,6 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
         sys.exit(1)
 
 
-cli.add_command(mlflow.sklearn.commands)
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.rfunc.cli.commands)

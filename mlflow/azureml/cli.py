@@ -51,6 +51,10 @@ def build_image(model_path, workspace_name, subscription_id, run_id, image_name,
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
+
+    The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
+    For information about the input data formats accepted by this webserver, see the following
+    documentation: https://www.mlflow.org/docs/latest/models.html#azureml-deployment.
     """
     # The Azure ML SDK is only compatible with Python 3. However, this CLI should still be
     # accessible for inspection rom Python 2. Therefore, we will only import from the SDK
