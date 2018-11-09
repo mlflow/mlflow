@@ -14,6 +14,7 @@ from __future__ import absolute_import
 import os
 import pickle
 import shutil
+import yaml
 
 import sklearn
 
@@ -102,7 +103,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
         shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
     else:
         with open(os.path.join(path, conda_env_subpath), "w") as f:
-            f.write(DEFAULT_CONDA_ENV)
+            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data=model_data_subpath,
                         env=conda_env_subpath)

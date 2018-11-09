@@ -47,9 +47,10 @@ class TestModelExport(unittest.TestCase):
                     pickle.dump(self._linear_lr, f)
                 input_path = tmp.path("input_model")
                 conda_env = "conda.env"
+                _mlflow_conda_env(path=tmp.path(conda_env))
                 pyfunc.save_model(input_path, loader_module="mlflow.sklearn",
                                   data_path=model_pkl,
-                                  conda_env=_mlflow_conda_env(tmp.path(conda_env)))
+                                  conda_env=conda_env)
                 scoring_response = score_model_in_sagemaker_docker_container(
                         model_path=input_path,
                         data=self._iris_df,
