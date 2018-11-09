@@ -20,7 +20,6 @@ from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
-from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
