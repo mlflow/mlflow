@@ -59,5 +59,3 @@ def test_get_flavor_configuration_with_present_flavor_returns_expected_configura
             model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
     model_config = Model.load(os.path.join(model_path, "MLmodel"))
     assert sklearn_flavor_config == model_config.flavors[mlflow.sklearn.FLAVOR_NAME]
-
-
