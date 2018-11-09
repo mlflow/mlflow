@@ -39,9 +39,3 @@ def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps
             f.write(env_text)
 
     return env_text
-
-
-def _get_base_env():
-    base_env = yaml.load(_conda_header)
-    base_env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
-    return base_env
