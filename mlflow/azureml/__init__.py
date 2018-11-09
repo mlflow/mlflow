@@ -31,6 +31,10 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
 
+    The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
+    For information about the input data formats accepted by this webserver, see the
+    :ref:`MLflow deployment tools documentation <azureml_deployment>`.
+
     :param model_path: The path to MLflow model for which the image will be built. If a run id
                        is specified, this is should be a run-relative path. Otherwise, it
                        should be a local path.
@@ -307,6 +311,7 @@ import pandas as pd
 
 from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
+from mlflow.pyfunc.scoring_server import parse_json_input
 from mlflow.utils import get_jsonable_obj
 
 
@@ -316,8 +321,8 @@ def init():
     model = load_pyfunc(model_path)
 
 
-def run(s):
-    input_df = pd.read_json(s, orient="records")
+def run(json_input):
+    input_df = parse_json_input(json_input=json_input, orientation="split")
     return get_jsonable_obj(model.predict(input_df))
 
 """
