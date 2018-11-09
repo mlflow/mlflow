@@ -23,6 +23,7 @@ from __future__ import absolute_import
 
 import os
 import shutil
+import yaml
 
 import pyspark
 from pyspark import SparkContext
@@ -224,7 +225,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
         shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
     else:
         with open(os.path.join(path, conda_env_subpath), "w") as f:
-            f.write(DEFAULT_CONDA_ENV)
+            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
 
     mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version,
                             model_data=sparkml_data_path_sub)
