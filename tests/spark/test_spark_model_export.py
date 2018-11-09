@@ -1,6 +1,7 @@
 import os
 
 import json
+import numpy as np
 import pandas as pd
 import pyspark
 from pyspark.ml.classification import LogisticRegression
@@ -18,6 +19,7 @@ from collections import namedtuple
 import yaml
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
@@ -171,16 +173,6 @@ def test_model_deployment(spark_model_iris, model_path, spark_conda_env):
             spark_model_iris.predictions,
             np.array(json.loads(scoring_response_2.content)),
             decimal=4)
-
-
-@pytest.mark.release
-def test_model_deployment_with_default_conda_env(spark_model_iris, model_path):
-    sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
-
-    deployed_model_preds = score_model_in_sagemaker_docker_container(
-            model_path=model_path, data=spark_model_iris.pandas_df,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
-    assert deployed_model_preds == spark_model_iris.predictions 
 
 
 def test_sparkml_model_log(tmpdir, spark_model_iris):
