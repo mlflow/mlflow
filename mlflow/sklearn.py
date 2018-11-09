@@ -51,10 +51,10 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+    :param conda_env: Path to a conda environment file. if provided, this decribes the environment
+                      this model should be run in. at minimum, it should specify the dependencies
+                      contained in ``mlflow.sklearn.default_conda_env``. if `none`, the default
+                      ``mlflow.sklearn.default_conda_env`` environment will be added to the model.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
