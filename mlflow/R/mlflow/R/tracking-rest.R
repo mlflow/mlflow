@@ -27,7 +27,7 @@ mlflow_rest_headers <- function() {
 
 #' @importFrom httr timeout
 mlflow_rest_timeout <- function() {
-  timeout(getOption("mlflow.rest.timeout", 1))
+  timeout(getOption("mlflow.rest.timeout", 60))
 }
 
 #' @importFrom httr content
