@@ -35,7 +35,7 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
         "tensorflow",
     ],
     additional_pip_deps=None,
-    additional_conda_channels=None
+    additional_conda_channels=None,
 )
 
 

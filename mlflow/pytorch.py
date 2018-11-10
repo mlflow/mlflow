@@ -30,10 +30,12 @@ FLAVOR_NAME = "pytorch"
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_conda_deps=[
         "pytorch={}".format(torch.__version__),
-        "torchvision={}".format(torchvision.__version__)
+        "torchvision={}".format(torchvision.__version__),
     ],
     additional_pip_deps=None,
-    additional_conda_channels=["pytorch"],
+    additional_conda_channels=[
+        "pytorch",
+    ],
 )
 
 
