@@ -1,11 +1,11 @@
 import os
 import random
-
 import re
 import requests
 import string
-from subprocess import Popen, PIPE, STDOUT
 import time
+import signal
+from subprocess import Popen, PIPE, STDOUT
 
 import pandas as pd
 
@@ -59,7 +59,11 @@ def pyfunc_serve_and_score_model(model_path, data, content_type):
                  stdout=PIPE,
                  stderr=STDOUT,
                  universal_newlines=True,
-                 env=env)
+                 env=env,
+                 # Assign the scoring process to a process group. All child processes of the
+                 # scoring process will be assigned to this group as well. This allows child
+                 # processes of the scoring process to be terminated successfully
+                 preexec_fn=os.setsid)
     for x in iter(proc.stdout.readline, ""):
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
@@ -104,7 +108,10 @@ def _score_proc(proc, port, data, content_type):
         return response
     finally:
         if proc.poll() is None:
-            proc.terminate()
+            # Terminate the process group containing the scoring process.
+            # This will terminate all child processes of the scoring process
+            pgrp = os.getpgid(proc.pid)
+            os.killpg(pgrp, signal.SIGTERM)
         print("captured output of the scoring process")
         print("-------------------------STDOUT------------------------------")
         print(proc.stdout.read())
