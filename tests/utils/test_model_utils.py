@@ -2,7 +2,6 @@ import os
 
 import pytest
 import sklearn.datasets as datasets
-import sklearn.linear_model as glm
 import sklearn.neighbors as knn
 
 import mlflow.sklearn
@@ -43,6 +42,7 @@ def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_miss
     # The saved model contains the "sklearn" flavor, so this call should succeed
     sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
+    assert sklearn_flavor_config is not None
 
     # The saved model does not contain the "mleap" flavor, so this call should fail
     with pytest.raises(MlflowException) as exc:
