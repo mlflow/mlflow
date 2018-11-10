@@ -27,7 +27,7 @@ from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.flavor_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
