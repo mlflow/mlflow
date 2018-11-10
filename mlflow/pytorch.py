@@ -22,8 +22,8 @@ import torchvision
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
-from mlflow.utils.environment import _mlflow_conda_env 
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "pytorch"
 
@@ -154,7 +154,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
 
 def _load_model(path, **kwargs):
     """
-    :param path: The path to a serialized PyTorch model 
+    :param path: The path to a serialized PyTorch model
     """
     return torch.load(path, **kwargs)
 

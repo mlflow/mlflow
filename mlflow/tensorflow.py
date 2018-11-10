@@ -25,10 +25,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "tensorflow"
 
@@ -66,7 +66,7 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the 
+                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
                       model.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
@@ -100,7 +100,7 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the 
+                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
                       model.
     """
     eprint("Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
@@ -171,7 +171,7 @@ def load_model(path, tf_sess, run_id=None):
     if run_id is not None:
         path = _get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME) 
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     tf_saved_model_dir = os.path.join(path, flavor_conf['saved_model_dir'])
     return _load_model(tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess,
                        tf_meta_graph_tags=flavor_conf['meta_graph_tags'],

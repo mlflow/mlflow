@@ -20,7 +20,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "h2o"
 
@@ -61,7 +61,7 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
         settings = {}
     settings['full_file'] = h2o_save_location
     settings['model_file'] = model_file
-    settings['model_dir'] = model_data_path 
+    settings['model_dir'] = model_data_path
     with open(os.path.join(model_data_path, "h2o.yaml"), 'w') as settings_file:
         yaml.safe_dump(settings, stream=settings_file)
 

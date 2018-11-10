@@ -32,9 +32,9 @@ from pyspark.ml.pipeline import PipelineModel
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.environment import _mlflow_conda_env 
+from mlflow.utils.environment import _mlflow_conda_env
 
 FLAVOR_NAME = "spark"
 
@@ -219,7 +219,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     sparkml_data_path = os.path.abspath(os.path.join(path, sparkml_data_path_sub))
     _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     pyspark_version = pyspark.version.__version__
-    
+
     conda_env_subpath = "conda.yaml"
     if conda_env is not None:
         shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))

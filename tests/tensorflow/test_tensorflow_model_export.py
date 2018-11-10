@@ -323,13 +323,13 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != tf_custom_env 
+    assert saved_conda_env_path != tf_custom_env
 
     with open(tf_custom_env, "r") as f:
-        tf_custom_env_text = f.read() 
+        tf_custom_env_text = f.read()
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_text = f.read()
-    assert saved_conda_env_text == tf_custom_env_text 
+    assert saved_conda_env_text == tf_custom_env_text
 
 
 def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
@@ -347,10 +347,10 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != tf_custom_env 
+    assert saved_conda_env_path != tf_custom_env
 
     with open(tf_custom_env, "r") as f:
-        tf_custom_env_text = f.read() 
+        tf_custom_env_text = f.read()
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == tf_custom_env_text
@@ -427,7 +427,7 @@ def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path
             model_path=model_path, data=saved_tf_iris_model.inference_df,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     pandas.testing.assert_frame_equal(
-        pd.DataFrame(deployed_model_preds), 
+        pd.DataFrame(deployed_model_preds),
         saved_tf_iris_model.expected_results_df,
         check_dtype=False,
         check_less_precise=6)

@@ -208,8 +208,8 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
 
 def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         spark_model_iris, model_path, spark_custom_env):
-    sparkm.save_model(spark_model=spark_model_iris.model, 
-                      path=model_path, 
+    sparkm.save_model(spark_model=spark_model_iris.model,
+                      path=model_path,
                       conda_env=spark_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -221,7 +221,7 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
         spark_custom_env_parsed = yaml.safe_load(f)
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == spark_custom_env_parsed 
+    assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
 def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_directory(
@@ -229,7 +229,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
     artifact_path = "model"
     with mlflow.start_run():
         sparkm.log_model(
-                spark_model=spark_model_iris.model, 
+                spark_model=spark_model_iris.model,
                 artifact_path=artifact_path,
                 conda_env=spark_custom_env)
         run_id = mlflow.active_run().info.run_uuid
@@ -244,7 +244,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
         spark_custom_env_parsed = yaml.safe_load(f)
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == spark_custom_env_parsed 
+    assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
 def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
@@ -274,7 +274,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
         conda_env = yaml.safe_load(f)
 
     assert conda_env == sparkm.DEFAULT_CONDA_ENV
-    
+
 
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"

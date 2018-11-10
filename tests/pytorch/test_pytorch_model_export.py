@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
 from mlflow import tracking
-from mlflow.exceptions import MlflowException 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -179,17 +179,17 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_path != pytorch_custom_env
 
     with open(pytorch_custom_env, "r") as f:
-        pytorch_custom_env_text = f.read() 
+        pytorch_custom_env_text = f.read()
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_text = f.read()
-    assert saved_conda_env_text == pytorch_custom_env_text 
+    assert saved_conda_env_text == pytorch_custom_env_text
 
 
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, pytorch_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(pytorch_model=model, 
-                                 artifact_path=artifact_path, 
+        mlflow.pytorch.log_model(pytorch_model=model,
+                                 artifact_path=artifact_path,
                                  conda_env=pytorch_custom_env)
         run_id = mlflow.active_run().info.run_uuid
     model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
@@ -200,10 +200,10 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     assert saved_conda_env_path != pytorch_custom_env
 
     with open(pytorch_custom_env, "r") as f:
-        pytorch_custom_env_text = f.read() 
+        pytorch_custom_env_text = f.read()
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_text = f.read()
-    assert saved_conda_env_text == pytorch_custom_env_text 
+    assert saved_conda_env_text == pytorch_custom_env_text
 
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
@@ -222,7 +222,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(pytorch_model=model, 
+        mlflow.pytorch.log_model(pytorch_model=model,
                                  artifact_path=artifact_path,
                                  conda_env=None)
         run_id = mlflow.active_run().info.run_uuid
