@@ -1,6 +1,61 @@
 Changelog
 =========
 
+0.8.0 (2018-11-08)
+-----------------
+
+MLflow 0.8.0 introduces several major features:
+
+- Dramatically improved UI for comparing experiment run results:
+
+  - Metrics and parameters are by default grouped into a single column, to avoid an explosion of mostly-empty columns. Individual metrics and parameters can be moved into their own column to help compare across rows.
+  - Runs that are "nested" inside other runs (e.g., as part of a hyperparameter search or multistep workflow) now show up grouped by their parent run, and can be expanded or collapsed altogether. Runs can be nested by calling ``mlflow.start_run`` or ``mlflow.run`` while already within a run.
+  - Run names (as opposed to automatically generated run UUIDs) now show up instead of the run ID, making comparing runs in graphs easier.
+  - The state of the run results table, including filters, sorting, and expanded rows, is persisted in browser local storage, making it easier to go back and forth between an individual run view and the table.
+
+- Support for deploying models as Docker containers directly to Azure Machine Learning Service Workspace (as opposed to the previously-recommended solution of Azure ML Workbench).
+
+
+Breaking changes:
+
+- [CLI] ``mlflow sklearn serve`` has been removed in favor of ``mlflow pyfunc serve``, which takes the same arguments but works against any pyfunc model (#690, @dbczumar)
+
+
+Features:
+
+- [Scoring] pyfunc server and SageMaker now support the pandas "split" JSON format in addition to the "records" format. The split format allows the client to specify the order of columns, which is necessary for some model formats. We recommend switching client code over to use this new format (by sending the Content-Type header ``application/json; format=pandas-split``), as it will become the default JSON format in MLflow 0.9.0. (#690, @dbczumar)
+- [UI] Add compact experiment view (#546, #620, #662, #665, @smurching)
+- [UI] Add support for viewing & tracking nested runs in experiment view (#588, @andrewmchen; #618, #619, @aarondav)
+- [UI] Persist experiments view filters and sorting in browser local storage (#687, @smurching)
+- [UI] Show run name instead of run ID when present (#476, @smurching)
+- [Scoring] Support for deploying Models directly to Azure Machine Learning Service Workspace (#631, @dbczumar)
+- [Server/Python/Java] Add ``rename_experiment`` to Tracking API (#570, @aarondav)
+- [Server] Add ``get_experiment_by_name`` to RestStore (#592, @dmarkhas)
+- [Server] Allow passing gunicorn options when starting mlflow server (#626, @mparkhe)
+- [Python] Cloudpickle support for sklearn serialization (#653, @dbczumar)
+- [Artifacts] FTP artifactory store added (#287, @Shenggan)
+
+
+Bug fixes and documentation updates:
+
+- [Python] Update TensorFlow integration to match API provided by other flavors (#612, @dbczumar; #670, @mlaradji)
+- [Python] Support for TensorFlow 1.12 (#692, @smurching)
+- [R] Explicitly loading Keras module at predict time no longer required (#586, @kevinykuo)
+- [R] pyfunc serve can correctly load models saved with the R Keras support (#634, @tomasatdatabricks)
+- [R] Increase network timeout of calls to the RestStore from 1 second to 60 seconds (#704, @aarondav)
+- [Server] Improve errors returned by RestStore (#582, @andrewmchen; #560, @smurching)
+- [Server] Deleting the default experiment no longer causes it to be immediately recreated (#604, @andrewmchen; #641, @schipiga)
+- [Server] Azure Blob Storage artifact repo supports Windows paths (#642, @marcusrehm)
+- [Server] Improve behavior when environment and run files are corrupted (#632, #654, #661, @mparkhe)
+- [UI] Improve error page when viewing nonexistent runs or views (#600, @andrewmchen; #560, @andrewmchen)
+- [UI] UI no longer throws an error if all experiments are deleted (#605, @andrewmchen)
+- [Docs] Include diagram of workflow for multistep example (#581, @dennyglee)
+- [Docs] Add reference tags and R and Java APIs to tracking documentation (#514, @stbof)
+- [Docs/R] Use CRAN installation (#686, @javierluraschi)
+
+Small bug fixes and doc updates (#576, #594, @javierluraschi; #585, @kevinykuo; #593, #601, #611, #650, #669, #671, #679, @dbczumar; #607, @suzil; #583, #615, @andrewmchen; #622, #681, @aarondav; #625, @pogil; #589, @tomasatdatabricks; #529, #635, #684, @stbof; #657, @mvsusp; #682, @mateiz; #678, vfdev-5; #596, @yutannihilation; #663, @smurching)
+
+
 0.7.0 (2018-10-01)
 -----------------
 
