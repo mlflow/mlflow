@@ -80,7 +80,8 @@ def pytorch_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
             conda_env,
-            additional_conda_deps=mlflow.pytorch.CONDA_DEPENDENCIES)
+            additional_conda_deps=["pytorch", "torchvision", "pytest"],
+            additional_conda_channels=["pytorch"])
     return conda_env
 
 

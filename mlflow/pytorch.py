@@ -23,7 +23,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env 
-from mlflow.utils.flavor_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import _get_flavor_configuration 
 
 FLAVOR_NAME = "pytorch"
 
