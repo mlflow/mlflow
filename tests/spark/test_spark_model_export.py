@@ -257,7 +257,7 @@ def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_ex
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == yaml.safe_load(sparkm.DEFAULT_CONDA_ENV)
+    assert conda_env == sparkm.DEFAULT_CONDA_ENV
 
 
 def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
@@ -274,7 +274,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == yaml.safe_load(sparkm.DEFAULT_CONDA_ENV)
+    assert conda_env == sparkm.DEFAULT_CONDA_ENV
     
 
 def test_mleap_model_log(spark_model_iris):
