@@ -146,9 +146,9 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
 
 
 @pytest.mark.large
-def test_model_deployment(spark_model_iris, model_path, spark_conda_env):
+def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
-                      conda_env=spark_conda_env,
+                      conda_env=spark_custom_env,
                       # Test both spark ml and mleap
                       sample_input=spark_model_iris.spark_df)
 

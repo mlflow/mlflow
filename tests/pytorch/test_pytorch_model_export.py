@@ -216,7 +216,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
 
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
@@ -234,4 +234,4 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
