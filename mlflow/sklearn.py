@@ -33,7 +33,7 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
         "scikit-learn={}".format(sklearn.__version__),
     ],
     additional_pip_deps=None,
-    additional_conda_channels=None,
+    additional_conda_channels=None
 )
 
 SERIALIZATION_FORMAT_PICKLE = "pickle"
