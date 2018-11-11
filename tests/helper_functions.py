@@ -37,11 +37,10 @@ def score_model_in_sagemaker_docker_container(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
-                 stdout=PIPE,
-                 stderr=STDOUT,
-                 universal_newlines=True, env=env)
-    return _score_proc(proc, 5000, data, content_type)
+    proc = _start_scoring_proc(
+            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
+            env=env)
+    return _evaluate_scoring_proc(proc, 5000, data, content_type)
 
 
 def pyfunc_serve_and_score_model(model_path, data, content_type):
@@ -54,7 +53,19 @@ def pyfunc_serve_and_score_model(model_path, data, content_type):
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"]
+    proc = _start_scoring_proc(
+            cmd=['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"],
+            env=env)
+    for x in iter(proc.stdout.readline, ""):
+        print(x)
+        m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
+        if m:
+            return _evaluate_scoring_proc(proc, int(m.group(1)), data, content_type=content_type)
+
+    raise Exception("Failed to start server")
+
+
+def _start_scoring_proc(cmd, env):
     proc = Popen(cmd,
                  stdout=PIPE,
                  stderr=STDOUT,
@@ -64,16 +75,10 @@ def pyfunc_serve_and_score_model(model_path, data, content_type):
                  # scoring process will be assigned to this group as well. This allows child
                  # processes of the scoring process to be terminated successfully
                  preexec_fn=os.setsid)
-    for x in iter(proc.stdout.readline, ""):
-        print(x)
-        m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
-        if m:
-            return _score_proc(proc, int(m.group(1)), data, content_type=content_type)
-
-    raise Exception("Failed to start server")
+    return proc
 
 
-def _score_proc(proc, port, data, content_type):
+def _evaluate_scoring_proc(proc, port, data, content_type):
     try:
         for i in range(0, 50):
             assert proc.poll() is None, "scoring process died"
