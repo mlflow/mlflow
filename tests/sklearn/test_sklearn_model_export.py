@@ -4,9 +4,14 @@ import sys
 import os
 import pickle
 import pytest
+import json
+import yaml
 from collections import namedtuple
 
 import numpy as np
+import pandas as pd
+import pandas.testing
+import sklearn
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
@@ -14,14 +19,17 @@ from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.sklearn
+import mlflow.utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import _get_flavor_configuration
 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -62,6 +70,15 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
+@pytest.fixture
+def sklearn_custom_env(tmpdir):
+    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+    _mlflow_conda_env(
+            conda_env,
+            additional_conda_deps=["scikit-learn", "pytest"])
+    return conda_env
+
+
 def test_model_save_load(sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
 
@@ -89,7 +106,7 @@ def test_model_log(sklearn_logreg_model, model_path):
 
                 artifact_path = "linear"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_pip_deps=["sklearn"])
+                _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
 
                 mlflow.sklearn.log_model(
                         sk_model=sklearn_logreg_model.model,
@@ -148,14 +165,84 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
                 sklearn_custom_transformer_model.inference_data))
 
 
-def test_save_model_throws_exception_if_serialization_format_is_unrecognized(
+def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
+        sklearn_knn_model, model_path, sklearn_custom_env):
+    mlflow.sklearn.save_model(
+            sk_model=sklearn_knn_model.model, path=model_path, conda_env=sklearn_custom_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != sklearn_custom_env
+
+    with open(sklearn_custom_env, "r") as f:
+        sklearn_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == sklearn_custom_env_parsed
+
+
+def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
+        sklearn_knn_model, sklearn_custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model,
+                                 artifact_path=artifact_path,
+                                 conda_env=sklearn_custom_env)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != sklearn_custom_env
+
+    with open(sklearn_custom_env, "r") as f:
+        sklearn_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == sklearn_custom_env_parsed
+
+
+def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
         sklearn_knn_model, model_path):
     with pytest.raises(MlflowException) as exc:
         mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path,
                                   serialization_format="not a valid format")
+        assert exc.error_code == INVALID_PARAMETER_VALUE
 
     # The unsupported serialization format should have been detected prior to the execution of
     # any directory creation or state-mutating persistence logic that would prevent a second
     # serialization call with the same model path from succeeding
     assert not os.path.exists(model_path)
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
+
+
+def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        sklearn_knn_model, model_path):
+    knn_model = sklearn_knn_model.model
+    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, conda_env=None)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+
+
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        sklearn_knn_model):
+    artifact_path = "model"
+    knn_model = sklearn_knn_model.model
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=knn_model, artifact_path=artifact_path, conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
