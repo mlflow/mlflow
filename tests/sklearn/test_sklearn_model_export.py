@@ -249,7 +249,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 @pytest.mark.release
-def test_model_deployment_with_default_conda_env(sklearn_knn_model, model_path):
+def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
     reloaded_knn_pyfunc = pyfunc.load_pyfunc(path=model_path)
 

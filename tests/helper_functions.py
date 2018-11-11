@@ -26,7 +26,8 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
+        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME, 
+        activity_polling_timeout_seconds=500):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
@@ -34,6 +35,8 @@ def score_model_in_sagemaker_docker_container(
     :param content_type: The type of the data to send to the docker container for testing. This is
                          one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
     :param flavor: Model flavor to be deployed.
+    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before 
+                                             declaring the scoring process to have failed.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -78,9 +81,13 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type):
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+    """
+    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before 
+                                             declaring the scoring process to have failed.
+    """
     try:
-        for i in range(0, 50):
+        for i in range(0, int(activity_polling_timeout_seconds) / 5):
             assert proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException
