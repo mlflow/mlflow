@@ -5,9 +5,12 @@ import os
 import pickle
 import pytest
 import yaml
+import json
 from collections import namedtuple
 
 import numpy as np
+import pandas as pd
+import pandas.testing
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
@@ -16,6 +19,7 @@ from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.sklearn
 import mlflow.utils
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -242,3 +246,23 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+
+
+@pytest.mark.release
+def test_model_deployment_with_default_conda_env(sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
+    reloaded_knn_pyfunc = pyfunc.load_pyfunc(path=model_path)
+
+    inference_df = pd.DataFrame(sklearn_knn_model.inference_data)
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path, 
+            data=inference_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
+    pandas.testing.assert_frame_equal(
+        deployed_model_preds,
+        pd.DataFrame(reloaded_knn_pyfunc.predict(inference_df)),
+        check_dtype=False,
+        check_less_precise=6)
