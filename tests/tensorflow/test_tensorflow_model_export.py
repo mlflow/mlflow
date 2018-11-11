@@ -7,6 +7,7 @@ import os
 import shutil
 import pytest
 import yaml
+import json
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,7 @@ import tensorflow as tf
 
 import mlflow
 import mlflow.tensorflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
 from mlflow.tracking.utils import _get_model_log_dir
@@ -423,11 +425,15 @@ def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path
                                  path=model_path,
                                  conda_env=None)
 
-    deployed_model_preds = score_model_in_sagemaker_docker_container(
-            model_path=model_path, data=saved_tf_iris_model.inference_df,
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=saved_tf_iris_model.inference_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
     pandas.testing.assert_frame_equal(
-        pd.DataFrame(deployed_model_preds),
+        deployed_model_preds,
         saved_tf_iris_model.expected_results_df,
         check_dtype=False,
         check_less_precise=6)
