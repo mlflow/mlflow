@@ -114,8 +114,7 @@ def _load_model(model_file):
     # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead of
     # string to avoid issues.
     with h5py.File(os.path.abspath(model_file), "r") as model_file:
-        model = keras.models.load_model(model_file)
-    return model
+        return keras.models.load_model(model_file)
 
 
 class _KerasModelWrapper:

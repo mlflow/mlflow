@@ -175,7 +175,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
         model, model_path, data, predicted):
     """
-    This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.7.0
+    This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
