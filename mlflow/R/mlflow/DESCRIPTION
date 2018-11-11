@@ -1,7 +1,7 @@
 Package: mlflow
 Type: Package
 Title: Interface to 'MLflow'
-Version: 0.7.1
+Version: 0.8.1
 Authors@R: c(
   person("Matei", "Zaharia", email = "matei@databricks.com", role = c("aut", "cre")),
   person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("aut")),
@@ -42,7 +42,7 @@ Imports:
   pryr,
   rlang (>= 0.2.0)
 RoxygenNote: 6.1.0
-Suggests: 
+Suggests:
   covr,
   keras,
   lintr,
