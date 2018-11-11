@@ -156,7 +156,7 @@ def log_model(sk_model, artifact_path, conda_env=None,
 def _load_model_from_local_file(path):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system."""
     # TODO: we could validate the SciKit-Learn version here
-    with open(path) as f:
+    with open(path, "rb") as f:
         # Models serialized with Cloudpickle can be deserialized using Pickle; in fact,
         # Cloudpickle.load() is just a redefinition of pickle.load(). Therefore, we do
         # not need to check the serialization format of the model before deserializing.

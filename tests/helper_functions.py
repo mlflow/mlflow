@@ -1,11 +1,11 @@
 import os
 import random
-
 import re
 import requests
 import string
-from subprocess import Popen, PIPE, STDOUT
 import time
+import signal
+from subprocess import Popen, PIPE, STDOUT
 
 import pandas as pd
 
@@ -37,11 +37,10 @@ def score_model_in_sagemaker_docker_container(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    proc = Popen(['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
-                 stdout=PIPE,
-                 stderr=STDOUT,
-                 universal_newlines=True, env=env)
-    return _score_proc(proc, 5000, data, content_type)
+    proc = _start_scoring_proc(
+            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
+            env=env)
+    return _evaluate_scoring_proc(proc, 5000, data, content_type)
 
 
 def pyfunc_serve_and_score_model(model_path, data, content_type):
@@ -54,22 +53,32 @@ def pyfunc_serve_and_score_model(model_path, data, content_type):
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"]
-    proc = Popen(cmd,
-                 stdout=PIPE,
-                 stderr=STDOUT,
-                 universal_newlines=True,
-                 env=env)
+    proc = _start_scoring_proc(
+            cmd=['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"],
+            env=env)
     for x in iter(proc.stdout.readline, ""):
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
         if m:
-            return _score_proc(proc, int(m.group(1)), data, content_type=content_type)
+            return _evaluate_scoring_proc(proc, int(m.group(1)), data, content_type=content_type)
 
     raise Exception("Failed to start server")
 
 
-def _score_proc(proc, port, data, content_type):
+def _start_scoring_proc(cmd, env):
+    proc = Popen(cmd,
+                 stdout=PIPE,
+                 stderr=STDOUT,
+                 universal_newlines=True,
+                 env=env,
+                 # Assign the scoring process to a process group. All child processes of the
+                 # scoring process will be assigned to this group as well. This allows child
+                 # processes of the scoring process to be terminated successfully
+                 preexec_fn=os.setsid)
+    return proc
+
+
+def _evaluate_scoring_proc(proc, port, data, content_type):
     try:
         for i in range(0, 50):
             assert proc.poll() is None, "scoring process died"
@@ -104,7 +113,10 @@ def _score_proc(proc, port, data, content_type):
         return response
     finally:
         if proc.poll() is None:
-            proc.terminate()
+            # Terminate the process group containing the scoring process.
+            # This will terminate all child processes of the scoring process
+            pgrp = os.getpgid(proc.pid)
+            os.killpg(pgrp, signal.SIGTERM)
         print("captured output of the scoring process")
         print("-------------------------STDOUT------------------------------")
         print(proc.stdout.read())
