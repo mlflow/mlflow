@@ -42,7 +42,7 @@ Imports:
   pryr,
   rlang (>= 0.2.0)
 RoxygenNote: 6.1.0
-Suggests:
+Suggests: 
   covr,
   keras,
   lintr,
