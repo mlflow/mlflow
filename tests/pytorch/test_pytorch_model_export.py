@@ -185,7 +185,8 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
-def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, pytorch_custom_env):
+def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
+        model, pytorch_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.pytorch.log_model(pytorch_model=model,

@@ -371,6 +371,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
 
     assert conda_env == mlflow.tensorflow.DEFAULT_CONDA_ENV
 
+
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         saved_tf_iris_model, model_path):
     artifact_path = "model"
