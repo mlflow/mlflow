@@ -8,6 +8,10 @@
   font-weight: 500;
 }
 
+.Select-multi-value-wrapper { white-space: nowrap; overflow-x: scroll; width: 250px; }
+
+
+
 .ExperimentView td, .ExperimentView th {
   border-top: 1px solid #e2e2e2;
   border-bottom: 1px solid #e2e2e2;

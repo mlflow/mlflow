@@ -132,12 +132,18 @@ class Utils {
       }
       return res;
     } else if (run.source_type === "NOTEBOOK") {
+      const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
       const notebookIdTag = 'mlflow.databricks.notebookID';
       const webappUrlTag = 'mlflow.databricks.webappURL';
+      const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
       const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
       if (notebookId && webappUrl) {
-        res = (<a title={run.source_name} href={`${webappUrl}/#notebook/${notebookId}`}>
+        let url = `${webappUrl}/#notebook/${notebookId}`;
+        if (revisionId) {
+          url += `/revision/${revisionId}`;
+        }
+        res = (<a title={run.source_name} href={url}>
           {Utils.baseName(run.source_name)}
         </a>);
       }

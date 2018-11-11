@@ -16,7 +16,6 @@ export default class SelectTextField extends Component {
     const formattedOptions = options.map((option) => {
       return {label: option, value: option};
     });
-
     return <Select
       options={formattedOptions}
       {...otherProps}
