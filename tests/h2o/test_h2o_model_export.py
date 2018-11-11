@@ -55,7 +55,8 @@ def h2o_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
             conda_env,
-            additional_conda_deps=mlflow.h2o.CONDA_DEPENDENCIES)
+            additional_conda_deps=["pytest"],
+            additional_pip_deps=["h2o"])
     return conda_env
 
 
