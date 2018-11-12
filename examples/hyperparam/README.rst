@@ -49,24 +49,24 @@ Creates an experiment for hyperparam runs and return its experiment ID.
 
 .. code:: bash
 
-    mlflow run -e train --experiment-id <individual_runs_experiment_id> example/hyperparam
+    mlflow run -e train --experiment-id <individual_runs_experiment_id> examples/hyperparam
 
 Runs the Keras deep learning training with default parameters and log it in experiment 1.
 
 .. code:: bash
 
     mlflow run -e random --experiment-id <hyperparam_experiment_id>  -P \
-        training_experiment_id=<individual_runs_experiment_id> example/hyperparam
+        training_experiment_id=<individual_runs_experiment_id> examples/hyperparam
 
 .. code:: bash
 
     mlflow run -e gpyopt --experiment-id <hyperparam_experiment_id>  -P \
-        training_experiment_id=<individual_runs_experiment_id> example/hyperparam
+        training_experiment_id=<individual_runs_experiment_id> examples/hyperparam
 
 .. code:: bash
 
     mlflow run -e hyperopt --experiment-id <hyperparam_experiment_id> -P \
-        training_experiment_id=<individual_runs_experiment_id> example/hyperparam
+        training_experiment_id=<individual_runs_experiment_id> examples/hyperparam
 
 Runs the hyperparameter tuning with either random search or GpyOpt or Hyperopt and log the
 results under ``hyperparam_experiment_id``.

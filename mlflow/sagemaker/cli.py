@@ -58,6 +58,10 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
+
+    For more information about the input data formats accepted by the deployed REST API endpoint,
+    see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#sagemaker-deployment.
     """
     if vpc_config is not None:
         with open(vpc_config, "r") as f:

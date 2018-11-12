@@ -37,13 +37,12 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
-    >>> from torch.autograd import Variable
     >>> import mlflow
     >>> import mlflow.pytorch
     >>> # X data
-    >>> x_data = Variable(torch.Tensor([[1.0], [2.0], [3.0]]))
+    >>> x_data = torch.Tensor([[1.0], [2.0], [3.0]])
     >>> # Y data with its expected value: labels
-    >>> y_data = Variable(torch.Tensor([[2.0], [4.0], [6.0]]))
+    >>> y_data = torch.Tensor([[2.0], [4.0], [6.0]])
     >>> # Partial Model example modified from Sung Kim
     >>> # https://github.com/hunkim/PyTorchZeroToAll
     >>> class Model(torch.nn.Module):
@@ -70,9 +69,9 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     >>>   optimizer.step()
     >>> # After training
     >>> for hv in [4.0, 5.0, 6.0]:
-    >>>     hour_var = Variable(torch.Tensor([[hv]]))
+    >>>     hour_var = torch.Tensor([[hv]])
     >>>     y_pred = model(hour_var)
-    >>>     print("predict (after training)",  hv, model(hour_var ).data[0][0])
+    >>>     print("predict (after training)",  hv, model(hour_var).data[0][0])
     >>> # log the model
     >>> with mlflow.start_run() as run:
     >>>   mlflow.log_param("epochs", 500)

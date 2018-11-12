@@ -20,7 +20,6 @@ from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
-from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.version import VERSION as mlflow_version
 
 
@@ -30,6 +29,10 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
+
+    The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
+    For information about the input data formats accepted by this webserver, see the
+    :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
     :param model_path: The path to MLflow model for which the image will be built. If a run id
                        is specified, this is should be a run-relative path. Otherwise, it
@@ -307,6 +310,7 @@ import pandas as pd
 
 from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
+from mlflow.pyfunc.scoring_server import parse_json_input
 from mlflow.utils import get_jsonable_obj
 
 
@@ -316,8 +320,8 @@ def init():
     model = load_pyfunc(model_path)
 
 
-def run(s):
-    input_df = pd.read_json(s, orient="records")
+def run(json_input):
+    input_df = parse_json_input(json_input=json_input, orientation="split")
     return get_jsonable_obj(model.predict(input_df))
 
 """

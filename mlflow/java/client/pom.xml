@@ -5,13 +5,13 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>0.7.1</version>
+    <version>0.8.1</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>mlflow-client</artifactId>
   <packaging>jar</packaging>
-  <version>0.7.1</version>
+  <version>0.8.1</version>
   <name>MLflow Tracking API</name>
   <url>http://mlflow.org</url>
   <properties>

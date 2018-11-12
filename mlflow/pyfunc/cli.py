@@ -50,7 +50,10 @@ def commands():
 @cli_args.NO_CONDA
 def serve(model_path, run_id, port, host, no_conda):
     """
-    Serve a PythonFunction model saved with MLflow.
+    Serve a pyfunc model saved with MLflow by launching a webserver on the specified
+    host and port. For information about the input data formats accepted by the webserver,
+    see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.
 
     If a ``run_id`` is specified, ``model-path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.

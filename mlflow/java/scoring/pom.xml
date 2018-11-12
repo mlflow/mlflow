@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>0.7.1</version>
+    <version>0.8.1</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -18,7 +18,7 @@
   </distributionManagement>
 
   <artifactId>mlflow-scoring</artifactId>
-  <version>0.7.1</version>
+  <version>0.8.1</version>
   <packaging>jar</packaging>
   <name>MLflow scoring server</name>
   <url>http://mlflow.org</url>

@@ -21,19 +21,21 @@ def ndarray2list(ndarray):
     return [ndarray2list(ndarray[i, :]) for i in range(0, ndarray.shape[0])]
 
 
-def get_jsonable_obj(data):
+def get_jsonable_obj(data, pandas_orientation=None):
     """Attempt to make the data json-able via standard library.
     Look for some commonly used types that are not jsonable and convert them into json-able ones.
     Unknown data types are returned as is.
 
     :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
+    :param pandas_orientation: If `data` is a Pandas DataFrame, it will be converted to a JSON
+                               dictionary using this Pandas serialization orientation.
     """
     if isinstance(data, np.ndarray):
         return ndarray2list(data)
     if isinstance(data, pd.DataFrame):
-        return data.to_dict(orient='records')
+        return data.to_dict(orient=pandas_orientation)
     if isinstance(data, pd.Series):
-        return pd.DataFrame(data).to_dict(orient='records')
+        return pd.DataFrame(data).to_dict(orient=pandas_orientation)
     else:  # by default just return whatever this is and hope for the best
         return data
 
