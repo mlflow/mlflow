@@ -187,7 +187,8 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
-def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, pytorch_custom_env):
+def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
+        model, pytorch_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.pytorch.log_model(pytorch_model=model,
@@ -217,7 +218,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
 
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
@@ -235,7 +236,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
 
 
 @pytest.mark.release

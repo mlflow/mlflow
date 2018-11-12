@@ -321,7 +321,6 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path,
                                  conda_env=tf_custom_env)
-
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
@@ -372,6 +371,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.tensorflow.DEFAULT_CONDA_ENV
+
 
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         saved_tf_iris_model, model_path):

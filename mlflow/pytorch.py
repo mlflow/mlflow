@@ -154,7 +154,8 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
 
 def _load_model(path, **kwargs):
     """
-    :param path: The path to a serialized PyTorch model
+    :param path: The path to a serialized PyTorch model.
+    :param kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     return torch.load(path, **kwargs)
 
