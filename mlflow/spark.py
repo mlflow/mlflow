@@ -23,6 +23,7 @@ from __future__ import absolute_import
 
 import os
 import shutil
+import yaml
 
 import pyspark
 from pyspark import SparkContext
@@ -31,12 +32,22 @@ from pyspark.ml.pipeline import PipelineModel
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.environment import _mlflow_conda_env
 
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
 DFS_TMP = "/tmp/mlflow"
+
+DEFAULT_CONDA_ENV = _mlflow_conda_env(
+    additional_conda_deps=[
+        "pyspark={}".format(pyspark.__version__),
+    ],
+    additional_pip_deps=None,
+    additional_conda_channels=None,
+)
 
 
 def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=None,
@@ -47,9 +58,10 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, defines environment for the
-                      model. At minimum, it should specify python, pyspark, and mlflow with
-                      appropriate versions.
+    :param conda_env: Path to a conda environment file. if provided, this decribes the environment
+                      this model should be run in. at minimum, it should specify the dependencies
+                      contained in ``mlflow.pyspark.DEFAULT_CONDA_ENV``. if `none`, the default
+                      ``mlflow.pyspark.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be writen in this
@@ -166,7 +178,10 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
-    :param conda_env: Conda environment this model depends on.
+    :param conda_env: Path to a conda environment file. if provided, this decribes the environment
+                      this model should be run in. at minimum, it should specify the dependencies
+                      contained in ``mlflow.pyspark.DEFAULT_CONDA_ENV``. if `none`, the default
+                      ``mlflow.pyspark.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be written in this
@@ -204,14 +219,18 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     sparkml_data_path = os.path.abspath(os.path.join(path, sparkml_data_path_sub))
     _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     pyspark_version = pyspark.version.__version__
-    model_conda_env = None
-    if conda_env:
-        model_conda_env = os.path.basename(os.path.abspath(conda_env))
-        shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
+
+    conda_env_subpath = "conda.yaml"
+    if conda_env is not None:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        with open(os.path.join(path, conda_env_subpath), "w") as f:
+            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+
     mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version,
                             model_data=sparkml_data_path_sub)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=sparkml_data_path_sub,
-                        env=model_conda_env)
+                        env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -250,12 +269,10 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(os.path.join(path, 'MLmodel'))
-    if FLAVOR_NAME not in m.flavors:
-        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
-    conf = m.flavors[FLAVOR_NAME]
-    model_path = os.path.join(path, conf['model_data'])
-    return _load_model(model_path=model_path, dfs_tmpdir=dfs_tmpdir)
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    spark_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
+    return _load_model(model_path=spark_model_artifacts_path, dfs_tmpdir=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
