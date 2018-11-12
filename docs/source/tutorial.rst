@@ -223,7 +223,6 @@ On this page, you can see a list of experiment runs with metrics you can use to 
 
       .. image:: _static/images/tutorial-compare-R.png
 
-
 You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
 returns all the models with root mean squared error less than 0.8. For more complex manipulations,
 you can download this table as a CSV and use your favorite data munging software to analyze it.
