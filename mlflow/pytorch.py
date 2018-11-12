@@ -11,17 +11,32 @@ PyTorch (native) format
 from __future__ import absolute_import
 
 import os
+import shutil
+import yaml
 
 import numpy as np
 import pandas as pd
 import torch
+import torchvision
 
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
-
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "pytorch"
+
+DEFAULT_CONDA_ENV = _mlflow_conda_env(
+    additional_conda_deps=[
+        "pytorch={}".format(torch.__version__),
+        "torchvision={}".format(torchvision.__version__),
+    ],
+    additional_pip_deps=None,
+    additional_conda_channels=[
+        "pytorch",
+    ],
+)
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
@@ -31,9 +46,10 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
                           input and produce a single output tensor.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this defines the environment
-           for the model. At minimum, it should specify python, pytorch, and mlflow with appropriate
-           versions.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
+                      ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -89,8 +105,9 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
                           input and produce a single output tensor.
     :param path: Local path where the model is to be saved.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify python, pytorch,
-                      and mlflow with appropriate versions.
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
+                      ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -122,33 +139,24 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     torch.save(pytorch_model, model_path, **kwargs)
     model_file = os.path.basename(model_path)
 
+    conda_env_subpath = "conda.yaml"
+    if conda_env is not None:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        with open(os.path.join(path, conda_env_subpath), "w") as f:
+            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+
     mlflow_model.add_flavor(FLAVOR_NAME, model_data=model_file, pytorch_version=torch.__version__)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch",
-                        data=model_file, env=conda_env)
+                        data=model_file, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
 def _load_model(path, **kwargs):
-    mlflow_model_path = os.path.join(path, "MLmodel")
-    if not os.path.exists(mlflow_model_path):
-        raise RuntimeError("MLmodel is not found at '{}'".format(path))
-
-    mlflow_model = Model.load(mlflow_model_path)
-
-    if FLAVOR_NAME not in mlflow_model.flavors:
-        raise ValueError("Could not find flavor '{}' amongst available flavors {}, "
-                         "unable to load stored model"
-                         .format(FLAVOR_NAME, list(mlflow_model.flavors.keys())))
-
-    # This maybe replaced by a warning and then try/except torch.load
-    flavor = mlflow_model.flavors[FLAVOR_NAME]
-    if torch.__version__ != flavor["pytorch_version"]:
-        raise ValueError("Stored model version '{}' does not match "
-                         "installed PyTorch version '{}'"
-                         .format(flavor["pytorch_version"], torch.__version__))
-
-    path = os.path.abspath(path)
-    path = os.path.join(path, mlflow_model.flavors[FLAVOR_NAME]['model_data'])
+    """
+    :param path: The path to a serialized PyTorch model.
+    :param kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
+    """
     return torch.load(path, **kwargs)
 
 
@@ -172,15 +180,23 @@ def load_model(path, run_id=None, **kwargs):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
 
-    return _load_model(path, **kwargs)
+    if torch.__version__ != flavor_conf["pytorch_version"]:
+        raise ValueError("Stored model version '{}' does not match "
+                         "installed PyTorch version '{}'"
+                         .format(flavor_conf["pytorch_version"], torch.__version__))
+
+    torch_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
+    return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
 def _load_pyfunc(path, **kwargs):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
-    return _PyTorchWrapper(_load_model(os.path.dirname(path), **kwargs))
+    return _PyTorchWrapper(_load_model(path, **kwargs))
 
 
 class _PyTorchWrapper(object):
