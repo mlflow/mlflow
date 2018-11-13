@@ -167,7 +167,7 @@ def load_model(path, run_id=None):
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    # Flavor configurations for models saved in MLflow version <= 0.7.0 may not contain a
+    # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h5`
     keras_model_artifacts_path = os.path.join(path, flavor_conf.get("data", "model.h5"))
     return _load_model(model_file=keras_model_artifacts_path)
