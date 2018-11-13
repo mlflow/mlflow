@@ -46,7 +46,8 @@ def score_model_in_sagemaker_docker_container(
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
-def pyfunc_serve_and_score_model(model_path, data, content_type, activity_polling_timeout_seconds):
+def pyfunc_serve_and_score_model(
+        model_path, data, content_type, activity_polling_timeout_seconds=500):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
