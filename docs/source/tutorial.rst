@@ -377,7 +377,7 @@ in MLflow saved the model as an artifact within the run.
           or ``raise ValueError, "unsupported pickle protocol: %d"``.
 
       Once you have deployed the server, you can pass it some sample data and see the
-      predictions. The following example uses ``curl`` to send a JSON-serialized Pandas DataFrame
+      predictions. The following example uses ``curl`` to send a JSON-serialized pandas DataFrame
       with the ``split`` orientation to the pyfunc server. For more information about the input data
       formats accepted by the pyfunc model server, see the
       :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
