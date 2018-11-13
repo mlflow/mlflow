@@ -599,6 +599,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
         raise Exception(msg)
     elif endpoint_found:
         return _update_sagemaker_endpoint(endpoint_name=app_name,
+                                          region_name=region_name,
                                           image_url=image_url,
                                           model_s3_path=model_s3_path,
                                           run_id=run_id,
@@ -613,6 +614,7 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           s3_client=s3_client)
     else:
         return _create_sagemaker_endpoint(endpoint_name=app_name,
+                                          region_name=region_name,
                                           image_url=image_url,
                                           model_s3_path=model_s3_path,
                                           run_id=run_id,
@@ -632,7 +634,7 @@ def _get_sagemaker_config_name(endpoint_name):
     return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
-def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
+def _create_sagemaker_endpoint(endpoint_name, region_name, image_url, model_s3_path, run_id, flavor,
                                instance_type, vpc_config, instance_count, role, sage_client):
     """
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
@@ -689,7 +691,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     eprint("Created endpoint with arn: %s" % endpoint_response["EndpointArn"])
 
 
-def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
+def _update_sagemaker_endpoint(endpoint_name, region_name, image_url, model_s3_path, run_id, flavor,
                                instance_type, instance_count, vpc_config, mode, archive, role,
                                sage_client, s3_client):
     """
