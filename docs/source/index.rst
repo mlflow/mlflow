@@ -34,5 +34,5 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
 
 .. warning::
 
-    The current version of MLflow is an alpha release. This means that APIs and storage formats
+    The current version of MLflow is a beta release. This means that APIs and storage formats
     are subject to breaking change.
