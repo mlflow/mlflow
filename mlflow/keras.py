@@ -11,13 +11,32 @@ Keras (native) format
 from __future__ import absolute_import
 
 import os
+import shutil
+import yaml
 
+import keras
 import keras.backend as K
 import pandas as pd
 
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
+
+FLAVOR_NAME = "keras"
+
+DEFAULT_CONDA_ENV = _mlflow_conda_env(
+    additional_conda_deps=[
+        "keras={}".format(keras.__version__),
+        # The Keras pyfunc representation requires the Tensorflow
+        # backend for Keras. Therefore, the conda environment must
+        # include Tensorflow
+        "tensorflow",
+    ],
+    additional_pip_deps=None,
+    additional_conda_channels=None,
+)
 
 
 def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
@@ -26,6 +45,10 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
 
     :param keras_model: Keras model to be saved.
     :param path: Local path where the model is to be saved.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
+                      ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param mlflow_model: MLflow model config this flavor is being added to.
 
     >>> import mlflow
@@ -38,27 +61,36 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     ... # Save the model as an MLflow Model
     >>> mlflow.keras.save_model(keras_model, keras_model_path)
     """
-    import keras
-
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
     os.makedirs(path)
-    model_file = os.path.join(path, "model.h5")
-    keras_model.save(model_file)
+    model_data_subpath = "model.h5"
+    keras_model.save(os.path.join(path, model_data_subpath))
+
+    conda_env_subpath = "conda.yaml"
+    if conda_env is not None:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        with open(os.path.join(path, conda_env_subpath), "w") as f:
+            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
-                        data="model.h5", env=conda_env)
-    mlflow_model.add_flavor("keras", keras_version=keras.__version__)
+                        data=model_data_subpath, env=conda_env_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(keras_model, artifact_path, **kwargs):
+def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
     :param keras_model: Keras model to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
+                      ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -73,7 +105,7 @@ def log_model(keras_model, artifact_path, **kwargs):
     >>>   mlflow.keras.log_model(keras_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
-              keras_model=keras_model, **kwargs)
+              keras_model=keras_model, conda_env=conda_env, **kwargs)
 
 
 def _load_model(model_file):
@@ -81,8 +113,8 @@ def _load_model(model_file):
     import h5py
     # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead of
     # string to avoid issues.
-    model_file = h5py.File(os.path.abspath(model_file),)
-    return keras.models.load_model(model_file)
+    with h5py.File(os.path.abspath(model_file), "r") as model_file:
+        return keras.models.load_model(model_file)
 
 
 class _KerasModelWrapper:
@@ -133,4 +165,9 @@ def load_model(path, run_id=None):
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    return _load_model(os.path.join(path, "model.h5"))
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
+    # `data` key; in this case, we assume the model artifact path to be `model.h5`
+    keras_model_artifacts_path = os.path.join(path, flavor_conf.get("data", "model.h5"))
+    return _load_model(model_file=keras_model_artifacts_path)
