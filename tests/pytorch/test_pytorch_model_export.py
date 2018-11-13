@@ -248,7 +248,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
             data=data[0],
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME,
-            activity_polling_timeout_seconds=500)
+            activity_polling_timeout_seconds=360)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     np.testing.assert_array_almost_equal(
