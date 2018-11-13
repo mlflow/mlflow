@@ -10,6 +10,7 @@ from six.moves import urllib
 import tarfile
 import uuid
 import shutil
+from datetime import datetime
 
 import base64
 import boto3
@@ -772,9 +773,15 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                                 EndpointConfigName=new_config_name)
     eprint("Updated endpoint with new configuration!")
 
-    # If applicable, clean up unused models and old configurations
-    if not archive:
-        eprint("Cleaning up unused resources...")
+    def success_check_fn():
+        endpoint_status = _get_endpoint_status(endpoint_name=endpoint_name, sage_client=sage_client)
+        if endpoint_status == "InService":
+            endpoint_info = sage_client.describe_endpoint(EndpointName=endpoint_name)
+            return new_config_name == endpoint_info["EndpointConfigName"]
+        else:
+            return None
+
+    def cleanup_fn():
         if mode == DEPLOYMENT_MODE_REPLACE:
             s3_client = boto3.client('s3')
             for pv in deployed_production_variants:
@@ -789,6 +796,10 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         eprint("Deleted endpoint configuration with arn: {carn}".format(
             carn=deployed_config_arn))
 
+    return DeploymentOperation(
+            endpoint_name=endpoint_name, region_name=region_name,
+            operation_type=DeploymentOperation.OPERATION_TYPE_UPDATE,
+            success_check_fn=success_check_fn, cleanup_fn=cleanup_fn)
 
 def _create_sagemaker_model(model_name, model_s3_path, flavor, vpc_config, run_id, image_url,
                             execution_role, sage_client):
@@ -860,7 +871,7 @@ def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):
 
 def _get_endpoint_status(endpoint_name, sage_client):
     """
-    :param endpoint_name: The name of the endpoint for which to get the status. 
+    :param endpoint_name: The name of the endpoint for which to get the status.
     :param sage_client: A boto3 client for SageMaker.
     """
     endpoint_description = sage_client.describe_endpoint(EndpointName=endpoint_name)
@@ -868,56 +879,54 @@ def _get_endpoint_status(endpoint_name, sage_client):
     return endpoint_status
 
 
-class EndpointOperation:
+class DeploymentOperation:
 
-    OPERATION_UPDATE = "update"
-    OPERATION_DELETE = "delete"
+    OPERATION_TYPE_UPDATE = "update"
+    OPERATION_TYPE_DELETE = "delete"
 
-    RESULT_SUCCEEDED = "succeeded"
-    RESULT_FAILED = "failed"
-
-    def __init__(self, endpoint_name, region_name, operation, deprecated_model_names, 
-                 deprecated_endpoint_config_names):
-        if operation not in [
-                EndpointOperation.OPERATION_UPDATE, EndpointOperation.OPERATION_DELETE]:
+    def __init__(self, endpoint_name, region_name, operation_type, success_check_fn,
+                 cleanup_fn):
+        if operation_type not in [
+                DeploymentOperation.OPERATION_TYPE_UPDATE,
+                DeploymentOperation.OPERATION_TYPE_DELETE
+        ]:
             raise Exception("BAD")
+
         self.endpoint_name = endpoint_name
-        self.region_name = region_name 
-        self.deprecated_model_names = deprecated_model_names
-        self.deprecated_endpoint_config_names = deprecated_endpoint_config_names 
-        self.result = None 
-
-    def _await_delete_completion(self, timeout_seconds):
-        
-        pass
-
-    def _await_update_completion(self, timeout_seconds):
-
-        pass
+        self.region_name = region_name
+        self.operation_type = operation_type
+        self.success_check_fn = success_check_fn
+        self.cleanup_fn = cleanup_fn
+        self.result = None
 
     def await_completion(self, timeout_seconds):
-        if self.complete:
-            return
-        if self.operation == EndpointOperation.OPERATION_UPDATE:
-            self._await_update_completion(timeout_seconds=timeout_seconds)
-        elif self.operation == EndpointOperation.OPERATION_DELETE:
-            self._await_update_completion(timeout_seconds=timeout_seconds)
-        return self
+        begin = datetime.now()
+        while (datetime.now() - begin).total_seconds() < timeout_seconds:
+            result = self.success_check_fn()
+            if result is None:
+                continue
+            elif result not in [True, False]:
+                raise Exception("BAD")
+            else:
+                self.result = result
+                return result
 
     def clean_up(self, safe=True):
-        if safe and self.result != EndpointOperation.RESULT_SUCCEEDED:
+        if safe and self.result != DeploymentOperation.RESULT_SUCCEEDED:
             raise Exception("ALSO BAD")
 
-        s3_client = boto3.client('s3')
-        sage_client = boto3.client('sagemaker', region_name=self.region_name)
-        for model_name in self.deprecated_model_names:
-            deleted_model_arn = _delete_sagemaker_model(
-                    model_name=model_name, sage_client=sage_client, s3_client=s3_client)
-            eprint("Deleted model with arn: {deleted_model_arn}".format(
-                deleted_model_arn=deleted_model_arn))
+        self.cleanup_fn()
 
-        for endpoint_config_name in self.deprecated_endpoint_config_names:
-            deleted_endpoint_config_arn = _delete_sagemaker_endpoint_configuration(
-                    endpoint_config_name=endpoint_config_name, sage_client=sage_client)
-            eprint("Deleted endpoint configuration with arn: {deleted_endpoint_config_arn}".format(
-                deleted_endpoint_config_arn=deleted_endpoint_config_arn))
+        # s3_client = boto3.client('s3')
+        # sage_client = boto3.client('sagemaker', region_name=self.region_name)
+        # for model_name in self.deprecated_model_names:
+        #     deleted_model_arn = _delete_sagemaker_model(
+        #             model_name=model_name, sage_client=sage_client, s3_client=s3_client)
+        #     eprint("Deleted model with arn: {deleted_model_arn}".format(
+        #         deleted_model_arn=deleted_model_arn))
+        #
+        # for endpoint_config_name in self.deprecated_endpoint_config_names:
+        #     deleted_endpoint_config_arn = _delete_sagemaker_endpoint_configuration(
+        #             endpoint_config_name=endpoint_config_name, sage_client=sage_client)
+        #     eprint("Deleted endpoint configuration with arn: {deleted_endpoint_config_arn}".format(
+        #         deleted_endpoint_config_arn=deleted_endpoint_config_arn))
