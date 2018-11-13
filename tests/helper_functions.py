@@ -91,7 +91,7 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
                                              declaring the scoring process to have failed.
     """
     try:
-        for i in range(0, int(activity_polling_timeout_seconds) / 5):
+        for i in range(0, int(activity_polling_timeout_seconds / 5)):
             assert proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException
