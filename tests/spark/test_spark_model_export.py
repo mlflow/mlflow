@@ -184,13 +184,12 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
             data=spark_model_iris.pandas_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = json.loads(scoring_response.content)
 
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        spark_model_iris.predictions,
-        check_dtype=False,
-        check_less_precise=6)
+    np.testing.assert_array_almost_equal(
+            deployed_model_preds,
+            spark_model_iris.predictions,
+            decimal=4)
 
 
 def test_sparkml_model_log(tmpdir, spark_model_iris):
