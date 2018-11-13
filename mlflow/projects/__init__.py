@@ -115,9 +115,10 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :param experiment_id: ID of experiment under which to launch the run.
     :param mode: Execution mode of the run: "local" or "databricks". If running against Databricks,
                  will run against a Databricks workspace determined as follows: if a Databricks
-                 tracking URI (of the form 'databricks://profile') has been set, will run
-                 against the workspace specified by <profile>. Otherwise, runs against the
-                 workspace specified by the default Databricks CLI profile.
+                 tracking URI of the form 'databricks://profile' has been set (e.g. by setting
+                 the MLFLOW_TRACKING_URI environment variable), will run against the workspace
+                 specified by <profile>. Otherwise, runs against the workspace specified by the
+                 default Databricks CLI profile.
     :param cluster_spec: When ``mode`` is "databricks", dictionary or path to a JSON file
                          containing a `Databricks cluster specification
                          <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
