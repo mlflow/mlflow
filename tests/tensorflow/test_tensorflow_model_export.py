@@ -7,6 +7,7 @@ import os
 import shutil
 import pytest
 import yaml
+import json
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,7 @@ import tensorflow as tf
 
 import mlflow
 import mlflow.tensorflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
 from mlflow.tracking.utils import _get_model_log_dir
@@ -319,7 +321,6 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path,
                                  conda_env=tf_custom_env)
-
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
@@ -414,3 +415,25 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6)
+
+
+@pytest.mark.release
+def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path,
+                                 conda_env=None)
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=saved_tf_iris_model.inference_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
+    pandas.testing.assert_frame_equal(
+        deployed_model_preds,
+        saved_tf_iris_model.expected_results_df,
+        check_dtype=False,
+        check_less_precise=6)

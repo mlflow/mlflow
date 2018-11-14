@@ -3,6 +3,7 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import pandas.testing
 import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
@@ -171,6 +172,23 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     np.testing.assert_array_almost_equal(
             spark_model_iris.predictions,
             np.array(json.loads(scoring_response_2.content)),
+            decimal=4)
+
+
+@pytest.mark.release
+def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
+    sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = json.loads(scoring_response.content)
+
+    np.testing.assert_array_almost_equal(
+            deployed_model_preds,
+            spark_model_iris.predictions,
             decimal=4)
 
 
