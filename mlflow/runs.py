@@ -3,6 +3,7 @@ CLI for runs
 """
 
 import click
+import datetime
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 from tabulate import tabulate
@@ -30,8 +31,8 @@ def list_experiments(experiment_id, view):
     store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
     runs = store.list_run_infos(experiment_id, view_type)
-    table = [[run.run_uuid, run.name, run.artifact_uri] for run in runs]
-    print(tabulate(sorted(table), headers=["Run Id", "Name", "Artifact URI"]))
+    table = [[run.run_uuid, run.name, datetime.datetime.fromtimestamp(run.start_time / 1000.0).strftime('%Y-%m-%d %H:%M:%S')] for run in runs]
+    print(tabulate(sorted(table), headers=["Run Id", "Name", "Start time"]))
 
 
 @commands.command("delete")
