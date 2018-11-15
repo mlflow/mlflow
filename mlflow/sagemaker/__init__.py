@@ -440,7 +440,6 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                 " Either set `synchronous=True` or `archive=True`."),
             error_code=INVALID_PARAMETER_VALUE)
 
-
     s3_client = boto3.client('s3', region_name=region_name)
     sage_client = boto3.client('sagemaker', region_name=region_name)
 
@@ -763,7 +762,6 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         Tags=[],
     )
     eprint("Created endpoint with arn: %s" % endpoint_response["EndpointArn"])
-
 
     def status_check_fn():
         endpoint_info = _find_endpoint(endpoint_name=endpoint_name, sage_client=sage_client)
