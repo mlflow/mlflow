@@ -91,6 +91,13 @@ class SageMakerResponse(BaseResponse):
             'EndpointConfigs' : [summary.response_object for summary in endpoint_config_summaries]
         })
 
+    def list_models(self):
+        # Note: This does not support pagination. All endpoint configs are returned in a single call
+        model_summaries = self.sagemaker_backend.list_models()
+        return json.dumps({
+            'Models' : [summary.response_object for summary in model_summaries]
+        })
+
     def create_model(self):
         model_name = self.request_params["ModelName"]
         primary_container = self.request_params["PrimaryContainer"]
@@ -129,9 +136,18 @@ class SageMakerBackend(BaseBackend):
 
     def create_endpoint_config(self, config_name, production_variants, tags, region_name):
         if config_name in self.endpoint_configs:
-            raise Exception("Attempted to create an endpoint configuration with name:"
-                            " {config_name}, but an endpoint configuration with this"
-                            " name already exists.".format(config_name=config_name))
+            raise ValueError("Attempted to create an endpoint configuration with name:"
+                             " {config_name}, but an endpoint configuration with this"
+                             " name already exists.".format(config_name=config_name))
+        for production_variant in production_variants:
+            if "ModelName" not in production_variant:
+                raise ValueError("Production variant must specify a model name.")
+            elif production_variant["ModelName"] not in self.models:
+                raise ValueError(
+                        "Production variant specifies a model name that does not exist"
+                        " Model name: '{model_name}'".format(
+                            model_name=production_variant["ModelName"]))
+
         new_config = EndpointConfig(config_name=config_name,
                                     production_variants=production_variants,
                                     tags=tags)
@@ -142,28 +158,28 @@ class SageMakerBackend(BaseBackend):
 
     def describe_endpoint_config(self, config_name):
         if config_name not in self.endpoint_configs:
-            raise Exception("Attempted to describe an endpoint config with name: `{config_name}`"
-                            " that does not exist.".format(config_name=config_name))
+            raise ValueError("Attempted to describe an endpoint config with name: `{config_name}`"
+                             " that does not exist.".format(config_name=config_name))
 
         config = self.endpoint_configs[config_name]
         return EndpointConfigDescription(config=config.resource, arn=config.arn)
 
     def delete_endpoint_config(self, config_name):
         if config_name not in self.endpoint_configs:
-            raise Exception("Attempted to delete an endpoint config with name: `{config_name}`"
-                            " that does not exist.".format(config_name=config_name))
+            raise ValueError("Attempted to delete an endpoint config with name: `{config_name}`"
+                             " that does not exist.".format(config_name=config_name))
 
         del self.endpoint_configs[config_name]
 
     def create_endpoint(self, endpoint_name, endpoint_config_name, tags, region_name):
         if endpoint_name in self.endpoints:
-            raise Exception("Attempted to create an endpoint with name: `{endpoint_name}`"
-                            " but an endpoint with this name already exists.".format(
-                                endpoint_name=endpoint_name))
+            raise ValueError("Attempted to create an endpoint with name: `{endpoint_name}`"
+                             " but an endpoint with this name already exists.".format(
+                                 endpoint_name=endpoint_name))
 
         if endpoint_config_name not in self.endpoint_configs:
-            raise Exception("Attempted to create an endpoint with a configuration named:"
-                            " `{config_name}` However, this configuration does not exist.".format(
+            raise ValueError("Attempted to create an endpoint with a configuration named:"
+                             " `{config_name}` However, this configuration does not exist.".format(
                                 config_name=endpoint_config_name))
 
         new_endpoint = Endpoint(endpoint_name=endpoint_name, config_name=endpoint_config_name,
@@ -175,8 +191,8 @@ class SageMakerBackend(BaseBackend):
 
     def describe_endpoint(self, endpoint_name):
         if endpoint_name not in self.endpoints:
-            raise Exception("Attempted to describe an endpoint with name: `{endpoint_name}`"
-                            " that does not exist.".format(endpoint_name=endpoint_name))
+            raise ValueError("Attempted to describe an endpoint with name: `{endpoint_name}`"
+                             " that does not exist.".format(endpoint_name=endpoint_name))
 
         endpoint = self.endpoints[endpoint_name]
         config = self.endpoint_configs[endpoint.resource.config_name]
@@ -184,13 +200,13 @@ class SageMakerBackend(BaseBackend):
 
     def update_endpoint(self, endpoint_name, new_config_name):
         if endpoint_name not in self.endpoints:
-            raise Exception("Attempted to update an endpoint with name: `{endpoint_name}`"
-                            " that does not exist.".format(endpoint_name=endpoint_name))
+            raise ValueError("Attempted to update an endpoint with name: `{endpoint_name}`"
+                             " that does not exist.".format(endpoint_name=endpoint_name))
 
         if new_config_name not in self.endpoint_configs:
-            raise Exception("Attempted to update an endpoint named `{endpoint_name}` with a new"
-                            " configuration named: `{config_name}`. However, this configuration"
-                            " does not exist.".format(
+            raise ValueError("Attempted to update an endpoint named `{endpoint_name}` with a new"
+                             " configuration named: `{config_name}`. However, this configuration"
+                             " does not exist.".format(
                                 endpoint_name=endpoint_name, config_name=new_config_name))
 
         endpoint = self.endpoints[endpoint_name]
@@ -199,8 +215,8 @@ class SageMakerBackend(BaseBackend):
 
     def delete_endpoint(self, endpoint_name):
         if endpoint_name not in self.endpoints:
-            raise Exception("Attempted to delete an endpoint with name: `{endpoint_name}`"
-                            " that does not exist.".format(endpoint_name=endpoint_name))
+            raise ValueError("Attempted to delete an endpoint with name: `{endpoint_name}`"
+                             " that does not exist.".format(endpoint_name=endpoint_name))
 
         del self.endpoints[endpoint_name]
 
@@ -211,7 +227,6 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-
     def list_endpoint_configs(self):
         summaries = []
         for _, endpoint_config in self.endpoint_configs.items():
@@ -220,12 +235,18 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
+    def list_models(self):
+        summaries = []
+        for _, model in self.models.items():
+            summary = ModelSummary(model=model.resource, arn=model.arn)
+            summaries.append(summary)
+        return summaries
 
     def create_model(self, model_name, container_config, execution_role_arn, tags, region_name,
                      vpc_config=None):
         if model_name in self.models:
-            raise Exception("Attempted to create a model with name: `{model_name}`"
-                            " but a mdoel with this name already exists.".format(
+            raise ValueError("Attempted to create a model with name: `{model_name}`"
+                             " but a mdoel with this name already exists.".format(
                                 model_name=model_name))
 
         new_model = Model(model_name=model_name, container_config=container_config,
@@ -237,16 +258,16 @@ class SageMakerBackend(BaseBackend):
 
     def describe_model(self, model_name):
         if model_name not in self.models:
-            raise Exception("Attempted to describe a model with name: `{model_name}`"
-                            " that does not exist.".format(model_name=model_name))
+            raise ValueError("Attempted to describe a model with name: `{model_name}`"
+                             " that does not exist.".format(model_name=model_name))
 
         model = self.models[model_name]
         return ModelDescription(model=model.resource, arn=model.arn)
 
     def delete_model(self, model_name):
         if model_name not in self.models:
-            raise Exception("Attempted to delete an model with name: `{model_name}`"
-                            " that does not exist.".format(model_name=model_name))
+            raise ValueError("Attempted to delete an model with name: `{model_name}`"
+                             " that does not exist.".format(model_name=model_name))
 
         del self.models[model_name]
 
@@ -377,6 +398,22 @@ class Model(TimestampedResource):
         return ":model/{model_name}".format(model_name=self.model_name)
 
 
+class ModelSummary:
+
+    def __init__(self, model, arn):
+        self.model = model
+        self.arn = arn
+
+    @property
+    def response_object(self):
+        response = {
+            'ModelArn' : self.arn,
+            'ModelName' : self.model.model_name,
+            'CreationTime' : self.model.creation_time,
+        }
+        return response
+
+
 class ModelDescription:
 
     def __init__(self, model, arn):
@@ -386,11 +423,12 @@ class ModelDescription:
     @property
     def response_object(self):
         response = {
+            'ModelArn' : self.arn,
             'ModelName' : self.model.model_name,
             'PrimaryContainer' : self.model.primary_container,
             'ExecutionRoleArn' : self.model.execution_role_arn,
-            'Tags' : self.model.tags,
-            'VpcConfig' : self.model.vpc_config if self.model.vpc_config else {}
+            'VpcConfig' : self.model.vpc_config if self.model.vpc_config else {},
+            'CreationTime' : self.model.creation_time,
         }
         return response
 

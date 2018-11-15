@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import ElasticNet
+from sklearn.linear_model import ElasticNet, LogisticRegression
 
 import mlflow
 import mlflow.sklearn
@@ -45,22 +45,41 @@ if __name__ == "__main__":
     l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
 
     with mlflow.start_run():
-        lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
+        lr = LogisticRegression()
+        # lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
         lr.fit(train_x, train_y)
+
+        print(lr.predict)
+        print(lr.predict_proba)
+
+        probs = lr.predict_proba(test_x)
+        lr.predict = lr.predict_proba
 
         predicted_qualities = lr.predict(test_x)
 
-        (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+        import numpy as np
+        np.testing.assert_array_equal(predicted_qualities, probs)
 
-        print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
-        print("  RMSE: %s" % rmse)
-        print("  MAE: %s" % mae)
-        print("  R2: %s" % r2)
+        import cloudpickle as pickle
+        with open("/tmp/sk1.pkl", "wb") as f:
+            pickle.dump(lr, f)
 
-        mlflow.log_param("alpha", alpha)
-        mlflow.log_param("l1_ratio", l1_ratio)
-        mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("r2", r2)
-        mlflow.log_metric("mae", mae)
+        with open("/tmp/sk1.pkl", "rb") as f:
+            newmod = pickle.load(f)
 
-        mlflow.sklearn.log_model(lr, "model")
+        np.testing.assert_array_equal(newmod.predict(test_x), probs)
+
+        # (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+        #
+        # print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
+        # print("  RMSE: %s" % rmse)
+        # print("  MAE: %s" % mae)
+        # print("  R2: %s" % r2)
+        #
+        # mlflow.log_param("alpha", alpha)
+        # mlflow.log_param("l1_ratio", l1_ratio)
+        # mlflow.log_metric("rmse", rmse)
+        # mlflow.log_metric("r2", r2)
+        # mlflow.log_metric("mae", mae)
+        #
+        # mlflow.sklearn.log_model(lr, "model")
