@@ -7,6 +7,8 @@ import classNames from 'classnames';
 import { Table, Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
+import BaggedCell from "./BaggedCell";
+import CompactTableRow from "./CompactTableRow";
 
 const styles = {
   sortArrow: {
@@ -37,7 +39,6 @@ const styles = {
 class ExperimentRunsTableCompactView extends Component {
   constructor(props) {
     super(props);
-    this.onHover = this.onHover.bind(this);
     this.getRow = this.getRow.bind(this);
   }
 
@@ -74,14 +75,6 @@ class ExperimentRunsTableCompactView extends Component {
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
   };
 
-  state = {
-    hoverState: {isMetric: false, isParam: false, key: ""},
-  };
-
-  onHover({isParam, isMetric, key}) {
-    this.setState({ hoverState: {isParam, isMetric, key} });
-  }
-
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
@@ -101,188 +94,20 @@ class ExperimentRunsTableCompactView extends Component {
       unbaggedParams,
       onRemoveBagged,
     } = this.props;
-    const hoverState = this.state.hoverState;
-    const runInfo = runInfos[idx];
-    const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
+    const paramsMap =ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
-    const selected = runsSelected[runInfo.run_uuid] === true;
-    const rowContents = [
-      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
-      ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid),
-    ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent)
-      .forEach((col) => rowContents.push(col));
-
-    const unbaggedParamSet = new Set(unbaggedParams);
-    const unbaggedMetricSet = new Set(unbaggedMetrics);
-    const baggedParams = paramKeyList.filter((paramKey) =>
-      !unbaggedParamSet.has(paramKey) && paramsMap[paramKey] !== undefined);
-    const baggedMetrics = metricKeyList.filter((metricKey) =>
-      !unbaggedMetricSet.has(metricKey) && metricsMap[metricKey] !== undefined);
-
-    // Add params (unbagged, then bagged)
-    unbaggedParams.forEach((paramKey) => {
-      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
-    });
-    // Add bagged params
-    const paramsCellContents = baggedParams.map((paramKey) => {
-      const cellClass = classNames("metric-param-content",
-        { highlighted: hoverState.isParam && hoverState.key === paramKey });
-      const keyname = "param-" + paramKey;
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
-      return (
-        <div
-          key={keyname}
-          className="metric-param-cell"
-        >
-          <span
-            className={cellClass}
-            onMouseEnter={() => this.onHover({isParam: true, isMetric: false, key: paramKey})}
-            onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
-          >
-            <Dropdown id="dropdown-custom-1">
-              <ExperimentRunsSortToggle
-                bsRole="toggle"
-                className="metric-param-sort-toggle"
-              >
-                <span
-                  className="run-table-container underline-on-hover"
-                  style={styles.metricParamCellContent}
-                >
-                  <span style={{marginRight: sortIcon ? 2 : 0}}>
-                    {sortIcon}
-                  </span>
-                  <span className="metric-param-name" title={paramKey}>
-                    {paramKey}
-                  </span>
-                  <span>
-                    :
-                  </span>
-                </span>
-              </ExperimentRunsSortToggle>
-              <span
-                className="metric-param-value run-table-container"
-                style={styles.metricParamCellContent}
-                title={paramsMap[paramKey].getValue()}
-              >
-                  {paramsMap[paramKey].getValue()}
-              </span>
-              <Dropdown.Menu className="mlflow-menu">
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(false, true, paramKey, true)}
-                >
-                  Sort ascending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(false, true, paramKey, false)}
-                >
-                  Sort descending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => onRemoveBagged(true, paramKey)}
-                >
-                  Display in own column
-                </MenuItem>
-              </Dropdown.Menu>
-            </Dropdown>
-          </span>
-        </div>
-      );
-    });
-    if (this.shouldShowBaggedColumn(true)) {
-      rowContents.push(
-        <td key="params-container-cell" className="left-border">
-          <div>{paramsCellContents}</div>
-        </td>);
-    }
-
-    // Add metrics (unbagged, then bagged)
-    unbaggedMetrics.forEach((metricKey) => {
-      rowContents.push(
-        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
-    });
-
-    // Add bagged metrics
-    const metricsCellContents = baggedMetrics.map((metricKey) => {
-      const keyname = "metric-" + metricKey;
-      const cellClass = classNames("metric-param-content",
-        { highlighted: hoverState.isMetric && hoverState.key === metricKey });
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
-      const metric = metricsMap[metricKey].getValue();
-      return (
-        <span
-          key={keyname}
-          className={"metric-param-cell"}
-          onMouseEnter={() => this.onHover({isParam: false, isMetric: true, key: metricKey})}
-          onMouseLeave={() => this.onHover({isParam: false, isMetric: false, key: ""})}
-        >
-          <span className={cellClass}>
-            <Dropdown id="dropdown-custom-1">
-              <ExperimentRunsSortToggle
-                bsRole="toggle"
-                className={"metric-param-sort-toggle"}
-              >
-                <span
-                  className="run-table-container underline-on-hover"
-                  style={styles.metricParamCellContent}
-                >
-                  <span style={{marginRight: sortIcon ? 2 : 0}}>
-                    {sortIcon}
-                  </span>
-                  <span className="metric-param-name" title={metricKey}>
-                    {metricKey}
-                  </span>
-                  <span>
-                    :
-                  </span>
-                </span>
-              </ExperimentRunsSortToggle>
-              <span
-                className="metric-param-value run-table-container"
-                style={styles.metricParamCellContent}
-              >
-                {Utils.formatMetric(metric)}
-              </span>
-              <Dropdown.Menu className="mlflow-menu">
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(true, false, metricKey, true)}
-                >
-                  Sort ascending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(true, false, metricKey, false)}
-                >
-                  Sort descending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => onRemoveBagged(false, metricKey)}
-                >
-                  Display in own column
-                </MenuItem>
-              </Dropdown.Menu>
-            </Dropdown>
-          </span>
-        </span>
-      );
-    });
-    if (this.shouldShowBaggedColumn(false)) {
-      rowContents.push(
-        <td key="metrics-container-cell" className="metric-param-container-cell left-border">
-          <div>
-            {metricsCellContents}
-          </div>
-        </td>
-      );
-    }
+    const tagsMap = tagsList[idx];
+    const runInfo = runInfos[idx];
+    const rowContents = <CompactTableRow
+      runInfo={runInfo} paramsMap={paramsMap} metricsMap={metricsMap}
+      onCheckbox={onCheckbox} sortState={sortState} runsSelected={runsSelected}
+      tagsMap={tagsMap} setSortByHandler={setSortByHandler} onExpand={onExpand}
+      paramKeyList={paramKeyList} metricKeyList={metricKeyList} metricRanges={metricRanges}
+      onRemoveBagged={onRemoveBagged} isParent={isParent} hasExpander={hasExpander}
+      unbaggedMetrics={unbaggedMetrics} unbaggedParams={unbaggedParams}
+      expanderOpen={expanderOpen} childrenIds={childrenIds}/>;
     const sortValue = ExperimentViewUtil.computeSortValue(
-      sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
+      sortState, metricsMap, paramsMap, runInfos, tagsMap);
     return {
       key: runInfo.run_uuid,
       sortValue,
