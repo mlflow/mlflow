@@ -218,8 +218,3 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
         deployed_model_preds.values,
         predicted,
         decimal=4)
-
-
-
-
-
