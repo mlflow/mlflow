@@ -4,12 +4,12 @@ CLI for runs
 
 import click
 import datetime
+import json
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 from tabulate import tabulate
 
-EXPERIMENT_ID = click.argument("experiment_id", type=click.INT)
-RUN_ID = click.argument("run_id", type=click.INT)
+RUN_ID = click.argument("run_id", type=click.STRING)
 
 @click.group("runs")
 def commands():
@@ -20,11 +20,11 @@ def commands():
     pass
 
 @commands.command("list")
+@click.option("--experiment_id", help="Specify the experiment for list of runs.")
 @click.option("--view", "-v", default="active_only",
               help="Select view type for list experiments. Valid view types are "
                    "'active_only' (default), 'deleted_only', and 'all'.")
-@EXPERIMENT_ID
-def list_experiments(experiment_id, view):
+def list_run(experiment_id, view):
     """
     List all runs of the specified experiment in the configured tracking server.
     """
@@ -36,8 +36,8 @@ def list_experiments(experiment_id, view):
 
 
 @commands.command("delete")
-@EXPERIMENT_ID
-def delete_experiment(run_id):
+@RUN_ID
+def delete_run(run_id):
     """
     Mark a run for deletion. Return an error if the run does not exist or
     is already marked. You can restore a marked run with ``restore_run``,
@@ -57,3 +57,17 @@ def restore_experiment(run_id):
     store = _get_store()
     store.restore_run(run_id)
     print("Run with id %s has been restored." % str(run_id))
+
+@commands.command('export')
+@RUN_ID
+@click.argument('file', type=click.Path(exists=False))
+def export_run(run_id, file):
+    """
+    Export a run to JSON file.
+    """
+    store = _get_store()
+    run = store.get_run(run_id)
+
+    with open(file, 'w') as outfile:
+        json.dump(run.to_dictionary(), outfile, indent=4)
+    print(f'Run with id {run_id} saved in {file}')
