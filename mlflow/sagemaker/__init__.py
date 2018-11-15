@@ -479,7 +479,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
         operation_status = delete_operation.await_completion(timeout_seconds=timeout_seconds)
         if operation_status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
             raise MlflowException(
-                "The deployment operation failed with the following error message:"
+                "The deletion operation failed with the following error message:"
                 " \"{error_message}\"".format(error_message=operation_status.message))
         elif not archive:
             eprint("Cleaning up unused resources...")
