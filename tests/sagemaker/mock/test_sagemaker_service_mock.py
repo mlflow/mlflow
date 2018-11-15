@@ -22,8 +22,8 @@ def test_created_endpoint_config_is_listed_by_list_endpoints_function(sagemaker_
                 'VariantName': 'sample-variant',
                 'ModelName': 'sample-model',
                 'InitialInstanceCount': 1,
-                'InstanceType': 'ml.m4.xlarge', 
-                'InitialVariantWeight': 1.0, 
+                'InstanceType': 'ml.m4.xlarge',
+                'InitialVariantWeight': 1.0,
             },
         ],
     )
