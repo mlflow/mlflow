@@ -4,11 +4,23 @@ import PropTypes from 'prop-types';
 import ExperimentViewUtil from "./ExperimentViewUtil";
 import { RunInfo } from '../sdk/MlflowMessages';
 import classNames from 'classnames';
-import { Table, Dropdown, MenuItem } from 'react-bootstrap';
+import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
 import BaggedCell from "./BaggedCell";
 import CompactTableRow from "./CompactTableRow";
+
+import ReactDOM from 'react-dom';
+import { Column, Table } from 'react-virtualized';
+import 'react-virtualized/styles.css'; // only needs to be imported once
+
+// Table data as an array of objects
+const list = [...Array(10000).keys()].map((i) => {
+  return {
+    name: 'Brian Vaughn', description:  'Software engineer',
+  };
+});
+
 
 const styles = {
   sortArrow: {
@@ -260,33 +272,32 @@ class ExperimentRunsTableCompactView extends Component {
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
     return (
-      <Table hover>
-        <colgroup span="9"/>
-        <colgroup span={unbaggedMetrics.length}/>
-        <colgroup span={unbaggedParams.length}/>
-        <tbody>
-        <tr>
-          <th className="top-row" scope="colgroup" colSpan="7"/>
-          <th
-            className="top-row left-border"
-            scope="colgroup"
-
-            colSpan={unbaggedParams.length + this.shouldShowBaggedColumn(true)}
-          >
-            Parameters
-          </th>
-          <th className="top-row left-border" scope="colgroup"
-            colSpan={unbaggedMetrics.length + this.shouldShowBaggedColumn(false)}
-          >
-            Metrics
-          </th>
-        </tr>
-        <tr>
-          {headerCells}
-        </tr>
-        {ExperimentViewUtil.renderRows(rows)}
-        </tbody>
-      </Table>);
+      <Table
+        width={300}
+        height={300}
+        headerHeight={20}
+        rowHeight={30}
+        rowCount={list.length}
+        rowGetter={({ index }) => list[index]}
+      >
+        <Column
+          label='Name'
+          dataKey='name'
+          width={100}
+        />
+        <Column
+          width={200}
+          label='Description'
+          dataKey='description'
+          cellRenderer={({cellData}) => {
+            const spans = [...Array(100).keys()].map((i) => {
+              return (<span>Element {i}</span>);
+            });
+            return (<div style={{whiteSpace: "normal"}}>{spans}</div>);
+          }}
+        />
+      </Table>
+    );
   }
 }
 
