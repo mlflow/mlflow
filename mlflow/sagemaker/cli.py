@@ -56,9 +56,10 @@ def commands():
                     " from the model's available flavors.".format(
                         supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 @click.option("--asynchronous", is_flag=True,
-              help=("If specified, this command will return before the deployment process"
-                    " completes; the caller is responsible for monitoring the deletion process"
-                    " via native SageMaker APIs or the AWS console."))
+              help=("If specified, this command will return immediately after starting the"
+                    " deployment process. It will not wait for the deployment process to complete."
+                    " The caller is responsible for monitoring the deployment process via native"
+                    " SageMaker APIs or the AWS console."))
 @click.option("--timeout", default=1200,
               help=("If the command is executed synchronously, the deployment process will return"
                     " after the specified number of seconds if no definitive result (success or"
@@ -74,7 +75,7 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
 
     By default, unless the ``--asynchronous`` flag is specified, this command will block until
     either the deployment process completes (definitively succeeds or fails) or the specified
-    timeout is elapsed.
+    timeout elapses.
 
     For more information about the input data formats accepted by the deployed REST API endpoint,
     see the following documentation:
@@ -105,9 +106,10 @@ def list_flavors():
 @click.option("--archive", "-ar", is_flag=True, help="If specified, resources associated with"
               " the application are preserved. Otherwise, these resources are deleted.")
 @click.option("--asynchronous", is_flag=True,
-              help=("If specified, this command will return before the deployment process"
-                    " completes; the caller is responsible for monitoring the deletion process"
-                    " via native SageMaker APIs or the AWS console."))
+              help=("If specified, this command will return immediately after starting the"
+                    " deletion process. It will not wait for the deletion process to complete."
+                    " The caller is responsible for monitoring the deletion process via native"
+                    " SageMaker APIs or the AWS console."))
 @click.option("--timeout", default=1200,
               help=("If the command is executed synchronously, the deployment process will return"
                     " after the specified number of seconds if no definitive result (success or"
@@ -122,7 +124,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 
     By default, unless the ``--asynchronous`` flag is specified, this command will block until
     either the deletion process completes (definitively succeeds or fails) or the specified timeout
-    is elapsed.
+    elapses.
     """
     mlflow.sagemaker.delete(
         app_name=app_name, region_name=region_name, archive=archive, synchronous=(not asynchronous),

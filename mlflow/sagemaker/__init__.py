@@ -278,9 +278,10 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                    a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
-    :param synchronous: If `True`, this function will block until the deployment process completes
+    :param synchronous: If `True`, this function will block until the deployment process succeeds
                         or encounters an irrecoverable failure. If `False`, this function will
-                        return before the deployment process completes; in this case, the caller is
+                        return immediately after starting the deployment process. It will not wait
+                        for the deployment process to complete; in this case, the caller is
                         responsible for monitoring the health and status of the pending deployment
                         via native SageMaker APIs or the AWS console.
     :param timeout_seconds: If `synchronous` is `True`, the deployment process will return after the
@@ -419,17 +420,18 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
     :param archive: If True, resources associated with the specified application, such
                     as its associated models and endpoint configuration, will be preserved.
                     If False, these resources will be deleted.
-    :param synchronous: If `True`, this function will block until the deletion process completes
+    :param synchronous: If `True`, this function will block until the deletion process succeeds
                         or encounters an irrecoverable failure. If `False`, this function will
-                        return before the deletion process completes; in this case, the caller is
-                        responsible for monitoring the deletion process via native SageMaker APIs
-                        or the AWS console.
-    :param timeout_seconds: If `synchronous` is `True`, the deployment process will return after the
+                        return immediately after starting the deletion process. It will not wait
+                        for the deletion process to complete; in this case, the caller is
+                        responsible for monitoring the status of the deletion process via native
+                        SageMaker APIs or the AWS console.
+    :param timeout_seconds: If `synchronous` is `True`, the deletion process will return after the
                             specified number of seconds if no definitive result (success or failure)
                             is achieved. Once the function returns, the caller is responsible
-                            for monitoring the health and status of the pending deployment via
-                            native SageMaker APIs or the AWS console. If `synchronous` is False,
-                            this parameter is ignored.
+                            for monitoring the status of the deletion process via native SageMaker
+                            APIs or the AWS console. If `synchronous` is False, this parameter
+                            is ignored.
     """
     if (not archive) and (not synchronous):
         raise MlflowException(
