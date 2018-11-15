@@ -13,7 +13,12 @@ from mlflow.utils import cli_args
 
 @click.group("sagemaker")
 def commands():
-    """Serve models on SageMaker."""
+    """
+    Serve models on SageMaker.
+
+    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    environment variable to the URL of the desired server.
+    """
     pass
 
 
@@ -24,9 +29,9 @@ def commands():
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
 @cli_args.RUN_ID
 @click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
-@click.option("--region-name", "-r", default="us-west-2",
+@click.option("--region-name", default="us-west-2",
               help="Name of the AWS region in which to deploy the application")
-@click.option("--mode", "-md", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
+@click.option("--mode", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
               help="The mode in which to deploy the application."
               " Must be one of the following: {mds}".format(
                   mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
@@ -53,6 +58,10 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
+
+    For more information about the input data formats accepted by the deployed REST API endpoint,
+    see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#sagemaker-deployment.
     """
     if vpc_config is not None:
         with open(vpc_config, "r") as f:

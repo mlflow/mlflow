@@ -1,3 +1,20 @@
+"""
+The ``mlflow.models`` module provides an API for saving machine learning models in
+"flavors" that can be understood by different downstream tools.
+
+The built-in flavors are:
+
+- :py:mod:`mlflow.pyfunc`
+- :py:mod:`mlflow.h2o`
+- :py:mod:`mlflow.keras`
+- :py:mod:`mlflow.pytorch`
+- :py:mod:`mlflow.sklearn`
+- :py:mod:`mlflow.spark`
+- :py:mod:`mlflow.tensorflow`
+
+For details, see `MLflow Models <../models.html>`_.
+"""
+
 from datetime import datetime
 
 import yaml
@@ -8,7 +25,7 @@ from mlflow.utils.file_utils import TempDir
 
 
 class Model(object):
-    """A MLflow model that can support multiple model flavors."""
+    """An MLflow Model that can support multiple model flavors."""
 
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=datetime.utcnow(),
                  flavors=None):
@@ -28,7 +45,7 @@ class Model(object):
         return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=False)
 
     def save(self, path):
-        """Write this model as a YAML file to a local file."""
+        """Write the model as a local YAML file."""
         with open(path, 'w') as out:
             self.to_yaml(out)
 
@@ -43,8 +60,8 @@ class Model(object):
         """
         Log model using supplied flavor module.
 
-        :param artifact_path: Run relative path identifying this model.
-        :param flavor: Flavor module / object to save the model with. The module / object must have
+        :param artifact_path: Run relative path identifying the model.
+        :param flavor: Flavor module to save the model with. The module must have
                        the ``save_model`` function that will persist the model as a valid
                        MLflow model.
         :param kwargs: Extra args passed to the model flavor.

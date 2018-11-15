@@ -1,7 +1,7 @@
 package org.mlflow.tracking;
 
 /**
- * HTTP exception.
+ * Returned when an HTTP API request to a remote Tracking service returns an error code.
  */
 public class MlflowHttpException extends MlflowClientException {
 

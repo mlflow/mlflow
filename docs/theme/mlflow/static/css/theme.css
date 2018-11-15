@@ -4636,7 +4636,6 @@ div[class^='highlight'] pre {
     height: 100%
 }
 .wy-nav-side {
-    position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
@@ -4647,6 +4646,13 @@ div[class^='highlight'] pre {
     min-height: 100%;
     background: #343131;
     z-index: 8
+}
+.wy-nav-side.fixed {
+  position: fixed;
+  top: 0;
+}
+.wy-nav-side.relative {
+  position: relative;
 }
 .wy-side-scroll {
     width: 320px;
@@ -4979,7 +4985,8 @@ footer span.commit .rst-content tt,
     text-align: center
 }
 .rst-content .section>img,
-.rst-content .section>a>img {
+.rst-content .section>a>img,
+.rst-content .section .container > img {
     margin-bottom: 24px
 }
 .rst-content blockquote {
@@ -5192,7 +5199,7 @@ a .rst-content tt,
 a .rst-content tt,
 a .rst-content code {
     font-weight: bold;
-    color: #052247
+    color: #2980B9;
 }
 .rst-content a tt,
 .rst-content a tt,

@@ -5,33 +5,35 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>0.5.2</version>
+    <version>0.8.1</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>mlflow-client</artifactId>
   <packaging>jar</packaging>
-  <version>0.5.2</version>
-  <name>MLflow Client SDK</name>
+  <version>0.8.1</version>
+  <name>MLflow Tracking API</name>
   <url>http://mlflow.org</url>
   <properties>
     <mlflow.shade.packageName>org.mlflow_project</mlflow.shade.packageName>
   </properties>
 
+  <distributionManagement>
+    <repository>
+      <id>bintray</id>
+      <name>mlflow</name>
+      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-client/;publish=1</url>
+    </repository>
+  </distributionManagement>
+
   <dependencies>
     <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
-      <version>1.2.17</version>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.testng</groupId>
-      <artifactId>testng</artifactId>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
@@ -49,6 +51,18 @@
       <groupId>org.ini4j</groupId>
       <artifactId>ini4j</artifactId>
     </dependency>
+
+    <!-- Test dependencies -->
+    <dependency>
+      <groupId>org.testng</groupId>
+      <artifactId>testng</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-jdk14</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -60,6 +74,20 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <sourcepath>${project.basedir}/src/main/java</sourcepath>
+          <excludePackageNames>com.databricks.api.proto.databricks:org.mlflow.scalapb_interface:org.mlflow.tracking.samples:org.mlflow.artifacts</excludePackageNames>
+          <groups>
+            <group>
+              <title>Tracking API</title>
+              <packages>org.mlflow.tracking:org.mlflow.tracking.*</packages>
+            </group>
+          </groups>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
       </plugin>
 
       <plugin>

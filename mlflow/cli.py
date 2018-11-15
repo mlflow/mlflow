@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+import json
+import os
 import sys
 
 import click
@@ -7,10 +9,10 @@ from click import UsageError
 
 import mlflow.azureml.cli
 import mlflow.projects as projects
-import mlflow.sklearn
 import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
+import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
@@ -53,8 +55,8 @@ def cli():
                    "See https://github.com/databricks/databricks-cli for more info on configuring "
                    "a Databricks CLI profile.")
 @click.option("--cluster-spec", "-c", metavar="FILE",
-              help="Path to JSON file describing the cluster to use when launching a run on "
-                   "Databricks. See "
+              help="Path to JSON file (must end in '.json') or JSON string describing the cluster"
+                   "to use when launching a run on Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
 @click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
@@ -95,6 +97,13 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
         param_dict[name] = value
+    cluster_spec_arg = cluster_spec
+    if cluster_spec is not None and os.path.splitext(cluster_spec)[-1] != ".json":
+        try:
+            cluster_spec_arg = json.loads(cluster_spec)
+        except ValueError as e:
+            print("Invalid cluster spec JSON. Parse error: %s" % e)
+            raise
     try:
         projects.run(
             uri,
@@ -103,7 +112,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             experiment_id=experiment_id,
             parameters=param_dict,
             mode=mode,
-            cluster_spec=cluster_spec,
+            cluster_spec=cluster_spec_arg,
             git_username=git_username,
             git_password=git_password,
             use_conda=(not no_conda),
@@ -126,7 +135,9 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
                    "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-def ui(file_store, host, port):
+@click.option("--gunicorn-opts", default=None,
+              help="Additional command line options forwarded to gunicorn processes.")
+def ui(file_store, host, port, gunicorn_opts):
     """
     Launch the MLflow tracking UI.
 
@@ -134,7 +145,7 @@ def ui(file_store, host, port):
     """
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(file_store, file_store, host, port, 1, None)
+        _run_server(file_store, file_store, host, port, 1, None, gunicorn_opts)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
@@ -173,7 +184,9 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Number of gunicorn worker processes to handle requests (default: 4).")
 @click.option("--static-prefix", default=None, callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
-def server(file_store, default_artifact_root, host, port, workers, static_prefix):
+@click.option("--gunicorn-opts", default=None,
+              help="Additional command line options forwarded to gunicorn processes.")
+def server(file_store, default_artifact_root, host, port, workers, static_prefix, gunicorn_opts):
     """
     Run the MLflow tracking server.
 
@@ -182,20 +195,21 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
     try:
-        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix)
+        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix,
+                    gunicorn_opts)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
         sys.exit(1)
 
 
-cli.add_command(mlflow.sklearn.commands)
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
+cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
-cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
+cli.add_command(mlflow.azureml.cli.commands)
 
 if __name__ == '__main__':
     cli()

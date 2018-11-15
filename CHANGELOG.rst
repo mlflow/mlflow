@@ -1,6 +1,170 @@
 Changelog
 =========
 
+0.8.0 (2018-11-08)
+-----------------
+
+MLflow 0.8.0 introduces several major features:
+
+- Dramatically improved UI for comparing experiment run results:
+
+  - Metrics and parameters are by default grouped into a single column, to avoid an explosion of mostly-empty columns. Individual metrics and parameters can be moved into their own column to help compare across rows.
+  - Runs that are "nested" inside other runs (e.g., as part of a hyperparameter search or multistep workflow) now show up grouped by their parent run, and can be expanded or collapsed altogether. Runs can be nested by calling ``mlflow.start_run`` or ``mlflow.run`` while already within a run.
+  - Run names (as opposed to automatically generated run UUIDs) now show up instead of the run ID, making comparing runs in graphs easier.
+  - The state of the run results table, including filters, sorting, and expanded rows, is persisted in browser local storage, making it easier to go back and forth between an individual run view and the table.
+
+- Support for deploying models as Docker containers directly to Azure Machine Learning Service Workspace (as opposed to the previously-recommended solution of Azure ML Workbench).
+
+
+Breaking changes:
+
+- [CLI] ``mlflow sklearn serve`` has been removed in favor of ``mlflow pyfunc serve``, which takes the same arguments but works against any pyfunc model (#690, @dbczumar)
+
+
+Features:
+
+- [Scoring] pyfunc server and SageMaker now support the pandas "split" JSON format in addition to the "records" format. The split format allows the client to specify the order of columns, which is necessary for some model formats. We recommend switching client code over to use this new format (by sending the Content-Type header ``application/json; format=pandas-split``), as it will become the default JSON format in MLflow 0.9.0. (#690, @dbczumar)
+- [UI] Add compact experiment view (#546, #620, #662, #665, @smurching)
+- [UI] Add support for viewing & tracking nested runs in experiment view (#588, @andrewmchen; #618, #619, @aarondav)
+- [UI] Persist experiments view filters and sorting in browser local storage (#687, @smurching)
+- [UI] Show run name instead of run ID when present (#476, @smurching)
+- [Scoring] Support for deploying Models directly to Azure Machine Learning Service Workspace (#631, @dbczumar)
+- [Server/Python/Java] Add ``rename_experiment`` to Tracking API (#570, @aarondav)
+- [Server] Add ``get_experiment_by_name`` to RestStore (#592, @dmarkhas)
+- [Server] Allow passing gunicorn options when starting mlflow server (#626, @mparkhe)
+- [Python] Cloudpickle support for sklearn serialization (#653, @dbczumar)
+- [Artifacts] FTP artifactory store added (#287, @Shenggan)
+
+
+Bug fixes and documentation updates:
+
+- [Python] Update TensorFlow integration to match API provided by other flavors (#612, @dbczumar; #670, @mlaradji)
+- [Python] Support for TensorFlow 1.12 (#692, @smurching)
+- [R] Explicitly loading Keras module at predict time no longer required (#586, @kevinykuo)
+- [R] pyfunc serve can correctly load models saved with the R Keras support (#634, @tomasatdatabricks)
+- [R] Increase network timeout of calls to the RestStore from 1 second to 60 seconds (#704, @aarondav)
+- [Server] Improve errors returned by RestStore (#582, @andrewmchen; #560, @smurching)
+- [Server] Deleting the default experiment no longer causes it to be immediately recreated (#604, @andrewmchen; #641, @schipiga)
+- [Server] Azure Blob Storage artifact repo supports Windows paths (#642, @marcusrehm)
+- [Server] Improve behavior when environment and run files are corrupted (#632, #654, #661, @mparkhe)
+- [UI] Improve error page when viewing nonexistent runs or views (#600, @andrewmchen; #560, @andrewmchen)
+- [UI] UI no longer throws an error if all experiments are deleted (#605, @andrewmchen)
+- [Docs] Include diagram of workflow for multistep example (#581, @dennyglee)
+- [Docs] Add reference tags and R and Java APIs to tracking documentation (#514, @stbof)
+- [Docs/R] Use CRAN installation (#686, @javierluraschi)
+
+Small bug fixes and doc updates (#576, #594, @javierluraschi; #585, @kevinykuo; #593, #601, #611, #650, #669, #671, #679, @dbczumar; #607, @suzil; #583, #615, @andrewmchen; #622, #681, @aarondav; #625, @pogil; #589, @tomasatdatabricks; #529, #635, #684, @stbof; #657, @mvsusp; #682, @mateiz; #678, vfdev-5; #596, @yutannihilation; #663, @smurching)
+
+
+0.7.0 (2018-10-01)
+-----------------
+
+MLflow 0.7.0 introduces several major features:
+
+- An R client API (to be released on CRAN soon)
+- Support for deleting runs (API + UI)
+- UI support for adding notes to a run
+
+The release also includes bugfixes and improvements across the Python and Java clients, tracking UI,
+and documentation.
+
+Breaking changes:
+
+- [Python] The per-flavor implementation of load_pyfunc has been made private (#539, @tomasatdatabricks)
+- [REST API, Java] logMetric now accepts a double metric value instead of a float (#566, @aarondav)
+
+Features:
+
+- [R] Support for R (#370, #471, @javierluraschi; #548 @kevinykuo)
+- [UI] Add support for adding notes to Runs (#396, @aadamson)
+- [Python] Python API, REST API, and UI support for deleting Runs (#418, #473, #526, #579 @andrewmchen)
+- [Python] Set a tag containing the branch name when executing a branch of a Git project (#469, @adrian555)
+- [Python] Add a set_experiment API to activate an experiment before starting runs (#462, @mparkhe)
+- [Python] Add arguments for specifying a parent run to tracking & projects APIs (#547, @andrewmchen)
+- [Java] Add Java set tag API (#495, @smurching)
+- [Python] Support logging a conda environment with sklearn models (#489, @dbczumar)
+- [Scoring] Support downloading MLflow scoring JAR from Maven during scoring container build (#507, @dbczumar)
+
+
+Bug fixes:
+
+- [Python] Print errors when the Databricks run fails to start (#412, @andrewmchen)
+- [Python] Fix Spark ML PyFunc loader to work on Spark driver (#480, @tomasatdatabricks)
+- [Python] Fix Spark ML load_pyfunc on distributed clusters (#490, @tomasatdatabricks)
+- [Python] Fix error when downloading artifacts from a run's artifact root (#472, @dbczumar)
+- [Python] Fix DBFS upload file-existence-checking logic during Databricks project execution (#510, @smurching)
+- [Python] Support multi-line and unicode tags (#502, @mparkhe)
+- [Python] Add missing DeleteExperiment, RestoreExperiment implementations in the Python REST API client (#551, @mparkhe)
+- [Scoring] Convert Spark DataFrame schema to an MLeap schema prior to serialization (#540, @dbczumar)
+- [UI] Fix bar chart always showing in metric view (#488, @smurching)
+
+
+Small bug fixes and doc updates (#467 @drorata; #470, #497, #508, #518 @dbczumar;
+#455, #466, #492, #504, #527 @aarondav; #481, #475, #484, #496, #515, #517, #498, #521, #522,
+#573 @smurching; #477 @parkerzf; #494 @jainr; #501, #531, #532, #552 @mparkhe; #503, #520 @dmatrix;
+#509, #532 @tomasatdatabricks; #484, #486 @stbof; #533, #534 @javierluraschi;
+#542 @GCBallesteros; #511 @AdamBarnhard)
+
+
+0.6.0 (2018-09-10)
+------------------
+
+MLflow 0.6.0 introduces several major features:
+
+- A Java client API, available on Maven
+- Support for saving and serving SparkML models as MLeap for low-latency serving
+- Support for tagging runs with metadata, during and after the run completion
+- Support for deleting (and restoring deleted) experiments
+
+In addition to these features, there are a host of improvements and bugfixes to the REST API, Python API, tracking UI, and documentation. The `examples/ <https://github.com/mlflow/mlflow/tree/master/examples>`_ subdirectory has also been revamped to make it easier to jump in, and examples demonstrating multistep workflows and hyperparameter tuning have been added.
+
+Breaking changes:
+
+We fixed a few inconsistencies in the the ``mlflow.tracking`` API, as introduced in 0.5.0:
+
+- ``MLflowService`` has been renamed ``MlflowClient`` (#461, @mparkhe)
+- You get an ``MlflowClient`` by calling ``mlflow.tracking.MlflowClient()`` (previously, this was ``mlflow.tracking.get_service()``) (#461, @mparkhe)
+- ``MlflowService.list_runs`` was changed to ``MlflowService.list_run_infos`` to reflect the information actually returned by the call. It now returns a ``RunInfo`` instead of a ``Run`` (#334, @aarondav)
+- ``MlflowService.log_artifact`` and ``MlflowService.log_artifacts`` now take a ``run_id`` instead of ``artifact_uri``. This now matches ``list_artifacts`` and ``download_artifacts``  (#444, @aarondav)
+
+Features:
+
+- Java client API added with support for the MLflow Tracking API (analogous to ``mlflow.tracking``), allowing users to create and manage experiments, runs, and artifacts. The release includes a `usage example <https://github.com/mlflow/mlflow/blob/master/mlflow/java/client/src/main/java/org/mlflow/tracking/samples/QuickStartDriver.java>`_ and `Javadocs <https://mlflow.org/docs/latest/java_api/index.html>`_. The client is published to Maven under ``mlflow:mlflow`` (#380, #394, #398, #409, #410, #430, #452, @aarondav)
+- SparkML models are now also saved in MLeap format (https://github.com/combust/mleap), when applicable. Model serving platforms can choose to serve using this format instead of the SparkML format to dramatically decrease prediction latency. SageMaker now does this by default (#324, #327, #331, #395, #428, #435, #438, @dbczumar)
+- [API] Experiments can now be deleted and restored via REST API, Python Tracking API, and MLflow CLI (#340, #344, #367, @mparkhe)
+- [API] Tags can now be set via a SetTag API, and they have been moved to ``RunData`` from ``RunInfo`` (#342, @aarondav)
+- [API] Added ``list_artifacts`` and ``download_artifacts`` to ``MlflowService`` to interact with a run's artifactory (#350, @andrewmchen)
+- [API] Added ``get_experiment_by_name`` to Python Tracking API, and equivalent to Java API (#373, @vfdev-5)
+- [API/Python] Version is now exposed via ``mlflow.__version__``.
+- [API/CLI] Added ``mlflow artifacts`` CLI to list, download, and upload to run artifact repositories (#391, @aarondav)
+- [UI] Added icons to source names in MLflow Experiments UI (#381, @andrewmchen)
+- [UI] Added support to view ``.log`` and ``.tsv`` files from MLflow artifacts UI (#393, @Shenggan; #433, @whiletruelearn)
+- [UI] Run names can now be edited from within the MLflow UI (#382, @smurching)
+- [Serving] Added ``--host`` option to ``mlflow serve`` to allow listening on non-local addressess (#401, @hamroune)
+- [Serving/SageMaker] SageMaker serving takes an AWS region argument (#366, @dbczumar)
+- [Python] Added environment variables to support providing HTTP auth (username, password, token) when talking to a remote MLflow tracking server (#402, @aarondav)
+- [Python] Added support to override S3 endpoint for S3 artifactory (#451, @hamroune)
+- MLflow nightly Python wheel and JAR snapshots are now available and linked from https://github.com/mlflow/mlflow (#352, @aarondav)
+
+Bug fixes and documentation updates:
+
+- [Python] ``mlflow run`` now logs default parameters, in addition to explicitly provided ones (#392, @mparkhe)
+- [Python] ``log_artifact`` in FileStore now requires a relative path as the artifact path (#439, @mparkhe)
+- [Python] Fixed string representation of Python entities, so they now display both their type and serialized fields (#371, @smurching)
+- [UI] Entry point name is now shown in MLflow UI (#345, @aarondav)
+- [Models] Keras model export now includes Tensorflow graph explicitly to ensure the model can always be loaded at deployment time (#440, @tomasatdatabricks)
+- [Python] Fixed issue where FileStore ignored provided Run Name (#358, @adrian555)
+- [Python] Fixed an issue where any ``mlflow run`` failing printed an extraneous exception (#365, @smurching)
+- [Python] uuid dependency removed (#351, @antonpaquin)
+- [Python] Fixed issues with remote execution on Databricks (#357, #361, @smurching; #383, #387, @aarondav)
+- [Docs] Added `comprehensive example <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_ of doing a multistep workflow, chaining MLflow runs together and reusing results (#338, @aarondav)
+- [Docs] Added `comprehensive example <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_ of doing hyperparameter tuning (#368, @tomasatdatabricks)
+- [Docs] Added code examples to ``mlflow.keras`` API (#341, @dmatrix)
+- [Docs] Significant improvements to Python API documentation (#454, @stbof)
+- [Docs] Examples folder refactored to improve readability. The examples now reside in ``examples/`` instead of ``example/``, too (#399, @mparkhe)
+- Small bug fixes and doc updates (#328, #363, @ToonKBC; #336, #411, @aarondav; #284, @smurching; #377, @mparkhe; #389, gioa; #408, @aadamson; #397, @vfdev-5; #420, @adrian555; #459, #463, @stbof)
+
+
 0.5.2 (2018-08-24)
 ------------------
 

@@ -1,5 +1,5 @@
 """
-Utilities for deploying MLflow models to Amazon SageMaker.
+The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
 from __future__ import print_function
 
@@ -19,6 +19,7 @@ import mlflow.version
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils import get_unique_resource_id
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
@@ -66,8 +67,8 @@ RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
 ENV PATH="/miniconda/bin:${PATH}"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
-RUN conda install -c anaconda gunicorn;\
-    conda install -c anaconda gevent;\
+RUN conda install gunicorn;\
+    conda install gevent;\
 
 %s
 
@@ -108,27 +109,41 @@ def _docker_ignore(mlflow_root):
 
 def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
     """
-    This function builds an MLflow Docker image.
+    Build an MLflow Docker image.
     The image is built locally and it requires Docker to run.
 
-    :param name: image name
+    :param name: Docker image name.
+    :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
+                        image will install MLflow from this directory. Otherwise, it will install
+                        MLflow from pip.
     """
     with TempDir() as tmp:
-        install_mlflow = "RUN pip install mlflow=={version}".format(
-            version=mlflow.version.VERSION)
         cwd = tmp.path()
         if mlflow_home:
             mlflow_dir = _copy_project(
-                src_path=mlflow_home, dst_path=tmp.path())
-            install_mlflow = ("COPY {mlflow_dir} /opt/mlflow\n"
-                              "RUN cd /opt/mlflow/mlflow/java/scoring &&"
-                              " mvn --batch-mode package -DskipTests \n"
-                              "RUN pip install /opt/mlflow\n")
-            install_mlflow = install_mlflow.format(mlflow_dir=mlflow_dir)
+                src_path=mlflow_home, dst_path=cwd)
+            install_mlflow = (
+                "COPY {mlflow_dir} /opt/mlflow\n"
+                "RUN pip install /opt/mlflow\n"
+                "RUN cd /opt/mlflow/mlflow/java/scoring &&"
+                " mvn --batch-mode package -DskipTests &&"
+                " mkdir -p /opt/java/jars &&"
+                " mv /opt/mlflow/mlflow/java/scoring/target/"
+                "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
+            ).format(mlflow_dir=mlflow_dir)
         else:
-            eprint("`mlflow_home` was not specified. The image will install"
-                   " MLflow from pip instead. As a result, the container will"
-                   " not support the MLeap flavor.")
+            install_mlflow = (
+                "RUN pip install mlflow=={version}\n"
+                "RUN mvn --batch-mode dependency:copy"
+                " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
+                " -DoutputDirectory=/opt/java\n"
+                "RUN mvn --batch-mode dependency:copy"
+                " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+                " -DoutputDirectory=/opt/java/jars\n"
+                "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&"
+                " mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
+                "RUN rm /opt/java/pom.xml\n"
+            ).format(version=mlflow.version.VERSION)
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
@@ -148,11 +163,11 @@ _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:{version}"
 
 def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     """
-    Push local Docker image to ECR.
+    Push local Docker image to AWS ECR.
 
-    The image is pushed under current active AWS account and to current active AWS region.
+    The image is pushed under currently active AWS account and to the currently active AWS region.
 
-    :param image: image name
+    :param image: Docker image name.
     """
     eprint("Pushing image to ECR")
     client = boto3.client("sts")
@@ -165,8 +180,11 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     eprint("Pushing docker image {image} to {repo}".format(
         image=image, repo=fullname))
     ecr_client = boto3.client('ecr')
-    if not ecr_client.describe_repositories(repositoryNames=[image])['repositories']:
+    try:
+        ecr_client.describe_repositories(repositoryNames=[image])['repositories']
+    except ecr_client.exceptions.RepositoryNotFoundException:
         ecr_client.create_repository(repositoryName=image)
+        print("Created new ECR repository: {repository_name}".format(repository_name=image))
     # TODO: it would be nice to translate the docker login, tag and push to python api.
     # x = ecr_client.get_authorization_token()['authorizationData'][0]
     # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken']
@@ -184,19 +202,23 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
            instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
            instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT, vpc_config=None, flavor=None):
     """
-    Deploy model on SageMaker.
-    Currently active AWS account needs to have correct permissions set up.
+    Deploy an MLflow model on AWS SageMaker.
+    The currently active AWS account must have correct permissions set up.
+
+    This function creates a SageMaker endpoint. For more information about the input data
+    formats accepted by this endpoint, see the
+    :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
     :param app_name: Name of the deployed application.
     :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``
-        is specified.
+                 is specified.
     :param execution_role_arn: Amazon execution role with SageMaker rights.
-        Defaults to the currently-assumed role.
+                               Defaults to the currently-assumed role.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
-        SageMaker-compatible bucket name.
+                   SageMaker-compatible bucket name.
     :param run_id: MLflow run ID.
     :param image: Name of the Docker image to be used. if not specified, uses a
-        publicly-available pre-built image.
+                  publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
@@ -220,16 +242,16 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
     :param archive: If True, any pre-existing SageMaker application resources that become inactive
-        (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-        mode) are preserved. If False, these resources are deleted.
+                    (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                    mode) are preserved. If False, these resources are deleted.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
                           of supported instance types, see
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this application. The acceptable values
-                       for this parameter are identical to those of the `VpcConfig` parameter in the
-                       SageMaker boto3 client (https://boto3.readthedocs.io/en/latest/reference/
+                       for this parameter are identical to those of the ``VpcConfig`` parameter in
+                       the SageMaker boto3 client (https://boto3.readthedocs.io/en/latest/reference/
                        services/sagemaker.html#SageMaker.Client.create_model). For more information,
                        see https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
@@ -246,9 +268,9 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                        ...              }
                        >>> mfs.deploy(..., vpc_config=vpc_config)
 
-    :param flavor: The name of the flavor of the model to use for deployment. Must be either `None`
-                   or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If `None`, a flavor
-                   will be automatically selected from the model's available flavors. If the
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
     """
@@ -344,7 +366,7 @@ def _validate_deployment_flavor(model_config, flavor):
 
 def delete(app_name, region_name="us-west-2", archive=False):
     """
-    Delete the specified application.
+    Delete a SageMaker application.
 
     :param app_name: Name of the deployed application.
     :param region_name: Name of the AWS region in which the application is deployed.
@@ -385,10 +407,10 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
     :param run_id: MLflow run ID.
     :param port: Local port.
     :param image: Name of the Docker image to be used.
-    :param flavor: The name of the flavor of the model to use for local serving. If `None`, a flavor
-                   will be automatically selected from the model's available flavors. If the
+    :param flavor: The name of the flavor of the model to use for local serving. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
-                   will be thrown.
+                   is thrown.
     """
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
@@ -466,13 +488,20 @@ def _get_default_s3_bucket(region_name):
     buckets = [b['Name'] for b in response["Buckets"]]
     if bucket_name not in buckets:
         eprint("Default bucket `%s` not found. Creating..." % bucket_name)
-        response = s3.create_bucket(
-            ACL='bucket-owner-full-control',
-            Bucket=bucket_name,
-            CreateBucketConfiguration={
-                'LocationConstraint': region_name,
-            },
-        )
+        bucket_creation_kwargs = {
+            'ACL': 'bucket-owner-full-control',
+            'Bucket': bucket_name,
+        }
+        if region_name != "us-east-1":
+            # The location constraint is required during bucket creation for all regions
+            # outside of us-east-1. This constraint cannot be specified in us-east-1;
+            # specifying it in this region results in a failure, so we will only
+            # add it if we are deploying outside of us-east-1.
+            # See https://docs.aws.amazon.com/cli/latest/reference/s3api/create-bucket.html#examples
+            bucket_creation_kwargs['CreateBucketConfiguration'] = {
+                'LocationConstraint': region_name
+            }
+        response = s3.create_bucket(**bucket_creation_kwargs)
         eprint(response)
     else:
         eprint("Default bucket `%s` already exists. Skipping creation." %
@@ -593,32 +622,12 @@ def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode,
                                           sage_client=sage_client)
 
 
-def _get_sagemaker_resource_unique_id():
-    """
-    :return: A unique identifier that can be appended to a user-readable resource name to avoid
-             naming collisions.
-    """
-    uuid_bytes = uuid.uuid4().bytes
-    # Use base64 encoding to shorten the UUID length. Note that the replacement of the
-    # unsupported '+' symbol maintains uniqueness because the UUID byte string is of a fixed,
-    # 32-byte length
-    uuid_b64 = base64.b64encode(uuid_bytes)
-    if sys.version_info >= (3, 0):
-        # In Python3, `uuid_b64` is a `bytes` object. It needs to be
-        # converted to a string
-        uuid_b64 = uuid_b64.decode("ascii")
-    uuid_b64 = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB")
-    return uuid_b64
-
-
 def _get_sagemaker_model_name(endpoint_name):
-    unique_id = _get_sagemaker_resource_unique_id()
-    return "{en}-model-{uid}".format(en=endpoint_name, uid=unique_id)
+    return "{en}-model-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
 def _get_sagemaker_config_name(endpoint_name):
-    unique_id = _get_sagemaker_resource_unique_id()
-    return "{en}-config-{uid}".format(en=endpoint_name, uid=unique_id)
+    return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
 def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,

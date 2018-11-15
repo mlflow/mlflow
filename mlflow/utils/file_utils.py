@@ -1,3 +1,4 @@
+import codecs
 import gzip
 import os
 import shutil
@@ -7,6 +8,9 @@ import tempfile
 import yaml
 
 from mlflow.entities import FileInfo
+from mlflow.exceptions import MissingConfigException
+
+ENCODING = "utf-8"
 
 
 def is_directory(name):
@@ -95,7 +99,7 @@ def mkdir(root, name=None):  # noqa
     target = os.path.join(root, name) if name is not None else root
     try:
         if not exists(target):
-            os.mkdir(target)
+            os.makedirs(target)
             return target
     except OSError as e:
         raise e
@@ -121,7 +125,7 @@ def write_yaml(root, file_name, data, overwrite=False):
     :param overwrite: If True, will overwrite existing files
     """
     if not exists(root):
-        raise Exception("Parent directory '%s' does not exist." % root)
+        raise MissingConfigException("Parent directory '%s' does not exist." % root)
 
     file_path = os.path.join(root, file_name)
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
@@ -146,11 +150,12 @@ def read_yaml(root, file_name):
     :return: Data in yaml file as dictionary
     """
     if not exists(root):
-        raise Exception("Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
+        raise MissingConfigException(
+            "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
-        raise Exception("Yaml file '%s' does not exist." % file_path)
+        raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
 
     try:
         with open(file_path, 'r') as yaml_file:
@@ -188,18 +193,32 @@ class TempDir(object):
         return os.path.join("./", *path) if self._chdr else os.path.join(self._path, *path)
 
 
-def read_file(parent_path, file_name):
+def read_file_lines(parent_path, file_name):
     """
-    Return the contents of the file
+    Return the contents of the file as an array where each element is a separate line.
 
-    :param parent_path: Full path to the directory that contains the file
-    :param file_name: Leaf file name
+    :param parent_path: Full path to the directory that contains the file.
+    :param file_name: Leaf file name.
 
-    :return: All lines in the file as an array
+    :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
         return f.readlines()
+
+
+def read_file(parent_path, file_name):
+    """
+    Return the contents of the file.
+
+    :param parent_path: Full path to the directory that contains the file.
+    :param file_name: Leaf file name.
+
+    :return: The contents of the file.
+    """
+    file_path = os.path.join(parent_path, file_name)
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
+        return f.read()
 
 
 def get_file_info(path, rel_path):
@@ -236,7 +255,7 @@ def mv(target, new_parent):
 
 
 def write_to(filename, data):
-    with open(filename, "w") as handle:
+    with codecs.open(filename, mode="w", encoding=ENCODING) as handle:
         handle.write(data)
 
 
@@ -301,12 +320,25 @@ def _copy_project(src_path, dst_path=""):
     return mlflow_dir
 
 
-def _copy_file_or_tree(src, dst, dst_dir):
-    name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
-    if dst_dir:
-        os.mkdir(os.path.join(dst, dst_dir))
+def _copy_file_or_tree(src, dst, dst_dir=None):
+    """
+    :return: The path to the copied artifacts, relative to `dst`
+    """
+    dst_subpath = os.path.basename(os.path.abspath(src))
+    if dst_dir is not None:
+        dst_subpath = os.path.join(dst_dir, dst_subpath)
+    dst_path = os.path.join(dst, dst_subpath)
+
+    dst_dirpath = os.path.dirname(dst_path)
+    if not os.path.exists(dst_dirpath):
+        os.makedirs(dst_dirpath)
+
     if os.path.isfile(src):
-        shutil.copy(src=src, dst=os.path.join(dst, name))
+        shutil.copy(src=src, dst=dst_path)
     else:
-        shutil.copytree(src=src, dst=os.path.join(dst, name))
-    return name
+        shutil.copytree(src=src, dst=dst_path)
+    return dst_subpath
+
+
+def get_parent_dir(path):
+    return os.path.abspath(os.path.join(path, os.pardir))

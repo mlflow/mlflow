@@ -1,0 +1,15 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+mlruns
+^mlflow-model$
+packrat
+^\.travis\.R$
+^README.Rmd$
+^docs$
+^model$
+^r-dependencies.txt$
+document.R
+Reference_Manual_mlflow.md
+.lintr
+^man-roxygen/
+^internal/

@@ -1,8 +1,8 @@
-====================
-MLflow Alpha Release
-====================
+===================
+MLflow Beta Release
+===================
 
-**Note:** The current version of MLflow is an alpha release. This means that APIs and data formats
+**Note:** The current version of MLflow is a beta release. This means that APIs and data formats
 are subject to change!
 
 **Note 2:** We do not currently support running MLflow on Windows. Despite this, we would appreciate any contributions
@@ -29,9 +29,9 @@ To report bugs, please use GitHub issues.
 
 Running a Sample App With the Tracking API
 ------------------------------------------
-The programs in ``example`` use the MLflow Tracking API. For instance, run::
+The programs in ``examples`` use the MLflow Tracking API. For instance, run::
 
-    python example/quickstart/test.py
+    python examples/quickstart/mlflow_tracking.py
 
 This program will use `MLflow Tracking API <https://mlflow.org/docs/latest/tracking.html>`_,
 which logs tracking data in ``./mlruns``. This can then be viewed with the Tracking UI.
@@ -55,24 +55,24 @@ Running a Project from a URI
 The ``mlflow run`` command lets you run a project packaged with a MLproject file from a local path
 or a Git URI::
 
-    mlflow run example/tutorial -P alpha=0.4
+    mlflow run examples/sklearn_elasticnet_wine -P alpha=0.4
 
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.4
 
-See ``example/tutorial`` for a sample project with an MLproject file.
+See ``examples/sklearn_elasticnet_wine`` for a sample project with an MLproject file.
 
 
 Saving and Serving Models
 -------------------------
 To illustrate managing models, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
-``example/quickstart/test_sklearn.py`` that you can run as follows::
+``examples/sklearn_logisitic_regression/train.py`` that you can run as follows::
 
-    $ python example/quickstart/test_sklearn.py
+    $ python examples/sklearn_logisitic_regression/train.py
     Score: 0.666
     Model saved in run <run-id>
 
-    $ mlflow sklearn serve -r <run-id> model
+    $ mlflow sklearn serve -r <run-id> -m model
 
     $ curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
 

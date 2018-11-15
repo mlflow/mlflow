@@ -70,6 +70,15 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def rename_experiment(self, experiment_id, new_name):
+        """
+        Update an experiment's name. The new name must be unique.
+
+        :param experiment_id: Integer id for the experiment
+        """
+        pass
+
+    @abstractmethod
     def get_run(self, run_uuid):
         """
         Fetches the run from backend store
@@ -87,7 +96,7 @@ class AbstractStore:
         pass
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags):
+                   entry_point_name, start_time, source_version, tags, parent_run_id):
         """
         Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
@@ -96,6 +105,22 @@ class AbstractStore:
         :param user_id: ID of the user launching this run
         :param source_type: Enum (integer) describing the source of the run
         :return: The created Run object
+        """
+        pass
+
+    @abstractmethod
+    def delete_run(self, run_id):
+        """
+        Deletes a run.
+        :param run_id:
+        """
+        pass
+
+    @abstractmethod
+    def restore_run(self, run_id):
+        """
+        Restores a run.
+        :param run_id:
         """
         pass
 
@@ -160,7 +185,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_runs(self, experiment_ids, search_expressions):
+    def search_runs(self, experiment_ids, search_expressions, run_view_type):
         """
         Returns runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
@@ -173,7 +198,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_run_infos(self, experiment_id):
+    def list_run_infos(self, experiment_id, run_view_type):
         """
         Returns run information for runs which belong to the experiment_id
 

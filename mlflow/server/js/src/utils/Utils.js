@@ -27,6 +27,8 @@ class Utils {
     return ret;
   }
 
+  static runNameTag = 'mlflow.runName';
+
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();
@@ -35,6 +37,17 @@ class Utils {
     } else {
       return (Math.round(value * 10) / 10).toString();
     }
+  }
+
+  /**
+   * Helper method for that returns a truncated version of the passed-in string (with trailing
+   * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
+   */
+  static truncateString(string, maxLength) {
+    if (string.length > maxLength) {
+      return string.slice(0, maxLength - 3) + "...";
+    }
+    return string;
   }
 
   /**
@@ -57,6 +70,9 @@ class Utils {
    * Format timestamps from millisecond epoch time.
    */
   static formatTimestamp(timestamp) {
+    if (timestamp === undefined) {
+      return '(unknown)';
+    }
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
     return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
@@ -95,7 +111,7 @@ class Utils {
   }
 
   static getGitHubRegex() {
-    return /[@/]github.com[:/]([^/.]+)\/([^/.]+)/;
+    return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
   /**
@@ -108,17 +124,26 @@ class Utils {
     if (run.source_type === "PROJECT") {
       const match = run.source_name.match(Utils.getGitHubRegex());
       if (match) {
-        const url = "https://github.com/" + match[1] + "/" + match[2];
+        let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
+        if (match[3]) {
+          url = url + "/tree/master/" + match[3];
+        }
         res = <a href={url}>{res}</a>;
       }
       return res;
     } else if (run.source_type === "NOTEBOOK") {
+      const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
       const notebookIdTag = 'mlflow.databricks.notebookID';
       const webappUrlTag = 'mlflow.databricks.webappURL';
+      const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
       const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
       if (notebookId && webappUrl) {
-        res = (<a title={run.source_name} href={`${webappUrl}/#notebook/${notebookId}`}>
+        let url = `${webappUrl}/#notebook/${notebookId}`;
+        if (revisionId) {
+          url += `/revision/${revisionId}`;
+        }
+        res = (<a title={run.source_name} href={url}>
           {Utils.baseName(run.source_name)}
         </a>);
       }
@@ -136,7 +161,7 @@ class Utils {
       height: '20px',
       position: 'relative',
       top: '-1px',
-      right: '3px',
+      marginRight: '2px',
     };
     if (sourceType === "NOTEBOOK") {
       return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
@@ -164,22 +189,50 @@ class Utils {
     }
   }
 
-  static renderVersion(run) {
+  /**
+   * Renders the run name into a string.
+   * @param runTags Object of tag name to MlflowMessages.RunTag instance
+   */
+  static getRunDisplayName(runTags, runUuid) {
+    return Utils.getRunName(runTags) || "Run " + runUuid;
+  }
+
+  static getRunName(runTags) {
+    const runNameTag = runTags[Utils.runNameTag];
+    if (runNameTag) {
+      return runNameTag.value;
+    }
+    return "";
+  }
+
+  static renderVersion(run, shortVersion = true) {
     if (run.source_version) {
-      const shortVersion = run.source_version.substring(0, 6);
+      const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
       if (run.source_type === "PROJECT") {
         const match = run.source_name.match(Utils.getGitHubRegex());
         if (match) {
-          const url = ("https://github.com/" + match[1] + "/" + match[2] + "/tree/" +
-            run.source_version);
-          return <a href={url}>{shortVersion}</a>;
+          const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
+                     "/tree/" + run.source_version) + "/" + match[3];
+          return <a href={url}>{versionString}</a>;
         }
-        return shortVersion;
+        return versionString;
       } else {
-        return shortVersion;
+        return versionString;
       }
     }
     return null;
+  }
+
+  static pluralize(word, quantity) {
+    if (quantity > 1) {
+      return word + 's';
+    } else {
+      return word;
+    }
+  }
+
+  static getRequestWithId(requests, requestId) {
+    return requests.find((r) => r.id === requestId);
   }
 }
 

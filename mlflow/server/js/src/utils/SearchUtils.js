@@ -19,7 +19,7 @@ class Private {
       return {
         metric: {
           key: metricMatches[1],
-          float: {
+          double: {
             comparator: metricMatches[2],
             value: parseFloat(metricMatches[3]),
           }

@@ -8,9 +8,15 @@ Installing MLflow
 
 You install MLflow by running:
 
-.. code:: bash
+.. code-section::
+    .. code-block:: bash
 
-    pip install mlflow
+        pip install mlflow
+
+    .. code-block:: R
+
+        install.packages("mlflow")
+        mlflow::mlflow_install()
 
 .. note::
 
@@ -39,24 +45,40 @@ The :doc:`MLflow Tracking API<tracking/>` lets you log metrics and artifacts (fi
 science code and see a history of your runs. You can try it out by writing a simple Python script
 as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
 
-.. code:: python
+.. code-section::
+    .. code-block:: python
 
-    import os
-    from mlflow import log_metric, log_param, log_artifact
+        import os
+        from mlflow import log_metric, log_param, log_artifact
 
-    if __name__ == "__main__":
+        if __name__ == "__main__":
+            # Log a parameter (key-value pair)
+            log_param("param1", 5)
+
+            # Log a metric; metrics can be updated throughout the run
+            log_metric("foo", 1)
+            log_metric("foo", 2)
+            log_metric("foo", 3)
+
+            # Log an artifact (output file)
+            with open("output.txt", "w") as f:
+                f.write("Hello world!")
+            log_artifact("output.txt")
+    .. code-block:: R
+
+        library(mlflow)
+
         # Log a parameter (key-value pair)
-        log_param("param1", 5)
+        mlflow_log_param("param1", 5)
 
         # Log a metric; metrics can be updated throughout the run
-        log_metric("foo", 1)
-        log_metric("foo", 2)
-        log_metric("foo", 3)
+        mlflow_log_metric("foo", 1)
+        mlflow_log_metric("foo", 2)
+        mlflow_log_metric("foo", 3)
 
         # Log an artifact (output file)
-        with open("output.txt", "w") as f:
-            f.write("Hello world!")
-        log_artifact("output.txt")
+        writeLines("Hello world!", "output.txt")
+        mlflow_log_artifact("output.txt")
 
 Viewing the Tracking UI
 -----------------------
@@ -64,14 +86,18 @@ Viewing the Tracking UI
 By default, wherever you run your program, the tracking API writes data into files into an ``mlruns`` directory.
 You can then run MLflow's Tracking UI:
 
-.. code:: bash
+.. code-section::
+    .. code-block:: bash
 
-    mlflow ui
+        mlflow ui
+    .. code-block:: R
 
-and view it at `<http://localhost:5000>`_. 
+        mlflow_ui()
+
+and view it at `<http://localhost:5000>`_.
 
 .. note::
-    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.  
+    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.
 
 Alternatively, you can configure MLflow to :ref:`log runs to a remote server<tracking>` to manage
 your results centrally or share them across a team.
@@ -94,9 +120,9 @@ either a local directory or a GitHub URI:
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
-specifies its dependencies. All projects that run also log their Tracking API data in the local
-``mlruns`` directory (or on your tracking server if you've configured one), so you should be able
-to see these runs using ``mlflow ui``.
+specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
+projects log their Tracking API data in the local ``mlruns`` directory so you can see these 
+runs using ``mlflow ui``.
 
 .. note::
     By default ``mlflow run`` installs all dependencies using `conda <https://conda.io/>`_.
@@ -127,32 +153,36 @@ When you run the example, it outputs an MLflow run ID for that experiment. If yo
 ``mlflow ui``, you will also see that the run saved a ``model`` folder containing an ``MLmodel``
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here "model") to various tools. For example, MLflow includes a
-simple REST server for scikit-learn models:
+simple REST server for python-based models:
 
 .. code:: bash
 
-    mlflow sklearn serve -r <RUN_ID> model
+    mlflow pyfunc serve -r <RUN_ID> -m model
 
 .. note::
 
     By default the server runs on port 5000. If that port is already in use, use the `--port` option to
-    specify a different port. For example: ``mlflow sklearn serve --port 1234 -r <RUN_ID> model``
+    specify a different port. For example: ``mlflow pyfunc serve --port 1234 -r <RUN_ID> -m model``
 
-Once you have started the server, you can pass it some sample data with ``curl`` and see the
-predictions:
+Once you have started the server, you can pass it some sample data and see the
+predictions.
+
+The following example uses ``curl`` to send a JSON-serialized pandas DataFrame with the ``split``
+orientation to the pyfunc server. For more information about the input data formats accepted by
+the pyfunc model server, see the :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 
 .. code:: bash
 
-    curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
-         
+    curl -d '{"columns":["x"], "data":[[1], [-1]]}' -H 'Content-Type: application/json; format=pandas-split' -X POST localhost:5000/invocations
+
 which returns::
-  
+
     {"predictions": [1, 0]}
 
 .. note::
 
     The ``sklearn_logistic_regression/train.py`` script must be run with the same Python version as
-    the version of Python that runs ``mlflow sklearn serve``. If they are not the same version,
+    the version of Python that runs ``mlflow pyfunc serve``. If they are not the same version,
     the stacktrace below may appear::
 
         File "/usr/local/lib/python3.6/site-packages/mlflow/sklearn.py", line 54, in _load_model_from_local_file

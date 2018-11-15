@@ -1,23 +1,32 @@
 package org.mlflow.tracking;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.*;
-
-import static org.mlflow.tracking.TestUtils.*;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.Test;
 
 import org.mlflow.api.proto.Service.*;
 
-public class MlflowClientTest {
-  private static final Logger logger = Logger.getLogger(MlflowClientTest.class);
+import static org.mlflow.tracking.TestUtils.*;
 
-  private static float ACCURACY_SCORE = 0.9733333333333334F;
-  private static float ZERO_ONE_LOSS = 0.026666666666666616F;
+public class MlflowClientTest {
+  private static final Logger logger = LoggerFactory.getLogger(MlflowClientTest.class);
+
+  private static double ACCURACY_SCORE = 0.9733333333333334D;
+  // NB: This can only be represented as a double (not float)
+  private static double ZERO_ONE_LOSS = 123.456789123456789D;
   private static String MIN_SAMPLES_LEAF = "2";
   private static String MAX_DEPTH = "3";
+  private static String USER_EMAIL = "some@email.com";
 
   private final TestClientProvider testClientProvider = new TestClientProvider();
   private String runId;
@@ -47,6 +56,31 @@ public class MlflowClientTest {
     String expName = createExperimentName();
     client.createExperiment(expName);
     client.createExperiment(expName);
+  }
+
+  @Test
+  public void deleteAndRestoreExperiments() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "active");
+
+    client.deleteExperiment(expId);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "deleted");
+
+    client.restoreExperiment(expId);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "active");
+  }
+
+  @Test
+  public void renameExperiment() {
+    String expName = createExperimentName();
+    String newName = createExperimentName();
+
+    long expId = client.createExperiment(expName);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getName(), expName);
+
+    client.renameExperiment(expId, newName);
+    Assert.assertEquals(client.getExperiment(expId).getExperiment().getName(), newName);
   }
 
   @Test
@@ -97,6 +131,9 @@ public class MlflowClientTest {
     client.logMetric(runId, "accuracy_score", ACCURACY_SCORE);
     client.logMetric(runId, "zero_one_loss", ZERO_ONE_LOSS);
 
+    // Log tag
+    client.setTag(runId, "user_email", USER_EMAIL);
+
     // Update finished run
     client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
 
@@ -113,6 +150,29 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
+
+    // Assert parent run ID is not set.
+    Assert.assertTrue(run.getData().getTagsList().stream().noneMatch(
+            tag -> tag.getKey().equals("mlflow.parentRunId")));
+  }
+
+  @Test
+  public void createRunWithParent() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+    RunInfo parentRun = client.createRun(expId);
+    String parentRunId = parentRun.getRunUuid();
+    RunInfo childRun = client.createRun(CreateRun.newBuilder()
+    .setExperimentId(expId)
+    .setParentRunId(parentRunId)
+    .build());
+    List<RunTag> childTags = client.getRun(childRun.getRunUuid()).getData().getTagsList();
+    String parentRunIdTagValue = childTags.stream()
+      .filter(t -> t.getKey().equals("mlflow.parentRunId"))
+      .findFirst()
+      .get()
+      .getValue();
+    Assert.assertEquals(parentRunIdTagValue, parentRunId);
   }
 
   @Test(dependsOnMethods = {"addGetRun"})
@@ -129,5 +189,39 @@ public class MlflowClientTest {
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
+
+    List<RunTag> tags = run.getData().getTagsList();
+    Assert.assertEquals(tags.size(), 1);
+    assertTag(tags, "user_email", USER_EMAIL);
+  }
+
+  @Test
+  public void deleteAndRestoreRun() {
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+
+    String sourceFile = "MyFile.java";
+
+    RunInfo runCreated = client.createRun(expId, sourceFile);
+    Assert.assertEquals(runCreated.getLifecycleStage(), "active");
+    String deleteRunId = runCreated.getRunUuid();
+    client.deleteRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "deleted");
+    client.restoreRun(deleteRunId);
+    Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "active");
+  }
+
+  @Test
+  public void testUseArtifactRepository() throws IOException {
+    String content = "Hello, Worldz!";
+
+    File tempFile = Files.createTempFile(getClass().getSimpleName(), ".txt").toFile();
+    FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
+    client.logArtifact(runId, tempFile);
+
+    File downloadedArtifact = client.downloadArtifacts(runId, tempFile.getName());
+    String downloadedContent = FileUtils.readFileToString(downloadedArtifact,
+      StandardCharsets.UTF_8);
+    Assert.assertEquals(content, downloadedContent);
   }
 }

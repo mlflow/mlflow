@@ -116,7 +116,6 @@ test("formatSource & renderSource", () => {
   expect(Utils.renderSource(github_url)).toEqual(
     <a href="https://github.com/mlflow/mlflow-apps">mlflow-apps:entry</a>);
 
-
   const databricksRun = RunInfo.fromJs({
     "source_name": "/Users/admin/test",
     "source_type": "NOTEBOOK"
@@ -128,6 +127,15 @@ test("formatSource & renderSource", () => {
   const wrapper = shallow(Utils.renderSource(databricksRun, databricksRunTags));
   expect(wrapper.is("a")).toEqual(true);
   expect(wrapper.props().href).toEqual("https://databricks.com/#notebook/13");
+
+  const databricksRunRevisionTags = {
+    "mlflow.databricks.notebookRevisionID": { value: "42" },
+    "mlflow.databricks.notebookID": { value: "13" },
+    "mlflow.databricks.webappURL": { value: "https://databricks.com" },
+  };
+  const wrapper2 = shallow(Utils.renderSource(databricksRun, databricksRunRevisionTags));
+  expect(wrapper2.is("a")).toEqual(true);
+  expect(wrapper2.props().href).toEqual("https://databricks.com/#notebook/13/revision/42");
 });
 
 test("dropExtension", () => {
@@ -145,17 +153,24 @@ test("dropExtension", () => {
 test("getGitHubRegex", () => {
   const gitHubRegex = Utils.getGitHubRegex();
   const urlAndExpected = [
-    ["http://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["https://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["http://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["https://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
-    ["git@github.com:mlflow/mlflow-apps.git", ["@github.com:mlflow/mlflow-apps", "mlflow", "mlflow-apps"]],
+    ["http://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps", ""]],
+    ["https://github.com/mlflow/mlflow-apps", ["/github.com/mlflow/mlflow-apps", "mlflow", "mlflow-apps", ""]],
+    ["http://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps.git", "mlflow", "mlflow-apps", ""]],
+    ["https://github.com/mlflow/mlflow-apps.git", ["/github.com/mlflow/mlflow-apps.git", "mlflow", "mlflow-apps", ""]],
+    ["https://github.com/mlflow/mlflow#example/tutorial",
+      ["/github.com/mlflow/mlflow#example/tutorial", "mlflow", "mlflow", "example/tutorial"]],
+    ["https://github.com/username/repo.name#mlproject",
+      ["/github.com/username/repo.name#mlproject", "username", "repo.name", "mlproject"]],
+    ["git@github.com:mlflow/mlflow-apps.git", ["@github.com:mlflow/mlflow-apps.git", "mlflow", "mlflow-apps", ""]],
     ["https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git", [null]],
     ["ssh@some-server:mlflow/mlflow-apps.git", [null]],
   ];
   urlAndExpected.forEach((lst) => {
     const url = lst[0];
     const match = url.match(gitHubRegex);
+    if (match) {
+      match[2] = match[2].replace(/.git/, '');
+    }
     expect([].concat(match)).toEqual(lst[1]);
   });
 });

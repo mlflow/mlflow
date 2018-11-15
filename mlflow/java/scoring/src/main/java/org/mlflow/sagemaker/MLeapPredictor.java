@@ -35,8 +35,8 @@ public class MLeapPredictor extends Predictor {
    * Constructs an {@link MLeapPredictor}
    *
    * @param modelDataPath The path to the serialized MLeap model
-   * @param inputSchema The path to JSON-formatted file containing the input schema that the model
-   *     accepts
+   * @param inputSchemaPath The path to JSON-formatted file containing the input schema that the
+   *     model accepts
    */
   public MLeapPredictor(String modelDataPath, String inputSchemaPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
@@ -55,17 +55,37 @@ public class MLeapPredictor extends Predictor {
   @Override
   protected PredictorDataWrapper predict(PredictorDataWrapper input)
       throws PredictorEvaluationException {
-    PandasRecordOrientedDataFrame pandasFrame = null;
+    PandasSplitOrientedDataFrame pandasFrame = null;
     try {
-      pandasFrame = PandasRecordOrientedDataFrame.fromJson(input.toJson());
+      pandasFrame = PandasSplitOrientedDataFrame.fromJson(input.toJson());
     } catch (IOException e) {
       logger.error(
-          "Encountered a JSON conversion error during conversion of Pandas dataframe to LeapFrame.",
+          "Encountered a JSON parsing error during conversion of input to a Pandas DataFrame"
+              + " representation.",
           e);
       throw new PredictorEvaluationException(
-          "Failed to transform input into a JSON representation of an MLeap dataframe."
-              + " Please ensure that the input is a JSON-serialized Pandas Dataframe"
-              + " with the `record` orientation.",
+          "Encountered a JSON parsing error while transforming input into a Pandas DataFrame"
+              + " representation. Ensure that the input is a JSON-serialized Pandas DataFrame"
+              + " with the `split` orientation.",
+          e);
+    } catch (InvalidSchemaException e) {
+      logger.error(
+          "Encountered a schema mismatch while transforming input into a Pandas DataFrame"
+              + " representation.",
+          e);
+      throw new PredictorEvaluationException(
+          "Encountered a schema mismatch while transforming input into a Pandas DataFrame"
+              + " representation. Ensure that the input is a JSON-serialized Pandas DataFrame"
+              + " with the `split` orientation.",
+          e);
+    } catch (IllegalArgumentException e) {
+      logger.error(
+          "Failed to transform input into a Pandas DataFrame because the parsed frame is invalid.",
+          e);
+      throw new PredictorEvaluationException(
+          "Failed to transform input into a Pandas DataFrame because the parsed frame is invalid."
+              + " Ensure that the input is a JSON-serialized Pandas DataFrame with the `split`"
+              + " orientation.",
           e);
     }
 
@@ -73,15 +93,15 @@ public class MLeapPredictor extends Predictor {
     try {
       leapFrame = pandasFrame.toLeapFrame(this.inputSchema);
     } catch (InvalidSchemaException e) {
+      logger.error(
+          "Encountered a schema mismatch when converting the input dataframe to a LeapFrame.", e);
       throw new PredictorEvaluationException(
           "Encountered a schema mismatch when converting the input dataframe to a LeapFrame.");
     } catch (Exception e) {
       logger.error(
           "Encountered an unknown error during conversion of Pandas dataframe to LeapFrame.", e);
       throw new PredictorEvaluationException(
-          "An unknown error occurred while converting the input dataframe to a LeapFrame."
-              + " Original exception text: %s",
-          e);
+          "An unknown error occurred while converting the input dataframe to a LeapFrame.", e);
     }
     // Create a single-element sequence of column names to select from the resulting dataframe.
     // This single-element is the `prediction` column; as is the case with the `pyfunc` wrapper

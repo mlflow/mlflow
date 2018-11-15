@@ -13,12 +13,16 @@ import CompareRunPage from './CompareRunPage';
 import AppErrorBoundary from './error-boundaries/AppErrorBoundary';
 import { connect } from 'react-redux';
 import HomePage from './HomePage';
+import ErrorModal from './modals/ErrorModal';
+import PageNotFoundView from './PageNotFoundView';
+import { Switch } from 'react-router';
 
 class App extends Component {
   render() {
     return (
       <Router>
         <div>
+          <ErrorModal/>
           <header className="App-header">
             <div className="mlflow-logo">
               <Link
@@ -42,15 +46,14 @@ class App extends Component {
             </div>
           </header>
           <AppErrorBoundary>
-            { /* Since the experiment sidebar goes outside of the 80% width, put outside of div */ }
-            <Route exact path={Routes.rootRoute} component={HomePage}/>
-            <Route exact path={Routes.experimentPageRoute} component={HomePage}/>
-            { /* App-content ensures 80% width */ }
-            <div className="App-content">
-                <Route exact path={Routes.runPageRoute} component={RunPage}/>
-                <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
-                <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
-            </div>
+            <Switch>
+              <Route exact path={Routes.rootRoute} component={HomePage}/>
+              <Route exact path={Routes.experimentPageRoute} component={HomePage}/>
+              <Route exact path={Routes.runPageRoute} component={RunPage}/>
+              <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
+              <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
+              <Route component={PageNotFoundView}/>
+            </Switch>
           </AppErrorBoundary>
         </div>
       </Router>

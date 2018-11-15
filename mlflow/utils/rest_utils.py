@@ -1,5 +1,6 @@
 import base64
 import time
+import json
 from json import JSONEncoder
 
 import numpy
@@ -7,7 +8,7 @@ import requests
 
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 
 
 RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
@@ -51,6 +52,28 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
             time.sleep(retry_interval)
     raise MlflowException("API request to %s failed to return code 200 after %s tries" %
                           (url, retries))
+
+
+def _can_parse_as_json(string):
+    try:
+        json.loads(string)
+        return True
+    except ValueError:
+        return False
+
+
+def http_request_safe(host_creds, endpoint, **kwargs):
+    """
+    Wrapper around ``http_request`` that also verifies that the request succeeds with code 200.
+    """
+    response = http_request(host_creds=host_creds, endpoint=endpoint, **kwargs)
+    if response.status_code != 200:
+        base_msg = "API request to endpoint %s failed with error code " \
+                   "%s != 200" % (endpoint, response.status_code)
+        if _can_parse_as_json(response.text):
+            raise RestException(json.loads(response.text))
+        raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+    return response
 
 
 class NumpyEncoder(JSONEncoder):

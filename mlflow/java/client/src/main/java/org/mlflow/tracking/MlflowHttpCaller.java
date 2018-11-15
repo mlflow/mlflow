@@ -1,5 +1,13 @@
 package org.mlflow.tracking;
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -12,27 +20,20 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.mlflow.tracking.creds.MlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-
 
 class MlflowHttpCaller {
-  private static final Logger logger = Logger.getLogger(MlflowHttpCaller.class);
+  private static final Logger logger = LoggerFactory.getLogger(MlflowHttpCaller.class);
   private static final String BASE_API_PATH = "api/2.0/preview/mlflow";
   private HttpClient httpClient;
   private final MlflowHostCredsProvider hostCredsProvider;
 
-  public MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
+  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
     this.hostCredsProvider = hostCredsProvider;
   }
 
@@ -89,10 +90,10 @@ class MlflowHttpCaller {
     if (isError(statusCode)) {
       String bodyMessage = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
       if (statusCode >= 400 && statusCode <= 499) {
-        throw new MlflowHttpClientException(statusCode, reasonPhrase, bodyMessage);
+        throw new MlflowHttpException(statusCode, reasonPhrase, bodyMessage);
       }
       if (statusCode >= 500 && statusCode <= 599) {
-        throw new MlflowHttpServerException(statusCode, reasonPhrase, bodyMessage);
+        throw new MlflowHttpException(statusCode, reasonPhrase, bodyMessage);
       }
       throw new MlflowHttpException(statusCode, reasonPhrase, bodyMessage);
     }

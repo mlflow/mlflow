@@ -6,7 +6,7 @@ from mlflow.protos.service_pb2 import Run as ProtoRun
 
 class Run(_MLflowObject):
     """
-    Run object for python client.
+    Run object.
     """
 
     def __init__(self, run_info, run_data):
@@ -17,12 +17,20 @@ class Run(_MLflowObject):
 
     @property
     def info(self):
-        """:return: :py:class:`mlflow.entities.RunInfo`"""
+        """
+        The run metadata, such as the run id, start time, and status.
+
+        :rtype: :py:class:`mlflow.entities.RunInfo`
+        """
         return self._info
 
     @property
     def data(self):
-        """:return: :py:class:`mlflow.entities.RunData`"""
+        """
+        The run data, including metrics, parameters, and tags.
+
+        :rtype: :py:class:`mlflow.entities.RunData`
+        """
         return self._data
 
     def to_proto(self):
@@ -34,7 +42,7 @@ class Run(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.info, proto.data)
+        return cls(RunInfo.from_proto(proto.info), RunData.from_proto(proto.data))
 
     @classmethod
     def from_dictionary(cls, the_dict):

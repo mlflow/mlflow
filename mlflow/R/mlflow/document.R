@@ -1,0 +1,52 @@
+# Generate docs as markdown
+Rd2md::ReferenceManual()
+
+# Remove markdown package description
+markdown_doc <- readLines("Reference_Manual_mlflow.md")
+first_function <- which(grepl("crate", markdown_doc))[[1]]
+markdown_fixed <- markdown_doc[first_function:length(markdown_doc)]
+
+# Remove function name from section
+markdown_fixed <- gsub("# `[^`]+`:", "#", markdown_fixed)
+
+# Remove description and usage headers
+markdown_fixed <- gsub("## Description", "", markdown_fixed)
+markdown_fixed <- gsub("## Usage", "", markdown_fixed)
+
+# Remove objects exported from other packages section
+last_section <- which(grepl("Objects exported from other packages", markdown_fixed))[[1]]
+markdown_fixed <- markdown_fixed[1:last_section - 1]
+
+# Write fixed markdown file
+writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
+
+# Clear Sphinx docs and tree to correctly generate sections
+if (dir.exists("../../../docs/build")) {
+  unlink("../../../docs/build", recursive = TRUE)
+}
+
+# Generate reStructuredText documentation
+rmarkdown::pandoc_convert("Reference_Manual_mlflow.md", output = "../../../docs/source/R-api.rst")
+
+# Add R API header to RST docs
+rst_header <- ".. _R-api:
+
+========
+R API
+========
+
+The MLflow R API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+
+For instance, you can use the R API to `install MLflow`_, start the `user interface <MLflow user interface_>`_, `create <Create Experiment_>`_ and `list experiments`_, `save models <Save Model for MLflow_>`_, `run projects <Run in MLflow_>`_ and `serve models <Serve an RFunc MLflow Model_>`_ among many other functions available in the R API.
+
+.. contents:: Table of Contents
+    :local:
+    :depth: 1
+"
+rst_doc <- readLines("../../../docs/source/R-api.rst")
+rst_doc <- c(rst_header, rst_doc)
+writeLines(rst_doc, "../../../docs/source/R-api.rst")
+
+# Generate docs by using an mlflow virtualenv and running `make` from `mlflow/docs`
+
+

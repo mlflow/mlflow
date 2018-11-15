@@ -10,7 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 /**
  * Provides an MLflow API client for testing. This is a real client, pointed to a real server.
@@ -19,7 +22,7 @@ import org.apache.log4j.Logger;
  * server on an ephemeral port, and manage its lifecycle.
  */
 public class TestClientProvider {
-  private static final Logger logger = Logger.getLogger(TestClientProvider.class);
+  private static final Logger logger = LoggerFactory.getLogger(TestClientProvider.class);
 
   private static final long MAX_SERVER_WAIT_TIME_MILLIS = 60 * 1000;
 
@@ -61,6 +64,10 @@ public class TestClientProvider {
     }
   }
 
+  public MlflowHostCredsProvider getClientHostCredsProvider(MlflowClient client) {
+    return client.getInternalHostCredsProvider();
+  }
+
   /**
    * Launches an "mlflow server" process locally. This requires that the "mlflow" command
    * line client is on the local PATH (e.g., that we're within a conda environment), and that
@@ -77,7 +84,7 @@ public class TestClientProvider {
     int freePort = getFreePort();
     String bindAddress = "127.0.0.1";
     pb.command("mlflow", "server", "--host", bindAddress, "--port", "" + freePort,
-      "--file-store", tempDir.toString(), "--workers", "1");
+      "--file-store", tempDir.resolve("mlruns").toString(), "--workers", "1");
     serverProcess = pb.start();
 
     // NB: We cannot use pb.inheritIO() because that interacts poorly with the Maven

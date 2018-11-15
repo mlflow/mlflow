@@ -1,27 +1,29 @@
 """
-MLflow integration for Spark MLlib models.
-This module enables the exporting of Spark MLlib models with the following flavors (formats):
+The ``mlflow.spark`` module provides an API for logging and loading Spark MLlib models. This module
+exports Spark MLlib models with the following flavors:
 
-    1. Spark MLlib (native) format - Allows models to be loaded as Spark Transformers for scoring
-                                     in a Spark session. Models with this flavor can be loaded
-                                     back as PySpark PipelineModel objects in Python. This
-                                     is the main flavor and is always produced.
-    2. PyFunc - Supports deployment outside of Spark by instantiating a SparkContext and reading
-                input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark
-                as a Spark UDF. Models with this flavor can be loaded back as Python functions
-                for performing inference. This flavor is always produced.
-    3. MLeap - Enables high-performance deployment outside of Spark by leveraging MLeap's
-               custom dataframe and pipeline representations. For more informatin about MLeap,
-               see https://github.com/combust/mleap. Models with this flavor *cannot* be loaded
-               back as Python objects. Rather, they must be deserialized in Java using the
-               `mlflow/java` package. This flavor is only produced if MLeap-compatible arguments
-               are specified.
+Spark MLlib (native) format
+    Allows models to be loaded as Spark Transformers for scoring in a Spark session.
+    Models with this flavor can be loaded as PySpark PipelineModel objects in Python.
+    This is the main flavor and is always produced.
+:py:mod:`mlflow.pyfunc`
+    Supports deployment outside of Spark by instantiating a SparkContext and reading
+    input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark
+    as a Spark UDF. Models with this flavor can be loaded as Python functions
+    for performing inference. This flavor is always produced.
+:py:mod:`mlflow.mleap`
+    Enables high-performance deployment outside of Spark by leveraging MLeap's
+    custom dataframe and pipeline representations. Models with this flavor *cannot* be loaded
+    back as Python objects. Rather, they must be deserialized in Java using the
+    ``mlflow/java`` package. This flavor is produced only if you specify
+    MLeap-compatible arguments.
 """
 
 from __future__ import absolute_import
 
 import os
 import shutil
+import yaml
 
 import pyspark
 from pyspark import SparkContext
@@ -30,35 +32,46 @@ from pyspark.ml.pipeline import PipelineModel
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.environment import _mlflow_conda_env
 
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
 DFS_TMP = "/tmp/mlflow"
 
+DEFAULT_CONDA_ENV = _mlflow_conda_env(
+    additional_conda_deps=[
+        "pyspark={}".format(pyspark.__version__),
+    ],
+    additional_pip_deps=None,
+    additional_conda_channels=None,
+)
+
 
 def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=None,
               sample_input=None):
     """
-    Log a Spark MLlib model as an MLflow artifact for the current run. This will use the
+    Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format, and the logged model will have the Spark flavor.
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, defines environment for the
-                      model. At minimum, it should specify python, pyspark, and mlflow with
-                      appropriate versions.
+    :param conda_env: Path to a conda environment file. if provided, this decribes the environment
+                      this model should be run in. at minimum, it should specify the dependencies
+                      contained in ``mlflow.pyspark.DEFAULT_CONDA_ENV``. if `none`, the default
+                      ``mlflow.pyspark.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be writen in this
                        destination and then copied into the model's artifact directory. This is
-                       necessary as Spark ML models read / write from / to DFS if running on a
-                       cluster. All temporary files created on the DFS will be removed if this
-                       operation completes successfully. Defaults to /tmp/mlflow.`
-    :param sample_input: A sample input that will be used to add the MLeap flavor to the model.
-                         This must be a PySpark dataframe that the model can evaluate. If
-                         `sample_input` is `None`, the MLeap flavor will not be added.
+                       necessary as Spark ML models read from and write to DFS if running on a
+                       cluster. If this operation completes successfully, all temporary files
+                       created on the DFS are removed. Defaults to ``/tmp/mlflow``.
+    :param sample_input: A sample input used to add the MLeap flavor to the model.
+                         This must be a PySpark DataFrame that the model can evaluate. If
+                         ``sample_input`` is ``None``, the MLeap flavor is not added.
 
     >>> from pyspark.ml import Pipeline
     >>> from pyspark.ml.classification import LogisticRegression
@@ -74,7 +87,6 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     >>> pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
     >>> model = pipeline.fit(training)
     >>> mlflow.spark.log_model(model, "spark-model")
-
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                      jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
@@ -91,12 +103,13 @@ class _HadoopFileSystem:
     Interface to org.apache.hadoop.fs.FileSystem.
 
     Spark ML models expect to read from and write to Hadoop FileSystem when running on a cluster.
-    Sine MLflow works on local directories, we need this interface to copy teh files between
+    Since MLflow works on local directories, we need this interface to copy the files between
     the current DFS and local dir.
     """
 
     def __init__(self):
         raise Exception("This class should not be instantiated")
+
     _filesystem = None
     _conf = None
 
@@ -121,12 +134,32 @@ class _HadoopFileSystem:
         return cls._jvm().org.apache.hadoop.fs.Path(path)
 
     @classmethod
-    def copy_to_local_file(cls, src, dst, removeSrc):
-        cls._fs().copyToLocalFile(removeSrc, cls._remote_path(src), cls._local_path(dst))
+    def copy_to_local_file(cls, src, dst, remove_src):
+        cls._fs().copyToLocalFile(remove_src, cls._remote_path(src), cls._local_path(dst))
 
     @classmethod
-    def copy_from_local_file(cls, src, dst, removeSrc):
-        cls._fs().copyFromLocalFile(removeSrc, cls._local_path(src), cls._remote_path(dst))
+    def copy_from_local_file(cls, src, dst, remove_src):
+        cls._fs().copyFromLocalFile(remove_src, cls._local_path(src), cls._remote_path(dst))
+
+    @classmethod
+    def qualified_local_path(cls, path):
+        return cls._fs().makeQualified(cls._local_path(path)).toString()
+
+    @classmethod
+    def maybe_copy_from_local_file(cls, src, dst):
+        """
+        Conditionally copy the file to the Hadoop DFS.
+        The file is copied iff the configuration has distributed filesystem.
+
+        :return: If copied, return new target location, otherwise return (absolute) source path.
+        """
+        local_path = cls._local_path(src)
+        qualified_local_path = cls._fs().makeQualified(local_path).toString()
+        if qualified_local_path == "file:" + local_path.toString():
+            return local_path.toString()
+        cls.copy_from_local_file(src, dst, remove_src=False)
+        eprint("Copied SparkML model to %s" % dst)
+        return dst
 
     @classmethod
     def delete(cls, path):
@@ -136,26 +169,29 @@ class _HadoopFileSystem:
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
                dfs_tmpdir=None, sample_input=None):
     """
-    Save a Spark MLlib PipelineModel at the given local path.
+    Save a Spark MLlib PipelineModel to a local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
-    Additionally, if a sample input is specified via the `sample_input` parameter, the model
-    will also be serialized in MLeap format and the MLeap flavor will be added.
+    Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
+    is also serialized in MLeap format and the MLeap flavor is added.
 
     :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
-    :param conda_env: Conda environment this model depends on.
+    :param conda_env: Path to a conda environment file. if provided, this decribes the environment
+                      this model should be run in. at minimum, it should specify the dependencies
+                      contained in ``mlflow.pyspark.DEFAULT_CONDA_ENV``. if `none`, the default
+                      ``mlflow.pyspark.DEFAULT_CONDA_ENV`` environment will be added to the model.
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-                       filesystem if running in local mode. The model will be writen in this
+                       filesystem if running in local mode. The model will be written in this
                        destination and then copied to the requested local path. This is necessary
-                       as Spark ML models read / write from / to DFS if running on a cluster. All
+                       as Spark ML models read from and write to DFS if running on a cluster. All
                        temporary files created on the DFS will be removed if this operation
-                       completes successfully. Defaults to /tmp/mlflow.
+                       completes successfully. Defaults to ``/tmp/mlflow``.
     :param sample_input: A sample input that will be used to add the MLeap flavor to the model.
-                         This must be a PySpark dataframe that the model can evaluate. If
-                         `sample_input` is `None`, the MLeap flavor will not be added.
+                         This must be a PySpark DataFrame that the model can evaluate. If
+                         ``sample_input`` is ``None``, the MLeap flavor is not added.
 
     >>> from mlflow import spark
     >>> from pyspark.ml.pipeline.PipelineModel
@@ -164,7 +200,6 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     >>> model = ...
     >>> mlflow.spark.save_model(model, "spark-model")
     """
-    dfs_tmpdir = dfs_tmpdir if dfs_tmpdir is not None else DFS_TMP
     if jars:
         raise Exception("jar dependencies are not implemented")
 
@@ -176,31 +211,50 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
 
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
+    if dfs_tmpdir is None:
+        dfs_tmpdir = DFS_TMP
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path_sub = "sparkml"
     sparkml_data_path = os.path.abspath(os.path.join(path, sparkml_data_path_sub))
-    _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, removeSrc=True)
+    _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     pyspark_version = pyspark.version.__version__
-    model_conda_env = None
-    if conda_env:
-        model_conda_env = os.path.basename(os.path.abspath(conda_env))
-        shutil.copyfile(conda_env, os.path.join(path, model_conda_env))
+
+    conda_env_subpath = "conda.yaml"
+    if conda_env is not None:
+        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
+    else:
+        with open(os.path.join(path, conda_env_subpath), "w") as f:
+            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+
     mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version,
                             model_data=sparkml_data_path_sub)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=sparkml_data_path_sub,
-                        env=model_conda_env)
+                        env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
+
+
+def _load_model(model_path, dfs_tmpdir=None):
+    if dfs_tmpdir is None:
+        dfs_tmpdir = DFS_TMP
+    tmp_path = _tmp_path(dfs_tmpdir)
+    # Spark ML expects the model to be stored on DFS
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
+    model_path = _HadoopFileSystem.maybe_copy_from_local_file(model_path, tmp_path)
+    return PipelineModel.load(model_path)
 
 
 def load_model(path, run_id=None, dfs_tmpdir=None):
     """
     Load the Spark MLlib model from the path.
 
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
     :param path: Local filesystem path or run-relative artifact path to the model.
-    :return: SparkML model.
-    :rtype: pyspark.ml.pipeline.PipelineModel
+    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+                       filesystem if running in local mode. The model will be loaded from this
+                       destination. Defaults to ``/tmp/mlflow``.
+    :return: pyspark.ml.pipeline.PipelineModel
 
     >>> from mlflow import spark
     >>> model = mlflow.spark.load_model("spark-model")
@@ -212,40 +266,28 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
     ...   (7, "apache hadoop")], ["id", "text"])
     >>>  # Make predictions on test documents.
     >>> prediction = model.transform(test)
-
     """
-    dfs_tmpdir = dfs_tmpdir if dfs_tmpdir is not None else DFS_TMP
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    m = Model.load(os.path.join(path, 'MLmodel'))
-    if FLAVOR_NAME not in m.flavors:
-        raise Exception("Model does not have {} flavor".format(FLAVOR_NAME))
-    conf = m.flavors[FLAVOR_NAME]
-    model_path = os.path.join(path, conf['model_data'])
-    tmp_path = _tmp_path(dfs_tmpdir)
-    # Spark ML expects the model to be stored on DFS
-    # Copy the model to a temp DFS location first. We cannot delete this file, as
-    # Spark may read from it at any point.
-    _HadoopFileSystem.copy_from_local_file(model_path, tmp_path, removeSrc=False)
-    pipeline_model = PipelineModel.load(tmp_path)
-    eprint("Copied SparkML model to %s" % tmp_path)
-    return pipeline_model
+    path = os.path.abspath(path)
+    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    spark_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
+    return _load_model(model_path=spark_model_artifacts_path, dfs_tmpdir=dfs_tmpdir)
 
 
-def load_pyfunc(path):
+def _load_pyfunc(path):
     """
-    Load a Python Function model from a local file.
-
-    :param path: Local path.
-    :return: The model as PyFunc.
-
-    >>> pyfunc_model = load_pyfunc("/tmp/pyfunc-spark-model")
-    >>> predictions = pyfunc_model.predict(test_pandas_df)
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
-    spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
-        .master("local[1]").getOrCreate()
-    # We do not need any DFS here as pyfunc should create its own SparkContext with no executors
-    return _PyFuncModelWrapper(spark, PipelineModel.load("file:" + os.path.abspath(path)))
+    # NOTE: The getOrCreate() call below may change settings of the active session which we do not
+    # intend to do here. In particular, setting master to local[1] can break distributed clusters.
+    # To avoid this problem, we explicitly check for an active session. This is not ideal but there
+    # is no good workaround at the moment.
+    spark = pyspark.sql.SparkSession._instantiatedSession
+    if spark is None:
+        spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
+            .master("local[1]").getOrCreate()
+    return _PyFuncModelWrapper(spark, _load_model(model_path=path))
 
 
 class _PyFuncModelWrapper(object):
@@ -259,11 +301,10 @@ class _PyFuncModelWrapper(object):
 
     def predict(self, pandas_df):
         """
-        Generate predictions given input data in pandas DataFrame.
+        Generate predictions given input data in a pandas DataFrame.
 
-        :param pandas_df: pandas Dataframe containing input data.
+        :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
-        :rtype: list
         """
         spark_df = self.spark.createDataFrame(pandas_df)
         return [x.prediction for x in

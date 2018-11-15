@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import mlflow
-from mlflow import tensorflow, tracking
+from mlflow import tensorflow, tracking, pyfunc
 import numpy as np
 import pandas as pd
 import shutil
@@ -22,7 +22,7 @@ def main(argv):
     steps = 1000
     regressor = tf.estimator.DNNRegressor(hidden_units=hidden_units, feature_columns=feat_cols)
     train_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_train}, y_train, num_epochs=None, shuffle=True)
-    with tracking.start_run() as tracked_run:
+    with mlflow.start_run() as tracked_run:
         mlflow.log_param("Hidden Units", hidden_units)
         mlflow.log_param("Steps", steps)
         regressor.train(train_input_fn, steps=steps)
@@ -38,10 +38,10 @@ def main(argv):
             # Logging the saved model
             tensorflow.log_saved_model(saved_model_dir=saved_estimator_path, signature_def_key="predict", artifact_path="model")
             # Reloading the model
-            pyfunc = tensorflow.load_pyfunc(saved_estimator_path)
+            pyfunc_model = pyfunc.load_pyfunc(saved_estimator_path)
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
             # Predicting on the loaded Python Function
-            predict_df = pyfunc.predict(df)
+            predict_df = pyfunc_model.predict(df)
             predict_df['original_labels'] = y_test
             print(predict_df)
         finally:

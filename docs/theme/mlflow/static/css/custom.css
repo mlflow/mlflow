@@ -261,12 +261,7 @@ table > colgroup:first-child {
   height: 55px;
 }
 
-page nav.wy-nav-side {
-  padding-bottom: 75px; /* Need to account for the header push. */
-}
-
 .wy-nav-top.header {
-  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -400,7 +395,6 @@ page nav.wy-nav-side {
  */
 
 .wy-nav-side {
-  top: 55px;
   background-color: #FFF;
   color: #000;
   border-right: 1px solid #C9C9C9;
@@ -660,21 +654,21 @@ page nav.wy-nav-side {
 .wy-nav-content-wrap h3 {
   font-weight: 500;
   font-size: 28px;
-  margin-top: .5em; 
+  margin-top: .5em;
   margin-bottom: .5em;
 }
 
 .wy-nav-content-wrap h4 {
   font-weight: 500;
   font-size: 24px;
-  margin-top: .5em; 
+  margin-top: .5em;
   margin-bottom: .5em;
 }
 
 .wy-nav-content-wrap h5 {
   font-weight: 500;
   font-size: 20px;
-  margin-top: .5em; 
+  margin-top: .5em;
   margin-bottom: .5em;
 }
 
@@ -1061,4 +1055,47 @@ text-transform: capitalize;
     padding: 0;
     margin: 0;
     font-weight: bold;
+}
+
+/**
+ * Language Sections
+ */
+
+.code-section ul.section-selector,
+.plain-section ul.section-selector {
+    display: inline-block;
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    margin-bottom: 14px;
+}
+
+.code-section ul.section-selector li,
+.plain-section ul.section-selector li {
+    display: block;
+    cursor: pointer;
+    margin: 0 5px 0 0;
+    float: left;
+    background-color: #4bd6e6;
+    color: #fff;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    border-radius: 5px;
+    -khtml-border-radius: 5px;
+    padding: 2px 10px 2px 10px;
+}
+
+.code-section ul.section-selector li:hover,
+.plain-section ul.section-selector li:hover {
+    background-color: #777;
+}
+
+.code-section ul.section-selector li.selected,
+.plain-section ul.section-selector li.selected {
+    background-color: #1cb1c2;
+}
+
+.code-section ul.section-selector li.selected:hover,
+.plain-section ul.section-selector li.selected:hover {
+    background-color: #333;
 }
