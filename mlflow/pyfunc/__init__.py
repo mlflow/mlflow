@@ -224,6 +224,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         columns = [str(i) for i, _ in enumerate(args)]
         pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
+        if type(result) == pandas.DataFrame:
+            return result[result.columns[0]]
         return pandas.Series(result)
 
     return pandas_udf(predict, result_type)

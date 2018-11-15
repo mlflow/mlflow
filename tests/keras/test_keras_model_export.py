@@ -22,6 +22,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.pyfunc.test_spark import score_model_as_udf
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
@@ -84,6 +85,15 @@ def test_model_save_load(model, model_path, data, predicted):
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
                == predicted)
+
+    # test spark udf
+    spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
+                                         run_id=None,
+                                         pandas_df=pd.DataFrame(x))
+    np.testing.assert_array_almost_equal(
+        np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=8)
+
+
 
 
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
@@ -208,3 +218,8 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
         deployed_model_preds.values,
         predicted,
         decimal=4)
+
+
+
+
+
