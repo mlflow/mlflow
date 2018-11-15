@@ -999,6 +999,7 @@ class _SageMakerOperation:
     def __init__(self, status_check_fn, cleanup_fn):
         self.status_check_fn = status_check_fn
         self.cleanup_fn = cleanup_fn
+        self.start_time = datetime.now()
         self.status = _SageMakerOperationStatus(_SageMakerOperationStatus.STATE_IN_PROGRESS, None)
         self.cleaned_up = False
 
@@ -1012,6 +1013,9 @@ class _SageMakerOperation:
             else:
                 self.status = status
                 return status
+
+        duration_seconds = (datetime.now() - self.start_time).seconds
+        return _SageMakerOperationStatus.timed_out(duration_seconds)
 
     def clean_up(self):
         if self.status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
@@ -1032,6 +1036,7 @@ class _SageMakerOperationStatus:
     STATE_SUCCEEDED = "succeeded"
     STATE_FAILED = "failed"
     STATE_IN_PROGRESS = "in progress"
+    STATE_TIMED_OUT = "timed_out"
 
     def __init__(self, state, message):
         self.state = state
@@ -1041,6 +1046,13 @@ class _SageMakerOperationStatus:
     def in_progress(cls):
         return cls(_SageMakerOperationStatus.STATE_IN_PROGRESS,
                    "The operation is still in progress.")
+
+    @classmethod
+    def timed_out(cls, duration_seconds):
+        return cls(_SageMakerOperationStatus.STATE_TIMED_OUT,
+                   "Timed out after waiting {duration_seconds} seconds for the operation to"
+                   " complete. This operation may still be in progress. Please check the AWS"
+                   " console for more information.".format(duration_seconds=duration_seconds))
 
     @classmethod
     def failed(cls, message):
