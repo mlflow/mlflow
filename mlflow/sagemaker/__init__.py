@@ -402,6 +402,7 @@ def delete(app_name, region_name="us-west-2", archive=False):
 def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     """
     Serve model locally in a SageMaker compatible Docker container.
+
     :param model_path: path to the model. Either local if no ``run_id`` or MLflow-relative if
                                           ``run_id`` is specified.
     :param run_id: MLflow run ID.

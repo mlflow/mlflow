@@ -12,8 +12,6 @@ import pandas as pd
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 
-import pandas as pd
-
 
 def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
@@ -28,8 +26,7 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=500):
+        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
@@ -37,27 +34,22 @@ def score_model_in_sagemaker_docker_container(
     :param content_type: The type of the data to send to the docker container for testing. This is
                          one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
     :param flavor: Model flavor to be deployed.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
             cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
             env=env)
-    return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(proc, 5000, data, content_type)
 
 
-def pyfunc_serve_and_score_model(
-        model_path, data, content_type, activity_polling_timeout_seconds=500):
+def pyfunc_serve_and_score_model(model_path, data, content_type):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the pyfunc server for testing. This is
                          one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -68,8 +60,7 @@ def pyfunc_serve_and_score_model(
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
         if m:
-            return _evaluate_scoring_proc(
-                    proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds)
+            return _evaluate_scoring_proc(proc, int(m.group(1)), data, content_type=content_type)
 
     raise Exception("Failed to start server")
 
@@ -87,13 +78,9 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
-    """
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    """
+def _evaluate_scoring_proc(proc, port, data, content_type):
     try:
-        for i in range(0, int(activity_polling_timeout_seconds / 5)):
+        for i in range(0, 50):
             assert proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException
