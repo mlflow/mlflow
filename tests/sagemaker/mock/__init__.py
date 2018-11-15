@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import json
 from collections import namedtuple
+from datetime import datetime
 
 from moto.core import BaseBackend, BaseModel
 from moto.core.responses import BaseResponse
@@ -12,7 +13,7 @@ from moto.core.models import base_decorator, deprecated_base_decorator
 
 BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
 
-SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"]) 
+SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 
 class SageMakerResponse(BaseResponse):
 
@@ -23,7 +24,7 @@ class SageMakerResponse(BaseResponse):
     @property
     def request_params(self):
         return json.loads(self.body)
-    
+
     def create_endpoint_config(self):
         config_name = self.request_params["EndpointConfigName"]
         production_variants = self.request_params.get("ProductionVariants")
@@ -32,7 +33,7 @@ class SageMakerResponse(BaseResponse):
                 config_name=config_name, production_variants=production_variants, tags=tags,
                 region_name=self.region)
         return json.dumps({
-            'EndpointConfigArn': new_config.arn 
+            'EndpointConfigArn': new_config.arn
         })
 
     def describe_endpoint_config(self):
@@ -54,7 +55,7 @@ class SageMakerResponse(BaseResponse):
                 endpoint_config_name=endpoint_config_name,
                 tags=tags, region_name=self.region)
         return json.dumps({
-            'EndpointArn': new_endpoint.arn 
+            'EndpointArn': new_endpoint.arn
         })
 
     def describe_endpoint(self):
@@ -68,7 +69,7 @@ class SageMakerResponse(BaseResponse):
         updated_endpoint = self.sagemaker_backend.update_endpoint(
                 endpoint_name=endpoint_name, new_config_name=new_config_name)
         return json.dumps({
-            'EndpointArn': updated_endpoint.arn 
+            'EndpointArn': updated_endpoint.arn
         })
 
     def delete_endpoint(self):
@@ -83,13 +84,20 @@ class SageMakerResponse(BaseResponse):
             'Endpoints' : [summary.response_object for summary in endpoint_summaries]
         })
 
+    def list_endpoint_configs(self):
+        # Note: This does not support pagination. All endpoint configs are returned in a single call
+        endpoint_config_summaries = self.sagemaker_backend.list_endpoint_configs()
+        return json.dumps({
+            'EndpointConfigs' : [summary.response_object for summary in endpoint_config_summaries]
+        })
+
     def create_model(self):
         model_name = self.request_params["ModelName"]
         primary_container = self.request_params["PrimaryContainer"]
         execution_role_arn = self.request_params["ExecutionRoleArn"]
         tags = self.request_params.get("Tags", [])
         vpc_config = self.request_params.get("VpcConfig", None)
-        new_model = self.sagemaker_backend.create_model(model_name=model_name, 
+        new_model = self.sagemaker_backend.create_model(model_name=model_name,
                 primary_container=primary_container, execution_role_arn=execution_role_arn,
                 tags=tags, vpc_config=vpc_config, region_name=self.region)
         return json.dumps({
@@ -111,21 +119,21 @@ class SageMakerBackend(BaseBackend):
 
     @property
     def _url_module(self):
-        urls_module_name = "tests.sagemaker.sagemaker_urls"
+        urls_module_name = "tests.sagemaker.mock.mock_sagemaker_urls"
         urls_module = __import__(urls_module_name, fromlist=[
                                          'url_bases', 'url_paths'])
-        return urls_module 
+        return urls_module
 
     def _get_base_arn(self, region_name):
         return BASE_SAGEMAKER_ARN.format(region_name=region_name, account_id=ACCOUNT_ID)
 
     def create_endpoint_config(self, config_name, production_variants, tags, region_name):
         if config_name in self.endpoint_configs:
-            raise Exception("Attempted to create an endpoint configuration with name:" 
-                            " {config_name}, but an endpoint configuration with this" 
+            raise Exception("Attempted to create an endpoint configuration with name:"
+                            " {config_name}, but an endpoint configuration with this"
                             " name already exists.".format(config_name=config_name))
-        new_config = EndpointConfig(config_name=config_name, 
-                                    production_variants=production_variants, 
+        new_config = EndpointConfig(config_name=config_name,
+                                    production_variants=production_variants,
                                     tags=tags)
         new_config_arn = self._get_base_arn(region_name=region_name) + new_config.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_config, arn=new_config_arn)
@@ -134,7 +142,7 @@ class SageMakerBackend(BaseBackend):
 
     def describe_endpoint_config(self, config_name):
         if config_name not in self.endpoint_configs:
-            raise Exception("Attempted to describe an endpoint config with name: `{config_name}`" 
+            raise Exception("Attempted to describe an endpoint config with name: `{config_name}`"
                             " that does not exist.".format(config_name=config_name))
 
         config = self.endpoint_configs[config_name]
@@ -142,32 +150,32 @@ class SageMakerBackend(BaseBackend):
 
     def delete_endpoint_config(self, config_name):
         if config_name not in self.endpoint_configs:
-            raise Exception("Attempted to delete an endpoint config with name: `{config_name}`" 
+            raise Exception("Attempted to delete an endpoint config with name: `{config_name}`"
                             " that does not exist.".format(config_name=config_name))
 
         del self.endpoint_configs[config_name]
-    
+
     def create_endpoint(self, endpoint_name, endpoint_config_name, tags, region_name):
         if endpoint_name in self.endpoints:
-            raise Exception("Attempted to create an endpoint with name: `{endpoint_name}`" 
+            raise Exception("Attempted to create an endpoint with name: `{endpoint_name}`"
                             " but an endpoint with this name already exists.".format(
                                 endpoint_name=endpoint_name))
 
         if endpoint_config_name not in self.endpoint_configs:
-            raise Exception("Attempted to create an endpoint with a configuration named:" 
+            raise Exception("Attempted to create an endpoint with a configuration named:"
                             " `{config_name}` However, this configuration does not exist.".format(
-                                config_name=endpoint_config_name)) 
-        
-        new_endpoint = Endpoint(endpoint_name=endpoint_name, config_name=endpoint_config_name, 
+                                config_name=endpoint_config_name))
+
+        new_endpoint = Endpoint(endpoint_name=endpoint_name, config_name=endpoint_config_name,
                                 tags=tags)
         new_endpoint_arn = self._get_base_arn(region_name=region_name) + new_endpoint.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_endpoint, arn=new_endpoint_arn)
-        self.endpoints[endpoint_name] = new_resource 
-        return new_resource 
+        self.endpoints[endpoint_name] = new_resource
+        return new_resource
 
     def describe_endpoint(self, endpoint_name):
         if endpoint_name not in self.endpoints:
-            raise Exception("Attempted to describe an endpoint with name: `{endpoint_name}`" 
+            raise Exception("Attempted to describe an endpoint with name: `{endpoint_name}`"
                             " that does not exist.".format(endpoint_name=endpoint_name))
 
         endpoint = self.endpoints[endpoint_name]
@@ -176,12 +184,12 @@ class SageMakerBackend(BaseBackend):
 
     def update_endpoint(self, endpoint_name, new_config_name):
         if endpoint_name not in self.endpoints:
-            raise Exception("Attempted to update an endpoint with name: `{endpoint_name}`" 
+            raise Exception("Attempted to update an endpoint with name: `{endpoint_name}`"
                             " that does not exist.".format(endpoint_name=endpoint_name))
 
         if new_config_name not in self.endpoint_configs:
-            raise Exception("Attempted to update an endpoint named `{endpoint_name}` with a new" 
-                            " configuration named: `{config_name}`. However, this configuration" 
+            raise Exception("Attempted to update an endpoint named `{endpoint_name}` with a new"
+                            " configuration named: `{config_name}`. However, this configuration"
                             " does not exist.".format(
                                 endpoint_name=endpoint_name, config_name=new_config_name))
 
@@ -191,7 +199,7 @@ class SageMakerBackend(BaseBackend):
 
     def delete_endpoint(self, endpoint_name):
         if endpoint_name not in self.endpoints:
-            raise Exception("Attempted to delete an endpoint with name: `{endpoint_name}`" 
+            raise Exception("Attempted to delete an endpoint with name: `{endpoint_name}`"
                             " that does not exist.".format(endpoint_name=endpoint_name))
 
         del self.endpoints[endpoint_name]
@@ -203,14 +211,24 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-    def create_model(self, model_name, container_config, execution_role_arn, tags, region_name, 
+
+    def list_endpoint_configs(self):
+        summaries = []
+        for _, endpoint_config in self.endpoint_configs.items():
+            summary = EndpointConfigSummary(
+                    config=endpoint_config.resource, arn=endpoint_config.arn)
+            summaries.append(summary)
+        return summaries
+
+
+    def create_model(self, model_name, container_config, execution_role_arn, tags, region_name,
                      vpc_config=None):
         if model_name in self.models:
-            raise Exception("Attempted to create a model with name: `{model_name}`" 
+            raise Exception("Attempted to create a model with name: `{model_name}`"
                             " but a mdoel with this name already exists.".format(
                                 model_name=model_name))
 
-        new_model = Model(model_name=model_name, container_config=container_config, 
+        new_model = Model(model_name=model_name, container_config=container_config,
                           execution_role_arn=execution_role_arn, tags=tags, vpc_config=vpc_config)
         new_model_arn = self._get_base_arn(region_name=region_name) + new_model.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_model, arn=new_model_arn)
@@ -219,7 +237,7 @@ class SageMakerBackend(BaseBackend):
 
     def describe_model(self, model_name):
         if model_name not in self.models:
-            raise Exception("Attempted to describe a model with name: `{model_name}`" 
+            raise Exception("Attempted to describe a model with name: `{model_name}`"
                             " that does not exist.".format(model_name=model_name))
 
         model = self.models[model_name]
@@ -227,26 +245,42 @@ class SageMakerBackend(BaseBackend):
 
     def delete_model(self, model_name):
         if model_name not in self.models:
-            raise Exception("Attempted to delete an model with name: `{model_name}`" 
+            raise Exception("Attempted to delete an model with name: `{model_name}`"
                             " that does not exist.".format(model_name=model_name))
 
         del self.models[model_name]
 
 
-class Endpoint(BaseModel):
-    
+class TimestampedResource(BaseModel):
+
+    TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+    def __init__(self):
+        curr_time = datetime.now().strftime(TimestampedResource.TIMESTAMP_FORMAT)
+        self.creation_time = curr_time
+        self.last_modified_time = curr_time
+
+
+class Endpoint(TimestampedResource):
+
+    STATUS_IN_SERVICE = "InService"
+
     def __init__(self, endpoint_name, config_name, tags):
+        super(Endpoint, self).__init__()
         self.endpoint_name = endpoint_name
         self.config_name = config_name
         self.tags = tags
+        self.status = Endpoint.STATUS_IN_SERVICE
 
     @property
     def arn_descriptor(self):
         return ":endpoint/{endpoint_name}".format(endpoint_name=self.endpoint_name)
 
-class EndpointConfig(BaseModel):
+
+class EndpointConfig(TimestampedResource):
 
     def __init__(self, config_name, production_variants, tags):
+        super(EndpointConfig, self).__init__()
         self.config_name = config_name
         self.production_variants = production_variants
         self.tags = tags
@@ -266,9 +300,13 @@ class EndpointSummary:
     def response_object(self):
         response = {
             'EndpointName' : self.endpoint.endpoint_name,
+            'CreationTime': self.endpoint.creation_time,
+            'LastModifiedTime': self.endpoint.last_modified_time,
+            'EndpointStatus': self.endpoint.status,
             'EndpointArn' : self.arn,
         }
-        return response 
+        return response
+
 
 class EndpointDescription:
 
@@ -284,8 +322,28 @@ class EndpointDescription:
             'EndpointArn' : self.arn,
             'EndpointConfigName' : self.endpoint.endpoint_config_name,
             'ProductionVariants' : self.config.production_variants,
+            'EndpointStatus': self.endpoint.status,
+            'CreationTime': self.endpoint.creation_time,
+            'LastModifiedTime': self.endpoint.last_modified_time,
         }
         return response
+
+
+class EndpointConfigSummary:
+
+    def __init__(self, config, arn):
+        self.config = config
+        self.arn = arn
+
+    @property
+    def response_object(self):
+        response = {
+            'EndpointConfigName' : self.config.config_name,
+            'EndpointArn' : self.arn,
+            'CreationTime': self.config.creation_time,
+        }
+        return response
+
 
 class EndpointConfigDescription:
 
@@ -299,12 +357,15 @@ class EndpointConfigDescription:
             'EndpointConfigName' : self.config.config_name,
             'EndpointArn' : self.arn,
             'ProductionVariants' : self.config.production_variants,
+            'CreationTime': self.config.creation_time,
         }
         return response
 
-class Model(BaseModel):
+
+class Model(TimestampedResource):
 
     def __init__(self, model_name, container_config, execution_role_arn, tags, vpc_config):
+        super(Model, self).__init__()
         self.model_name = model_name,
         self.container_config = container_config
         self.execution_role_arn = execution_role_arn
@@ -314,6 +375,7 @@ class Model(BaseModel):
     @property
     def arn_descriptor(self):
         return ":model/{model_name}".format(model_name=self.model_name)
+
 
 class ModelDescription:
 
@@ -331,6 +393,7 @@ class ModelDescription:
             'VpcConfig' : self.model.vpc_config if self.model.vpc_config else {}
         }
         return response
+
 
 # Create a SageMaker backend for each EC2 region
 sagemaker_backends = {}
