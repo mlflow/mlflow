@@ -11,11 +11,14 @@ from moto.ec2 import ec2_backends
 from moto.iam.models import ACCOUNT_ID
 from moto.core.models import base_decorator, deprecated_base_decorator
 
-BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
-
 SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 
+
 class SageMakerResponse(BaseResponse):
+    """
+    A collection of handlers for SageMaker API calls that produce API-conforming
+    JSON responses.
+    """
 
     @property
     def sagemaker_backend(self):
@@ -26,6 +29,10 @@ class SageMakerResponse(BaseResponse):
         return json.loads(self.body)
 
     def create_endpoint_config(self):
+        """
+        Handler for the SageMaker "CreateEndpointConfig" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpointConfig.html.
+        """
         config_name = self.request_params["EndpointConfigName"]
         production_variants = self.request_params.get("ProductionVariants")
         tags = self.request_params.get("Tags", [])
@@ -37,16 +44,28 @@ class SageMakerResponse(BaseResponse):
         })
 
     def describe_endpoint_config(self):
+        """
+        Handler for the SageMaker "DescribeEndpoint" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
+        """
         config_name = self.request_params["EndpointConfigName"]
         config_description = self.sagemaker_backend.describe_endpoint_config(config_name)
         return json.dumps(config_description.response_object)
 
     def delete_endpoint_config(self):
+        """
+        Handler for the SageMaker "DeleteEndpointConfig" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpointConfig.html.
+        """
         config_name = self.request_params["EndpointConfigName"]
         self.sagemaker_backend.delete_endpoint_config(config_name)
         return ""
 
     def create_endpoint(self):
+        """
+        Handler for the SageMaker "CreateEndpoint" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpoint.html.
+        """
         endpoint_name = self.request_params["EndpointName"]
         endpoint_config_name = self.request_params["EndpointConfigName"]
         tags = self.request_params.get("Tags", [])
@@ -59,11 +78,19 @@ class SageMakerResponse(BaseResponse):
         })
 
     def describe_endpoint(self):
+        """
+        Handler for the SageMaker "DescribeEndpoint" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
+        """
         endpoint_name = self.request_params["EndpointName"]
         endpoint_description = self.sagemaker_backend.describe_endpoint(endpoint_name)
         return json.dumps(endpoint_description.response_object)
 
     def update_endpoint(self):
+        """
+        Handler for the SageMaker "UpdateEndpoint" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpoint.html.
+        """
         endpoint_name = self.request_params["EndpointName"]
         new_config_name = self.request_params["EndpointConfigName"]
         updated_endpoint = self.sagemaker_backend.update_endpoint(
@@ -73,32 +100,52 @@ class SageMakerResponse(BaseResponse):
         })
 
     def delete_endpoint(self):
+        """
+        Handler for the SageMaker "DeleteEndpoint" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpoint.html.
+        """
         endpoint_name = self.request_params["EndpointName"]
         self.sagemaker_backend.delete_endpoint(endpoint_name)
         return ""
 
     def list_endpoints(self):
-        # Note: This does not support pagination. All endpoints are returned in a single call
+        """
+        Handler for the SageMaker "ListEndpoints" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
+        """
+        # Note: This does not support pagination. All endpoints are returned in a single API call
         endpoint_summaries = self.sagemaker_backend.list_endpoints()
         return json.dumps({
             'Endpoints' : [summary.response_object for summary in endpoint_summaries]
         })
 
     def list_endpoint_configs(self):
-        # Note: This does not support pagination. All endpoint configs are returned in a single call
+        """
+        Handler for the SageMaker "ListEndpointConfigs" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
+        """
+        # Note: This does not support pagination. All endpoint configs are returned in a single API call
         endpoint_config_summaries = self.sagemaker_backend.list_endpoint_configs()
         return json.dumps({
             'EndpointConfigs' : [summary.response_object for summary in endpoint_config_summaries]
         })
 
     def list_models(self):
-        # Note: This does not support pagination. All endpoint configs are returned in a single call
+        """
+        Handler for the SageMaker "ListModels" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
+        """
+        # Note: This does not support pagination. All endpoint configs are returned in a single API call
         model_summaries = self.sagemaker_backend.list_models()
         return json.dumps({
             'Models' : [summary.response_object for summary in model_summaries]
         })
 
     def create_model(self):
+        """
+        Handler for the SageMaker "CreateModel" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateModel.html.
+        """
         model_name = self.request_params["ModelName"].encode("utf-8")
         primary_container = self.request_params["PrimaryContainer"]
         execution_role_arn = self.request_params["ExecutionRoleArn"]
@@ -112,17 +159,31 @@ class SageMakerResponse(BaseResponse):
         })
 
     def describe_model(self):
+        """
+        Handler for the SageMaker "DescribeModel" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeModel.html.
+        """
         model_name = self.request_params["ModelName"]
         model_description = self.sagemaker_backend.describe_model(model_name)
         return json.dumps(model_description.response_object)
 
     def delete_model(self):
+        """
+        Handler for the SageMaker "DeleteModel" API call documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteModel.html.
+        """
         model_name = self.request_params["ModelName"]
         self.sagemaker_backend.delete_model(model_name)
         return ""
 
 
 class SageMakerBackend(BaseBackend):
+    """
+    A mock backend for managing and exposing SageMaker resource state.
+    """
+
+    BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
+
 
     def __init__(self):
         self.models = {}
@@ -131,15 +192,27 @@ class SageMakerBackend(BaseBackend):
 
     @property
     def _url_module(self):
+        """
+        Required override from the Moto "BaseBackend" object that reroutes requests from the
+        specified SageMaker URLs to the mocked SageMaker backend.
+        """
         urls_module_name = "tests.sagemaker.mock.mock_sagemaker_urls"
-        urls_module = __import__(urls_module_name, fromlist=[
-                                         'url_bases', 'url_paths'])
+        urls_module = __import__(urls_module_name, fromlist=['url_bases', 'url_paths'])
         return urls_module
 
     def _get_base_arn(self, region_name):
-        return BASE_SAGEMAKER_ARN.format(region_name=region_name, account_id=ACCOUNT_ID)
+        """
+        :return: A SageMaker ARN prefix that can be prepended to a resource name.
+        """
+        return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
+                region_name=region_name, account_id=ACCOUNT_ID)
 
     def create_endpoint_config(self, config_name, production_variants, tags, region_name):
+        """
+        Modifies backend state during calls to the SageMaker "CreateEndpointConfig" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpointConfig.html.
+        """
         if config_name in self.endpoint_configs:
             raise ValueError("Attempted to create an endpoint configuration with name:"
                              " {config_name}, but an endpoint configuration with this"
@@ -162,6 +235,11 @@ class SageMakerBackend(BaseBackend):
         return new_resource
 
     def describe_endpoint_config(self, config_name):
+        """
+        Modifies backend state during calls to the SageMaker "DescribeEndpointConfig" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpointConfig.html.
+        """
         if config_name not in self.endpoint_configs:
             raise ValueError("Attempted to describe an endpoint config with name: `{config_name}`"
                              " that does not exist.".format(config_name=config_name))
@@ -170,6 +248,11 @@ class SageMakerBackend(BaseBackend):
         return EndpointConfigDescription(config=config.resource, arn=config.arn)
 
     def delete_endpoint_config(self, config_name):
+        """
+        Modifies backend state during calls to the SageMaker "DeleteEndpointConfig" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpointConfig.html.
+        """
         if config_name not in self.endpoint_configs:
             raise ValueError("Attempted to delete an endpoint config with name: `{config_name}`"
                              " that does not exist.".format(config_name=config_name))
@@ -177,6 +260,11 @@ class SageMakerBackend(BaseBackend):
         del self.endpoint_configs[config_name]
 
     def create_endpoint(self, endpoint_name, endpoint_config_name, tags, region_name):
+        """
+        Modifies backend state during calls to the SageMaker "CreateEndpoint" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpoint.html.
+        """
         if endpoint_name in self.endpoints:
             raise ValueError("Attempted to create an endpoint with name: `{endpoint_name}`"
                              " but an endpoint with this name already exists.".format(
@@ -195,6 +283,11 @@ class SageMakerBackend(BaseBackend):
         return new_resource
 
     def describe_endpoint(self, endpoint_name):
+        """
+        Modifies backend state during calls to the SageMaker "DescribeEndpoint" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
+        """
         if endpoint_name not in self.endpoints:
             raise ValueError("Attempted to describe an endpoint with name: `{endpoint_name}`"
                              " that does not exist.".format(endpoint_name=endpoint_name))
@@ -205,6 +298,11 @@ class SageMakerBackend(BaseBackend):
                 endpoint=endpoint.resource, config=config.resource, arn=endpoint.arn)
 
     def update_endpoint(self, endpoint_name, new_config_name):
+        """
+        Modifies backend state during calls to the SageMaker "UpdateEndpoint" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpoint.html.
+        """
         if endpoint_name not in self.endpoints:
             raise ValueError("Attempted to update an endpoint with name: `{endpoint_name}`"
                              " that does not exist.".format(endpoint_name=endpoint_name))
@@ -220,6 +318,11 @@ class SageMakerBackend(BaseBackend):
         return endpoint
 
     def delete_endpoint(self, endpoint_name):
+        """
+        Modifies backend state during calls to the SageMaker "DeleteEndpoint" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpoint.html.
+        """
         if endpoint_name not in self.endpoints:
             raise ValueError("Attempted to delete an endpoint with name: `{endpoint_name}`"
                              " that does not exist.".format(endpoint_name=endpoint_name))
@@ -227,6 +330,11 @@ class SageMakerBackend(BaseBackend):
         del self.endpoints[endpoint_name]
 
     def list_endpoints(self):
+        """
+        Modifies backend state during calls to the SageMaker "ListEndpoints" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
+        """
         summaries = []
         for _, endpoint in self.endpoints.items():
             summary = EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
@@ -234,6 +342,11 @@ class SageMakerBackend(BaseBackend):
         return summaries
 
     def list_endpoint_configs(self):
+        """
+        Modifies backend state during calls to the SageMaker "ListEndpointConfigs" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
+        """
         summaries = []
         for _, endpoint_config in self.endpoint_configs.items():
             summary = EndpointConfigSummary(
@@ -242,6 +355,11 @@ class SageMakerBackend(BaseBackend):
         return summaries
 
     def list_models(self):
+        """
+        Modifies backend state during calls to the SageMaker "ListModels" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
+        """
         summaries = []
         for _, model in self.models.items():
             summary = ModelSummary(model=model.resource, arn=model.arn)
@@ -250,6 +368,11 @@ class SageMakerBackend(BaseBackend):
 
     def create_model(self, model_name, primary_container, execution_role_arn, tags, region_name,
                      vpc_config=None):
+        """
+        Modifies backend state during calls to the SageMaker "CreateModel" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateModel.html.
+        """
         if model_name in self.models:
             raise ValueError("Attempted to create a model with name: `{model_name}`"
                              " but a model with this name already exists.".format(
@@ -263,6 +386,11 @@ class SageMakerBackend(BaseBackend):
         return new_resource
 
     def describe_model(self, model_name):
+        """
+        Modifies backend state during calls to the SageMaker "DescribeModel" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeModel.html.
+        """
         if model_name not in self.models:
             raise ValueError("Attempted to describe a model with name: `{model_name}`"
                              " that does not exist.".format(model_name=model_name))
@@ -271,6 +399,11 @@ class SageMakerBackend(BaseBackend):
         return ModelDescription(model=model.resource, arn=model.arn)
 
     def delete_model(self, model_name):
+        """
+        Modifies backend state during calls to the SageMaker "DeleteModel" API 
+        documented here: 
+        https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteModel.html.
+        """
         if model_name not in self.models:
             raise ValueError("Attempted to delete an model with name: `{model_name}`"
                              " that does not exist.".format(model_name=model_name))
@@ -289,8 +422,13 @@ class TimestampedResource(BaseModel):
 
 
 class Endpoint(TimestampedResource):
+    """
+    Object representing a SageMaker endpoint. The SageMakerBackend will create
+    and manage Endpoints.
+    """
 
     STATUS_IN_SERVICE = "InService"
+    STATUS_FAILED = "Failed"
 
     def __init__(self, endpoint_name, config_name, tags):
         super(Endpoint, self).__init__()
@@ -304,20 +442,12 @@ class Endpoint(TimestampedResource):
         return ":endpoint/{endpoint_name}".format(endpoint_name=self.endpoint_name)
 
 
-class EndpointConfig(TimestampedResource):
-
-    def __init__(self, config_name, production_variants, tags):
-        super(EndpointConfig, self).__init__()
-        self.config_name = config_name
-        self.production_variants = production_variants
-        self.tags = tags
-
-    @property
-    def arn_descriptor(self):
-        return ":endpoint-config/{config_name}".format(config_name=self.config_name)
-
-
 class EndpointSummary:
+    """
+    Object representing an endpoint entry in the endpoints list returned by 
+    SageMaker's "ListEndpoints" API: 
+    https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
+    """
 
     def __init__(self, endpoint, arn):
         self.endpoint = endpoint
@@ -336,6 +466,11 @@ class EndpointSummary:
 
 
 class EndpointDescription:
+    """
+    Object representing an endpoint description returned by SageMaker's
+    "DescribeEndpoint" API: 
+    https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
+    """
 
     def __init__(self, endpoint, config, arn):
         self.endpoint = endpoint
@@ -356,7 +491,30 @@ class EndpointDescription:
         return response
 
 
+class EndpointConfig(TimestampedResource):
+    """
+    Object representing a SageMaker endpoint configuration. The SageMakerBackend will create
+    and manage EndpointConfigs.
+    """
+
+    def __init__(self, config_name, production_variants, tags):
+        super(EndpointConfig, self).__init__()
+        self.config_name = config_name
+        self.production_variants = production_variants
+        self.tags = tags
+
+    @property
+    def arn_descriptor(self):
+        return ":endpoint-config/{config_name}".format(config_name=self.config_name)
+
+
+
 class EndpointConfigSummary:
+    """
+    Object representing an endpoint configuration entry in the configurations list returned by 
+    SageMaker's "ListEndpointConfigs" API: 
+    https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
+    """
 
     def __init__(self, config, arn):
         self.config = config
@@ -373,6 +531,11 @@ class EndpointConfigSummary:
 
 
 class EndpointConfigDescription:
+    """
+    Object representing an endpoint configuration description returned by SageMaker's
+    "DescribeEndpointConfig" API: 
+    https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpointConfig.html.
+    """
 
     def __init__(self, config, arn):
         self.config = config
@@ -390,6 +553,9 @@ class EndpointConfigDescription:
 
 
 class Model(TimestampedResource):
+    """
+    Object representing a SageMaker model. The SageMakerBackend will create and manage Models.
+    """
 
     def __init__(self, model_name, primary_container, execution_role_arn, tags, vpc_config):
         super(Model, self).__init__()
@@ -405,6 +571,10 @@ class Model(TimestampedResource):
 
 
 class ModelSummary:
+    """
+    Object representing a model entry in the models list returned by SageMaker's
+    "ListModels" API: https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
+    """
 
     def __init__(self, model, arn):
         self.model = model
@@ -421,6 +591,10 @@ class ModelSummary:
 
 
 class ModelDescription:
+    """
+    Object representing a model description returned by SageMaker's
+    "DescribeModel" API: https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeModel.html.
+    """
 
     def __init__(self, model, arn):
         self.model = model
