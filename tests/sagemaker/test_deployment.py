@@ -5,7 +5,7 @@ from collections import namedtuple
 import boto3
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from moto import mock_ec2, mock_s3
+from moto import mock_s3
 
 import mlflow
 import mlflow.pyfunc
