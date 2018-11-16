@@ -99,7 +99,7 @@ class SageMakerResponse(BaseResponse):
         })
 
     def create_model(self):
-        model_name = self.request_params["ModelName"]
+        model_name = self.request_params["ModelName"].encode("utf-8")
         primary_container = self.request_params["PrimaryContainer"]
         execution_role_arn = self.request_params["ExecutionRoleArn"]
         tags = self.request_params.get("Tags", [])
@@ -242,14 +242,14 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
-    def create_model(self, model_name, container_config, execution_role_arn, tags, region_name,
+    def create_model(self, model_name, primary_container, execution_role_arn, tags, region_name,
                      vpc_config=None):
         if model_name in self.models:
             raise ValueError("Attempted to create a model with name: `{model_name}`"
-                             " but a mdoel with this name already exists.".format(
+                             " but a model with this name already exists.".format(
                                 model_name=model_name))
 
-        new_model = Model(model_name=model_name, container_config=container_config,
+        new_model = Model(model_name=model_name, primary_container=primary_container,
                           execution_role_arn=execution_role_arn, tags=tags, vpc_config=vpc_config)
         new_model_arn = self._get_base_arn(region_name=region_name) + new_model.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_model, arn=new_model_arn)
@@ -385,10 +385,10 @@ class EndpointConfigDescription:
 
 class Model(TimestampedResource):
 
-    def __init__(self, model_name, container_config, execution_role_arn, tags, vpc_config):
+    def __init__(self, model_name, primary_container, execution_role_arn, tags, vpc_config):
         super(Model, self).__init__()
-        self.model_name = model_name,
-        self.container_config = container_config
+        self.model_name = model_name
+        self.primary_container = primary_container 
         self.execution_role_arn = execution_role_arn
         self.tags = tags
         self.vpc_config = vpc_config
