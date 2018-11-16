@@ -81,7 +81,50 @@ def test_all_models_are_listed_after_creating_many_models(sagemaker_client):
     listed_models = sagemaker_client.list_models()["Models"]
     listed_model_names = [model["ModelName"] for model in listed_models]
     for model_name in model_names:
-        assert model_name in listed_model_names 
+        assert model_name in listed_model_names
+
+@mock_sagemaker
+def test_describe_model_response_contains_expected_attributes(sagemaker_client):
+    model_name = "sample-model"
+    execution_role_arn = "arn:aws:iam::012345678910:role/sample-role"
+    primary_container = {
+        "Image": "012345678910.dkr.ecr.us-west-2.amazonaws.com/sample-container",
+    }
+
+    sagemaker_client.create_model(
+        ModelName=model_name,
+        ExecutionRoleArn=execution_role_arn,
+        PrimaryContainer=primary_container,
+    )
+    
+    describe_model_response = sagemaker_client.describe_model(ModelName=model_name)
+    assert "CreationTime" in describe_model_response
+    assert "ModelArn" in describe_model_response
+    assert "ExecutionRoleArn" in describe_model_response
+    assert describe_model_response["ExecutionRoleArn"] == execution_role_arn
+    assert "ModelName" in describe_model_response
+    assert describe_model_response["ModelName"] == model_name
+    assert "PrimaryContainer" in describe_model_response
+    assert describe_model_response["PrimaryContainer"] == primary_container
+
+
+@mock_sagemaker
+def test_describe_model_throws_exception_for_nonexistent_model(sagemaker_client):
+    with pytest.raises(ValueError):
+        sagemaker_client.describe_model(ModelName="nonexistent-model")
+
+
+@mock_sagemaker
+def test_model_is_no_longer_listed_after_deletion(sagemaker_client):
+    model_name = "sample-model-name"
+
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    sagemaker_client.delete_model(ModelName=model_name)
+
+    listed_models = sagemaker_client.list_models()["Models"]
+    listed_model_names = [model["ModelName"] for model in listed_models]
+    assert model_name not in listed_model_names
 
 
 @mock_sagemaker
@@ -163,6 +206,62 @@ def test_all_endpoint_configs_are_listed_after_creating_many_configs(sagemaker_c
 
 
 @mock_sagemaker
+def test_describe_endpoint_config_response_contains_expected_attributes(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    endpoint_config_name = "sample-config"
+    production_variants = [
+        {
+            'VariantName': 'sample-variant',
+            'ModelName': model_name,
+            'InitialInstanceCount': 1,
+            'InstanceType': 'ml.m4.xlarge',
+            'InitialVariantWeight': 1.0,
+        },
+    ]
+    sagemaker_client.create_endpoint_config(
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=production_variants,
+    )
+
+    describe_endpoint_config_response = sagemaker_client.describe_endpoint_config(
+            EndpointConfigName=endpoint_config_name)
+    assert "CreationTime" in describe_endpoint_config_response
+    assert "EndpointConfigArn" in describe_endpoint_config_response
+    assert "EndpointConfigName" in describe_endpoint_config_response
+    assert describe_endpoint_config_response["EndpointConfigName"] == endpoint_config_name
+    assert "ProductionVariants" in describe_endpoint_config_response
+    assert describe_endpoint_config_response["ProductionVariants"] == production_variants
+
+
+@mock_sagemaker
+def test_describe_endpoint_config_throws_exception_for_nonexistent_config(sagemaker_client):
+    with pytest.raises(ValueError):
+        sagemaker_client.describe_endpoint_config(EndpointConfigName="nonexistent-config")
+
+
+@mock_sagemaker
+def test_endpoint_config_is_no_longer_listed_after_deletion(sagemaker_client):
+    model_name = "sample-model-name"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    endpoint_config_name = "sample-config"
+    create_endpoint_config(
+            sagemaker_client=sagemaker_client, 
+            endpoint_config_name=endpoint_config_name, 
+            model_name=model_name)
+
+    sagemaker_client.delete_endpoint_config(EndpointConfigName=endpoint_config_name)
+
+    listed_endpoint_configs = sagemaker_client.list_endpoint_configs()["EndpointConfigs"]
+    listed_endpoint_config_names = [
+            endpoint_config["EndpointConfigName"] for endpoint_config in listed_endpoint_configs 
+    ]
+    assert endpoint_config_name not in listed_endpoint_config_names 
+
+
+@mock_sagemaker
 def test_created_endpoint_is_listed_by_list_endpoints_function(sagemaker_client):
     model_name = "sample-model"
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
@@ -194,7 +293,7 @@ def test_created_endpoint_is_listed_by_list_endpoints_function(sagemaker_client)
 
 
 @mock_sagemaker
-def test_create_endpoin_returns_arn_containing_endpoint_name(
+def test_create_endpoint_returns_arn_containing_endpoint_name(
         sagemaker_client):
     model_name = "sample-model"
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
@@ -293,4 +392,65 @@ def test_all_endpoint_are_listed_after_creating_many_endpoints(sagemaker_client)
         assert endpoint_name in listed_endpoint_names
 
 
+@mock_sagemaker
+def test_describe_endpoint_response_contains_expected_attributes(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
+    endpoint_config_name = "sample-config"
+    production_variants = [
+        {
+            'VariantName': 'sample-variant',
+            'ModelName': model_name,
+            'InitialInstanceCount': 1,
+            'InstanceType': 'ml.m4.xlarge',
+            'InitialVariantWeight': 1.0,
+        },
+    ]
+    sagemaker_client.create_endpoint_config(
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=production_variants,
+    )
+
+    endpoint_name = "sample-endpoint"
+    sagemaker_client.create_endpoint(
+        EndpointName=endpoint_name,
+        EndpointConfigName=endpoint_config_name,
+    )
+
+    describe_endpoint_response = sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
+    assert "CreationTime" in describe_endpoint_response
+    assert "LastModifiedTime" in describe_endpoint_response
+    assert "EndpointArn" in describe_endpoint_response
+    assert "EndpointStatus" in describe_endpoint_response
+    assert "ProductionVariants" in describe_endpoint_response
+
+
+@mock_sagemaker
+def test_describe_endpoint_throws_exception_for_nonexistent_endpoint(sagemaker_client):
+    with pytest.raises(ValueError):
+        sagemaker_client.describe_endpoint(EndpointName="nonexistent-endpoint")
+
+
+@mock_sagemaker
+def test_endpoint_is_no_longer_listed_after_deletion(sagemaker_client):
+    model_name = "sample-model-name"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    endpoint_config_name = "sample-config"
+    create_endpoint_config(
+            sagemaker_client=sagemaker_client, 
+            endpoint_config_name=endpoint_config_name, 
+            model_name=model_name)
+
+    endpoint_name = "sample-endpoint"
+    sagemaker_client.create_endpoint(
+        EndpointConfigName=endpoint_config_name,
+        EndpointName=endpoint_name,
+    )
+
+    sagemaker_client.delete_endpoint(EndpointName=endpoint_name)
+
+    listed_endpoints = sagemaker_client.list_endpoints()["Endpoints"]
+    listed_endpoint_names = [ endpoint["EndpointName"] for endpoint in listed_endpoints]
+    assert endpoint_name not in listed_endpoint_names 

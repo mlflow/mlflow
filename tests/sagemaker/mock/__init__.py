@@ -116,6 +116,11 @@ class SageMakerResponse(BaseResponse):
         model_description = self.sagemaker_backend.describe_model(model_name)
         return json.dumps(model_description.response_object)
 
+    def delete_model(self):
+        model_name = self.request_params["ModelName"]
+        self.sagemaker_backend.delete_model(model_name)
+        return ""
+
 
 class SageMakerBackend(BaseBackend):
 
@@ -196,7 +201,8 @@ class SageMakerBackend(BaseBackend):
 
         endpoint = self.endpoints[endpoint_name]
         config = self.endpoint_configs[endpoint.resource.config_name]
-        return EndpointDescription(endpoint=endpoint.resource, config=config, arn=endpoint.arn)
+        return EndpointDescription(
+                endpoint=endpoint.resource, config=config.resource, arn=endpoint.arn)
 
     def update_endpoint(self, endpoint_name, new_config_name):
         if endpoint_name not in self.endpoints:
@@ -341,7 +347,7 @@ class EndpointDescription:
         response = {
             'EndpointName' : self.endpoint.endpoint_name,
             'EndpointArn' : self.arn,
-            'EndpointConfigName' : self.endpoint.endpoint_config_name,
+            'EndpointConfigName' : self.endpoint.config_name,
             'ProductionVariants' : self.config.production_variants,
             'EndpointStatus': self.endpoint.status,
             'CreationTime': self.endpoint.creation_time,
@@ -376,7 +382,7 @@ class EndpointConfigDescription:
     def response_object(self):
         response = {
             'EndpointConfigName' : self.config.config_name,
-            'EndpointArn' : self.arn,
+            'EndpointConfigArn' : self.arn,
             'ProductionVariants' : self.config.production_variants,
             'CreationTime': self.config.creation_time,
         }
