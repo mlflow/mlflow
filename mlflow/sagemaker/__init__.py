@@ -324,30 +324,48 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         _validate_deployment_flavor(model_config, flavor)
     eprint("Using the {selected_flavor} flavor for deployment!".format(selected_flavor=flavor))
 
+    sage_client = boto3.client('sagemaker', region_name=region_name)
+    s3_client = boto3.client('s3', region_name=region_name)
+
+    endpoint_exists = _find_endpoint(endpoint_name=app_name, sage_client=sage_client) is not None
+    if endpoint_exists and mode == DEPLOYMENT_MODE_CREATE:
+        raise MlflowException(
+                message=(
+                    "You are attempting to deploy an application with name: {application_name} in"
+                    " '{mode_create}' mode. However, an application with the same name already"
+                    " exists. If you want to update this application, deploy in '{mode_add}' or"
+                    " '{mode_replace}' mode.".format(
+                        application_name=app_name,
+                        mode_create=DEPLOYMENT_MODE_CREATE,
+                        mode_add=DEPLOYMENT_MODE_ADD,
+                        mode_replace=DEPLOYMENT_MODE_REPLACE)),
+                error_code=INVALID_PARAMETER_VALUE)
+
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
-
     if not execution_role_arn:
         execution_role_arn = _get_assumed_role_arn()
-
     if not bucket:
         eprint("No model data bucket specified, using the default bucket")
         bucket = _get_default_s3_bucket(region_name)
 
-    model_s3_path = _upload_s3(
-        local_model_path=model_path, bucket=bucket, prefix=s3_bucket_prefix)
-    deployment_operation = _deploy(role=execution_role_arn,
-                                   image_url=image_url,
-                                   app_name=app_name,
-                                   model_s3_path=model_s3_path,
-                                   run_id=run_id,
-                                   region_name=region_name,
-                                   mode=mode,
-                                   archive=archive,
-                                   instance_type=instance_type,
-                                   instance_count=instance_count,
-                                   vpc_config=vpc_config,
-                                   flavor=flavor)
+    model_s3_path = _upload_s3(local_model_path=model_path, 
+                               bucket=bucket, 
+                               prefix=s3_bucket_prefix,
+                               region_name=region_name,
+                               s3_client=s3_client)
+    if endpoint_exists:
+        deployment_operation = _update_sagemaker_endpoint(
+                endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path, 
+                run_id=run_id, flavor=flavor, instance_type=instance_type, 
+                instance_count=instance_count, vpc_config=vpc_config, mode=mode, archive=archive,
+                role=execution_role_arn, sage_client=sage_client, s3_client=s3_client)
+    else:
+        deployment_operation = _create_sagemaker_endpoint(
+                endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path,
+                run_id=run_id, flavor=flavor, instance_type=instance_type, 
+                instance_count=instance_count, vpc_config=vpc_config, role=execution_role_arn,
+                sage_client=sage_client)
 
     if synchronous:
         eprint("Waiting for the deployment operation to complete...")
@@ -605,30 +623,31 @@ def _make_tarfile(output_filename, source_dir):
             tar.add(os.path.join(source_dir, f), arcname=f)
 
 
-def _upload_s3(local_model_path, bucket, prefix):
+def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
     """
     Upload dir to S3 as .tar.gz.
     :param local_model_path: Local path to a dir.
     :param bucket: S3 bucket where to store the data.
     :param prefix: Path within the bucket.
+    :param region_name: The AWS region in which to upload data to S3.
+    :param s3_client: A boto3 client for S3.
     :return: S3 path of the uploaded artifact.
     """
-    sess = boto3.Session()
+    sess = boto3.Session(region_name=region_name)
     with TempDir() as tmp:
         model_data_file = tmp.path("model.tar.gz")
         _make_tarfile(model_data_file, local_model_path)
-        s3 = boto3.client('s3')
         with open(model_data_file, 'rb') as fobj:
             key = os.path.join(prefix, 'model.tar.gz')
             obj = sess.resource('s3').Bucket(bucket).Object(key)
             obj.upload_fileobj(fobj)
-            response = s3.put_object_tagging(
+            response = s3_client.put_object_tagging(
                 Bucket=bucket,
                 Key=key,
                 Tagging={'TagSet': [{'Key': 'SageMaker', 'Value': 'true'}, ]}
             )
             eprint('tag response', response)
-            return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key)
+            return '{}/{}/{}'.format(s3_client.meta.endpoint_url, bucket, key)
 
 
 def _get_deployment_config(flavor_name):
@@ -637,66 +656,6 @@ def _get_deployment_config(flavor_name):
     """
     deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
     return deployment_config
-
-
-def _deploy(role, image_url, app_name, model_s3_path, run_id, region_name, mode, archive,
-            instance_type, instance_count, vpc_config, flavor):
-    """
-    Deploy model on sagemaker.
-    :param role: SageMaker execution ARN role
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into
-    :param app_name: Name of the deployed app.
-    :param model_s3_path: S3 path where we stored the model artifacts.
-    :param run_id: Run ID that generated this model.
-    :param mode: The mode in which to deploy the application.
-    :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
-                    will be preserved. If False, these resources will be deleted.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model.
-    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this application.
-    :param flavor: The name of the flavor of the model to use for deployment.
-    """
-    sage_client = boto3.client('sagemaker', region_name=region_name)
-    s3_client = boto3.client('s3', region_name=region_name)
-
-    endpoint_found = _find_endpoint(endpoint_name=app_name, sage_client=sage_client) is not None
-
-    if endpoint_found and mode == DEPLOYMENT_MODE_CREATE:
-        msg = ("You are attempting to deploy an application with name: `{an}` in `{mcr} `mode."
-               " However, an application with the same name already exists. If you want to update"
-               " this application, deploy in `{madd}` or `{mrep}` mode.").format(
-            an=app_name,
-            mcr=DEPLOYMENT_MODE_CREATE,
-            madd=DEPLOYMENT_MODE_ADD,
-            mrep=DEPLOYMENT_MODE_REPLACE)
-        raise Exception(msg)
-    elif endpoint_found:
-        return _update_sagemaker_endpoint(endpoint_name=app_name,
-                                          image_url=image_url,
-                                          model_s3_path=model_s3_path,
-                                          run_id=run_id,
-                                          flavor=flavor,
-                                          instance_type=instance_type,
-                                          instance_count=instance_count,
-                                          vpc_config=vpc_config,
-                                          mode=mode,
-                                          archive=archive,
-                                          role=role,
-                                          sage_client=sage_client,
-                                          s3_client=s3_client)
-    else:
-        return _create_sagemaker_endpoint(endpoint_name=app_name,
-                                          image_url=image_url,
-                                          model_s3_path=model_s3_path,
-                                          run_id=run_id,
-                                          flavor=flavor,
-                                          instance_type=instance_type,
-                                          instance_count=instance_count,
-                                          vpc_config=vpc_config,
-                                          role=role,
-                                          sage_client=sage_client)
 
 
 def _get_sagemaker_model_name(endpoint_name):
@@ -718,8 +677,8 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this SageMaker endpoint.
-    :param role: SageMaker execution ARN role
-    :param sage_client: A boto3 client for SageMaker
+    :param role: SageMaker execution ARN role.
+    :param sage_client: A boto3 client for SageMaker.
     """
     eprint("Creating new endpoint with name: {en} ...".format(
         en=endpoint_name))
@@ -902,16 +861,16 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 def _create_sagemaker_model(model_name, model_s3_path, flavor, vpc_config, run_id, image_url,
                             execution_role, sage_client):
     """
-    :param model_s3_path: S3 path where the model artifacts are stored
-    :param flavor: The name of the flavor of the model
+    :param model_s3_path: S3 path where the model artifacts are stored.
+    :param flavor: The name of the flavor of the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this SageMaker endpoint.
-    :param run_id: Run ID that generated this model
+    :param run_id: Run ID that generated this model.
     :param image_url: URL of the ECR-hosted Docker image that will serve as the
-                      model's container
-    :param execution_role: The ARN of the role that SageMaker will assume when creating the model
-    :param sage_client: A boto3 client for SageMaker
-    :return: AWS response containing metadata associated with the new model
+                      model's container,
+    :param execution_role: The ARN of the role that SageMaker will assume when creating the model.
+    :param sage_client: A boto3 client for SageMaker.
+    :return: AWS response containing metadata associated with the new model.
     """
     create_model_args = {
         "ModelName": model_name,
