@@ -1,7 +1,6 @@
 """
 CLI for runs
 """
-
 import click
 import datetime
 import json
@@ -11,16 +10,18 @@ from tabulate import tabulate
 
 RUN_ID = click.argument("run_id", type=click.STRING)
 
+
 @click.group("runs")
 def commands():
     """
-    Manage runs. To manage runs associated with a tracking server, set the
+    Manage runs. To manage runs of experiments associated with a tracking server, set the
     MLFLOW_TRACKING_URI environment variable to the URL of the desired server.
     """
     pass
 
+
 @commands.command("list")
-@click.option("--experiment_id", help="Specify the experiment for list of runs.")
+@click.option("--experiment_id", help="Specify the experiment for list of runs.", type=click.INT)
 @click.option("--view", "-v", default="active_only",
               help="Select view type for list experiments. Valid view types are "
                    "'active_only' (default), 'deleted_only', and 'all'.")
@@ -49,7 +50,7 @@ def delete_run(run_id):
 
 @commands.command("restore")
 @RUN_ID
-def restore_experiment(run_id):
+def restore_run(run_id):
     """
     Restore a deleted run.
     Returns an error if the run is active or has been permanently deleted.
@@ -63,7 +64,7 @@ def restore_experiment(run_id):
 @click.argument('file', type=click.Path(exists=False))
 def export_run(run_id, file):
     """
-    Export a run to JSON file.
+    Export a run to JSON file. All of run details will write to file in the specific path with JSON format.
     """
     store = _get_store()
     run = store.get_run(run_id)

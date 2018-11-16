@@ -143,7 +143,7 @@ class RestStore(AbstractStore):
         """
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
-            experiment_id=experiment_id, user_id=user_id, run_name="",
+            experiment_id=experiment_id, user_id=user_id, run_name=run_name,
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
             start_time=start_time, source_version=source_version, tags=tag_protos,
             parent_run_id=parent_run_id))
