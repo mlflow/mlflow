@@ -5,6 +5,7 @@ import os
 import pickle
 import pytest
 import yaml
+import json
 from collections import namedtuple
 
 import numpy as np
@@ -246,6 +247,29 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+
+
+def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
+
+    sklearn_conf = _get_flavor_configuration(
+            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+
+
+def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+                sk_model=sklearn_knn_model.model, artifact_path=artifact_path, conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    sklearn_conf = _get_flavor_configuration(
+            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
 
 
 @pytest.mark.release
