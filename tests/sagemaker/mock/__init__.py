@@ -30,7 +30,7 @@ class SageMakerResponse(BaseResponse):
 
     def create_endpoint_config(self):
         """
-        Handler for the SageMaker "CreateEndpointConfig" API call documented here: 
+        Handler for the SageMaker "CreateEndpointConfig" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpointConfig.html.
         """
         config_name = self.request_params["EndpointConfigName"]
@@ -45,7 +45,7 @@ class SageMakerResponse(BaseResponse):
 
     def describe_endpoint_config(self):
         """
-        Handler for the SageMaker "DescribeEndpoint" API call documented here: 
+        Handler for the SageMaker "DescribeEndpoint" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
         """
         config_name = self.request_params["EndpointConfigName"]
@@ -54,7 +54,7 @@ class SageMakerResponse(BaseResponse):
 
     def delete_endpoint_config(self):
         """
-        Handler for the SageMaker "DeleteEndpointConfig" API call documented here: 
+        Handler for the SageMaker "DeleteEndpointConfig" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpointConfig.html.
         """
         config_name = self.request_params["EndpointConfigName"]
@@ -63,7 +63,7 @@ class SageMakerResponse(BaseResponse):
 
     def create_endpoint(self):
         """
-        Handler for the SageMaker "CreateEndpoint" API call documented here: 
+        Handler for the SageMaker "CreateEndpoint" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpoint.html.
         """
         endpoint_name = self.request_params["EndpointName"]
@@ -79,7 +79,7 @@ class SageMakerResponse(BaseResponse):
 
     def describe_endpoint(self):
         """
-        Handler for the SageMaker "DescribeEndpoint" API call documented here: 
+        Handler for the SageMaker "DescribeEndpoint" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
         """
         endpoint_name = self.request_params["EndpointName"]
@@ -88,7 +88,7 @@ class SageMakerResponse(BaseResponse):
 
     def update_endpoint(self):
         """
-        Handler for the SageMaker "UpdateEndpoint" API call documented here: 
+        Handler for the SageMaker "UpdateEndpoint" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpoint.html.
         """
         endpoint_name = self.request_params["EndpointName"]
@@ -101,7 +101,7 @@ class SageMakerResponse(BaseResponse):
 
     def delete_endpoint(self):
         """
-        Handler for the SageMaker "DeleteEndpoint" API call documented here: 
+        Handler for the SageMaker "DeleteEndpoint" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpoint.html.
         """
         endpoint_name = self.request_params["EndpointName"]
@@ -110,7 +110,7 @@ class SageMakerResponse(BaseResponse):
 
     def list_endpoints(self):
         """
-        Handler for the SageMaker "ListEndpoints" API call documented here: 
+        Handler for the SageMaker "ListEndpoints" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
         """
         # Note: This does not support pagination. All endpoints are returned in a single API call
@@ -121,7 +121,7 @@ class SageMakerResponse(BaseResponse):
 
     def list_endpoint_configs(self):
         """
-        Handler for the SageMaker "ListEndpointConfigs" API call documented here: 
+        Handler for the SageMaker "ListEndpointConfigs" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
         """
         # Note: This does not support pagination. All endpoint configs are returned in a single API call
@@ -132,7 +132,7 @@ class SageMakerResponse(BaseResponse):
 
     def list_models(self):
         """
-        Handler for the SageMaker "ListModels" API call documented here: 
+        Handler for the SageMaker "ListModels" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
         """
         # Note: This does not support pagination. All endpoint configs are returned in a single API call
@@ -143,7 +143,7 @@ class SageMakerResponse(BaseResponse):
 
     def create_model(self):
         """
-        Handler for the SageMaker "CreateModel" API call documented here: 
+        Handler for the SageMaker "CreateModel" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateModel.html.
         """
         model_name = self.request_params["ModelName"].encode("utf-8")
@@ -160,7 +160,7 @@ class SageMakerResponse(BaseResponse):
 
     def describe_model(self):
         """
-        Handler for the SageMaker "DescribeModel" API call documented here: 
+        Handler for the SageMaker "DescribeModel" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeModel.html.
         """
         model_name = self.request_params["ModelName"]
@@ -169,7 +169,7 @@ class SageMakerResponse(BaseResponse):
 
     def delete_model(self):
         """
-        Handler for the SageMaker "DeleteModel" API call documented here: 
+        Handler for the SageMaker "DeleteModel" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteModel.html.
         """
         model_name = self.request_params["ModelName"]
@@ -209,8 +209,8 @@ class SageMakerBackend(BaseBackend):
 
     def create_endpoint_config(self, config_name, production_variants, tags, region_name):
         """
-        Modifies backend state during calls to the SageMaker "CreateEndpointConfig" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "CreateEndpointConfig" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpointConfig.html.
         """
         if config_name in self.endpoint_configs:
@@ -236,8 +236,8 @@ class SageMakerBackend(BaseBackend):
 
     def describe_endpoint_config(self, config_name):
         """
-        Modifies backend state during calls to the SageMaker "DescribeEndpointConfig" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "DescribeEndpointConfig" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpointConfig.html.
         """
         if config_name not in self.endpoint_configs:
@@ -249,8 +249,8 @@ class SageMakerBackend(BaseBackend):
 
     def delete_endpoint_config(self, config_name):
         """
-        Modifies backend state during calls to the SageMaker "DeleteEndpointConfig" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "DeleteEndpointConfig" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpointConfig.html.
         """
         if config_name not in self.endpoint_configs:
@@ -261,8 +261,8 @@ class SageMakerBackend(BaseBackend):
 
     def create_endpoint(self, endpoint_name, endpoint_config_name, tags, region_name):
         """
-        Modifies backend state during calls to the SageMaker "CreateEndpoint" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "CreateEndpoint" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateEndpoint.html.
         """
         if endpoint_name in self.endpoints:
@@ -284,8 +284,8 @@ class SageMakerBackend(BaseBackend):
 
     def describe_endpoint(self, endpoint_name):
         """
-        Modifies backend state during calls to the SageMaker "DescribeEndpoint" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "DescribeEndpoint" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
         """
         if endpoint_name not in self.endpoints:
@@ -299,8 +299,8 @@ class SageMakerBackend(BaseBackend):
 
     def update_endpoint(self, endpoint_name, new_config_name):
         """
-        Modifies backend state during calls to the SageMaker "UpdateEndpoint" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "UpdateEndpoint" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpoint.html.
         """
         if endpoint_name not in self.endpoints:
@@ -319,8 +319,8 @@ class SageMakerBackend(BaseBackend):
 
     def delete_endpoint(self, endpoint_name):
         """
-        Modifies backend state during calls to the SageMaker "DeleteEndpoint" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "DeleteEndpoint" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteEndpoint.html.
         """
         if endpoint_name not in self.endpoints:
@@ -331,8 +331,8 @@ class SageMakerBackend(BaseBackend):
 
     def list_endpoints(self):
         """
-        Modifies backend state during calls to the SageMaker "ListEndpoints" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "ListEndpoints" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
         """
         summaries = []
@@ -343,8 +343,8 @@ class SageMakerBackend(BaseBackend):
 
     def list_endpoint_configs(self):
         """
-        Modifies backend state during calls to the SageMaker "ListEndpointConfigs" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "ListEndpointConfigs" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
         """
         summaries = []
@@ -356,8 +356,8 @@ class SageMakerBackend(BaseBackend):
 
     def list_models(self):
         """
-        Modifies backend state during calls to the SageMaker "ListModels" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "ListModels" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
         """
         summaries = []
@@ -369,8 +369,8 @@ class SageMakerBackend(BaseBackend):
     def create_model(self, model_name, primary_container, execution_role_arn, tags, region_name,
                      vpc_config=None):
         """
-        Modifies backend state during calls to the SageMaker "CreateModel" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "CreateModel" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateModel.html.
         """
         if model_name in self.models:
@@ -387,8 +387,8 @@ class SageMakerBackend(BaseBackend):
 
     def describe_model(self, model_name):
         """
-        Modifies backend state during calls to the SageMaker "DescribeModel" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "DescribeModel" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeModel.html.
         """
         if model_name not in self.models:
@@ -400,8 +400,8 @@ class SageMakerBackend(BaseBackend):
 
     def delete_model(self, model_name):
         """
-        Modifies backend state during calls to the SageMaker "DeleteModel" API 
-        documented here: 
+        Modifies backend state during calls to the SageMaker "DeleteModel" API
+        documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_DeleteModel.html.
         """
         if model_name not in self.models:
@@ -444,8 +444,8 @@ class Endpoint(TimestampedResource):
 
 class EndpointSummary:
     """
-    Object representing an endpoint entry in the endpoints list returned by 
-    SageMaker's "ListEndpoints" API: 
+    Object representing an endpoint entry in the endpoints list returned by
+    SageMaker's "ListEndpoints" API:
     https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
     """
 
@@ -468,7 +468,7 @@ class EndpointSummary:
 class EndpointDescription:
     """
     Object representing an endpoint description returned by SageMaker's
-    "DescribeEndpoint" API: 
+    "DescribeEndpoint" API:
     https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpoint.html.
     """
 
@@ -511,8 +511,8 @@ class EndpointConfig(TimestampedResource):
 
 class EndpointConfigSummary:
     """
-    Object representing an endpoint configuration entry in the configurations list returned by 
-    SageMaker's "ListEndpointConfigs" API: 
+    Object representing an endpoint configuration entry in the configurations list returned by
+    SageMaker's "ListEndpointConfigs" API:
     https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
     """
 
@@ -533,7 +533,7 @@ class EndpointConfigSummary:
 class EndpointConfigDescription:
     """
     Object representing an endpoint configuration description returned by SageMaker's
-    "DescribeEndpointConfig" API: 
+    "DescribeEndpointConfig" API:
     https://docs.aws.amazon.com/sagemaker/latest/dg/API_DescribeEndpointConfig.html.
     """
 
@@ -560,7 +560,7 @@ class Model(TimestampedResource):
     def __init__(self, model_name, primary_container, execution_role_arn, tags, vpc_config):
         super(Model, self).__init__()
         self.model_name = model_name
-        self.primary_container = primary_container 
+        self.primary_container = primary_container
         self.execution_role_arn = execution_role_arn
         self.tags = tags
         self.vpc_config = vpc_config

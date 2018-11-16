@@ -92,8 +92,8 @@ def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrai
 @mock_sagemaker
 def test_deploy_creates_sagemaker_resources_with_expected_names(pretrained_model, sagemaker_client):
     app_name = "test-app"
-    mfs.deploy(app_name=app_name, 
-               model_path=pretrained_model.model_path, 
+    mfs.deploy(app_name=app_name,
+               model_path=pretrained_model.model_path,
                run_id=pretrained_model.run_id,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
@@ -122,14 +122,14 @@ def test_deploy_creates_sagemaker_resources_with_expected_names(pretrained_model
 def test_deploying_application_with_preexisting_name_in_create_mode_throws_exception(
         pretrained_model):
     app_name = "test-app"
-    mfs.deploy(app_name=app_name, 
-               model_path=pretrained_model.model_path, 
+    mfs.deploy(app_name=app_name,
+               model_path=pretrained_model.model_path,
                run_id=pretrained_model.run_id,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     with pytest.raises(Exception) as exception_info:
-        mfs.deploy(app_name=app_name, 
-                   model_path=pretrained_model.model_path, 
+        mfs.deploy(app_name=app_name,
+                   model_path=pretrained_model.model_path,
                    run_id=pretrained_model.run_id,
                    mode=mfs.DEPLOYMENT_MODE_CREATE)
 
