@@ -83,6 +83,7 @@ def test_all_models_are_listed_after_creating_many_models(sagemaker_client):
     for model_name in model_names:
         assert model_name in listed_model_names
 
+
 @mock_sagemaker
 def test_describe_model_response_contains_expected_attributes(sagemaker_client):
     model_name = "sample-model"
@@ -452,7 +453,7 @@ def test_endpoint_is_no_longer_listed_after_deletion(sagemaker_client):
     sagemaker_client.delete_endpoint(EndpointName=endpoint_name)
 
     listed_endpoints = sagemaker_client.list_endpoints()["Endpoints"]
-    listed_endpoint_names = [ endpoint["EndpointName"] for endpoint in listed_endpoints]
+    listed_endpoint_names = [endpoint["EndpointName"] for endpoint in listed_endpoints]
     assert endpoint_name not in listed_endpoint_names
 
 

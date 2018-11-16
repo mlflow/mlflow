@@ -112,33 +112,40 @@ class SageMakerResponse(BaseResponse):
         """
         Handler for the SageMaker "ListEndpoints" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
+
+        This function does not support pagination. All endpoint configs are returned in a
+        single response.
         """
-        # Note: This does not support pagination. All endpoints are returned in a single API call
         endpoint_summaries = self.sagemaker_backend.list_endpoints()
         return json.dumps({
-            'Endpoints' : [summary.response_object for summary in endpoint_summaries]
+            'Endpoints': [summary.response_object for summary in endpoint_summaries]
         })
 
     def list_endpoint_configs(self):
         """
         Handler for the SageMaker "ListEndpointConfigs" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
+
+        This function does not support pagination. All endpoint configs are returned in a
+        single response.
         """
-        # Note: This does not support pagination. All endpoint configs are returned in a single API call
+        # Note:
         endpoint_config_summaries = self.sagemaker_backend.list_endpoint_configs()
         return json.dumps({
-            'EndpointConfigs' : [summary.response_object for summary in endpoint_config_summaries]
+            'EndpointConfigs': [summary.response_object for summary in endpoint_config_summaries]
         })
 
     def list_models(self):
         """
         Handler for the SageMaker "ListModels" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
+
+        This function does not support pagination. All endpoint configs are returned in a
+        single response.
         """
-        # Note: This does not support pagination. All endpoint configs are returned in a single API call
         model_summaries = self.sagemaker_backend.list_models()
         return json.dumps({
-            'Models' : [summary.response_object for summary in model_summaries]
+            'Models': [summary.response_object for summary in model_summaries]
         })
 
     def create_model(self):
@@ -151,11 +158,12 @@ class SageMakerResponse(BaseResponse):
         execution_role_arn = self.request_params["ExecutionRoleArn"]
         tags = self.request_params.get("Tags", [])
         vpc_config = self.request_params.get("VpcConfig", None)
-        new_model = self.sagemaker_backend.create_model(model_name=model_name,
-                primary_container=primary_container, execution_role_arn=execution_role_arn,
-                tags=tags, vpc_config=vpc_config, region_name=self.region)
+        new_model = self.sagemaker_backend.create_model(
+                model_name=model_name, primary_container=primary_container,
+                execution_role_arn=execution_role_arn, tags=tags, vpc_config=vpc_config,
+                region_name=self.region)
         return json.dumps({
-            'ModelArn' : new_model.arn
+            'ModelArn': new_model.arn
         })
 
     def describe_model(self):
@@ -184,7 +192,6 @@ class SageMakerBackend(BaseBackend):
 
     BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
 
-
     def __init__(self):
         self.models = {}
         self.endpoints = {}
@@ -202,7 +209,7 @@ class SageMakerBackend(BaseBackend):
 
     def _get_base_arn(self, region_name):
         """
-        :return: A SageMaker ARN prefix that can be prepended to a resource name.
+       :return: A SageMaker ARN prefix that can be prepended to a resource name.
         """
         return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
                 region_name=region_name, account_id=ACCOUNT_ID)
@@ -456,11 +463,11 @@ class EndpointSummary:
     @property
     def response_object(self):
         response = {
-            'EndpointName' : self.endpoint.endpoint_name,
+            'EndpointName': self.endpoint.endpoint_name,
             'CreationTime': self.endpoint.creation_time,
             'LastModifiedTime': self.endpoint.last_modified_time,
             'EndpointStatus': self.endpoint.status,
-            'EndpointArn' : self.arn,
+            'EndpointArn': self.arn,
         }
         return response
 
@@ -480,10 +487,10 @@ class EndpointDescription:
     @property
     def response_object(self):
         response = {
-            'EndpointName' : self.endpoint.endpoint_name,
-            'EndpointArn' : self.arn,
-            'EndpointConfigName' : self.endpoint.config_name,
-            'ProductionVariants' : self.config.production_variants,
+            'EndpointName': self.endpoint.endpoint_name,
+            'EndpointArn': self.arn,
+            'EndpointConfigName': self.endpoint.config_name,
+            'ProductionVariants': self.config.production_variants,
             'EndpointStatus': self.endpoint.status,
             'CreationTime': self.endpoint.creation_time,
             'LastModifiedTime': self.endpoint.last_modified_time,
@@ -508,7 +515,6 @@ class EndpointConfig(TimestampedResource):
         return ":endpoint-config/{config_name}".format(config_name=self.config_name)
 
 
-
 class EndpointConfigSummary:
     """
     Object representing an endpoint configuration entry in the configurations list returned by
@@ -523,8 +529,8 @@ class EndpointConfigSummary:
     @property
     def response_object(self):
         response = {
-            'EndpointConfigName' : self.config.config_name,
-            'EndpointArn' : self.arn,
+            'EndpointConfigName': self.config.config_name,
+            'EndpointArn': self.arn,
             'CreationTime': self.config.creation_time,
         }
         return response
@@ -544,9 +550,9 @@ class EndpointConfigDescription:
     @property
     def response_object(self):
         response = {
-            'EndpointConfigName' : self.config.config_name,
-            'EndpointConfigArn' : self.arn,
-            'ProductionVariants' : self.config.production_variants,
+            'EndpointConfigName': self.config.config_name,
+            'EndpointConfigArn': self.arn,
+            'ProductionVariants': self.config.production_variants,
             'CreationTime': self.config.creation_time,
         }
         return response
@@ -583,9 +589,9 @@ class ModelSummary:
     @property
     def response_object(self):
         response = {
-            'ModelArn' : self.arn,
-            'ModelName' : self.model.model_name,
-            'CreationTime' : self.model.creation_time,
+            'ModelArn': self.arn,
+            'ModelName': self.model.model_name,
+            'CreationTime': self.model.creation_time,
         }
         return response
 
@@ -603,12 +609,12 @@ class ModelDescription:
     @property
     def response_object(self):
         response = {
-            'ModelArn' : self.arn,
-            'ModelName' : self.model.model_name,
-            'PrimaryContainer' : self.model.primary_container,
-            'ExecutionRoleArn' : self.model.execution_role_arn,
-            'VpcConfig' : self.model.vpc_config if self.model.vpc_config else {},
-            'CreationTime' : self.model.creation_time,
+            'ModelArn': self.arn,
+            'ModelName': self.model.model_name,
+            'PrimaryContainer': self.model.primary_container,
+            'ExecutionRoleArn': self.model.execution_role_arn,
+            'VpcConfig': self.model.vpc_config if self.model.vpc_config else {},
+            'CreationTime': self.model.creation_time,
         }
         return response
 
