@@ -37,8 +37,10 @@ def commands():
                   mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
 @click.option("--archive", "-ar", is_flag=True,
               help=("If specified, any SageMaker resources that become inactive (i.e as the"
-                    " result of an update in {replace_mode} mode) will be preserved".format(
-                        replace_mode=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE)))
+                    " result of an update in {mode_replace} mode) will be preserved."
+                    " `--archive` must be specified when deploying asynchronously with"
+                    " `--asynchronous`.".format(
+                            mode_replace=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE)))
 @click.option("--instance-type", "-t", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
               help="The type of SageMaker ML instance on which to deploy the model. For a list of"
               " supported instance types, see"
@@ -103,8 +105,10 @@ def list_flavors():
 @click.option("--app-name", "-a", help="Application name", required=True)
 @click.option("--region-name", "-r", default="us-west-2",
               help="Name of the AWS region in which to deploy the application.")
-@click.option("--archive", "-ar", is_flag=True, help="If specified, resources associated with"
-              " the application are preserved. Otherwise, these resources are deleted.")
+@click.option("--archive", "-ar", is_flag=True,
+              help=("If specified, resources associated with the application are preserved."
+                    " Otherwise, these resources are deleted. `--archive` must be specified when"
+                    " deleting asynchronously with `--asynchronous`."))
 @click.option("--asynchronous", is_flag=True,
               help=("If specified, this command will return immediately after starting the"
                     " deletion process. It will not wait for the deletion process to complete."
