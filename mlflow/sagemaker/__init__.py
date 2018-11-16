@@ -246,9 +246,12 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                      AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
                      https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
-    :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-                    mode) are preserved. If False, these resources are deleted.
+    :param archive: If ``True``, any pre-existing SageMaker application resources that become
+                    inactive (i.e. as a result of deploying in
+                    ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) will be preserved.
+                    If ``False``, these resources will be deleted. In order to use
+                    ``archive=False``, ``deploy()`` must be executed synchronously with
+                    ``synchronous=True``.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
                           of supported instance types, see
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
@@ -349,21 +352,21 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         eprint("No model data bucket specified, using the default bucket")
         bucket = _get_default_s3_bucket(region_name)
 
-    model_s3_path = _upload_s3(local_model_path=model_path, 
-                               bucket=bucket, 
+    model_s3_path = _upload_s3(local_model_path=model_path,
+                               bucket=bucket,
                                prefix=s3_bucket_prefix,
                                region_name=region_name,
                                s3_client=s3_client)
     if endpoint_exists:
         deployment_operation = _update_sagemaker_endpoint(
-                endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path, 
-                run_id=run_id, flavor=flavor, instance_type=instance_type, 
+                endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path,
+                run_id=run_id, flavor=flavor, instance_type=instance_type,
                 instance_count=instance_count, vpc_config=vpc_config, mode=mode, archive=archive,
                 role=execution_role_arn, sage_client=sage_client, s3_client=s3_client)
     else:
         deployment_operation = _create_sagemaker_endpoint(
                 endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path,
-                run_id=run_id, flavor=flavor, instance_type=instance_type, 
+                run_id=run_id, flavor=flavor, instance_type=instance_type,
                 instance_count=instance_count, vpc_config=vpc_config, role=execution_role_arn,
                 sage_client=sage_client)
 
@@ -435,9 +438,11 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
 
     :param app_name: Name of the deployed application.
     :param region_name: Name of the AWS region in which the application is deployed.
-    :param archive: If True, resources associated with the specified application, such
+    :param archive: If ``True``, resources associated with the specified application, such
                     as its associated models and endpoint configuration, will be preserved.
-                    If False, these resources will be deleted.
+                    If ``False``, these resources will be deleted. In order to use
+                    ``archive=False``, ``delete()`` must be executed synchronously with
+                    ``synchronous=True``.
     :param synchronous: If `True`, this function will block until the deletion process succeeds
                         or encounters an irrecoverable failure. If `False`, this function will
                         return immediately after starting the deletion process. It will not wait
@@ -742,7 +747,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 
 
 def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
-                               instance_type, instance_count, vpc_config, mode, archive, role,
+                               instance_type, instance_count, vpc_config, mode, role,
                                sage_client, s3_client):
     """
     :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
@@ -755,9 +760,6 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                        new SageMaker model associated with this SageMaker endpoint.
     :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
                  mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
-    :param archive: If True, any pre-existing SageMaker application resources that become inactive
-                    (i.e. as a result of deploying in mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE mode)
-                    will be preserved. If False, these resources will be deleted.
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
