@@ -11,7 +11,6 @@ import tarfile
 import uuid
 import shutil
 import time
-from datetime import datetime
 
 import base64
 import boto3
@@ -361,7 +360,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         deployment_operation = _update_sagemaker_endpoint(
                 endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path,
                 run_id=run_id, flavor=flavor, instance_type=instance_type,
-                instance_count=instance_count, vpc_config=vpc_config, mode=mode, archive=archive,
+                instance_count=instance_count, vpc_config=vpc_config, mode=mode,
                 role=execution_role_arn, sage_client=sage_client, s3_client=s3_client)
     else:
         deployment_operation = _create_sagemaker_endpoint(
@@ -958,13 +957,13 @@ class _SageMakerOperation:
     def __init__(self, status_check_fn, cleanup_fn):
         self.status_check_fn = status_check_fn
         self.cleanup_fn = cleanup_fn
-        self.start_time = datetime.now()
+        self.start_time = time.time()
         self.status = _SageMakerOperationStatus(_SageMakerOperationStatus.STATE_IN_PROGRESS, None)
         self.cleaned_up = False
 
     def await_completion(self, timeout_seconds):
-        begin = datetime.now()
-        while (datetime.now() - begin).total_seconds() < timeout_seconds:
+        begin = time.time()
+        while (time.time() - begin).total_seconds() < timeout_seconds:
             status = self.status_check_fn()
             if status.state == _SageMakerOperationStatus.STATE_IN_PROGRESS:
                 time.sleep(5)
@@ -973,7 +972,7 @@ class _SageMakerOperation:
                 self.status = status
                 return status
 
-        duration_seconds = (datetime.now() - self.start_time).seconds
+        duration_seconds = time.time() - begin
         return _SageMakerOperationStatus.timed_out(duration_seconds)
 
     def clean_up(self):

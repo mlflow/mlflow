@@ -39,7 +39,7 @@ def commands():
               help=("If specified, any SageMaker resources that become inactive (i.e as the"
                     " result of an update in {mode_replace} mode) will be preserved."
                     " `--archive` must be specified when deploying asynchronously with"
-                    " `--asynchronous`.".format(
+                    " `--async`.".format(
                             mode_replace=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE)))
 @click.option("--instance-type", "-t", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
               help="The type of SageMaker ML instance on which to deploy the model. For a list of"
@@ -57,7 +57,7 @@ def commands():
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected"
                     " from the model's available flavors.".format(
                         supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
-@click.option("--asynchronous", is_flag=True,
+@click.option("--async", "asynchronous", is_flag=True,
               help=("If specified, this command will return immediately after starting the"
                     " deployment process. It will not wait for the deployment process to complete."
                     " The caller is responsible for monitoring the deployment process via native"
@@ -68,14 +68,14 @@ def commands():
                     " failure) is achieved. Once the function returns, the caller is responsible"
                     " for monitoring the health and status of the pending deployment via"
                     " native SageMaker APIs or the AWS console. If the command is executed"
-                    " asynchronously using the `--asynchronous` flag, this value is ignored."))
+                    " asynchronously using the `--async` flag, this value is ignored."))
 def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
            archive, instance_type, instance_count, vpc_config, flavor, asynchronous, timeout):
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
 
-    By default, unless the ``--asynchronous`` flag is specified, this command will block until
+    By default, unless the ``--async`` flag is specified, this command will block until
     either the deployment process completes (definitively succeeds or fails) or the specified
     timeout elapses.
 
@@ -108,8 +108,8 @@ def list_flavors():
 @click.option("--archive", "-ar", is_flag=True,
               help=("If specified, resources associated with the application are preserved."
                     " Otherwise, these resources are deleted. `--archive` must be specified when"
-                    " deleting asynchronously with `--asynchronous`."))
-@click.option("--asynchronous", is_flag=True,
+                    " deleting asynchronously with `--async`."))
+@click.option("--async", "asynchronous", is_flag=True,
               help=("If specified, this command will return immediately after starting the"
                     " deletion process. It will not wait for the deletion process to complete."
                     " The caller is responsible for monitoring the deletion process via native"
@@ -120,13 +120,13 @@ def list_flavors():
                     " failure) is achieved. Once the function returns, the caller is responsible"
                     " for monitoring the health and status of the pending deployment via"
                     " native SageMaker APIs or the AWS console. If the command is executed"
-                    " asynchronously using the `--asynchronous` flag, this value is ignored."))
+                    " asynchronously using the `--async` flag, this value is ignored."))
 def delete(app_name, region_name, archive, asynchronous, timeout):
     """
     Delete the specified application. Unless ``--archive`` is specified, all SageMaker resources
     associated with the application are deleted as well.
 
-    By default, unless the ``--asynchronous`` flag is specified, this command will block until
+    By default, unless the ``--async`` flag is specified, this command will block until
     either the deletion process completes (definitively succeeds or fails) or the specified timeout
     elapses.
     """
