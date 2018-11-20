@@ -39,7 +39,7 @@ def log_artifact(local_file, run_id, artifact_path):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = ArtifactRepository.from_artifact_uri(artifact_uri, store)
     artifact_repo.log_artifact(local_file, artifact_path)
-    _logger.info("Logged artifact from local file %s to artifact_path=%s", 
+    _logger.info("Logged artifact from local file %s to artifact_path=%s",
                  local_file, artifact_path)
 
 

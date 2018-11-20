@@ -674,7 +674,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
             },
         ],
     )
-    _logger.info("Created endpoint configuration with arn: %s", 
+    _logger.info("Created endpoint configuration with arn: %s",
                  endpoint_config_response["EndpointConfigArn"])
 
     endpoint_response = sage_client.create_endpoint(
@@ -761,7 +761,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
             },
         ],
     )
-    _logger.info("Created new endpoint configuration with arn: %s", 
+    _logger.info("Created new endpoint configuration with arn: %s",
                  endpoint_config_response["EndpointConfigArn"])
 
     sage_client.update_endpoint(EndpointName=endpoint_name,

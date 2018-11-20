@@ -23,7 +23,7 @@ from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 
 
-_logger = logging.getLogger(__name__) 
+_logger = logging.getLogger(__name__)
 
 
 def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None,
@@ -163,7 +163,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
         if mlflow_home is not None:
             _logger.info(
-                "Copying the specified mlflow_home directory: `%s` to a temporary location for" 
+                "Copying the specified mlflow_home directory: `%s` to a temporary location for"
                 " container creation",
                 mlflow_home)
             mlflow_home = os.path.join(tmp.path(),
@@ -191,7 +191,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                                       name=image_name,
                                       image_config=image_configuration,
                                       models=[registered_model])
-        _logger.info("Building an Azure Container Image with name: `%s` and version: `%s`", 
+        _logger.info("Building an Azure Container Image with name: `%s` and version: `%s`",
                      image.name, image.version)
         if synchronous:
             image.wait_for_creation(show_output=True)

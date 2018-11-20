@@ -73,7 +73,7 @@ class DatabricksJobRunner(object):
         Upload the file at `src_path` to the specified DBFS URI within the Databricks workspace
         corresponding to the default Databricks CLI profile.
         """
-        _logger.info("=== Uploading project to DBFS path %s ===", dbfs_fuse_uri) 
+        _logger.info("=== Uploading project to DBFS path %s ===", dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
             self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
@@ -128,7 +128,7 @@ class DatabricksJobRunner(object):
             dbfs_fuse_uri = os.path.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
-                _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri) 
+                _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
             else:
                 _logger.info("=== Project already exists in DBFS ===")
         finally:
@@ -294,7 +294,7 @@ class DatabricksSubmittedRun(SubmittedRun):
 
     def _print_description_and_log_tags(self):
         _logger.info(
-            "=== Launched MLflow run as Databricks job run with ID %s." 
+            "=== Launched MLflow run as Databricks job run with ID %s."
             " Getting run status page URL... ===",
             self._databricks_run_id)
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)

@@ -74,7 +74,7 @@ def get_databricks_host_creds(profile=None):
     """
     if not hasattr(provider, 'get_config'):
         _logger.warning(
-            "Support for databricks-cli<0.8.0 is deprecated and will be removed" 
+            "Support for databricks-cli<0.8.0 is deprecated and will be removed"
             " in a future version.")
         config = provider.get_config_for_profile(profile)
     elif profile:

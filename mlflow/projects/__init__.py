@@ -367,7 +367,7 @@ def _get_entry_point_command(project, entry_point, parameters, conda_env_name, s
     """
     storage_dir_for_run = _get_storage_dir(storage_dir)
     _logger.info(
-        "=== Created directory %s for downloading remote URIs passed to arguments of" 
+        "=== Created directory %s for downloading remote URIs passed to arguments of"
         " type 'path' ===",
         storage_dir_for_run)
     commands = []

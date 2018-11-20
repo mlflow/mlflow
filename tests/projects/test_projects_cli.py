@@ -8,7 +8,7 @@ from click.testing import CliRunner
 import pytest
 
 from mlflow import cli
-from mlflow.utils import process 
+from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI,\
     TEST_NO_SPEC_PROJECT_DIR

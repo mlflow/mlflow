@@ -146,11 +146,11 @@ def init(model):
                     " of the `records` orientation. The `records` orientation is unsafe because"
                     " it may not preserve column ordering. Client code should be updated to"
                     " either send serialized DataFrames with the `split` orientation and the"
-                    " `%s` content type (recommended) or use the `%s` content type with the" 
+                    " `%s` content type (recommended) or use the `%s` content type with the"
                     " `records` orientation. For more information, see"
                     " https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.\n",
-                    CONTENT_TYPE_JSON, 
-                    CONTENT_TYPE_JSON_SPLIT_ORIENTED, 
+                    CONTENT_TYPE_JSON,
+                    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
                     CONTENT_TYPE_JSON_RECORDS_ORIENTED)
                 logged_pandas_records_format_warning = True
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
