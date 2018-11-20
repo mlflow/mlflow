@@ -33,8 +33,8 @@ from pyspark.ml.pipeline import PipelineModel
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "spark"
 

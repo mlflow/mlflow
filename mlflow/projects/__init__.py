@@ -13,14 +13,13 @@ import subprocess
 import tempfile
 import logging
 
+import mlflow.tracking as tracking
+import mlflow.tracking.fluent as fluent
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus, SourceType, Param
-import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
-import mlflow.tracking.fluent as fluent
-
 
 import mlflow.projects.databricks
 from mlflow.utils import process

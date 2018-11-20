@@ -1,35 +1,43 @@
-import sys
+from __future__ import print_function
 
+import sys
+import logging
 import logging.config
 
 
-LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(filename)s:%(lineno)d: %(message)s"
+# Logging format example:
+# 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint
+LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 LOGGING_DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
 
-def _configure_loggers():
+def _configure_mlflow_loggers(root_module_name):
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': False,
         'formatters': {
-            'standard': {
+            'mlflow_formatter': {
                 'format': LOGGING_LINE_FORMAT,
                 'datefmt': LOGGING_DATETIME_FORMAT,
             },
         },
         'handlers': {
-            'default': {
+            'mlflow_handler': {
                 'level': 'INFO',
-                'formatter': 'standard',
+                'formatter': 'mlflow_formatter',
                 'class': 'logging.StreamHandler',
                 'stream': sys.stderr,
             },
         },
         'loggers': {
-            '': {
-                'handlers': ['default'],
+            root_module_name: {
+                'handlers': ['mlflow_handler'],
                 'level': 'INFO',
-                'propagate': True
+                'propagate': False,
             },
         },
     })
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
