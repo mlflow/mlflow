@@ -22,6 +22,7 @@ from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
+from mlflow.utils.logging_utils import eprint
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 
@@ -157,7 +158,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                      stderr=STDOUT,
                      universal_newlines=True)
         for x in iter(proc.stdout.readline, ""):
-            _logger.info(x)
+            eprint(x, end='')
 
 
 _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:{version}"
@@ -441,7 +442,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
     import signal
     signal.signal(signal.SIGTERM, _sigterm_handler)
     for x in iter(proc.stdout.readline, ""):
-        _logger.info(x)
+        eprint(x, end='')
 
 
 def _get_default_image_url(region_name):
@@ -502,7 +503,7 @@ def _get_default_s3_bucket(region_name):
                 'LocationConstraint': region_name
             }
         response = s3.create_bucket(**bucket_creation_kwargs)
-        _logger.info(response)
+        _logger.info("Bucket creation response: %s", response)
     else:
         _logger.info("Default bucket `%s` already exists. Skipping creation.", bucket_name)
     return bucket_name
