@@ -15,7 +15,6 @@ from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
-# _logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 _logger = logging.getLogger(__name__)
 
 
@@ -28,11 +27,11 @@ def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
                                 "-P", "excitement=%s" % excitement_arg])
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_run_local_conda_env(tracking_uri_mock):  # pylint: disable=unused-argument
-    # with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
-    #     conda_env_contents = handle.read()
-    # expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
+        conda_env_contents = handle.read()
+    expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     try:
         _logger.info("AIAOSHFDSFUHAU")
         process.exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
