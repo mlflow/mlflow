@@ -249,10 +249,11 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
 
     :param archive: If ``True``, any pre-existing SageMaker application resources that become
                     inactive (i.e. as a result of deploying in
-                    ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) will be preserved.
-                    If ``False``, these resources will be deleted. In order to use
-                    ``archive=False``, ``deploy()`` must be executed synchronously with
-                    ``synchronous=True``.
+                    ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
+                    These resources may include unused SageMaker models and endpoint configurations 
+                    that were associated with a prior version of the application endpoint. If 
+                    ``False``, these resources are deleted. In order to use ``archive=False``, 
+                    ``deploy()`` must be executed synchronously with ``synchronous=True``.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
                           of supported instance types, see
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
@@ -440,17 +441,17 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
     :param app_name: Name of the deployed application.
     :param region_name: Name of the AWS region in which the application is deployed.
     :param archive: If ``True``, resources associated with the specified application, such
-                    as its associated models and endpoint configuration, will be preserved.
-                    If ``False``, these resources will be deleted. In order to use
+                    as its associated models and endpoint configuration, are preserved.
+                    If ``False``, these resources are deleted. In order to use
                     ``archive=False``, ``delete()`` must be executed synchronously with
                     ``synchronous=True``.
-    :param synchronous: If `True`, this function will block until the deletion process succeeds
-                        or encounters an irrecoverable failure. If `False`, this function will
-                        return immediately after starting the deletion process. It will not wait
+    :param synchronous: If `True`, this function blocks until the deletion process succeeds
+                        or encounters an irrecoverable failure. If `False`, this function 
+                        returns immediately after starting the deletion process. It will not wait
                         for the deletion process to complete; in this case, the caller is
                         responsible for monitoring the status of the deletion process via native
                         SageMaker APIs or the AWS console.
-    :param timeout_seconds: If `synchronous` is `True`, the deletion process will return after the
+    :param timeout_seconds: If `synchronous` is `True`, the deletion process returns after the
                             specified number of seconds if no definitive result (success or failure)
                             is achieved. Once the function returns, the caller is responsible
                             for monitoring the status of the deletion process via native SageMaker
