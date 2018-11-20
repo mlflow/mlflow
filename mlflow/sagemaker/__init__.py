@@ -833,7 +833,14 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                                 EndpointConfigName=new_config_name)
     _logger.info("Updated endpoint with new configuration!")
 
+    operation_start_time = time.time()
     def status_check_fn():
+        if time.time() - operation_start_time < 20:
+            # Wait at least 20 seconds before checking the status of the update; this ensures
+            # that we don't consider the operation to have failed if small delays occur at
+            # initialization time
+            return _SageMakerOperationStatus.in_progress()
+
         endpoint_info = sage_client.describe_endpoint(EndpointName=endpoint_name)
         endpoint_update_was_rolled_back = (
                 endpoint_info["EndpointStatus"] == "InService"
