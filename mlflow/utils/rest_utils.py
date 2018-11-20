@@ -7,7 +7,6 @@ from json import JSONEncoder
 import numpy
 import requests
 
-from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
 
@@ -15,7 +14,7 @@ from mlflow.exceptions import MlflowException, RestException
 RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
 
 
-_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+_logger = logging.getLogger(__name__)
 
 
 def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):

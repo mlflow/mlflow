@@ -34,7 +34,6 @@ import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "spark"
@@ -51,7 +50,7 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
 )
 
 
-_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+_logger = logging.getLogger(__name__)
 
 
 def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=None,

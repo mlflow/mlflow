@@ -272,7 +272,7 @@ def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
 
 
-@pytest.mark.release
+# @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
     reloaded_knn_pyfunc = pyfunc.load_pyfunc(path=model_path)

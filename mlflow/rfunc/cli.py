@@ -7,10 +7,9 @@ import logging
 
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
-from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 
 
-_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+_logger = logging.getLogger(__name__)
 
 
 @click.group("rfunc")

@@ -19,7 +19,6 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
-from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
     MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID
@@ -31,7 +30,7 @@ _active_run_stack = []
 _active_experiment_id = None
 
 
-_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+_logger = logging.getLogger(__name__)
 
 
 def set_experiment(experiment_name):

@@ -5,10 +5,9 @@ import signal
 import logging
 
 from mlflow.entities import RunStatus
-from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 
 
-_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+_logger = logging.getLogger(__name__)
 
 
 class SubmittedRun(object):

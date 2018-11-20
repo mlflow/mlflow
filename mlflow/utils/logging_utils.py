@@ -5,7 +5,7 @@ import logging.config
 import mlflow
 
 
-LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(filename)s:%(lineno)d: %(message)s"
+LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 LOGGING_DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
 DEFAULT_LOGGER_NAME = mlflow.__name__
@@ -16,22 +16,22 @@ def _configure_default_logger():
         'version': 1,
         'disable_existing_loggers': False,
         'formatters': {
-            'standard': {
+            'mlflow_formatter': {
                 'format': LOGGING_LINE_FORMAT,
                 'datefmt': LOGGING_DATETIME_FORMAT,
             },
         },
         'handlers': {
-            'default': {
+            'mlflow_handler': {
                 'level': 'INFO',
-                'formatter': 'standard',
+                'formatter': 'mlflow_formatter',
                 'class': 'logging.StreamHandler',
                 'stream': sys.stderr,
             },
         },
         'loggers': {
-            DEFAULT_LOGGER_NAME : {
-                'handlers': ['default'],
+            DEFAULT_LOGGER_NAME: {
+                'handlers': ['mlflow_handler'],
                 'level': 'INFO',
                 'propagate': False,
             },

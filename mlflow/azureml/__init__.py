@@ -20,11 +20,10 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
-from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.version import VERSION as mlflow_version
 
 
-_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+_logger = logging.getLogger(__name__)
 
 
 def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None,
