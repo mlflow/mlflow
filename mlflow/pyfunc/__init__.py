@@ -79,13 +79,13 @@ import os
 import shutil
 import sys
 import pandas
+import logging
 
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
-from mlflow.utils.logging_utils import eprint
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -93,6 +93,9 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 PY_VERSION = "python_version"
+
+
+_logger = logging.getLogger(__name__)
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None):
@@ -171,15 +174,16 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
 
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
     if model_py_version is None:
-        eprint("The specified model does not have a specified Python version. It may be"
-               " incompatible with the version of Python that is currently running:"
-               " Python {version}".format(
-                   version=PYTHON_VERSION))
+        _logger.warning(
+            "The specified model does not have a specified Python version. It may be"
+            " incompatible with the version of Python that is currently running: Python %s",
+            PYTHON_VERSION)
     elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
-        eprint("The version of Python that the model was saved in, Python {model_version}, differs"
-               " from the version of Python that is currently running, Python {system_version},"
-               " and may be incompatible".format(
-                   model_version=model_py_version, system_version=PYTHON_VERSION))
+        _logger.warning(
+            "The version of Python that the model was saved in, `Python %s`, differs"
+            " from the version of Python that is currently running, `Python %s`,"
+            " and may be incompatible",
+            model_py_version, PYTHON_VERSION)
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
