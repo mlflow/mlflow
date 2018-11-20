@@ -7,7 +7,7 @@ LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(filename)s:%(lineno)d: %(mess
 LOGGING_DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
 
-def _configure_default_logger():
+def _configure_loggers():
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': False,
