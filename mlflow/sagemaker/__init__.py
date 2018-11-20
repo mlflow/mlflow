@@ -376,7 +376,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
             raise MlflowException(
                 "The deployment operation failed with the following error message:"
                 " \"{error_message}\"".format(error_message=operation_status.message))
-        elif not archive:
+        elif not archive and mode is not DEPLOYMENT_MODE_CREATE:
             eprint("Cleaning up unused resources...")
             deployment_operation.clean_up()
 
@@ -474,7 +474,9 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
     def status_check_fn():
         endpoint_info = _find_endpoint(endpoint_name=app_name, sage_client=sage_client)
         if endpoint_info is not None:
-            return _SageMakerOperationStatus.in_progress()
+            return _SageMakerOperationStatus.in_progress(
+                "Deletion is still in progress. Current endpoint status: {endpoint_status}".format(
+                    endpoint_status=endpoint_info["EndpointStatus"]))
         else:
             return _SageMakerOperationStatus.succeeded("The endpoint was deleted successfully.")
 
@@ -728,9 +730,16 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 
     def status_check_fn():
         endpoint_info = _find_endpoint(endpoint_name=endpoint_name, sage_client=sage_client)
-        if endpoint_info is None or endpoint_info["EndpointStatus"] == "Creating":
-            return _SageMakerOperationStatus.in_progress()
-        elif endpoint_info["EndpointStatus"] == "InService":
+
+        if endpoint_info is None:
+            return _SageMakerOperationStatus.in_progress("Waiting for endpoint to be created...")
+
+        endpoint_status = endpoint_info["EndpointStatus"]
+        if endpoint_status == "Creating":
+            return _SageMakerOperationStatus.in_progress(
+                "Waiting for endpoint to reach the \"InService\" state. Current endpoint status:"
+                " \"{endpoint_status}\"".format(endpoint_status=endpoint_status))
+        elif endpoint_status == "InService":
             return _SageMakerOperationStatus.succeeded("The endpoint was created successfully.")
         else:
             failure_reason = endpoint_info.get(
@@ -740,7 +749,7 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
             return _SageMakerOperationStatus.failed(failure_reason)
 
     def cleanup_fn():
-        print("There are no resources to clean up!")
+        pass
 
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
@@ -840,7 +849,9 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         elif endpoint_info["EndpointStatus"] == "InService":
             return _SageMakerOperationStatus.succeeded("The endpoint was updated successfully.")
         else:
-            return _SageMakerOperationStatus.in_progress()
+            return _SageMakerOperationStatus.in_progress(
+                "The update operation is still in progress. Current endpoint status:" 
+                " \"{endpoint_status}\"".format(endpoint_status=endpoint_info["EndpointStatus"]))
 
     def cleanup_fn():
         if mode == DEPLOYMENT_MODE_REPLACE:
@@ -954,6 +965,8 @@ def _find_endpoint(endpoint_name, sage_client):
 
 class _SageMakerOperation:
 
+    PROGRESS_LOGGING_INTERVAL_SECONDS = 10
+
     def __init__(self, status_check_fn, cleanup_fn):
         self.status_check_fn = status_check_fn
         self.cleanup_fn = cleanup_fn
@@ -962,10 +975,17 @@ class _SageMakerOperation:
         self.cleaned_up = False
 
     def await_completion(self, timeout_seconds):
+        last_log_time = 0
         begin = time.time()
-        while (time.time() - begin).total_seconds() < timeout_seconds:
+        while (time.time() - begin) < timeout_seconds:
             status = self.status_check_fn()
             if status.state == _SageMakerOperationStatus.STATE_IN_PROGRESS:
+                curr_time = time.time()
+                if (curr_time - last_log_time) >=\
+                        _SageMakerOperation.PROGRESS_LOGGING_INTERVAL_SECONDS:
+                    eprint(status.message)
+                    last_log_time = curr_time
+                
                 time.sleep(5)
                 continue
             else:
@@ -1001,9 +1021,10 @@ class _SageMakerOperationStatus:
         self.message = message
 
     @classmethod
-    def in_progress(cls):
-        return cls(_SageMakerOperationStatus.STATE_IN_PROGRESS,
-                   "The operation is still in progress.")
+    def in_progress(cls, message=None):
+        if message is None:
+            message = "The operation is still in progress."
+        return cls(_SageMakerOperationStatus.STATE_IN_PROGRESS, message)
 
     @classmethod
     def timed_out(cls, duration_seconds):
