@@ -33,7 +33,6 @@ def test_run_local_conda_env(tracking_uri_mock):  # pylint: disable=unused-argum
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     try:
-        _logger.info("AIAOSHFDSFUHAU")
         process.exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
     except process.ShellCommandException:
         _logger.error(
