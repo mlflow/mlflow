@@ -158,7 +158,7 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                      stderr=STDOUT,
                      universal_newlines=True)
         for x in iter(proc.stdout.readline, ""):
-            _logger.info(x, end='')
+            _logger.info(x)
 
 
 _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:{version}"
@@ -442,7 +442,7 @@ def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flav
     import signal
     signal.signal(signal.SIGTERM, _sigterm_handler)
     for x in iter(proc.stdout.readline, ""):
-        _logger.info(x, end='')
+        _logger.info(x)
 
 
 def _get_default_image_url(region_name):
