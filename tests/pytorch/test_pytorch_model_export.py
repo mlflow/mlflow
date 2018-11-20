@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os
+import json
 
 import pytest
 import numpy as np
@@ -14,6 +15,7 @@ from torch.utils.data import DataLoader
 
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import _mlflow_conda_env
@@ -235,3 +237,21 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
+
+
+@pytest.mark.release
+def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path, data, predicted):
+    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=data[0],
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME,
+            activity_polling_timeout_seconds=360)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
+    np.testing.assert_array_almost_equal(
+        deployed_model_preds.values[:, 0],
+        predicted,
+        decimal=4)

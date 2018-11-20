@@ -1,17 +1,20 @@
 import base64
 import time
+import logging
 import json
 from json import JSONEncoder
 
 import numpy
 import requests
 
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
 
 
 RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
+
+
+_logger = logging.getLogger(__name__)
 
 
 def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
@@ -46,9 +49,10 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
         if response.status_code >= 200 and response.status_code < 500:
             return response
         else:
-            eprint("API request to %s failed with code %s != 200, retrying up to %s more times. "
-                   "API response body: %s" % (url, response.status_code, retries - i - 1,
-                                              response.text))
+            _logger.error(
+                "API request to %s failed with code %s != 200, retrying up to %s more times. "
+                "API response body: %s",
+                url, response.status_code, retries - i - 1, response.text)
             time.sleep(retry_interval)
     raise MlflowException("API request to %s failed to return code 200 after %s tries" %
                           (url, retries))
