@@ -250,9 +250,9 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param archive: If ``True``, any pre-existing SageMaker application resources that become
                     inactive (i.e. as a result of deploying in
                     ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
-                    These resources may include unused SageMaker models and endpoint configurations 
-                    that were associated with a prior version of the application endpoint. If 
-                    ``False``, these resources are deleted. In order to use ``archive=False``, 
+                    These resources may include unused SageMaker models and endpoint configurations
+                    that were associated with a prior version of the application endpoint. If
+                    ``False``, these resources are deleted. In order to use ``archive=False``,
                     ``deploy()`` must be executed synchronously with ``synchronous=True``.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
                           of supported instance types, see
@@ -446,7 +446,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                     ``archive=False``, ``delete()`` must be executed synchronously with
                     ``synchronous=True``.
     :param synchronous: If `True`, this function blocks until the deletion process succeeds
-                        or encounters an irrecoverable failure. If `False`, this function 
+                        or encounters an irrecoverable failure. If `False`, this function
                         returns immediately after starting the deletion process. It will not wait
                         for the deletion process to complete; in this case, the caller is
                         responsible for monitoring the status of the deletion process via native

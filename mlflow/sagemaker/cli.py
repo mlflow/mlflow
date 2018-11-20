@@ -38,8 +38,8 @@ def commands():
 @click.option("--archive", "-ar", is_flag=True,
               help=("If specified, any SageMaker resources that become inactive (i.e as the"
                     " result of an update in {mode_replace} mode) are preserved."
-                    " These resources may include unused SageMaker models and endpoint" 
-                    " configurations that were associated with a prior version of the application" 
+                    " These resources may include unused SageMaker models and endpoint"
+                    " configurations that were associated with a prior version of the application"
                     " endpoint. Otherwise, if `--archive` is unspecified, these resources are"
                     " deleted. `--archive` must be specified when deploying asynchronously with"
                     " `--async`.".format(
@@ -110,9 +110,9 @@ def list_flavors():
               help="Name of the AWS region in which to deploy the application.")
 @click.option("--archive", "-ar", is_flag=True,
               help=("If specified, resources associated with the application are preserved."
-                    " These resources may include unused SageMaker models and endpoint" 
+                    " These resources may include unused SageMaker models and endpoint"
                     " configurations that were previously associated with the application endpoint."
-                    " Otherwise, if `--archive` is unspecified, these resources are deleted." 
+                    " Otherwise, if `--archive` is unspecified, these resources are deleted."
                     " `--archive` must be specified when deleting asynchronously with `--async`."))
 @click.option("--async", "asynchronous", is_flag=True,
               help=("If specified, this command will return immediately after starting the"
