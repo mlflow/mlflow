@@ -8,7 +8,7 @@ import mlflow
 LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(filename)s:%(lineno)d: %(message)s"
 LOGGING_DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
-DEFAULT_LOGGER_NAME = mlflow.__name__ 
+DEFAULT_LOGGER_NAME = mlflow.__name__
 
 
 def _configure_default_logger():
@@ -33,7 +33,7 @@ def _configure_default_logger():
             DEFAULT_LOGGER_NAME : {
                 'handlers': ['default'],
                 'level': 'INFO',
-                'propagate': False, 
+                'propagate': False,
             },
         },
     })
