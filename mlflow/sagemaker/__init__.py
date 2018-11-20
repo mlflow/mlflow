@@ -376,7 +376,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         _logger.info("Waiting for the deployment operation to complete...")
         operation_status = deployment_operation.await_completion(timeout_seconds=timeout_seconds)
         if operation_status.state == _SageMakerOperationStatus.STATE_SUCCEEDED:
-            _logger.info("Operation completed successfully with message: \"%s\"",
+            _logger.info("The deployment operation completed successfully with message: \"%s\"",
                          operation_status.message)
         else:
             raise MlflowException(
@@ -483,7 +483,8 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                 "Deletion is still in progress. Current endpoint status: {endpoint_status}".format(
                     endpoint_status=endpoint_info["EndpointStatus"]))
         else:
-            return _SageMakerOperationStatus.succeeded("The endpoint was deleted successfully.")
+            return _SageMakerOperationStatus.succeeded(
+                    "The SageMaker endpoint was deleted successfully.")
 
     def cleanup_fn():
         _logger.info("Cleaning up unused resources...")
@@ -504,11 +505,14 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
     if synchronous:
         _logger.info("Waiting for the delete operation to complete...")
         operation_status = delete_operation.await_completion(timeout_seconds=timeout_seconds)
-        if operation_status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
+        if operation_status.state == _SageMakerOperationStatus.STATE_SUCCEEDED:
+            _logger.info("The deletion operation completed successfully with message: \"%s\"",
+                         operation_status.message)
+        else:
             raise MlflowException(
                 "The deletion operation failed with the following error message:"
                 " \"{error_message}\"".format(error_message=operation_status.message))
-        elif not archive:
+        if not archive:
             delete_operation.clean_up()
 
 
@@ -741,7 +745,8 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                 "Waiting for endpoint to reach the \"InService\" state. Current endpoint status:"
                 " \"{endpoint_status}\"".format(endpoint_status=endpoint_status))
         elif endpoint_status == "InService":
-            return _SageMakerOperationStatus.succeeded("The endpoint was created successfully.")
+            return _SageMakerOperationStatus.succeeded(
+                    "The SageMaker endpoint was created successfully.")
         else:
             failure_reason = endpoint_info.get(
                 "FailureReason",
@@ -854,7 +859,8 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                  " more information."))
             return _SageMakerOperationStatus.failed(failure_reason)
         elif endpoint_info["EndpointStatus"] == "InService":
-            return _SageMakerOperationStatus.succeeded("The endpoint was updated successfully.")
+            return _SageMakerOperationStatus.succeeded(
+                    "The SageMaker endpoint was updated successfully.")
         else:
             return _SageMakerOperationStatus.in_progress(
                 "The update operation is still in progress. Current endpoint status:"
