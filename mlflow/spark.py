@@ -24,6 +24,7 @@ from __future__ import absolute_import
 import os
 import shutil
 import yaml
+import logging
 
 import pyspark
 from pyspark import SparkContext
@@ -32,9 +33,8 @@ from pyspark.ml.pipeline import PipelineModel
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "spark"
 
@@ -48,6 +48,9 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_pip_deps=None,
     additional_conda_channels=None,
 )
+
+
+_logger = logging.getLogger(__name__)
 
 
 def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=None,
@@ -158,7 +161,7 @@ class _HadoopFileSystem:
         if qualified_local_path == "file:" + local_path.toString():
             return local_path.toString()
         cls.copy_from_local_file(src, dst, remove_src=False)
-        eprint("Copied SparkML model to %s" % dst)
+        _logger.info("Copied SparkML model to %s", dst)
         return dst
 
     @classmethod
