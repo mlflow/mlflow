@@ -376,7 +376,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         _logger.info("Waiting for the deployment operation to complete...")
         operation_status = deployment_operation.await_completion(timeout_seconds=timeout_seconds)
         if operation_status.state == _SageMakerOperationStatus.STATE_SUCCEEDED:
-            _logger.info("Operation completed successfully with message: \"%s\"", 
+            _logger.info("Operation completed successfully with message: \"%s\"",
                          operation_status.message)
         else:
             raise MlflowException(
