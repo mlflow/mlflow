@@ -325,7 +325,7 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
         flavor = _get_preferred_deployment_flavor(model_config)
     else:
         _validate_deployment_flavor(model_config, flavor)
-    eprint("Using the {selected_flavor} flavor for deployment!".format(selected_flavor=flavor))
+    _logger.info("Using the %s flavor for deployment!", flavor)
 
     sage_client = boto3.client('sagemaker', region_name=region_name)
     s3_client = boto3.client('s3', region_name=region_name)
@@ -371,14 +371,14 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                 sage_client=sage_client)
 
     if synchronous:
-        eprint("Waiting for the deployment operation to complete...")
+        _logger.info("Waiting for the deployment operation to complete...")
         operation_status = deployment_operation.await_completion(timeout_seconds=timeout_seconds)
         if operation_status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
             raise MlflowException(
                 "The deployment operation failed with the following error message:"
                 " \"{error_message}\"".format(error_message=operation_status.message))
         elif not archive and mode is not DEPLOYMENT_MODE_CREATE:
-            eprint("Cleaning up unused resources...")
+            _logger.info("Cleaning up unused resources...")
             deployment_operation.clean_up()
 
 
@@ -497,14 +497,14 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
     delete_operation = _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
     if synchronous:
-        eprint("Waiting for the delete operation to complete...")
+        _logger.info("Waiting for the delete operation to complete...")
         operation_status = delete_operation.await_completion(timeout_seconds=timeout_seconds)
         if operation_status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
             raise MlflowException(
                 "The deletion operation failed with the following error message:"
                 " \"{error_message}\"".format(error_message=operation_status.message))
         elif not archive:
-            eprint("Cleaning up unused resources...")
+            _logger.info("Cleaning up unused resources...")
             delete_operation.clean_up()
 
 
@@ -846,7 +846,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
             return _SageMakerOperationStatus.succeeded("The endpoint was updated successfully.")
         else:
             return _SageMakerOperationStatus.in_progress(
-                "The update operation is still in progress. Current endpoint status:" 
+                "The update operation is still in progress. Current endpoint status:"
                 " \"{endpoint_status}\"".format(endpoint_status=endpoint_info["EndpointStatus"]))
 
     def cleanup_fn():
@@ -959,8 +959,6 @@ def _find_endpoint(endpoint_name, sage_client):
 
 class _SageMakerOperation:
 
-    PROGRESS_LOGGING_INTERVAL_SECONDS = 10
-
     def __init__(self, status_check_fn, cleanup_fn):
         self.status_check_fn = status_check_fn
         self.cleanup_fn = cleanup_fn
@@ -969,18 +967,17 @@ class _SageMakerOperation:
         self.cleaned_up = False
 
     def await_completion(self, timeout_seconds):
-        last_log_time = 0
+        iteration = 0
         begin = time.time()
         while (time.time() - begin) < timeout_seconds:
             status = self.status_check_fn()
             if status.state == _SageMakerOperationStatus.STATE_IN_PROGRESS:
-                curr_time = time.time()
-                if (curr_time - last_log_time) >=\
-                        _SageMakerOperation.PROGRESS_LOGGING_INTERVAL_SECONDS:
-                    eprint(status.message)
-                    last_log_time = curr_time
-                
+                if iteration % 2 == 0:
+                    # Log the progress status roughly every 10 seconds
+                    _logger.info(status.message)
+
                 time.sleep(5)
+                iteration += 1
                 continue
             else:
                 self.status = status
