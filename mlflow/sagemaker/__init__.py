@@ -375,12 +375,14 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     if synchronous:
         _logger.info("Waiting for the deployment operation to complete...")
         operation_status = deployment_operation.await_completion(timeout_seconds=timeout_seconds)
-        if operation_status.state != _SageMakerOperationStatus.STATE_SUCCEEDED:
+        if operation_status.state == _SageMakerOperationStatus.STATE_SUCCEEDED:
+            _logger.info("Operation completed successfully with message: \"%s\"", 
+                         operation_status.message)
+        else:
             raise MlflowException(
                 "The deployment operation failed with the following error message:"
                 " \"{error_message}\"".format(error_message=operation_status.message))
-        elif not archive and mode is not DEPLOYMENT_MODE_CREATE:
-            _logger.info("Cleaning up unused resources...")
+        if not archive:
             deployment_operation.clean_up()
 
 
@@ -859,6 +861,7 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
                 " \"{endpoint_status}\"".format(endpoint_status=endpoint_info["EndpointStatus"]))
 
     def cleanup_fn():
+        _logger.info("Cleaning up unused resources...")
         if mode == DEPLOYMENT_MODE_REPLACE:
             for pv in deployed_production_variants:
                 deployed_model_arn = _delete_sagemaker_model(model_name=pv["ModelName"],
@@ -981,8 +984,8 @@ class _SageMakerOperation:
         while (time.time() - begin) < timeout_seconds:
             status = self.status_check_fn()
             if status.state == _SageMakerOperationStatus.STATE_IN_PROGRESS:
-                if iteration % 2 == 0:
-                    # Log the progress status roughly every 10 seconds
+                if iteration % 4 == 0:
+                    # Log the progress status roughly every 20 seconds
                     _logger.info(status.message)
 
                 time.sleep(5)
