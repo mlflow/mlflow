@@ -486,6 +486,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
             return _SageMakerOperationStatus.succeeded("The endpoint was deleted successfully.")
 
     def cleanup_fn():
+        _logger.info("Cleaning up unused resources...")
         config_name = endpoint_info["EndpointConfigName"]
         config_info = sage_client.describe_endpoint_config(
             EndpointConfigName=config_name)
@@ -508,7 +509,6 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                 "The deletion operation failed with the following error message:"
                 " \"{error_message}\"".format(error_message=operation_status.message))
         elif not archive:
-            _logger.info("Cleaning up unused resources...")
             delete_operation.clean_up()
 
 
