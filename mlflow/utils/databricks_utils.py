@@ -1,11 +1,12 @@
 import logging
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.utils.rest_utils import MlflowHostCreds
 from databricks_cli.configure import provider
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 def _get_dbutils():

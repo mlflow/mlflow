@@ -28,6 +28,7 @@ from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "tensorflow"
@@ -41,7 +42,7 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
 )
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,

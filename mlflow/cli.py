@@ -19,12 +19,13 @@ import mlflow.sagemaker.cli
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.server import _run_server
 from mlflow import tracking
 import mlflow.store.cli
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 @click.group()

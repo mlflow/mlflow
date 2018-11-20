@@ -13,18 +13,18 @@ import subprocess
 import tempfile
 import logging
 
+import mlflow.tracking as tracking
+import mlflow.tracking.fluent as fluent
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus, SourceType, Param
-import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
-import mlflow.tracking.fluent as fluent
-
 
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -33,7 +33,7 @@ _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,

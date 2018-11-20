@@ -23,6 +23,7 @@ from six import reraise
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.utils.rest_utils import NumpyEncoder
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -45,7 +46,11 @@ CONTENT_TYPES = [
 ]
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+
+
+def test():
+    _logger.info("CAT A TEXT")
 
 
 def parse_json_input(json_input, orientation="split"):

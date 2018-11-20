@@ -22,6 +22,7 @@ from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 
@@ -80,7 +81,7 @@ ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container 
 C._init(sys.argv[1])"]
 """
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 def _docker_ignore(mlflow_root):

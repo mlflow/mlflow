@@ -9,13 +9,14 @@ import logging
 import click
 import pandas
 
+from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env
 from mlflow.pyfunc import load_pyfunc, scoring_server, _load_model_env
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
-from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 def _rerun_in_conda(conda_env_path):

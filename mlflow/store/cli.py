@@ -4,10 +4,11 @@ import click
 
 from mlflow.tracking import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 from mlflow.utils.proto_json_utils import message_to_json
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 @click.group("artifacts")

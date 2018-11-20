@@ -86,6 +86,7 @@ from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.logging_utils import DEFAULT_LOGGER_NAME
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -95,7 +96,7 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None):
