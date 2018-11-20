@@ -209,7 +209,7 @@ class SageMakerBackend(BaseBackend):
 
     def _get_base_arn(self, region_name):
         """
-       :return: A SageMaker ARN prefix that can be prepended to a resource name.
+        :return: A SageMaker ARN prefix that can be prepended to a resource name.
         """
         return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
                 region_name=region_name, account_id=ACCOUNT_ID)
@@ -626,4 +626,3 @@ for region, ec2_backend in ec2_backends.items():
     sagemaker_backends[region] = new_backend
 
 mock_sagemaker = base_decorator(sagemaker_backends)
-mock_sagemaker_deprecated = deprecated_base_decorator(sagemaker_backends)
