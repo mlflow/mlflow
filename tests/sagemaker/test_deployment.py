@@ -52,11 +52,11 @@ def mock_sagemaker_aws_services(fn):
     @mock_s3
     @mock_sagemaker
     @mock_sts
-    def mock_wrapper(func, *args, **kwargs):
+    def mock_wrapper(fn, *args, **kwargs):
         # Create an ECR repository for the `mlflow-pyfunc` SageMaker docker image
         ecr_client = boto3.client("ecr", region_name="us-west-2")
         ecr_client.create_repository(repositoryName=mfs.DEFAULT_IMAGE_NAME)
-        
+
         # Create the moto IAM role
         role_policy = """
         {
@@ -73,7 +73,7 @@ def mock_sagemaker_aws_services(fn):
         iam_client = boto3.client("iam", region_name="us-west-2")
         iam_client.create_role(RoleName="moto", AssumeRolePolicyDocument=role_policy)
 
-        return func(*args, **kwargs)
+        return fn(*args, **kwargs)
 
     return decorator.decorator(mock_wrapper, fn)
 
