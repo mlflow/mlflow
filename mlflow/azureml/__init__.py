@@ -8,6 +8,7 @@ import sys
 import os
 import shutil
 import tempfile
+import logging
 
 from distutils.version import StrictVersion
 
@@ -18,9 +19,11 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
+
+
+_logger = logging.getLogger(__name__)
 
 
 def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None,
@@ -140,9 +143,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
                                                model_name=model_name, tags=tags,
                                                description=description)
-        eprint("Registered an Azure Model with name: `{model_name}` and version:"
-               " `{model_version}`".format(model_name=registered_model.name,
-                                           model_version=registered_model.version))
+        _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
+                     registered_model.name, registered_model.version)
 
         # Create an execution script (entry point) for the image's model server. Azure ML requires
         # the container's execution script to be located in the current working directory during
@@ -160,8 +162,10 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         execution_script_path = os.path.basename(execution_script_path)
 
         if mlflow_home is not None:
-            eprint("Copying the specified mlflow_home directory: `{mlflow_home}` to a temporary"
-                   " location for container creation".format(mlflow_home=mlflow_home))
+            _logger.info(
+                "Copying the specified mlflow_home directory: `%s` to a temporary location for"
+                " container creation",
+                mlflow_home)
             mlflow_home = os.path.join(tmp.path(),
                                        _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
             image_file_dependencies = [mlflow_home]
@@ -187,10 +191,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                                       name=image_name,
                                       image_config=image_configuration,
                                       models=[registered_model])
-        eprint("Building an Azure Container Image with name: `{image_name}` and version:"
-               " `{image_version}`".format(
-                   image_name=image.name,
-                   image_version=image.version))
+        _logger.info("Building an Azure Container Image with name: `%s` and version: `%s`",
+                     image.name, image.version)
         if synchronous:
             image.wait_for_creation(show_output=True)
         return image, registered_model

@@ -11,7 +11,9 @@ import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
 import mlflow.sagemaker as mfs
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
 
 from tests.sagemaker.mock import mock_sagemaker
@@ -78,35 +80,41 @@ def mock_sagemaker_aws_services(fn):
     return decorator.decorator(mock_wrapper, fn)
 
 
-def test_deployment_with_unsupported_flavor_throws_value_error(pretrained_model):
+def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
-    with pytest.raises(ValueError):
+    with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="bad_flavor",
                    model_path=pretrained_model.model_path,
                    run_id=pretrained_model.run_id,
                    flavor=unsupported_flavor)
 
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-def test_deployment_with_missing_flavor_throws_value_error(pretrained_model):
+
+def test_deployment_with_missing_flavor_raises_exception(pretrained_model):
     missing_flavor = "mleap"
-    with pytest.raises(ValueError):
+    with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="missing-flavor",
                    model_path=pretrained_model.model_path,
                    run_id=pretrained_model.run_id,
                    flavor=missing_flavor)
 
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
-def test_deployment_of_model_with_no_supported_flavors_throws_value_error(pretrained_model):
+
+def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):
     logged_model_path = _get_model_log_dir(pretrained_model.model_path, pretrained_model.run_id)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
     model_config = Model.load(model_config_path)
     del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     model_config.save(path=model_config_path)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="missing-flavor",
                    model_path=logged_model_path,
                    flavor=None)
+
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_validate_deployment_flavor_validates_python_function_flavor_successfully(

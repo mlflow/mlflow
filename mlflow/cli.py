@@ -3,6 +3,7 @@ from __future__ import print_function
 import json
 import os
 import sys
+import logging
 
 import click
 from click import UsageError
@@ -17,11 +18,13 @@ import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
 import mlflow.store.cli
+
+
+_logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -121,7 +124,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             run_id=run_id,
         )
     except projects.ExecutionException as e:
-        eprint("=== %s ===" % e)
+        _logger.error("=== %s ===", e)
         sys.exit(1)
 
 

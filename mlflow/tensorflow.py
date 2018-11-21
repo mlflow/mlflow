@@ -15,6 +15,7 @@ from __future__ import absolute_import
 import os
 import shutil
 import yaml
+import logging
 
 import pandas
 import tensorflow as tf
@@ -27,7 +28,6 @@ from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "tensorflow"
@@ -39,6 +39,9 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_pip_deps=None,
     additional_conda_channels=None,
 )
+
+
+_logger = logging.getLogger(__name__)
 
 
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
@@ -103,12 +106,13 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                       ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
                       model.
     """
-    eprint("Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
-           " graph...")
+    _logger.info(
+        "Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
+        " graph...")
     _validate_saved_model(tf_saved_model_dir=tf_saved_model_dir,
                           tf_meta_graph_tags=tf_meta_graph_tags,
                           tf_signature_def_key=tf_signature_def_key)
-    eprint("Validation succeeded!")
+    _logger.info("Validation succeeded!")
 
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
