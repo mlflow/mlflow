@@ -37,6 +37,13 @@ def sagemaker_client():
     return boto3.client("sagemaker", region_name="us-west-2")
 
 
+@pytest.fixture(scope='session', autouse=True)
+def set_boto_credentials():
+    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
+    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+
+
 def test_deployment_with_unsupported_flavor_throws_value_error(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
     with pytest.raises(ValueError):
