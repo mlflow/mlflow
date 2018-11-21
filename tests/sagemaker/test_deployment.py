@@ -5,7 +5,6 @@ from collections import namedtuple
 import boto3
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from moto import mock_s3, mock_ecr, mock_sts, mock_iam
 
 import mlflow
 import mlflow.pyfunc
@@ -15,8 +14,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _get_model_log_dir
-
-from tests.sagemaker.mock import mock_sagemaker
 
 TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id"])
 
@@ -48,6 +45,8 @@ def set_boto_credentials():
 
 def mock_sagemaker_aws_services(fn):
     import decorator
+    from moto import mock_s3, mock_ecr, mock_sts, mock_iam
+    from tests.sagemaker.mock import mock_sagemaker
 
     @mock_ecr
     @mock_iam
@@ -174,10 +173,11 @@ def test_deploying_application_with_preexisting_name_in_create_mode_throws_excep
                run_id=pretrained_model.run_id,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
-    with pytest.raises(Exception) as exception_info:
+    with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name=app_name,
                    model_path=pretrained_model.model_path,
                    run_id=pretrained_model.run_id,
                    mode=mfs.DEPLOYMENT_MODE_CREATE)
 
-    assert "an application with the same name already exists" in exception_info.value.message
+    assert "an application with the same name already exists" in exc.value.message
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
