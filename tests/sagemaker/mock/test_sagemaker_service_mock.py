@@ -5,6 +5,7 @@ import pytest
 
 from tests.sagemaker.mock import mock_sagemaker
 
+
 @pytest.fixture(scope='session', autouse=True)
 def set_boto_credentials():
     os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
