@@ -5,7 +5,7 @@ from collections import namedtuple
 import boto3
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from moto import mock_s3
+from moto import mock_s3, mock_ecr, mock_sts, mock_iam
 
 import mlflow
 import mlflow.pyfunc
@@ -42,6 +42,40 @@ def set_boto_credentials():
     os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
     os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+
+
+def mock_sagemaker_aws_services(fn):
+    import decorator
+
+    @mock_ecr
+    @mock_iam
+    @mock_s3
+    @mock_sagemaker
+    @mock_sts
+    def mock_wrapper(func, *args, **kwargs):
+        # Create an ECR repository for the `mlflow-pyfunc` SageMaker docker image
+        ecr_client = boto3.client("ecr", region_name="us-west-2")
+        ecr_client.create_repository(repositoryName=mfs.DEFAULT_IMAGE_NAME)
+        
+        # Create the moto IAM role
+        role_policy = """
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "*",
+                    "Resource": "*"
+                }
+            ]
+        }
+        """
+        iam_client = boto3.client("iam", region_name="us-west-2")
+        iam_client.create_role(RoleName="moto", AssumeRolePolicyDocument=role_policy)
+
+        return func(*args, **kwargs)
+
+    return decorator.decorator(mock_wrapper, fn)
 
 
 def test_deployment_with_unsupported_flavor_throws_value_error(pretrained_model):
@@ -95,8 +129,7 @@ def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrai
     assert selected_flavor in model_config.flavors
 
 
-@mock_s3
-@mock_sagemaker
+@mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_resources_with_expected_names(pretrained_model, sagemaker_client):
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
@@ -124,8 +157,7 @@ def test_deploy_creates_sagemaker_resources_with_expected_names(pretrained_model
     assert app_name in [endpoint["EndpointName"] for endpoint in endpoints_response["Endpoints"]]
 
 
-@mock_s3
-@mock_sagemaker
+@mock_sagemaker_aws_services
 def test_deploying_application_with_preexisting_name_in_create_mode_throws_exception(
         pretrained_model):
     app_name = "test-app"
