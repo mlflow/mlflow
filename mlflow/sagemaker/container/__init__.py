@@ -21,7 +21,6 @@ import mlflow.version
 
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.logging_utils import eprint
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"

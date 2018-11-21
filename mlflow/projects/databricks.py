@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import textwrap
 import time
+import logging
 
 from six.moves import shlex_quote
 
@@ -13,7 +14,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
-from mlflow.utils.logging_utils import eprint
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
@@ -30,6 +30,9 @@ DB_PROJECTS_BASE = os.path.join(DB_CONTAINER_BASE, "projects")
 DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 # Base directory within DBFS for storing code for project runs for experiments
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
+
+
+_logger = logging.getLogger(__name__)
 
 
 def before_run_validations(tracking_uri, cluster_spec):
@@ -70,7 +73,7 @@ class DatabricksJobRunner(object):
         Upload the file at `src_path` to the specified DBFS URI within the Databricks workspace
         corresponding to the default Databricks CLI profile.
         """
-        eprint("=== Uploading project to DBFS path %s ===" % dbfs_fuse_uri)
+        _logger.info("=== Uploading project to DBFS path %s ===", dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
             self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
@@ -125,9 +128,9 @@ class DatabricksJobRunner(object):
             dbfs_fuse_uri = os.path.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
-                eprint("=== Finished uploading project to %s ===" % dbfs_fuse_uri)
+                _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
             else:
-                eprint("=== Project already exists in DBFS ===")
+                _logger.info("=== Project already exists in DBFS ===")
         finally:
             shutil.rmtree(temp_tarfile_dir)
         return dbfs_fuse_uri
@@ -171,7 +174,7 @@ class DatabricksJobRunner(object):
             tracking._TRACKING_URI_ENV_VAR: tracking_uri,
             tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
         }
-        eprint("=== Running entry point %s of project %s on Databricks ===" % (entry_point, uri))
+        _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
         # Launch run on Databricks
         command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
@@ -290,11 +293,13 @@ class DatabricksSubmittedRun(SubmittedRun):
         self._job_runner = databricks_job_runner
 
     def _print_description_and_log_tags(self):
-        eprint("=== Launched MLflow run as Databricks job run with ID %s. Getting run status "
-               "page URL... ===" % self._databricks_run_id)
+        _logger.info(
+            "=== Launched MLflow run as Databricks job run with ID %s."
+            " Getting run status page URL... ===",
+            self._databricks_run_id)
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
-        eprint("=== Check the run's status at %s ===" % jobs_page_url)
+        _logger.info("=== Check the run's status at %s ===", jobs_page_url)
         host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
