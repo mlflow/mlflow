@@ -82,6 +82,7 @@ def mock_sagemaker_aws_services(fn):
 
     return mock_wrapper
 
+
 def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
     with pytest.raises(MlflowException) as exc:
