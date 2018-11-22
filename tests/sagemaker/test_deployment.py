@@ -44,7 +44,10 @@ def set_boto_credentials():
 
 
 def mock_sagemaker_aws_services(fn):
-    import decorator
+    # Import `wraps` from `six` instead of `functools` to properly set the
+    # wrapped function's `__wrapped__` attribute to the required value
+    # in Python 2
+    from six import wraps
     from moto import mock_s3, mock_ecr, mock_sts, mock_iam
     from tests.sagemaker.mock import mock_sagemaker
 
@@ -53,7 +56,8 @@ def mock_sagemaker_aws_services(fn):
     @mock_s3
     @mock_sagemaker
     @mock_sts
-    def mock_wrapper(fn, *args, **kwargs):
+    @wraps(fn)
+    def mock_wrapper(*args, **kwargs):
         # Create an ECR repository for the `mlflow-pyfunc` SageMaker docker image
         ecr_client = boto3.client("ecr", region_name="us-west-2")
         ecr_client.create_repository(repositoryName=mfs.DEFAULT_IMAGE_NAME)
@@ -76,8 +80,7 @@ def mock_sagemaker_aws_services(fn):
 
         return fn(*args, **kwargs)
 
-    return decorator.decorator(mock_wrapper, fn)
-
+    return mock_wrapper
 
 def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
