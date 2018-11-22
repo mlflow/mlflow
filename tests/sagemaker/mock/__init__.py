@@ -153,7 +153,7 @@ class SageMakerResponse(BaseResponse):
         Handler for the SageMaker "CreateModel" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_CreateModel.html.
         """
-        model_name = self.request_params["ModelName"].encode("utf-8")
+        model_name = self.request_params["ModelName"]
         primary_container = self.request_params["PrimaryContainer"]
         execution_role_arn = self.request_params["ExecutionRoleArn"]
         tags = self.request_params.get("Tags", [])
