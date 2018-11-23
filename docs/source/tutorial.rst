@@ -208,8 +208,18 @@ Comparing the Models
 --------------------
 
 
-Next, use the MLflow UI to compare the models that you have produced. Run ``mlflow_ui()``
-in the same current working directory as the one that contains the ``mlruns``.
+Next, use the MLflow UI to compare the models that you have produced. In the same current working directory 
+as the one that contains the ``mlruns`` run:
+
+.. code-section::
+    .. code-block:: bash
+
+        mlflow ui
+    .. code-block:: R
+
+        mlflow_ui()
+
+and view it at `<http://localhost:5000>`_.
 
 On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 
