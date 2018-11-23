@@ -214,13 +214,15 @@ def _get_storage_dir(storage_dir):
 
 def _get_remote_repo_url(work_dir):
     from git import Repo
-    from git.exc import GitCommandError
+    from git.exc import GitCommandError, InvalidGitRepositoryError
     try:
         repo = Repo(work_dir, search_parent_directories=True)
         remote_urls = [remote.url for remote in repo.remotes]
         if len(remote_urls) == 0:
             return None
     except GitCommandError:
+        return None
+    except InvalidGitRepositoryError:
         return None
     return remote_urls[0]
 
