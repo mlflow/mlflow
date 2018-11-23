@@ -180,7 +180,8 @@ def test_run_local_git_repo(local_git_repo,
         assert metric.value == expected_metrics[metric.key]
     # Validate the branch name tag is logged
     if version == "master":
-        expected_tags = {"mlflow.gitBranchName": "master"}
+        expected_tags = {"mlflow.gitBranchName": "master",
+                         "mlflow.gitRepoURL": None}
         for tag in run.data.tags:
             assert tag.value == expected_tags[tag.key]
 
