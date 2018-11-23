@@ -1,6 +1,6 @@
 #' MLflow Command
 #'
-#' Executes a generic MLflow command through the commmand line interface.
+#' Executes a generic MLflow command through the command line interface.
 #'
 #' @param ... The parameters to pass to the command line.
 #' @param background Should this command be triggered as a background task?
