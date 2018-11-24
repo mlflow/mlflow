@@ -11,7 +11,7 @@
 #'   or \code{conda.yaml}.
 #' @param conda_env Path to Conda dependencies file.
 #'
-#' @return This funciton must return a list of flavors that conform to
+#' @return This function must return a list of flavors that conform to
 #'   the MLmodel specification.
 #'
 #' @export
