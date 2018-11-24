@@ -131,7 +131,7 @@ Retrieves the active run.
 MLflow Command
 ==============
 
-Executes a generic MLflow command through the commmand line interface.
+Executes a generic MLflow command through the command line interface.
 
 .. code:: r
 
@@ -1445,7 +1445,7 @@ Arguments
 Value
 -----
 
-This funciton must return a list of flavors that conform to the MLmodel
+This function must return a list of flavors that conform to the MLmodel
 specification.
 
 Save MLflow Model Flavor
@@ -1486,7 +1486,7 @@ Arguments
 Value
 -----
 
-This funciton must return a list of flavors that conform to the MLmodel
+This function must return a list of flavors that conform to the MLmodel
 specification.
 
 Save Model for MLflow
