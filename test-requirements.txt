@@ -13,6 +13,9 @@ pyspark
 pytest==3.2.1
 pytest-cov
 rstcheck==3.2
+# TODO: Stop pinning the version of scikit-learn when the latest version of the
+# library on Anaconda catches up to pip
+scikit-learn==0.20.0
 scipy
 tensorflow
 torch
