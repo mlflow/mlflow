@@ -17,7 +17,7 @@ import 'react-virtualized/styles.css'; // only needs to be imported once
 // Table data as an array of objects
 const list = [...Array(10000).keys()].map((i) => {
   return {
-    name: 'Brian Vaughn', description:  'Software engineer',
+    name: "Person " + i, description:  'Software engineer',
   };
 });
 
@@ -273,10 +273,10 @@ class ExperimentRunsTableCompactView extends Component {
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
     return (
       <Table
-        width={300}
-        height={300}
+        width={1000}
+        height={1000}
         headerHeight={20}
-        rowHeight={30}
+        rowHeight={1000}
         rowCount={list.length}
         rowGetter={({ index }) => list[index]}
       >
