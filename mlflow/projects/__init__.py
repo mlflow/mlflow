@@ -67,6 +67,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
+        git_remote_url = _get_remote_repo_url(work_dir)
+        if git_remote_url is not None:
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL,
+                                            git_remote_url)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -82,10 +86,6 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         # In blocking mode, run the entry point command in blocking fashion, sending status updates
         # to the tracking server when finished. Note that the run state may not be persisted to the
         # tracking server if interrupted
-        git_remote_url = _get_remote_repo_url(work_dir)
-        if git_remote_url is not None:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL,
-                                            git_remote_url)
         if block:
             command = _get_entry_point_command(
                 project, entry_point, parameters, conda_env_name, storage_dir)
