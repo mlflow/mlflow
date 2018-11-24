@@ -200,8 +200,8 @@ def test_run_databricks(
             assert runs_submit_mock.call_count == 1
             assert set_tag_mock.call_count == 4
             set_tag_args, _ = set_tag_mock.call_args_list[0]
-            assert set_tag_args[1] == MLFLOW_DATABRICKS_RUN_URL
-            assert set_tag_args[2] == 'test_url'
+            assert MLFLOW_DATABRICKS_RUN_URL in set_tag_args
+            assert 'test_url' in set_tag_args
             set_tag_args, _ = set_tag_mock.call_args_list[1]
             assert set_tag_args[1] == MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID
             assert set_tag_args[2] == '-1'
