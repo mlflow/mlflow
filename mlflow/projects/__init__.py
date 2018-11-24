@@ -75,11 +75,6 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
 
-    git_remote_url = _get_remote_repo_url(work_dir)
-    if git_remote_url is not None:
-        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL,
-                                        git_remote_url)
-
     elif mode == "local" or mode is None:
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
@@ -87,6 +82,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
         # In blocking mode, run the entry point command in blocking fashion, sending status updates
         # to the tracking server when finished. Note that the run state may not be persisted to the
         # tracking server if interrupted
+        git_remote_url = _get_remote_repo_url(work_dir)
+        if git_remote_url is not None:
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL,
+                                            git_remote_url)
         if block:
             command = _get_entry_point_command(
                 project, entry_point, parameters, conda_env_name, storage_dir)
