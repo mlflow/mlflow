@@ -13,13 +13,13 @@
   /* border-bottom: 1px solid #e2e2e2; */
 }
 
-.ExperimentView th.top-row {
+.ExperimentView .top-row {
   text-align: center;
   border-bottom: none;
   border-top: none;
 }
 
-.ExperimentView th.bottom-row {
+.ExperimentView .bottom-row {
   text-align: left;
   border-top: none;
 }
@@ -152,7 +152,7 @@ span.error-message {
   position: relative;
 }
 
-.ExperimentView th.sortable {
+.ExperimentView .sortable {
   white-space: nowrap;
   cursor: pointer;
 
