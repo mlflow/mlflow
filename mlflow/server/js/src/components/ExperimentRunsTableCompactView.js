@@ -10,6 +10,9 @@ import Utils from '../utils/Utils';
 import BaggedCell from "./BaggedCell";
 import CompactTableRow from "./CompactTableRow";
 
+import { CellMeasurer, CellMeasurerCache, Grid, AutoSizer } from 'react-virtualized';
+
+
 import ReactDOM from 'react-dom';
 import { Column, Table } from 'react-virtualized';
 import 'react-virtualized/styles.css'; // only needs to be imported once
@@ -52,6 +55,7 @@ class ExperimentRunsTableCompactView extends Component {
   constructor(props) {
     super(props);
     this.getRow = this.getRow.bind(this);
+    this.onHover = this.onHover.bind(this);
   }
 
   static propTypes = {
@@ -87,6 +91,15 @@ class ExperimentRunsTableCompactView extends Component {
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
   };
 
+  state = {
+    hoverState: {isMetric: false, isParam: false, key: ""},
+  };
+
+  onHover({isParam, isMetric, key}) {
+    this.setState({ hoverState: {isParam, isMetric, key} });
+  }
+
+
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
@@ -110,16 +123,84 @@ class ExperimentRunsTableCompactView extends Component {
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
     const tagsMap = tagsList[idx];
     const runInfo = runInfos[idx];
-    const rowContents = <CompactTableRow
-      runInfo={runInfo} paramsMap={paramsMap} metricsMap={metricsMap}
-      onCheckbox={onCheckbox} sortState={sortState} runsSelected={runsSelected}
-      tagsMap={tagsMap} setSortByHandler={setSortByHandler} onExpand={onExpand}
-      paramKeyList={paramKeyList} metricKeyList={metricKeyList} metricRanges={metricRanges}
-      onRemoveBagged={onRemoveBagged} isParent={isParent} hasExpander={hasExpander}
-      unbaggedMetrics={unbaggedMetrics} unbaggedParams={unbaggedParams}
-      expanderOpen={expanderOpen} childrenIds={childrenIds}/>;
+    // const rowContents = <CompactTableRow
+    //   runInfo={runInfo} paramsMap={paramsMap} metricsMap={metricsMap}
+    //   onCheckbox={onCheckbox} sortState={sortState} runsSelected={runsSelected}
+    //   tagsMap={tagsMap} setSortByHandler={setSortByHandler} onExpand={onExpand}
+    //   paramKeyList={paramKeyList} metricKeyList={metricKeyList} metricRanges={metricRanges}
+    //   onRemoveBagged={onRemoveBagged} isParent={isParent} hasExpander={hasExpander}
+    //   unbaggedMetrics={unbaggedMetrics} unbaggedParams={unbaggedParams}
+    //   expanderOpen={expanderOpen} childrenIds={childrenIds}/>;
+
+    const hoverState = this.state.hoverState;
+    const selected = runsSelected[runInfo.run_uuid] === true;
+    const rowContents = [
+      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
+      ExperimentViewUtil.getExpander(
+        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid),
+    ];
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsMap, isParent)
+      .forEach((col) => rowContents.push(col));
+
+    const unbaggedParamSet = new Set(unbaggedParams);
+    const unbaggedMetricSet = new Set(unbaggedMetrics);
+    const baggedParams = paramKeyList.filter((paramKey) =>
+      !unbaggedParamSet.has(paramKey) && paramsMap[paramKey] !== undefined);
+    const baggedMetrics = metricKeyList.filter((metricKey) =>
+      !unbaggedMetricSet.has(metricKey) && metricsMap[metricKey] !== undefined);
+
+    // Add params (unbagged, then bagged)
+    unbaggedParams.forEach((paramKey) => {
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
+    });
+    // Add bagged params
+    const paramsCellContents = baggedParams.map((paramKey) => {
+      const isHovered = hoverState.isParam && hoverState.key === paramKey;
+      const keyname = "param-" + paramKey;
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
+      return (<BaggedCell
+        key={keyname}
+        keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
+        setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
+        onRemoveBagged={onRemoveBagged}/>);
+    });
+    if (this.shouldShowBaggedColumn(true)) {
+      rowContents.push(
+        <div key={"params-container-cell-" + runInfo.run_uuid} className="left-border">
+          <div>{paramsCellContents}</div>
+        </div>);
+    }
+
+    // Add metrics (unbagged, then bagged)
+    unbaggedMetrics.forEach((metricKey) => {
+      rowContents.push(
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
+    });
+
+    // Add bagged metrics
+    const metricsCellContents = baggedMetrics.map((metricKey) => {
+      const keyname = "metric-" + metricKey;
+      const isHovered = hoverState.isMetric && hoverState.key === metricKey;
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
+      const metric = metricsMap[metricKey].getValue();
+      return (
+        // TODO sorticon in bagged cells
+        <BaggedCell key={keyname}
+                    keyName={metricKey} value={Utils.formatMetric(metric)} onHover={this.onHover}
+                    setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
+                    onRemoveBagged={onRemoveBagged}/>
+      );
+    });
+    if (this.shouldShowBaggedColumn(false)) {
+      rowContents.push(
+        <div key={"metrics-container-cell-" + runInfo.run_uuid} className="metric-param-container-cell left-border">
+          {metricsCellContents}
+        </div>
+      );
+    }
+
     const sortValue = ExperimentViewUtil.computeSortValue(
-      sortState, metricsMap, paramsMap, runInfos, tagsMap);
+      sortState, metricsMap, paramsMap, runInfo, tagsMap);
     return {
       key: runInfo.run_uuid,
       sortValue,
@@ -181,45 +262,54 @@ class ExperimentRunsTableCompactView extends Component {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
       const className = classNames("bottom-row", { "left-border": i === 0 });
       const elemKey = (isParam ? "param-" : "metric-") + key;
-      return (
-        <th
-          key={elemKey} className={className}
+      const array = new Uint32Array(10);
+      window.crypto.getRandomValues(array);
+      const containerId = array.join("");
+      const container =           <span
+        style={styles.metricParamNameContainer}
+        className="run-table-container"
+        id={containerId}
+      >
+          </span>;
+      const dropdown = <Dropdown id="dropdown-custom-1">
+        <ExperimentRunsSortToggle
+          bsRole="toggle"
+          className="metric-param-sort-toggle"
         >
-          <span
-            style={styles.metricParamNameContainer}
-            className="run-table-container"
+          {key}
+          <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
+        </ExperimentRunsSortToggle>
+        <Dropdown.Menu className="mlflow-menu">
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => setSortByHandler(!isParam, isParam, key, true)}
           >
-            <Dropdown id="dropdown-custom-1">
-              <ExperimentRunsSortToggle
-                bsRole="toggle"
-                className="metric-param-sort-toggle"
-              >
-                {key}
-                <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
-              </ExperimentRunsSortToggle>
-              <Dropdown.Menu className="mlflow-menu">
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(!isParam, isParam, key, true)}
-                >
-                  Sort ascending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => setSortByHandler(!isParam, isParam, key, false)}
-                >
-                  Sort descending
-                </MenuItem>
-                <MenuItem
-                  className="mlflow-menu-item"
-                  onClick={() => onAddBagged(isParam, key)}
-                >
-                  Collapse column
-                </MenuItem>
-              </Dropdown.Menu>
-            </Dropdown>
-          </span>
-        </th>);
+            Sort ascending
+          </MenuItem>
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => setSortByHandler(!isParam, isParam, key, false)}
+          >
+            Sort descending
+          </MenuItem>
+          <MenuItem
+            className="mlflow-menu-item"
+            onClick={() => onAddBagged(isParam, key)}
+          >
+            Collapse column
+          </MenuItem>
+        </Dropdown.Menu>
+      </Dropdown>;
+      debugger;
+      const dropdownPortal = <Portal container={container}>{dropdown}</Portal>;
+      return (
+        <div
+          key={elemKey}
+          className={className}
+        >
+          {container}
+          {dropdownPortal}
+        </div>);
     };
 
     const paramClassName = classNames("bottom-row", {"left-border": unbaggedParams.length === 0});
@@ -229,20 +319,28 @@ class ExperimentRunsTableCompactView extends Component {
     });
 
     if (this.shouldShowBaggedColumn(true)) {
-      columns.push(<th key="meta-bagged-params left-border" className={paramClassName}>
+      columns.push(<div key="meta-bagged-params left-border" className={paramClassName}>
         {paramKeyList.length !== 0 ? "" : "(n/a)"}
-      </th>);
+      </div>);
     }
     unbaggedMetrics.forEach((metricKey, i) => {
       columns.push(getHeaderCell(false, metricKey, i));
     });
     if (this.shouldShowBaggedColumn(false)) {
-      columns.push(<th key="meta-bagged-metrics left-border" className={metricClassName}>
+      columns.push(<div key="meta-bagged-metrics left-border" className={metricClassName}>
         {metricKeyList.length !== 0 ? "" : "(n/a)"}
-      </th>);
+      </div>);
     }
     return columns;
   }
+
+  _cache = new CellMeasurerCache({
+    fixedWidth: true,
+    minHeight: 25,
+  });
+
+  _lastRenderedWidth = this.props.width;
+
 
   render() {
     const {
@@ -271,32 +369,209 @@ class ExperimentRunsTableCompactView extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
+
+    // // Thought: Need to use this to render the header row, since you have two of them
+    // const headerRowRenderer = ({
+    //                              className,
+    //                              columns,
+    //                              style
+    //                            }) => {
+    //   // const topRowContents = [...Array(7).keys()].map(() => <div/>);
+    //   // topRowContents.concat([<div>Parameters</div>, <div>Metrics</div>]);
+    //   // const topRow = <div role="row" className={className}>
+    //   //   {topRowContents}
+    //   // </div>;
+    //   const bottomRow = <div role="row" className={className}>{headerCells}</div>;
+    //   // return [topRow, bottomRow];
+    //   return bottomRow;
+    // };
     return (
-      <Table
-        width={1000}
-        height={1000}
-        headerHeight={20}
-        rowHeight={1000}
-        rowCount={list.length}
-        rowGetter={({ index }) => list[index]}
-      >
-        <Column
-          label='Name'
-          dataKey='name'
-          width={100}
-        />
-        <Column
-          width={200}
-          label='Description'
-          dataKey='description'
-          cellRenderer={({cellData}) => {
-            const spans = [...Array(100).keys()].map((i) => {
-              return (<span>Element {i}</span>);
-            });
-            return (<div style={{whiteSpace: "normal"}}>{spans}</div>);
-          }}
-        />
-      </Table>
+          <AutoSizer>
+            {({width, height}) => {
+              if (this._lastRenderedWidth !== width) {
+                this._lastRenderedWidth = width;
+                console.log("Clearing all!");
+                this._cache.clearAll();
+              }
+              return (<Table
+                width={width}
+                deferredMeasurementCache={this._cache}
+                // height={height}
+                height={500}
+                headerHeight={20}
+                overscanRowCount={2}
+                rowHeight={this._cache.rowHeight}
+                rowCount={rows.length}
+                rowGetter={({index}) => rows[index]}
+                rowStyle={{alignItems: "stretch", borderBottom: "1px solid #e2e2e2"}}
+              >
+                <Column
+                  label='Checkbox'
+                  dataKey='checkbox'
+                  width={30}
+                  headerRenderer={() => {
+                    return headerCells[0]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[0];
+                  }}
+                />
+                <Column
+                  label='Expander'
+                  dataKey='expander'
+                  width={30}
+                  headerRenderer={() => {
+                  return headerCells[1]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[1];
+                  }}
+                />
+                <Column
+                  label='Date'
+                  dataKey='date'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[2]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[1 + 1];
+                  }}
+                />
+                <Column
+                  label='User'
+                  dataKey='user'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[3]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[2 + 1];
+                  }}
+                />
+                <Column
+                  label='Run Name'
+                  dataKey='name'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[4]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[3 + 1];
+                  }}
+                />
+                <Column
+                  label='Source'
+                  dataKey='source'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[5]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[4 + 1];
+                  }}
+                />
+                <Column
+                  label='Version'
+                  dataKey='version'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[6]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[5 + 1];
+                  }}
+                />
+                {unbaggedParams.map((unbaggedParam, idx) => {
+                  return <Column
+                    label={"param-" + unbaggedParam}
+                    dataKey={"param-" + unbaggedParam}
+                    width={120}
+                    headerRenderer={() => {
+                      // return <div>{unbaggedParam}</div>
+                      return headerCells[7 + idx]
+                    }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                    cellRenderer={({rowIndex}) => {
+                      return rows[rowIndex].contents[7 + idx];
+                    }}
+                  />
+                })}
+                <Column
+                  width={300}
+                  label='Parameters'
+                  dataKey='params'
+                  headerRenderer={() => {
+                    //return headerCells[7 + unbaggedParams.length]
+                    return <div>Parameters</div>;
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
+                    return (<CellMeasurer
+                      cache={this._cache}
+                      columnIndex={0}
+                      key={dataKey}
+                      parent={parent}
+                      rowIndex={rowIndex}>
+                      <div
+                        style={{
+                          whiteSpace: 'normal',
+                        }}>
+                        {rows[rowIndex].contents[7 + unbaggedParams.length]}
+                      </div>
+                    </CellMeasurer>);
+                  }}
+                />
+                {unbaggedMetrics.map((unbaggedMetric, idx) => {
+                  return <Column
+                    label='Version'
+                    dataKey={"metric-" + unbaggedMetric}
+                    width={120}
+                    headerRenderer={() => {
+                      // return <div>{unbaggedMetric}</div>
+                      return headerCells[8 + unbaggedParams.length + idx];
+                    }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                    cellRenderer={({rowIndex}) => {
+                      return rows[rowIndex].contents[8 + unbaggedParams.length + idx];
+                    }}
+                  />
+                })}
+                <Column
+                  width={300}
+                  label='Metrics'
+                  dataKey='metrics'
+                  headerRenderer={() => {
+                    // return headerCells[8 + unbaggedParams.length + unbaggedMetrics.length]
+                    return <div>Metrics</div>
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
+                    return (<CellMeasurer
+                      cache={this._cache}
+                      columnIndex={0}
+                      key={dataKey}
+                      parent={parent}
+                      rowIndex={rowIndex}>
+                      <div
+                        style={{
+                          whiteSpace: 'normal',
+                        }}>
+                        {rows[rowIndex].contents[8 + unbaggedParams.length + unbaggedMetrics.length]}
+                      </div>
+                    </CellMeasurer>);
+                  }}
+                />
+              </Table>);
+            }}
+          </AutoSizer>
     );
   }
 }

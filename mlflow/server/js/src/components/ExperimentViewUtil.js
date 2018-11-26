@@ -7,11 +7,11 @@ import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
   static getCheckboxForRow(selected, checkboxHandler) {
-    return <td key="meta-check">
+    return <div key="meta-check">
       <div>
         <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
       </div>
-    </td>;
+    </div>;
   }
 
   static styles = {
@@ -46,34 +46,34 @@ export default class ExperimentViewUtil {
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
     return [
-      <td key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
+      <div key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
         <div style={childLeftMargin}>
           <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
             {Utils.formatTimestamp(startTime)}
           </Link>
         </div>
-      </td>,
-      <td key="meta-user" className="run-table-container" title={user}>
+      </div>,
+      <div key="meta-user" className="run-table-container" title={user}>
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {user}
         </div>
-      </td>,
-      <td key="meta-run-name" className="run-table-container" title={runName}>
+      </div>,
+      <div key="meta-run-name" className="run-table-container" title={runName}>
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {runName}
         </div>
-      </td>,
-      <td className="run-table-container" key="meta-source" title={sourceType}>
+      </div>,
+      <div className="run-table-container" key="meta-source" title={sourceType}>
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderSourceTypeIcon(runInfo.source_type)}
           {sourceType}
         </div>
-      </td>,
-      <td className="run-table-container" key="meta-version">
+      </div>,
+      <div className="run-table-container" key="meta-version">
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderVersion(runInfo)}
         </div>
-      </td>,
+      </div>,
     ];
   }
 
@@ -97,9 +97,9 @@ export default class ExperimentViewUtil {
 
   /** Returns checkbox element for selecting all runs */
   static getSelectAllCheckbox(onCheckAll, isAllCheckedBool) {
-    return <th key="meta-check" className="bottom-row">
+    return <div key="meta-check" className="bottom-row">
       <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
-    </th>;
+    </div>;
   }
 
   /**
@@ -109,14 +109,14 @@ export default class ExperimentViewUtil {
     const getHeaderCell = (key, text) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
       return (
-        <th
+        <div
           key={"meta-" + key}
           className="bottom-row sortable run-table-container"
           onClick={() => onSortBy(false, false, key)}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
           <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
-        </th>);
+        </div>);
     };
     return [
       getHeaderCell("start_time", <span>{"Date"}</span>),
@@ -128,7 +128,7 @@ export default class ExperimentViewUtil {
   }
 
   static getExpanderHeader() {
-    return <th
+    return <div
       key={"meta-expander"}
       className={"bottom-row run-table-container"}
       style={{width: '5px'}}
@@ -176,13 +176,13 @@ export default class ExperimentViewUtil {
     const className = "left-border run-table-container";
     const keyName = "param-" + paramKey;
     if (paramsMap[paramKey]) {
-      return <td className={className} key={keyName}>
+      return <div className={className} key={keyName}>
         <div>
           {paramsMap[paramKey].getValue()}
         </div>
-      </td>;
+      </div>;
     } else {
-      return <td className={className} key={keyName}/>;
+      return <div className={className} key={keyName}/>;
     }
   }
 
@@ -269,7 +269,10 @@ export default class ExperimentViewUtil {
       return Utils.formatUser(runInfo.user_id);
     } else if (sortState.key === 'source') {
       return Utils.formatSource(runInfo, tags);
-    } else {
+    } else if (sortState.key === 'run_name') {
+      return Utils.getRunName(tags);
+    }
+    else {
       return runInfo[sortState.key];
     }
   }
@@ -282,20 +285,20 @@ export default class ExperimentViewUtil {
 
   static getExpander(hasExpander, expanderOpen, onExpandBound, runUuid) {
     if (!hasExpander) {
-      return <td key={'Expander-' + runUuid}>
-      </td>;
+      return <div key={'Expander-' + runUuid}>
+      </div>;
     }
     if (expanderOpen) {
       return (
-        <td onClick={onExpandBound} key={'Expander-' + runUuid}>
+        <div onClick={onExpandBound} key={'Expander-' + runUuid}>
           <i className="ExperimentView-expander far fa-minus-square"/>
-        </td>
+        </div>
       );
     } else {
       return (
-        <td onClick={onExpandBound} key={'Expander-' + runUuid}>
+        <div onClick={onExpandBound} key={'Expander-' + runUuid}>
           <i className="ExperimentView-expander far fa-plus-square"/>
-        </td>
+        </div>
       );
     }
   }

@@ -9,8 +9,8 @@
 }
 
 .ExperimentView td, .ExperimentView th {
-  border-top: 1px solid #e2e2e2;
-  border-bottom: 1px solid #e2e2e2;
+  /* border-top: 1px solid #e2e2e2; */
+  /* border-bottom: 1px solid #e2e2e2; */
 }
 
 .ExperimentView th.top-row {
@@ -25,7 +25,7 @@
 }
 
 .ExperimentView .left-border {
-  border-left: 1px solid #e2e2e2;
+  /* border-left: 1px solid #e2e2e2; */
 }
 
 .ExperimentView-run-buttons .btn {
@@ -190,7 +190,7 @@ span.error-message {
 /** Container with a max width & text-truncation for use in the experiment runs table */
 .ExperimentView .run-table-container {
   max-width: 240px;
-  overflow: hidden;
+  /*overflow: hidden;*/
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: top;
@@ -213,4 +213,10 @@ span.error-message {
 
 .ExperimentView-expander:hover {
   cursor: pointer;
+}
+
+.ExperimentView .ReactVirtualized__Table__headerRow {
+  overflow: visible;
+  text-transform: inherit;
+  font-weight: inherit;
 }
