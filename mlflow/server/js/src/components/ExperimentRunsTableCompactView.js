@@ -154,13 +154,13 @@ class ExperimentRunsTableCompactView extends Component {
       rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
     });
     // Add bagged params
-    const paramsCellContents = baggedParams.map((paramKey) => {
+    const paramsCellContents = [...Array(100).keys()].map((paramKey) => {
       const isHovered = hoverState.isParam && hoverState.key === paramKey;
       const keyname = "param-" + paramKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (<BaggedCell
         key={keyname}
-        keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
+        keyName={paramKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
         setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
         onRemoveBagged={onRemoveBagged}/>);
     });
@@ -390,7 +390,7 @@ class ExperimentRunsTableCompactView extends Component {
                 deferredMeasurementCache={this._cache}
                 // height={height}
                 height={500}
-                headerHeight={20}
+                headerHeight={32}
                 overscanRowCount={2}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
