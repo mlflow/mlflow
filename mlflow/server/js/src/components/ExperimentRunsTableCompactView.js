@@ -154,13 +154,14 @@ class ExperimentRunsTableCompactView extends Component {
       rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
     });
     // Add bagged params
-    const paramsCellContents = [...Array(100).keys()].map((paramKey) => {
+    const paramsCellContents = baggedParams.map((paramKey) => {
       const isHovered = hoverState.isParam && hoverState.key === paramKey;
       const keyname = "param-" + paramKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (<BaggedCell
         key={keyname}
-        keyName={paramKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
+        // keyName={paramKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
+        keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
         setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
         onRemoveBagged={onRemoveBagged}/>);
     });
@@ -178,15 +179,16 @@ class ExperimentRunsTableCompactView extends Component {
     });
 
     // Add bagged metrics
-    const metricsCellContents = baggedMetrics.map((metricKey) => {
+    // Add bagged metrics
+    const metricsCellContents = [...Array(100).keys()].map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const isHovered = hoverState.isMetric && hoverState.key === metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
-      const metric = metricsMap[metricKey].getValue();
+      //const metric = metricsMap[metricKey].getValue();
       return (
         // TODO sorticon in bagged cells
         <BaggedCell key={keyname}
-                    keyName={metricKey} value={Utils.formatMetric(metric)} onHover={this.onHover}
+                    keyName={metricKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
                     setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
                     onRemoveBagged={onRemoveBagged}/>
       );
@@ -412,7 +414,7 @@ class ExperimentRunsTableCompactView extends Component {
                   headerRenderer={() => {
                     return headerCells[0]
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({rowIndex}) => {
                     return rows[rowIndex].contents[0];
                   }}
@@ -424,7 +426,7 @@ class ExperimentRunsTableCompactView extends Component {
                   headerRenderer={() => {
                   return headerCells[1]
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({rowIndex}) => {
                     return rows[rowIndex].contents[1];
                   }}
@@ -436,7 +438,7 @@ class ExperimentRunsTableCompactView extends Component {
                   headerRenderer={() => {
                     return headerCells[2]
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({rowIndex}) => {
                     return rows[rowIndex].contents[1 + 1];
                   }}
@@ -448,7 +450,7 @@ class ExperimentRunsTableCompactView extends Component {
                   headerRenderer={() => {
                     return headerCells[3]
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({rowIndex}) => {
                     return rows[rowIndex].contents[2 + 1];
                   }}
@@ -460,7 +462,7 @@ class ExperimentRunsTableCompactView extends Component {
                   headerRenderer={() => {
                     return headerCells[4]
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({rowIndex}) => {
                     return rows[rowIndex].contents[3 + 1];
                   }}
@@ -472,7 +474,7 @@ class ExperimentRunsTableCompactView extends Component {
                   headerRenderer={() => {
                     return headerCells[5]
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({rowIndex}) => {
                     return rows[rowIndex].contents[4 + 1];
                   }}
@@ -484,7 +486,7 @@ class ExperimentRunsTableCompactView extends Component {
                   headerRenderer={() => {
                     return headerCells[6]
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({rowIndex}) => {
                     return rows[rowIndex].contents[5 + 1];
                   }}
@@ -498,7 +500,7 @@ class ExperimentRunsTableCompactView extends Component {
                       // return <div>{unbaggedParam}</div>
                       return headerCells[7 + idx]
                     }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                     cellRenderer={({rowIndex}) => {
                       return rows[rowIndex].contents[7 + idx];
                     }}
@@ -512,7 +514,7 @@ class ExperimentRunsTableCompactView extends Component {
                     //return headerCells[7 + unbaggedParams.length]
                     return <div>Parameters</div>;
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}
@@ -538,7 +540,7 @@ class ExperimentRunsTableCompactView extends Component {
                       // return <div>{unbaggedMetric}</div>
                       return headerCells[8 + unbaggedParams.length + idx];
                     }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                     cellRenderer={({rowIndex}) => {
                       return rows[rowIndex].contents[8 + unbaggedParams.length + idx];
                     }}
@@ -552,7 +554,7 @@ class ExperimentRunsTableCompactView extends Component {
                     // return headerCells[8 + unbaggedParams.length + unbaggedMetrics.length]
                     return <div>Metrics</div>
                   }}
-                  style={{display: "flex", alignItems: "flex-start", overflow: "visible"}}
+                  style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}

@@ -143,3 +143,10 @@ if __name__ == '__main__':
     for i in range(100):
         with mlflow.start_run(source_name="empty-run-{}".format(i)):
             pass
+    mlflow.set_experiment("hitting-metric-param-limits")
+    for i in range(50):
+        with mlflow.start_run(source_name="big-run-{}".format(i)):
+            params = {str(j) + "a" * 250: "b" * 1000 for j in range(100)}
+            metrics = {str(j) + "a" * 250: [random()] for j in range(100)}
+            log_metrics(metrics)
+            log_params(params)
