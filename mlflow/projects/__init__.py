@@ -64,13 +64,14 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
 
+    git_remote_url = _get_remote_repo_url(work_dir)
+    if git_remote_url is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL,
+                                        git_remote_url)
+
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
-        git_remote_url = _get_remote_repo_url(work_dir)
-        if git_remote_url is not None:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL,
-                                            git_remote_url)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
