@@ -10,8 +10,8 @@ export const setupAjaxHeaders = () => {
   $.ajaxSetup({
     beforeSend(xhr) {
       if (requestHeaders) {
-        for (const headerKey in requestHeaders) {
-          xhr.setRequestHeader(headerKey, requestHeaders[headerKey]);
+        for (const [headerKey, headerValue] of Object.entries(requestHeaders)) {
+          xhr.setRequestHeader(headerKey, headerValue);
         }
       }
     }
@@ -22,7 +22,7 @@ export const getRequestHeaders = () => {
   const headerCookiePrefix = "mlflow-request-header-";
   const parsedCookie = cookie.parse(document.cookie);
   console.log(parsedCookie);
-  const headers = {}
+  const headers = {};
   for (const cookieName in parsedCookie) {
     if (cookieName.startsWith(headerCookiePrefix)) {
       headers[cookieName.substring(headerCookiePrefix.length)] = parsedCookie[cookieName];
