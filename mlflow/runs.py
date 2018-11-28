@@ -1,14 +1,17 @@
 """
 CLI for runs
 """
+import sys
 import click
-import datetime
 import json
+import mlflow.tracking
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 from tabulate import tabulate
+from mlflow.entities.experiment import Experiment
+from mlflow.utils.time_utils import conv_longdate_to_str
 
-RUN_ID = click.argument("run_id", type=click.STRING)
+RUN_ID = click.option("--run-id", type=click.STRING, required=True)
 
 
 @click.group("runs")
@@ -21,7 +24,9 @@ def commands():
 
 
 @commands.command("list")
-@click.option("--experiment_id", help="Specify the experiment for list of runs.", type=click.INT)
+@click.option("--experiment-id", envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR, type=click.INT,
+              help="Specify the experiment ID for list of runs Defaults to %s" %
+                   Experiment.DEFAULT_EXPERIMENT_ID, default=Experiment.DEFAULT_EXPERIMENT_ID)
 @click.option("--view", "-v", default="active_only",
               help="Select view type for list experiments. Valid view types are "
                    "'active_only' (default), 'deleted_only', and 'all'.")
@@ -32,8 +37,8 @@ def list_run(experiment_id, view):
     store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
     runs = store.list_run_infos(experiment_id, view_type)
-    table = [[run.run_uuid, run.name, datetime.datetime.fromtimestamp(run.start_time / 1000.0).strftime('%Y-%m-%d %H:%M:%S')] for run in runs]
-    print(tabulate(sorted(table), headers=["Run Id", "Name", "Start time"]))
+    table = [[conv_longdate_to_str(run.start_time), run.name, run.run_uuid] for run in runs]
+    print(tabulate(sorted(table), headers=["Date", "Name", "ID"]))
 
 
 @commands.command("delete")
@@ -48,6 +53,7 @@ def delete_run(run_id):
     store.delete_run(run_id)
     print("Run with ID %s has been deleted." % str(run_id))
 
+
 @commands.command("restore")
 @RUN_ID
 def restore_run(run_id):
@@ -59,16 +65,15 @@ def restore_run(run_id):
     store.restore_run(run_id)
     print("Run with id %s has been restored." % str(run_id))
 
-@commands.command('export')
+
+@commands.command('describe')
 @RUN_ID
-@click.argument('file', type=click.Path(exists=False))
-def export_run(run_id, file):
+def describe_run(run_id):
     """
-    Export a run to JSON file. All of run details will write to file in the specific path with JSON format.
+    Describe a run to JSON file.
+    All of run details will print to the stdout as JSON format.
     """
     store = _get_store()
     run = store.get_run(run_id)
-
-    with open(file, 'w') as outfile:
-        json.dump(run.to_dictionary(), outfile, indent=4)
-    print(f'Run with id {run_id} saved in {file}')
+    json_run = json.dumps(run.to_dictionary())
+    print(json_run, file=sys.stdout)
