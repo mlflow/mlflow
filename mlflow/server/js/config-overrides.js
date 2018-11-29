@@ -37,7 +37,7 @@ function rewriteCookies(proxyRes) {
 
 module.exports = {
   webpack: function(config, env) {
-    rewirePolyfills(config, env);
+    config = rewirePolyfills(config, env);
     config = rewireDefinePlugin(config, env, {
       'process.env': {
         'HIDE_HEADER': process.env.HIDE_HEADER ? JSON.stringify('true') : JSON.stringify('false'),
