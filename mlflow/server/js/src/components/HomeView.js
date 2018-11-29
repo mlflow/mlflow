@@ -22,7 +22,7 @@ class HomeView extends Component {
   };
 
   state = {
-    listExperimentsExpanded: true,
+    listExperimentsExpanded: process.env.HIDE_EXPERIMENT_LIST !== 'true',
   };
 
   onClickListExperiments() {
