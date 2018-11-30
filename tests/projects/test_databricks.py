@@ -115,10 +115,10 @@ def mock_runs_get_result(succeeded):
     return {"state": run_state, "run_page_url": "test_url"}
 
 
-def run_databricks_project(cluster_spec_path, block=False):
+def run_databricks_project(cluster_spec, **kwargs):
     return mlflow.projects.run(
-        uri=TEST_PROJECT_DIR, mode="databricks", cluster_spec=cluster_spec_path, block=block,
-        parameters={"alpha": "0.4"})
+        uri=TEST_PROJECT_DIR, mode="databricks", cluster_spec=cluster_spec,
+        parameters={"alpha": "0.4"}, **kwargs)
 
 
 def test_upload_project_to_dbfs(
@@ -194,7 +194,7 @@ def test_run_databricks(
         # Test that MLflow gets the correct run status when performing a Databricks run
         for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
             runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
-            submitted_run = run_databricks_project(cluster_spec_mock)
+            submitted_run = run_databricks_project(cluster_spec_mock, block=False)
             assert submitted_run.wait() == run_succeeded
             assert submitted_run.run_id is not None
             assert runs_submit_mock.call_count == 1
@@ -213,6 +213,26 @@ def test_run_databricks(
             validate_exit_status(submitted_run.get_status(), expect_status)
 
 
+def test_run_databricks_cluster_spec_json(
+        before_run_validations_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
+        runs_submit_mock, runs_get_mock,
+        cluster_spec_mock, set_tag_mock):  # pylint: disable=unused-argument
+    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
+        runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
+        cluster_spec = {
+            "spark_version": "5.0.x-scala2.11",
+            "num_workers": 2,
+            "node_type_id": "i3.xlarge",
+        }
+        # Run project synchronously, verify that it succeeds (doesn't throw)
+        run_databricks_project(cluster_spec=cluster_spec, block=True)
+        assert runs_submit_mock.call_count == 1
+        runs_submit_args, _ = runs_submit_mock.call_args_list[0]
+        req_body = runs_submit_args[0]
+        assert req_body["new_cluster"] == cluster_spec
+
+
 def test_run_databricks_cancel(
         before_run_validations_mock, tracking_uri_mock,  # pylint: disable=unused-argument
         runs_submit_mock, dbfs_mocks, set_tag_mock,  # pylint: disable=unused-argument
@@ -222,7 +242,7 @@ def test_run_databricks_cancel(
     # waiting for run status.
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-        submitted_run = run_databricks_project(cluster_spec_mock)
+        submitted_run = run_databricks_project(cluster_spec_mock, block=False)
         submitted_run.cancel()
         validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
         assert runs_cancel_mock.call_count == 1

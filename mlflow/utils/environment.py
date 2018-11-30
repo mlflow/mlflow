@@ -9,15 +9,19 @@ channels:
 """
 
 
-def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None,
+def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps=None,
                       additional_conda_channels=None):
     """
-    Create conda environment file. Contains default dependency on current python version.
-    :param path: local filesystem path where the conda env file is to be created.
+    Creates a Conda environment with the specified package channels and dependencies.
+
+    :param path: Local filesystem path where the conda env file is to be written. If unspecified,
+                 the conda env will not be written to the filesystem; it will still be returned
+                 in dictionary format.
     :param additional_conda_deps: List of additional conda dependencies passed as strings.
     :param additional_pip_deps: List of additional pip dependencies passed as strings.
     :param additional_channels: List of additional conda channels to search when resolving packages.
-    :return: path where the conda environment file has been created.
+    :return: `None` if `path` is specified. Otherwise, the a dictionary representation of the
+             Conda environment.
     """
     env = yaml.load(_conda_header)
     env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
@@ -28,6 +32,9 @@ def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None
     if additional_conda_channels is not None:
         env["channels"] += additional_conda_channels
 
-    with open(path, "w") as f:
-        yaml.safe_dump(env, f, default_flow_style=False)
-    return path
+    if path is not None:
+        with open(path, "w") as out:
+            yaml.safe_dump(env, stream=out, default_flow_style=False)
+        return None
+    else:
+        return env

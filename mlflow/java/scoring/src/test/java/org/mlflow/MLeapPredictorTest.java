@@ -38,8 +38,7 @@ public class MLeapPredictorTest {
   }
 
   @Test
-  public void
-  testMLeapPredictorThrowsPredictorEvaluationExceptionWhenEvaluatingInputWithMissingField()
+  public void testMLeapPredictorThrowsPredictorEvaluationExceptionWhenInputIsMissingField()
       throws IOException, JsonProcessingException {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
@@ -47,11 +46,16 @@ public class MLeapPredictorTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    List<Map<String, Object>> sampleInput =
-        SerializationUtils.fromJson(sampleInputJson, List.class);
-
-    sampleInput.get(0).remove("topic");
+    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    List<List<Object>> rows = (List<List<Object>>) sampleInput.get("data");
+    List<String> columnNames = (List<String>) sampleInput.get("columns");
+    int topicIndex = columnNames.indexOf("topic");
+    columnNames.remove("topic");
+    for (List<Object> row : rows) {
+      row.remove(topicIndex);
+    }
     String badInputJson = SerializationUtils.toJson(sampleInput);
+
     PredictorDataWrapper inputData =
         new PredictorDataWrapper(badInputJson, PredictorDataWrapper.ContentType.Json);
     try {
@@ -77,8 +81,9 @@ public class MLeapPredictorTest {
 
     try {
       predictor.predict(badInputData);
-      Assert.fail("Expected predictor evaluation on a bad JSON input"
-          + "to throw a PredictorEvaluationException.");
+      Assert.fail(
+          "Expected predictor evaluation on a bad JSON input"
+              + "to throw a PredictorEvaluationException.");
     } catch (PredictorEvaluationException e) {
       // Success
     }

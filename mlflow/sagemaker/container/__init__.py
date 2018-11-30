@@ -21,7 +21,6 @@ import mlflow.version
 
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.logging_utils import eprint
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
@@ -134,7 +133,7 @@ def _serve_mleap():
 
 
 def _container_includes_mlflow_source():
-    return os.path.isdir("/opt/mlflow")
+    return os.path.exists("/opt/mlflow/setup.py")
 
 
 def _train():

@@ -38,7 +38,7 @@ To run this tutorial, you'll need to:
     .. container:: R
 
        - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
-       - Install the MLflow package (via ``devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")``)
+       - Install the MLflow package (via ``install.packages("mlflow")``)
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
@@ -50,8 +50,8 @@ Training the Model
 ------------------
 
 
-First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``. 
-      
+First, train a linear regression model that takes two hyperparameters: ``alpha`` and ``l1_ratio``.
+
 .. plain-section::
 
   .. container:: python
@@ -208,8 +208,18 @@ Comparing the Models
 --------------------
 
 
-Next, use the MLflow UI to compare the models that you have produced. Run ``mlflow_ui()``
-in the same current working directory as the one that contains the ``mlruns``.
+Next, use the MLflow UI to compare the models that you have produced. In the same current working directory 
+as the one that contains the ``mlruns`` run:
+
+.. code-section::
+    .. code-block:: bash
+
+        mlflow ui
+    .. code-block:: R
+
+        mlflow_ui()
+
+and view it at `<http://localhost:5000>`_.
 
 On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 
@@ -220,7 +230,7 @@ On this page, you can see a list of experiment runs with metrics you can use to 
     .. image:: _static/images/tutorial-compare.png
 
   .. container:: R
-  
+
       .. image:: _static/images/tutorial-compare-R.png
 
 You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
@@ -367,7 +377,7 @@ in MLflow saved the model as an artifact within the run.
 
       .. code::
 
-          mlflow sklearn serve /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
+          mlflow pyfunc serve /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
       .. note::
 
@@ -376,13 +386,17 @@ in MLflow saved the model as an artifact within the run.
           ``UnicodeDecodeError: 'ascii' codec can't decode byte 0x9f in position 1: ordinal not in range(128)``
           or ``raise ValueError, "unsupported pickle protocol: %d"``.
 
-      To serve a prediction, run:
+      Once you have deployed the server, you can pass it some sample data and see the
+      predictions. The following example uses ``curl`` to send a JSON-serialized pandas DataFrame
+      with the ``split`` orientation to the pyfunc server. For more information about the input data
+      formats accepted by the pyfunc model server, see the
+      :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 
       .. code::
 
-          curl -X POST -H "Content-Type:application/json" --data '[{"fixed acidity": 6.2, "volatile acidity": 0.66, "citric acid": 0.48, "residual sugar": 1.2, "chlorides": 0.029, "free sulfur dioxide": 29, "total sulfur dioxide": 75, "density": 0.98, "pH": 3.33, "sulphates": 0.39, "alcohol": 12.8}]' http://127.0.0.1:1234/invocations
+          curl -X POST -H "Content-Type:application/json; format=pandas-split" --data '{"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
 
-      which should return something like::
+      the server should respond with output similar to::
 
           {"predictions": [6.379428821398614]}
 
@@ -416,7 +430,7 @@ in MLflow saved the model as an artifact within the run.
       .. image:: _static/images/tutorial-serving-r.png
 
       .. note::
-        
+
           By default, a model is served using the R packages available. To ensure the environment serving
           the prediction function matches the model, set ``restore = TRUE`` when calling
           ``mlflow_rfunc_serve()``.

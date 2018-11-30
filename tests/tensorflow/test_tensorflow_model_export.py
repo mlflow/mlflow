@@ -6,6 +6,8 @@ import collections
 import os
 import shutil
 import pytest
+import yaml
+import json
 
 import numpy as np
 import pandas as pd
@@ -15,11 +17,14 @@ import tensorflow as tf
 
 import mlflow
 import mlflow.tensorflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
-from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
-from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
+from tests.helper_functions import score_model_in_sagemaker_docker_container
+
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
@@ -139,9 +144,22 @@ def saved_tf_categorical_model(tmpdir):
                           expected_results_df=estimator_preds_df)
 
 
+@pytest.fixture
+def tf_custom_env(tmpdir):
+    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+    _mlflow_conda_env(
+            conda_env,
+            additional_conda_deps=["tensorflow", "pytest"])
+    return conda_env
+
+
+@pytest.fixture
+def model_path(tmpdir):
+    return os.path.join(str(tmpdir), "model")
+
+
 def test_save_and_load_model_persists_and_restores_model_in_default_graph_context_successfully(
-        tmpdir, saved_tf_iris_model):
-    model_path = os.path.join(str(tmpdir), "model")
+        saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -163,8 +181,7 @@ def test_save_and_load_model_persists_and_restores_model_in_default_graph_contex
 
 
 def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context_successfully(
-        tmpdir, saved_tf_iris_model):
-    model_path = os.path.join(str(tmpdir), "model")
+        saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -185,8 +202,7 @@ def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context
             assert t_output is not None
 
 
-def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, saved_tf_iris_model):
-    model_path = os.path.join(str(tmpdir), "model")
+def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -233,39 +249,33 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, saved_tf_ir
 
 
 def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exception(
-        tmpdir, saved_tf_iris_model):
-    model_path = os.path.join(str(tmpdir), "model")
-
-    with pytest.raises(IOError) as e:
+        saved_tf_iris_model, model_path):
+    with pytest.raises(IOError):
         mlflow.tensorflow.save_model(tf_saved_model_dir="not_a_valid_tf_model_dir",
                                      tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                      tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                      path=model_path)
 
-    with pytest.raises(RuntimeError) as e:
+    with pytest.raises(RuntimeError):
         mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                      tf_meta_graph_tags=["bad tags"],
                                      tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                      path=model_path)
-        assert e.error_code == INVALID_PARAMETER_VALUE
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(MlflowException):
         mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                      tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                      tf_signature_def_key="bad signature",
                                      path=model_path)
-        assert e.error_code == INVALID_PARAMETER_VALUE
 
-    with pytest.raises(IOError) as e:
+    with pytest.raises(IOError):
         mlflow.tensorflow.save_model(tf_saved_model_dir="bad path",
                                      tf_meta_graph_tags="bad tags",
                                      tf_signature_def_key="bad signature",
                                      path=model_path)
-        assert e.error_code == RESOURCE_DOES_NOT_EXIST
 
 
-def test_load_model_loads_artifacts_from_specified_model_directory(tmpdir, saved_tf_iris_model):
-    model_path = os.path.join(str(tmpdir), "model")
+def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -304,36 +314,86 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
             assert t_output is not None
 
 
-def test_log_model_persists_conda_environment(tmpdir, saved_tf_iris_model):
-    conda_env_path = os.path.join(str(tmpdir), "conda_env.yaml")
-    _mlflow_conda_env(path=conda_env_path, additional_conda_deps=["tensorflow"])
-    with open(conda_env_path, "r") as f:
-        conda_env_text = f.read()
+def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
+        saved_tf_iris_model, model_path, tf_custom_env):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path,
+                                 conda_env=tf_custom_env)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != tf_custom_env
 
+    with open(tf_custom_env, "r") as f:
+        tf_custom_env_text = f.read()
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_text = f.read()
+    assert saved_conda_env_text == tf_custom_env_text
+
+
+def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
+        saved_tf_iris_model, tf_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.tensorflow.log_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                     tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path,
-                                    conda_env=conda_env_path)
-
+                                    conda_env=tf_custom_env)
         run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
 
-    model_dir = _get_model_log_dir(artifact_path, run_id)
-    model_config = Model.load(os.path.join(model_dir, "MLmodel"))
-    flavor_config = model_config.flavors.get(pyfunc.FLAVOR_NAME, None)
-    assert flavor_config is not None
-    pyfunc_env_subpath = flavor_config.get(pyfunc.ENV, None)
-    assert pyfunc_env_subpath is not None
-    with open(os.path.join(model_dir, pyfunc_env_subpath), "r") as f:
-        persisted_env_text = f.read()
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != tf_custom_env
 
-    assert persisted_env_text == conda_env_text
+    with open(tf_custom_env, "r") as f:
+        tf_custom_env_text = f.read()
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_text = f.read()
+    assert saved_conda_env_text == tf_custom_env_text
 
 
-def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, saved_tf_iris_model):
-    model_path = os.path.join(str(tmpdir), "model")
+def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        saved_tf_iris_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path,
+                                 conda_env=None)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == mlflow.tensorflow.DEFAULT_CONDA_ENV
+
+
+def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        saved_tf_iris_model, model_path):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                    tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                    tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                    artifact_path=artifact_path,
+                                    conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == mlflow.tensorflow.DEFAULT_CONDA_ENV
+
+
+def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -345,8 +405,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, saved_tf_
 
 
 def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
-        tmpdir, saved_tf_categorical_model):
-    model_path = os.path.join(str(tmpdir), "model")
+        saved_tf_categorical_model, model_path):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_categorical_model.path,
                                  tf_meta_graph_tags=saved_tf_categorical_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_categorical_model.signature_def_key,
@@ -356,3 +415,25 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6)
+
+
+@pytest.mark.release
+def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path,
+                                 conda_env=None)
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=saved_tf_iris_model.inference_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
+    pandas.testing.assert_frame_equal(
+        deployed_model_preds,
+        saved_tf_iris_model.expected_results_df,
+        check_dtype=False,
+        check_less_precise=6)

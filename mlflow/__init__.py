@@ -40,6 +40,9 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E
 import mlflow.projects as projects  # noqa
 import mlflow.tracking as tracking  # noqa
 import mlflow.tracking.fluent
+from mlflow.utils.logging_utils import _configure_mlflow_loggers
+
+_configure_mlflow_loggers(root_module_name=__name__)
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param

@@ -1,13 +1,15 @@
 from __future__ import print_function
 
+import json
+import os
 import sys
+import logging
 
 import click
 from click import UsageError
 
 import mlflow.azureml.cli
 import mlflow.projects as projects
-import mlflow.sklearn
 import mlflow.data
 import mlflow.experiments
 import mlflow.pyfunc.cli
@@ -16,11 +18,13 @@ import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
 import mlflow.store.cli
+
+
+_logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -49,13 +53,17 @@ def cli():
 @click.option("--mode", "-m", metavar="MODE",
               help="Execution mode to use for run. Supported values: 'local' (runs project"
                    "locally) and 'databricks' (runs project on a Databricks cluster)."
-                   "Defaults to 'local'. If running against Databricks, will run against the "
-                   "Databricks workspace specified in the default Databricks CLI profile. "
-                   "See https://github.com/databricks/databricks-cli for more info on configuring "
-                   "a Databricks CLI profile.")
+                   "Defaults to 'local'. If running against Databricks, will run against a "
+                   "Databricks workspace determined as follows: if a Databricks tracking URI "
+                   "of the form 'databricks://profile' has been set (e.g. by setting "
+                   "the MLFLOW_TRACKING_URI environment variable), will run against the "
+                   "workspace specified by <profile>. Otherwise, runs against the workspace "
+                   "specified by the default Databricks CLI profile. See "
+                   "https://github.com/databricks/databricks-cli for more info on configuring a "
+                   "Databricks CLI profile.")
 @click.option("--cluster-spec", "-c", metavar="FILE",
-              help="Path to JSON file describing the cluster to use when launching a run on "
-                   "Databricks. See "
+              help="Path to JSON file (must end in '.json') or JSON string describing the cluster"
+                   "to use when launching a run on Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
 @click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
@@ -96,6 +104,13 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             print("Repeated parameter: '%s'" % name, file=sys.stderr)
             sys.exit(1)
         param_dict[name] = value
+    cluster_spec_arg = cluster_spec
+    if cluster_spec is not None and os.path.splitext(cluster_spec)[-1] != ".json":
+        try:
+            cluster_spec_arg = json.loads(cluster_spec)
+        except ValueError as e:
+            print("Invalid cluster spec JSON. Parse error: %s" % e)
+            raise
     try:
         projects.run(
             uri,
@@ -104,7 +119,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             experiment_id=experiment_id,
             parameters=param_dict,
             mode=mode,
-            cluster_spec=cluster_spec,
+            cluster_spec=cluster_spec_arg,
             git_username=git_username,
             git_password=git_password,
             use_conda=(not no_conda),
@@ -113,7 +128,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             run_id=run_id,
         )
     except projects.ExecutionException as e:
-        eprint("=== %s ===" % e)
+        _logger.error("=== %s ===", e)
         sys.exit(1)
 
 
@@ -195,7 +210,6 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
         sys.exit(1)
 
 
-cli.add_command(mlflow.sklearn.commands)
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.rfunc.cli.commands)

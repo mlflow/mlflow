@@ -1,13 +1,14 @@
 import os
 
 import json
+import numpy as np
 import pandas as pd
+import pandas.testing
 import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
-from pyspark.ml.util import _jvm
 from pyspark.version import __version__ as pyspark_version
 from pyspark.sql import SQLContext
 from pyspark.sql.types import DateType
@@ -15,24 +16,29 @@ import pytest
 from sklearn import datasets
 import shutil
 from collections import namedtuple
+import yaml
 
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.models import Model
-from mlflow.utils.file_utils import TempDir
-
+from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import _get_flavor_configuration
 
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 
 
 @pytest.fixture
-def spark_conda_env(tmpdir):
+def spark_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark=={}".format(pyspark_version)])
+    _mlflow_conda_env(
+            conda_env,
+            additional_conda_deps=["pyspark", "pytest"])
     return conda_env
 
 
@@ -122,9 +128,9 @@ def test_hadoop_filesystem(tmpdir):
     assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
 
 
-def test_model_export(spark_model_iris, model_path, spark_conda_env):
+def test_model_export(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
-                      conda_env=spark_conda_env)
+                      conda_env=spark_custom_env)
     # 1. score and compare reloaded sparkml model
     reloaded_model = sparkm.load_model(path=model_path)
     preds_df = reloaded_model.transform(spark_model_iris.spark_df)
@@ -141,22 +147,49 @@ def test_model_export(spark_model_iris, model_path, spark_conda_env):
 
 
 @pytest.mark.large
-def test_model_deployment(spark_model_iris, model_path, spark_conda_env):
+def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
-                      conda_env=spark_conda_env,
+                      conda_env=spark_custom_env,
                       # Test both spark ml and mleap
                       sample_input=spark_model_iris.spark_df)
 
     # 1. score and compare pyfunc deployed in Sagemaker docker container
-    preds1 = score_model_in_sagemaker_docker_container(model_path=model_path,
-                                                       data=spark_model_iris.pandas_df,
-                                                       flavor=mlflow.pyfunc.FLAVOR_NAME)
-    assert spark_model_iris.predictions == preds1
+    scoring_response_1 = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    np.testing.assert_array_almost_equal(
+            spark_model_iris.predictions,
+            np.array(json.loads(scoring_response_1.content)),
+            decimal=4)
     # 2. score and compare mleap deployed in Sagemaker docker container
-    preds2 = score_model_in_sagemaker_docker_container(model_path=model_path,
-                                                       data=spark_model_iris.pandas_df,
-                                                       flavor=mlflow.mleap.FLAVOR_NAME)
-    assert spark_model_iris.predictions == preds2
+    scoring_response_2 = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df.to_json(orient="split"),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            flavor=mlflow.mleap.FLAVOR_NAME)
+    np.testing.assert_array_almost_equal(
+            spark_model_iris.predictions,
+            np.array(json.loads(scoring_response_2.content)),
+            decimal=4)
+
+
+@pytest.mark.release
+def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
+    sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=spark_model_iris.pandas_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = json.loads(scoring_response.content)
+
+    np.testing.assert_array_almost_equal(
+            deployed_model_preds,
+            spark_model_iris.predictions,
+            decimal=4)
 
 
 def test_sparkml_model_log(tmpdir, spark_model_iris):
@@ -191,13 +224,83 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 shutil.rmtree(tracking_dir)
 
 
+def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directory(
+        spark_model_iris, model_path, spark_custom_env):
+    sparkm.save_model(spark_model=spark_model_iris.model,
+                      path=model_path,
+                      conda_env=spark_custom_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != spark_custom_env
+
+    with open(spark_custom_env, "r") as f:
+        spark_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == spark_custom_env_parsed
+
+
+def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_directory(
+        spark_model_iris, model_path, spark_custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        sparkm.log_model(
+                spark_model=spark_model_iris.model,
+                artifact_path=artifact_path,
+                conda_env=spark_custom_env)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != spark_custom_env
+
+    with open(spark_custom_env, "r") as f:
+        spark_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == spark_custom_env_parsed
+
+
+def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        spark_model_iris, model_path):
+    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path, conda_env=None)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == sparkm.DEFAULT_CONDA_ENV
+
+
+def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        spark_model_iris):
+    artifact_path = "model"
+    with mlflow.start_run():
+        sparkm.log_model(
+                spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == sparkm.DEFAULT_CONDA_ENV
+
+
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     sparkm.log_model(spark_model=spark_model_iris.model,
                      sample_input=spark_model_iris.spark_df,
                      artifact_path=artifact_path)
     rid = active_run().info.run_uuid
-    model_path = mlflow.tracking.utils._get_model_log_dir(model_name=artifact_path, run_id=rid)
+    model_path = _get_model_log_dir(model_name=artifact_path, run_id=rid)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors

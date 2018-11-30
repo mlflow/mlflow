@@ -131,7 +131,7 @@ Retrieves the active run.
 MLflow Command
 ==============
 
-Executes a generic MLflow command through the command-line interface.
+Runs a generic MLflow command through the command-line interface.
 
 .. code:: r
 

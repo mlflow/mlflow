@@ -4,16 +4,18 @@ import os
 from six.moves import shlex_quote
 import subprocess
 import sys
-
+import logging
 
 import click
 import pandas
 
+from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env
 from mlflow.pyfunc import load_pyfunc, scoring_server, _load_model_env
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
-from mlflow.utils.logging_utils import eprint
-from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _rerun_in_conda(conda_env_path):
@@ -25,7 +27,7 @@ def _rerun_in_conda(conda_env_path):
     safe_argv = [shlex_quote(arg) for arg in sys.argv]
     commands.append(" ".join(safe_argv) + " --no-conda")
     commandline = " && ".join(commands)
-    eprint("=== Running command '{}'".format(commandline))
+    _logger.info("=== Running command '%s'", commandline)
     child = subprocess.Popen(["bash", "-c", commandline], close_fds=True)
     exit_code = child.wait()
     return exit_code
@@ -50,7 +52,10 @@ def commands():
 @cli_args.NO_CONDA
 def serve(model_path, run_id, port, host, no_conda):
     """
-    Serve a PythonFunction model saved with MLflow.
+    Serve a pyfunc model saved with MLflow by launching a webserver on the specified
+    host and port. For information about the input data formats accepted by the webserver,
+    see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.
 
     If a ``run_id`` is specified, ``model-path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.
