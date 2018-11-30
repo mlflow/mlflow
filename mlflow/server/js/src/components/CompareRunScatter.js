@@ -1,4 +1,6 @@
 import React, { Component } from 'react';
+import { AllHtmlEntities } from 'html-entities';
+import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
@@ -6,16 +8,6 @@ import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Label,
-} from 'recharts';
 import './CompareRunScatter.css';
 import CompareRunUtil from './CompareRunUtil';
 
@@ -30,10 +22,10 @@ class CompareRunScatter extends Component {
   constructor(props) {
     super(props);
 
-    this.renderTooltip = this.renderTooltip.bind(this);
+    this.entities = new AllHtmlEntities();
 
-    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, true);
-    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
+    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, false);
+    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, false);
 
     if (this.paramKeys.length + this.metricKeys.length < 2) {
       this.state = {disabled: true};
@@ -69,12 +61,21 @@ class CompareRunScatter extends Component {
     return value === undefined ? value : value.value;
   }
 
+  /**
+   * Encode HTML entities in a string (since Plotly's tooltips take HTML)
+   */
+  encodeHtml(str) {
+    return this.entities.encode(str);
+  }
+
   render() {
     if (this.state.disabled) {
-      return <div></div>;
+      return <div/>;
     }
 
-    const scatterData = [];
+    const xs = [];
+    const ys = [];
+    const tooltips = [];
 
     this.props.runInfos.forEach((_, index) => {
       const x = this.getValue(index, this.state.x);
@@ -82,7 +83,9 @@ class CompareRunScatter extends Component {
       if (x === undefined || y === undefined) {
         return;
       }
-      scatterData.push({index, x: +x, y: +y});
+      xs.push(x);
+      ys.push(y);
+      tooltips.push(this.getPlotlyTooltip(index));
     });
 
     return (<div>
@@ -100,41 +103,55 @@ class CompareRunScatter extends Component {
             </div>
           </form>
           <div className="col-xs-9">
-            <ResponsiveContainer width="100%" aspect={1.55}>
-              <ScatterChart>
-                <XAxis type="number" dataKey='x' name='x'>
-                  {this.renderAxisLabel('x')}
-                </XAxis>
-                <YAxis type="number" dataKey='y' name='y'>
-                  {this.renderAxisLabel('y')}
-                </YAxis>
-                <CartesianGrid/>
-                <Tooltip
-                  isAnimationActive={false}
-                  cursor={{strokeDasharray: '3 3'}}
-                  content={this.renderTooltip}
-                />
-                <Scatter
-                  data={scatterData}
-                  fill='#AE76A6'
-                  isAnimationActive={false}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
+            <Plot
+              data={[
+                {
+                  x: xs,
+                  y: ys,
+                  text: tooltips,
+                  hoverinfo: "text",
+                  type: 'scatter',
+                  mode: 'markers',
+                  marker: {
+                    size: 10,
+                    color: "rgba(200, 50, 100, .75)"
+                  },
+                },
+              ]}
+              layout={{
+                margin: {
+                  l: 40,
+                  r: 40,
+                  b: 30,
+                  t: 30
+                },
+                hovermode: "closest",
+                xaxis: {
+                  title: this.encodeHtml(this.state["x"].key)
+                },
+                yaxis: {
+                  title: this.encodeHtml(this.state["y"].key)
+                }
+              }}
+              className={"scatter-plotly"}
+              config={{
+                responsive: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: [
+                  "sendDataToCloud",
+                  "select2d",
+                  "lasso2d",
+                  "resetScale2d",
+                  "hoverClosestCartesian",
+                  "hoverCompareCartesian"
+                ]
+              }}
+              useResizeHandler
+            />
           </div>
         </div>
       </div>
     </div>);
-  }
-
-  renderAxisLabel(axis) {
-    const key = this.state[axis];
-    return (<Label
-      angle={axis === "x" ? 0 : -90}
-      offset={axis === "x" ? -5 : 5}
-      value={(key.isMetric ? "Metric" : "Parameter") + ": " + key.key}
-      position={axis === "x" ? "insideBottom" : "insideLeft"}
-    />);
   }
 
   renderSelect(axis) {
@@ -152,57 +169,32 @@ class CompareRunScatter extends Component {
       >
         <optgroup label="Parameter">
           {this.paramKeys.map((p) =>
-            <option key={p} value={"param-" + p}>{p}</option>
+            <option value={"param-" + p}>{p}</option>
           )}
         </optgroup>
         <optgroup label="Metric">
           {this.metricKeys.map((m) =>
-            <option key={m} value={"metric-" + m}>{m}</option>
+            <option value={"metric-" + m}>{m}</option>
           )}
         </optgroup>
       </select>);
   }
 
-  renderTooltip(item) {
-    if (item.payload.length > 0) {
-      const i = item.payload[0].payload.index;
-      return (
-        <div className="panel panel-default scatter-tooltip">
-          <div className="panel-heading">
-            <h3 className="panel-title truncate-text single-line">
-              {this.props.runDisplayNames[i]}
-            </h3>
-          </div>
-          <div className="panel-body">
-            <div className="row">
-              <div className="col-xs-6">
-                <h4>Parameters</h4>
-                <ul>{
-                  this.props.paramLists[i].map((p) =>
-                    <li key={p.key}>{p.key}: <span className="value">{p.value}</span></li>
-                  )
-                }</ul>
-              </div>
-              <div className="col-xs-6">
-                <h4>Metrics</h4>
-                <ul>
-                  {this.props.metricLists[i].map((p) =>
-                    <li key={p.key}>{p.key}: {Utils.formatMetric(p.value)}</li>
-                  )}
-                </ul>
-              </div>
-              <div className="col-xs-6">
-                <h4>Run ID</h4>
-                <ul>
-                  {this.props.runInfos[i].run_uuid}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
+  getPlotlyTooltip(index) {
+    const runName = this.props.runDisplayNames[index];
+    let result = `<b>${this.encodeHtml(runName)}</b><br>`;
+    const paramList = this.props.paramLists[index];
+    paramList.forEach(p => {
+      result += this.encodeHtml(p.key) + ': ' + this.encodeHtml(p.value) + '<br>';
+    });
+    const metricList = this.props.metricLists[index];
+    if (metricList.length > 0) {
+      result += (paramList.length > 0) ? '<br>' : '';
+      metricList.forEach(m => {
+        result += this.encodeHtml(m.key) + ': ' + Utils.formatMetric(m.value) + '<br>';
+      });
     }
-    return null;
+    return result;
   }
 }
 
