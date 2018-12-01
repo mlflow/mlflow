@@ -6,21 +6,19 @@ import cookie from 'cookie';
 // a set of cookies with a key prefix of "mlflow-request-header-$HeaderName",
 // which will be added as an HTTP header to all AJAX requests.
 export const setupAjaxHeaders = () => {
-  const requestHeaders = getRequestHeaders();
-  $.ajaxSetup({
-    beforeSend(xhr) {
-      if (requestHeaders) {
-        for (const [headerKey, headerValue] of Object.entries(requestHeaders)) {
-          xhr.setRequestHeader(headerKey, headerValue);
-        }
+  const requestHeaders = getRequestHeaders(document.cookie);
+  $(document).ajaxSend(function(event, jqXHR, ajaxOptions) {
+    if (requestHeaders) {
+      for (const [headerKey, headerValue] of Object.entries(requestHeaders)) {
+        jqXHR.setRequestHeader(headerKey, headerValue);
       }
     }
   });
 };
 
-export const getRequestHeaders = () => {
+export const getRequestHeaders = (documentCookie) => {
   const headerCookiePrefix = "mlflow-request-header-";
-  const parsedCookie = cookie.parse(document.cookie);
+  const parsedCookie = cookie.parse(documentCookie);
   console.log(parsedCookie);
   const headers = {};
   for (const cookieName in parsedCookie) {
