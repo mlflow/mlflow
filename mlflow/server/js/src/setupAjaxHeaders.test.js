@@ -1,4 +1,4 @@
-import { getRequestHeaders, setupAjaxHeaders } from './setupAjaxHeaders';
+import getRequestHeaders from './setupAjaxHeaders';
 
 test('If activeExperimentId is defined then choose that one', () => {
   const headers = getRequestHeaders("");

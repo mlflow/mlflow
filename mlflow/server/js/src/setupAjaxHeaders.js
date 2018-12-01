@@ -7,7 +7,7 @@ import cookie from 'cookie';
 // which will be added as an HTTP header to all AJAX requests.
 export const setupAjaxHeaders = () => {
   const requestHeaders = getRequestHeaders(document.cookie);
-  $(document).ajaxSend(function(event, jqXHR, ajaxOptions) {
+  $(document).ajaxSend((event, jqXHR) => {
     if (requestHeaders) {
       for (const [headerKey, headerValue] of Object.entries(requestHeaders)) {
         jqXHR.setRequestHeader(headerKey, headerValue);
