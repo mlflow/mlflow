@@ -70,7 +70,6 @@ def restore_run(run_id):
 @RUN_ID
 def describe_run(run_id):
     """
-    Describe a run to JSON file.
     All of run details will print to the stdout as JSON format.
     """
     store = _get_store()
