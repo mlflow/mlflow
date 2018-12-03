@@ -19,6 +19,10 @@ class CompareRunScatter extends Component {
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
+  // Size limits for displaying keys and values in our plot axes and tooltips
+  static MAX_PLOT_KEY_LENGTH = 40;
+  static MAX_PLOT_VALUE_LENGTH = 60;
+
   constructor(props) {
     super(props);
 
@@ -73,6 +77,8 @@ class CompareRunScatter extends Component {
       return <div/>;
     }
 
+    const keyLength = CompareRunScatter.MAX_PLOT_KEY_LENGTH;
+
     const xs = [];
     const ys = [];
     const tooltips = [];
@@ -120,17 +126,14 @@ class CompareRunScatter extends Component {
               ]}
               layout={{
                 margin: {
-                  l: 40,
-                  r: 40,
-                  b: 30,
                   t: 30
                 },
                 hovermode: "closest",
                 xaxis: {
-                  title: this.encodeHtml(this.state["x"].key)
+                  title: this.encodeHtml(Utils.truncateString(this.state["x"].key, keyLength))
                 },
                 yaxis: {
-                  title: this.encodeHtml(this.state["y"].key)
+                  title: this.encodeHtml(Utils.truncateString(this.state["y"].key, keyLength))
                 }
               }}
               className={"scatter-plotly"}
@@ -169,29 +172,33 @@ class CompareRunScatter extends Component {
       >
         <optgroup label="Parameter">
           {this.paramKeys.map((p) =>
-            <option value={"param-" + p}>{p}</option>
+            <option key={"param-" + p} value={"param-" + p}>{p}</option>
           )}
         </optgroup>
         <optgroup label="Metric">
           {this.metricKeys.map((m) =>
-            <option value={"metric-" + m}>{m}</option>
+            <option key={"metric-" + m} value={"metric-" + m}>{m}</option>
           )}
         </optgroup>
       </select>);
   }
 
   getPlotlyTooltip(index) {
+    const keyLength = CompareRunScatter.MAX_PLOT_KEY_LENGTH;
+    const valueLength = CompareRunScatter.MAX_PLOT_VALUE_LENGTH;
     const runName = this.props.runDisplayNames[index];
     let result = `<b>${this.encodeHtml(runName)}</b><br>`;
     const paramList = this.props.paramLists[index];
     paramList.forEach(p => {
-      result += this.encodeHtml(p.key) + ': ' + this.encodeHtml(p.value) + '<br>';
+      result += this.encodeHtml(Utils.truncateString(p.key, keyLength)) + ': '
+        + this.encodeHtml(Utils.truncateString(p.value, valueLength)) + '<br>';
     });
     const metricList = this.props.metricLists[index];
     if (metricList.length > 0) {
       result += (paramList.length > 0) ? '<br>' : '';
       metricList.forEach(m => {
-        result += this.encodeHtml(m.key) + ': ' + Utils.formatMetric(m.value) + '<br>';
+        result += this.encodeHtml(Utils.truncateString(m.key, keyLength)) + ': '
+          + Utils.formatMetric(m.value) + '<br>';
       });
     }
     return result;
