@@ -190,3 +190,8 @@ img.center {
   display: block;
   margin: 0 auto;
 }
+
+.plotly-notifier, .plotly-notifier.notifier-note {
+  font-family: inherit !important;
+  font-size: 13px !important;
+}
