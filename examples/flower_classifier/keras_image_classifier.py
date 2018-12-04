@@ -124,19 +124,6 @@ class KerasImageClassifier(object):
         """
         pass
 
-    @staticmethod
-    def get_labels_idx(x):
-        import tensorflow as tf
-        return tf.argmax(x, axis=1)
-
-    @staticmethod
-    def get_labels(domain_array):
-        def tf_labels(x):
-            import tensorflow as tf
-            return tf.cast(tf.gather(domain_array, tf.argmax(x, axis=1), axis=0), tf.string)
-
-        return tf_labels
-
     def train(self,
               image_files,
               labels,
@@ -337,7 +324,6 @@ class MLflowInceptionV3(KerasImageClassifier):
                           outputs=Dense(classes,
                                         activation='softmax',
                                         name='predictions')(model.output))
-        print(model.summary())
         return model
 
 
@@ -380,5 +366,4 @@ class MLflow_VGG16(KerasImageClassifier):
             x = Dense(4096, activation='relu', name='fc2')(x)
             x = Dense(classes, activation='softmax', name='predictions')(x)
             model = Model(inputs=model.input, outputs=x)
-        print(model.summary())
         return model
