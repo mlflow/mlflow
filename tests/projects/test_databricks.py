@@ -200,7 +200,7 @@ def test_run_databricks(
             assert submitted_run.run_id is not None
             assert runs_submit_mock.call_count == 1
             tags = {}
-            for call_args in set_tag_mock.call_args_list:
+            for call_args, _ in set_tag_mock.call_args_list:
                 tags[call_args[1]] = call_args[2]
             assert tags[MLFLOW_DATABRICKS_RUN_URL] == 'test_url'
             assert tags[MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID] == '-1'
