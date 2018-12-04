@@ -96,7 +96,7 @@ class ExperimentRunsTableCompactView extends Component {
   };
 
   onHover({isParam, isMetric, key}) {
-    // this.setState({ hoverState: {isParam, isMetric, key} });
+    this.setState({ hoverState: {isParam, isMetric, key} });
   }
 
 
@@ -155,13 +155,14 @@ class ExperimentRunsTableCompactView extends Component {
     });
     // Add bagged params
     const paramsCellContents = baggedParams.map((paramKey) => {
+      const isHovered = hoverState.isParam && hoverState.key === paramKey;
       const keyname = "param-" + paramKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (<BaggedCell
         key={keyname}
         // keyName={paramKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
-        keyName={paramKey} value={paramsMap[paramKey].getValue()}
-        setSortByHandler={setSortByHandler} isMetric={false} isParam={true}
+        keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
+        setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
         onRemoveBagged={onRemoveBagged}/>);
     });
     if (this.shouldShowBaggedColumn(true)) {
@@ -181,13 +182,14 @@ class ExperimentRunsTableCompactView extends Component {
     // Add bagged metrics
     const metricsCellContents = [...Array(100).keys()].map((metricKey) => {
       const keyname = "metric-" + metricKey;
+      const isHovered = hoverState.isMetric && hoverState.key === metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       //const metric = metricsMap[metricKey].getValue();
       return (
         // TODO sorticon in bagged cells
         <BaggedCell key={keyname}
-                    keyName={metricKey + "a".repeat(1000)} value={"b".repeat(1000)}
-                    setSortByHandler={setSortByHandler} isMetric={true} isParam={false}
+                    keyName={metricKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
+                    setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
                     onRemoveBagged={onRemoveBagged}/>
       );
     });
@@ -391,7 +393,7 @@ class ExperimentRunsTableCompactView extends Component {
                 // height={height}
                 height={500}
                 headerHeight={32}
-                overscanRowCount={40}
+                overscanRowCount={2}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
                 rowGetter={({index}) => rows[index]}
