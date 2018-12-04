@@ -1,0 +1,16 @@
+name: flower_classifier
+channels:
+  - defaults
+  - anaconda
+dependencies:
+  - python==3.6
+  - numpy==1.14.2
+  - keras==2.2.4
+  - pandas
+  - pip:
+    - tensorflow-gpu==1.10.0
+    - cloudpickle
+    - mlflow==0.8
+    - click==6.7
+    - scikit-learn
+    - pillow
