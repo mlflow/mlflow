@@ -17,8 +17,7 @@ from mlflow.tracking import MlflowClient
 from mlflow.utils import file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
-    MLFLOW_DATABRICKS_WEBAPP_URL, \
-    MLFLOW_GIT_REPO_URL
+    MLFLOW_DATABRICKS_WEBAPP_URL
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
