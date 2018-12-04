@@ -393,12 +393,30 @@ class ExperimentRunsTableCompactView extends Component {
                 // height={height}
                 height={500}
                 headerHeight={32}
-                overscanRowCount={2}
+                overscanRowCount={20}
+                onRowsRendered={({ overscanStartIndex, overscanStopIndex, startIndex, stopIndex }) => {
+                  console.log("overscanStartIndex: " + overscanStartIndex);
+                  console.log("overscanStopIndex: " + overscanStopIndex);
+                  console.log("startIndex: " + startIndex);
+                  console.log("stopIndex: " + stopIndex);
+                }}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
+                overscanIndicesGetter={({
+                                          direction,          // One of "horizontal" or "vertical"
+                                          cellCount,          // Number of rows or columns in the current axis
+                                          scrollDirection,    // 1 (forwards) or -1 (backwards)
+                                          overscanCellsCount, // Maximum number of cells to over-render in either direction
+                                          startIndex,         // Begin of range of visible cells
+                                          stopIndex           // End of range of visible cells
+                                        }) => {
+                  const startIdx = Math.max(0, startIndex - overscanCellsCount);
+                  const endIdx = Math.min(stopIndex + overscanCellsCount, cellCount - 1);
+                  return {overscanStartIndex: startIdx, overscanStopIndex: endIdx};
+                }}
                 rowGetter={({index}) => rows[index]}
                 rowStyle={({index}) => {
-                  console.log("Row style for row " + index);
+                  // console.log("Row style for row " + index);
                   const borderStyle = "1px solid #e2e2e2";
                   const base = {alignItems: "stretch", borderBottom: borderStyle, overflow: "visible"};
                   if (index === - 1) {
@@ -493,6 +511,7 @@ class ExperimentRunsTableCompactView extends Component {
                 />
                 {unbaggedParams.map((unbaggedParam, idx) => {
                   return <Column
+                    key={"param-" + unbaggedParam}
                     label={"param-" + unbaggedParam}
                     dataKey={"param-" + unbaggedParam}
                     width={120}

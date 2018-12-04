@@ -190,7 +190,7 @@ span.error-message {
 /** Container with a max width & text-truncation for use in the experiment runs table */
 .ExperimentView .run-table-container {
   max-width: 240px;
-  /*overflow: hidden;*/
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: top;

@@ -52,7 +52,7 @@ export default class BaggedCell extends Component {
 
   getDropdown() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    return ( <Dropdown id="dropdown-custom-1">
+    return ( <Dropdown id="dropdown-custom-1" style={{width: 250}}>
         <ExperimentRunsSortToggle
           bsRole="toggle"
           className={"metric-param-sort-toggle"}
@@ -118,7 +118,7 @@ export default class BaggedCell extends Component {
 
   render() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    const cellClass = classNames("metric-param-content", "metric-param-cell", { highlighted: isHovered });
+    const cellClass = classNames("metric-param-content", "metric-param-cell");
     const contents = this.getCellContents();
     return (
       <span
