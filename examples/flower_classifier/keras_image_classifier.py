@@ -248,7 +248,7 @@ class KerasImageClassifierPyfunc(object):
 
 
     @staticmethod
-    def save_model(path, mlflow_model, augmented_model, image_dims, domain):
+    def save_model(path, mlflow_model, keras_model, image_dims, domain):
         with TempDir() as tmp:
             conf = {
                 "image_dims": "/".join(map(str, image_dims)),
@@ -258,7 +258,7 @@ class KerasImageClassifierPyfunc(object):
                 yaml.safe_dump(conf, stream=f)
 
             keras_path = tmp.path("keras_model")
-            mlflow.keras.save_model(augmented_model, keras_path)
+            mlflow.keras.save_model(keras_model, keras_path)
             conda_env = tmp.path("conda_env.yaml")
             conda_env = _mlflow_conda_env(
                 path=conda_env,
@@ -281,7 +281,7 @@ class KerasImageClassifierPyfunc(object):
         from mlflow.models import Model
         Model.log(artifact_path=artifact_path,
                   flavor=cls,
-                  augmented_model=keras_model,
+                  keras_model=keras_model,
                   image_dims=image_dims,
                   domain=domain)
 
