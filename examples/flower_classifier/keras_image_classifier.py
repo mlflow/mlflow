@@ -292,12 +292,11 @@ class MLflowInceptionV3(KerasImageClassifier):
     only the last output layer is trained.
     """
     def __init__(self, weights='imagenet'):
-        super(MLflowInceptionV3, self).__init__(image_dims=(299, 299, 3),
-                                                preprocess_input=MLflow_VGG16.preprocess)
+        super(MLflowInceptionV3, self).__init__(image_dims=(299, 299, 3))
         self.weights = weights
 
     def params(self):
-        return {"model": "InveptionV3", "weights": self.weights}
+        return {"weights": self.weights}
 
     @staticmethod
     def preprocess(x):
@@ -346,7 +345,7 @@ class MLflow_VGG16(KerasImageClassifier):
         self._weights = weights
 
     def params(self):
-        return {"model": "VGG16", "weights": self._weights}
+        return {"weights": self._weights}
 
     def create_model(self, classes):
         include_top = (classes == 1000)
