@@ -36,18 +36,16 @@ export default class BaggedCell extends Component {
     value: PropTypes.string.isRequired,
     // TODO sortIcon
 
-    // (key) => Unit (sets hover state to that key, other args expected to be prefilled)
-    onHover: PropTypes.func.isRequired,
     setSortByHandler: PropTypes.func.isRequired,
     isParam: PropTypes.bool.isRequired,
     isMetric: PropTypes.bool.isRequired,
-    isHovered: PropTypes.bool.isRequired,
     onRemoveBagged: PropTypes.func.isRequired,
 
   };
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.isHovered !== nextProps.isHovered;
+    return false;
+    // return this.props.isHovered !== nextProps.isHovered;
   }
 
   getDropdown() {
@@ -96,9 +94,9 @@ export default class BaggedCell extends Component {
 
   getCellContents() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    if (isHovered) {
-      return this.getDropdown();
-    }
+    // if (isHovered) {
+    //  return this.getDropdown();
+    // }
     return (
       <span
         className="run-table-container underline-on-hover"
@@ -123,8 +121,6 @@ export default class BaggedCell extends Component {
     return (
       <span
         className={cellClass}
-        onMouseEnter={() => onHover({isParam: isParam, isMetric: isMetric, key: keyName})}
-        onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
       >
           {contents}
       </span>
