@@ -279,6 +279,7 @@ def _get_source_type():
 def _get_experiment_id():
     return int(_active_experiment_id or
                env.get_env(_EXPERIMENT_ID_ENV_VAR) or
+               (is_in_databricks_notebook() and get_notebook_id()) or
                Experiment.DEFAULT_EXPERIMENT_ID)
 
 
