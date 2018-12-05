@@ -198,16 +198,12 @@ def test_run_databricks(
             assert submitted_run.wait() == run_succeeded
             assert submitted_run.run_id is not None
             assert runs_submit_mock.call_count == 1
-            assert set_tag_mock.call_count == 3
-            set_tag_args, _ = set_tag_mock.call_args_list[0]
-            assert set_tag_args[1] == MLFLOW_DATABRICKS_RUN_URL
-            assert set_tag_args[2] == 'test_url'
-            set_tag_args, _ = set_tag_mock.call_args_list[1]
-            assert set_tag_args[1] == MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID
-            assert set_tag_args[2] == '-1'
-            set_tag_args, _ = set_tag_mock.call_args_list[2]
-            assert set_tag_args[1] == MLFLOW_DATABRICKS_WEBAPP_URL
-            assert set_tag_args[2] == 'test-host'
+            tags = {}
+            for call_args, _ in set_tag_mock.call_args_list:
+                tags[call_args[1]] = call_args[2]
+            assert tags[MLFLOW_DATABRICKS_RUN_URL] == 'test_url'
+            assert tags[MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID] == '-1'
+            assert tags[MLFLOW_DATABRICKS_WEBAPP_URL] == 'test-host'
             set_tag_mock.reset_mock()
             runs_submit_mock.reset_mock()
             validate_exit_status(submitted_run.get_status(), expect_status)
