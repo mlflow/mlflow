@@ -201,6 +201,11 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
     ordinals (0, 1, ...).
 
+    If the model returns predictions as DataFrame, different result may be returned based on the
+    requested result_type. If the requested result type is numeric, the data frame is filtered to
+    contain only numeric columns first. If the requested return type is not ArrayType, only the
+    first column will be returned.
+
     >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
     >>> df.withColumn("prediction", predict("name", "age")).show()
 
@@ -208,6 +213,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     :param path: A path containing a :py:mod:`mlflow.pyfunc` model.
     :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
                    retrieve the model logged with MLflow.
+    :param result_type: the return type of the user-defined function. The value can be either a
+                        :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
     :return: Spark UDF type returned by the model's prediction method. Default double.
     """
 
@@ -221,6 +228,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
 
     archive_path = SparkModelCache.add_local_model(spark, path)
 
+    from pyspark.sql.types import ArrayType, NumericType
+
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
@@ -229,8 +238,21 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
         if isinstance(result, pandas.DataFrame):
-            return result[result.columns[0]]
-        return pandas.Series(result)
+            elem_type = result_type
+            if isinstance(result_type, ArrayType):
+                elem_type = result_type.elementType
+            if isinstance(elem_type, NumericType):
+                result = result.select_dtypes(include=("int", "float"))
+                if len(result.columns) == 0:
+                    raise Exception("The requested return type is numeric but the model did not " +
+                                    "produce any numeric results. Consider requesting udf with " +
+                                    "StringType instead.")
+            if isinstance(result_type, ArrayType):
+                return pandas.Series([row.to_list() for row in result.iterrows()])
+            else:
+                return result[result.columns[0]]
+        else:
+            return pandas.Series(result)
 
     return pandas_udf(predict, result_type)
 
