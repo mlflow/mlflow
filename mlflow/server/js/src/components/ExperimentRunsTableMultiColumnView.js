@@ -59,21 +59,21 @@ class ExperimentRunsTableMultiColumnView extends Component {
     const numMetrics = metricKeyList.length;
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
-      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
+      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), "td"),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds)),
+        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid, "td"),
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent).forEach((col) =>
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "td").forEach((col) =>
       rowContents.push(col));
     paramKeyList.forEach((paramKey) => {
-      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, "td"));
     });
     if (numParams === 0) {
       rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
     metricKeyList.forEach((metricKey) => {
       rowContents.push(
-        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, "td"));
     });
     if (numMetrics === 0) {
       rowContents.push(<td className="left-border" key="meta-metric-empty" />);
@@ -155,10 +155,10 @@ class ExperimentRunsTableMultiColumnView extends Component {
       getRow: this.getRow
     });
     const columns = [
-      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked),
-      ExperimentViewUtil.getExpanderHeader(),
+      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "td"),
+      ExperimentViewUtil.getExpanderHeader("td"),
     ];
-    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
+    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState, "td")
       .forEach((cell) => columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
     return (<Table className="ExperimentViewMultiColumn" hover>

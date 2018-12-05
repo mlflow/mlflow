@@ -8,7 +8,6 @@ import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import Utils from '../utils/Utils';
 import BaggedCell from "./BaggedCell";
-import CompactTableRow from "./CompactTableRow";
 
 import { CellMeasurer, CellMeasurerCache, Grid, AutoSizer } from 'react-virtualized';
 
@@ -128,23 +127,14 @@ class ExperimentRunsTableCompactView extends Component {
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
     const tagsMap = tagsList[idx];
     const runInfo = runInfos[idx];
-    // const rowContents = <CompactTableRow
-    //   runInfo={runInfo} paramsMap={paramsMap} metricsMap={metricsMap}
-    //   onCheckbox={onCheckbox} sortState={sortState} runsSelected={runsSelected}
-    //   tagsMap={tagsMap} setSortByHandler={setSortByHandler} onExpand={onExpand}
-    //   paramKeyList={paramKeyList} metricKeyList={metricKeyList} metricRanges={metricRanges}
-    //   onRemoveBagged={onRemoveBagged} isParent={isParent} hasExpander={hasExpander}
-    //   unbaggedMetrics={unbaggedMetrics} unbaggedParams={unbaggedParams}
-    //   expanderOpen={expanderOpen} childrenIds={childrenIds}/>;
-
     const hoverState = this.state.hoverState;
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
-      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid)),
+      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), "div"),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid),
+        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsMap, isParent)
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsMap, isParent, "div")
       .forEach((col) => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
@@ -156,7 +146,7 @@ class ExperimentRunsTableCompactView extends Component {
 
     // Add params (unbagged, then bagged)
     unbaggedParams.forEach((paramKey) => {
-      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap));
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, "div"));
     });
     // Add bagged params
     const paramsCellContents = baggedParams.map((paramKey) => {
@@ -181,7 +171,7 @@ class ExperimentRunsTableCompactView extends Component {
     // Add metrics (unbagged, then bagged)
     unbaggedMetrics.forEach((metricKey) => {
       rowContents.push(
-        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges));
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, "div"));
     });
 
     // Add bagged metrics
@@ -365,11 +355,11 @@ class ExperimentRunsTableCompactView extends Component {
       getRow: this.getRow });
 
     const headerCells = [
-      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked),
+      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "div"),
       // placeholder for expander header cell,
-      ExperimentViewUtil.getExpanderHeader(),
+      ExperimentViewUtil.getExpanderHeader("div"),
     ];
-    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState)
+    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState, "div")
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
 

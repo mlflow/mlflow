@@ -6,12 +6,13 @@ import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
-  static getCheckboxForRow(selected, checkboxHandler) {
-    return <div key="meta-check">
+  static getCheckboxForRow(selected, checkboxHandler, cellType) {
+    const CellComponent = `${cellType}`
+    return <CellComponent key="meta-check">
       <div>
         <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
       </div>
-    </div>;
+    </CellComponent>;
   }
 
   static styles = {
@@ -39,41 +40,42 @@ export default class ExperimentViewUtil {
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoCellsForRow(runInfo, tags, isParent) {
+  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
+    const CellComponent = `${cellType}`;
     const user = Utils.formatUser(runInfo.user_id);
     const sourceType = Utils.renderSource(runInfo, tags);
     const startTime = runInfo.start_time;
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
     return [
-      <div key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
+      <CellComponent key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
         <div style={childLeftMargin}>
           <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
             {Utils.formatTimestamp(startTime)}
           </Link>
         </div>
-      </div>,
-      <div key="meta-user" className="run-table-container" title={user}>
+      </CellComponent>,
+      <CellComponent key="meta-user" className="run-table-container" title={user}>
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {user}
         </div>
-      </div>,
-      <div key="meta-run-name" className="run-table-container" title={runName}>
+      </CellComponent>,
+      <CellComponent key="meta-run-name" className="run-table-container" title={runName}>
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {runName}
         </div>
-      </div>,
-      <div className="run-table-container" key="meta-source" title={sourceType}>
+      </CellComponent>,
+      <CellComponent className="run-table-container" key="meta-source" title={sourceType}>
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderSourceTypeIcon(runInfo.source_type)}
           {sourceType}
         </div>
-      </div>,
-      <div className="run-table-container" key="meta-version">
+      </CellComponent>,
+      <CellComponent className="run-table-container" key="meta-version">
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
           {Utils.renderVersion(runInfo)}
         </div>
-      </div>,
+      </CellComponent>,
     ];
   }
 
@@ -96,27 +98,29 @@ export default class ExperimentViewUtil {
   }
 
   /** Returns checkbox element for selecting all runs */
-  static getSelectAllCheckbox(onCheckAll, isAllCheckedBool) {
-    return <div key="meta-check" className="bottom-row">
+  static getSelectAllCheckbox(onCheckAll, isAllCheckedBool, cellType) {
+    const CellComponent = `${cellType}`;
+    return <CellComponent key="meta-check" className="bottom-row">
       <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
-    </div>;
+    </CellComponent>;
   }
 
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
-  static getRunMetadataHeaderCells(onSortBy, sortState) {
+  static getRunMetadataHeaderCells(onSortBy, sortState, cellType) {
+    const CellComponent = `${cellType}`;
     const getHeaderCell = (key, text) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
       return (
-        <div
+        <CellComponent
           key={"meta-" + key}
           className="bottom-row sortable run-table-container"
           onClick={() => onSortBy(false, false, key)}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
           <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
-        </div>);
+        </CellComponent>);
     };
     return [
       getHeaderCell("start_time", <span>{"Date"}</span>),
@@ -127,8 +131,9 @@ export default class ExperimentViewUtil {
     ];
   }
 
-  static getExpanderHeader() {
-    return <div
+  static getExpanderHeader(cellType) {
+    const CellComponent = `${cellType}`;
+    return <CellComponent
       key={"meta-expander"}
       className={"bottom-row run-table-container"}
       style={{width: '5px'}}
@@ -143,10 +148,12 @@ export default class ExperimentViewUtil {
    * @param metricsMap Object mapping metric keys to their latest values for a single run
    * @param metricRanges Object mapping metric keys to objects of the form {min: ..., max: ...}
    *                     containing min and max values of the metric across all visible runs.
+   * @param cellType Tag type of containing cell.
    */
-  static getUnbaggedMetricCell(metricKey, metricsMap, metricRanges) {
+  static getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, cellType) {
     const className = "left-border run-table-container";
     const keyName = "metric-" + metricKey;
+    const CellComponent = `${cellType}`;
     if (metricsMap[metricKey]) {
       const metric = metricsMap[metricKey].getValue();
       const range = metricRanges[metricKey];
@@ -156,7 +163,7 @@ export default class ExperimentViewUtil {
       }
       const percent = (fraction * 100) + "%";
       return (
-        <td className={className} key={keyName}>
+        <CellComponent className={className} key={keyName}>
           {/* We need the extra div because metric-filler-bg is inline-block */}
           <div>
             <div className="metric-filler-bg">
@@ -166,23 +173,24 @@ export default class ExperimentViewUtil {
               </div>
             </div>
           </div>
-        </td>
+        </CellComponent>
       );
     }
-    return <td className={className} key={keyName}/>;
+    return <CellComponent className={className} key={keyName}/>;
   }
 
-  static getUnbaggedParamCell(paramKey, paramsMap) {
+  static getUnbaggedParamCell(paramKey, paramsMap, cellType) {
+    const CellComponent = `${cellType}`;
     const className = "left-border run-table-container";
     const keyName = "param-" + paramKey;
     if (paramsMap[paramKey]) {
-      return <div className={className} key={keyName}>
+      return <CellComponent className={className} key={keyName}>
         <div>
           {paramsMap[paramKey].getValue()}
         </div>
-      </div>;
+      </CellComponent>;
     } else {
-      return <div className={className} key={keyName}/>;
+      return <CellComponent className={className} key={keyName}/>;
     }
   }
 
@@ -283,22 +291,23 @@ export default class ExperimentViewUtil {
     return expanderOpen;
   }
 
-  static getExpander(hasExpander, expanderOpen, onExpandBound, runUuid) {
+  static getExpander(hasExpander, expanderOpen, onExpandBound, runUuid, cellType) {
+    const CellComponent = `${cellType}`;
     if (!hasExpander) {
-      return <div key={'Expander-' + runUuid}>
-      </div>;
+      return <CellComponent key={'Expander-' + runUuid}>
+      </CellComponent>;
     }
     if (expanderOpen) {
       return (
-        <div onClick={onExpandBound} key={'Expander-' + runUuid}>
+        <CellComponent onClick={onExpandBound} key={'Expander-' + runUuid}>
           <i className="ExperimentView-expander far fa-minus-square"/>
-        </div>
+        </CellComponent>
       );
     } else {
       return (
-        <div onClick={onExpandBound} key={'Expander-' + runUuid}>
+        <CellComponent onClick={onExpandBound} key={'Expander-' + runUuid}>
           <i className="ExperimentView-expander far fa-plus-square"/>
-        </div>
+        </CellComponent>
       );
     }
   }

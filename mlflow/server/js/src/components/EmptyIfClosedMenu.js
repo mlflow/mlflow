@@ -7,18 +7,17 @@ import RootCloseWrapper from 'react-overlays/lib/RootCloseWrapper';
 export default class EmptyIfClosedMenu extends Component {
   static propTypes = {
     children: PropTypes.array.isRequired,
-    open: PropTypes.bool.isRequired,
-    rootCloseEvent: PropTypes.oneOf(['click', 'mousedown']),
+    open: PropTypes.bool,
+    onClose: PropTypes.func,
   };
 
   render() {
-    const {children, open, ...props} = this.props;
-      // console.log("Am I open?: " + open);
+    const {children, open, onClose, ...props} = this.props;
       if (!open) {
         return null;
       }
       return (
-        <RootCloseWrapper onRootClose={this.props.onClose}>
+        <RootCloseWrapper onRootClose={onClose}>
           <Dropdown.Menu {...props} >
             {children}
           </Dropdown.Menu>
