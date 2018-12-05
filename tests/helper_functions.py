@@ -132,4 +132,3 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         print("-------------------------STDOUT------------------------------")
         print(proc.stdout.read())
         print("==============================================================")
-

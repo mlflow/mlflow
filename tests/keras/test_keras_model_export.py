@@ -61,8 +61,8 @@ def model_path(tmpdir):
 def keras_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-            conda_env,
-            additional_conda_deps=["keras", "tensorflow", "pytest"])
+        conda_env,
+        additional_conda_deps=["keras", "tensorflow", "pytest"])
     return conda_env
 
 
@@ -80,9 +80,9 @@ def test_model_save_load(model, model_path, data, predicted):
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
-            data=pd.DataFrame(x),
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+        model_path=os.path.abspath(model_path),
+        data=pd.DataFrame(x),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
                == predicted)
 
@@ -92,8 +92,6 @@ def test_model_save_load(model, model_path, data, predicted):
                                          pandas_df=pd.DataFrame(x))
     np.testing.assert_array_almost_equal(
         np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=8)
-
-
 
 
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
@@ -140,7 +138,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(
-                keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env)
+            keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env)
         run_id = mlflow.active_run().info.run_uuid
     model_path = _get_model_log_dir(artifact_path, run_id)
 
@@ -207,11 +205,11 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
-            data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME,
-            activity_polling_timeout_seconds=500)
+        model_path=model_path,
+        data=data[0],
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        activity_polling_timeout_seconds=500)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     np.testing.assert_array_almost_equal(
