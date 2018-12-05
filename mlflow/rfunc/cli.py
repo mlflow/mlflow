@@ -3,10 +3,13 @@ from __future__ import absolute_import
 import click
 import os
 import subprocess
+import logging
 
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
-from mlflow.utils.logging_utils import eprint
+
+
+_logger = logging.getLogger(__name__)
 
 
 @click.group("rfunc")
@@ -21,7 +24,7 @@ def commands():
 
 
 def execute(command):
-    eprint("=== Rscript -e %s) ===" % command)
+    _logger.info("=== Rscript -e %s) ===", command)
     env = os.environ.copy()
     process = subprocess.Popen(["Rscript", "-e", command], close_fds=True, env=env)
     process.wait()

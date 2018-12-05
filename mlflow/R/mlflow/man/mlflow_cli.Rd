@@ -22,7 +22,7 @@ Defaults to \code{FALSE}.}
 A \code{processx} task.
 }
 \description{
-Executes a generic MLflow command through the commmand line interface.
+Executes a generic MLflow command through the command line interface.
 }
 \examples{
 \dontrun{

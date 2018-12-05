@@ -3,6 +3,7 @@ from __future__ import print_function
 import json
 import os
 import sys
+import logging
 
 import click
 from click import UsageError
@@ -17,11 +18,13 @@ import mlflow.sagemaker.cli
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow import tracking
 import mlflow.store.cli
+
+
+_logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -50,10 +53,14 @@ def cli():
 @click.option("--mode", "-m", metavar="MODE",
               help="Execution mode to use for run. Supported values: 'local' (runs project"
                    "locally) and 'databricks' (runs project on a Databricks cluster)."
-                   "Defaults to 'local'. If running against Databricks, will run against the "
-                   "Databricks workspace specified in the default Databricks CLI profile. "
-                   "See https://github.com/databricks/databricks-cli for more info on configuring "
-                   "a Databricks CLI profile.")
+                   "Defaults to 'local'. If running against Databricks, will run against a "
+                   "Databricks workspace determined as follows: if a Databricks tracking URI "
+                   "of the form 'databricks://profile' has been set (e.g. by setting "
+                   "the MLFLOW_TRACKING_URI environment variable), will run against the "
+                   "workspace specified by <profile>. Otherwise, runs against the workspace "
+                   "specified by the default Databricks CLI profile. See "
+                   "https://github.com/databricks/databricks-cli for more info on configuring a "
+                   "Databricks CLI profile.")
 @click.option("--cluster-spec", "-c", metavar="FILE",
               help="Path to JSON file (must end in '.json') or JSON string describing the cluster"
                    "to use when launching a run on Databricks. See "
@@ -121,7 +128,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             run_id=run_id,
         )
     except projects.ExecutionException as e:
-        eprint("=== %s ===" % e)
+        _logger.error("=== %s ===", e)
         sys.exit(1)
 
 

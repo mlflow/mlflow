@@ -11,26 +11,29 @@ import os
 import re
 import subprocess
 import tempfile
+import logging
 
+import mlflow.tracking as tracking
+import mlflow.tracking.fluent as fluent
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus, SourceType, Param
-import mlflow.tracking as tracking
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
-import mlflow.tracking.fluent as fluent
-
 
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
@@ -61,6 +64,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
 
+    repo_url = _get_git_repo_url(work_dir)
+    if repo_url is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL, repo_url)
+
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
@@ -71,6 +78,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
+
     elif mode == "local" or mode is None:
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
@@ -113,7 +121,12 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         environment variable ``$SHELL``) to run ``.sh`` files.
     :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_id: ID of experiment under which to launch the run.
-    :param mode: Execution mode of the run: "local" or "databricks".
+    :param mode: Execution mode of the run: "local" or "databricks". If running against Databricks,
+                 will run against a Databricks workspace determined as follows: if a Databricks
+                 tracking URI of the form 'databricks://profile' has been set (e.g. by setting
+                 the MLFLOW_TRACKING_URI environment variable), will run against the workspace
+                 specified by <profile>. Otherwise, runs against the workspace specified by the
+                 default Databricks CLI profile.
     :param cluster_spec: When ``mode`` is "databricks", dictionary or path to a JSON file
                          containing a `Databricks cluster specification
                          <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
@@ -145,8 +158,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
             try:
                 cluster_spec_dict = json.load(handle)
             except ValueError:
-                eprint("Error when attempting to load and parse JSON cluster spec from file "
-                       "%s. " % cluster_spec)
+                _logger.error(
+                    "Error when attempting to load and parse JSON cluster spec from file %s",
+                    cluster_spec)
                 raise
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
@@ -167,13 +181,13 @@ def _wait_for(submitted_run_obj):
     try:
         active_run = tracking.MlflowClient().get_run(run_id) if run_id is not None else None
         if submitted_run_obj.wait():
-            eprint("=== Run (ID '%s') succeeded ===" % run_id)
+            _logger.info("=== Run (ID '%s') succeeded ===", run_id)
             _maybe_set_run_terminated(active_run, "FINISHED")
         else:
             _maybe_set_run_terminated(active_run, "FAILED")
             raise ExecutionException("Run (ID '%s') failed" % run_id)
     except KeyboardInterrupt:
-        eprint("=== Run (ID '%s') interrupted, cancelling run ===" % run_id)
+        _logger.error("=== Run (ID '%s') interrupted, cancelling run ===", run_id)
         submitted_run_obj.cancel()
         _maybe_set_run_terminated(active_run, "FAILED")
         raise
@@ -196,6 +210,21 @@ def _get_storage_dir(storage_dir):
     if storage_dir is not None and not os.path.exists(storage_dir):
         os.makedirs(storage_dir)
     return tempfile.mkdtemp(dir=storage_dir)
+
+
+def _get_git_repo_url(work_dir):
+    from git import Repo
+    from git.exc import GitCommandError, InvalidGitRepositoryError
+    try:
+        repo = Repo(work_dir, search_parent_directories=True)
+        remote_urls = [remote.url for remote in repo.remotes]
+        if len(remote_urls) == 0:
+            return None
+    except GitCommandError:
+        return None
+    except InvalidGitRepositoryError:
+        return None
+    return remote_urls[0]
 
 
 def _expand_uri(uri):
@@ -236,7 +265,7 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     use_temp_dst_dir = force_tempdir or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
     if use_temp_dst_dir:
-        eprint("=== Fetching project from %s into %s ===" % (uri, dst_dir))
+        _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_local_uri(uri):
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
@@ -326,7 +355,7 @@ def _get_or_create_conda_env(conda_env_path):
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
     project_env_name = _get_conda_env_name(conda_env_path)
     if project_env_name not in env_names:
-        eprint('=== Creating conda environment %s ===' % project_env_name)
+        _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
                               conda_env_path], stream_output=True)
@@ -362,8 +391,10 @@ def _get_entry_point_command(project, entry_point, parameters, conda_env_name, s
                         arguments of type 'path'. If None, a temporary base directory is used.
     """
     storage_dir_for_run = _get_storage_dir(storage_dir)
-    eprint("=== Created directory %s for downloading remote URIs passed to arguments of "
-           "type 'path' ===" % storage_dir_for_run)
+    _logger.info(
+        "=== Created directory %s for downloading remote URIs passed to arguments of"
+        " type 'path' ===",
+        storage_dir_for_run)
     commands = []
     if conda_env_name:
         activate_path = _get_conda_bin_executable("activate")
@@ -383,7 +414,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     env = os.environ.copy()
     env.update(_get_run_env_vars(run_id, experiment_id))
-    eprint("=== Running command '%s' in run with ID '%s' === " % (command, run_id))
+    _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
     return LocalSubmittedRun(run_id, process)
 
@@ -460,7 +491,7 @@ def _invoke_mlflow_run_subprocess(
     Run an MLflow project asynchronously by invoking ``mlflow run`` in a subprocess, returning
     a SubmittedRun that can be used to query run status.
     """
-    eprint("=== Asynchronously launching MLflow run with ID %s ===" % run_id)
+    _logger.info("=== Asynchronously launching MLflow run with ID %s ===", run_id)
     mlflow_run_arr = _build_mlflow_run_cmd(
         uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
         run_id=run_id, parameters=parameters)

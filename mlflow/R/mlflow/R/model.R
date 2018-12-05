@@ -1,6 +1,6 @@
 #' Save Model for MLflow
 #'
-#' Saves model in MLflow's format that can later be used
+#' Saves model in MLflow format that can later be used
 #' for prediction and serving.
 #'
 #' @param x The serving function or model that will perform a prediction.
@@ -26,7 +26,7 @@ mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=
 
 #' Log Model
 #'
-#' Logs a model in the given run. Similar to `mlflow_save_model()`
+#' Logs a model for this run. Similar to `mlflow_save_model()`
 #' but stores model as an artifact within the active run.
 #'
 #' @param fn The serving function that will perform a prediction.
@@ -60,7 +60,9 @@ mlflow_write_model_spec <- function(path, content) {
   )
 }
 
-#' Generate prediction with MLflow model.
+#' Generate Prediction with MLflow Model
+#'
+#' Generates a prediction with an MLflow model.
 #'
 #' @param model MLflow model.
 #' @param data Dataframe to be scored.
@@ -69,12 +71,12 @@ mlflow_predict_model <- function(model, data) {
    model %>% mlflow_predict_flavor(data)
 }
 
-#' Load MLflow Model.
+#' Load MLflow Model
 #'
-#' MLflow models can have multiple model flavors. Not all flavors / models can be loaded in R. This
-#' method will by default search for a flavor supported by R/mlflow.
+#' Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
+#' can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
 #'
-#' @param model_path "Path to the MLflow model. The path is relative to the run with the given
+#' @param model_path Path to the MLflow model. The path is relative to the run with the given
 #'        run-id or local filesystem path without run-id.
 #' @param run_id Optional MLflow run-id. If supplied model will be fetched from MLflow tracking
 #'        server.
@@ -123,13 +125,13 @@ mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
 
 #' Predict using RFunc MLflow Model
 #'
-#' Predict using an RFunc MLflow Model from a file or data frame.
+#' Performs prediction using an RFunc MLflow model from a file or data frame.
 #'
 #' @param model_path The path to the MLflow model, as a string.
 #' @param run_uuid Run ID of run to grab the model from.
 #' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
-#' @param data Data frame to be scored. This can be utilized for testing purposes and can only
+#' @param data Data frame to be scored. This can be used for testing purposes and can only
 #'   be specified when `input_path` is not specified.
 #' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
 #'

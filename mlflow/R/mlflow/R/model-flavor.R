@@ -1,6 +1,6 @@
 #' Save MLflow Model Flavor
 #'
-#' Saves model in MLflow's flavor, to be used by package authors
+#' Saves model in MLflow flavor, to be used by package authors
 #' to extend the supported MLflow models.
 #'
 #' @param x The serving function or model that will perform a prediction.
@@ -11,7 +11,7 @@
 #'   or \code{conda.yaml}.
 #' @param conda_env Path to Conda dependencies file.
 #'
-#' @return This funciton must return a list of flavors that conform to
+#' @return This function must return a list of flavors that conform to
 #'   the MLmodel specification.
 #'
 #' @export
