@@ -37,7 +37,7 @@ R API
 
 The MLflow R API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
-For instance, you can use the R API to `install MLflow`_, start the `user interface <MLflow user interface_>`_, `create <Create Experiment_>`_ and `list experiments`_, `save models <Save Model for MLflow_>`_, `run projects <Run in MLflow_>`_ and `serve models <Serve an RFunc MLflow Model_>`_ among many other functions available in the R API.
+You can use the R API to `install MLflow`_, start the `user interface <Run MLflow user interface_>`_, `create <Create Experiment_>`_ and `list experiments <List Experiments_>`_, `save models <Save Model for MLflow_>`_, `run projects <Run in MLflow_>`_ and `serve models <Serve an RFunc MLflow Model_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
@@ -48,5 +48,3 @@ rst_doc <- c(rst_header, rst_doc)
 writeLines(rst_doc, "../../../docs/source/R-api.rst")
 
 # Generate docs by using an mlflow virtualenv and running `make` from `mlflow/docs`
-
-

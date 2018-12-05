@@ -6,7 +6,7 @@ R API
 
 The MLflow R API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
-For instance, you can use the R API to `install MLflow`_, start the `user interface <MLflow user interface_>`_, `create <Create Experiment_>`_ and `list experiments`_, `save models <Save Model for MLflow_>`_, `run projects <Run in MLflow_>`_ and `serve models <Serve an RFunc MLflow Model_>`_ among many other functions available in the R API.
+You can use the R API to `install MLflow`_, start the `user interface <Run MLflow user interface_>`_, `create <Create Experiment_>`_ and `list experiments <List Experiments_>`_, `save models <Save Model for MLflow_>`_, `run projects <Run in MLflow_>`_ and `serve models <Serve an RFunc MLflow Model_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
@@ -131,7 +131,7 @@ Retrieves the active run.
 MLflow Command
 ==============
 
-Executes a generic MLflow command through the command line interface.
+Runs a generic MLflow command through the command-line interface.
 
 .. code:: r
 
@@ -216,7 +216,7 @@ verbose compared to the Fluent API.
 Create Run
 ==========
 
-reate a new run within an experiment. A run is usually a single
+Create a new run within an experiment. A run is usually a single
 execution of a machine learning or data ETL pipeline.
 
 .. code:: r
@@ -245,7 +245,7 @@ Arguments
 | ``run_name``                  | Human readable name for run.         |
 +-------------------------------+--------------------------------------+
 | ``source_type``               | Originating source for this run. One |
-|                               | of Notebook, Job, Project, Local or  |
+|                               | of Notebook, Job, Project, Local, or |
 |                               | Unknown.                             |
 +-------------------------------+--------------------------------------+
 | ``source_name``               | String descriptor for source. For    |
@@ -280,7 +280,7 @@ verbose compared to the Fluent API.
 Delete Experiment
 =================
 
-Mark an experiment and associated runs, params, metrics, … etc for
+Marks an experiment and associated runs, params, metrics, etc. for
 deletion. If the experiment uses FileStore, artifacts associated with
 experiment are also deleted.
 
@@ -382,7 +382,7 @@ verbose compared to the Fluent API.
 Get Experiment by Name
 ======================
 
-Get meta data for experiment by name.
+Gets metadata for an experiment by name.
 
 .. code:: r
 
@@ -414,7 +414,7 @@ verbose compared to the Fluent API.
 Get Experiment
 ==============
 
-Get meta data for experiment and a list of runs for this experiment.
+Gets metadata for an experiment and a list of runs for the experiment.
 
 .. code:: r
 
@@ -446,7 +446,7 @@ verbose compared to the Fluent API.
 Get Run
 =======
 
-Get meta data, params, tags, and metrics for run. Only last logged value
+Gets metadata, params, tags, and metrics for a run. Only last logged value
 for each metric is returned.
 
 .. code:: r
@@ -476,10 +476,10 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-List artifacts
+List Artifacts
 ==============
 
-List artifacts
+Gets a list of artifacts.
 
 .. code:: r
 
@@ -497,7 +497,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``path``                      | The run’s relative artifact path to  |
+| ``path``                      | The run's relative artifact path to  |
 |                               | list from. If not specified, it is   |
 |                               | set to the root artifact path        |
 +-------------------------------+--------------------------------------+
@@ -515,7 +515,7 @@ verbose compared to the Fluent API.
 List Experiments
 ================
 
-Get a list of all experiments.
+Gets a list of all experiments.
 
 .. code:: r
 
@@ -550,7 +550,7 @@ verbose compared to the Fluent API.
 Log Artifact
 ============
 
-Logs an specific file or directory as an artifact.
+Logs a specific file or directory as an artifact for a run.
 
 .. code:: r
 
@@ -570,7 +570,7 @@ Arguments
 +-------------------+-------------------------------------------------+
 | ``path``          | The file or directory to log as an artifact.    |
 +-------------------+-------------------------------------------------+
-| ``artifact_path`` | Destination path within the run’s artifact URI. |
+| ``artifact_path`` | Destination path within the run's artifact URI. |
 +-------------------+-------------------------------------------------+
 
 .. _details-10:
@@ -584,9 +584,7 @@ the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
 When logging to Amazon S3, ensure that the user has a proper policy
-attach to it, for instance:
-
-\`\`
+attach to it.
 
 Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
@@ -595,7 +593,7 @@ corresponding key and secrets provided by Amazon IAM.
 Log Metric
 ==========
 
-API to log a metric for a run. Metrics key-value pair that record a
+Logs a metric for a run. Metrics key-value pair that records a
 single float measure. During a single execution of a run, a particular
 metric can be logged several times. Backend will keep track of
 historical values along with timestamps.
@@ -638,9 +636,9 @@ verbose compared to the Fluent API.
 Log Parameter
 =============
 
-API to log a parameter used for this run. Examples are params and
+Logs a parameter for a run. Examples are params and
 hyperparams used for ML training, or constant dates and values used in
-an ETL pipeline. A params is a STRING key-value pair. For a run, a
+an ETL pipeline. A param is a STRING key-value pair. For a run, a
 single parameter is allowed to be logged only once.
 
 .. code:: r
@@ -677,7 +675,7 @@ verbose compared to the Fluent API.
 Restore Experiment
 ==================
 
-Restore an experiment marked for deletion. This also restores associated
+Restores an experiment marked for deletion. This also restores associated
 metadata, runs, metrics, and params. If experiment uses FileStore,
 underlying artifacts associated with experiment are also restored.
 
@@ -704,7 +702,7 @@ Arguments
 Details
 -------
 
-Throws RESOURCE_DOES_NOT_EXIST if experiment was never created or was
+Throws ``RESOURCE_DOES_NOT_EXIST`` if the experiment was never created or was
 permanently deleted.
 
 The Tracking Client family of functions require an MLflow client to be
@@ -747,7 +745,7 @@ verbose compared to the Fluent API.
 Set Tag
 =======
 
-Set a tag on a run. Tags are run metadata that can be updated during and
+Sets a tag on a run. Tags are run metadata that can be updated during a run and
 after a run completes.
 
 .. code:: r
@@ -787,7 +785,7 @@ verbose compared to the Fluent API.
 Terminate a Run
 ===============
 
-Terminate a Run
+Terminates a run.
 
 .. code:: r
 
@@ -823,10 +821,10 @@ specified explicitly. These functions allow for greater control of where
 the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
-Initialize an MLflow client
+Initialize an MLflow Client
 ===========================
 
-Initialize an MLflow client
+Initializes an MLflow client.
 
 .. code:: r
 
@@ -884,7 +882,7 @@ does not exist, starts one through the implied service.
 End a Run
 =========
 
-End an active MLflow run (if there is one).
+Ends an active MLflow run (if there is one).
 
 .. code:: r
 
@@ -914,7 +912,7 @@ does not exist, starts one through the implied service.
 Get Remote Tracking URI
 =======================
 
-Get Remote Tracking URI
+Gets the remote tracking URI.
 
 .. code:: r
 
@@ -934,9 +932,9 @@ Installs MLflow for individual use.
 Details
 -------
 
-Notice that MLflow requires Python and Conda to be installed, see
+MLflow requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
-https://conda.io/docs/installation.html .
+https://conda.io/docs/installation.html.
 
 .. _examples-2:
 
@@ -969,12 +967,11 @@ Arguments
 | ``model_path`` | The path to the MLflow model wrapped in the correct class. |
 +----------------+------------------------------------------------------------+
 
-Load MLflow Model.
-==================
+Load MLflow Model
+=================
 
-MLflow models can have multiple model flavors. Not all flavors / models
-can be loaded in R. This method will by default search for a flavor
-supported by R/mlflow.
+Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
+can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
 
 .. code:: r
 
@@ -988,7 +985,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_path``                | "Path to the MLflow model. The path  |
+| ``model_path``                | Path to the MLflow model. The path   |
 |                               | is relative to the run with the      |
 |                               | given run-id or local filesystem     |
 |                               | path without run-id.                 |
@@ -1008,7 +1005,7 @@ Arguments
 Log Artifact
 ============
 
-Logs an specific file or directory as an artifact.
+Logs a specific file or directory as an artifact for this run.
 
 .. code:: r
 
@@ -1024,7 +1021,7 @@ Arguments
 +===================+=================================================+
 | ``path``          | The file or directory to log as an artifact.    |
 +-------------------+-------------------------------------------------+
-| ``artifact_path`` | Destination path within the run’s artifact URI. |
+| ``artifact_path`` | Destination path within the run's artifact URI. |
 +-------------------+-------------------------------------------------+
 
 .. _details-20:
@@ -1038,9 +1035,7 @@ operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
 When logging to Amazon S3, ensure that the user has a proper policy
-attach to it, for instance:
-
-\`\`
+attach to it.
 
 Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
@@ -1051,7 +1046,7 @@ corresponding key and secrets provided by Amazon IAM.
 Log Metric
 ==========
 
-API to log a metric for a run. Metrics key-value pair that record a
+Logs a metric for this run. Metrics key-value pair that records a
 single float measure. During a single execution of a run, a particular
 metric can be logged several times. Backend will keep track of
 historical values along with timestamps.
@@ -1090,7 +1085,7 @@ does not exist, starts one through the implied service.
 Log Model
 =========
 
-Logs a model in the given run. Similar to ``mlflow_save_model()`` but
+Logs a model for this run. Similar to ``mlflow_save_model()`` but
 stores model as an artifact within the active run.
 
 .. code:: r
@@ -1117,7 +1112,7 @@ Arguments
 Log Parameter
 =============
 
-API to log a parameter used for this run. Examples are params and
+Logs a parameter for this run. Examples are params and
 hyperparams used for ML training, or constant dates and values used in
 an ETL pipeline. A params is a STRING key-value pair. For a run, a
 single parameter is allowed to be logged only once.
@@ -1149,10 +1144,10 @@ determined by the service set by ``mlflow_set_tracking_uri()``. For
 operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
-Read Command Line Parameter
+Read Command-Line Parameter
 ===========================
 
-Reads a command line parameter.
+Reads a command-line parameter.
 
 .. code:: r
 
@@ -1166,17 +1161,17 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``name``                      | The name for this parameter.         |
+| ``name``                      | The name of the parameter.           |
 +-------------------------------+--------------------------------------+
-| ``default``                   | The default value for this           |
+| ``default``                   | The default value of the             |
 |                               | parameter.                           |
 +-------------------------------+--------------------------------------+
-| ``type``                      | Type of this parameter. Required if  |
+| ``type``                      | Type of the parameter. Required if   |
 |                               | ``default`` is not set. If           |
 |                               | specified, must be one of “numeric”, |
 |                               | “integer”, or “string”.              |
 +-------------------------------+--------------------------------------+
-| ``description``               | Optional description for this        |
+| ``description``               | Optional description for the         |
 |                               | parameter.                           |
 +-------------------------------+--------------------------------------+
 
@@ -1203,10 +1198,10 @@ Arguments
 | ``data``  | A data frame to perform scoring. |
 +-----------+----------------------------------+
 
-Generate prediction with MLflow model.
-======================================
+Generate Prediction with MLflow Model
+=====================================
 
-Generate prediction with MLflow model.
+Generates a prediction with an MLflow model.
 
 .. code:: r
 
@@ -1229,7 +1224,7 @@ Restore Snapshot
 ================
 
 Restores a snapshot of all dependencies required to run the files in the
-current directory
+current directory.
 
 .. code:: r
 
@@ -1238,7 +1233,7 @@ current directory
 Predict using RFunc MLflow Model
 ================================
 
-Predict using an RFunc MLflow Model from a file or data frame.
+Performs prediction using an RFunc MLflow model from a file or data frame.
 
 .. code:: r
 
@@ -1259,14 +1254,14 @@ Arguments
 | ``run_uuid``                  | Run ID of run to grab the model      |
 |                               | from.                                |
 +-------------------------------+--------------------------------------+
-| ``input_path``                | Path to ‘JSON’ or ‘CSV’ file to be   |
+| ``input_path``                | Path to JSON or CSV file to be       |
 |                               | used for prediction.                 |
 +-------------------------------+--------------------------------------+
-| ``output_path``               | ‘JSON’ or ‘CSV’ file where the       |
+| ``output_path``               | JSON or CSV file where the           |
 |                               | prediction will be written to.       |
 +-------------------------------+--------------------------------------+
 | ``data``                      | Data frame to be scored. This can be |
-|                               | utilized for testing purposes and    |
+|                               | used for testing purposes and        |
 |                               | can only be specified when           |
 |                               | ``input_path`` is not specified.     |
 +-------------------------------+--------------------------------------+
@@ -1287,7 +1282,7 @@ Examples
 Serve an RFunc MLflow Model
 ===========================
 
-Serve an RFunc MLflow Model as a local web api.
+Serves an RFunc MLflow model as a local web API.
 
 .. code:: r
 
@@ -1314,11 +1309,11 @@ Arguments
 | ``port``                      | Port to use to serve model, as       |
 |                               | numeric.                             |
 +-------------------------------+--------------------------------------+
-| ``daemonized``                | Makes ‘httpuv’ server daemonized so  |
+| ``daemonized``                | Makes ``httpuv`` server daemonized so|
 |                               | R interactive sessions are not       |
 |                               | blocked to handle requests. To       |
 |                               | terminate a daemonized server, call  |
-|                               | ‘httpuv::stopDaemonizedServer()’     |
+|                               | ``httpuv::stopDaemonizedServer()``   |
 |                               | with the handle returned from this   |
 |                               | call.                                |
 +-------------------------------+--------------------------------------+
@@ -1390,15 +1385,15 @@ Arguments
 |                               | running within a Conda environment   |
 |                               | with the necessary dependencies for  |
 |                               | the current project instead of       |
-|                               | attempting to create a new conda     |
+|                               | attempting to create a new Conda     |
 |                               | environment. Only valid if running   |
 |                               | locally.                             |
 +-------------------------------+--------------------------------------+
-| ``storage_dir``               | Only valid when ``mode`` is local.   |
+| ``storage_dir``               | Valid only when ``mode`` is local.   |
 |                               | MLflow downloads artifacts from      |
 |                               | distributed URIs passed to           |
-|                               | parameters of type ‘path’ to         |
-|                               | subdirectories of storage_dir.       |
+|                               | parameters of type ``path`` to       |
+|                               | subdirectories of ``storage_dir``.   |
 +-------------------------------+--------------------------------------+
 
 .. _value-1:
@@ -1411,7 +1406,7 @@ The run associated with this run.
 Save MLflow Keras Model Flavor
 ==============================
 
-Saves model in MLflow’s Keras flavor.
+Saves model in MLflow Keras flavor.
 
 .. code:: r
 
@@ -1451,7 +1446,7 @@ specification.
 Save MLflow Model Flavor
 ========================
 
-Saves model in MLflow’s flavor, to be used by package authors to extend
+Saves model in MLflow flavor, to be used by package authors to extend
 the supported MLflow models.
 
 .. code:: r
@@ -1492,7 +1487,7 @@ specification.
 Save Model for MLflow
 =====================
 
-Saves model in MLflow’s format that can later be used for prediction and
+Saves model in MLflow format that can later be used for prediction and
 serving.
 
 .. code:: r
@@ -1522,8 +1517,8 @@ Arguments
 | ``conda_env``                 | Path to Conda dependencies file.     |
 +-------------------------------+--------------------------------------+
 
-Run the MLflow Tracking Server
-==============================
+Run MLflow Tracking Server
+==========================
 
 Wrapper for ``mlflow server``.
 
@@ -1563,8 +1558,8 @@ Arguments
 Set Experiment
 ==============
 
-Set given experiment as active experiment. If experiment does not exist,
-create an experiment with provided name.
+Sets an experiment as the active experiment. If the experiment does not exist,
+creates an experiment with provided name.
 
 .. code:: r
 
@@ -1596,7 +1591,7 @@ does not exist, starts one through the implied service.
 Set Tag
 =======
 
-Set a tag on a run. Tags are run metadata that can be updated during and
+Sets a tag on a run. Tags are run metadata that can be updated during and
 after a run completes.
 
 .. code:: r
@@ -1703,9 +1698,9 @@ Arguments
 +===============================+======================================+
 | ``run_uuid``                  | If specified, get the run with the   |
 |                               | specified UUID and log metrics and   |
-|                               | params under that run. The run’s end |
+|                               | params under that run. The run's end |
 |                               | time is unset and its status is set  |
-|                               | to running, but the run’s other      |
+|                               | to running, but the run's other      |
 |                               | attributes remain unchanged.         |
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | Used only when ``run_uuid`` is       |
@@ -1751,10 +1746,10 @@ Examples
     list("\n", "with(mlflow_start_run(), {\n", "  mlflow_log(\"test\", 10)\n", "})\n") 
     
 
-MLflow User Interface
-=====================
+Run MLflow User Interface
+=========================
 
-Launches MLflow user interface.
+Launches the MLflow user interface.
 
 .. code:: r
 
@@ -1785,8 +1780,8 @@ Examples
     list("\n", "library(mlflow)\n", "mlflow_install()\n", "\n", "# launch mlflow ui locally\n", "mlflow_ui()\n", "\n", "# launch mlflow ui for existing mlflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_ui()\n") 
     
 
-Uninstalls MLflow.
-==================
+Uninstall MLflow
+================
 
 Uninstalls MLflow by removing the Conda environment.
 
