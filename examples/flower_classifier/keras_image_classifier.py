@@ -211,7 +211,9 @@ class KerasImageClassifierPyfunc(object):
     def __init__(self, model, image_dims, domain):
         self._model = model
         self._image_dims = image_dims
-        self._column_names = ["predicted_label"] + ["p({})".format(x) for x in domain]
+        self._domain = domain
+        probs_names = ["p({})".format(x) for x in domain]
+        self._column_names = ["predicted_label_id", "predicted_label"] + probs_names
 
     def predict_images(self, images):
         images = pd.DataFrame(images)
@@ -228,12 +230,13 @@ class KerasImageClassifierPyfunc(object):
         # decode image bytes from base64 encoding
         def decode_img(x):
             return pd.Series(base64.decodebytes(bytearray(x[0], encoding="utf8")))
-
         images = data.apply(axis=1, func=decode_img)
         probs = self.predict_images(images)
-        label_idx = np.argmax(probs)
-        # NB: we only return the predicted class id, as this is currently a limitation of spark_udf.
-        return pd.Series(label_idx)
+        m, n = probs.shape
+        label_idx = np.argmax(probs, axis=1).reshape(m, 1)
+        labels = np.array([self._domain[i] for i in label_idx], dtype=np.str).reshape(m, 1)
+        data = np.concatenate((label_idx, labels, probs), axis=1)
+        return pd.DataFrame(columns=self._column_names, data=data)
 
     @staticmethod
     def save_model(path, mlflow_model, keras_model, image_dims, domain):
