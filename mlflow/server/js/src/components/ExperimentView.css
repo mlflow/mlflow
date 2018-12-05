@@ -209,6 +209,7 @@ span.error-message {
 
 .ExperimentView .metric-param-content {
   padding: 4px;
+  padding-top: 0px;
 }
 
 .ExperimentView-expander:hover {

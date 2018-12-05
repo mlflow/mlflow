@@ -49,7 +49,7 @@ export default class BaggedCell extends Component {
     isMetric: PropTypes.bool.isRequired,
     isHovered: PropTypes.bool.isRequired,
     onRemoveBagged: PropTypes.func.isRequired,
-
+    sortIcon: PropTypes.node,
   };
 
   state = {
@@ -65,7 +65,7 @@ export default class BaggedCell extends Component {
   }
 
   getDropdown() {
-    const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
+    const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged, sortIcon} = this.props;
     return ( <Dropdown id="dropdown-custom-1" style={{width: 250}}>
         <ExperimentRunsSortToggle
           bsRole="toggle"
@@ -76,6 +76,7 @@ export default class BaggedCell extends Component {
                 style={styles.metricParamCellContent}
                 title={keyName}
               >
+                {sortIcon}
                 {keyName}:
               </span>
         </ExperimentRunsSortToggle>

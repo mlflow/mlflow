@@ -166,6 +166,7 @@ class ExperimentRunsTableCompactView extends Component {
       return (<BaggedCell
         key={keyname}
         // keyName={paramKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
+        sortIcon={sortIcon}
         keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
         setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
         onRemoveBagged={onRemoveBagged}/>);
@@ -190,10 +191,10 @@ class ExperimentRunsTableCompactView extends Component {
       const isHovered = hoverState.isMetric && hoverState.key === metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       return (
-        // TODO sorticon in bagged cells
         <BaggedCell key={keyname}
                     keyName={metricKey} value={metricsMap[metricKey].getValue().toString()} onHover={this.onHover}
                     // keyName={metricKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
+                    sortIcon={sortIcon}
                     setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
                     onRemoveBagged={onRemoveBagged}/>
       );
@@ -269,6 +270,7 @@ class ExperimentRunsTableCompactView extends Component {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
       const className = classNames("bottom-row", { "left-border": i === 0 });
       const elemKey = (isParam ? "param-" : "metric-") + key;
+      const keyContainerWidth = sortIcon ? "calc(100% - 20px)" : "100%";
       return (
         <div
           key={elemKey}
@@ -278,12 +280,12 @@ class ExperimentRunsTableCompactView extends Component {
             style={styles.metricParamHeaderContainer}
             className="run-table-container"
           >
-            <Dropdown id="dropdown-custom-1">
+            <Dropdown style={{width: "100%"}}>
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className="metric-param-sort-toggle"
               >
-                <span style={{maxWidth: 107.5, overflow: "hidden", display: "inline-block", verticalAlign: "middle"}}>{key}</span>
+                <span style={{maxWidth: keyContainerWidth, overflow: "hidden", display: "inline-block", verticalAlign: "middle"}}>{key}</span>
                 <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
               </ExperimentRunsSortToggle>
               <Dropdown.Menu className="mlflow-menu">
@@ -340,6 +342,7 @@ class ExperimentRunsTableCompactView extends Component {
 
   _lastRenderedWidth = this.props.width;
   _lastSortState = this.props.sortState;
+  _lastRunsExpanded = this.props.runsExpanded;
 
 
   render() {
@@ -397,6 +400,11 @@ class ExperimentRunsTableCompactView extends Component {
               if (this._lastSortState !== sortState) {
                 this._lastSortState = sortState;
                 console.log("Clearing all because sort state changed!");
+                this._cache.clearAll();
+              }
+              if (this._lastRunsExpanded !== runsExpanded) {
+                this._lastRunsExpanded = runsExpanded;
+                console.log("Clearing all because runs expanded changed!");
                 this._cache.clearAll();
               }
               return (<Table
@@ -469,17 +477,9 @@ class ExperimentRunsTableCompactView extends Component {
                     return headerCells[2]
                   }}
                   style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
+                  flexShrink={0}
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
-                    return (<CellMeasurer
-                      cache={this._cache}
-                      columnIndex={0}
-                      key={dataKey}
-                      parent={parent}
-                      rowIndex={rowIndex}>
-                      <div>
-                      {rows[rowIndex].contents[1 + 1]}
-                      </div>
-                    </CellMeasurer>)
+                    return rows[rowIndex].contents[1 + 1];
                   }}
                 />
                 <Column
@@ -558,7 +558,7 @@ class ExperimentRunsTableCompactView extends Component {
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={1}
+                      columnIndex={0}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
@@ -599,7 +599,7 @@ class ExperimentRunsTableCompactView extends Component {
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={2}
+                      columnIndex={1}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
