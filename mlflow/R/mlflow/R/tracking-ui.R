@@ -5,9 +5,9 @@ mlflow_view_url <- function(url) {
   invisible(url)
 }
 
-#' MLflow User Interface
+#' Run MLflow User Interface
 #'
-#' Launches MLflow user interface.
+#' Launches the MLflow user interface.
 #'
 #' @examples
 #' \dontrun{

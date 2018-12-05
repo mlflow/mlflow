@@ -12,10 +12,10 @@
 #' @param git_username Username for HTTP(S) Git authentication.
 #' @param git_password Password for HTTP(S) Git authentication.
 #' @param no_conda If specified, assume that MLflow is running within a Conda environment with the necessary
-#'   dependencies for the current project instead of attempting to create a new conda environment. Only
+#'   dependencies for the current project instead of attempting to create a new Conda environment. Only
 #'   valid if running locally.
-#' @param storage_dir Only valid when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
-#'  parameters of type 'path' to subdirectories of storage_dir.
+#' @param storage_dir Valid only when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
+#'  parameters of type `path` to subdirectories of `storage_dir`.
 #'
 #' @return The run associated with this run.
 #'

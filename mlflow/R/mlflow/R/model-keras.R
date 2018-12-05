@@ -1,6 +1,6 @@
 #' Save MLflow Keras Model Flavor
 #'
-#' Saves model in MLflow's Keras flavor.
+#' Saves model in MLflow Keras flavor.
 #'
 #' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
