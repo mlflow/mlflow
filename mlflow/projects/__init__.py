@@ -24,6 +24,7 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -63,6 +64,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
 
+    repo_url = _get_git_repo_url(work_dir)
+    if repo_url is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL, repo_url)
+
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
@@ -73,6 +78,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
+
     elif mode == "local" or mode is None:
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
@@ -204,6 +210,21 @@ def _get_storage_dir(storage_dir):
     if storage_dir is not None and not os.path.exists(storage_dir):
         os.makedirs(storage_dir)
     return tempfile.mkdtemp(dir=storage_dir)
+
+
+def _get_git_repo_url(work_dir):
+    from git import Repo
+    from git.exc import GitCommandError, InvalidGitRepositoryError
+    try:
+        repo = Repo(work_dir, search_parent_directories=True)
+        remote_urls = [remote.url for remote in repo.remotes]
+        if len(remote_urls) == 0:
+            return None
+    except GitCommandError:
+        return None
+    except InvalidGitRepositoryError:
+        return None
+    return remote_urls[0]
 
 
 def _expand_uri(uri):
