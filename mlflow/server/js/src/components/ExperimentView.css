@@ -220,3 +220,8 @@ span.error-message {
   text-transform: inherit;
   font-weight: inherit;
 }
+
+/* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
+.ReactVirtualized__Table__rowColumn {
+  overflow: visible !important;
+}

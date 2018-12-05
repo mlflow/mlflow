@@ -99,7 +99,6 @@ class ExperimentRunsTableCompactView extends Component {
     this.setState({ hoverState: {isParam, isMetric, key} });
   }
 
-
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
@@ -187,7 +186,7 @@ class ExperimentRunsTableCompactView extends Component {
       return (
         // TODO sorticon in bagged cells
         <BaggedCell key={keyname}
-                    keyName={metricKey} value={metricsMap[metricKey].getValue()} onHover={this.onHover}
+                    keyName={metricKey} value={metricsMap[metricKey].getValue().toString()} onHover={this.onHover}
                     // keyName={metricKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
                     setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
                     onRemoveBagged={onRemoveBagged}/>
@@ -395,7 +394,7 @@ class ExperimentRunsTableCompactView extends Component {
                 this._cache.clearAll();
               }
               return (<Table
-                width={width}
+                width={width + unbaggedMetrics.length * 120 + unbaggedParams.length * 120}
                 deferredMeasurementCache={this._cache}
                 // height={height}
                 height={500}
@@ -585,7 +584,7 @@ class ExperimentRunsTableCompactView extends Component {
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={0}
+                      columnIndex={1}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>

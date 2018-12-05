@@ -31,6 +31,11 @@ const styles = {
 
 export default class BaggedCell extends Component {
 
+  constructor(props) {
+    super(props);
+    this.showDropdownHandler = this.showDropdownHandler.bind(this);
+  }
+
   static propTypes = {
     keyName: PropTypes.string.isRequired,
     value: PropTypes.string.isRequired,
@@ -46,16 +51,25 @@ export default class BaggedCell extends Component {
 
   };
 
+  state = {
+    showDropdown: false,
+  };
+
+  showDropdownHandler() {
+    this.setState({showDropdown: true});
+  }
+
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.isHovered !== nextProps.isHovered;
   }
 
   getDropdown() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    return ( <Dropdown id="dropdown-custom-1" style={{width: 250}}>
+    return ( <Dropdown id="dropdown-custom-1" style={{width: 250}} open={true}>
         <ExperimentRunsSortToggle
           bsRole="toggle"
           className={"metric-param-sort-toggle"}
+          onClick={() => this.setState({showDropdown: false})}
         >
               <span
                 className="run-table-container underline-on-hover"
@@ -96,23 +110,41 @@ export default class BaggedCell extends Component {
 
   getCellContents() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    if (isHovered) {
+    if (this.state.showDropdown) {
       return this.getDropdown();
     }
-    return (
-      <span
-        className="run-table-container underline-on-hover"
-        style={styles.metricParamCellContent}
-      >
-                  {keyName}:
-        <span
-          className="metric-param-value run-table-container"
-          style={styles.metricParamCellContent}
-        >
+    return         ([<ExperimentRunsSortToggle
+      bsRole="toggle"
+      className={"metric-param-sort-toggle"}
+      onClick={this.showDropdownHandler}
+    >
+              <span
+                className="run-table-container underline-on-hover"
+                style={styles.metricParamCellContent}
+                title={keyName}
+              >
+                {keyName}:
+              </span>
+    </ExperimentRunsSortToggle>,         <span
+      className="metric-param-value run-table-container"
+      style={styles.metricParamCellContent}
+    >
               {value}
-            </span>
-      </span>
-    )
+        </span>]);
+    // return (
+    //   <span
+    //     className="run-table-container underline-on-hover"
+    //     style={styles.metricParamCellContent}
+    //   >
+    //               {keyName}:
+    //     <span
+    //       className="metric-param-value run-table-container"
+    //       style={styles.metricParamCellContent}
+    //     >
+    //           {value}
+    //         </span>
+    //   </span>
+    // )
   }
 
 
