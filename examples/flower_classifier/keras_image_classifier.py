@@ -181,7 +181,6 @@ class KerasImageClassifier(object):
                     optimizer=optimizer(),
                     loss=tf.keras.losses.categorical_crossentropy,
                     metrics=["accuracy"])
-                print(model.summary())
                 model.fit(
                     x=x_train,
                     y=y_train,
@@ -216,26 +215,24 @@ class KerasImageClassifierPyfunc(object):
         self._column_names = ["predicted_label_id", "predicted_label"] + probs_names
 
     def predict_images(self, images):
-        images = pd.DataFrame(images)
-
         def preprocess_f(z):
             return decode_and_resize_image(z, self._image_dims[:2])
 
         x = np.array(
             images[images.columns[0]].apply(preprocess_f).tolist())
-        probs = self._model.predict_images(x)
-        return probs
+        return self._model.predict(x)
 
     def predict(self, data):
         # decode image bytes from base64 encoding
         def decode_img(x):
             return pd.Series(base64.decodebytes(bytearray(x[0], encoding="utf8")))
+
         images = data.apply(axis=1, func=decode_img)
         probs = self.predict_images(images)
         m, n = probs.shape
-        label_idx = np.argmax(probs, axis=1).reshape(m, 1)
+        label_idx = np.argmax(probs, axis=1)
         labels = np.array([self._domain[i] for i in label_idx], dtype=np.str).reshape(m, 1)
-        data = np.concatenate((label_idx, labels, probs), axis=1)
+        data = np.concatenate((label_idx.reshape(m, 1), labels, probs), axis=1)
         return pd.DataFrame(columns=self._column_names, data=data)
 
     @staticmethod
@@ -327,6 +324,7 @@ class MLflowInceptionV3(KerasImageClassifier):
 
 def _imagenet_preprocess_tf(x):
     return (x / 127.5) - 1
+
 
 class MLflow_VGG16(KerasImageClassifier):
     """

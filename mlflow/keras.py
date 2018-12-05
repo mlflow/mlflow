@@ -123,11 +123,13 @@ class _KerasModelWrapper:
         self._graph = graph
         self._sess = sess
 
-    def predict(self, dataframe):
+    def predict(self, input_data):
         with self._graph.as_default():
             with self._sess.as_default():
-                predicted = pd.DataFrame(self.keras_model.predict(dataframe))
-        predicted.index = dataframe.index
+                predicted = self.keras_model.predict(input_data)
+        if isinstance(input_data, pd.DataFrame):
+            predicted = pd.DataFrame(predicted)
+            predicted.index = input_data.index
         return predicted
 
 
