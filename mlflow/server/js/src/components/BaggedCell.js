@@ -86,7 +86,7 @@ export default class BaggedCell extends Component {
         >
               {value}
         </span>
-        <Dropdown.Menu className="mlflow-menu" bsRole="menu">
+        <EmptyIfClosedMenu className="mlflow-menu" bsRole="menu">
           <MenuItem
             className="mlflow-menu-item"
             onClick={() => setSortByHandler(isMetric, isParam, keyName, true)}
@@ -105,7 +105,7 @@ export default class BaggedCell extends Component {
           >
             Display in own column
           </MenuItem>
-        </Dropdown.Menu>
+        </EmptyIfClosedMenu>
       </Dropdown>);
   }
 
