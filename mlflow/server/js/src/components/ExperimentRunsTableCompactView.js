@@ -44,7 +44,13 @@ const styles = {
   },
   metricParamNameContainer: {
     verticalAlign: "middle",
+    display: "inline-block",
   },
+  metricParamHeaderContainer: {
+    verticalAlign: "middle",
+    // display: "inline-block",
+    maxWidth: 120,
+  }
 };
 
 /**
@@ -269,7 +275,7 @@ class ExperimentRunsTableCompactView extends Component {
           className={className}
         >
           <span
-            style={styles.metricParamNameContainer}
+            style={styles.metricParamHeaderContainer}
             className="run-table-container"
           >
             <Dropdown id="dropdown-custom-1">
@@ -277,7 +283,7 @@ class ExperimentRunsTableCompactView extends Component {
                 bsRole="toggle"
                 className="metric-param-sort-toggle"
               >
-                {key}
+                <span style={{maxWidth: 107.5, overflow: "hidden", display: "inline-block", verticalAlign: "middle"}}>{key}</span>
                 <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
               </ExperimentRunsSortToggle>
               <Dropdown.Menu className="mlflow-menu">
@@ -408,18 +414,18 @@ class ExperimentRunsTableCompactView extends Component {
                 // }}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
-                overscanIndicesGetter={({
-                                          direction,          // One of "horizontal" or "vertical"
-                                          cellCount,          // Number of rows or columns in the current axis
-                                          scrollDirection,    // 1 (forwards) or -1 (backwards)
-                                          overscanCellsCount, // Maximum number of cells to over-render in either direction
-                                          startIndex,         // Begin of range of visible cells
-                                          stopIndex           // End of range of visible cells
-                                        }) => {
-                  const startIdx = Math.max(0, startIndex - overscanCellsCount);
-                  const endIdx = Math.min(stopIndex + overscanCellsCount, cellCount - 1);
-                  return {overscanStartIndex: startIdx, overscanStopIndex: endIdx};
-                }}
+                // overscanIndicesGetter={({
+                //                           direction,          // One of "horizontal" or "vertical"
+                //                           cellCount,          // Number of rows or columns in the current axis
+                //                           scrollDirection,    // 1 (forwards) or -1 (backwards)
+                //                           overscanCellsCount, // Maximum number of cells to over-render in either direction
+                //                           startIndex,         // Begin of range of visible cells
+                //                           stopIndex           // End of range of visible cells
+                //                         }) => {
+                //   const startIdx = Math.max(0, startIndex - overscanCellsCount);
+                //   const endIdx = Math.min(stopIndex + overscanCellsCount, cellCount - 1);
+                //   return {overscanStartIndex: startIdx, overscanStopIndex: endIdx};
+                // }}
                 rowGetter={({index}) => rows[index]}
                 rowStyle={({index}) => {
                   // console.log("Row style for row " + index);
@@ -458,13 +464,22 @@ class ExperimentRunsTableCompactView extends Component {
                 <Column
                   label='Date'
                   dataKey='date'
-                  width={120}
+                  width={150}
                   headerRenderer={() => {
                     return headerCells[2]
                   }}
                   style={{display: "flex", alignItems: "flex-start", overflow: "visible", borderLeft: "1px gray"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[1 + 1];
+                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
+                    return (<CellMeasurer
+                      cache={this._cache}
+                      columnIndex={0}
+                      key={dataKey}
+                      parent={parent}
+                      rowIndex={rowIndex}>
+                      <div>
+                      {rows[rowIndex].contents[1 + 1]}
+                      </div>
+                    </CellMeasurer>)
                   }}
                 />
                 <Column
@@ -543,7 +558,7 @@ class ExperimentRunsTableCompactView extends Component {
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={0}
+                      columnIndex={1}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
@@ -584,7 +599,7 @@ class ExperimentRunsTableCompactView extends Component {
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={1}
+                      columnIndex={2}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>

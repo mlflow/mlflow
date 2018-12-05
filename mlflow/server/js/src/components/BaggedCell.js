@@ -6,6 +6,7 @@ import { Dropdown, MenuItem } from 'react-bootstrap';
 import {RunInfo} from "../sdk/MlflowMessages";
 import classNames from 'classnames';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
+import EmptyIfClosedMenu from './EmptyIfClosedMenu';
 
 const styles = {
   sortArrow: {
@@ -65,11 +66,10 @@ export default class BaggedCell extends Component {
 
   getDropdown() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    return ( <Dropdown id="dropdown-custom-1" style={{width: 250}} open={true}>
+    return ( <Dropdown id="dropdown-custom-1" style={{width: 250}}>
         <ExperimentRunsSortToggle
           bsRole="toggle"
           className={"metric-param-sort-toggle"}
-          onClick={() => this.setState({showDropdown: false})}
         >
               <span
                 className="run-table-container underline-on-hover"
@@ -85,7 +85,7 @@ export default class BaggedCell extends Component {
         >
               {value}
         </span>
-        <Dropdown.Menu className="mlflow-menu">
+        <Dropdown.Menu className="mlflow-menu" bsRole="menu">
           <MenuItem
             className="mlflow-menu-item"
             onClick={() => setSortByHandler(isMetric, isParam, keyName, true)}
@@ -110,7 +110,7 @@ export default class BaggedCell extends Component {
 
   getCellContents() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    if (this.state.showDropdown) {
+    if (this.state.showDropdown || true) {
       return this.getDropdown();
     }
     return         ([<ExperimentRunsSortToggle

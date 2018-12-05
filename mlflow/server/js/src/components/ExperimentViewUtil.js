@@ -46,7 +46,7 @@ export default class ExperimentViewUtil {
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
     return [
-      <div key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
+      <div key="meta-link" className="run-table-container" style={{whiteSpace: "pre-wrap"}}>
         <div style={childLeftMargin}>
           <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
             {Utils.formatTimestamp(startTime)}
