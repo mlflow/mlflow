@@ -179,16 +179,16 @@ class ExperimentRunsTableCompactView extends Component {
     });
 
     // Add bagged metrics
-    // Add bagged metrics
-    const metricsCellContents = [...Array(100).keys()].map((metricKey) => {
+    const metricsCellContents = baggedMetrics.map((metricKey) => {
+    // const metricsCellContents = [...Array(100).keys()].map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const isHovered = hoverState.isMetric && hoverState.key === metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
-      //const metric = metricsMap[metricKey].getValue();
       return (
         // TODO sorticon in bagged cells
         <BaggedCell key={keyname}
-                    keyName={metricKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
+                    keyName={metricKey} value={metricsMap[metricKey].getValue()} onHover={this.onHover}
+                    // keyName={metricKey + "a".repeat(1000)} value={"b".repeat(1000)} onHover={this.onHover}
                     setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
                     onRemoveBagged={onRemoveBagged}/>
       );
@@ -334,6 +334,7 @@ class ExperimentRunsTableCompactView extends Component {
   });
 
   _lastRenderedWidth = this.props.width;
+  _lastSortState = this.props.sortState;
 
 
   render() {
@@ -364,7 +365,8 @@ class ExperimentRunsTableCompactView extends Component {
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
 
-    // // Thought: Need to use this to render the header row, since you have two of them
+    // // Thought: Need to use this to render the header row, since you have two of them.
+    // EDIT: react-virtualized only shows one row though.
     // const headerRowRenderer = ({
     //                              className,
     //                              columns,
@@ -387,19 +389,24 @@ class ExperimentRunsTableCompactView extends Component {
                 console.log("Clearing all!");
                 this._cache.clearAll();
               }
+              if (this._lastSortState !== sortState) {
+                this._lastSortState = sortState;
+                console.log("Clearing all because sort state changed!");
+                this._cache.clearAll();
+              }
               return (<Table
                 width={width}
                 deferredMeasurementCache={this._cache}
                 // height={height}
                 height={500}
                 headerHeight={32}
-                overscanRowCount={20}
-                onRowsRendered={({ overscanStartIndex, overscanStopIndex, startIndex, stopIndex }) => {
-                  console.log("overscanStartIndex: " + overscanStartIndex);
-                  console.log("overscanStopIndex: " + overscanStopIndex);
-                  console.log("startIndex: " + startIndex);
-                  console.log("stopIndex: " + stopIndex);
-                }}
+                overscanRowCount={2}
+                // onRowsRendered={({ overscanStartIndex, overscanStopIndex, startIndex, stopIndex }) => {
+                //   console.log("overscanStartIndex: " + overscanStartIndex);
+                //   console.log("overscanStopIndex: " + overscanStopIndex);
+                //   console.log("startIndex: " + startIndex);
+                //   console.log("stopIndex: " + stopIndex);
+                // }}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
                 overscanIndicesGetter={({
@@ -552,6 +559,7 @@ class ExperimentRunsTableCompactView extends Component {
                 />
                 {unbaggedMetrics.map((unbaggedMetric, idx) => {
                   return <Column
+                    key={"metric-" + unbaggedMetric}
                     label='Version'
                     dataKey={"metric-" + unbaggedMetric}
                     width={120}
