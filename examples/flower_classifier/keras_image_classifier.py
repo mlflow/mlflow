@@ -48,6 +48,7 @@ class MLflowLogger(Callback):
        - preprocessing: decode and resize the image.
        - post-processing: select output class id
     """
+
     def __init__(self, model, x_train, y_train, x_valid, y_valid,
                  **kwargs):
         self._model = model
@@ -77,7 +78,7 @@ class MLflowLogger(Callback):
             self._best_weights = [x.copy() for x in self._model.get_weights()]
 
     def on_train_end(self, logs=None):
-        self._model.set_weights(self._best_weights)
+        # self._model.set_weights(self._best_weights)
         x, y = self._train
         train_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, train_res):
@@ -100,6 +101,7 @@ class KerasImageClassifier(object):
         abstract methods.
 
     """
+
     def __init__(self, image_dims):
         self._input_shape = image_dims
 
@@ -132,7 +134,7 @@ class KerasImageClassifier(object):
               batch_size=16,
               test_ratio=0.2,
               custom_preprocessor=None,
-              optimizer=keras.optimizers.Adam,
+              optimizer=lambda: keras.optimizers.SGD(decay=1e-5, nesterov=True, momentum=.9),
               seed=None):
         """
         Train the model on provided image files. The images are expected to be raw and will be read,
@@ -163,23 +165,23 @@ class KerasImageClassifier(object):
             mlflow.log_param("batch_size", str(batch_size))
             mlflow.log_param("validation_ratio", str(test_ratio))
             mlflow.log_param("optimizer", optimizer.__name__)
-
             if seed:
                 mlflow.log_param("seed", str(seed))
 
             with tf.Graph().as_default() as graph:
                 import keras.backend as K
                 K.set_session(tf.Session(graph=graph))
-                model = self.create_model(classes=len(domain))
                 dims = self._input_shape[:2]
                 x = np.array([decode_and_resize_image(read_image(x), dims) for x in image_files])
                 y = np_utils.to_categorical(np.array(labels), num_classes=len(domain))
                 x_train, x_valid, y_train, y_valid = train_test_split(x, y, random_state=seed,
                                                                       train_size=(1 - test_ratio))
+                model = self.create_model(classes=len(domain))
                 model.compile(
                     optimizer=optimizer(),
                     loss=tf.keras.losses.categorical_crossentropy,
                     metrics=["accuracy"])
+                print(model.summary())
                 model.fit(
                     x=x_train,
                     y=y_train,
@@ -232,7 +234,6 @@ class KerasImageClassifierPyfunc(object):
         label_idx = np.argmax(probs)
         # NB: we only return the predicted class id, as this is currently a limitation of spark_udf.
         return pd.Series(label_idx)
-
 
     @staticmethod
     def save_model(path, mlflow_model, keras_model, image_dims, domain):
@@ -291,6 +292,7 @@ class MLflowInceptionV3(KerasImageClassifier):
     model will train a new one. Note that  in this mode, the pre-initialized layers are fixed and
     only the last output layer is trained.
     """
+
     def __init__(self, weights='imagenet'):
         super(MLflowInceptionV3, self).__init__(image_dims=(299, 299, 3))
         self.weights = weights
@@ -298,27 +300,21 @@ class MLflowInceptionV3(KerasImageClassifier):
     def params(self):
         return {"weights": self.weights}
 
-    @staticmethod
-    def preprocess(x):
-        import keras
-        return keras.applications.inception_v3.preprocess_input(x)
-
     def create_model(self, classes=None):
-        include_top = classes is None
+        include_top = (classes == 1000)
+        image = Input(shape=self._input_shape)
+        lambda_layer = Lambda(lambda x: (x / 127.5) - 1)
+        preprocessed_image = lambda_layer(image)
+        preprocessed_image.trainable = False
         model = inception_v3.InceptionV3(classes=classes,
                                          weights=self.weights,
                                          include_top=include_top,
-                                         input_shape=(299, 299, 3),
+                                         input_tensor=preprocessed_image,
                                          pooling='avg')
-        image = Input(shape=self._input_shape)
-        lambda_layer = Lambda(MLflowInceptionV3.preprocess)
-        preprocessed_image = lambda_layer(image)
-        preprocessed_image.trainable = False
-        model = Model(inputs=image, outputs=[model(preprocessed_image)])
         if not include_top:
-            for l in model.layers:
-                l.trainable = False
-
+            if self._weights == 'imagenet':
+                for l in model.layers:
+                    l.trainable = False
             model = Model(inputs=model.input,
                           outputs=Dense(classes,
                                         activation='softmax',
@@ -326,19 +322,18 @@ class MLflowInceptionV3(KerasImageClassifier):
         return model
 
 
+def _imagenet_preprocess_tf(x):
+    return (x / 127.5) - 1
+
 class MLflow_VGG16(KerasImageClassifier):
     """
     Image classifier based on Keras VGG16 model.
 
     Can be trained from scratch or use pre-trained model with weights trained on imagenet dataset.
     When using pretrained weights, the fully connected layers are dropped and replaced with new
-    ones.Note that  in this mode, the pre-initialized layers are fixed and only the fully connected
+    ones. Note that in this mode, the pre-initialized layers are fixed and only the fully connected
     layers are trained.
     """
-    @staticmethod
-    def preprocess(x):
-        import keras
-        return keras.applications.vgg16.preprocess_input(x)
 
     def __init__(self, weights="imagenet"):
         super(MLflow_VGG16, self).__init__(image_dims=(224, 224, 3))
@@ -349,13 +344,13 @@ class MLflow_VGG16(KerasImageClassifier):
 
     def create_model(self, classes):
         include_top = (classes == 1000)
-        model = vgg16.VGG16(classes=classes, input_shape=(224, 224, 3),
-                            weights=self._weights, include_top=include_top)
         image = Input(shape=self._input_shape)
-        lambda_layer = Lambda(MLflow_VGG16.preprocess)
+        lambda_layer = Lambda(_imagenet_preprocess_tf)
         preprocessed_image = lambda_layer(image)
         preprocessed_image.trainable = False
-        model = Model(inputs=image, outputs=[model(preprocessed_image)])
+        model = vgg16.VGG16(classes=classes,
+                            input_tensor=preprocessed_image,
+                            weights=self._weights, include_top=include_top)
         if not include_top:
             if self._weights == 'imagenet':
                 for l in model.layers:
