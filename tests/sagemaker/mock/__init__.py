@@ -200,6 +200,11 @@ class SageMakerBackend(BaseBackend):
         self._endpoint_update_latency_seconds = 0
 
     def set_endpoint_update_latency(self, latency_seconds):
+        """
+        Sets the latency for the following operations that update endpoint state: 
+        - "create_endpoint" 
+        - "update_endpoint" 
+        """
         self._endpoint_update_latency_seconds = latency_seconds
 
     def set_endpoint_status(self, endpoint_name, status):
