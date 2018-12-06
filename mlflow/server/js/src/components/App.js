@@ -23,7 +23,7 @@ class App extends Component {
       <Router>
         <div>
           <ErrorModal/>
-          {process.env.HIDE_HEADER === 'true' ? undefined : <header className="App-header">
+          {process.env.HIDE_HEADER === 'true' ? null : <header className="App-header">
             <div className="mlflow-logo">
               <Link
                 to={Routes.rootRoute}
