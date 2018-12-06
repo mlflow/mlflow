@@ -197,7 +197,7 @@ class SageMakerBackend(BaseBackend):
         self.models = {}
         self.endpoints = {}
         self.endpoint_configs = {}
-        self._endpoint_update_latency_seconds = 0 
+        self._endpoint_update_latency_seconds = 0
 
     def set_endpoint_update_latency(self, latency_seconds):
         self._endpoint_update_latency_seconds = latency_seconds
@@ -293,9 +293,9 @@ class SageMakerBackend(BaseBackend):
                              " `{config_name}` However, this configuration does not exist.".format(
                                 config_name=endpoint_config_name))
 
-        new_endpoint = Endpoint(endpoint_name=endpoint_name, 
+        new_endpoint = Endpoint(endpoint_name=endpoint_name,
                                 config_name=endpoint_config_name,
-                                tags=tags, 
+                                tags=tags,
                                 update_latency_seconds=self._endpoint_update_latency_seconds)
         new_endpoint_arn = self._get_base_arn(region_name=region_name) + new_endpoint.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_endpoint, arn=new_endpoint_arn)
@@ -454,7 +454,7 @@ class Endpoint(TimestampedResource):
 
     def __init__(self, endpoint_name, config_name, tags, update_latency_seconds=0):
         super(Endpoint, self).__init__()
-        self.last_modified_time = time.time() 
+        self.last_modified_time = time.time()
         self.endpoint_name = endpoint_name
         self._config_name = config_name
         self.tags = tags
@@ -480,7 +480,7 @@ class Endpoint(TimestampedResource):
     @property
     def config_name(self):
         return self._config_name
-        
+
     @config_name.setter
     def config_name(self, config_name):
         self._config_name = config_name

@@ -18,7 +18,7 @@ import mlflow.sagemaker as mfs
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_pb2 import PUBLIC 
+from mlflow.protos.databricks_pb2 import PUBLIC
 from mlflow.tracking.utils import _get_model_log_dir
 
 from tests.sagemaker.mock import mock_sagemaker
@@ -249,7 +249,7 @@ def test_deploy_in_asynchronous_mode_returns_before_endpoint_creation_completes(
                synchronous=False,
                archive=True)
     deployment_end_time = time.time()
-    
+
     assert (deployment_end_time - deployment_start_time) < endpoint_creation_latency
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
     assert endpoint_description["EndpointStatus"] == "Creating"
@@ -265,9 +265,9 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
     def fail_endpoint_creations(self, operation_name, operation_kwargs):
         """
         Processes all boto3 client operations according to the following rules:
-        - If the operation is an endpoint creation, create the endpoint and set its status to 
-          "Failed"         
-        - Else, execute the client operation as normal 
+        - If the operation is an endpoint creation, create the endpoint and set its status to
+          "Failed"
+        - Else, execute the client operation as normal
         """
         result = boto_caller(self, operation_name, operation_kwargs)
         if operation_name == "CreateEndpoint":
@@ -356,7 +356,7 @@ def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
             variant["ModelName"] for variant in production_variants_after_replacement]
     assert len(deployed_models_after_replacement) == 1
     assert all([model_name not in deployed_models_after_replacement\
-                for model_name in deployed_models_before_replacement]) 
+                for model_name in deployed_models_before_replacement])
 
 
 @mock_sagemaker_aws_services
@@ -375,9 +375,9 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
     def fail_endpoint_updates(self, operation_name, operation_kwargs):
         """
         Processes all boto3 client operations according to the following rules:
-        - If the operation is an endpoint update, update the endpoint and set its status to 
-          "Failed"         
-        - Else, execute the client operation as normal 
+        - If the operation is an endpoint update, update the endpoint and set its status to
+          "Failed"
+        - Else, execute the client operation as normal
         """
         result = boto_caller(self, operation_name, operation_kwargs)
         if operation_name == "UpdateEndpoint":
@@ -418,12 +418,12 @@ def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_dele
         Processes all boto3 client operations according to the following rules:
         - If the operation deletes an S3 or SageMaker resource, ensure that the deletion was
           initiated after the completion of the endpoint update
-        - Else, execute the client operation as normal 
+        - Else, execute the client operation as normal
         """
         result = boto_caller(self, operation_name, operation_kwargs)
         if "Delete" in operation_name:
             # Confirm that a successful endpoint update occurred prior to the invocation of this
-            # delete operation 
+            # delete operation
             endpoint_info = sagemaker_client.describe_endpoint(EndpointName=app_name)
             assert endpoint_info["EndpointStatus"] == "InService"
             assert endpoint_info["EndpointConfigName"] != endpoint_config_name_before_replacement
