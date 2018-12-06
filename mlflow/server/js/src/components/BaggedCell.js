@@ -61,7 +61,7 @@ export default class BaggedCell extends Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.isHovered !== nextProps.isHovered;
+    return this.props.isHovered !== nextProps.isHovered || this.props.sortIcon !== nextProps.sortIcon;
   }
 
   getDropdown() {
@@ -117,7 +117,6 @@ export default class BaggedCell extends Component {
     return         ([<ExperimentRunsSortToggle
       bsRole="toggle"
       className={"metric-param-sort-toggle"}
-      onClick={this.showDropdownHandler}
     >
               <span
                 className="run-table-container underline-on-hover"
@@ -151,7 +150,7 @@ export default class BaggedCell extends Component {
 
   render() {
     const { keyName, value, onHover, setSortByHandler, isParam, isMetric, isHovered, onRemoveBagged} = this.props;
-    const cellClass = classNames("metric-param-content", "metric-param-cell");
+    const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     const contents = this.getCellContents();
     return (
       <span

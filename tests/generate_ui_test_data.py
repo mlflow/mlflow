@@ -151,9 +151,9 @@ if __name__ == '__main__':
     #         log_metrics(metrics)
     #         log_params(params)
 
-    mlflow.set_experiment("normal-case-simulation")
+    mlflow.set_experiment("normal-size-vals")
     for i in range(250):
-        with mlflow.start_run(source_name="normal-case-sim-{}".format(i)):
+        with mlflow.start_run(source_name="normal-size-vals-{}".format(i)):
             params = {str(random()) * 3: str(random()) * 3 for j in range(100)}
             metrics = {str(random()) * 3: [random()] for j in range(100)}
             log_metrics(metrics)

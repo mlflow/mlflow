@@ -155,10 +155,10 @@ class ExperimentRunsTableMultiColumnView extends Component {
       getRow: this.getRow
     });
     const columns = [
-      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "td"),
-      ExperimentViewUtil.getExpanderHeader("td"),
+      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "th"),
+      ExperimentViewUtil.getExpanderHeader("th"),
     ];
-    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState, "td")
+    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState, "th")
       .forEach((cell) => columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
     return (<Table className="ExperimentViewMultiColumn" hover>
