@@ -28,7 +28,7 @@ mlflow_lock_delete <- function() {
 #' Restore Snapshot
 #'
 #' Restores a snapshot of all dependencies required to run the files in the
-#' current directory
+#' current directory.
 #'
 #' @export
 mlflow_restore_snapshot <- function() {

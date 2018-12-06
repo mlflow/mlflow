@@ -8,7 +8,9 @@ new_mlflow_client <- function(tracking_uri, server_url = NULL) {
   )
 }
 
-#' Initialize an MLflow client
+#' Initialize an MLflow Client
+#'
+#' Initializes an MLflow client.
 #'
 #' @param tracking_uri The tracking URI. If not provided, defaults to the service
 #'  set by `mlflow_set_tracking_uri()`.
@@ -50,7 +52,7 @@ mlflow_client_create_experiment <- function(client, name, artifact_location = NU
 
 #' List Experiments
 #'
-#' Get a list of all experiments.
+#' Gets a list of all experiments.
 #'
 #' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
 #' @template roxlate-client
@@ -69,7 +71,7 @@ mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", 
 
 #' Get Experiment
 #'
-#' Get meta data for experiment and a list of runs for this experiment.
+#' Gets metadata for an experiment and a list of runs for the experiment.
 #'
 #' @param experiment_id Identifer to get an experiment.
 #' @template roxlate-client
@@ -147,7 +149,7 @@ mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
 
 #' Delete Experiment
 #'
-#' Mark an experiment and associated runs, params, metrics, … etc for deletion. If the
+#' Marks an experiment and associated runs, params, metrics, etc. for deletion. If the
 #'   experiment uses FileStore, artifacts associated with experiment are also deleted.
 #'
 #' @param experiment_id ID of the associated experiment. This field is required.
@@ -161,11 +163,11 @@ mlflow_client_delete_experiment <- function(client, experiment_id) {
 
 #' Restore Experiment
 #'
-#' Restore an experiment marked for deletion. This also restores associated metadata,
+#' Restores an experiment marked for deletion. This also restores associated metadata,
 #'   runs, metrics, and params. If experiment uses FileStore, underlying artifacts
 #'   associated with experiment are also restored.
 #'
-#' Throws RESOURCE_DOES_NOT_EXIST if experiment was never created or was permanently deleted.
+#' Throws `RESOURCE_DOES_NOT_EXIST` if the experiment was never created or was permanently deleted.
 #'
 #' @param experiment_id ID of the associated experiment. This field is required.
 #' @template roxlate-client
@@ -178,7 +180,7 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
 
 #' Get Run
 #'
-#' Get meta data, params, tags, and metrics for run. Only last logged value for each metric is returned.
+#' Gets metadata, params, tags, and metrics for a run. Only last logged value for each metric is returned.
 #'
 #' @template roxlate-run-id
 #' @template roxlate-client
@@ -192,7 +194,7 @@ mlflow_client_get_run <- function(client, run_id) {
 
 #' Log Metric
 #'
-#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
+#' Logs a metric for a run. Metrics key-value pair that records a single float measure.
 #'   During a single execution of a run, a particular metric can be logged several times.
 #'   Backend will keep track of historical values along with timestamps.
 #'
@@ -217,9 +219,9 @@ mlflow_client_log_metric <- function(client, run_id, key, value, timestamp = NUL
 
 #' Log Parameter
 #'
-#' API to log a parameter used for this run. Examples are params and hyperparams
+#' Logs a parameter for a run. Examples are params and hyperparams
 #'   used for ML training, or constant dates and values used in an ETL pipeline.
-#'   A params is a STRING key-value pair. For a run, a single parameter is allowed
+#'   A param is a STRING key-value pair. For a run, a single parameter is allowed
 #'   to be logged only once.
 #'
 #' @param key Name of the parameter.
@@ -236,7 +238,7 @@ mlflow_client_log_param <- function(client, run_id, key, value) {
 
 #' Set Tag
 #'
-#' Set a tag on a run. Tags are run metadata that can be updated during and
+#' Sets a tag on a run. Tags are run metadata that can be updated during a run and
 #'  after a run completes.
 #'
 #' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
@@ -253,6 +255,8 @@ mlflow_client_set_tag <- function(client, run_id, key, value) {
 }
 
 #' Terminate a Run
+#'
+#' Terminates a run.
 #'
 #' @param run_id Unique identifier for the run.
 #' @param status Updated status of the run. Defaults to `FINISHED`.
@@ -291,17 +295,17 @@ mlflow_client_restore_run <- function(client, run_id) {
 
 #' Log Artifact
 #'
-#' Logs an specific file or directory as an artifact.
+#' Logs a specific file or directory as an artifact for a run.
 #'
 #' @param path The file or directory to log as an artifact.
-#' @param artifact_path Destination path within the run’s artifact URI.
+#' @param artifact_path Destination path within the run's artifact URI.
 #' @template roxlate-client
 #' @template roxlate-run-id
 #'
 #' @details
 #'
 #' When logging to Amazon S3, ensure that the user has a proper policy
-#' attach to it, for instance:
+#' attached to it, for instance:
 #'
 #' \code{
 #' {
@@ -352,7 +356,9 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
   invisible(NULL)
 }
 
-#' List artifacts
+#' List Artifacts
+#'
+#' Gets a list of artifacts.
 #'
 #' @template roxlate-client
 #' @template roxlate-run-id

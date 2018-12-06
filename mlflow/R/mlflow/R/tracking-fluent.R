@@ -15,8 +15,8 @@ mlflow_create_experiment <- function(name, artifact_location = NULL) {
 
 #' Set Experiment
 #'
-#' Set given experiment as active experiment. If experiment does not
-#'  exist, create an experiment with provided name.
+#' Sets an experiment as the active experiment. If the experiment does not exist,
+#'   creates an experiment with provided name.
 #'
 #' @param experiment_name Name of experiment to be activated.
 #' @template roxlate-fluent
@@ -40,7 +40,7 @@ mlflow_set_experiment <- function(experiment_name) {
 #' @param run_uuid If specified, get the run with the specified UUID and log metrics
 #'   and params under that run. The run's end time is unset and its status is set to
 #'   running, but the run's other attributes remain unchanged.
-#' @param experiment_id Used only when ``run_uuid`` is unspecified. ID of the experiment under
+#' @param experiment_id Used only when `run_uuid` is unspecified. ID of the experiment under
 #'   which to create the current run. If unspecified, the run is created under
 #'   a new experiment with a randomly generated name.
 #' @param source_name Name of the source file or URI of the project to be associated with the run.
@@ -97,7 +97,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
 
 #' Log Metric
 #'
-#' API to log a metric for a run. Metrics key-value pair that record a single float measure.
+#' Logs a metric for this run. Metrics key-value pair that records a single float measure.
 #'   During a single execution of a run, a particular metric can be logged several times.
 #'   Backend will keep track of historical values along with timestamps.
 #'
@@ -119,7 +119,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL) {
 
 #' Set Tag
 #'
-#' Set a tag on a run. Tags are run metadata that can be updated during and
+#' Sets a tag on a run. Tags are run metadata that can be updated during and
 #'  after a run completes.
 #'
 #' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
@@ -137,7 +137,7 @@ mlflow_set_tag <- function(key, value) {
 
 #' End a Run
 #'
-#' End an active MLflow run (if there is one).
+#' Ends an active MLflow run (if there is one).
 #'
 #' @param status Updated status of the run. Defaults to `FINISHED`.
 #' @template roxlate-fluent
@@ -156,7 +156,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
 
 #' Log Parameter
 #'
-#' API to log a parameter used for this run. Examples are params and hyperparams
+#' Logs a parameter for this run. Examples are params and hyperparams
 #'   used for ML training, or constant dates and values used in an ETL pipeline.
 #'   A params is a STRING key-value pair. For a run, a single parameter is allowed
 #'   to be logged only once.
@@ -175,16 +175,16 @@ mlflow_log_param <- function(key, value) {
 
 #' Log Artifact
 #'
-#' Logs an specific file or directory as an artifact.
+#' Logs a specific file or directory as an artifact for this run.
 #'
 #' @param path The file or directory to log as an artifact.
-#' @param artifact_path Destination path within the run’s artifact URI.
+#' @param artifact_path Destination path within the run's artifact URI.
 #' @template roxlate-fluent
 #'
 #' @details
 #'
 #' When logging to Amazon S3, ensure that the user has a proper policy
-#' attach to it, for instance:
+#' attached to it, for instance:
 #'
 #' \code{
 #' {
