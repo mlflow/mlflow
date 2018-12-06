@@ -180,11 +180,11 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
     assert any([pretrained_model.run_id in object_name for object_name in object_names])
-    assert any([app_name in model["ModelName"] 
+    assert any([app_name in model["ModelName"]
                 for model in sagemaker_client.list_models()["Models"]])
-    assert any([app_name in config["EndpointConfigName"] 
+    assert any([app_name in config["EndpointConfigName"]
                 for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
-    assert app_name in [endpoint["EndpointName"] 
+    assert app_name in [endpoint["EndpointName"]
                         for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
 
 
@@ -451,7 +451,7 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     object_names_before_replacement = [
             entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
     endpoint_configs_before_replacement = [
-            config["EndpointConfigName"] for config in 
+            config["EndpointConfigName"] for config in
             sagemaker_client.list_endpoint_configs()["EndpointConfigs"]]
     models_before_replacement = [
             model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
@@ -472,12 +472,12 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     object_names_after_replacement = [
             entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
     endpoint_configs_after_replacement = [
-            config["EndpointConfigName"] for config in 
+            config["EndpointConfigName"] for config in
             sagemaker_client.list_endpoint_configs()["EndpointConfigs"]]
     models_after_replacement = [
             model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
-    assert all([object_name in object_names_after_replacement 
+    assert all([object_name in object_names_after_replacement
                 for object_name in object_names_before_replacement])
-    assert all([endpoint_config in endpoint_configs_after_replacement 
+    assert all([endpoint_config in endpoint_configs_after_replacement
                 for endpoint_config in endpoint_configs_before_replacement])
     assert all([model in models_after_replacement for model in models_before_replacement])
