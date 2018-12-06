@@ -273,7 +273,7 @@ def test_deploy_replace_in_asynchronous_mode_returns_before_endpoint_creation_co
                archive=True)
     update_end_time = time.time()
 
-    assert (update_end_time - update_start_time) < endpoint_update_latency 
+    assert (update_end_time - update_start_time) < endpoint_update_latency
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
     assert endpoint_description["EndpointStatus"] == Endpoint.STATUS_UPDATING
 
