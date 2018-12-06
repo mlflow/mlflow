@@ -151,7 +151,7 @@ def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrai
     assert selected_flavor in model_config.flavors
 
 
-def test_attempting_to_deploy_in_asynchronous_mode_with_archiving_disabled_throws_exception(
+def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exception(
         pretrained_model):
     with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="test-app",
