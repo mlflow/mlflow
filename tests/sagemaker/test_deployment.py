@@ -257,6 +257,7 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
     sagemaker_backend.set_endpoint_update_latency(10)
 
     boto_caller = botocore.client.BaseClient._make_api_call
+
     def fail_endpoint_creations(self, operation_name, operation_kwargs):
         """
         Processes all boto3 client operations according to the following rules:
@@ -325,13 +326,13 @@ def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
 
     endpoint_response_before_replacement = sagemaker_client.describe_endpoint(EndpointName=app_name)
     endpoint_config_name_before_replacement =\
-            endpoint_response_before_replacement["EndpointConfigName"]
+        endpoint_response_before_replacement["EndpointConfigName"]
     endpoint_config_response_before_replacement = sagemaker_client.describe_endpoint_config(
-            EndpointConfigName=endpoint_config_name_before_replacement)
+        EndpointConfigName=endpoint_config_name_before_replacement)
     production_variants_before_replacement =\
-            endpoint_config_response_before_replacement["ProductionVariants"]
+        endpoint_config_response_before_replacement["ProductionVariants"]
     deployed_models_before_replacement = [
-            variant["ModelName"] for variant in production_variants_before_replacement]
+        variant["ModelName"] for variant in production_variants_before_replacement]
 
     mfs.deploy(app_name=app_name,
                model_path=pretrained_model.model_path,
@@ -342,15 +343,15 @@ def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
 
     endpoint_response_after_replacement = sagemaker_client.describe_endpoint(EndpointName=app_name)
     endpoint_config_name_after_replacement =\
-            endpoint_response_after_replacement["EndpointConfigName"]
+        endpoint_response_after_replacement["EndpointConfigName"]
     endpoint_config_response_after_replacement = sagemaker_client.describe_endpoint_config(
-            EndpointConfigName=endpoint_config_name_after_replacement)
+        EndpointConfigName=endpoint_config_name_after_replacement)
     production_variants_after_replacement =\
-            endpoint_config_response_after_replacement["ProductionVariants"]
+        endpoint_config_response_after_replacement["ProductionVariants"]
     deployed_models_after_replacement = [
-            variant["ModelName"] for variant in production_variants_after_replacement]
+        variant["ModelName"] for variant in production_variants_after_replacement]
     assert len(deployed_models_after_replacement) == 1
-    assert all([model_name not in deployed_models_after_replacement\
+    assert all([model_name not in deployed_models_after_replacement
                 for model_name in deployed_models_before_replacement])
 
 
@@ -367,6 +368,7 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     boto_caller = botocore.client.BaseClient._make_api_call
+
     def fail_endpoint_updates(self, operation_name, operation_kwargs):
         """
         Processes all boto3 client operations according to the following rules:
@@ -406,8 +408,9 @@ def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_dele
     endpoint_config_name_before_replacement = sagemaker_client.describe_endpoint(
             EndpointName=app_name)["EndpointConfigName"]
 
-    update_start_time = time.time()
     boto_caller = botocore.client.BaseClient._make_api_call
+    update_start_time = time.time()
+
     def validate_deletes(self, operation_name, operation_kwargs):
         """
         Processes all boto3 client operations according to the following rules:
