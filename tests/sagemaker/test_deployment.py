@@ -166,31 +166,26 @@ def test_attempting_to_deploy_in_asynchronous_mode_with_archiving_disabled_throw
 
 
 @mock_sagemaker_aws_services
-def test_deploy_creates_sagemaker_resources_with_expected_names(pretrained_model, sagemaker_client):
+def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
+        pretrained_model, sagemaker_client):
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
                model_path=pretrained_model.model_path,
                run_id=pretrained_model.run_id,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
-    models_response = sagemaker_client.list_models()
-    found_matching_model = False
-    for model in models_response["Models"]:
-        if app_name in model["ModelName"]:
-            found_matching_model = True
-            break
-    assert found_matching_model
-
-    endpoint_configs_response = sagemaker_client.list_endpoint_configs()
-    found_matching_config = False
-    for config in endpoint_configs_response["EndpointConfigs"]:
-        if app_name in config["EndpointConfigName"]:
-            found_matching_config = True
-            break
-    assert found_matching_config
-
-    endpoints_response = sagemaker_client.list_endpoints()
-    assert app_name in [endpoint["EndpointName"] for endpoint in endpoints_response["Endpoints"]]
+    region_name = sagemaker_client.meta.region_name
+    s3_client = boto3.client("s3", region_name=region_name)
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    object_names = [
+        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
+    assert any([pretrained_model.run_id in object_name for object_name in object_names])
+    assert any([app_name in model["ModelName"] 
+                for model in sagemaker_client.list_models()["Models"]])
+    assert any([app_name in config["EndpointConfigName"] 
+                for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
+    assert app_name in [endpoint["EndpointName"] 
+                        for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
 
 
 @mock_sagemaker_aws_services
@@ -436,3 +431,53 @@ def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_dele
                    run_id=pretrained_model.run_id,
                    mode=mfs.DEPLOYMENT_MODE_REPLACE,
                    archive=False)
+
+
+@mock_sagemaker_aws_services
+def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
+        pretrained_model, sagemaker_client):
+    region_name = sagemaker_client.meta.region_name
+    sagemaker_backend = get_sagemaker_backend(region_name)
+    sagemaker_backend.set_endpoint_update_latency(5)
+
+    app_name = "test-app"
+    mfs.deploy(app_name=app_name,
+               model_path=pretrained_model.model_path,
+               run_id=pretrained_model.run_id,
+               mode=mfs.DEPLOYMENT_MODE_CREATE)
+
+    s3_client = boto3.client("s3", region_name=region_name)
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    object_names_before_replacement = [
+            entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
+    endpoint_configs_before_replacement = [
+            config["EndpointConfigName"] for config in 
+            sagemaker_client.list_endpoint_configs()["EndpointConfigs"]]
+    models_before_replacement = [
+            model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
+
+    sk_model = mlflow.sklearn.load_model(
+            path=pretrained_model.model_path, run_id=pretrained_model.run_id)
+    new_artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
+        new_run_id = mlflow.active_run().info.run_uuid
+    mfs.deploy(app_name=app_name,
+               model_path=new_artifact_path,
+               run_id=new_run_id,
+               mode=mfs.DEPLOYMENT_MODE_REPLACE,
+               archive=True,
+               synchronous=True)
+
+    object_names_after_replacement = [
+            entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
+    endpoint_configs_after_replacement = [
+            config["EndpointConfigName"] for config in 
+            sagemaker_client.list_endpoint_configs()["EndpointConfigs"]]
+    models_after_replacement = [
+            model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
+    assert all([object_name in object_names_after_replacement 
+                for object_name in object_names_before_replacement])
+    assert all([endpoint_config in endpoint_configs_after_replacement 
+                for endpoint_config in endpoint_configs_before_replacement])
+    assert all([model in models_after_replacement for model in models_before_replacement])
