@@ -296,7 +296,8 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
         result = boto_caller(self, operation_name, operation_kwargs)
         if operation_name == "CreateEndpoint":
             endpoint_name = operation_kwargs["EndpointName"]
-            sagemaker_backend.set_endpoint_status(endpoint_name=endpoint_name, status=Endpoint.STATUS_FAILED)
+            sagemaker_backend.set_endpoint_status(
+                    endpoint_name=endpoint_name, status=Endpoint.STATUS_FAILED)
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations),\
@@ -407,7 +408,8 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
         result = boto_caller(self, operation_name, operation_kwargs)
         if operation_name == "UpdateEndpoint":
             endpoint_name = operation_kwargs["EndpointName"]
-            sagemaker_backend.set_endpoint_status(endpoint_name=endpoint_name, status=Endpoint.STATUS_FAILED)
+            sagemaker_backend.set_endpoint_status(
+                    endpoint_name=endpoint_name, status=Endpoint.STATUS_FAILED)
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates),\
