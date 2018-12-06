@@ -203,7 +203,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
 
     If the model returns predictions as DataFrame, different result may be returned based on the
     requested result_type. If the requested result type is numeric, the data frame is filtered to
-    contain only numeric columns first. If the requested return type is not ArrayType, only the
+    contain only numeric columns first. If the requested return type is not an ArrayType, only the
     first column will be returned.
 
     >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
@@ -222,13 +222,25 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     # functionality.
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
+    from pyspark.sql.types import _parse_datatype_string
+    from pyspark.sql.types import ArrayType, NumericType, StringType, DataType
+
+    if not isinstance(result_type, DataType):
+        result_type = _parse_datatype_string(result_type)
+
+    elem_type = result_type
+    if isinstance(elem_type, ArrayType):
+        elem_type = elem_type.elementType
+    if not isinstance(elem_type, NumericType) and not isinstance(elem_type, StringType):
+        raise Exception("Invalid requested type ''. pyfunc.spark_udf currently only supports " +
+                        "NumericType, StringType, or ArrayType of either numeric or string types.")
 
     if run_id:
         path = tracking.utils._get_model_log_dir(path, run_id)
 
     archive_path = SparkModelCache.add_local_model(spark, path)
 
-    from pyspark.sql.types import ArrayType, NumericType
+
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
