@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import time
 import json
 from collections import namedtuple
 from datetime import datetime
@@ -196,6 +197,16 @@ class SageMakerBackend(BaseBackend):
         self.models = {}
         self.endpoints = {}
         self.endpoint_configs = {}
+        self._endpoint_update_latency_seconds = 0 
+
+    def set_endpoint_update_latency(self, latency_seconds):
+        self._endpoint_update_latency_seconds = latency_seconds
+
+    def set_endpoint_status(self, endpoint_name, status):
+        if endpoint_name not in self.endpoints:
+            raise ValueError(
+                "Attempted to manually override the status of an endpoint that does not exist!")
+        self.endpoints[endpoint_name].resource.status = status
 
     @property
     def _url_module(self):
@@ -282,8 +293,10 @@ class SageMakerBackend(BaseBackend):
                              " `{config_name}` However, this configuration does not exist.".format(
                                 config_name=endpoint_config_name))
 
-        new_endpoint = Endpoint(endpoint_name=endpoint_name, config_name=endpoint_config_name,
-                                tags=tags)
+        new_endpoint = Endpoint(endpoint_name=endpoint_name, 
+                                config_name=endpoint_config_name,
+                                tags=tags, 
+                                update_latency_seconds=self._endpoint_update_latency_seconds)
         new_endpoint_arn = self._get_base_arn(region_name=region_name) + new_endpoint.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_endpoint, arn=new_endpoint_arn)
         self.endpoints[endpoint_name] = new_resource
@@ -436,17 +449,43 @@ class Endpoint(TimestampedResource):
 
     STATUS_IN_SERVICE = "InService"
     STATUS_FAILED = "Failed"
+    STATUS_CREATING = "Creating"
+    STATUS_UPDATING = "Updating"
 
-    def __init__(self, endpoint_name, config_name, tags):
+    def __init__(self, endpoint_name, config_name, tags, update_latency_seconds=0):
         super(Endpoint, self).__init__()
+        self.last_modified_time = time.time() 
         self.endpoint_name = endpoint_name
-        self.config_name = config_name
+        self._config_name = config_name
         self.tags = tags
-        self.status = Endpoint.STATUS_IN_SERVICE
+        self.update_latency_seconds = update_latency_seconds
+        self._updating_status = Endpoint.STATUS_CREATING
+        self._stable_status = Endpoint.STATUS_IN_SERVICE
 
     @property
     def arn_descriptor(self):
         return ":endpoint/{endpoint_name}".format(endpoint_name=self.endpoint_name)
+
+    @property
+    def status(self):
+        if time.time() - self.last_modified_time < self.update_latency_seconds:
+            return self._updating_status
+        else:
+            return self._stable_status
+
+    @status.setter
+    def status(self, status):
+        self._stable_status = status
+
+    @property
+    def config_name(self):
+        return self._config_name
+        
+    @config_name.setter
+    def config_name(self, config_name):
+        self._config_name = config_name
+        self.last_modified_time = time.time()
+        self._updating_status = Endpoint.STATUS_UPDATING
 
 
 class EndpointSummary:

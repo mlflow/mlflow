@@ -21,7 +21,7 @@ import mlflow.version
 from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE, PUBLIC 
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
@@ -380,8 +380,10 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                          operation_status.message)
         else:
             raise MlflowException(
-                "The deployment operation failed with the following error message:"
-                " \"{error_message}\"".format(error_message=operation_status.message))
+                message=(
+                    "The deployment operation failed with the following error message:"
+                    " \"{error_message}\"".format(error_message=operation_status.message)),
+                error_code=PUBLIC)
         if not archive:
             deployment_operation.clean_up()
 
