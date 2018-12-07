@@ -250,9 +250,6 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
         if isinstance(result, pandas.DataFrame):
-            elem_type = result_type
-            if isinstance(result_type, ArrayType):
-                elem_type = result_type.elementType
             if isinstance(elem_type, NumericType):
                 result = result.select_dtypes(include=("int", "float"))
                 if len(result.columns) == 0:
