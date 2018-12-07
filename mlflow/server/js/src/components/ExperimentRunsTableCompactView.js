@@ -7,7 +7,6 @@ import classNames from 'classnames';
 import { Table, Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import BaggedCell from './BaggedCell';
-import Utils from '../utils/Utils';
 
 const styles = {
   sortArrow: {
@@ -135,7 +134,7 @@ class ExperimentRunsTableCompactView extends Component {
         key={keyname}
         sortIcon={sortIcon}
         keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
-        setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
+        setSortByHandler={setSortByHandler} isMetric={false} isParam isHovered={isHovered}
         onRemoveBagged={onRemoveBagged}/>);
     });
     if (this.shouldShowBaggedColumn(true)) {
@@ -158,9 +157,14 @@ class ExperimentRunsTableCompactView extends Component {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       return (
         <BaggedCell key={keyname}
-                    keyName={metricKey} value={metricsMap[metricKey].getValue().toString()} onHover={this.onHover}
+                    keyName={metricKey}
+                    value={metricsMap[metricKey].getValue().toString()}
+                    onHover={this.onHover}
                     sortIcon={sortIcon}
-                    setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
+                    setSortByHandler={setSortByHandler}
+                    isMetric
+                    isParam={false}
+                    isHovered={isHovered}
                     onRemoveBagged={onRemoveBagged}/>
       );
     });

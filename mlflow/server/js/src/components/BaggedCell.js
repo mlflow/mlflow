@@ -13,11 +13,6 @@ const styles = {
 };
 
 export default class BaggedCell extends Component {
-
-  constructor(props) {
-    super(props);
-  }
-
   static propTypes = {
     keyName: PropTypes.string.isRequired,
     value: PropTypes.string.isRequired,
@@ -35,7 +30,8 @@ export default class BaggedCell extends Component {
   }
 
   render() {
-    const { keyName, value, onHover, setSortByHandler, isParam, isMetric, onRemoveBagged, sortIcon} = this.props;
+    const { keyName, value, onHover, setSortByHandler, isParam, isMetric, onRemoveBagged,
+      sortIcon } = this.props;
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
       <span

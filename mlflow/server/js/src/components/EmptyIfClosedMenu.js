@@ -13,16 +13,15 @@ export default class EmptyIfClosedMenu extends Component {
 
   render() {
     const {children, open, onClose, ...props} = this.props;
-      if (!open) {
-        return null;
-      }
-      return (
-        <RootCloseWrapper onRootClose={onClose}>
-          <Dropdown.Menu {...props} >
-            {children}
-          </Dropdown.Menu>
-        </RootCloseWrapper>
-      );
+    if (!open) {
+      return null;
+    }
+    return (
+      <RootCloseWrapper onRootClose={onClose}>
+        <Dropdown.Menu {...props} >
+          {children}
+        </Dropdown.Menu>
+      </RootCloseWrapper>
+    );
   }
-
 }
