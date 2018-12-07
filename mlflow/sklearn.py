@@ -103,7 +103,10 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = dict(DEFAULT_CONDA_ENV)
+        if serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+            import cloudpickle
+            conda_env["dependencies"].append("cloudpickle=={}".format(cloudpickle.__version__))
     elif not isinstance(conda_env, dict):
         with open(os.path.join(path, conda_env), "r") as f:
             conda_env = yaml.safe_load(f)
