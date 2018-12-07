@@ -21,7 +21,7 @@ from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INV
 from mlflow.protos.databricks_pb2 import PUBLIC
 from mlflow.tracking.utils import _get_model_log_dir
 
-from tests.sagemaker.mock import mock_sagemaker, Endpoint
+from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
 
 TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id"])
 
@@ -281,8 +281,9 @@ def test_deploy_replace_in_asynchronous_mode_returns_before_endpoint_creation_co
 @mock_sagemaker_aws_services
 def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
         pretrained_model, sagemaker_client):
+    endpoint_creation_latency = 10
     sagemaker_backend = get_sagemaker_backend(sagemaker_client.meta.region_name)
-    sagemaker_backend.set_endpoint_update_latency(10)
+    sagemaker_backend.set_endpoint_update_latency(endpoint_creation_latency)
 
     boto_caller = botocore.client.BaseClient._make_api_call
 
@@ -296,8 +297,10 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
         result = boto_caller(self, operation_name, operation_kwargs)
         if operation_name == "CreateEndpoint":
             endpoint_name = operation_kwargs["EndpointName"]
-            sagemaker_backend.set_endpoint_status(
-                    endpoint_name=endpoint_name, status=Endpoint.STATUS_FAILED)
+            sagemaker_backend.set_endpoint_latest_operation(
+                    endpoint_name=endpoint_name, 
+                    operation=EndpointOperation.create_unsuccessful(
+                        latency=endpoint_creation_latency))
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations),\
@@ -387,8 +390,9 @@ def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
 @mock_sagemaker_aws_services
 def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
         pretrained_model, sagemaker_client):
+    endpoint_update_latency = 5
     sagemaker_backend = get_sagemaker_backend(sagemaker_client.meta.region_name)
-    sagemaker_backend.set_endpoint_update_latency(5)
+    sagemaker_backend.set_endpoint_update_latency(endpoint_update_latency)
 
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
@@ -408,8 +412,10 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
         result = boto_caller(self, operation_name, operation_kwargs)
         if operation_name == "UpdateEndpoint":
             endpoint_name = operation_kwargs["EndpointName"]
-            sagemaker_backend.set_endpoint_status(
-                    endpoint_name=endpoint_name, status=Endpoint.STATUS_FAILED)
+            sagemaker_backend.set_endpoint_latest_operation(
+                    endpoint_name=endpoint_name, 
+                    operation=EndpointOperation.update_unsuccessful(
+                        latency=endpoint_update_latency))
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates),\
