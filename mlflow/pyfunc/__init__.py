@@ -251,7 +251,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         result = model.predict(pdf)
         if isinstance(result, pandas.DataFrame):
             if isinstance(elem_type, NumericType):
-                result = result.select_dtypes(include=("int", "float"))
+                result = result.select_dtypes(include=("int", "floating"))
                 if len(result.columns) == 0:
                     raise Exception("The requested return type is numeric but the model did not " +
                                     "produce any numeric results. Consider requesting udf with " +
