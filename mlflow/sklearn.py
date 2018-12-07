@@ -94,7 +94,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                 error_code=INVALID_PARAMETER_VALUE)
 
     if os.path.exists(path):
-        raise MlflowException(message="Path '{}' already exists".format(path), 
+        raise MlflowException(message="Path '{}' already exists".format(path),
                               error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
     model_data_subpath = "model.pkl"

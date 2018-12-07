@@ -70,7 +70,7 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the 
+                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
                       model.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
@@ -105,7 +105,7 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the 
+                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
                       model.
     """
     _logger.info(
