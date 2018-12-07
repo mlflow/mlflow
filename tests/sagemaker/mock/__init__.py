@@ -210,7 +210,8 @@ class SageMakerBackend(BaseBackend):
     def set_endpoint_latest_operation(self, endpoint_name, operation):
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                "Attempted to manually override the status of an endpoint that does not exist!")
+                "Attempted to manually set the latest operation for an endpoint"
+                " that does not exist!")
         self.endpoints[endpoint_name].resource.latest_operation = operation
 
     @property
