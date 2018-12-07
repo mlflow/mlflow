@@ -16,11 +16,9 @@ export default class BaggedCell extends Component {
   static propTypes = {
     keyName: PropTypes.string.isRequired,
     value: PropTypes.string.isRequired,
-    onHover: PropTypes.func.isRequired,
     setSortByHandler: PropTypes.func.isRequired,
     isParam: PropTypes.bool.isRequired,
     isMetric: PropTypes.bool.isRequired,
-    isHovered: PropTypes.bool.isRequired,
     onRemoveBagged: PropTypes.func.isRequired,
     sortIcon: PropTypes.node,
   };
@@ -30,16 +28,14 @@ export default class BaggedCell extends Component {
   }
 
   render() {
-    const { keyName, value, onHover, setSortByHandler, isParam, isMetric, onRemoveBagged,
+    const { keyName, value, setSortByHandler, isParam, isMetric, onRemoveBagged,
       sortIcon } = this.props;
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
       <span
         className={cellClass}
-        onMouseEnter={() => onHover({isParam: isParam, isMetric: isMetric, key: keyName})}
-        onMouseLeave={() => onHover({isParam: false, isMetric: false, key: ""})}
       >
-          <Dropdown id="dropdown-custom-1" style={{width: 250}}>
+      <Dropdown id="dropdown-custom-1" style={{width: 250}}>
         <ExperimentRunsSortToggle
           bsRole="toggle"
           className={"metric-param-sort-toggle"}
