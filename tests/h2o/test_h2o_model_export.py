@@ -152,7 +152,7 @@ def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
 
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == conda_env 
+    assert saved_conda_env_parsed == conda_env
 
 
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
