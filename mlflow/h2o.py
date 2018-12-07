@@ -39,7 +39,8 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
 
     :param h2o_model: H2O model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
@@ -84,7 +85,8 @@ def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
 
     :param h2o_model: H2O model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
