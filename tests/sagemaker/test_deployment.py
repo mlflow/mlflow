@@ -300,7 +300,7 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
             sagemaker_backend.set_endpoint_latest_operation(
                     endpoint_name=endpoint_name,
                     operation=EndpointOperation.create_unsuccessful(
-                        latency=endpoint_creation_latency))
+                        latency_seconds=endpoint_creation_latency))
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations),\
@@ -415,7 +415,7 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
             sagemaker_backend.set_endpoint_latest_operation(
                     endpoint_name=endpoint_name,
                     operation=EndpointOperation.update_unsuccessful(
-                        latency=endpoint_update_latency))
+                        latency_seconds=endpoint_update_latency))
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates),\

@@ -303,7 +303,7 @@ class SageMakerBackend(BaseBackend):
                                 config_name=endpoint_config_name,
                                 tags=tags,
                                 latest_operation=EndpointOperation.create_successful(
-                                    latency=self._endpoint_update_latency_seconds))
+                                    latency_seconds=self._endpoint_update_latency_seconds))
         new_endpoint_arn = self._get_base_arn(region_name=region_name) + new_endpoint.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_endpoint, arn=new_endpoint_arn)
         self.endpoints[endpoint_name] = new_resource
@@ -342,7 +342,7 @@ class SageMakerBackend(BaseBackend):
 
         endpoint = self.endpoints[endpoint_name]
         endpoint.resource.latest_operation = EndpointOperation.update_successful(
-            latency=self._endpoint_update_latency_seconds)
+            latency_seconds=self._endpoint_update_latency_seconds)
         endpoint.resource.config_name = new_config_name
         return endpoint
 
@@ -507,29 +507,29 @@ class EndpointOperation:
         self.start_time = time.time()
 
     def status(self):
-        if time.time() - self.start_time < self.latency:
+        if time.time() - self.start_time < self.latency_seconds:
             return self.pending_status
         else:
             return self.completed_status
 
     @classmethod
-    def create_successful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_CREATING,
+    def create_successful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_CREATING,
                    completed_status=Endpoint.STATUS_IN_SERVICE)
 
     @classmethod
-    def create_unsuccessful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_CREATING,
+    def create_unsuccessful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_CREATING,
                    completed_status=Endpoint.STATUS_FAILED)
 
     @classmethod
-    def update_successful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_UPDATING,
+    def update_successful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_UPDATING,
                    completed_status=Endpoint.STATUS_IN_SERVICE)
 
     @classmethod
-    def update_unsuccessful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_UPDATING,
+    def update_unsuccessful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_UPDATING,
                    completed_status=Endpoint.STATUS_FAILED)
 
 
