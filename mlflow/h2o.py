@@ -67,11 +67,13 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
         yaml.safe_dump(settings, stream=settings_file)
 
     conda_env_subpath = "conda.yaml"
-    if conda_env:
-        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
-    else:
-        with open(os.path.join(path, conda_env_subpath), "w") as f:
-            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+    if conda_env is None:
+        conda_env = DEFAULT_CONDA_ENV
+    elif not isinstance(conda_env, dict):
+        with open(os.path.join(path, conda_env), "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
                         data=model_data_subpath, env=conda_env_subpath)
