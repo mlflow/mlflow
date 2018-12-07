@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import classNames from 'classnames';
@@ -12,7 +12,7 @@ const styles = {
   },
 };
 
-export default class BaggedCell extends Component {
+export default class BaggedCell extends PureComponent {
   static propTypes = {
     keyName: PropTypes.string.isRequired,
     value: PropTypes.string.isRequired,
@@ -22,10 +22,6 @@ export default class BaggedCell extends Component {
     onRemoveBagged: PropTypes.func.isRequired,
     sortIcon: PropTypes.node,
   };
-
-  shouldComponentUpdate(nextProps) {
-    return this.props.sortIcon !== nextProps.sortIcon;
-  }
 
   render() {
     const { keyName, value, setSortByHandler, isParam, isMetric, onRemoveBagged,
