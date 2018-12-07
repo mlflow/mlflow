@@ -211,7 +211,7 @@ class SageMakerBackend(BaseBackend):
         if endpoint_name not in self.endpoints:
             raise ValueError(
                 "Attempted to manually override the status of an endpoint that does not exist!")
-        self.endpoints[endpoint_name].resource.latest_operation = operation 
+        self.endpoints[endpoint_name].resource.latest_operation = operation
 
     @property
     def _url_module(self):
@@ -465,7 +465,7 @@ class Endpoint(TimestampedResource):
         :param endpoint_name: The name of the Endpoint.
         :param config_name: The name of the EndpointConfiguration to associate with the Endpoint.
         :param tags: Arbitrary tags to associate with the endpoint.
-        :param latest_operation: The most recent operation that was invoked on the endpoint, 
+        :param latest_operation: The most recent operation that was invoked on the endpoint,
                                  represented as an EndpointOperation object.
         """
         super(Endpoint, self).__init__()
@@ -491,13 +491,13 @@ class EndpointOperation:
 
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
-        :param latency: The latency of the operation, in seconds. Before the time window specified 
+        :param latency: The latency of the operation, in seconds. Before the time window specified
                         by this latency elapses, the operation will have the status specified by
                         ``pending_status``. After the time window elapses, the operation will
                         have the status  specified by ``completed_status``.
-        :param pending_status: The status that the operation should reflect *before* the latency 
+        :param pending_status: The status that the operation should reflect *before* the latency
                                window has elapsed.
-        :param completed_status: The status that the operation should reflect *after* the latency 
+        :param completed_status: The status that the operation should reflect *after* the latency
                                  window has elapsed.
         """
         self.latency_seconds = latency_seconds
@@ -513,22 +513,22 @@ class EndpointOperation:
 
     @classmethod
     def create_successful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_CREATING, 
+        return cls(latency=latency, pending_status=Endpoint.STATUS_CREATING,
                    completed_status=Endpoint.STATUS_IN_SERVICE)
 
     @classmethod
     def create_unsuccessful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_CREATING, 
+        return cls(latency=latency, pending_status=Endpoint.STATUS_CREATING,
                    completed_status=Endpoint.STATUS_FAILED)
 
     @classmethod
     def update_successful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_UPDATING, 
+        return cls(latency=latency, pending_status=Endpoint.STATUS_UPDATING,
                    completed_status=Endpoint.STATUS_IN_SERVICE)
 
     @classmethod
     def update_unsuccessful(cls, latency):
-        return cls(latency=latency, pending_status=Endpoint.STATUS_UPDATING, 
+        return cls(latency=latency, pending_status=Endpoint.STATUS_UPDATING,
                    completed_status=Endpoint.STATUS_FAILED)
 
 

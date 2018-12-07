@@ -298,7 +298,7 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
         if operation_name == "CreateEndpoint":
             endpoint_name = operation_kwargs["EndpointName"]
             sagemaker_backend.set_endpoint_latest_operation(
-                    endpoint_name=endpoint_name, 
+                    endpoint_name=endpoint_name,
                     operation=EndpointOperation.create_unsuccessful(
                         latency=endpoint_creation_latency))
         return result
@@ -413,7 +413,7 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
         if operation_name == "UpdateEndpoint":
             endpoint_name = operation_kwargs["EndpointName"]
             sagemaker_backend.set_endpoint_latest_operation(
-                    endpoint_name=endpoint_name, 
+                    endpoint_name=endpoint_name,
                     operation=EndpointOperation.update_unsuccessful(
                         latency=endpoint_update_latency))
         return result
