@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import time
 import json
 from collections import namedtuple
 from datetime import datetime
@@ -196,6 +197,22 @@ class SageMakerBackend(BaseBackend):
         self.models = {}
         self.endpoints = {}
         self.endpoint_configs = {}
+        self._endpoint_update_latency_seconds = 0
+
+    def set_endpoint_update_latency(self, latency_seconds):
+        """
+        Sets the latency for the following operations that update endpoint state:
+        - "create_endpoint"
+        - "update_endpoint"
+        """
+        self._endpoint_update_latency_seconds = latency_seconds
+
+    def set_endpoint_latest_operation(self, endpoint_name, operation):
+        if endpoint_name not in self.endpoints:
+            raise ValueError(
+                "Attempted to manually set the latest operation for an endpoint"
+                " that does not exist!")
+        self.endpoints[endpoint_name].resource.latest_operation = operation
 
     @property
     def _url_module(self):
@@ -282,8 +299,11 @@ class SageMakerBackend(BaseBackend):
                              " `{config_name}` However, this configuration does not exist.".format(
                                 config_name=endpoint_config_name))
 
-        new_endpoint = Endpoint(endpoint_name=endpoint_name, config_name=endpoint_config_name,
-                                tags=tags)
+        new_endpoint = Endpoint(endpoint_name=endpoint_name,
+                                config_name=endpoint_config_name,
+                                tags=tags,
+                                latest_operation=EndpointOperation.create_successful(
+                                    latency_seconds=self._endpoint_update_latency_seconds))
         new_endpoint_arn = self._get_base_arn(region_name=region_name) + new_endpoint.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_endpoint, arn=new_endpoint_arn)
         self.endpoints[endpoint_name] = new_resource
@@ -321,6 +341,8 @@ class SageMakerBackend(BaseBackend):
                                 endpoint_name=endpoint_name, config_name=new_config_name))
 
         endpoint = self.endpoints[endpoint_name]
+        endpoint.resource.latest_operation = EndpointOperation.update_successful(
+            latency_seconds=self._endpoint_update_latency_seconds)
         endpoint.resource.config_name = new_config_name
         return endpoint
 
@@ -436,17 +458,79 @@ class Endpoint(TimestampedResource):
 
     STATUS_IN_SERVICE = "InService"
     STATUS_FAILED = "Failed"
+    STATUS_CREATING = "Creating"
+    STATUS_UPDATING = "Updating"
 
-    def __init__(self, endpoint_name, config_name, tags):
+    def __init__(self, endpoint_name, config_name, tags, latest_operation):
+        """
+        :param endpoint_name: The name of the Endpoint.
+        :param config_name: The name of the EndpointConfiguration to associate with the Endpoint.
+        :param tags: Arbitrary tags to associate with the endpoint.
+        :param latest_operation: The most recent operation that was invoked on the endpoint,
+                                 represented as an EndpointOperation object.
+        """
         super(Endpoint, self).__init__()
         self.endpoint_name = endpoint_name
         self.config_name = config_name
         self.tags = tags
-        self.status = Endpoint.STATUS_IN_SERVICE
+        self.latest_operation = latest_operation
 
     @property
     def arn_descriptor(self):
         return ":endpoint/{endpoint_name}".format(endpoint_name=self.endpoint_name)
+
+    @property
+    def status(self):
+        return self.latest_operation.status()
+
+
+class EndpointOperation:
+    """
+    Object representing a SageMaker endpoint operation ("create" or "update"). Every
+    Endpoint is associated with the operation that was most recently invoked on it.
+    """
+
+    def __init__(self, latency_seconds, pending_status, completed_status):
+        """
+        :param latency: The latency of the operation, in seconds. Before the time window specified
+                        by this latency elapses, the operation will have the status specified by
+                        ``pending_status``. After the time window elapses, the operation will
+                        have the status  specified by ``completed_status``.
+        :param pending_status: The status that the operation should reflect *before* the latency
+                               window has elapsed.
+        :param completed_status: The status that the operation should reflect *after* the latency
+                                 window has elapsed.
+        """
+        self.latency_seconds = latency_seconds
+        self.pending_status = pending_status
+        self.completed_status = completed_status
+        self.start_time = time.time()
+
+    def status(self):
+        if time.time() - self.start_time < self.latency_seconds:
+            return self.pending_status
+        else:
+            return self.completed_status
+
+    @classmethod
+    def create_successful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_CREATING,
+                   completed_status=Endpoint.STATUS_IN_SERVICE)
+
+    @classmethod
+    def create_unsuccessful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_CREATING,
+                   completed_status=Endpoint.STATUS_FAILED)
+
+    @classmethod
+    def update_successful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_UPDATING,
+                   completed_status=Endpoint.STATUS_IN_SERVICE)
+
+    @classmethod
+    def update_unsuccessful(cls, latency_seconds):
+        return cls(latency_seconds=latency_seconds, pending_status=Endpoint.STATUS_UPDATING,
+                   completed_status=Endpoint.STATUS_FAILED)
 
 
 class EndpointSummary:
