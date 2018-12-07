@@ -18,7 +18,7 @@ import mlflow.sagemaker as mfs
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_pb2 import PUBLIC
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracking.utils import _get_model_log_dir
 
 from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
@@ -311,7 +311,7 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
                    mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     assert "deployment operation failed" in exc.value.message
-    assert exc.value.error_code == ErrorCode.Name(PUBLIC)
+    assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
 @mock_sagemaker_aws_services
@@ -426,7 +426,7 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
                    mode=mfs.DEPLOYMENT_MODE_REPLACE)
 
     assert "deployment operation failed" in exc.value.message
-    assert exc.value.error_code == ErrorCode.Name(PUBLIC)
+    assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
 @mock_sagemaker_aws_services
