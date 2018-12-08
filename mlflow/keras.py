@@ -51,14 +51,14 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda 
+                      The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0', 
+                                'python=3.7.0',
                                 'keras=2.2.4',
                                 'tensorflow=1.8.0'
                             ]
@@ -109,14 +109,14 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda 
+                      The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0', 
+                                'python=3.7.0',
                                 'keras=2.2.4',
                                 'tensorflow=1.8.0'
                             ]

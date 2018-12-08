@@ -66,14 +66,14 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.spark.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.spark.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda 
+                      The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0', 
+                                'python=3.7.0',
                                 'pyspark=2.3.0'
                             ]
                         }
@@ -199,14 +199,14 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.spark.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.spark.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda 
+                      The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0', 
+                                'python=3.7.0',
                                 'pyspark=2.3.0'
                             ]
                         }

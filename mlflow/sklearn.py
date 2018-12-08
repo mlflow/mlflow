@@ -58,14 +58,14 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda 
+                      The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0', 
+                                'python=3.7.0',
                                 'scikit-learn=0.19.2'
                             ]
                         }
@@ -144,14 +144,14 @@ def log_model(sk_model, artifact_path, conda_env=None,
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda 
+                      The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0', 
+                                'python=3.7.0',
                                 'scikit-learn=0.19.2'
                             ]
                         }
