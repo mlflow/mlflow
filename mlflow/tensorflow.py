@@ -71,7 +71,18 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model.
+                      model. The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'tensorflow=1.8.0'
+                            ]
+                        }
+
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
@@ -106,7 +117,18 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model.
+                      model. The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'tensorflow=1.8.0'
+                            ]
+                        }
+
     """
     _logger.info(
         "Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"

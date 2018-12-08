@@ -11,7 +11,6 @@ H20 (native) format
 from __future__ import absolute_import
 
 import os
-import shutil
 import yaml
 
 import h2o
@@ -44,6 +43,20 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pip': [
+                                    'h2o==3.20.0.8'
+                                ]
+                            ]
+                        }
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     path = os.path.abspath(path)
@@ -92,6 +105,20 @@ def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pip': [
+                                    'h2o==3.20.0.8'
+                                ]
+                            ]
+                        }
+
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
