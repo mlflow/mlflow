@@ -11,7 +11,6 @@ H20 (native) format
 from __future__ import absolute_import
 
 import os
-import shutil
 import yaml
 
 import h2o
