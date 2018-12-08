@@ -50,6 +50,19 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda 
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0', 
+                                'pytorch=0.4.1', 
+                                'torchvision=0.2.1'
+                            ]
+                        }
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -109,6 +122,19 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda 
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0', 
+                                'pytorch=0.4.1', 
+                                'torchvision=0.2.1'
+                            ]
+                        }
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 

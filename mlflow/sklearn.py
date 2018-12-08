@@ -58,6 +58,18 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda 
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0', 
+                                'scikit-learn=0.19.2'
+                            ]
+                        }
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
@@ -65,6 +77,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
+
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
     >>> from sklearn import tree
@@ -131,6 +144,18 @@ def log_model(sk_model, artifact_path, conda_env=None,
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda 
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0', 
+                                'scikit-learn=0.19.2'
+                            ]
+                        }
+
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
