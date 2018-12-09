@@ -8,7 +8,7 @@ export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
   static getCheckboxForRow(selected, checkboxHandler, cellType) {
     const CellComponent = `${cellType}`
-    return <CellComponent key="meta-check">
+    return <CellComponent key="meta-check" class="run-table-container">
       <div>
         <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
       </div>
@@ -100,7 +100,7 @@ export default class ExperimentViewUtil {
   /** Returns checkbox element for selecting all runs */
   static getSelectAllCheckbox(onCheckAll, isAllCheckedBool, cellType) {
     const CellComponent = `${cellType}`;
-    return <CellComponent key="meta-check" className="bottom-row">
+    return <CellComponent key="meta-check" className="bottom-row run-table-container">
       <input type="checkbox" onChange={onCheckAll} checked={isAllCheckedBool} />
     </CellComponent>;
   }
@@ -294,18 +294,32 @@ export default class ExperimentViewUtil {
   static getExpander(hasExpander, expanderOpen, onExpandBound, runUuid, cellType) {
     const CellComponent = `${cellType}`;
     if (!hasExpander) {
-      return <CellComponent key={'Expander-' + runUuid}>
+      return <CellComponent
+        key={'Expander-' + runUuid}
+        // class="run-table-container"
+        style={{padding: 8}}
+      >
       </CellComponent>;
     }
     if (expanderOpen) {
       return (
-        <CellComponent onClick={onExpandBound} key={'Expander-' + runUuid}>
+        <CellComponent
+          onClick={onExpandBound}
+          key={'Expander-' + runUuid}
+          // class="run-table-container"
+          style={{padding: 8}}
+        >
           <i className="ExperimentView-expander far fa-minus-square"/>
         </CellComponent>
       );
     } else {
       return (
-        <CellComponent onClick={onExpandBound} key={'Expander-' + runUuid}>
+        <CellComponent
+          onClick={onExpandBound}
+          key={'Expander-' + runUuid}
+          // class="run-table-container"
+          style={{padding: 8}}
+        >
           <i className="ExperimentView-expander far fa-plus-square"/>
         </CellComponent>
       );
