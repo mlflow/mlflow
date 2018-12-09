@@ -252,7 +252,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     if conda_env is None:
         conda_env = DEFAULT_CONDA_ENV
     elif not isinstance(conda_env, dict):
-        with open(os.path.join(path, conda_env), "r") as f:
+        with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
