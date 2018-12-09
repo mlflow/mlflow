@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import pytest
+import yaml
 import mock
 from mock import Mock
 
