@@ -202,7 +202,7 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
             image_config = create_image_call_kwargs["image_config"]
             assert image_config.conda_file is not None
             with open(image_config.conda_file, "r") as f:
-                assert f.read() == sklearn_conda_env_text
+                assert yaml.safe_load(f.read()) == yaml.safe_load(sklearn_conda_env_text)
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
