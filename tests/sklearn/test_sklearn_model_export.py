@@ -237,7 +237,7 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
-    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, conda_env=None, 
+    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, conda_env=None,
                               serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
