@@ -14,6 +14,7 @@ from __future__ import absolute_import
 import os
 import pickle
 import yaml
+import copy
 
 import sklearn
 
@@ -115,7 +116,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = dict(DEFAULT_CONDA_ENV)
+        conda_env = copy.deepcopy(DEFAULT_CONDA_ENV)
         if serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
             conda_env["dependencies"].append("cloudpickle=={}".format(cloudpickle.__version__))
