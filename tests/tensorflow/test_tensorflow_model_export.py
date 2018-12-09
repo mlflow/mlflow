@@ -333,6 +333,24 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == tf_custom_env_text
 
 
+def test_save_model_accepts_conda_env_as_dict(saved_tf_iris_model, model_path):
+    conda_env = dict(mlflow.tensorflow.DEFAULT_CONDA_ENV)
+    conda_env["dependencies"].append("pytest")
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path,
+                                 conda_env=conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == conda_env
+
+
 def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
         saved_tf_iris_model, tf_custom_env):
     artifact_path = "model"
