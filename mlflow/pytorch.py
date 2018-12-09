@@ -11,7 +11,6 @@ PyTorch (native) format
 from __future__ import absolute_import
 
 import os
-import shutil
 import yaml
 
 import numpy as np
@@ -50,6 +49,19 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pytorch=0.4.1',
+                                'torchvision=0.2.1'
+                            ]
+                        }
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -104,10 +116,24 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
                           input and produce a single output tensor.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pytorch=0.4.1',
+                                'torchvision=0.2.1'
+                            ]
+                        }
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -140,11 +166,13 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     model_file = os.path.basename(model_path)
 
     conda_env_subpath = "conda.yaml"
-    if conda_env is not None:
-        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
-    else:
-        with open(os.path.join(path, conda_env_subpath), "w") as f:
-            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+    if conda_env is None:
+        conda_env = DEFAULT_CONDA_ENV
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow_model.add_flavor(FLAVOR_NAME, model_data=model_file, pytorch_version=torch.__version__)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch",

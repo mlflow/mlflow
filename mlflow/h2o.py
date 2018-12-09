@@ -11,7 +11,6 @@ H20 (native) format
 from __future__ import absolute_import
 
 import os
-import shutil
 import yaml
 
 import h2o
@@ -39,10 +38,25 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
 
     :param h2o_model: H2O model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pip': [
+                                    'h2o==3.20.0.8'
+                                ]
+                            ]
+                        }
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     path = os.path.abspath(path)
@@ -66,11 +80,13 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
         yaml.safe_dump(settings, stream=settings_file)
 
     conda_env_subpath = "conda.yaml"
-    if conda_env:
-        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
-    else:
-        with open(os.path.join(path, conda_env_subpath), "w") as f:
-            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+    if conda_env is None:
+        conda_env = DEFAULT_CONDA_ENV
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
                         data=model_data_subpath, env=conda_env_subpath)
@@ -84,10 +100,25 @@ def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
 
     :param h2o_model: H2O model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pip': [
+                                    'h2o==3.20.0.8'
+                                ]
+                            ]
+                        }
+
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
