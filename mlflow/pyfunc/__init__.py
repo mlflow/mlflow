@@ -221,19 +221,23 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                    retrieve the model logged with MLflow.
     :param result_type: the return type of the user-defined function. The value can be either a
                         :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
-                        Only a primitive type or an array of primitive types are allowed. The
-                        following conversions are applied to the predictions based on the
-                        result_type:
-                         - If the result type is numeric or an array of numeric, the predictions are
-                           filtered to contain only columns matching the requested type. Note that
-                           we only distinguish between integers and generic numbers and no type
-                           conversions are performed on the model output. E.g. requesting
-                           IntegerType will fail if the model returns longs.
-                         - If the result type is string or an array of strings, the elements of the
-                           prediction frame are converted to strings.
-                         - If the result type is not an array, only the first column is returned.
-                        For example, in case of the default value of "double", the udf will return
-                        the left most numeric column.
+                        Only a primitive type or an array of primitive types are allowed.
+                        The following classes of result type are supported:
+
+                        - "int", "long" or instanceof IntegralType: The leftmost integer result is
+                          returned or exception is raised if there is none. No type conversion is
+                          performed.
+                        - ArrayType(instanceof IntegralType): Return all integer columns. Exception
+                          is raised if there are none.
+                        - "float" or "double" or instanceof FractionalType: The leftmost numeric
+                          result is returned or exception is raised if there is none.
+                        - ArrayType(instanceof FractionalType): Return all numeric columns.
+                          Exception is raised if there are none. No type conversion is performed.
+                        - "string" or StringType: Result is the leftmost column converted to string.
+                        - Array[StringType]: Return all columns converted to string.
+
+                        NOTE: Conversion may fail if e.g. element type is set to IntegerType and the
+                        model returns longs.
 
 
     :return: Spark UDF type returned by the model's prediction method. Default double.

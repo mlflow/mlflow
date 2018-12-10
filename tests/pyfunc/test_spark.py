@@ -79,18 +79,18 @@ class TestSparkUDFs(unittest.TestCase):
         direct_model = load_pyfunc(self._model_path)
         pandas_results = direct_model.predict(pandas_df)
         for row in pandas_results.iterrows():
-         assert self._prediction == list(row[1])
+            assert self._prediction == list(row[1])
 
         # Test all supported return types
-        type_map = {"float": (DoubleType(), np.number),
-                    "int": (LongType(), np.int),
-                    "str": (StringType(), None)}
+        type_map = {"double": (DoubleType(), np.number),
+                    "long": (LongType(), np.int),
+                    "string": (StringType(), None)}
 
         for tname, tdef in type_map.items():
             spark_type, np_type = tdef
             for is_array in [True, False]:
                 t = ArrayType(spark_type) if is_array else spark_type
-                if tname == "str":
+                if tname == "string":
                     expected = pandas_results.applymap(str)
                 else:
                     expected = pandas_results.select_dtypes(np_type)
@@ -100,7 +100,11 @@ class TestSparkUDFs(unittest.TestCase):
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*self._pandas_df.columns))
                 actual = list(new_df.select("prediction").toPandas()['prediction'])
                 assert expected == actual
-
+                if not is_array:
+                    pyfunc_udf_2 = spark_udf(self.spark, self._model_path, result_type=tname)
+                    new_df = spark_df.withColumn("prediction", pyfunc_udf(*self._pandas_df.columns))
+                    actual = list(new_df.select("prediction").toPandas()['prediction'])
+                    assert expected == actual
 
     @pytest.mark.large
     def test_model_cache(self):
