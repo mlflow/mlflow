@@ -75,11 +75,12 @@ following parameters:
 """
 
 import importlib
+import logging
+import numpy as np
 import os
+import pandas
 import shutil
 import sys
-import pandas
-import logging
 
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
@@ -201,10 +202,9 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
     ordinals (0, 1, ...).
 
-    If the model returns predictions as DataFrame, different result may be returned based on the
-    requested result_type. If the requested result type is numeric, the data frame is filtered to
-    contain only numeric columns first. If the requested return type is not an ArrayType, only the
-    first column will be returned.
+    If the model returns predictions as DataFrame, the predictions may be filtered to contain only
+    the columns that can be represented as the result_type or converted to string if the result_type
+    is string.
 
     >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
     >>> df.withColumn("prediction", predict("name", "age")).show()
@@ -215,6 +215,19 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                    retrieve the model logged with MLflow.
     :param result_type: the return type of the user-defined function. The value can be either a
                         :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
+                        Only a primitive type or an array of primitive types are allowed. If the
+                        underlying model returns predictions as pandas.DataFrame, the following
+                        conversions are applied to the predictions based on the result_type:
+                         - If the result type is integer, float or boolean or an array of one of
+                           these, the predictions are filtered to contasin only columns matching the
+                           requested type.
+                         - If the result type is string or an array of strings, the elements of the
+                           prediction frame are converted to strings.
+                           returned.
+                         - If the result type is not an array, only the first column is returned.
+                        For example, in case of the default value of "double", the udf will return
+                        the left most numeric column or raise an exception if there is none.
+
     :return: Spark UDF type returned by the model's prediction method. Default double.
     """
 
@@ -223,7 +236,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import ArrayType, NumericType, StringType, DataType
+    from pyspark.sql.types import *
 
     if not isinstance(result_type, DataType):
         result_type = _parse_datatype_string(result_type)
@@ -231,16 +244,14 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     elem_type = result_type
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
-    if not isinstance(elem_type, NumericType) and not isinstance(elem_type, StringType):
-        raise Exception("Invalid requested type ''. pyfunc.spark_udf currently only supports " +
-                        "NumericType, StringType, or ArrayType of either numeric or string types.")
 
+    if not isinstance(elem_type, AtomicType):
+        raise Exception("Invalid result_type '{}'. Request type can only be a primitive type or an"
+                        " array of primitive types.".format(result_type))
     if run_id:
         path = tracking.utils._get_model_log_dir(path, run_id)
 
     archive_path = SparkModelCache.add_local_model(spark, path)
-
-
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
@@ -250,10 +261,22 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
         if isinstance(result, pandas.DataFrame):
-            if isinstance(elem_type, NumericType):
-                result = result.select_dtypes(include=("int", "floating"))
+            if isinstance(elem_type, IntegralType):
+                result = result.select_dtypes(include=np.int)
+                if len(result.columns) == 0:
+                    raise Exception("The requested return type is integer but the model did not " +
+                                    "produce any numeric results. Consider requesting udf with " +
+                                    "StringType instead.")
+            if isinstance(elem_type, FractionalType):
+                result = result.select_dtypes(include=np.number)
                 if len(result.columns) == 0:
                     raise Exception("The requested return type is numeric but the model did not " +
+                                    "produce any numeric results. Consider requesting udf with " +
+                                    "StringType instead.")
+            if isinstance(elem_type, BooleanType):
+                result = result.select_dtypes(include=(np.bool))
+                if len(result.columns) == 0:
+                    raise Exception("The requested return type is boolean but the model did not " +
                                     "produce any numeric results. Consider requesting udf with " +
                                     "StringType instead.")
             if isinstance(elem_type, StringType):
