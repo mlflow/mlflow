@@ -256,6 +256,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                     raise Exception("The requested return type is numeric but the model did not " +
                                     "produce any numeric results. Consider requesting udf with " +
                                     "StringType instead.")
+            if isinstance(elem_type, StringType):
+                result = result.applymap(str)
             if isinstance(result_type, ArrayType):
                 return pandas.Series([list(row[1]) for row in result.iterrows()])
             else:
