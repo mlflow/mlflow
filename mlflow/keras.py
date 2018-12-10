@@ -124,7 +124,6 @@ def _load_model(model_file):
         return keras.models.load_model(model_file)
 
 
-
 class _KerasModelWrapper:
     def __init__(self, keras_model, graph, sess):
         self.keras_model = keras_model
