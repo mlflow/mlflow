@@ -202,9 +202,15 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
     ordinals (0, 1, ...).
 
-    If the model returns predictions as DataFrame, the predictions may be filtered to contain only
-    the columns that can be represented as the result_type or converted to string if the result_type
-    is string.
+    The predictions are filtered to contain only the columns that can be represented as the
+    ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
+    converted to string. If the result type is not an array type, the left most column with
+    matching type will be returned.
+
+    Note: Exception is raised if there is no matching type in the result.
+
+    Note: It is recommended to only use one of LongType, DoubleType, StringType or ArrayType of
+    one of these types as the result_type.
 
     >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
     >>> df.withColumn("prediction", predict("name", "age")).show()
@@ -215,18 +221,20 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                    retrieve the model logged with MLflow.
     :param result_type: the return type of the user-defined function. The value can be either a
                         :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
-                        Only a primitive type or an array of primitive types are allowed. If the
-                        underlying model returns predictions as pandas.DataFrame, the following
-                        conversions are applied to the predictions based on the result_type:
-                         - If the result type is integer, float or boolean or an array of one of
-                           these, the predictions are filtered to contasin only columns matching the
-                           requested type.
+                        Only a primitive type or an array of primitive types are allowed. The
+                        following conversions are applied to the predictions based on the
+                        result_type:
+                         - If the result type is numeric or an array of numeric, the predictions are
+                           filtered to contain only columns matching the requested type. Note that
+                           we only distinguish between integers and generic numbers and no type
+                           conversions are performed on the model output. E.g. requesting
+                           IntegerType will fail if the model returns longs.
                          - If the result type is string or an array of strings, the elements of the
                            prediction frame are converted to strings.
-                           returned.
                          - If the result type is not an array, only the first column is returned.
                         For example, in case of the default value of "double", the udf will return
-                        the left most numeric column or raise an exception if there is none.
+                        the left most numeric column.
+
 
     :return: Spark UDF type returned by the model's prediction method. Default double.
     """
@@ -236,7 +244,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import *
+    from pyspark.sql.types import DataType, ArrayType, AtomicType
+    from pyspark.sql.types import IntegralType, FractionalType, BooleanType, StringType
 
     if not isinstance(result_type, DataType):
         result_type = _parse_datatype_string(result_type)
@@ -260,33 +269,28 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         columns = [str(i) for i, _ in enumerate(args)]
         pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
-        if isinstance(result, pandas.DataFrame):
-            if isinstance(elem_type, IntegralType):
-                result = result.select_dtypes(include=np.int)
-                if len(result.columns) == 0:
-                    raise Exception("The requested return type is integer but the model did not " +
-                                    "produce any numeric results. Consider requesting udf with " +
-                                    "StringType instead.")
-            if isinstance(elem_type, FractionalType):
-                result = result.select_dtypes(include=np.number)
-                if len(result.columns) == 0:
-                    raise Exception("The requested return type is numeric but the model did not " +
-                                    "produce any numeric results. Consider requesting udf with " +
-                                    "StringType instead.")
-            if isinstance(elem_type, BooleanType):
-                result = result.select_dtypes(include=(np.bool))
-                if len(result.columns) == 0:
-                    raise Exception("The requested return type is boolean but the model did not " +
-                                    "produce any numeric results. Consider requesting udf with " +
-                                    "StringType instead.")
-            if isinstance(elem_type, StringType):
-                result = result.applymap(str)
-            if isinstance(result_type, ArrayType):
-                return pandas.Series([list(row[1]) for row in result.iterrows()])
-            else:
-                return result[result.columns[0]]
+        if not isinstance(result, pandas.DataFrame):
+            result = pandas.DataFrame(data=result)
+
+        if isinstance(elem_type, IntegralType):
+            result = result.select_dtypes(include=np.int)
+            if len(result.columns) == 0:
+                raise Exception("The requested return type is integer but the model did not " +
+                                "produce any numeric results. Consider requesting udf with " +
+                                "StringType instead.")
+        if isinstance(elem_type, FractionalType):
+            result = result.select_dtypes(include=np.number)
+            if len(result.columns) == 0:
+                raise Exception("The requested return type is numeric but the model did not " +
+                                "produce any numeric results. Consider requesting udf with " +
+                                "StringType instead.")
+        if isinstance(elem_type, StringType):
+            result = result.applymap(str)
+        if isinstance(result_type, ArrayType):
+            return pandas.Series([list(row[1]) for row in result.iterrows()])
         else:
-            return pandas.Series(result)
+            return result[result.columns[0]]
+
 
     return pandas_udf(predict, result_type)
 
