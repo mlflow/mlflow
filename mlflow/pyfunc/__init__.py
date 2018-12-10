@@ -257,7 +257,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                                     "produce any numeric results. Consider requesting udf with " +
                                     "StringType instead.")
             if isinstance(result_type, ArrayType):
-                return pandas.Series([row.to_list() for row in result.iterrows()])
+                return pandas.Series([list(row[1]) for row in result.iterrows()])
             else:
                 return result[result.columns[0]]
         else:
