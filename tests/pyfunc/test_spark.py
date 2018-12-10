@@ -10,10 +10,11 @@ import unittest
 import numpy as np
 import pandas as pd
 import pyspark
-from pyspark.sql.types import ArrayType, BooleanType, DoubleType, LongType, StringType
+from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType
 
 import pytest
 
+import mlflow
 from mlflow.pyfunc import load_pyfunc, spark_udf
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 import mlflow.sklearn
@@ -63,7 +64,7 @@ class TestSparkUDFs(unittest.TestCase):
         # print(os.listdir(os.path.abspath(self._model_path)))
         self._pandas_df = pd.DataFrame(np.ones((10, 10)), columns=[str(i) for i in range(10)])
         mlflow.pyfunc.save_model(self._model_path,
-                                 loader_module=__name__,
+                                 loader_module=os.path.basename(__file__)[:-3],
                                  code_path=[__file__],
                                  data_path=data_path)
 
@@ -101,7 +102,7 @@ class TestSparkUDFs(unittest.TestCase):
                 actual = list(new_df.select("prediction").toPandas()['prediction'])
                 assert expected == actual
                 if not is_array:
-                    pyfunc_udf_2 = spark_udf(self.spark, self._model_path, result_type=tname)
+                    pyfunc_udf = spark_udf(self.spark, self._model_path, result_type=tname)
                     new_df = spark_df.withColumn("prediction", pyfunc_udf(*self._pandas_df.columns))
                     actual = list(new_df.select("prediction").toPandas()['prediction'])
                     assert expected == actual
