@@ -1,12 +1,13 @@
 import unittest
 import sqlalchemy
 import shutil
+import time
 from mlflow.store.dbmodels import models
+from mlflow import entities
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
-class TestSqlAlchemyStore(unittest.TestCase):
-
+class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def setUp(self):
         self.store = SqlAlchemyStore()
         self.engine = sqlalchemy.create_engine('sqlite:///:memory:')
@@ -60,19 +61,44 @@ class TestSqlAlchemyStore(unittest.TestCase):
         self.assertEqual(len(expected), len(actual))
 
         for exp in expected:
-            res = self.session.query(models.Experiment).filter_by(id=exp.experiment_id).first()
+            res = self.session.query(models.SqlExperiment).filter_by(
+                experiment_id=exp.experiment_id).first()
             self.assertEqual(res.name, exp.name)
-            self.assertEqual(res.id, exp.experiment_id)
+            self.assertEqual(res.experiment_id, exp.experiment_id)
 
     def test_create_experiments(self):
-        result = self.session.query(models.Experiment).all()
+        result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 0)
 
         expected = self.store.create_experiment(name='test experiment')
-        result = self.session.query(models.Experiment).all()
+        result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 1)
 
         actual = result[0]
 
-        self.assertEqual(actual.id, expected.experiment_id)
+        self.assertEqual(actual.experiment_id, expected.experiment_id)
         self.assertEqual(actual.name, expected.name)
+
+    # def test_create_run_info(self):
+    #     experiment = self._experiment_factory('test')
+
+    #     config = {
+    #         'run_uuid': 'abcder',
+    #         'name': 'test run',
+    #         'source_type': entities.source_type.SourceType.LOCAL,
+    #         'source_name': 'Python Application',
+    #         'entry_point_name': 'main.py',
+    #         'start_time': int(time.time() * 1000),
+    #         'source_version': '0.8.0',
+    #         'tags': [entities.RunTag('key', 'val')],
+    #         'parent_run_id': None
+    #     }
+
+    #     run_info = self.store._create_run_info(**config)
+
+    #     self.session.query(models.RunInfo)
+    #     for k, v in config.items():
+    #         self.assertEqual(v, run_info[k])
+
+    def test_run_tag_model(self):
+        pass

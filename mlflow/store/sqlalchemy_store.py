@@ -32,29 +32,23 @@ class SqlAlchemyStore(object):
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         experiments = []
-        for exp in self.session.query(models.Experiment).all():
-            experiments.append(self.get_experiment(exp.id))
+        for exp in self.session.query(models.SqlExperiment).all():
+            experiments.append(exp.to_mlflow_entity())
 
         return experiments
 
     def create_experiment(self, name, artifact_store=None):
-        experiment = models.Experiment(name=name)
+        experiment = models.SqlExperiment(name=name)
         self.session.add(experiment)
         self.session.commit()
-        exp = entities.Experiment(experiment.id, experiment.name, artifact_store,
-                                  entities.Experiment.ACTIVE_LIFECYCLE)
-        return exp
+        return experiment.to_mlflow_entity()
 
     def get_experiment(self, experiment_id):
-        exp = self.session.query(models.Experiment).filter_by(id=experiment_id).first()
-        data = {
-            'experiment_id': exp.id,
-            'name': exp.name,
-            'artifact_location': None,
-            'lifecycle_stage': ViewType.ACTIVE_ONLY
-        }
+        exp = self.session.query(models.SqlExperiment).filter_by(
+            experiment_id=experiment_id).first()
 
-        return entities.Experiment.from_dictionary(data)
+        return exp.to_mlflow_entity()
 
     def delete_experiment(self, experiment_id):
-        self.session.query(models.Experiment).filter_by(id=experiment_id).delete()
+        self.session.query(models.SqlExperiment).filter_by(
+            experiment_id=experiment_id).delete()
