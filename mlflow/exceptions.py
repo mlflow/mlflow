@@ -1,7 +1,6 @@
 import json
 
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
-from mlflow.exceptions import MlflowException
 
 class MlflowException(Exception):
     """
