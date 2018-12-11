@@ -135,3 +135,26 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertEqual(actual.value, expected.value)
         self.assertEqual(actual.key, expected.key)
+
+    def test_run_data_model(self):
+        m1 = models.SqlMetric(key='accuracy', value=0.89)
+        m2 = models.SqlMetric(key='recal', value=0.89)
+        p1 = models.SqlParam(key='loss', value='test param')
+        p2 = models.SqlParam(key='blue', value='test param')
+
+        self.session.add_all([m1, m2, p1, p2])
+
+        expected = models.SqlRunData()
+        expected.params.append(p1)
+        expected.params.append(p2)
+        expected.metrics.append(m1)
+        expected.metrics.append(m2)
+
+        self.session.add(expected)
+        self.session.commit()
+
+        run_datums = self.session.query(models.SqlRunData).all()
+        actual = run_datums[0]
+        self.assertEqual(len(run_datums), 1)
+        self.assertEqual(len(actual.params), 2)
+        self.assertEqual(len(actual.metrics), 2)
