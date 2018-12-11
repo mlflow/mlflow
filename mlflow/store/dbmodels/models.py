@@ -1,7 +1,7 @@
 import enum
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from mlflow.entities import Experiment, ViewType
+from mlflow.entities import Experiment, ViewType, RunTag
 
 Base = declarative_base()
 
@@ -38,7 +38,22 @@ class SqlExperiment(Base, EntityMapping):
     experiment_id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     name = sqlalchemy.Column(sqlalchemy.String(256), unique=True, nullable=False)
     artifact_location = sqlalchemy.Column(sqlalchemy.Text, nullable=True)
-    lifecycle_stage = sqlalchemy.Column(sqlalchemy.Enum(ViewTypeEnum))
+    lifecycle_stage = sqlalchemy.Column(sqlalchemy.Enum(ViewTypeEnum),
+                                        default=ViewTypeEnum.ACTIVE_ONLY)
 
     def __repr__(self):
-        return '<SqlExperiment {} - {}>'.format(self.name, self.id)
+        return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
+
+
+class SqlRunTag(Base, EntityMapping):
+    __tablename__ = 'run_tag'
+    __entity__ = RunTag
+    __properties__ = RunTag._properties()
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    key = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
+    value = sqlalchemy.Column(sqlalchemy.TEXT, nullable=True)
+
+    def __repr__(self):
+        return '<SqlRunTag({}, {})>'.format(self.key, self.value)
+
+

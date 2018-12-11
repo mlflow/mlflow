@@ -101,4 +101,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     #         self.assertEqual(v, run_info[k])
 
     def test_run_tag_model(self):
-        pass
+        expected = models.SqlRunTag(key='test', value='val')
+        self.session.add(expected)
+        self.session.commit()
+        tags = self.session.query(models.SqlRunTag).all()
+        self.assertEqual(len(tags), 1)
+
+        actual = tags[0].to_mlflow_entity()
+
+        self.assertEqual(actual.value, expected.value)
+        self.assertEqual(actual.key, expected.key)
