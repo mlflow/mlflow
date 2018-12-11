@@ -117,9 +117,12 @@ class ExperimentPage extends Component {
         <RequestStateWrapper
           requestIds={this.getRequestIds()}
           errorRenderFunc={(requests) => {
-            const getExperimentRequest = Utils.getRequestWithId(requests, this.state.getExperimentRequestId);
+            const getExperimentRequest = Utils.getRequestWithId(
+              requests, this.state.getExperimentRequestId);
             if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
-              return <PermissionDeniedView errorMessage={getExperimentRequest.error.xhr.responseJSON.message}/>;
+              return (<PermissionDeniedView
+                errorMessage={getExperimentRequest.error.xhr.responseJSON.message}
+              />);
             }
             return undefined;
           }}

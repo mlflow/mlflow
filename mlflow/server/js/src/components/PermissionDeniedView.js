@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import overflow from '../static/404-overflow.svg';
 import Colors from '../styles/Colors';
 
 export default class PermissionDeniedView extends Component {
@@ -9,19 +8,14 @@ export default class PermissionDeniedView extends Component {
   };
 
   render() {
+    const defaultMessage = 'The current user does not have permission to view this page.';
     return (
       <div>
-        <img
-          className='center'
-          alt="404 Not Found"
-          style={{ height: '300px', marginTop: '80px' }}
-          src={overflow}
-        />
-        <h1 className="center" style={{ paddingTop: '10px' }}>
+        <h1 className="center" style={{ paddingTop: '100px' }}>
           Permission Denied
         </h1>
         <h2 className="center" style={{ color: Colors.secondaryText }}>
-          {this.props.errorMessage || 'The current user does not have permission to view this page.'}
+          {this.props.errorMessage || defaultMessage}
         </h2>
       </div>
     );
