@@ -21,7 +21,7 @@ export default class PermissionDeniedView extends Component {
           Permission Denied
         </h1>
         <h2 className="center" style={{ color: Colors.secondaryText }}>
-          {this.props.errorMessage || 'The current does not have permission to view this page.'}
+          {this.props.errorMessage || 'The current user does not have permission to view this page.'}
         </h2>
       </div>
     );

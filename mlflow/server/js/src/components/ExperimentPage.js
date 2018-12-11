@@ -12,7 +12,6 @@ import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
 import Utils from "../utils/Utils";
 import ErrorCodes from "../sdk/ErrorCodes";
-import RunNotFoundView from "./RunNotFoundView";
 import PermissionDeniedView from "./PermissionDeniedView";
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
