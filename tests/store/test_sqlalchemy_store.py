@@ -2,6 +2,7 @@ import unittest
 import sqlalchemy
 import shutil
 import time
+import mlflow
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
@@ -34,33 +35,33 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_delete_experiment(self):
         experiments = self._experiment_factory(['morty', 'rick', 'rick and morty'])
-        expected = experiments[0]
-        self.store.delete_experiment(expected.experiment_id)
+        run_data = experiments[0]
+        self.store.delete_experiment(run_data.experiment_id)
 
         all_experiments = self.store.list_experiments()
         self.assertEqual(len(all_experiments), len(experiments) - 1)
 
         # assert the deleted experiment is not is list
         for exp in all_experiments:
-            self.assertNotEqual(exp.experiment_id, expected.experiment_id)
-            self.assertNotEqual(exp.name, expected.name)
+            self.assertNotEqual(exp.experiment_id, run_data.experiment_id)
+            self.assertNotEqual(exp.name, run_data.name)
 
     def test_get_experiment(self):
         name = 'goku'
-        expected = self._experiment_factory(name)
-        actual = self.store.get_experiment(expected.experiment_id)
-        self.assertEqual(actual.name, expected.name)
-        self.assertEqual(actual.experiment_id, expected.experiment_id)
+        run_data = self._experiment_factory(name)
+        actual = self.store.get_experiment(run_data.experiment_id)
+        self.assertEqual(actual.name, run_data.name)
+        self.assertEqual(actual.experiment_id, run_data.experiment_id)
 
     def test_list_experiments(self):
         testnames = ['blue', 'red', 'green']
 
-        expected = self._experiment_factory(testnames)
+        run_data = self._experiment_factory(testnames)
         actual = self.store.list_experiments()
 
-        self.assertEqual(len(expected), len(actual))
+        self.assertEqual(len(run_data), len(actual))
 
-        for exp in expected:
+        for exp in run_data:
             res = self.session.query(models.SqlExperiment).filter_by(
                 experiment_id=exp.experiment_id).first()
             self.assertEqual(res.name, exp.name)
@@ -70,71 +71,50 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 0)
 
-        expected = self.store.create_experiment(name='test experiment')
+        run_data = self.store.create_experiment(name='test experiment')
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 1)
 
         actual = result[0]
 
-        self.assertEqual(actual.experiment_id, expected.experiment_id)
-        self.assertEqual(actual.name, expected.name)
-
-    # def test_create_run_info(self):
-    #     experiment = self._experiment_factory('test')
-
-    #     config = {
-    #         'run_uuid': 'abcder',
-    #         'name': 'test run',
-    #         'source_type': entities.source_type.SourceType.LOCAL,
-    #         'source_name': 'Python Application',
-    #         'entry_point_name': 'main.py',
-    #         'start_time': int(time.time() * 1000),
-    #         'source_version': '0.8.0',
-    #         'tags': [entities.RunTag('key', 'val')],
-    #         'parent_run_id': None
-    #     }
-
-    #     run_info = self.store._create_run_info(**config)
-
-    #     self.session.query(models.RunInfo)
-    #     for k, v in config.items():
-    #         self.assertEqual(v, run_info[k])
+        self.assertEqual(actual.experiment_id, run_data.experiment_id)
+        self.assertEqual(actual.name, run_data.name)
 
     def test_run_tag_model(self):
-        expected = models.SqlRunTag(key='test', value='val')
-        self.session.add(expected)
+        run_data = models.SqlRunTag(key='test', value='val')
+        self.session.add(run_data)
         self.session.commit()
         tags = self.session.query(models.SqlRunTag).all()
         self.assertEqual(len(tags), 1)
 
         actual = tags[0].to_mlflow_entity()
 
-        self.assertEqual(actual.value, expected.value)
-        self.assertEqual(actual.key, expected.key)
+        self.assertEqual(actual.value, run_data.value)
+        self.assertEqual(actual.key, run_data.key)
 
     def test_metric_model(self):
-        expected = models.SqlMetric(key='accuracy', value=0.89)
-        self.session.add(expected)
+        run_data = models.SqlMetric(key='accuracy', value=0.89)
+        self.session.add(run_data)
         self.session.commit()
         metrics = self.session.query(models.SqlMetric).all()
         self.assertEqual(len(metrics), 1)
 
         actual = metrics[0].to_mlflow_entity()
 
-        self.assertEqual(actual.value, expected.value)
-        self.assertEqual(actual.key, expected.key)
+        self.assertEqual(actual.value, run_data.value)
+        self.assertEqual(actual.key, run_data.key)
 
     def test_param_model(self):
-        expected = models.SqlParam(key='accuracy', value='test param')
-        self.session.add(expected)
+        run_data = models.SqlParam(key='accuracy', value='test param')
+        self.session.add(run_data)
         self.session.commit()
         params = self.session.query(models.SqlParam).all()
         self.assertEqual(len(params), 1)
 
         actual = params[0].to_mlflow_entity()
 
-        self.assertEqual(actual.value, expected.value)
-        self.assertEqual(actual.key, expected.key)
+        self.assertEqual(actual.value, run_data.value)
+        self.assertEqual(actual.key, run_data.key)
 
     def test_run_data_model(self):
         m1 = models.SqlMetric(key='accuracy', value=0.89)
@@ -144,13 +124,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.session.add_all([m1, m2, p1, p2])
 
-        expected = models.SqlRunData()
-        expected.params.append(p1)
-        expected.params.append(p2)
-        expected.metrics.append(m1)
-        expected.metrics.append(m2)
+        run_data = models.SqlRunData()
+        run_data.params.append(p1)
+        run_data.params.append(p2)
+        run_data.metrics.append(m1)
+        run_data.metrics.append(m2)
 
-        self.session.add(expected)
+        self.session.add(run_data)
         self.session.commit()
 
         run_datums = self.session.query(models.SqlRunData).all()
@@ -158,3 +138,65 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(len(run_datums), 1)
         self.assertEqual(len(actual.params), 2)
         self.assertEqual(len(actual.metrics), 2)
+
+    def test_run_info(self):
+        experiment = self._experiment_factory('test exp')
+        config = {
+            'experiment_id': experiment.experiment_id,
+            'name': 'test run',
+            'user_id': 'Anderson',
+            'status': entities.RunInfo.ACTIVE_LIFECYCLE,
+            'source_type': entities.SourceType.LOCAL,
+            'source_name': 'Python application',
+            'entry_point_name': 'main.py',
+            'start_time': int(time.time()),
+            'end_time': int(time.time()),
+            'source_version': mlflow.__version__,
+            'lifecycle_stage': entities.RunInfo.ACTIVE_LIFECYCLE,
+            'artifact_uri': '//'
+        }
+        run_info = models.SqlRunInfo(**config).to_mlflow_entity()
+
+        for k, v in config.items():
+            self.assertEqual(v, getattr(run_info, k))
+
+    def test_run_model(self):
+        m1 = models.SqlMetric(key='accuracy', value=0.89)
+        m2 = models.SqlMetric(key='recal', value=0.89)
+        p1 = models.SqlParam(key='loss', value='test param')
+        p2 = models.SqlParam(key='blue', value='test param')
+
+        self.session.add_all([m1, m2, p1, p2])
+
+        run_data = models.SqlRunData()
+        run_data.params.append(p1)
+        run_data.params.append(p2)
+        run_data.metrics.append(m1)
+        run_data.metrics.append(m2)
+        self.session.add(run_data)
+
+        experiment = self._experiment_factory('test exp')
+        config = {
+            'experiment_id': experiment.experiment_id,
+            'name': 'test run',
+            'user_id': 'Anderson',
+            'status': entities.RunStatus.SCHEDULED,
+            'source_type': entities.SourceType.NOTEBOOK,
+            'source_name': 'Python application',
+            'entry_point_name': 'main.py',
+            'start_time': int(time.time()),
+            'end_time': int(time.time()),
+            'source_version': mlflow.__version__,
+            'lifecycle_stage': entities.RunInfo.ACTIVE_LIFECYCLE,
+            'artifact_uri': '//'
+        }
+        run_info = models.SqlRunInfo(**config)
+
+        run = models.SqlRun(run_info=run_info, run_data=run_data)
+
+        self.session.commit()
+
+        self.assertEqual(run.run_info.run_uuid, run_info.run_uuid)
+        self.assertListEqual(run.run_data.metrics, run_data.metrics)
+        self.assertListEqual(run.run_data.params, run_data.params)
+        self.assertListEqual(run.run_data.tags, run_data.tags)

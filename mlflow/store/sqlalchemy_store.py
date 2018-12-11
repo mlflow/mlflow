@@ -38,7 +38,8 @@ class SqlAlchemyStore(object):
         return experiments
 
     def create_experiment(self, name, artifact_store=None):
-        experiment = models.SqlExperiment(name=name)
+        experiment = models.SqlExperiment(name=name,
+                                          lifecycle_stage=entities.Experiment.ACTIVE_LIFECYCLE)
         self.session.add(experiment)
         self.session.commit()
         return experiment.to_mlflow_entity()
