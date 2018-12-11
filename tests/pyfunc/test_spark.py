@@ -10,7 +10,7 @@ import unittest
 import numpy as np
 import pandas as pd
 import pyspark
-from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType
+from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
 import pytest
 
@@ -56,12 +56,11 @@ class TestSparkUDFs(unittest.TestCase):
             .config(key="spark.python.worker.reuse", value=True) \
             .master("local-cluster[2, 1, 1024]") \
             .getOrCreate()
-        self._prediction = [1, "class1", True, 0.1, 0.2, 0.3, 0.4]
+        self._prediction = [int(1), "class1", True, float(0.1), float(0.2), float(0.3), float(0.4)]
         self._model_path = os.path.join(self._tmp, "model")
         data_path = os.path.join(self._tmp, "static_result.pkl")
         with open(data_path, "wb") as f:
             pickle.dump(self._prediction, file=f)
-        # print(os.listdir(os.path.abspath(self._model_path)))
         self._pandas_df = pd.DataFrame(np.ones((10, 10)), columns=[str(i) for i in range(10)])
         mlflow.pyfunc.save_model(self._model_path,
                                  loader_module=os.path.basename(__file__)[:-3],
@@ -83,7 +82,9 @@ class TestSparkUDFs(unittest.TestCase):
             assert self._prediction == list(row[1])
 
         # Test all supported return types
-        type_map = {"double": (DoubleType(), np.number),
+        type_map = {"float": (FloatType(), np.number),
+                    "int": (IntegerType(), np.number),
+                    "double": (DoubleType(), np.number),
                     "long": (LongType(), np.int),
                     "string": (StringType(), None)}
 
