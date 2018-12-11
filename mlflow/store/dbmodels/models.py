@@ -51,6 +51,9 @@ LifecycleStageTypes = [
 
 
 class EntityMixin(object):
+    """
+    Converts alchemy models to mlflow entities
+    """
     def to_mlflow_entity(self):
         if not hasattr(self, '__entity__'):
             raise Exception(

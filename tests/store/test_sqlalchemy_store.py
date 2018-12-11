@@ -20,7 +20,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def tearDown(self):
         models.Base.metadata.drop_all(self.engine)
-        shutil.rmtree(self.store._root, ignore_errors=True)
 
     def _experiment_factory(self, names):
         if type(names) is list:
@@ -32,6 +31,14 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             return experiments
 
         return self.store.create_experiment(name=names)
+
+    def test_raise_duplicate_experiments(self):
+        with self.assertRaises(Exception):
+            self._experiment_factory(['test', 'test'])
+
+    def test_raise_experiment_dont_exist(self):
+        with self.assertRaises(Exception):
+            self.store.get_experiment(experiment_id=100)
 
     def test_delete_experiment(self):
         experiments = self._experiment_factory(['morty', 'rick', 'rick and morty'])
