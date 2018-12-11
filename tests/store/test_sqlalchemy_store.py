@@ -168,12 +168,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.session.add_all([m1, m2, p1, p2])
 
-        run_data = models.SqlRunData()
-        run_data.params.append(p1)
-        run_data.params.append(p2)
-        run_data.metrics.append(m1)
-        run_data.metrics.append(m2)
-        self.session.add(run_data)
+        data = models.SqlRunData()
+        data.params.append(p1)
+        data.params.append(p2)
+        data.metrics.append(m1)
+        data.metrics.append(m2)
+        self.session.add(data)
 
         experiment = self._experiment_factory('test exp')
         config = {
@@ -190,13 +190,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'lifecycle_stage': entities.RunInfo.ACTIVE_LIFECYCLE,
             'artifact_uri': '//'
         }
-        run_info = models.SqlRunInfo(**config)
+        info = models.SqlRunInfo(**config)
 
-        run = models.SqlRun(run_info=run_info, run_data=run_data)
+        run = models.SqlRun(info=info, data=data)
 
         self.session.commit()
 
-        self.assertEqual(run.run_info.run_uuid, run_info.run_uuid)
-        self.assertListEqual(run.run_data.metrics, run_data.metrics)
-        self.assertListEqual(run.run_data.params, run_data.params)
-        self.assertListEqual(run.run_data.tags, run_data.tags)
+        self.assertEqual(run.info.run_uuid, info.run_uuid)
+        self.assertListEqual(run.data.metrics, data.metrics)
+        self.assertListEqual(run.data.params, data.params)
+        self.assertListEqual(run.data.tags, data.tags)

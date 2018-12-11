@@ -174,7 +174,7 @@ class SqlRun(Base, EntityMixin):
     __entity__ = Run
     __properties__ = Run._properties()
     id = Column(Integer, primary_key=True)
-    run_info_id = Column(Integer, ForeignKey('run_info.id'))
-    run_info = relationship('SqlRunInfo', backref=backref('run', uselist=False))
-    run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref=backref('run', uselist=False))
+    info_id = Column(Integer, ForeignKey('run_info.id'))
+    info = relationship('SqlRunInfo', backref=backref('run', uselist=False))
+    data_id = Column(Integer, ForeignKey('run_data.id'))
+    data = relationship('SqlRunData', backref=backref('run', uselist=False))
