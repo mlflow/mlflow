@@ -120,7 +120,7 @@ class TestSparkUDFs(unittest.TestCase):
         # Request the model on all executors, and see how many times we got cache hits.
         def get_model(_):
             model = SparkModelCache.get_or_load(archive_path)
-            # NB: Can not use instanceof test as remote dos not know about ConstPyfunc class
+            # NB: Can not use instanceof test as remote does not know about ConstPyfunc class
             assert type(model).__name__ == "ConstPyfunc"
             return SparkModelCache._cache_hits
 
