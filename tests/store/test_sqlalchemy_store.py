@@ -160,7 +160,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         for k, v in config.items():
             self.assertEqual(v, getattr(run_info, k))
 
-    def test_run_model(self):
+    def _run_factory(self):
         m1 = models.SqlMetric(key='accuracy', value=0.89)
         m2 = models.SqlMetric(key='recal', value=0.89)
         p1 = models.SqlParam(key='loss', value='test param')
@@ -193,10 +193,30 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         info = models.SqlRunInfo(**config)
 
         run = models.SqlRun(info=info, data=data)
+        self.session.add(run)
 
-        self.session.commit()
+        return run, info, data
+
+    def test_run_model(self):
+        run, info, data = self._run_factory()
 
         self.assertEqual(run.info.run_uuid, info.run_uuid)
         self.assertListEqual(run.data.metrics, data.metrics)
         self.assertListEqual(run.data.params, data.params)
         self.assertListEqual(run.data.tags, data.tags)
+
+    def test_to_mlflow_entity(self):
+        run, _, _ = self._run_factory()
+        run = run.to_mlflow_entity()
+
+        self.assertIsInstance(run.info, entities.RunInfo)
+        self.assertIsInstance(run.data, entities.RunData)
+
+        for metric in run.data.metrics:
+            self.assertIsInstance(metric, entities.Metric)
+
+        for param in run.data.params:
+            self.assertIsInstance(param, entities.Param)
+
+        for tag in run.data.tags:
+            self.assertIsInstance(tag, entities.RunTag)

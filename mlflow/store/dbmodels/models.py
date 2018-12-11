@@ -61,11 +61,20 @@ class EntityMixin(object):
                 'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
 
         # create dict of kwargs properties for entity and return the intialized entity
-        # TODO: This needs to call to_mlflow_entity recursively
-        # since some enitites contain other entities
-        config = {k: getattr(self, k) for k in self.__properties__}
+        config = {}
+        for k in self.__properties__:
+            # check if its mlflow entity and build it
+            obj = getattr(self, k)
+            try:
+                config[k] = obj.to_mlflow_entity()
+            except AttributeError:
+                if k in ['metrics', 'params', 'tags']:
+                    # these are list so
+                    obj = [v.to_mlflow_entity() for v in obj]
 
-        return self.__entity__.from_dictionary(config)
+                config[k] = obj
+
+        return self.__entity__(**config)
 
 
 class SqlExperiment(Base, EntityMixin):
@@ -178,3 +187,17 @@ class SqlRun(Base, EntityMixin):
     info = relationship('SqlRunInfo', backref=backref('run', uselist=False))
     data_id = Column(Integer, ForeignKey('run_data.id'))
     data = relationship('SqlRunData', backref=backref('run', uselist=False))
+
+    def to_mlflow_entity(self):
+        if not hasattr(self, '__entity__'):
+            raise Exception(
+                'sqlalchemy model <{}> needs __entity__ set'.format(self.__class__.__name__))
+
+        if not hasattr(self, '__properties__'):
+            raise Exception(
+                'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
+
+        # run has diff parameter names in __init__ than in properties_ so we do this manually
+        run_info = self.info.to_mlflow_entity()
+        run_data = self.data.to_mlflow_entity()
+        return self.__entity__(run_info=run_info, run_data=run_data)
