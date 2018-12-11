@@ -111,3 +111,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertEqual(actual.value, expected.value)
         self.assertEqual(actual.key, expected.key)
+
+    def test_metric_model(self):
+        expected = models.SqlMetric(key='accuracy', value=0.89)
+        self.session.add(expected)
+        self.session.commit()
+        metrics = self.session.query(models.SqlMetric).all()
+        self.assertEqual(len(metrics), 1)
+
+        actual = metrics[0].to_mlflow_entity()
+
+        self.assertEqual(actual.value, expected.value)
+        self.assertEqual(actual.key, expected.key)

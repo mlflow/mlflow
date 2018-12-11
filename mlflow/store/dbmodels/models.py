@@ -1,7 +1,8 @@
 import enum
+import time
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from mlflow.entities import Experiment, ViewType, RunTag
+from mlflow.entities import Experiment, ViewType, RunTag, Metric
 
 Base = declarative_base()
 
@@ -57,3 +58,14 @@ class SqlRunTag(Base, EntityMapping):
         return '<SqlRunTag({}, {})>'.format(self.key, self.value)
 
 
+class SqlMetric(Base, EntityMapping):
+    __tablename__ = 'metric'
+    __entity__ = Metric
+    __properties__ = Metric._properties()
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
+    key = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
+    value = sqlalchemy.Column(sqlalchemy.TEXT, nullable=True)
+    timestamp = sqlalchemy.Column(sqlalchemy.Integer, default=int(time.time()))
+
+    def __repr__(self):
+        return '<SqlMetric({}, {})>'.format(self.key, self.value)
