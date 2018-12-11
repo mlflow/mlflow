@@ -74,5 +74,5 @@ def describe_run(run_id):
     """
     store = _get_store()
     run = store.get_run(run_id)
-    json_run = json.dumps(run.to_dictionary())
+    json_run = json.dumps(run.to_dictionary(), indent=4)
     print(json_run, file=sys.stdout)
