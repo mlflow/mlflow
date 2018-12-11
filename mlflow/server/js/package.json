@@ -24,6 +24,7 @@
     "react-dom": "^16.3.2",
     "react-mde": "5.8.0",
     "react-modal": "^3.4.4",
+    "react-overlays": "^0.8.3",
     "react-redux": "5.0.7",
     "react-plotly.js": "2.2.0",
     "react-router": "4.2.0",
