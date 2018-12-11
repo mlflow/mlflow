@@ -10,6 +10,10 @@ import { ViewType } from '../sdk/MlflowEnums';
 import { SearchUtils } from "../utils/SearchUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
+import Utils from "../utils/Utils";
+import ErrorCodes from "../sdk/ErrorCodes";
+import RunNotFoundView from "./RunNotFoundView";
+import PermissionDeniedView from "./PermissionDeniedView";
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
@@ -111,7 +115,16 @@ class ExperimentPage extends Component {
   render() {
     return (
       <div className="ExperimentPage">
-        <RequestStateWrapper requestIds={this.getRequestIds()}>
+        <RequestStateWrapper
+          requestIds={this.getRequestIds()}
+          errorRenderFunc={(requests) => {
+            const getExperimentRequest = Utils.getRequestWithId(requests, this.state.getExperimentRequestId);
+            if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
+              return <PermissionDeniedView errorMessage={getExperimentRequest.error.xhr.responseJSON.message}/>;
+            }
+            return undefined;
+          }}
+        >
           <ExperimentView
             paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
             metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
