@@ -123,3 +123,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertEqual(actual.value, expected.value)
         self.assertEqual(actual.key, expected.key)
+
+    def test_param_model(self):
+        expected = models.SqlParam(key='accuracy', value='test param')
+        self.session.add(expected)
+        self.session.commit()
+        params = self.session.query(models.SqlParam).all()
+        self.assertEqual(len(params), 1)
+
+        actual = params[0].to_mlflow_entity()
+
+        self.assertEqual(actual.value, expected.value)
+        self.assertEqual(actual.key, expected.key)
