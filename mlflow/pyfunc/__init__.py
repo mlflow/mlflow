@@ -208,11 +208,6 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     converted to string. If the result type is not an array type, the left most column with
     matching type will be returned.
 
-    Note: Exception is raised if there is no matching type in the result.
-
-    Note: It is recommended to only use one of LongType, DoubleType, StringType or ArrayType of
-    one of these types as the ``result_type``.
-
     >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
     >>> df.withColumn("prediction", predict("name", "age")).show()
 
@@ -224,7 +219,6 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                         :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
                         Only a primitive type or an array of primitive types are allowed.
                         The following classes of result type are supported:
-
                         - "int" or instanceof IntegerType: The leftmost integer that can fit in
                           int32 result is returned or exception is raised if there is none.
                         - "long" or instanceof LongType: The leftmost long integer that can fit in
@@ -240,7 +234,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                         - "string" or StringType: Result is the leftmost column converted to string.
                         - Array[StringType]: Return all columns converted to string.
 
-    :return: Spark UDF type returned by the model's prediction method. Default double.
+    :return: Spark UDF which will apply model's prediction method to the data. Default double.
     """
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
