@@ -11,6 +11,8 @@ import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import 'react-virtualized/styles.css'; // only needs to be imported once
 
+const NUM_RUN_METADATA_COLS = 7;
+const TABLE_HEADER_HEIGHT = 48;
 
 const styles = {
   sortArrow: {
@@ -35,7 +37,6 @@ const styles = {
   },
   metricParamHeaderContainer: {
     verticalAlign: "middle",
-    // display: "inline-block",
     maxWidth: 120,
   }
 };
@@ -108,7 +109,6 @@ class ExperimentRunsTableCompactView extends Component {
     } = this.props;
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
-    const tagsMap = tagsList[idx];
     const runInfo = runInfos[idx];
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
@@ -117,7 +117,7 @@ class ExperimentRunsTableCompactView extends Component {
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsMap, isParent, "div")
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "div")
       .forEach((col) => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
@@ -183,9 +183,8 @@ class ExperimentRunsTableCompactView extends Component {
         </div>
       );
     }
-
     const sortValue = ExperimentViewUtil.computeSortValue(
-      sortState, metricsMap, paramsMap, runInfo, tagsMap);
+      sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
     return {
       key: runInfo.run_uuid,
       sortValue,
@@ -256,10 +255,9 @@ class ExperimentRunsTableCompactView extends Component {
         >
           <span
             style={styles.metricParamHeaderContainer}
-            // TODO remove run-table-container here to fix horiz alignment issues?
             className="run-table-container"
           >
-            <Dropdown style={{width: "100%"}}>
+            <Dropdown id="dropdown-custom-1">
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className="metric-param-sort-toggle"
@@ -383,12 +381,11 @@ class ExperimentRunsTableCompactView extends Component {
                 this._cache.clearAll();
               }
               const runMetadataColWidths = [48, 30, 150, 120, 120, 120, 120];
-              const numRunMetadataCols = runMetadataColWidths.length;
               return (<Table
                 width={width + (unbaggedMetrics.length * 120) + (unbaggedParams.length * 120)}
                 deferredMeasurementCache={this._cache}
-                height={Math.max(height - 48, 200)}
-                headerHeight={48}
+                height={Math.max(height - TABLE_HEADER_HEIGHT, 200)}
+                headerHeight={TABLE_HEADER_HEIGHT}
                 overscanRowCount={2}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
@@ -403,7 +400,7 @@ class ExperimentRunsTableCompactView extends Component {
                   return base;
                 }}
               >
-                {[...Array(7).keys()].map((colIdx) => {
+                {[...Array(NUM_RUN_METADATA_COLS).keys()].map((colIdx) => {
                   return <Column
                     label={'column-' + colIdx}
                     dataKey={'column-' + colIdx}
@@ -423,10 +420,10 @@ class ExperimentRunsTableCompactView extends Component {
                     label={"param-" + unbaggedParam}
                     dataKey={"param-" + unbaggedParam}
                     width={120}
-                    headerRenderer={() => headerCells[numRunMetadataCols + idx]}
+                    headerRenderer={() => headerCells[NUM_RUN_METADATA_COLS + idx]}
                   style={{display: "flex", alignItems: "flex-start"}}
                     cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[numRunMetadataCols + idx];
+                      return rows[rowIndex].contents[NUM_RUN_METADATA_COLS + idx];
                     }}
                   />;
                 })}
@@ -453,13 +450,13 @@ class ExperimentRunsTableCompactView extends Component {
                         style={{
                           whiteSpace: 'normal',
                         }}>
-                        {rows[rowIndex].contents[numRunMetadataCols + unbaggedParams.length]}
+                        {rows[rowIndex].contents[NUM_RUN_METADATA_COLS + unbaggedParams.length]}
                       </div>
                     </CellMeasurer>);
                   }}
                 />
                 {unbaggedMetrics.map((unbaggedMetric, idx) => {
-                  const colIdx = numRunMetadataCols + 1 + unbaggedParams.length + idx;
+                  const colIdx = NUM_RUN_METADATA_COLS + 1 + unbaggedParams.length + idx;
                   return <Column
                     key={"metric-" + unbaggedMetric}
                     label='Version'

@@ -407,46 +407,46 @@ class ExperimentView extends Component {
                 </ButtonGroup>
             </span>
           </div>
-            {this.state.persistedState.showMultiColumns ?
-              <ExperimentRunsTableMultiColumnView
-                onCheckbox={this.onCheckbox}
-                runInfos={this.props.runInfos}
-                paramsList={this.props.paramsList}
-                metricsList={this.props.metricsList}
-                tagsList={this.props.tagsList}
-                paramKeyList={paramKeyList}
-                metricKeyList={metricKeyList}
-                onCheckAll={this.onCheckAll}
-                isAllChecked={this.isAllChecked()}
-                onSortBy={this.onSortBy}
-                sortState={this.state.persistedState.sort}
-                runsSelected={this.state.runsSelected}
-                runsExpanded={this.state.persistedState.runsExpanded}
-                onExpand={this.onExpand}
-              /> :
-              <ExperimentRunsTableCompactView
-                onCheckbox={this.onCheckbox}
-                runInfos={this.props.runInfos}
-                // Bagged param and metric keys
-                paramKeyList={paramKeyList}
-                metricKeyList={metricKeyList}
-                paramsList={this.props.paramsList}
-                metricsList={this.props.metricsList}
-                tagsList={this.props.tagsList}
-                onCheckAll={this.onCheckAll}
-                isAllChecked={this.isAllChecked()}
-                onSortBy={this.onSortBy}
-                sortState={this.state.persistedState.sort}
-                runsSelected={this.state.runsSelected}
-                setSortByHandler={this.setSortBy}
-                runsExpanded={this.state.persistedState.runsExpanded}
-                onExpand={this.onExpand}
-                unbaggedMetrics={unbaggedMetricKeyList}
-                unbaggedParams={unbaggedParamKeyList}
-                onAddBagged={this.addBagged}
-                onRemoveBagged={this.removeBagged}
-              />
-            }
+          {this.state.persistedState.showMultiColumns ?
+            <ExperimentRunsTableMultiColumnView
+              onCheckbox={this.onCheckbox}
+              runInfos={this.props.runInfos}
+              paramsList={this.props.paramsList}
+              metricsList={this.props.metricsList}
+              tagsList={this.props.tagsList}
+              paramKeyList={paramKeyList}
+              metricKeyList={metricKeyList}
+              onCheckAll={this.onCheckAll}
+              isAllChecked={this.isAllChecked()}
+              onSortBy={this.onSortBy}
+              sortState={this.state.persistedState.sort}
+              runsSelected={this.state.runsSelected}
+              runsExpanded={this.state.persistedState.runsExpanded}
+              onExpand={this.onExpand}
+            /> :
+            <ExperimentRunsTableCompactView
+              onCheckbox={this.onCheckbox}
+              runInfos={this.props.runInfos}
+              // Bagged param and metric keys
+              paramKeyList={paramKeyList}
+              metricKeyList={metricKeyList}
+              paramsList={this.props.paramsList}
+              metricsList={this.props.metricsList}
+              tagsList={this.props.tagsList}
+              onCheckAll={this.onCheckAll}
+              isAllChecked={this.isAllChecked()}
+              onSortBy={this.onSortBy}
+              sortState={this.state.persistedState.sort}
+              runsSelected={this.state.runsSelected}
+              setSortByHandler={this.setSortBy}
+              runsExpanded={this.state.persistedState.runsExpanded}
+              onExpand={this.onExpand}
+              unbaggedMetrics={unbaggedMetricKeyList}
+              unbaggedParams={unbaggedParamKeyList}
+              onAddBagged={this.addBagged}
+              onRemoveBagged={this.removeBagged}
+            />
+          }
         </div>
       </div>
     );

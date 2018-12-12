@@ -152,7 +152,7 @@ export default class ExperimentViewUtil {
    * @param metricsMap Object mapping metric keys to their latest values for a single run
    * @param metricRanges Object mapping metric keys to objects of the form {min: ..., max: ...}
    *                     containing min and max values of the metric across all visible runs.
-   * @param cellType Tag type of containing cell.
+   * @param cellType Tag type (string like "div", "td", etc) of containing cell.
    */
   static getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, cellType) {
     const className = "left-border run-table-container";
@@ -299,7 +299,6 @@ export default class ExperimentViewUtil {
     if (!hasExpander) {
       return <CellComponent
         key={'Expander-' + runUuid}
-        // class="run-table-container"
         style={{padding: 8}}
       >
       </CellComponent>;
@@ -309,7 +308,6 @@ export default class ExperimentViewUtil {
         <CellComponent
           onClick={onExpandBound}
           key={'Expander-' + runUuid}
-          // class="run-table-container"
           style={{padding: 8}}
         >
           <i className="ExperimentView-expander far fa-minus-square"/>
@@ -320,7 +318,6 @@ export default class ExperimentViewUtil {
         <CellComponent
           onClick={onExpandBound}
           key={'Expander-' + runUuid}
-          // class="run-table-container"
           style={{padding: 8}}
         >
           <i className="ExperimentView-expander far fa-plus-square"/>
