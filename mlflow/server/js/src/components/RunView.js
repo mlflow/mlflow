@@ -225,7 +225,7 @@ class RunView extends Component {
           </div>
           {run.source_version ?
             <div className="run-info">
-              <span className="metadata-header">Git Commit: </span>
+              <span className="metadata-header">Source version: </span>
               <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
             </div>
             : null
