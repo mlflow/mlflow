@@ -51,7 +51,6 @@ class ExperimentRunsTableCompactView extends Component {
   constructor(props) {
     super(props);
     this.getRow = this.getRow.bind(this);
-    this.onHover = this.onHover.bind(this);
   }
 
   static propTypes = {
@@ -90,10 +89,6 @@ class ExperimentRunsTableCompactView extends Component {
   state = {
     hoverState: {isMetric: false, isParam: false, key: ""},
   };
-
-  onHover({isParam, isMetric, key}) {
-    this.setState({ hoverState: {isParam, isMetric, key} });
-  }
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
@@ -141,14 +136,16 @@ class ExperimentRunsTableCompactView extends Component {
     });
     // Add bagged params
     const paramsCellContents = baggedParams.map((paramKey) => {
-      const isHovered = hoverState.isParam && hoverState.key === paramKey;
       const keyname = "param-" + paramKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (<BaggedCell
         key={keyname}
         sortIcon={sortIcon}
-        keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
-        setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
+        keyName={paramKey}
+        value={paramsMap[paramKey].getValue()}
+        setSortByHandler={setSortByHandler}
+        isMetric={false}
+        isParam
         onRemoveBagged={onRemoveBagged}/>);
     });
     if (this.shouldShowBaggedColumn(true)) {
@@ -167,13 +164,15 @@ class ExperimentRunsTableCompactView extends Component {
     // Add bagged metrics
     const metricsCellContents = baggedMetrics.map((metricKey) => {
       const keyname = "metric-" + metricKey;
-      const isHovered = hoverState.isMetric && hoverState.key === metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       return (
         <BaggedCell key={keyname}
-                    keyName={metricKey} value={metricsMap[metricKey].getValue().toString()} onHover={this.onHover}
+                    keyName={metricKey}
+                    value={metricsMap[metricKey].getValue().toString()}
                     sortIcon={sortIcon}
-                    setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
+                    setSortByHandler={setSortByHandler}
+                    isMetric
+                    isParam={false}
                     onRemoveBagged={onRemoveBagged}/>
       );
     });
