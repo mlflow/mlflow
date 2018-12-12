@@ -109,7 +109,7 @@ class TestSparkUDFs(unittest.TestCase):
 
         # Ensure we can use the model locally.
         local_model = SparkModelCache.get_or_load(archive_path)
-        assert local_model == ConstPyfunc
+        assert local_model.__name__ == "ConstPyfunc"
 
         # Request the model on all executors, and see how many times we got cache hits.
         def get_model(_):
