@@ -11,6 +11,7 @@ import os
 import atexit
 import sys
 import time
+import logging
 
 from mlflow.entities import Experiment, Run, SourceType, RunInfo
 from mlflow.exceptions import MlflowException
@@ -18,7 +19,6 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
     MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID
@@ -28,6 +28,9 @@ _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
+
+
+_logger = logging.getLogger(__name__)
 
 
 def set_experiment(experiment_name):
@@ -194,8 +197,8 @@ def log_metric(key, value):
     :param value: Metric value (float).
     """
     if not isinstance(value, numbers.Number):
-        eprint("WARNING: The metric {}={} was not logged because the value is not a number.".format(
-            key, value))
+        _logger.warning(
+            "The metric %s=%s was not logged because the value is not a number.", key, value)
         return
     run_id = _get_or_start_run().info.run_uuid
     MlflowClient().log_metric(run_id, key, value, int(time.time()))
@@ -283,8 +286,9 @@ def _get_git_commit(path):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
-        eprint("Notice: failed to import Git (the Git executable is probably not on your PATH),"
-               " so Git SHA is not available. Error: %s" % e)
+        _logger.warning(
+            "Failed to import Git (the Git executable is probably not on your PATH),"
+            " so Git SHA is not available. Error: %s", e)
         return None
     try:
         if os.path.isfile(path):

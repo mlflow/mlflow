@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import pytest
 import yaml
+import json
 import pandas as pd
 import pandas.testing
 from collections import namedtuple
@@ -15,6 +16,7 @@ from h2o.estimators.gbm import H2OGradientBoostingEstimator
 
 import mlflow.h2o
 import mlflow
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
@@ -139,6 +141,20 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == h2o_custom_env_text
 
 
+def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
+    conda_env = dict(mlflow.h2o.DEFAULT_CONDA_ENV)
+    conda_env["dependencies"].append("pytest")
+    mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == conda_env
+
+
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         h2o_iris_model, h2o_custom_env):
     artifact_path = "model"
@@ -187,3 +203,23 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.h2o.DEFAULT_CONDA_ENV
+
+
+@pytest.mark.release
+def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, model_path):
+    mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=None)
+    reloaded_h2o_pyfunc = mlflow.pyfunc.load_pyfunc(model_path)
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=h2o_iris_model.inference_data.as_data_frame(),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
+    pandas.testing.assert_frame_equal(
+        deployed_model_preds["predict"].to_frame(),
+        reloaded_h2o_pyfunc.predict(
+            h2o_iris_model.inference_data.as_data_frame())["predict"].to_frame(),
+        check_dtype=False,
+        check_less_precise=6)

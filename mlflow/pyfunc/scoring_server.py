@@ -14,6 +14,7 @@ from __future__ import print_function
 
 import json
 import traceback
+import logging
 
 import pandas as pd
 import flask
@@ -22,7 +23,6 @@ from six import reraise
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.utils.rest_utils import NumpyEncoder
-from mlflow.utils.logging_utils import eprint
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -43,6 +43,9 @@ CONTENT_TYPES = [
     CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_ORIENTED
 ]
+
+
+_logger = logging.getLogger(__name__)
 
 
 def parse_json_input(json_input, orientation="split"):
@@ -136,20 +139,19 @@ def init(model):
         elif flask.request.content_type == CONTENT_TYPE_JSON:
             global logged_pandas_records_format_warning
             if not logged_pandas_records_format_warning:
-                eprint(
+                _logger.warning(
                     "**IMPORTANT UPDATE**: Starting in MLflow 0.9.0, requests received with a"
-                    " `Content-Type` header value of `{json_content_type}` will be interpreted"
+                    " `Content-Type` header value of `%s` will be interpreted"
                     " as JSON-serialized Pandas DataFrames with the `split` orientation, instead"
                     " of the `records` orientation. The `records` orientation is unsafe because"
                     " it may not preserve column ordering. Client code should be updated to"
                     " either send serialized DataFrames with the `split` orientation and the"
-                    " `{split_json_content_type}` content type (recommended) or use the"
-                    " `{records_json_content_type}` content type with the `records` orientation."
-                    " For more information, see"
-                    " https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.\n".format(
-                        json_content_type=CONTENT_TYPE_JSON,
-                        split_json_content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-                        records_json_content_type=CONTENT_TYPE_JSON_RECORDS_ORIENTED))
+                    " `%s` content type (recommended) or use the `%s` content type with the"
+                    " `records` orientation. For more information, see"
+                    " https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.\n",
+                    CONTENT_TYPE_JSON,
+                    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                    CONTENT_TYPE_JSON_RECORDS_ORIENTED)
                 logged_pandas_records_format_warning = True
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orientation="records")

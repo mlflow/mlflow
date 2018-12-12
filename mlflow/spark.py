@@ -22,8 +22,8 @@ Spark MLlib (native) format
 from __future__ import absolute_import
 
 import os
-import shutil
 import yaml
+import logging
 
 import pyspark
 from pyspark import SparkContext
@@ -32,9 +32,8 @@ from pyspark.ml.pipeline import PipelineModel
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "spark"
 
@@ -50,6 +49,9 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
 )
 
 
+_logger = logging.getLogger(__name__)
+
+
 def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=None,
               sample_input=None):
     """
@@ -58,10 +60,23 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
 
     :param spark_model: PipelineModel to be saved.
     :param artifact_path: Run relative artifact path.
-    :param conda_env: Path to a conda environment file. if provided, this decribes the environment
-                      this model should be run in. at minimum, it should specify the dependencies
-                      contained in ``mlflow.pyspark.DEFAULT_CONDA_ENV``. if `none`, the default
-                      ``mlflow.pyspark.DEFAULT_CONDA_ENV`` environment will be added to the model.
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in ``mlflow.spark.DEFAULT_CONDA_ENV``. If `None`, the default
+                      ``mlflow.spark.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pyspark=2.3.0'
+                            ]
+                        }
+
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be writen in this
@@ -158,7 +173,7 @@ class _HadoopFileSystem:
         if qualified_local_path == "file:" + local_path.toString():
             return local_path.toString()
         cls.copy_from_local_file(src, dst, remove_src=False)
-        eprint("Copied SparkML model to %s" % dst)
+        _logger.info("Copied SparkML model to %s", dst)
         return dst
 
     @classmethod
@@ -178,10 +193,23 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
-    :param conda_env: Path to a conda environment file. if provided, this decribes the environment
-                      this model should be run in. at minimum, it should specify the dependencies
-                      contained in ``mlflow.pyspark.DEFAULT_CONDA_ENV``. if `none`, the default
-                      ``mlflow.pyspark.DEFAULT_CONDA_ENV`` environment will be added to the model.
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in ``mlflow.spark.DEFAULT_CONDA_ENV``. If `None`, the default
+                      ``mlflow.spark.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pyspark=2.3.0'
+                            ]
+                        }
+
     :param jars: List of JARs needed by the model.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be written in this
@@ -221,11 +249,13 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     pyspark_version = pyspark.version.__version__
 
     conda_env_subpath = "conda.yaml"
-    if conda_env is not None:
-        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
-    else:
-        with open(os.path.join(path, conda_env_subpath), "w") as f:
-            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+    if conda_env is None:
+        conda_env = DEFAULT_CONDA_ENV
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark_version,
                             model_data=sparkml_data_path_sub)

@@ -208,8 +208,18 @@ Comparing the Models
 --------------------
 
 
-Next, use the MLflow UI to compare the models that you have produced. Run ``mlflow_ui()``
-in the same current working directory as the one that contains the ``mlruns``.
+Next, use the MLflow UI to compare the models that you have produced. In the same current working directory 
+as the one that contains the ``mlruns`` run:
+
+.. code-section::
+    .. code-block:: bash
+
+        mlflow ui
+    .. code-block:: R
+
+        mlflow_ui()
+
+and view it at `<http://localhost:5000>`_.
 
 On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 
@@ -377,7 +387,7 @@ in MLflow saved the model as an artifact within the run.
           or ``raise ValueError, "unsupported pickle protocol: %d"``.
 
       Once you have deployed the server, you can pass it some sample data and see the
-      predictions. The following example uses ``curl`` to send a JSON-serialized Pandas DataFrame
+      predictions. The following example uses ``curl`` to send a JSON-serialized pandas DataFrame
       with the ``split`` orientation to the pyfunc server. For more information about the input data
       formats accepted by the pyfunc model server, see the
       :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.

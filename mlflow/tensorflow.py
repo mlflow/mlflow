@@ -15,6 +15,7 @@ from __future__ import absolute_import
 import os
 import shutil
 import yaml
+import logging
 
 import pandas
 import tensorflow as tf
@@ -27,7 +28,6 @@ from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "tensorflow"
@@ -39,6 +39,9 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_pip_deps=None,
     additional_conda_channels=None,
 )
+
+
+_logger = logging.getLogger(__name__)
 
 
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
@@ -63,11 +66,23 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                  `signature_def_map` parameter of the
                                  `tf.saved_model.builder.SavedModelBuilder` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model.
+                      model. The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'tensorflow=1.8.0'
+                            ]
+                        }
+
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
@@ -97,18 +112,31 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                                  `tf.saved_model.builder.savedmodelbuilder` method.
     :param path: Local path where the MLflow model is to be saved.
     :param mlflow_model: MLflow model configuration to which this flavor will be added.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model.
+                      model. The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'tensorflow=1.8.0'
+                            ]
+                        }
+
     """
-    eprint("Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
-           " graph...")
+    _logger.info(
+        "Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
+        " graph...")
     _validate_saved_model(tf_saved_model_dir=tf_saved_model_dir,
                           tf_meta_graph_tags=tf_meta_graph_tags,
                           tf_signature_def_key=tf_signature_def_key)
-    eprint("Validation succeeded!")
+    _logger.info("Validation succeeded!")
 
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
@@ -118,11 +146,13 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     shutil.move(os.path.join(path, root_relative_path), os.path.join(path, model_dir_subpath))
 
     conda_env_subpath = "conda.yaml"
-    if conda_env is not None:
-        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
-    else:
-        with open(os.path.join(path, conda_env_subpath), "w") as f:
-            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+    if conda_env is None:
+        conda_env = DEFAULT_CONDA_ENV
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow_model.add_flavor(FLAVOR_NAME, saved_model_dir=model_dir_subpath,
                             meta_graph_tags=tf_meta_graph_tags,

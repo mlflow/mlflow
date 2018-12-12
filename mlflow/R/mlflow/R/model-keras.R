@@ -1,6 +1,6 @@
 #' Save MLflow Keras Model Flavor
 #'
-#' Saves model in MLflow's Keras flavor.
+#' Saves model in MLflow Keras flavor.
 #'
 #' @param x The serving function or model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
@@ -10,7 +10,7 @@
 #'   or \code{conda.yaml}.
 #' @param conda_env Path to Conda dependencies file.
 #'
-#' @return This funciton must return a list of flavors that conform to
+#' @return This function must return a list of flavors that conform to
 #'   the MLmodel specification.
 #'
 #' @export

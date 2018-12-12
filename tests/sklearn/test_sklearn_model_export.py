@@ -5,6 +5,7 @@ import os
 import pickle
 import pytest
 import yaml
+import json
 from collections import namedtuple
 
 import numpy as np
@@ -19,6 +20,7 @@ from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.sklearn
 import mlflow.utils
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -181,6 +183,21 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == sklearn_custom_env_parsed
 
 
+def test_model_save_accepts_conda_env_as_dict(sklearn_knn_model, model_path):
+    conda_env = dict(mlflow.sklearn.DEFAULT_CONDA_ENV)
+    conda_env["dependencies"].append("pytest")
+    mlflow.sklearn.save_model(
+            sk_model=sklearn_knn_model.model, path=model_path, conda_env=conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == conda_env
+
+
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         sklearn_knn_model, sklearn_custom_env):
     artifact_path = "model"
@@ -220,7 +237,8 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
-    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, conda_env=None)
+    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, conda_env=None,
+                              serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -235,7 +253,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     knn_model = sklearn_knn_model.model
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=knn_model, artifact_path=artifact_path, conda_env=None)
+        mlflow.sklearn.log_model(sk_model=knn_model, artifact_path=artifact_path, conda_env=None,
+                                 serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
         run_id = mlflow.active_run().info.run_uuid
     model_path = _get_model_log_dir(artifact_path, run_id)
 
@@ -245,3 +264,96 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.sklearn.DEFAULT_CONDA_ENV
+
+
+def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
+
+    sklearn_conf = _get_flavor_configuration(
+            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+
+
+def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+                sk_model=sklearn_knn_model.model, artifact_path=artifact_path, conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = _get_model_log_dir(artifact_path, run_id)
+
+    sklearn_conf = _get_flavor_configuration(
+            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+
+
+def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
+        sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(
+            sk_model=sklearn_knn_model.model,
+            path=model_path,
+            conda_env=None,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+
+    sklearn_conf = _get_flavor_configuration(
+            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert any([
+        "cloudpickle" in dependency for dependency in saved_conda_env_parsed["dependencies"]])
+
+
+def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda_environment(
+        sklearn_knn_model, model_path):
+    non_cloudpickle_serialization_formats = list(mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
+    non_cloudpickle_serialization_formats.remove(mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+
+    for serialization_format in non_cloudpickle_serialization_formats:
+        mlflow.sklearn.save_model(
+                sk_model=sklearn_knn_model.model,
+                path=model_path,
+                conda_env=None,
+                serialization_format=serialization_format)
+
+        sklearn_conf = _get_flavor_configuration(
+                model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME)
+        assert "serialization_format" in sklearn_conf
+        assert sklearn_conf["serialization_format"] == serialization_format
+
+        pyfunc_conf = _get_flavor_configuration(
+                model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+        saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+        assert os.path.exists(saved_conda_env_path)
+        with open(saved_conda_env_path, "r") as f:
+            saved_conda_env_parsed = yaml.safe_load(f)
+            print("DEFAULT ENV", mlflow.sklearn.DEFAULT_CONDA_ENV)
+        assert all(["cloudpickle" not in dependency
+                    for dependency in saved_conda_env_parsed["dependencies"]])
+
+
+@pytest.mark.release
+def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
+    reloaded_knn_pyfunc = pyfunc.load_pyfunc(path=model_path)
+
+    inference_df = pd.DataFrame(sklearn_knn_model.inference_data)
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=inference_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
+    pandas.testing.assert_frame_equal(
+        deployed_model_preds,
+        pd.DataFrame(reloaded_knn_pyfunc.predict(inference_df)),
+        check_dtype=False,
+        check_less_precise=6)

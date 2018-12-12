@@ -7,8 +7,8 @@ import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
   static getCheckboxForRow(selected, checkboxHandler, cellType) {
-    const CellComponent = `${cellType}`
-    return <CellComponent key="meta-check" class="run-table-container">
+    const CellComponent = `${cellType}`;
+    return <CellComponent key="meta-check" className="run-table-container">
       <div>
         <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
       </div>

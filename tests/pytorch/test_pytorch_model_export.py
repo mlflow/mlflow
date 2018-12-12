@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os
+import json
 
 import pytest
 import numpy as np
@@ -14,6 +15,7 @@ from torch.utils.data import DataLoader
 
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import _mlflow_conda_env
@@ -185,6 +187,20 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
+def test_model_save_accepts_conda_env_as_dict(model, model_path):
+    conda_env = dict(mlflow.pytorch.DEFAULT_CONDA_ENV)
+    conda_env["dependencies"].append("pytest")
+    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == conda_env
+
+
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         model, pytorch_custom_env):
     artifact_path = "model"
@@ -235,3 +251,21 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
+
+
+@pytest.mark.release
+def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path, data, predicted):
+    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+            model_path=model_path,
+            data=data[0],
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            flavor=mlflow.pyfunc.FLAVOR_NAME,
+            activity_polling_timeout_seconds=360)
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+
+    np.testing.assert_array_almost_equal(
+        deployed_model_preds.values[:, 0],
+        predicted,
+        decimal=4)
