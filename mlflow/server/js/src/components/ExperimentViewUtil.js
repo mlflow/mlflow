@@ -71,7 +71,7 @@ export default class ExperimentViewUtil {
       </td>,
       <td className="run-table-container" key="meta-version">
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
-          {Utils.renderVersion(runInfo)}
+          <abbr title={Utils.renderVersion(runInfo, false)}>{Utils.renderVersion(runInfo)}</abbr>
         </div>
       </td>,
     ];
