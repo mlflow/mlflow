@@ -110,7 +110,7 @@ class ExperimentPage extends Component {
 
   render() {
     return (
-      <div className="ExperimentPage">
+      <div className="ExperimentPage flex-container" style={{height: "100%"}}>
         <RequestStateWrapper requestIds={this.getRequestIds()}>
           <ExperimentView
             paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}

@@ -264,7 +264,7 @@ class ExperimentView extends Component {
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     return (
-      <div className="ExperimentView">
+      <div className="ExperimentView flex-container">
         <DeleteRunModal
           isOpen={this.state.showDeleteRunModal}
           onClose={this.onCloseDeleteRunModal}
@@ -286,7 +286,7 @@ class ExperimentView extends Component {
             {artifact_location}
           </span>
         </div>
-        <div className="ExperimentView-runs">
+        <div className="ExperimentView-runs flex-container">
           {this.state.searchErrorMessage !== undefined ?
             <div className="error-message">
               <span className="error-message">{this.state.searchErrorMessage}</span>

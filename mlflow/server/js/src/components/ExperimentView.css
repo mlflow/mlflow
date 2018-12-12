@@ -238,3 +238,9 @@ span.error-message {
 .ReactVirtualized__Table  .BaggedCell .run-table-container {
   padding: 4px;
 }
+
+.flex-container {
+  flex: 1 1 auto;
+  flex-direction: column;
+  display: flex;
+}

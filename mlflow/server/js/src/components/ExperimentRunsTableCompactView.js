@@ -175,7 +175,6 @@ class ExperimentRunsTableCompactView extends Component {
 
     // Add bagged metrics
     const metricsCellContents = baggedMetrics.map((metricKey) => {
-    // const metricsCellContents = [...Array(100).keys()].map((metricKey) => {
       const keyname = "metric-" + metricKey;
       const isHovered = hoverState.isMetric && hoverState.key === metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
@@ -364,24 +363,8 @@ class ExperimentRunsTableCompactView extends Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState, "div")
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
-
-    // // Thought: Need to use this to render the header row, since you have two of them.
-    // EDIT: react-virtualized only shows one row though.
-    // const headerRowRenderer = ({
-    //                              className,
-    //                              columns,
-    //                              style
-    //                            }) => {
-    //   // const topRowContents = [...Array(7).keys()].map(() => <div/>);
-    //   // topRowContents.concat([<div>Parameters</div>, <div>Metrics</div>]);
-    //   // const topRow = <div role="row" className={className}>
-    //   //   {topRowContents}
-    //   // </div>;
-    //   const bottomRow = <div role="row" className={className}>{headerCells}</div>;
-    //   // return [topRow, bottomRow];
-    //   return bottomRow;
-    // };
     return (
+      <div id="autosizer-container" className="flex-container">
           <AutoSizer>
             {({width, height}) => {
               if (this._lastRenderedWidth !== width) {
@@ -392,11 +375,6 @@ class ExperimentRunsTableCompactView extends Component {
               if (this._lastSortState !== sortState) {
                 this._lastSortState = sortState;
                 console.log("Clearing all because sort state changed!");
-                this._cache.clearAll();
-              }
-              if (this._lastRunsExpanded !== runsExpanded) {
-                this._lastRunsExpanded = runsExpanded;
-                console.log("Clearing all because runs expanded changed!");
                 this._cache.clearAll();
               }
               if (this._lastUnbaggedMetrics !== unbaggedMetrics) {
@@ -410,33 +388,13 @@ class ExperimentRunsTableCompactView extends Component {
               return (<Table
                 width={width + unbaggedMetrics.length * 120 + unbaggedParams.length * 120}
                 deferredMeasurementCache={this._cache}
-                // height={height}
-                height={500}
+                height={Math.max(height - 48, 200)}
                 headerHeight={48}
                 overscanRowCount={2}
-                // onRowsRendered={({ overscanStartIndex, overscanStopIndex, startIndex, stopIndex }) => {
-                //   console.log("overscanStartIndex: " + overscanStartIndex);
-                //   console.log("overscanStopIndex: " + overscanStopIndex);
-                //   console.log("startIndex: " + startIndex);
-                //   console.log("stopIndex: " + stopIndex);
-                // }}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
-                // overscanIndicesGetter={({
-                //                           direction,          // One of "horizontal" or "vertical"
-                //                           cellCount,          // Number of rows or columns in the current axis
-                //                           scrollDirection,    // 1 (forwards) or -1 (backwards)
-                //                           overscanCellsCount, // Maximum number of cells to over-render in either direction
-                //                           startIndex,         // Begin of range of visible cells
-                //                           stopIndex           // End of range of visible cells
-                //                         }) => {
-                //   const startIdx = Math.max(0, startIndex - overscanCellsCount);
-                //   const endIdx = Math.min(stopIndex + overscanCellsCount, cellCount - 1);
-                //   return {overscanStartIndex: startIdx, overscanStopIndex: endIdx};
-                // }}
                 rowGetter={({index}) => rows[index]}
                 rowStyle={({index}) => {
-                  // console.log("Row style for row " + index);
                   const borderStyle = "1px solid #e2e2e2";
                   const base = {alignItems: "stretch", borderBottom: borderStyle, overflow: "visible"};
                   if (index === - 1) {
@@ -448,7 +406,7 @@ class ExperimentRunsTableCompactView extends Component {
                 <Column
                   label='Checkbox'
                   dataKey='checkbox'
-                  width={30}
+                  width={48}
                   headerRenderer={() => {
                     return headerCells[0]
                   }}
@@ -531,19 +489,12 @@ class ExperimentRunsTableCompactView extends Component {
                   }}
                 />
                 {unbaggedParams.map((unbaggedParam, idx) => {
-                  const borderClass = classNames({"left-border": idx === 0});
                   return <Column
                     key={"param-" + unbaggedParam}
                     label={"param-" + unbaggedParam}
                     dataKey={"param-" + unbaggedParam}
                     width={120}
-                    headerRenderer={() => {
-                      // // return <div>{unbaggedParam}</div>
-                      // if (idx === 0) {
-                      //   return <span style={}></span>
-                      // }
-                      return headerCells[7 + idx];
-                    }}
+                    headerRenderer={() => headerCells[7 + idx]}
                   style={{display: "flex", alignItems: "flex-start"}}
                     cellRenderer={({rowIndex}) => {
                       return rows[rowIndex].contents[7 + idx]
@@ -555,7 +506,6 @@ class ExperimentRunsTableCompactView extends Component {
                   label='Parameters'
                   dataKey='params'
                   headerRenderer={() => {
-                    //return headerCells[7 + unbaggedParams.length]
                     return <div>Parameters</div>;
                   }}
                   style={{display: "flex", alignItems: "flex-start", borderLeft: "1px solid #e2e2e2"}}
@@ -596,7 +546,6 @@ class ExperimentRunsTableCompactView extends Component {
                   label='Metrics'
                   dataKey='metrics'
                   headerRenderer={() => {
-                    // return headerCells[8 + unbaggedParams.length + unbaggedMetrics.length]
                     return <div>Metrics</div>
                   }}
                   style={{display: "flex", alignItems: "flex-start", borderLeft: "1px solid #e2e2e2"}}
@@ -619,6 +568,7 @@ class ExperimentRunsTableCompactView extends Component {
               </Table>);
             }}
           </AutoSizer>
+      </div>
     );
   }
 }
