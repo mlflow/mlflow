@@ -89,9 +89,10 @@ def test_model_save_load(model, model_path, data, predicted):
     # test spark udf
     spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
                                          run_id=None,
-                                         pandas_df=pd.DataFrame(x))
+                                         pandas_df=pd.DataFrame(x),
+                                         result_type="float")
     np.testing.assert_array_almost_equal(
-        np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=8)
+        np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=7)
 
 
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument

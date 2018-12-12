@@ -499,3 +499,32 @@ Spark cluster and used to score the model.
 
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+
+The resulting UDF is based Spark's Pandas UDF and is currently limited to producing either a single
+value or an array of values of the same type per observation. You can control what result is
+returned by supplying ``result_type`` argument. Following values are supported:
+    * ``'int'`` or instanceof ``IntegerType``: The leftmost integer that can fit in
+      ``int32`` result is returned or exception is raised if there is none.
+    * ``'long'`` or instanceof ``LongType``: The leftmost long integer that can fit in ``int64``
+      result is returned or exception is raised if there is none.
+    * ``ArrayType(IntegerType|LongType)``: Return all integer columns that can fit
+      into the requested size.
+    * ``'float'`` or instanceof ``FloatType``: The leftmost numeric result cast to
+      ``float32`` is returned or exception is raised if there is no numeric column.
+    * ``'double'`` or instanceof ``DoubleType``: The leftmost numeric result cast to
+      double is returned or exception is raised if there is no numeric column.
+    * ``ArrayType(FloatType|DoubleType)``: Return all numeric columns cast to the
+      requested. type. Exception is raised if there are numeric columns.
+    * ``'string'`` or ``StringType``: Result is the leftmost column converted to string.
+    * ``Array[StringType]``: Return all columns converted to string.
+
+.. rubric:: Example
+
+.. code:: python
+
+    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
+    # The prediction column will contain all the numeric columns returned by the model as floats
+    df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+
+
+
