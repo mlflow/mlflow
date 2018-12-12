@@ -2,6 +2,7 @@ import json
 
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
 
+
 class MlflowException(Exception):
     """
     Generic exception thrown to surface failure information about external-facing operations.
@@ -9,6 +10,7 @@ class MlflowException(Exception):
     for debugging purposes. If the error text is sensitive, raise a generic `Exception` object
     instead.
     """
+
     def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
         """
         :param message: The message describing the error that occured. This will be included in the
@@ -35,6 +37,7 @@ class MlflowException(Exception):
 
 class RestException(MlflowException):
     """Exception thrown on non 200-level responses from the REST API"""
+
     def __init__(self, json):
         error_code = json['error_code']
         message = error_code
