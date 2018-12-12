@@ -48,7 +48,11 @@ export default class ExperimentViewUtil {
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
     return [
-      <CellComponent key="meta-link" className="run-table-container" style={{whiteSpace: "inherit"}}>
+      <CellComponent
+        key="meta-link"
+        className="run-table-container"
+        style={{whiteSpace: "inherit"}}
+      >
         <div style={childLeftMargin}>
           <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
             {Utils.formatTimestamp(startTime)}
@@ -279,8 +283,7 @@ export default class ExperimentViewUtil {
       return Utils.formatSource(runInfo, tags);
     } else if (sortState.key === 'run_name') {
       return Utils.getRunName(tags);
-    }
-    else {
+    } else {
       return runInfo[sortState.key];
     }
   }
