@@ -7,12 +7,13 @@ import classNames from 'classnames';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import BaggedCell from "./BaggedCell";
-
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
-import 'react-virtualized/styles.css'; // only needs to be imported once
+import 'react-virtualized/styles.css';
 
 const NUM_RUN_METADATA_COLS = 7;
 const TABLE_HEADER_HEIGHT = 48;
+const UNBAGGED_COL_WIDTH = 150;
+const BORDER_STYLE = "1px solid #e2e2e2";
 
 const styles = {
   sortArrow: {
@@ -34,11 +35,23 @@ const styles = {
   metricParamNameContainer: {
     verticalAlign: "middle",
     display: "inline-block",
+    overflow: "hidden"
   },
-  metricParamHeaderContainer: {
+  unbaggedMetricParamColHeader: {
     verticalAlign: "middle",
-    maxWidth: 120,
-  }
+    maxWidth: UNBAGGED_COL_WIDTH,
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    padding: "8px 0px 8px 8px",
+    height: "100%"
+  },
+  columnStyle: {
+    display: "flex",
+    alignItems: "flex-start",
+  },
+  baggedCellContainer: {
+    whiteSpace: 'normal'
+  },
 };
 
 /**
@@ -251,13 +264,9 @@ class ExperimentRunsTableCompactView extends Component {
         <div
           key={elemKey}
           className={className}
-          style={{height: "100%", padding: "8px"}}
+          style={styles.unbaggedMetricParamColHeader}
         >
-          <span
-            style={styles.metricParamHeaderContainer}
-            className="run-table-container"
-          >
-            <Dropdown id="dropdown-custom-1">
+            <Dropdown id="dropdown-custom-1" style={{width: "100%"}}>
               <ExperimentRunsSortToggle
                 bsRole="toggle"
                 className="metric-param-sort-toggle"
@@ -265,9 +274,7 @@ class ExperimentRunsTableCompactView extends Component {
                 <span
                   style={{
                     maxWidth: keyContainerWidth,
-                    overflow: "hidden",
-                    display: "inline-block",
-                    verticalAlign: "middle"
+                    ...styles.metricParamNameContainer,
                   }}
                 >
                   {key}
@@ -295,7 +302,6 @@ class ExperimentRunsTableCompactView extends Component {
                 </MenuItem>
               </Dropdown.Menu>
             </Dropdown>
-          </span>
         </div>);
     };
 
@@ -380,9 +386,13 @@ class ExperimentRunsTableCompactView extends Component {
                 this._lastUnbaggedParams = unbaggedParams;
                 this._cache.clearAll();
               }
-              const runMetadataColWidths = [48, 30, 150, 120, 120, 120, 120];
+              const runMetadataColWidths = [48, 30, 180, 120, 120, 120, 120];
+              const showBaggedParams = this.shouldShowBaggedColumn(true);
+              const showBaggedMetrics = this.shouldShowBaggedColumn(false);
               return (<Table
-                width={width + (unbaggedMetrics.length * 120) + (unbaggedParams.length * 120)}
+                width={
+                  width + (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length))
+                }
                 deferredMeasurementCache={this._cache}
                 height={Math.max(height - TABLE_HEADER_HEIGHT, 200)}
                 headerHeight={TABLE_HEADER_HEIGHT}
@@ -391,24 +401,21 @@ class ExperimentRunsTableCompactView extends Component {
                 rowCount={rows.length}
                 rowGetter={({index}) => rows[index]}
                 rowStyle={({index}) => {
-                  const borderStyle = "1px solid #e2e2e2";
-                  const base = {alignItems: "stretch", borderBottom: borderStyle,
+                  const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
                     overflow: "visible"};
                   if (index === - 1) {
-                    return {...base, borderTop: borderStyle};
+                    return {...base, borderTop: BORDER_STYLE};
                   }
                   return base;
                 }}
               >
                 {[...Array(NUM_RUN_METADATA_COLS).keys()].map((colIdx) => {
                   return <Column
-                    label={'column-' + colIdx}
                     dataKey={'column-' + colIdx}
+                    key={'column-' + colIdx}
                     width={runMetadataColWidths[colIdx]}
-                    headerRenderer={() => {
-                      return headerCells[colIdx];
-                    }}
-                    style={{display: "flex", alignItems: "flex-start"}}
+                    headerRenderer={() => headerCells[colIdx]}
+                    style={styles.columnStyle}
                     cellRenderer={({rowIndex}) => {
                       return rows[rowIndex].contents[colIdx];
                     }}
@@ -417,28 +424,27 @@ class ExperimentRunsTableCompactView extends Component {
                 {unbaggedParams.map((unbaggedParam, idx) => {
                   return <Column
                     key={"param-" + unbaggedParam}
-                    label={"param-" + unbaggedParam}
                     dataKey={"param-" + unbaggedParam}
-                    width={120}
+                    width={UNBAGGED_COL_WIDTH}
                     headerRenderer={() => headerCells[NUM_RUN_METADATA_COLS + idx]}
-                  style={{display: "flex", alignItems: "flex-start"}}
+                    style={styles.columnStyle}
                     cellRenderer={({rowIndex}) => {
                       return rows[rowIndex].contents[NUM_RUN_METADATA_COLS + idx];
                     }}
                   />;
                 })}
-                <Column
+                {showBaggedParams && <Column
                   width={300}
                   label='Parameters'
                   dataKey='params'
                   headerRenderer={() => {
-                    return <div>Parameters</div>;
+                    return <div
+                      style={{...styles.unbaggedMetricParamColHeader, leftBorder: BORDER_STYLE}}
+                    >
+                      Parameters
+                    </div>;
                   }}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    borderLeft: "1px solid #e2e2e2",
-                  }}
+                  style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
                   cellRenderer={({rowIndex, parent, dataKey}) => {
                     return (<CellMeasurer
                       cache={this._cache}
@@ -447,56 +453,53 @@ class ExperimentRunsTableCompactView extends Component {
                       parent={parent}
                       rowIndex={rowIndex}>
                       <div
-                        style={{
-                          whiteSpace: 'normal',
-                        }}>
+                        style={styles.baggedCellContainer}
+                      >
                         {rows[rowIndex].contents[NUM_RUN_METADATA_COLS + unbaggedParams.length]}
                       </div>
                     </CellMeasurer>);
                   }}
-                />
+                />}
                 {unbaggedMetrics.map((unbaggedMetric, idx) => {
-                  const colIdx = NUM_RUN_METADATA_COLS + 1 + unbaggedParams.length + idx;
+                  const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
+                    unbaggedParams.length + idx;
                   return <Column
                     key={"metric-" + unbaggedMetric}
                     label='Version'
                     dataKey={"metric-" + unbaggedMetric}
-                    width={120}
-                    headerRenderer={() => {
-                      return headerCells[colIdx];
-                    }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                    cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[colIdx];
-                    }}
+                    width={UNBAGGED_COL_WIDTH}
+                    headerRenderer={() => headerCells[colIdx]}
+                    style={styles.columnStyle}
+                    cellRenderer={({rowIndex}) => rows[rowIndex].contents[colIdx]}
                   />;
                 })}
-                <Column
+                {showBaggedMetrics && <Column
                   width={300}
                   label='Metrics'
                   dataKey='metrics'
                   headerRenderer={() => {
-                    return <div>Metrics</div>;
+                    return <div
+                      style={{...styles.unbaggedMetricParamColHeader, leftBorder: BORDER_STYLE}}
+                    >
+                      Metrics
+                    </div>;
                   }}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    borderLeft: "1px solid #e2e2e2",
-                  }}
+                  style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
                   cellRenderer={({rowIndex, parent, dataKey}) => {
-                    const colIdx = 8 + unbaggedParams.length + unbaggedMetrics.length;
+                    const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
+                      unbaggedParams.length + unbaggedMetrics.length;
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={1}
+                      columnIndex={0 + showBaggedParams}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
-                      <div style={{whiteSpace: 'normal'}}>
+                      <div style={styles.baggedCellContainer}>
                         {rows[rowIndex].contents[colIdx]}
                       </div>
                     </CellMeasurer>);
                   }}
-                />
+                />}
               </Table>);
             }}
           </AutoSizer>

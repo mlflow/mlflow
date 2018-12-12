@@ -7,6 +7,7 @@ import mlflow
 import itertools
 import random
 import string
+import time
 from random import random as rand
 
 from mlflow.tracking import MlflowClient
@@ -161,35 +162,24 @@ if __name__ == '__main__':
         # Experiment with a mix of nested runs & non-nested runs
         for i in range(3):
             with mlflow.start_run(source_name='parent-with-children-{}'.format(i)):
-                params = {rand_str(): rand_str()
-                          for _ in range(5)}
-                metrics = {rand_str(): [rand() for _ in range(random.randint(1, 20))]
-                           for _ in range(5)}
+                params = {rand_str(): rand_str() for _ in range(5)}
+                metrics = {rand_str(): [rand()] for _ in range(5)}
                 log_params(params)
                 log_metrics(metrics)
                 for j in range(10):
                     with mlflow.start_run(source_name='child-{}'.format(j), nested=True):
                         params = {rand_str(): rand_str() for _ in range(30)}
-                        metrics = {rand_str(): [rand() for _ in range(30)]
-                                   for idx in range(30)}
+                        metrics = {rand_str(): [rand()] for idx in range(30)}
                         log_params(params)
                         log_metrics(metrics)
-            for j in range(20):
+            for j in range(10):
                 with mlflow.start_run(source_name='unnested-{}-{}'.format(i, j)):
                     params = {rand_str(): rand_str() for _ in range(5)}
-                    metrics = {rand_str(): [rand() for _ in range(random.randint(1, 20))]
-                               for _ in range(5)}
+                    metrics = {rand_str(): [rand()] for _ in range(5)}
         mlflow.set_experiment("hitting-metric-param-limits")
-        for i in range(100, 150):
+        for i in range(50):
             with mlflow.start_run(source_name="big-run-{}".format(i)):
                 params = {str(j) + "a" * 250: "b" * 1000 for j in range(100)}
                 metrics = {str(j) + "a" * 250: [rand()] for j in range(100)}
-                log_metrics(metrics)
-                log_params(params)
-        mlflow.set_experiment("normal-size-metric-param-vals")
-        for i in range(250):
-            with mlflow.start_run(source_name="normal-size-vals-{}".format(i)):
-                params = {str(rand()) * 3: str(rand()) * 3 for j in range(100)}
-                metrics = {str(rand()) * 3: [rand()] for j in range(100)}
                 log_metrics(metrics)
                 log_params(params)
