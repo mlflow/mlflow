@@ -382,6 +382,8 @@ class ExperimentRunsTableCompactView extends Component {
                 this._lastUnbaggedParams = unbaggedParams;
                 this._cache.clearAll();
               }
+              const runMetadataColWidths = [48, 30, 150, 120, 120, 120, 120];
+              const numRunMetadataCols = runMetadataColWidths.length;
               return (<Table
                 width={width + (unbaggedMetrics.length * 120) + (unbaggedParams.length * 120)}
                 deferredMeasurementCache={this._cache}
@@ -401,101 +403,30 @@ class ExperimentRunsTableCompactView extends Component {
                   return base;
                 }}
               >
-                <Column
-                  label='Checkbox'
-                  dataKey='checkbox'
-                  width={48}
-                  headerRenderer={() => {
-                    return headerCells[0];
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[0];
-                  }}
-                />
-                <Column
-                  label='Expander'
-                  dataKey='expander'
-                  width={30}
-                  headerRenderer={() => {
-                    return headerCells[1];
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[1];
-                  }}
-                />
-                <Column
-                  label='Date'
-                  dataKey='date'
-                  width={150}
-                  headerRenderer={() => {
-                    return headerCells[2];
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  flexShrink={0}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[1 + 1];
-                  }}
-                />
-                <Column
-                  label='User'
-                  dataKey='user'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[3];
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[2 + 1];
-                  }}
-                />
-                <Column
-                  label='Run Name'
-                  dataKey='name'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[4];
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[3 + 1];
-                  }}
-                />
-                <Column
-                  label='Source'
-                  dataKey='source'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[5];
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[4 + 1];
-                  }}
-                />
-                <Column
-                  label='Version'
-                  dataKey='version'
-                  width={120}
-                  headerRenderer={() => {
-                    return headerCells[6];
-                  }}
-                  style={{display: "flex", alignItems: "flex-start"}}
-                  cellRenderer={({rowIndex}) => {
-                    return rows[rowIndex].contents[5 + 1];
-                  }}
-                />
+                {[...Array(7).keys()].map((colIdx) => {
+                  return <Column
+                    label={'column-' + colIdx}
+                    dataKey={'column-' + colIdx}
+                    width={runMetadataColWidths[colIdx]}
+                    headerRenderer={() => {
+                      return headerCells[colIdx];
+                    }}
+                    style={{display: "flex", alignItems: "flex-start"}}
+                    cellRenderer={({rowIndex}) => {
+                      return rows[rowIndex].contents[colIdx];
+                    }}
+                  />;
+                })}
                 {unbaggedParams.map((unbaggedParam, idx) => {
                   return <Column
                     key={"param-" + unbaggedParam}
                     label={"param-" + unbaggedParam}
                     dataKey={"param-" + unbaggedParam}
                     width={120}
-                    headerRenderer={() => headerCells[7 + idx]}
+                    headerRenderer={() => headerCells[numRunMetadataCols + idx]}
                   style={{display: "flex", alignItems: "flex-start"}}
                     cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[7 + idx];
+                      return rows[rowIndex].contents[numRunMetadataCols + idx];
                     }}
                   />;
                 })}
@@ -522,24 +453,24 @@ class ExperimentRunsTableCompactView extends Component {
                         style={{
                           whiteSpace: 'normal',
                         }}>
-                        {rows[rowIndex].contents[7 + unbaggedParams.length]}
+                        {rows[rowIndex].contents[numRunMetadataCols + unbaggedParams.length]}
                       </div>
                     </CellMeasurer>);
                   }}
                 />
                 {unbaggedMetrics.map((unbaggedMetric, idx) => {
+                  const colIdx = numRunMetadataCols + 1 + unbaggedParams.length + idx;
                   return <Column
                     key={"metric-" + unbaggedMetric}
                     label='Version'
                     dataKey={"metric-" + unbaggedMetric}
                     width={120}
                     headerRenderer={() => {
-                      // return <div>{unbaggedMetric}</div>
-                      return headerCells[8 + unbaggedParams.length + idx];
+                      return headerCells[colIdx];
                     }}
                   style={{display: "flex", alignItems: "flex-start"}}
                     cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[8 + unbaggedParams.length + idx];
+                      return rows[rowIndex].contents[colIdx];
                     }}
                   />;
                 })}
