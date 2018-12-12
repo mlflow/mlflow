@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import os
-import pickle
 import shutil
 import sys
 import tempfile
@@ -15,7 +14,7 @@ from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, Float
 import pytest
 
 import mlflow
-from mlflow.pyfunc import load_pyfunc, spark_udf
+from mlflow.pyfunc import spark_udf
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 import mlflow.sklearn
 
