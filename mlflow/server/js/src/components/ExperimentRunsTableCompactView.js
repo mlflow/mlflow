@@ -6,9 +6,14 @@ import { RunInfo } from '../sdk/MlflowMessages';
 import classNames from 'classnames';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
-import BaggedCell from './BaggedCell';
+import BaggedCell from "./BaggedCell";
+
 import { CellMeasurer, CellMeasurerCache, AutoSizer } from 'react-virtualized';
+
+
 import { Column, Table } from 'react-virtualized';
+import 'react-virtualized/styles.css'; // only needs to be imported once
+
 
 const styles = {
   sortArrow: {
@@ -46,6 +51,7 @@ class ExperimentRunsTableCompactView extends Component {
   constructor(props) {
     super(props);
     this.getRow = this.getRow.bind(this);
+    this.onHover = this.onHover.bind(this);
   }
 
   static propTypes = {
@@ -84,6 +90,10 @@ class ExperimentRunsTableCompactView extends Component {
   state = {
     hoverState: {isMetric: false, isParam: false, key: ""},
   };
+
+  onHover({isParam, isMetric, key}) {
+    this.setState({ hoverState: {isParam, isMetric, key} });
+  }
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
@@ -131,15 +141,14 @@ class ExperimentRunsTableCompactView extends Component {
     });
     // Add bagged params
     const paramsCellContents = baggedParams.map((paramKey) => {
+      const isHovered = hoverState.isParam && hoverState.key === paramKey;
       const keyname = "param-" + paramKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, true, paramKey);
       return (<BaggedCell
         key={keyname}
         sortIcon={sortIcon}
-        keyName={paramKey} value={paramsMap[paramKey].getValue()}
-        setSortByHandler={setSortByHandler}
-        isMetric={false}
-        isParam
+        keyName={paramKey} value={paramsMap[paramKey].getValue()} onHover={this.onHover}
+        setSortByHandler={setSortByHandler} isMetric={false} isParam={true} isHovered={isHovered}
         onRemoveBagged={onRemoveBagged}/>);
     });
     if (this.shouldShowBaggedColumn(true)) {
@@ -158,15 +167,13 @@ class ExperimentRunsTableCompactView extends Component {
     // Add bagged metrics
     const metricsCellContents = baggedMetrics.map((metricKey) => {
       const keyname = "metric-" + metricKey;
+      const isHovered = hoverState.isMetric && hoverState.key === metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, true, false, metricKey);
       return (
         <BaggedCell key={keyname}
-                    keyName={metricKey}
-                    value={metricsMap[metricKey].getValue().toString()}
+                    keyName={metricKey} value={metricsMap[metricKey].getValue().toString()} onHover={this.onHover}
                     sortIcon={sortIcon}
-                    setSortByHandler={setSortByHandler}
-                    isMetric
-                    isParam={false}
+                    setSortByHandler={setSortByHandler} isMetric={true} isParam={false} isHovered={isHovered}
                     onRemoveBagged={onRemoveBagged}/>
       );
     });
@@ -422,6 +429,131 @@ class ExperimentRunsTableCompactView extends Component {
                   flexShrink={0}
                   cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
                     return rows[rowIndex].contents[1 + 1];
+                  }}
+                />
+                <Column
+                  label='User'
+                  dataKey='user'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[3]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[2 + 1];
+                  }}
+                />
+                <Column
+                  label='Run Name'
+                  dataKey='name'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[4]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[3 + 1];
+                  }}
+                />
+                <Column
+                  label='Source'
+                  dataKey='source'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[5]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[4 + 1];
+                  }}
+                />
+                <Column
+                  label='Version'
+                  dataKey='version'
+                  width={120}
+                  headerRenderer={() => {
+                    return headerCells[6]
+                  }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                  cellRenderer={({rowIndex}) => {
+                    return rows[rowIndex].contents[5 + 1];
+                  }}
+                />
+                {unbaggedParams.map((unbaggedParam, idx) => {
+                  return <Column
+                    key={"param-" + unbaggedParam}
+                    label={"param-" + unbaggedParam}
+                    dataKey={"param-" + unbaggedParam}
+                    width={120}
+                    headerRenderer={() => headerCells[7 + idx]}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                    cellRenderer={({rowIndex}) => {
+                      return rows[rowIndex].contents[7 + idx]
+                    }}
+                  />
+                })}
+                <Column
+                  width={300}
+                  label='Parameters'
+                  dataKey='params'
+                  headerRenderer={() => {
+                    return <div>Parameters</div>;
+                  }}
+                  style={{display: "flex", alignItems: "flex-start", borderLeft: "1px solid #e2e2e2"}}
+                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
+                    return (<CellMeasurer
+                      cache={this._cache}
+                      columnIndex={0}
+                      key={dataKey}
+                      parent={parent}
+                      rowIndex={rowIndex}>
+                      <div
+                        style={{
+                          whiteSpace: 'normal',
+                        }}>
+                        {rows[rowIndex].contents[7 + unbaggedParams.length]}
+                      </div>
+                    </CellMeasurer>);
+                  }}
+                />
+                {unbaggedMetrics.map((unbaggedMetric, idx) => {
+                  return <Column
+                    key={"metric-" + unbaggedMetric}
+                    label='Version'
+                    dataKey={"metric-" + unbaggedMetric}
+                    width={120}
+                    headerRenderer={() => {
+                      // return <div>{unbaggedMetric}</div>
+                      return headerCells[8 + unbaggedParams.length + idx];
+                    }}
+                  style={{display: "flex", alignItems: "flex-start"}}
+                    cellRenderer={({rowIndex}) => {
+                      return rows[rowIndex].contents[8 + unbaggedParams.length + idx];
+                    }}
+                  />
+                })}
+                <Column
+                  width={300}
+                  label='Metrics'
+                  dataKey='metrics'
+                  headerRenderer={() => {
+                    return <div>Metrics</div>
+                  }}
+                  style={{display: "flex", alignItems: "flex-start", borderLeft: "1px solid #e2e2e2"}}
+                  cellRenderer={({cellData, rowIndex, parent, dataKey}) => {
+                    return (<CellMeasurer
+                      cache={this._cache}
+                      columnIndex={1}
+                      key={dataKey}
+                      parent={parent}
+                      rowIndex={rowIndex}>
+                      <div
+                        style={{
+                          whiteSpace: 'normal',
+                        }}>
+                        {rows[rowIndex].contents[8 + unbaggedParams.length + unbaggedMetrics.length]}
+                      </div>
+                    </CellMeasurer>);
                   }}
                 />
               </Table>);
