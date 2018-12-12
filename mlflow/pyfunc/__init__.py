@@ -225,24 +225,20 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                         Only a primitive type or an array of primitive types are allowed.
                         The following classes of result type are supported:
 
-                        - "int", "long" or instanceof IntegralType: The leftmost integer result is
-                          returned or exception is raised if there is none. No type conversion is
-                          performed.
-                        - ArrayType(instanceof IntegralType): Return all integer columns. Exception
-                          is raised if there are none.
-                        - "float" or "double" or instanceof FractionalType: The leftmost numeric
-                          result is returned or exception is raised if there is none.
-                        - ArrayType(instanceof FractionalType): Return all numeric columns.
-                          Exception is raised if there are none. No type conversion is performed.
+                        - "int" or instanceof IntegerType: The leftmost integer that can fit in
+                          int32 result is returned or exception is raised if there is none.
+                        - "long" or instanceof LongType: The leftmost long integer that can fit in
+                           int64 result is returned or exception is raised if there is none.
+                        - ArrayType(IntegerType|LongType): Return all integer columns that can fit
+                          into the requested size.
+                        - "float" or instanceof FloatType: The leftmost numeric result cast to
+                          float32 is returned or exception is raised if there is no numeric column.
+                        - "double" or instanceof DoubleType: The leftmost numeric result cast to
+                          double is returned or exception is raised if there is no numeric column.
+                        - ArrayType(FloatType|DoubleType): Return all numeric columns cast to the
+                          requested. type. Exception is raised if there are numeric columns.
                         - "string" or StringType: Result is the leftmost column converted to string.
                         - Array[StringType]: Return all columns converted to string.
-
-                        NOTE: Other than the type filtering described above, no type conversions are
-                        performed. The model's output type must therefore be compatible with the
-                        specified PySpark ``result_type``. For example, if the result_type is set to
-                        IntegerType and the model returns longs instead, PySpark type conversion
-                        will fail.
-
 
     :return: Spark UDF type returned by the model's prediction method. Default double.
     """
@@ -252,8 +248,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import DataType, ArrayType, AtomicType
-    from pyspark.sql.types import IntegralType, FractionalType, StringType
+    from pyspark.sql.types import ArrayType, DataType
+    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
 
     if not isinstance(result_type, DataType):
         result_type = _parse_datatype_string(result_type)
@@ -262,11 +258,14 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
 
-    if not isinstance(elem_type, AtomicType):
+    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
+
+    if sum([1 if isinstance(elem_type, x) else 0 for x in supported_types]) == 0:
         raise MlflowException(
-            message="Invalid result_type '{}'. Request type can only be a primitive type or an"
-                    " array of primitive types.".format(result_type),
+            message="Invalid result_type '{}'. Request type can only be one of or an array of one "
+                    "of the following types types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE)
+
     if run_id:
         path = tracking.utils._get_model_log_dir(path, run_id)
 
@@ -282,26 +281,31 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
 
-        if isinstance(elem_type, IntegralType):
-            result = result.select_dtypes(include=[np.int, np.long])
-            if len(result.columns) == 0:
-                raise MlflowException(
-                    message="The requested return type is integer but the model did not " +
-                            "produce any integer results. Consider requesting udf with " +
-                            "StringType instead.",
-                    error_code=INVALID_PARAMETER_VALUE)
-        if isinstance(elem_type, FractionalType):
-            result = result.select_dtypes(include=np.number)
-            if len(result.columns) == 0:
-                raise MlflowException(
-                    message="The requested return type is numeric but the model did not " +
-                            "produce any numeric results. Consider requesting udf with " +
-                            "StringType instead.",
-                    error_code=INVALID_PARAMETER_VALUE)
+        elif isinstance(elem_type, IntegerType):
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort,
+                                           np.int32]).astype(np.int32)
+
+        elif isinstance(elem_type, LongType):
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
+
+        elif isinstance(elem_type, FloatType):
+            result = result.select_dtypes(include=np.number).astype(np.float32)
+
+        elif isinstance(elem_type, DoubleType):
+            result = result.select_dtypes(include=np.number).astype(np.float64)
+
+        if len(result.columns) == 0:
+            raise MlflowException(
+                message="The the model did not produce any values compatible with the requested "
+                        "type '{}'. Consider requesting udf with StringType or "
+                        "Arraytype(StringType).".format(str(elem_type)),
+                error_code=INVALID_PARAMETER_VALUE)
+
         if isinstance(elem_type, StringType):
             result = result.applymap(str)
+
         if isinstance(result_type, ArrayType):
-            return pandas.Series([list(row[1]) for row in result.iterrows()])
+            return pandas.Series([row[1].values for row in result.iterrows()])
         else:
             return result[result.columns[0]]
 
