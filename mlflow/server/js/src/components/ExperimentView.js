@@ -549,7 +549,7 @@ class ExperimentView extends Component {
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch());
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
   }
 
   onSearch(e) {

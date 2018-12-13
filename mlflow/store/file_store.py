@@ -56,6 +56,8 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super(FileStore, self).__init__()
+        # Run UUID to exp id
+        self._cache = {}
         self.root_directory = root_directory or _default_root_dir()
         self.artifact_root_uri = artifact_root_uri or self.root_directory
         self.trash_folder = build_path(self.root_directory, FileStore.TRASH_FOLDER_NAME)
@@ -277,7 +279,7 @@ class FileStore(AbstractStore):
             return get_parent_dir(parent)
         return parent
 
-    def _find_run_root(self, run_uuid):
+    def _find_run_root_helper(self, run_uuid):
         _validate_run_id(run_uuid)
         self._check_root_dir()
         all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
@@ -287,6 +289,13 @@ class FileStore(AbstractStore):
                 continue
             return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
         return None, None
+
+    def _find_run_root(self, run_uuid):
+        if run_uuid in self._cache:
+            return self._cache[run_uuid]
+        exp_dir, run_dir = self._find_run_root_helper(run_uuid)
+        self._cache[run_uuid] = (exp_dir, run_dir)
+        return self._cache[run_uuid]
 
     def update_run_info(self, run_uuid, run_status, end_time):
         _validate_run_id(run_uuid)
@@ -513,10 +522,18 @@ class FileStore(AbstractStore):
         return run_infos
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
+        import time
+        print("In search_runs")
         runs = []
         for experiment_id in experiment_ids:
+            s = time.time()
             run_infos = self._list_run_infos(experiment_id, run_view_type)
+            num_infos = len(run_infos)
+            print("=== Took %s sec to list %s run infos for experiment %s ===" % (time.time() - s, num_infos, experiment_id))
+            s = time.time()
             runs.extend(self.get_run(r.run_uuid) for r in run_infos)
+            print("=== Took %s sec to get %s run infos for experiment %s ===" % (time.time() - s, num_infos, experiment_id))
+
         if len(search_expressions) == 0:
             return runs
         return [run for run in runs if

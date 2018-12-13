@@ -13,6 +13,7 @@ import 'react-virtualized/styles.css';
 const NUM_RUN_METADATA_COLS = 7;
 const TABLE_HEADER_HEIGHT = 48;
 const UNBAGGED_COL_WIDTH = 150;
+const BAGGED_COL_WIDTH = 250;
 const BORDER_STYLE = "1px solid #e2e2e2";
 
 const styles = {
@@ -386,12 +387,15 @@ class ExperimentRunsTableCompactView extends Component {
                 this._lastUnbaggedParams = unbaggedParams;
                 this._cache.clearAll();
               }
-              const runMetadataColWidths = [48, 30, 180, 120, 120, 120, 120];
+              const runMetadataColWidths = [30, 30, 180, 120, 120, 180, 120];
+              const baseRunMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
+              const tableMinWidth = (BAGGED_COL_WIDTH * 2) + baseRunMetadataWidth +
+                (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);
               return (<Table
                 width={
-                  width + (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length))
+                  Math.max(width, tableMinWidth)
                 }
                 deferredMeasurementCache={this._cache}
                 height={Math.max(height - TABLE_HEADER_HEIGHT, 200)}
@@ -404,7 +408,7 @@ class ExperimentRunsTableCompactView extends Component {
                   const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
                     overflow: "visible"};
                   if (index === - 1) {
-                    return {...base, borderTop: BORDER_STYLE};
+                    return {...base, borderTop: BORDER_STYLE, backgroundColor: "#fafafa"};
                   }
                   return base;
                 }}
@@ -434,7 +438,8 @@ class ExperimentRunsTableCompactView extends Component {
                   />;
                 })}
                 {showBaggedParams && <Column
-                  width={300}
+                  width={BAGGED_COL_WIDTH}
+                  flexShrink={0}
                   label='Parameters'
                   dataKey='params'
                   headerRenderer={() => {
@@ -446,15 +451,16 @@ class ExperimentRunsTableCompactView extends Component {
                   }}
                   style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
                   cellRenderer={({rowIndex, parent, dataKey}) => {
+                    // Add extra padding to last row so that we can render dropdowns for bagged
+                    // param key-value pairs in that row
+                    const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
                     return (<CellMeasurer
                       cache={this._cache}
                       columnIndex={0}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
-                      <div
-                        style={styles.baggedCellContainer}
-                      >
+                      <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
                         {rows[rowIndex].contents[NUM_RUN_METADATA_COLS + unbaggedParams.length]}
                       </div>
                     </CellMeasurer>);
@@ -474,7 +480,8 @@ class ExperimentRunsTableCompactView extends Component {
                   />;
                 })}
                 {showBaggedMetrics && <Column
-                  width={300}
+                  width={BAGGED_COL_WIDTH}
+                  flexShrink={0}
                   label='Metrics'
                   dataKey='metrics'
                   headerRenderer={() => {
@@ -488,13 +495,16 @@ class ExperimentRunsTableCompactView extends Component {
                   cellRenderer={({rowIndex, parent, dataKey}) => {
                     const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
                       unbaggedParams.length + unbaggedMetrics.length;
+                    // Add extra padding to last row so that we can render dropdowns for bagged
+                    // param key-value pairs in that row
+                    const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
                     return (<CellMeasurer
                       cache={this._cache}
                       columnIndex={0 + showBaggedParams}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
-                      <div style={styles.baggedCellContainer}>
+                      <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
                         {rows[rowIndex].contents[colIdx]}
                       </div>
                     </CellMeasurer>);
