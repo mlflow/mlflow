@@ -416,9 +416,10 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
         # pylint: disable=undefined-variable
         init()
 
+        input_data = pd.DataFrame(datasets.load_iris().data[:, :2])
+        assert isinstance(input_data, pd.DataFrame) 
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
-        input_data = datasets.load_iris().data[:, :2]
         # pylint: disable=undefined-variable
         output_data = run(pd.DataFrame(data=input_data).to_json(orient="split"))
         assert len(output_data) == len(input_data)
