@@ -303,7 +303,7 @@ class MLflowInceptionV3(KerasImageClassifier):
     def create_model(self, classes=None):
         include_top = (classes == 1000)
         image = Input(shape=self._input_shape)
-        lambda_layer = Lambda(lambda x: (x / 127.5) - 1)
+        lambda_layer = Lambda(_imagenet_preprocess_tf)
         preprocessed_image = lambda_layer(image)
         preprocessed_image.trainable = False
         model = inception_v3.InceptionV3(classes=classes,
