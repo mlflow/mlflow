@@ -21,7 +21,7 @@ def ndarray2list(ndarray):
     return [ndarray2list(ndarray[i, :]) for i in range(0, ndarray.shape[0])]
 
 
-def get_jsonable_obj(data, pandas_orientation=None):
+def get_jsonable_obj(data, pandas_orientation="records"):
     """Attempt to make the data json-able via standard library.
     Look for some commonly used types that are not jsonable and convert them into json-able ones.
     Unknown data types are returned as is.
