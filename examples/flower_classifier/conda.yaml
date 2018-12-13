@@ -9,7 +9,6 @@ dependencies:
   - pandas
   - pip:
     - tensorflow-gpu==1.10.0
-    - cloudpickle
     - mlflow==0.8
     - click==6.7
     - scikit-learn

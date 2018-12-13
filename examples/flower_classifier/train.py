@@ -8,11 +8,12 @@ import os
 def download_input():
     import requests
     url = 'http://download.tensorflow.org/example_images/flower_photos.tgz'
+    print("downloading '{}' into '{}'".format((url, os.path.abspath("flower_photos.tgz"))))
     r = requests.get(url)
     with open('flower_photos.tgz', 'wb') as f:
         f.write(r.content)
     import tarfile
-
+    print("decompressing flower_photos.tgz to '{}'".format(os.path.abspath("flower_photos")))
     with tarfile.open("flower_photos.tgz") as tar:
         tar.extractall(path="./")
 
@@ -33,10 +34,13 @@ def run(training_data, test_ratio, epochs, batch_size, seed, pretrained_weights,
     image_files = []
     labels = []
     domain = {}
+    print("Training model with the following parameters:")
+    for param, value in locals().items():
+        print("  ", param, "=", value)
 
     if pretrained_weights == "None":
         pretrained_weights = None
-
+        
     if training_data == "./flower_photos" and not os.path.exists(training_data):
         print("Input data not found, attempting to download the data from the web.")
         download_input()
