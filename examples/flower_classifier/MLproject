@@ -19,6 +19,3 @@ entry_points:
                               --test-ratio {test_ratio}
                               --pretrained-weights {pretrained_weights}
                               --model-type {model_type}"
-
-  run_many:
-    command: "python train_many.py"

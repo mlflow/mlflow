@@ -73,12 +73,12 @@ class MLflowLogger(Callback):
             mlflow.log_metric(name, value)
         val_loss = logs["val_loss"]
         if val_loss < self._best_val_loss:
-            # Log the model with mlflow
+            # Save the "best" weights
             self._best_val_loss = val_loss
             self._best_weights = [x.copy() for x in self._model.get_weights()]
 
     def on_train_end(self, logs=None):
-        # self._model.set_weights(self._best_weights)
+        self._model.set_weights(self._best_weights)
         x, y = self._train
         train_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, train_res):
@@ -109,7 +109,7 @@ class KerasImageClassifier(object):
     def params(self):
         """
         Override this method to provide any additional parameters belonging to your model.
-        :return: dictionary of additional paramters to be logged with MLflow.
+        :return: dictionary of additional parameters to be logged with MLflow.
         """
         return {}
 
