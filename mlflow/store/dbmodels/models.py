@@ -121,7 +121,7 @@ class SqlMetric(Base, EntityMixin):
     value = Column(Float, nullable=False)
     timestamp = Column(Integer, default=int(time.time()))
     run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref='metrics')
+    run_data = relationship('SqlRunData', backref='metrics', cascade='delete')
 
     def __repr__(self):
         return '<SqlMetric({}, {})>'.format(self.key, self.value)
@@ -135,7 +135,7 @@ class SqlParam(Base, EntityMixin):
     key = Column(Text, nullable=False)
     value = Column(Text, nullable=False)
     run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref='params')
+    run_data = relationship('SqlRunData', backref='params', cascade='delete')
 
     def __repr__(self):
         return '<SqlParam({}, {})>'.format(self.key, self.value)
@@ -187,9 +187,11 @@ class SqlRun(Base, EntityMixin):
     __properties__ = Run._properties()
     id = Column(Integer, primary_key=True)
     info_id = Column(Integer, ForeignKey('run_info.id'))
-    info = relationship('SqlRunInfo', backref=backref('run', uselist=False))
+    info = relationship('SqlRunInfo', backref=backref('run', uselist=False),
+                        cascade='delete')
     data_id = Column(Integer, ForeignKey('run_data.id'))
-    data = relationship('SqlRunData', backref=backref('run', uselist=False))
+    data = relationship('SqlRunData', backref=backref('run', uselist=False),
+                        cascade='delete')
 
     def to_mlflow_entity(self):
         if not hasattr(self, '__entity__'):

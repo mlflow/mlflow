@@ -110,9 +110,16 @@ class SqlAlchemyStore(object):
         return run, run.info, run.data
 
     def get_run(self, run_uuid):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid)
-        if run is None:
+        # TODO this won't always work need to fix how to subquery related models
+        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
+        if run_info is None or run_info.run is None:
             raise MlflowException('Run(uuid={}) doesn\'t exist',
                                   error_codes.RESOURCE_DOES_NOT_EXIST)
 
         return run.to_mlflow_entity()
+
+    def delete_run(self, run_uuid):
+        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
+        run = run_info.run
+        self.session.delete(run)
+

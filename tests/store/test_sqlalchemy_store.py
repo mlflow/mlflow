@@ -3,8 +3,11 @@ import sqlalchemy
 import shutil
 import time
 import mlflow
+import pytest
 from mlflow.store.dbmodels import models
 from mlflow import entities
+from mlflow.exceptions import MlflowException
+import mlflow.protos.databricks_pb2 as error_codes
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
@@ -200,8 +203,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         info = models.SqlRunInfo(**config)
 
         run = models.SqlRun(info=info, data=data)
-        self.session.add(run)
-
+        self.session.add_all([run, info, data])
         return run, info, data
 
     def test_run_model(self):
@@ -227,3 +229,16 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         for tag in run.data.tags:
             self.assertIsInstance(tag, entities.RunTag)
+
+    def test_delete_run(self):
+        run , info, data = self._run_factory()
+        self.session.commit()
+
+        run_uuid = run.info.run_uuid
+        self.store.delete_run(run_uuid)
+
+        with pytest.raises(MlflowException) as e:
+            self.store.get_run(run_uuid)
+
+        error = e.value
+        self.assertEqual(error.error_code, 'RESOURCE_DOES_NOT_EXIST')
