@@ -417,7 +417,7 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
         init()
 
         input_data = pd.DataFrame(datasets.load_iris().data[:, :2])
-        assert isinstance(input_data, pd.DataFrame) 
+        assert isinstance(input_data, pd.DataFrame)
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
