@@ -501,22 +501,30 @@ Spark cluster and used to score the model.
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
 
 The resulting UDF is based Spark's Pandas UDF and is currently limited to producing either a single
-value or an array of values of the same type per observation. You can control what result is
-returned by supplying ``result_type`` argument. Following values are supported:
-    * ``'int'`` or instanceof ``IntegerType``: The leftmost integer that can fit in
+value or an array of values of the same type per observation. By default, we return the first
+numeric column as a double. You can control what result is returned by supplying ``result_type``
+argument. The following values are supported:
+    * ``'int'`` or IntegerType_: The leftmost integer that can fit in
       ``int32`` result is returned or exception is raised if there is none.
-    * ``'long'`` or instanceof ``LongType``: The leftmost long integer that can fit in ``int64``
+    * ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
       result is returned or exception is raised if there is none.
-    * ``ArrayType(IntegerType|LongType)``: Return all integer columns that can fit
+    * ArrayType_ ``(IntegerType|LongType)``: Return all integer columns that can fit
       into the requested size.
-    * ``'float'`` or instanceof ``FloatType``: The leftmost numeric result cast to
+    * ``'float'`` or FloatType_: The leftmost numeric result cast to
       ``float32`` is returned or exception is raised if there is no numeric column.
-    * ``'double'`` or instanceof ``DoubleType``: The leftmost numeric result cast to
+    * ``'double'`` or DoubleType_: The leftmost numeric result cast to
       double is returned or exception is raised if there is no numeric column.
     * ``ArrayType(FloatType|DoubleType)``: Return all numeric columns cast to the
       requested. type. Exception is raised if there are numeric columns.
-    * ``'string'`` or ``StringType``: Result is the leftmost column converted to string.
-    * ``Array[StringType]``: Return all columns converted to string.
+    * ``'string'`` or StringType_: Result is the leftmost column converted to string.
+    * ``ArrayType(StringType)``: Return all columns converted to string.
+
+.. _IntegerType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.IntegerType
+.. _LongType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.LongType
+.. _FloatType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.FloatType
+.. _DoubleType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.DoubleType
+.. _StringType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.StringType
+.. _ArrayType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.ArrayType
 
 .. rubric:: Example
 
