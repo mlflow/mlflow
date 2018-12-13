@@ -12,7 +12,7 @@ import 'react-virtualized/styles.css';
 
 const NUM_RUN_METADATA_COLS = 7;
 const TABLE_HEADER_HEIGHT = 48;
-const UNBAGGED_COL_WIDTH = 150;
+const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
 const BORDER_STYLE = "1px solid #e2e2e2";
 
@@ -387,7 +387,7 @@ class ExperimentRunsTableCompactView extends Component {
                 this._lastUnbaggedParams = unbaggedParams;
                 this._cache.clearAll();
               }
-              const runMetadataColWidths = [30, 30, 180, 120, 120, 180, 120];
+              const runMetadataColWidths = [30, 20, 180, 120, 120, 100, 80];
               const baseRunMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
               const tableMinWidth = (BAGGED_COL_WIDTH * 2) + baseRunMetadataWidth +
                 (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
