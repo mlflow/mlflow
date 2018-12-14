@@ -7,7 +7,6 @@ import mlflow
 import itertools
 import random
 import string
-import time
 from random import random as rand
 
 from mlflow.tracking import MlflowClient
