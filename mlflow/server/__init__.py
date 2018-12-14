@@ -32,12 +32,6 @@ def serve_artifacts():
     return get_artifact_handler()
 
 
-# Serve the font awesome fonts for the React app
-@app.route(_add_static_prefix('/webfonts/<path:path>'))
-def serve_webfonts(path):
-    return send_from_directory(STATIC_DIR, os.path.join('webfonts', path))
-
-
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
 @app.route(_add_static_prefix('/static-files/<path:path>'))
