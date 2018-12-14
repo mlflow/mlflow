@@ -91,7 +91,7 @@ def keras_data():
 
 @pytest.fixture(scope="module")
 def keras_model(keras_data):
-    x, y = keras_data 
+    x, y = keras_data
     model = Sequential()
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
