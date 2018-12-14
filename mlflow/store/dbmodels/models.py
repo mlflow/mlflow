@@ -121,7 +121,7 @@ class SqlMetric(Base, EntityMixin):
     value = Column(Float, nullable=False)
     timestamp = Column(Integer, default=int(time.time()))
     run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref='metrics', cascade='delete')
+    run_data = relationship('SqlRunData', backref=backref('metrics', cascade='all,delete'))
 
     def __repr__(self):
         return '<SqlMetric({}, {})>'.format(self.key, self.value)
@@ -135,7 +135,7 @@ class SqlParam(Base, EntityMixin):
     key = Column(Text, nullable=False)
     value = Column(Text, nullable=False)
     run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref='params', cascade='delete')
+    run_data = relationship('SqlRunData', backref=backref('params', cascade='all,delete'))
 
     def __repr__(self):
         return '<SqlParam({}, {})>'.format(self.key, self.value)

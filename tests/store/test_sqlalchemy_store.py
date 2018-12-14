@@ -237,6 +237,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run_uuid = run.info.run_uuid
         self.store.delete_run(run_uuid)
 
+        self.assertEqual(self.session.query(models.SqlRunInfo).count(), 0)
+        self.assertEqual(self.session.query(models.SqlRunData).count(), 0)
+        self.assertEqual(self.session.query(models.SqlMetric).count(), 0)
+        self.assertEqual(self.session.query(models.SqlParam).count(), 0)
+
         with pytest.raises(MlflowException) as e:
             self.store.get_run(run_uuid)
 
