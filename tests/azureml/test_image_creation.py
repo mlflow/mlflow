@@ -10,6 +10,7 @@ import numpy as np
 from mock import Mock
 
 import pandas as pd
+import pandas.testing
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 from keras.models import Sequential
@@ -406,7 +407,13 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
 
     # Define the `init` and `score` methods contained in the execution script
     # pylint: disable=exec-used
-    exec(execution_script, globals())
+    # Define an empty globals dictionary to ensure that the initialize of the execution
+    # script does not depend on the current state of the test environment
+    globs = {}
+    exec(execution_script, globs)
+    # Update the set of global variables available to the test environment to include
+    # functions defined during the evaluation of the execution script
+    globals().update(globs)
     with AzureMLMocks() as aml_mocks:
         aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script.
@@ -443,7 +450,13 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
 
     # Define the `init` and `score` methods contained in the execution script
     # pylint: disable=exec-used
-    exec(execution_script, globals())
+    # Define an empty globals dictionary to ensure that the initialize of the execution
+    # script does not depend on the current state of the test environment
+    globs = {}
+    exec(execution_script, globs)
+    # Update the set of global variables available to the test environment to include
+    # functions defined during the evaluation of the execution script
+    globals().update(globs)
     with AzureMLMocks() as aml_mocks:
         aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script and load the sklearn model from the
@@ -455,7 +468,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # reasonable output data is produced
         # pylint: disable=undefined-variable
         output_data = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
-        assert len(output_data) == len(sklearn_data[0])
+        np.testing.assert_array_equal(output_data, pyfunc_outputs)
 
 
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
@@ -479,7 +492,13 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
 
     # Define the `init` and `score` methods contained in the execution script
     # pylint: disable=exec-used
-    exec(execution_script, globals())
+    # Define an empty globals dictionary to ensure that the initialize of the execution
+    # script does not depend on the current state of the test environment
+    globs = {}
+    exec(execution_script, globs)
+    # Update the set of global variables available to the test environment to include
+    # functions defined during the evaluation of the execution script
+    globals().update(globs)
     with AzureMLMocks() as aml_mocks:
         aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script and load the sklearn model from the
@@ -490,8 +509,13 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
-        output_data = run(pd.DataFrame(data=keras_data[0]).to_json(orient="split"))
-        assert len(output_data) == len(keras_data[0])
+        output_raw = run(pd.DataFrame(data=keras_data[0]).to_json(orient="split"))
+        output_df = pd.DataFrame(output_raw)
+        pandas.testing.assert_frame_equal(
+            output_df,
+            pyfunc_outputs,
+            check_dtype=False,
+            check_less_precise=False)
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
