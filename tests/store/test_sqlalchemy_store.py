@@ -1,16 +1,15 @@
 import unittest
 import sqlalchemy
-import shutil
 import time
 import mlflow
 import pytest
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
-import mlflow.protos.databricks_pb2 as error_codes
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
+# noinspection PyArgumentList
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def setUp(self):
         self.store = SqlAlchemyStore()
@@ -231,7 +230,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertIsInstance(tag, entities.RunTag)
 
     def test_delete_run(self):
-        run , info, data = self._run_factory()
+        run, info, data = self._run_factory()
         self.session.commit()
 
         run_uuid = run.info.run_uuid
@@ -247,3 +246,27 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         error = e.value
         self.assertEqual(error.error_code, 'RESOURCE_DOES_NOT_EXIST')
+
+    def test_log_metric(self):
+        run, info, data = self._run_factory()
+
+        self.session.commit()
+
+        run_uuid = info.run_uuid
+        tkey = 'blahmetric'
+        tval = 100.0
+        metric = entities.Metric(tkey, tval, int(time.time()))
+        self.store.log_metric(run_uuid, metric)
+
+        actual = self.session.query(models.SqlMetric).filter_by(key=tkey, value=tval)
+
+        self.assertIsNotNone(actual)
+
+        run = self.store.get_run(run_uuid)
+
+        found = False
+        for m in run.data.metrics:
+            if m.key == tkey and m.value == tval:
+                found = True
+
+        self.assertTrue(found)

@@ -1,21 +1,10 @@
 import sqlalchemy
-import os
-import uuid
 from sqlalchemy.exc import IntegrityError
-from mlflow.store.abstract_store import AbstractStore
 from mlflow.store.dbmodels import models
 from mlflow import entities
-from mlflow.utils.env import get_env
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 import mlflow.protos.databricks_pb2 as error_codes
-
-
-_TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
-
-
-def _default_root_dir():
-    return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath("mlruns")
 
 
 class SqlAlchemyStore(object):
@@ -25,8 +14,8 @@ class SqlAlchemyStore(object):
         self.engine = sqlalchemy.create_engine(db_uri)
         models.Base.metadata.create_all(self.engine)
         models.Base.metadata.bind = self.engine
-        DBSession = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.session = DBSession()
+        db_session = sqlalchemy.orm.sessionmaker(bind=self.engine)
+        self.session = db_session()
 
     def _save_to_db(self, objs):
         """
@@ -85,29 +74,35 @@ class SqlAlchemyStore(object):
         raise NotImplementedError()
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, parent_run_id):
+                   entry_point_name, start_time, source_version, tags, _parent_run_id):
         experiment = self.get_experiment(experiment_id)
 
         if experiment.lifecycle_stage != entities.Experiment.ACTIVE_LIFECYCLE:
             raise MlflowException('Experiment with id={} must be active to create run',
                                   error_codes.INVALID_STATE)
 
-        run_uuid = uuid.uuid4().hex
         run_info = models.SqlRunInfo(name=run_name, artifact_uri=None,
                                      experiment_id=experiment_id, source_type=source_type,
                                      source_name=source_name, entry_point_name=entry_point_name,
                                      user_id=user_id, status=entities.RunStatus.RUNNING,
-                                     start_time=start_time, end_time=none,
+                                     start_time=start_time, end_time=None,
                                      source_version=source_version,
                                      lifecycle_stage=entities.RunInfo.ACTIVE_LIFECYCLE)
 
         run_data = models.SqlRunData()
+        # TODO Add tags
         run = models.SqlRun(run_info=run_info, run_data=run_data)
         self._save_to_db([run_info, run_data, run])
 
         run = run.to_mlflow_entity()
 
         return run, run.info, run.data
+
+    def update_run_info(self, run_uuid, run_status, end_time):
+        raise NotImplementedError()
+
+    def restore_run(self, run_id):
+        raise NotImplementedError()
 
     def get_run(self, run_uuid):
         # TODO this won't always work need to fix how to subquery related models
@@ -123,3 +118,10 @@ class SqlAlchemyStore(object):
         run = run_info.run
         self.session.delete(run)
 
+    def log_metric(self, run_uuid, metric):
+        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
+        run = run_info.run
+
+        new_metric = models.SqlMetric(key=metric.key, value=metric.value)
+        run.data.metrics.append(new_metric)
+        self._save_to_db([run, new_metric])

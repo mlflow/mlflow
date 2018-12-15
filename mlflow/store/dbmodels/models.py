@@ -1,13 +1,10 @@
-import enum
 import time
 import uuid
 import os
-import sqlalchemy
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy import Column, Integer, Text, String, Float, Enum, ForeignKey, Integer,\
-    CheckConstraint
+from sqlalchemy import Column, Text, String, Float, ForeignKey, Integer, CheckConstraint
 from sqlalchemy.ext.declarative import declarative_base
-from mlflow.entities import Experiment, ViewType, RunTag, Metric, Param, RunData, RunInfo,\
+from mlflow.entities import Experiment, RunTag, Metric, Param, RunData, RunInfo,\
     SourceType, RunStatus, Run
 
 Base = declarative_base()
@@ -54,7 +51,14 @@ class EntityMixin(object):
     """
     Converts alchemy models to mlflow entities
     """
-    def to_mlflow_entity(self):
+
+    def __init__(self):
+        # Propeties is the required values
+        # Entity is the mlflow class like Metric etc..
+        self.__properties__ = None
+        self.__entity__ = None
+
+    def _validate(self):
         if not hasattr(self, '__entity__'):
             raise Exception(
                 'sqlalchemy model <{}> needs __entity__ set'.format(self.__class__.__name__))
@@ -62,6 +66,9 @@ class EntityMixin(object):
         if not hasattr(self, '__properties__'):
             raise Exception(
                 'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
+
+    def to_mlflow_entity(self):
+        self._validate()
 
         # create dict of kwargs properties for entity and return the intialized entity
         config = {}
@@ -194,13 +201,7 @@ class SqlRun(Base, EntityMixin):
                         cascade='delete')
 
     def to_mlflow_entity(self):
-        if not hasattr(self, '__entity__'):
-            raise Exception(
-                'sqlalchemy model <{}> needs __entity__ set'.format(self.__class__.__name__))
-
-        if not hasattr(self, '__properties__'):
-            raise Exception(
-                'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
+        self._validate()
 
         # run has diff parameter names in __init__ than in properties_ so we do this manually
         run_info = self.info.to_mlflow_entity()
