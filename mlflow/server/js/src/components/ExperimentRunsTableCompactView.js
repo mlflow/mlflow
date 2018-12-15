@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { PureComponent } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ExperimentViewUtil from "./ExperimentViewUtil";
@@ -59,7 +59,7 @@ const styles = {
  * Compact table view for displaying runs associated with an experiment. Renders metrics/params in
  * a single table cell per run (as opposed to one cell per metric/param).
  */
-class ExperimentRunsTableCompactView extends Component {
+class ExperimentRunsTableCompactView extends PureComponent {
   constructor(props) {
     super(props);
     this.getRow = this.getRow.bind(this);
@@ -98,9 +98,6 @@ class ExperimentRunsTableCompactView extends Component {
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
   };
 
-  state = {
-    hoverState: {isMetric: false, isParam: false, key: ""},
-  };
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
@@ -403,12 +400,23 @@ class ExperimentRunsTableCompactView extends Component {
                 overscanRowCount={2}
                 rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
+                gridStyle={{
+                  borderLeft: BORDER_STYLE,
+                  borderBottom: BORDER_STYLE,
+                  borderRight: BORDER_STYLE,
+                }}
                 rowGetter={({index}) => rows[index]}
                 rowStyle={({index}) => {
                   const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
                     overflow: "visible"};
                   if (index === - 1) {
-                    return {...base, borderTop: BORDER_STYLE, backgroundColor: "#fafafa"};
+                    return {
+                      ...base,
+                      backgroundColor: "#fafafa",
+                      borderTop: BORDER_STYLE,
+                      borderLeft: BORDER_STYLE,
+                      borderRight: BORDER_STYLE,
+                    };
                   }
                   return base;
                 }}

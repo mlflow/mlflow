@@ -243,3 +243,7 @@ span.error-message {
   flex-direction: column;
   display: flex;
 }
+
+.ExperimentView .ReactVirtualized__Table__row:hover {
+  background-color: #f5f5f5;
+}

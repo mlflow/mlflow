@@ -22,7 +22,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 
-export const DEFAULT_EXPANDED_VALUE = true;
+export const DEFAULT_EXPANDED_VALUE = false;
 
 
 class ExperimentView extends Component {
