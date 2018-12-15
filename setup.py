@@ -40,7 +40,6 @@ setup(
         'protobuf>=3.6.0',
         'gitpython>=2.1.0',
         'pyyaml',
-        'sqlalchemy'
         'boto3>=1.7.12',
         'querystring_parser',
         'simplejson',
