@@ -171,3 +171,19 @@ class SqlAlchemyStore(object):
 
         raise MlflowException('Param={} does not exist'.format(key),
                               error_codes.RESOURCE_DOES_NOT_EXIST)
+
+    def get_metric_history(self, run_uuid, key):
+        run = self.get_run(run_uuid)
+        metrics_values = []
+
+        for metric in run.data.metrics:
+            if metric.key == key:
+                metrics_values.append(metric.value)
+
+        return metrics_values
+
+    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+        raise NotImplementedError()
+
+    def list_run_infos(self, experiment_id, run_view_type):
+        raise NotImplementedError()

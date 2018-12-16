@@ -335,3 +335,19 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             actual = self.store.get_param(run.info.run_uuid,
                                           expected.key)
             self.assertEqual(expected.value, actual)
+
+    def test_get_metric_history(self):
+        run, _, _ = self._run_factory()
+        self.session.commit()
+        key = 'test'
+        expected = [
+            models.SqlMetric(key=key, value=0.6).to_mlflow_entity(),
+            models.SqlMetric(key=key, value=0.7).to_mlflow_entity()
+        ]
+
+        for metric in expected:
+            self.store.log_metric(run.info.run_uuid, metric)
+
+        actual = self.store.get_metric_history(run.info.run_uuid, key)
+
+        self.assertEqual(len(expected), len(actual))
