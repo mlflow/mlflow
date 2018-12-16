@@ -319,10 +319,19 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertTrue(found)
 
     def test_get_metric(self):
-        run, info, data = self._run_factory()
+        run, _, data = self._run_factory()
         self.session.commit()
 
         for expected in data.metrics:
             actual = self.store.get_metric(run.info.run_uuid,
                                            expected.key)
+            self.assertEqual(expected.value, actual)
+
+    def test_get_param(self):
+        run, _, data = self._run_factory()
+        self.session.commit()
+
+        for expected in data.params:
+            actual = self.store.get_param(run.info.run_uuid,
+                                          expected.key)
             self.assertEqual(expected.value, actual)

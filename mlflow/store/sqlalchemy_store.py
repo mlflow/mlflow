@@ -161,3 +161,13 @@ class SqlAlchemyStore(object):
 
         raise MlflowException('Metric={} does not exist'.format(key),
                               error_codes.RESOURCE_DOES_NOT_EXIST)
+
+    def get_param(self, run_uuid, key):
+        run = self.get_run(run_uuid)
+
+        for param in run.data.params:
+            if param.key == key:
+                return param.value
+
+        raise MlflowException('Param={} does not exist'.format(key),
+                              error_codes.RESOURCE_DOES_NOT_EXIST)
