@@ -46,48 +46,50 @@ LifecycleStageTypes = [
     RunInfo.DELETED_LIFECYCLE
 ]
 
-
-class EntityMixin(object):
-    """
-    Converts alchemy models to mlflow entities
-    """
-
-    def __init__(self):
-        # Propeties is the required values
-        # Entity is the mlflow class like Metric etc..
-        self.__properties__ = None
-        self.__entity__ = None
-
-    def _validate(self):
-        if not hasattr(self, '__entity__') and self.__entity__ is not None:
-            raise Exception(
-                'sqlalchemy model <{}> needs __entity__ set'.format(self.__class__.__name__))
-
-        if not hasattr(self, '__properties__') and self.__entity__ is not None:
-            raise Exception(
-                'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
-
-    def to_mlflow_entity(self):
-        self._validate()
-
-        # create dict of kwargs properties for entity and return the intialized entity
-        config = {}
-        for k in self.__properties__:
-            # check if its mlflow entity and build it
-            obj = getattr(self, k)
-            try:
-                config[k] = obj.to_mlflow_entity()
-            except AttributeError:
-                if k in ['metrics', 'params', 'tags']:
-                    # these are list so
-                    obj = [v.to_mlflow_entity() for v in obj]
-
-                config[k] = obj
-
-        return self.__entity__(**config)
+# 
+# class EntityMixin(object):
+#     """
+#     Converts alchemy models to mlflow entities
+#     """
+# 
+#     def __init__(self):
+#         # Propeties is the required values
+#         # Entity is the mlflow class like Metric etc..
+#         self.__properties__ = None
+#         self.__entity__ = None
 
 
-class SqlExperiment(Base, EntityMixin):
+def _validate(self):
+    if not hasattr(self, '__entity__') and self.__entity__ is not None:
+        raise Exception(
+            'sqlalchemy model <{}> needs __entity__ set'.format(self.__class__.__name__))
+
+    if not hasattr(self, '__properties__') and self.__entity__ is not None:
+        raise Exception(
+            'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
+
+
+def _to_mlflow_entity(self):
+    _validate(self)
+
+    # create dict of kwargs properties for entity and return the intialized entity
+    config = {}
+    for k in self.__properties__:
+        # check if its mlflow entity and build it
+        obj = getattr(self, k)
+        try:
+            config[k] = obj.to_mlflow_entity()
+        except AttributeError:
+            if k in ['metrics', 'params', 'tags']:
+                # these are list so
+                obj = [v.to_mlflow_entity() for v in obj]
+
+            config[k] = obj
+
+    return self.__entity__(**config)
+
+
+class SqlExperiment(Base):
     __tablename__ = 'experiments'
     __entity__ = Experiment
     __properties__ = Experiment._properties()
@@ -104,8 +106,11 @@ class SqlExperiment(Base, EntityMixin):
     def __repr__(self):
         return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
 
+    def to_mlflow_entity(self):
+        return _to_mlflow_entity(self)
 
-class SqlRunTag(Base, EntityMixin):
+
+class SqlRunTag(Base):
     __tablename__ = 'run_tag'
     __entity__ = RunTag
     __properties__ = RunTag._properties()
@@ -118,8 +123,11 @@ class SqlRunTag(Base, EntityMixin):
     def __repr__(self):
         return '<SqlRunTag({}, {})>'.format(self.key, self.value)
 
+    def to_mlflow_entity(self):
+        return _to_mlflow_entity(self)
 
-class SqlMetric(Base, EntityMixin):
+
+class SqlMetric(Base):
     __tablename__ = 'metric'
     __entity__ = Metric
     __properties__ = Metric._properties()
@@ -133,8 +141,11 @@ class SqlMetric(Base, EntityMixin):
     def __repr__(self):
         return '<SqlMetric({}, {})>'.format(self.key, self.value)
 
+    def to_mlflow_entity(self):
+        return _to_mlflow_entity(self)
 
-class SqlParam(Base, EntityMixin):
+
+class SqlParam(Base):
     __tablename__ = 'param'
     __entity__ = Param
     __properties__ = Param._properties()
@@ -147,8 +158,11 @@ class SqlParam(Base, EntityMixin):
     def __repr__(self):
         return '<SqlParam({}, {})>'.format(self.key, self.value)
 
+    def to_mlflow_entity(self):
+        return _to_mlflow_entity(self)
 
-class SqlRunData(Base, EntityMixin):
+
+class SqlRunData(Base):
     __tablename__ = 'run_data'
     __entity__ = RunData
     __properties__ = RunData._properties()
@@ -157,8 +171,11 @@ class SqlRunData(Base, EntityMixin):
     def __repr__(self):
         return '<SqlRunData({})>'.format(self.id)
 
+    def to_mlflow_entity(self):
+        return _to_mlflow_entity(self)
 
-class SqlRunInfo(Base, EntityMixin):
+
+class SqlRunInfo(Base):
     __tablename__ = 'run_info'
     __entity__ = RunInfo
     __properties__ = RunInfo._properties()
@@ -187,8 +204,11 @@ class SqlRunInfo(Base, EntityMixin):
     def __repr__(self):
         return '<SqlrunInfo(uuid={}, experiment_id={})'.format(self.run_uuid, self.experiment_id)
 
+    def to_mlflow_entity(self):
+        return _to_mlflow_entity(self)
 
-class SqlRun(Base, EntityMixin):
+
+class SqlRun(Base):
     __tablename__ = 'run'
     __entity__ = Run
     __properties__ = Run._properties()
@@ -201,7 +221,7 @@ class SqlRun(Base, EntityMixin):
                         cascade='delete')
 
     def to_mlflow_entity(self):
-        self._validate()
+        _validate(self)
 
         # run has diff parameter names in __init__ than in properties_ so we do this manually
         run_info = self.info.to_mlflow_entity()
