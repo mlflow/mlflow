@@ -31,6 +31,8 @@ class MLFlowTrackingRestApi:
 		run_id = None
 		if r.status_code == 200:
 			run_id = r.json()['run']['info']['run_uuid']
+		else:
+			print("Creating run failed!")
 		return run_id
 
 	def list_experiments(self):
@@ -67,7 +69,7 @@ def _get_user_id():
 
 if __name__ == "__main__":
 	# Command-line arguments
-	parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+	parser = argparse.ArgumentParser(description='MLFlow REST API Example')
 
 	parser.add_argument('--hostname', type=str, default='localhost', dest='hostname', 
 		help='MLFlow server hostname/ip (default: localhost)')
@@ -84,8 +86,16 @@ if __name__ == "__main__":
 
 	mlflow_rest = MLFlowTrackingRestApi(args.hostname, args.port, args.experiment_id)
 	# Parameter is a key/val pair (str types)
-	param = {'key': 'alpha', 'value': '0.5'}
-	mlflow_rest.log_param(param)
+	param = {'key': 'alpha', 'value': '0.1980'}
+	status_code = mlflow_rest.log_param(param)
+	if status_code == 200:
+		print("Successfully logged parameter: {} with value: {}".format(param['key'], param['value']))
+	else:
+		print("Logging parameter failed!")
 	# Metric is a key/val pair (key/val have str/float types)
 	metric = {'key': 'precision', 'value': 0.769}	
-	mlflow_rest.log_metric(metric)
+	status_code = mlflow_rest.log_metric(metric)
+	if status_code == 200:
+		print("Successfully logged parameter: {} with value: {}".format(metric['key'], metric['value']))
+	else:
+		print("Logging metric failed!")
