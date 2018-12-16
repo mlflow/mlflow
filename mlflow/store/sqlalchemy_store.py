@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy import orm
 from sqlalchemy.exc import IntegrityError
 from mlflow.store.dbmodels import models
 from mlflow import entities
@@ -31,8 +32,15 @@ class SqlAlchemyStore(object):
         self.session.commit()
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+        mappings = {
+            ViewType.ACTIVE_ONLY: entities.Experiment.ACTIVE_LIFECYCLE,
+            ViewType.DELETED_ONLY: entities.Experiment.DELETED_LIFECYCLE
+        }
+
+        lifecycle_stage = mappings[view_type]
         experiments = []
-        for exp in self.session.query(models.SqlExperiment).all():
+        for exp in self.session.query(models.SqlExperiment).filter_by(
+                lifecycle_stage=lifecycle_stage):
             experiments.append(exp.to_mlflow_entity())
 
         return experiments
@@ -42,7 +50,9 @@ class SqlAlchemyStore(object):
             raise MlflowException('Invalid experiment name', error_codes.INVALID_PARAMETER_VALUE)
         try:
             experiment = models.SqlExperiment(
-                name=name,  lifecycle_stage=entities.Experiment.ACTIVE_LIFECYCLE)
+                name=name,  lifecycle_stage=entities.Experiment.ACTIVE_LIFECYCLE,
+                artifact_location=artifact_store
+            )
             self.session.add(experiment)
             self.session.commit()
         except IntegrityError:
@@ -78,7 +88,7 @@ class SqlAlchemyStore(object):
         experiment = self.get_experiment(experiment_id)
 
         if experiment.lifecycle_stage != entities.Experiment.ACTIVE_LIFECYCLE:
-            raise MlflowException('Experiment with id={} must be active to create run',
+            raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                   error_codes.INVALID_STATE)
 
         run_info = models.SqlRunInfo(name=run_name, artifact_uri=None,
@@ -90,9 +100,9 @@ class SqlAlchemyStore(object):
                                      lifecycle_stage=entities.RunInfo.ACTIVE_LIFECYCLE)
 
         run_data = models.SqlRunData()
-        # TODO Add tags
+        tag_models = [models.SqlRunTag(key=tag.key, value=tag.value) for tag in tags]
         run = models.SqlRun(run_info=run_info, run_data=run_data)
-        self._save_to_db([run_info, run_data, run])
+        self._save_to_db([run_info, run_data, run] + tag_models)
 
         run = run.to_mlflow_entity()
 
@@ -108,7 +118,7 @@ class SqlAlchemyStore(object):
         # TODO this won't always work need to fix how to subquery related models
         run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
         if run_info is None or run_info is None:
-            raise MlflowException('Run(uuid={}) doesn\'t exist',
+            raise MlflowException('Run(uuid={}) doesn\'t exist'.format(run_uuid),
                                   error_codes.RESOURCE_DOES_NOT_EXIST)
 
         return run_info.run.to_mlflow_entity()

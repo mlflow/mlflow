@@ -173,7 +173,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         m2 = models.SqlMetric(key='recal', value=0.89)
         p1 = models.SqlParam(key='loss', value='test param')
         p2 = models.SqlParam(key='blue', value='test param')
-        tag = models.SqlParam()
 
         self.session.add_all([m1, m2, p1, p2])
 
@@ -230,7 +229,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertIsInstance(tag, entities.RunTag)
 
     def test_delete_run(self):
-        run, info, data = self._run_factory()
+        run, _, _ = self._run_factory()
         self.session.commit()
 
         run_uuid = run.info.run_uuid
@@ -248,7 +247,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(error.error_code, 'RESOURCE_DOES_NOT_EXIST')
 
     def test_log_metric(self):
-        run, info, data = self._run_factory()
+        run, info, _ = self._run_factory()
 
         self.session.commit()
 
@@ -272,7 +271,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertTrue(found)
 
     def test_log_param(self):
-        run, info, data = self._run_factory()
+        run, info, _ = self._run_factory()
 
         self.session.commit()
 
@@ -296,7 +295,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertTrue(found)
 
     def test_set_tag(self):
-        run, info, data = self._run_factory()
+        run, info, _ = self._run_factory()
 
         self.session.commit()
 
