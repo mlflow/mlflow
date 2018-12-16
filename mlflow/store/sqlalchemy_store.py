@@ -10,13 +10,27 @@ import mlflow.protos.databricks_pb2 as error_codes
 
 class SqlAlchemyStore(object):
 
+    _DBENGINES = [
+        'postgresql',
+        'mysql',
+        'sqlite',
+        'mssql',
+    ]
+
     def __init__(self, db_uri='sqlite://'):
+
+        self._validate_engine(db_uri)
 
         self.engine = sqlalchemy.create_engine(db_uri)
         models.Base.metadata.create_all(self.engine)
         models.Base.metadata.bind = self.engine
         db_session = orm.sessionmaker(bind=self.engine)
         self.session = db_session()
+
+    def _validate_engine(self, uri):
+        if uri.split(':')[0] not in self._DBENGINES:
+            raise MlflowException('invalid uri {}'.format(uri),
+                                  error_codes.INVALID_PARAMETER_VALUE)
 
     def _save_to_db(self, objs):
         """

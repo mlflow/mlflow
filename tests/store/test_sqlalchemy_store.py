@@ -13,7 +13,7 @@ from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def setUp(self):
         self.store = SqlAlchemyStore()
-        self.engine = sqlalchemy.create_engine('sqlite:///:memory:')
+        self.engine = sqlalchemy.create_engine('sqlite://')
         Session = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.session = Session()
         self.store.session = self.session
