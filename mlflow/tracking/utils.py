@@ -24,6 +24,13 @@ _TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
 _TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
 _TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
 
+_DBENGINES = [
+    'postgresql',
+    'mysql',
+    'sqlite',
+    'mssql',
+]
+
 
 _tracking_uri = None
 
@@ -76,10 +83,9 @@ def _get_store(store_uri=None):
     if store_uri is None:
         return FileStore()
 
-    if 'sqlalchemy' in store_uri:
-        return SqlAlchemyStore()
-
     # Pattern-match on the URI
+    if _is_db_uri(store_uri):
+        return SqlAlchemyStore(store_uri)
     if _is_databricks_uri(store_uri):
         return _get_databricks_rest_store(store_uri)
     if _is_local_uri(store_uri):
@@ -111,6 +117,12 @@ def _is_databricks_uri(uri):
 def _get_file_store(store_uri):
     path = urllib.parse.urlparse(store_uri).path
     return FileStore(path)
+
+
+def _is_db_uri(uri):
+    if uri.split(':')[0] not in _DBENGINES:
+        return False
+    return True
 
 
 def _get_rest_store(store_uri):

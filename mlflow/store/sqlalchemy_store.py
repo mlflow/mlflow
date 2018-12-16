@@ -10,27 +10,14 @@ import mlflow.protos.databricks_pb2 as error_codes
 
 class SqlAlchemyStore(object):
 
-    _DBENGINES = [
-        'postgresql',
-        'mysql',
-        'sqlite',
-        'mssql',
-    ]
-
     def __init__(self, db_uri='sqlite://'):
-
-        self._validate_engine(db_uri)
 
         self.engine = sqlalchemy.create_engine(db_uri)
         models.Base.metadata.create_all(self.engine)
         models.Base.metadata.bind = self.engine
         db_session = orm.sessionmaker(bind=self.engine)
         self.session = db_session()
-
-    def _validate_engine(self, uri):
-        if uri.split(':')[0] not in self._DBENGINES:
-            raise MlflowException('invalid uri {}'.format(uri),
-                                  error_codes.INVALID_PARAMETER_VALUE)
+        print('Store started')
 
     def _save_to_db(self, objs):
         """
@@ -59,13 +46,13 @@ class SqlAlchemyStore(object):
 
         return experiments
 
-    def create_experiment(self, name, artifact_store=None):
+    def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
             raise MlflowException('Invalid experiment name', error_codes.INVALID_PARAMETER_VALUE)
         try:
             experiment = models.SqlExperiment(
                 name=name,  lifecycle_stage=entities.Experiment.ACTIVE_LIFECYCLE,
-                artifact_location=artifact_store
+                artifact_location=artifact_location
             )
             self.session.add(experiment)
             self.session.commit()
@@ -100,7 +87,8 @@ class SqlAlchemyStore(object):
         self._save_to_db(experiment)
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, _parent_run_id):
+                   entry_point_name, start_time, source_version, tags, parent_run_id):
+        _ = parent_run_id
         experiment = self.get_experiment(experiment_id)
 
         if experiment.lifecycle_stage != entities.Experiment.ACTIVE_LIFECYCLE:
@@ -122,7 +110,7 @@ class SqlAlchemyStore(object):
 
         run = run.to_mlflow_entity()
 
-        return run, run.info, run.data
+        return run
 
     def update_run_info(self, run_uuid, run_status, end_time):
         info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
@@ -207,6 +195,6 @@ class SqlAlchemyStore(object):
         raise NotImplementedError()
 
     def list_run_infos(self, experiment_id, _=None):
-        experiments = self.session.query(models.SqlRun).filter_by(experiment_id=experiment_id)
-        experiments = [exp.to_mlflow_entity() for exp in experiments]
-        return experiments
+        infos = self.session.query(models.SqlRunInfo).filter_by(experiment_id=experiment_id)
+        infos = [info.to_mlflow_entity() for info in infos]
+        return infos
