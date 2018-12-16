@@ -209,6 +209,9 @@ class SqlRun(Base):
     data = relationship('SqlRunData', backref=backref('run', uselist=False),
                         cascade='delete')
 
+    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
+    experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all,delete'))
+
     def to_mlflow_entity(self):
         _validate(self)
 

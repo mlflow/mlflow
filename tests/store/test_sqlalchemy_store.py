@@ -168,7 +168,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         for k, v in config.items():
             self.assertEqual(v, getattr(run_info, k))
 
-    def _run_factory(self):
+    def _run_factory(self, experiment_id=None):
         m1 = models.SqlMetric(key='accuracy', value=0.89)
         m2 = models.SqlMetric(key='recal', value=0.89)
         p1 = models.SqlParam(key='loss', value='test param')
@@ -183,9 +183,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         data.metrics.append(m2)
         self.session.add(data)
 
-        experiment = self._experiment_factory('test exp')
+        if not experiment_id:
+            experiment = self._experiment_factory('test exp')
+            experiment_id = experiment.experiment_id
+
         config = {
-            'experiment_id': experiment.experiment_id,
+            'experiment_id': experiment_id,
             'name': 'test run',
             'user_id': 'Anderson',
             'status': entities.RunStatus.SCHEDULED,
@@ -200,7 +203,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         }
         info = models.SqlRunInfo(**config)
 
-        run = models.SqlRun(info=info, data=data)
+        run = models.SqlRun(experiment_id=experiment_id,
+                            info=info, data=data)
         self.session.add_all([run, info, data])
         return run, info, data
 
@@ -349,5 +353,18 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.store.log_metric(run.info.run_uuid, metric)
 
         actual = self.store.get_metric_history(run.info.run_uuid, key)
+
+        self.assertEqual(len(expected), len(actual))
+
+    def test_list_run_infos(self):
+        exp1 = self._experiment_factory('test_exp')
+        runs = [
+            self._run_factory(exp1.experiment_id),
+            self._run_factory(exp1.experiment_id),
+        ]
+
+        expected = [run[1] for run in runs]
+
+        actual = self.store.list_run_infos(exp1.experiment_id)
 
         self.assertEqual(len(expected), len(actual))

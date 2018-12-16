@@ -101,7 +101,7 @@ class SqlAlchemyStore(object):
 
         run_data = models.SqlRunData()
         tag_models = [models.SqlRunTag(key=tag.key, value=tag.value) for tag in tags]
-        run = models.SqlRun(run_info=run_info, run_data=run_data)
+        run = models.SqlRun(experiment_id=experiment_id, info=run_info, data=run_data)
         self._save_to_db([run_info, run_data, run] + tag_models)
 
         run = run.to_mlflow_entity()
@@ -185,5 +185,7 @@ class SqlAlchemyStore(object):
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         raise NotImplementedError()
 
-    def list_run_infos(self, experiment_id, run_view_type):
-        raise NotImplementedError()
+    def list_run_infos(self, experiment_id, _=None):
+        experiments = self.session.query(models.SqlRun).filter_by(experiment_id=experiment_id)
+        experiments = [exp.to_mlflow_entity() for exp in experiments]
+        return experiments
