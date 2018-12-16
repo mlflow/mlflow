@@ -15,7 +15,7 @@ class SqlAlchemyStore(object):
         self.engine = sqlalchemy.create_engine(db_uri)
         models.Base.metadata.create_all(self.engine)
         models.Base.metadata.bind = self.engine
-        db_session = sqlalchemy.orm.sessionmaker(bind=self.engine)
+        db_session = orm.sessionmaker(bind=self.engine)
         self.session = db_session()
 
     def _save_to_db(self, objs):
@@ -151,3 +151,13 @@ class SqlAlchemyStore(object):
         new_tag = models.SqlRunTag(key=tag.key, value=tag.value)
         run.data.tags.append(new_tag)
         self._save_to_db([run, new_tag])
+
+    def get_metric(self, run_uuid, key):
+        run = self.get_run(run_uuid)
+
+        for metric in run.data.metrics:
+            if metric.key == key:
+                return metric.value
+
+        raise MlflowException('Metric={} does not exist'.format(key),
+                              error_codes.RESOURCE_DOES_NOT_EXIST)

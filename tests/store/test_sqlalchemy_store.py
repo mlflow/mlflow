@@ -317,3 +317,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 found = True
 
         self.assertTrue(found)
+
+    def test_get_metric(self):
+        run, info, data = self._run_factory()
+        self.session.commit()
+
+        for expected in data.metrics:
+            actual = self.store.get_metric(run.info.run_uuid,
+                                           expected.key)
+            self.assertEqual(expected.value, actual)
