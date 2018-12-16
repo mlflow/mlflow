@@ -48,6 +48,10 @@ LifecycleStageTypes = [
 ]
 
 
+def generate_uuid():
+    return uuid.uuid4().hex
+
+
 def _validate(self):
     if not hasattr(self, '__entity__') and self.__entity__ is not None:
         raise Exception(
@@ -170,7 +174,7 @@ class SqlRunInfo(Base):
     __properties__ = RunInfo._properties()
     id = Column(Integer, primary_key=True)
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
-    run_uuid = uuid.uuid4().hex
+    run_uuid = Column(String(16), default=generate_uuid, unique=True, nullable=False)
     name = Column(Text)
     # source_type = Column(Enum(SourceTypeEnum), default=SourceTypeEnum.LOCAL)
     source_type = Column(Integer, default=SourceType.LOCAL)

@@ -3,6 +3,7 @@ import sqlalchemy
 import time
 import mlflow
 import pytest
+import uuid
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -153,6 +154,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'experiment_id': experiment.experiment_id,
             'name': 'test run',
             'user_id': 'Anderson',
+            'run_uuid': 'test',
             'status': entities.RunInfo.ACTIVE_LIFECYCLE,
             'source_type': entities.SourceType.LOCAL,
             'source_name': 'Python application',
@@ -191,6 +193,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'experiment_id': experiment_id,
             'name': 'test run',
             'user_id': 'Anderson',
+            'run_uuid': uuid.uuid4().hex,
             'status': entities.RunStatus.SCHEDULED,
             'source_type': entities.SourceType.NOTEBOOK,
             'source_name': 'Python application',
