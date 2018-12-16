@@ -294,3 +294,27 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 found = True
 
         self.assertTrue(found)
+
+    def test_set_tag(self):
+        run, info, data = self._run_factory()
+
+        self.session.commit()
+
+        run_uuid = info.run_uuid
+        tkey = 'test tag'
+        tval = 'a boogie'
+        tag = entities.RunTag(tkey, tval)
+        self.store.set_tag(run_uuid, tag)
+
+        actual = self.session.query(models.SqlRunTag).filter_by(key=tkey, value=tval)
+
+        self.assertIsNotNone(actual)
+
+        run = self.store.get_run(run_uuid)
+
+        found = False
+        for m in run.data.tags:
+            if m.key == tkey and m.value == tval:
+                found = True
+
+        self.assertTrue(found)

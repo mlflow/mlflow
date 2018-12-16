@@ -133,3 +133,11 @@ class SqlAlchemyStore(object):
         new_param = models.SqlParam(key=param.key, value=param.value)
         run.data.params.append(new_param)
         self._save_to_db([run, new_param])
+
+    def set_tag(self, run_uuid, tag):
+        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
+        run = run_info.run
+
+        new_tag = models.SqlRunTag(key=tag.key, value=tag.value)
+        run.data.tags.append(new_tag)
+        self._save_to_db([run, new_tag])

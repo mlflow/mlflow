@@ -46,18 +46,6 @@ LifecycleStageTypes = [
     RunInfo.DELETED_LIFECYCLE
 ]
 
-# 
-# class EntityMixin(object):
-#     """
-#     Converts alchemy models to mlflow entities
-#     """
-# 
-#     def __init__(self):
-#         # Propeties is the required values
-#         # Entity is the mlflow class like Metric etc..
-#         self.__properties__ = None
-#         self.__entity__ = None
-
 
 def _validate(self):
     if not hasattr(self, '__entity__') and self.__entity__ is not None:
