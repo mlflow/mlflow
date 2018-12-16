@@ -59,11 +59,11 @@ class EntityMixin(object):
         self.__entity__ = None
 
     def _validate(self):
-        if not hasattr(self, '__entity__'):
+        if not hasattr(self, '__entity__') and self.__entity__ is not None:
             raise Exception(
                 'sqlalchemy model <{}> needs __entity__ set'.format(self.__class__.__name__))
 
-        if not hasattr(self, '__properties__'):
+        if not hasattr(self, '__properties__') and self.__entity__ is not None:
             raise Exception(
                 'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
 

@@ -125,3 +125,11 @@ class SqlAlchemyStore(object):
         new_metric = models.SqlMetric(key=metric.key, value=metric.value)
         run.data.metrics.append(new_metric)
         self._save_to_db([run, new_metric])
+
+    def log_param(self, run_uuid, param):
+        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
+        run = run_info.run
+
+        new_param = models.SqlParam(key=param.key, value=param.value)
+        run.data.params.append(new_param)
+        self._save_to_db([run, new_param])

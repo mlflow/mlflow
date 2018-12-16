@@ -11,7 +11,6 @@ class MlflowException(Exception):
     instead.
     """
     def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
-        # type: (object, object, object) -> object
         """
         :param message: The message describing the error that occured. This will be included in the
                         exception's serialized JSON representation.

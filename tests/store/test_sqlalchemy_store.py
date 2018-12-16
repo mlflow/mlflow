@@ -9,7 +9,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
-# noinspection PyArgumentList
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def setUp(self):
         self.store = SqlAlchemyStore()
@@ -174,6 +173,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         m2 = models.SqlMetric(key='recal', value=0.89)
         p1 = models.SqlParam(key='loss', value='test param')
         p2 = models.SqlParam(key='blue', value='test param')
+        tag = models.SqlParam()
 
         self.session.add_all([m1, m2, p1, p2])
 
@@ -266,6 +266,30 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         found = False
         for m in run.data.metrics:
+            if m.key == tkey and m.value == tval:
+                found = True
+
+        self.assertTrue(found)
+
+    def test_log_param(self):
+        run, info, data = self._run_factory()
+
+        self.session.commit()
+
+        run_uuid = info.run_uuid
+        tkey = 'blahmetric'
+        tval = '100.0'
+        param = entities.Param(tkey, tval)
+        self.store.log_param(run_uuid, param)
+
+        actual = self.session.query(models.SqlParam).filter_by(key=tkey, value=tval)
+
+        self.assertIsNotNone(actual)
+
+        run = self.store.get_run(run_uuid)
+
+        found = False
+        for m in run.data.params:
             if m.key == tkey and m.value == tval:
                 found = True
 
