@@ -371,3 +371,22 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         actual = self.store.list_run_infos(exp1.experiment_id)
 
         self.assertEqual(len(expected), len(actual))
+
+    def test_rename_experiment(self):
+        new_name = 'new name'
+        experiment = self._experiment_factory('test name')
+        self.store.rename_experiment(experiment.experiment_id, new_name)
+
+        renamed_experiment = self.store.get_experiment(experiment.experiment_id)
+
+        self.assertEqual(renamed_experiment.name, new_name)
+
+    def test_update_run_info(self):
+        run, _, _ = self._run_factory()
+        new_status = entities.RunStatus.FINISHED
+        endtime = int(time.time())
+
+        actual = self.store.update_run_info(run.info.run_uuid, new_status, endtime)
+
+        self.assertEqual(actual.status, new_status)
+        self.assertEqual(actual.end_time, endtime)

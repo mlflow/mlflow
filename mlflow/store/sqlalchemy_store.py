@@ -81,7 +81,9 @@ class SqlAlchemyStore(object):
         raise NotImplementedError()
 
     def rename_experiment(self, experiment_id, new_name):
-        raise NotImplementedError()
+        experiment = self.session.query(models.SqlExperiment).get(experiment_id)
+        experiment.name = new_name
+        self._save_to_db(experiment)
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
                    entry_point_name, start_time, source_version, tags, _parent_run_id):
@@ -109,7 +111,12 @@ class SqlAlchemyStore(object):
         return run, run.info, run.data
 
     def update_run_info(self, run_uuid, run_status, end_time):
-        raise NotImplementedError()
+        info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
+        info.status = run_status
+        info.end_time = end_time
+
+        self._save_to_db(info)
+        return info.to_mlflow_entity()
 
     def restore_run(self, run_id):
         raise NotImplementedError()

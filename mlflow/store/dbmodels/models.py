@@ -176,7 +176,6 @@ class SqlRunInfo(Base):
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
     run_uuid = Column(String(16), default=generate_uuid, unique=True, nullable=False)
     name = Column(Text)
-    # source_type = Column(Enum(SourceTypeEnum), default=SourceTypeEnum.LOCAL)
     source_type = Column(Integer, default=SourceType.LOCAL)
     source_name = Column(String(256))
     entry_point_name = Column(Text)
