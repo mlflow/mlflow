@@ -270,8 +270,9 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     """
     Fetch a project into a local directory, returning the path to the local project directory.
     :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
-                          will fetch ZIP or Git projects into a temporary directory but simply return
-                          the path of local projects (i.e. perform a no-op for local projects).
+                          will fetch ZIP or Git projects into a temporary directory but simply
+                          return the path of local projects (i.e. perform a no-op for local
+                          projects).
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = force_tempdir or _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
