@@ -51,9 +51,9 @@ def zipped_repo(tmpdir):
     zip_name = tmpdir.join('%s.zip' % TEST_PROJECT_NAME).strpath
     with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for root, _, files in os.walk(TEST_PROJECT_DIR):
-            for file in files:
-                file_name = os.path.join(root, file)
-                zip_file.write(file_name, file_name[len(TEST_PROJECT_DIR)+len(os.sep):])
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR)+len(os.sep):])
     return zip_name
 
 
