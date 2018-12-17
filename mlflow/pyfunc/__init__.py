@@ -80,12 +80,14 @@ import shutil
 import sys
 import pandas
 import logging
+import cloudpickle
 
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.pyfunc.model import save_model, log_model, PythonModel, PythonModelContext 
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -98,7 +100,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None):
+def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
     """
     Add a pyfunc spec to the model configuration.
 
@@ -117,7 +119,8 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     :param env: Conda environment.
     :return: Updated model configuration.
     """
-    parms = {MAIN: loader_module}
+    parms = kwargs
+    parms[MAIN] = loader_module
     parms[PY_VERSION] = PYTHON_VERSION
     if code:
         parms[CODE] = code
@@ -231,47 +234,6 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         return pandas.Series(result)
 
     return pandas_udf(predict, result_type)
-
-
-def save_model(dst_path, loader_module, data_path=None, code_path=(), conda_env=None,
-               model=Model()):
-    """
-    Export model as a generic Python function model.
-
-    :param dst_path: Path where the model is stored.
-    :param loader_module: The module to be used to load the model.
-    :param data_path: Path to a file or directory containing model data.
-    :param code_path: List of paths (file or dir) contains code dependencies not present in
-                      the environment. Every path in the ``code_path`` is added to the Python
-                      path before the model is loaded.
-    :param conda_env: Path to the Conda environment definition. This environment is activated
-                      prior to running model code.
-    :return: Model configuration containing model info.
-
-    """
-    if os.path.exists(dst_path):
-        raise Exception("Path '{}' already exists".format(dst_path))
-    os.makedirs(dst_path)
-    code = None
-    data = None
-    env = None
-
-    if data_path:
-        model_file = _copy_file_or_tree(src=data_path, dst=dst_path, dst_dir="data")
-        data = model_file
-
-    if code_path:
-        for path in code_path:
-            _copy_file_or_tree(src=path, dst=dst_path, dst_dir="code")
-        code = "code"
-
-    if conda_env:
-        shutil.copy(src=conda_env, dst=os.path.join(dst_path, "mlflow_env.yml"))
-        env = "mlflow_env.yml"
-
-    add_to_model(model, loader_module=loader_module, code=code, data=data, env=env)
-    model.save(os.path.join(dst_path, 'MLmodel'))
-    return model
 
 
 def log_model(artifact_path, **kwargs):
