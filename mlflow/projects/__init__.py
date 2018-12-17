@@ -28,6 +28,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
+_FILE_URI_REGEX = re.compile(r"^file://.+")
+_ZIP_URI_REGEX = re.compile(r".+\.zip$")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
@@ -233,9 +235,19 @@ def _expand_uri(uri):
     return uri
 
 
+def _is_file_uri(uri):
+    """Returns True if the passed-in URI is a file:// URI."""
+    return _FILE_URI_REGEX.match(uri)
+
+
 def _is_local_uri(uri):
     """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
     return not _GIT_URI_REGEX.match(uri)
+
+
+def _is_zip_uri(uri):
+    """Returns True if the passed-in URI points to a ZIP file."""
+    return _ZIP_URI_REGEX.match(uri)
 
 
 def _is_valid_branch_name(work_dir, version):
@@ -258,15 +270,23 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     """
     Fetch a project into a local directory, returning the path to the local project directory.
     :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
-                          will fetch Git projects into a temporary directory but simply return the
-                          path of local projects (i.e. perform a no-op for local projects).
+                          will fetch ZIP or Git projects into a temporary directory but simply
+                          return the path of local projects (i.e. perform a no-op for local
+                          projects).
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    use_temp_dst_dir = force_tempdir or not _is_local_uri(parsed_uri)
+    use_temp_dst_dir = force_tempdir or _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
-    if _is_local_uri(uri):
+    if _is_zip_uri(parsed_uri):
+        if _is_local_uri(parsed_uri):
+            _unzip_repo(parsed_uri, dst_dir)
+        elif _is_file_uri(parsed_uri):
+            _unzip_repo(parsed_uri[7:], dst_dir)
+        else:
+            _fetch_zip_repo(parsed_uri, dst_dir)
+    elif _is_local_uri(uri):
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
         if use_temp_dst_dir:
@@ -278,6 +298,23 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
     return res
+
+
+def _unzip_repo(uri, dst_dir):
+    import zipfile
+    with zipfile.ZipFile(uri) as zip_file:
+        zip_file.extractall(dst_dir)
+
+
+def _fetch_zip_repo(uri, dst_dir):
+    import requests
+    import zipfile
+    from io import BytesIO
+    response = requests.get(uri)
+    if requests.codes.ok != response.status_code:
+        raise ExecutionException("Unable to retrieve ZIP file %s" % uri)
+    with zipfile.ZipFile(BytesIO(response.content)) as zip_file:
+        zip_file.extractall(dst_dir)
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
