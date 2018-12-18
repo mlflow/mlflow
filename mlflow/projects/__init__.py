@@ -280,12 +280,12 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
-        if _is_local_uri(parsed_uri):
-            _unzip_repo(parsed_uri, dst_dir)
-        elif _is_file_uri(parsed_uri):
-            _unzip_repo(parsed_uri[7:], dst_dir)
-        else:
-            _fetch_zip_repo(parsed_uri, dst_dir)
+        if _is_file_uri(parsed_uri):
+            from six.moves.urllib_parse import urlparse, unquote
+            parsed_file_uri = urlparse(unquote(parsed_uri))
+            parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
+        _unzip_repo(file=parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri),
+                    dst_dir=dst_dir)
     elif _is_local_uri(uri):
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
@@ -300,21 +300,21 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     return res
 
 
-def _unzip_repo(uri, dst_dir):
+def _unzip_repo(file, dst_dir):
     import zipfile
-    with zipfile.ZipFile(uri) as zip_file:
+    with zipfile.ZipFile(file) as zip_file:
         zip_file.extractall(dst_dir)
 
 
-def _fetch_zip_repo(uri, dst_dir):
+def _fetch_zip_repo(uri):
     import requests
-    import zipfile
     from io import BytesIO
     response = requests.get(uri)
-    if requests.codes.ok != response.status_code:
-        raise ExecutionException("Unable to retrieve ZIP file %s" % uri)
-    with zipfile.ZipFile(BytesIO(response.content)) as zip_file:
-        zip_file.extractall(dst_dir)
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
+    return BytesIO(response.content)
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):

@@ -63,7 +63,13 @@ def test_is_zip_uri():
     assert mlflow.projects._is_zip_uri('file:///moo.zip')
     assert mlflow.projects._is_zip_uri('file://C:/moo.zip')
     assert mlflow.projects._is_zip_uri('/moo.zip')
-    assert mlflow.projects._is_zip_uri(('C:/moo.zip'))
+    assert mlflow.projects._is_zip_uri('C:/moo.zip')
+    assert not mlflow.projects._is_zip_uri('http://foo.bar/moo')
+    assert not mlflow.projects._is_zip_uri('https://foo.bar/moo')
+    assert not mlflow.projects._is_zip_uri('file:///moo')
+    assert not mlflow.projects._is_zip_uri('file://C:/moo')
+    assert not mlflow.projects._is_zip_uri('/moo')
+    assert not mlflow.projects._is_zip_uri('C:/moo')
 
 
 def test_fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
