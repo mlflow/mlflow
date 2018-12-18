@@ -529,7 +529,7 @@ argument. The following values are supported:
 .. rubric:: Example
 
 .. code:: python
-
+    from pyspark.sql.types import ArrayType, FloatType
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
