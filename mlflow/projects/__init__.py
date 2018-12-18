@@ -284,7 +284,8 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
             from six.moves.urllib.parse import urlparse, unquote
             parsed_file_uri = urlparse(unquote(parsed_uri))
             parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
-        _unzip_repo(file=parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri),
+        _unzip_repo(zip_file=(
+                        parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
                     dst_dir=dst_dir)
     elif _is_local_uri(uri):
         if version is not None:
@@ -300,10 +301,10 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     return res
 
 
-def _unzip_repo(file, dst_dir):
+def _unzip_repo(zip_file, dst_dir):
     import zipfile
-    with zipfile.ZipFile(file) as zip_file:
-        zip_file.extractall(dst_dir)
+    with zipfile.ZipFile(zip_file) as zip_in:
+        zip_in.extractall(dst_dir)
 
 
 def _fetch_zip_repo(uri):
