@@ -17,7 +17,6 @@ class SqlAlchemyStore(object):
         models.Base.metadata.bind = self.engine
         db_session = orm.sessionmaker(bind=self.engine)
         self.session = db_session()
-        print('Store started')
 
     def _save_to_db(self, objs):
         """
@@ -95,70 +94,66 @@ class SqlAlchemyStore(object):
             raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                   error_codes.INVALID_STATE)
 
-        run_info = models.SqlRunInfo(name=run_name, artifact_uri=None,
-                                     experiment_id=experiment_id, source_type=source_type,
-                                     source_name=source_name, entry_point_name=entry_point_name,
-                                     user_id=user_id, status=entities.RunStatus.RUNNING,
-                                     start_time=start_time, end_time=None,
-                                     source_version=source_version,
-                                     lifecycle_stage=entities.RunInfo.ACTIVE_LIFECYCLE)
+        run = models.SqlRun(name=run_name, artifact_uri=None,
+                            experiment_id=experiment_id, source_type=source_type,
+                            source_name=source_name, entry_point_name=entry_point_name,
+                            user_id=user_id, status=entities.RunStatus.RUNNING,
+                            start_time=start_time, end_time=None,
+                            source_version=source_version,
+                            lifecycle_stage=entities.RunInfo.ACTIVE_LIFECYCLE)
 
-        run_data = models.SqlRunData()
-        tag_models = [models.SqlRunTag(key=tag.key, value=tag.value) for tag in tags]
-        run = models.SqlRun(experiment_id=experiment_id, info=run_info, data=run_data)
-        self._save_to_db([run_info, run_data, run] + tag_models)
+        for tag in tags:
+            run.tags.append(models.SqlRunTag(key=tag.key, value=tag.value))
+        self._save_to_db([run])
 
         run = run.to_mlflow_entity()
 
         return run
 
     def update_run_info(self, run_uuid, run_status, end_time):
-        info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
-        info.status = run_status
-        info.end_time = end_time
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+        run.status = run_status
+        run.end_time = end_time
 
-        self._save_to_db(info)
-        return info.to_mlflow_entity()
+        self._save_to_db(run)
+        run = run.to_mlflow_entity()
+
+        return run.info
 
     def restore_run(self, run_id):
         raise NotImplementedError()
 
     def get_run(self, run_uuid):
         # TODO this won't always work need to fix how to subquery related models
-        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
-        if run_info is None or run_info is None:
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+        if run is None:
             raise MlflowException('Run(uuid={}) doesn\'t exist'.format(run_uuid),
                                   error_codes.RESOURCE_DOES_NOT_EXIST)
 
-        return run_info.run.to_mlflow_entity()
+        return run.to_mlflow_entity()
 
     def delete_run(self, run_uuid):
-        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
-        run = run_info.run
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
         self.session.delete(run)
 
     def log_metric(self, run_uuid, metric):
-        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
-        run = run_info.run
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
 
         new_metric = models.SqlMetric(key=metric.key, value=metric.value)
-        run.data.metrics.append(new_metric)
+        run.metrics.append(new_metric)
         self._save_to_db([run, new_metric])
 
     def log_param(self, run_uuid, param):
-        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
-        run = run_info.run
-
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
         new_param = models.SqlParam(key=param.key, value=param.value)
-        run.data.params.append(new_param)
+        run.params.append(new_param)
         self._save_to_db([run, new_param])
 
     def set_tag(self, run_uuid, tag):
-        run_info = self.session.query(models.SqlRunInfo).filter_by(run_uuid=run_uuid).first()
-        run = run_info.run
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
 
         new_tag = models.SqlRunTag(key=tag.key, value=tag.value)
-        run.data.tags.append(new_tag)
+        run.tags.append(new_tag)
         self._save_to_db([run, new_tag])
 
     def get_metric(self, run_uuid, key):
@@ -195,6 +190,8 @@ class SqlAlchemyStore(object):
         raise NotImplementedError()
 
     def list_run_infos(self, experiment_id, _=None):
-        infos = self.session.query(models.SqlRunInfo).filter_by(experiment_id=experiment_id)
-        infos = [info.to_mlflow_entity() for info in infos]
+        exp = self.session.query(models.SqlExperiment).get(experiment_id)
+        infos = []
+        for run in exp.runs:
+            infos.append(run.to_mlflow_entity().info)
         return infos

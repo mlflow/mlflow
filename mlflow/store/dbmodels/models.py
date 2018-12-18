@@ -62,24 +62,27 @@ def _validate(self):
             'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
 
 
-def _to_mlflow_entity(self):
-    _validate(self)
+def _create_entity(base, model):
 
     # create dict of kwargs properties for entity and return the intialized entity
     config = {}
-    for k in self.__properties__:
+    for k in base._properties():
         # check if its mlflow entity and build it
-        obj = getattr(self, k)
-        try:
-            config[k] = obj.to_mlflow_entity()
-        except AttributeError:
-            if k in ['metrics', 'params', 'tags']:
-                # these are list so
-                obj = [v.to_mlflow_entity() for v in obj]
+        obj = getattr(model, k)
 
-            config[k] = obj
+        # Run data contains list for metrics, params and tags
+        # so obj will be a list so we need to convert those items
+        if k == 'metrics':
+            obj = [Metric(o.key, o.value, o.timestamp) for o in obj]
 
-    return self.__entity__(**config)
+        if k == 'params':
+            obj = [Param(o.key, o.value) for o in obj]
+
+        if k == 'tags':
+            obj = [RunTag(o.key, o.value) for o in obj]
+
+        config[k] = obj
+    return base(**config)
 
 
 class SqlExperiment(Base):
@@ -100,7 +103,7 @@ class SqlExperiment(Base):
         return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
 
     def to_mlflow_entity(self):
-        return _to_mlflow_entity(self)
+        return _create_entity(Experiment, self)
 
 
 class SqlRunTag(Base):
@@ -108,16 +111,16 @@ class SqlRunTag(Base):
     __entity__ = RunTag
     __properties__ = RunTag._properties()
     id = Column(Integer, primary_key=True)
-    run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref='tags')
     key = Column(Text, nullable=False)
     value = Column(Text, nullable=True)
+    run_id = Column(Integer, ForeignKey('run.run_uuid'))
+    run = relationship('SqlRun', backref=backref('tags', cascade='all,delete'))
 
     def __repr__(self):
         return '<SqlRunTag({}, {})>'.format(self.key, self.value)
 
     def to_mlflow_entity(self):
-        return _to_mlflow_entity(self)
+        return _create_entity(RunTag, self)
 
 
 class SqlMetric(Base):
@@ -128,14 +131,14 @@ class SqlMetric(Base):
     key = Column(Text, nullable=False)
     value = Column(Float, nullable=False)
     timestamp = Column(Integer, default=int(time.time()))
-    run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref=backref('metrics', cascade='all,delete'))
+    run_id = Column(Integer, ForeignKey('run.run_uuid'))
+    run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
 
     def __repr__(self):
         return '<SqlMetric({}, {})>'.format(self.key, self.value)
 
     def to_mlflow_entity(self):
-        return _to_mlflow_entity(self)
+        return _create_entity(Metric, self)
 
 
 class SqlParam(Base):
@@ -145,37 +148,24 @@ class SqlParam(Base):
     id = Column(Integer, primary_key=True)
     key = Column(Text, nullable=False)
     value = Column(Text, nullable=False)
-    run_data_id = Column(Integer, ForeignKey('run_data.id'))
-    run_data = relationship('SqlRunData', backref=backref('params', cascade='all,delete'))
+    run_id = Column(Integer, ForeignKey('run.run_uuid'))
+    run = relationship('SqlRun', backref=backref('params', cascade='all,delete'))
 
     def __repr__(self):
         return '<SqlParam({}, {})>'.format(self.key, self.value)
 
     def to_mlflow_entity(self):
-        return _to_mlflow_entity(self)
+        return _create_entity(Param, self)
 
 
-class SqlRunData(Base):
-    __tablename__ = 'run_data'
-    __entity__ = RunData
-    __properties__ = RunData._properties()
+class SqlRun(Base):
+    __tablename__ = 'run'
+    __entity__ = Run
+    __properties__ = Run._properties()
+
     id = Column(Integer, primary_key=True)
-
-    def __repr__(self):
-        return '<SqlRunData({})>'.format(self.id)
-
-    def to_mlflow_entity(self):
-        return _to_mlflow_entity(self)
-
-
-class SqlRunInfo(Base):
-    __tablename__ = 'run_info'
-    __entity__ = RunInfo
-    __properties__ = RunInfo._properties()
-    id = Column(Integer, primary_key=True)
-    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
     run_uuid = Column(String(16), default=generate_uuid, unique=True, nullable=False)
-    name = Column(Text)
+    name = Column(Text, unique=True)
     source_type = Column(Integer, default=SourceType.LOCAL)
     source_name = Column(String(256))
     entry_point_name = Column(Text)
@@ -193,32 +183,12 @@ class SqlRunInfo(Base):
         CheckConstraint(lifecycle_stage.in_(LifecycleStageTypes), name='lifecycle_stage'),
     )
 
-    def __repr__(self):
-        return '<SqlrunInfo(uuid={}, experiment_id={})'.format(self.run_uuid, self.experiment_id)
-
-    def to_mlflow_entity(self):
-        return _to_mlflow_entity(self)
-
-
-class SqlRun(Base):
-    __tablename__ = 'run'
-    __entity__ = Run
-    __properties__ = Run._properties()
-    id = Column(Integer, primary_key=True)
-    info_id = Column(Integer, ForeignKey('run_info.id'))
-    info = relationship('SqlRunInfo', backref=backref('run', uselist=False),
-                        cascade='delete')
-    data_id = Column(Integer, ForeignKey('run_data.id'))
-    data = relationship('SqlRunData', backref=backref('run', uselist=False),
-                        cascade='delete')
-
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
     experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all,delete'))
 
     def to_mlflow_entity(self):
-        _validate(self)
 
         # run has diff parameter names in __init__ than in properties_ so we do this manually
-        run_info = self.info.to_mlflow_entity()
-        run_data = self.data.to_mlflow_entity()
-        return self.__entity__(run_info=run_info, run_data=run_data)
+        info = _create_entity(RunInfo, self)
+        data = _create_entity(RunData, self)
+        return Run(run_info=info, run_data=data)
