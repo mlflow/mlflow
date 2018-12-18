@@ -21,7 +21,7 @@ class App extends Component {
   render() {
     return (
       <Router>
-        <div>
+        <div style={{height: "100vh"}}>
           <ErrorModal/>
           {process.env.HIDE_HEADER === 'true' ? null : <header className="App-header">
             <div className="mlflow-logo">
