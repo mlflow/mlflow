@@ -281,7 +281,7 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
         if _is_file_uri(parsed_uri):
-            from six.moves.urllib_parse import urlparse, unquote
+            from six.moves.urllib.parse import urlparse, unquote
             parsed_file_uri = urlparse(unquote(parsed_uri))
             parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
         _unzip_repo(file=parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri),
