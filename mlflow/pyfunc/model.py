@@ -128,12 +128,6 @@ def _validate_artifacts(artifacts):
     pass
 
 
-def log_model():
-    pass
-
-
-
-
 def _load_pyfunc(model_path):
     pyfunc_config = _get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
