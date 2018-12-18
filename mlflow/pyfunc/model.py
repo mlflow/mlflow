@@ -1,5 +1,6 @@
 import os
 import inspect
+import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
 
@@ -9,9 +10,11 @@ import mlflow.pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracking import _get_store
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration 
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.store.artifact_repo import ArtifactRepository
 
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_conda_deps=[
@@ -63,18 +66,23 @@ def save_model(dst_path, artifacts, parameters, model_class, conda_env=None, cod
                 error_code=INVALID_PARAMETER_VALUE)
     os.makedirs(dst_path)
 
-    # TODO: Resolve artifacts to absolute paths here
+    saved_artifacts_config = {}
+    with TempDir() as tmp_artifacts_dir:
+        tmp_artifact_paths = []
+        saved_artifacts_dir_subpath = "artifacts"
+        for artifact_name, artifact_uri in artifacts.items():
+            tmp_artifact_path = tmp_artifacts_dir.path(saved_artifacts_dir_subpath, artifact_name) 
+            os.makedirs(tmp_artifact_path)
+            tmp_artifact_path = _resolve_artifact(
+                    artifact_src_uri=artifact_uri, artifact_dst_path=tmp_artifact_path)
+            tmp_artifact_paths.append(tmp_artifact_path)
+            saved_artifact_subpath = os.path.relpath(
+                    path=tmp_artifact_path, start=tmp_artifacts_dir.path())
+            saved_artifacts_config[artifact_name] = saved_artifact_subpath
 
-    saved_artifacts_dir_subpath = "artifacts"
-    saved_artifacts_dir_path = os.path.join(dst_path, saved_artifacts_dir_subpath)
-    os.makedirs(saved_artifacts_dir_path)
-    saved_artifacts = {}
-    for artifact_name, artifact_path in artifacts.items():
-        saved_artifact_subpath = os.path.join(
-                saved_artifacts_dir_subpath, 
-                _copy_file_or_tree(
-                    src=artifact_path, dst=saved_artifacts_dir_path, dst_dir=artifact_name))
-        saved_artifacts[artifact_name] = saved_artifact_subpath
+        _validate_artifacts(tmp_artifact_paths)
+        shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath), 
+                    os.path.join(dst_path, saved_artifacts_dir_subpath))
 
     saved_parameters_dir_subpath = "parameters"
     os.makedirs(os.path.join(dst_path, saved_parameters_dir_subpath))
@@ -111,7 +119,7 @@ def save_model(dst_path, artifacts, parameters, model_class, conda_env=None, cod
             _copy_file_or_tree(src=path, dst=dst_path, dst_dir=code_subpath)
 
     model_kwargs = {
-        CONFIG_KEY_ARTIFACTS: saved_artifacts,
+        CONFIG_KEY_ARTIFACTS: saved_artifacts_config,
         CONFIG_KEY_PARAMETERS: saved_parameters,
         CONFIG_KEY_MODEL_CLASS: saved_model_class,
     }
@@ -120,11 +128,24 @@ def save_model(dst_path, artifacts, parameters, model_class, conda_env=None, cod
     model.save(os.path.join(dst_path, 'MLmodel'))
 
 
-def _resolve_artifact(artifact_path):
-    pass
+def _resolve_artifact(artifact_src_uri, artifact_dst_path):
+    artifact_src_dir = os.path.dirname(artifact_src_uri)
+    artifact_src_relative_path = os.path.basename(artifact_src_uri)
+    artifact_repo = ArtifactRepository.from_artifact_uri(
+            artifact_uri=artifact_src_dir, store=_get_store())
+    return artifact_repo.download_artifacts(
+            artifact_path=artifact_src_relative_path, dst_path=artifact_dst_path)
 
 
-def _validate_artifacts(artifacts):
+def _validate_artifacts(artifact_paths):
+    model_paths = [
+            artifact_path for artifact_path in artifact_paths if os.path.isdir(artifact_path)
+            and "MLmodel" in os.listdir(artifact_path)]
+    for model_path in model_paths:
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+
+
+def log_model():
     pass
 
 
