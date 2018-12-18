@@ -365,7 +365,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
     return (
-      <div id="autosizer-container" className="flex-container">
+      <div id="autosizer-container" className="runs-table-flex-container">
           <AutoSizer>
             {({width, height}) => {
               if (this._lastRenderedWidth !== width) {
@@ -384,9 +384,17 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 this._lastUnbaggedParams = unbaggedParams;
                 this._cache.clearAll();
               }
-              const runMetadataColWidths = [30, 20, 180, 120, 120, 100, 80];
-              const baseRunMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
-              const tableMinWidth = (BAGGED_COL_WIDTH * 2) + baseRunMetadataWidth +
+              const runMetadataColWidths = [
+                30, // checkbox column width
+                20, // expander column width
+                180, // 'Date' column width
+                120, // 'user' column width
+                120, // 'Run Name' column width
+                100, // 'Source' column width
+                80, // 'Version' column width
+              ];
+              const runMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
+              const tableMinWidth = (BAGGED_COL_WIDTH * 2) + runMetadataWidth +
                 (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);

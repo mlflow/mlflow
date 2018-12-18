@@ -238,7 +238,12 @@ span.error-message {
   padding: 4px;
 }
 
-.flex-container {
+/**
+ * Style for ancestor elements of the runs table. Arranges its children along a vertical axis
+ * via (flex-direction: column). If the parent element has 'display: flex' set, will fill up
+ * 100% of the available vertical space (via 'flex: 1 1 auto')
+ */
+.runs-table-flex-container {
   flex: 1 1 auto;
   flex-direction: column;
   display: flex;
