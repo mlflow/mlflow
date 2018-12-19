@@ -358,8 +358,10 @@ export default class ExperimentViewUtil {
       }
     });
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
+      // console.log("Checking idx " + idx);
       if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
+      // console.log("Run " + runId + " was found to be a parent node");
       let hasExpander = false;
       let childrenIds = undefined;
       if (parentIdToChildren[runId]) {
@@ -421,8 +423,11 @@ class TreeNode {
     let current = this;
     while (current.parent !== undefined) {
       if (visited.has(current.parent.value)) {
+        // console.log("Current node value: " + this.value +", found parent node value " + current.parent.value + ", cycle detected");
         return undefined;
       }
+      visited.add(current.value);
+      // console.log(visited);
       current = current.parent;
     }
     return current;
