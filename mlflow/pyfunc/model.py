@@ -34,8 +34,6 @@ CONFIG_KEY_MODEL_CLASS = "model_class"
 CONFIG_KEY_MODEL_CLASS_PATH = "path"
 CONFIG_KEY_MODEL_CLASS_NAME = "name"
 
-_logger = logging.getLogger(mlflow.pyfunc.__name__)
-
 
 class PythonModel(object):
 
@@ -64,46 +62,46 @@ class PythonModelContext(object):
         return self._parameters
 
 
-def save_model(dst_path, artifacts, parameters, model_class, conda_env=None, code_path=None, 
-               model=Model()):
-    if os.path.exists(dst_path):
+def save_model(path, artifacts, parameters, model_class, conda_env=None, code_paths=None, 
+               mlflow_model=Model()):
+    if os.path.exists(path):
         raise MlflowException(
-                message="Path '{}' already exists".format(dst_path),
+                message="Path '{}' already exists".format(path),
                 error_code=INVALID_PARAMETER_VALUE)
-    os.makedirs(dst_path)
+    os.makedirs(path)
 
     saved_artifacts_config = {}
     with TempDir() as tmp_artifacts_dir:
-        tmp_artifact_paths = []
+        tmp_artifacts_config = {}
         saved_artifacts_dir_subpath = "artifacts"
         for artifact_name, artifact_uri in artifacts.items():
             tmp_artifact_path = tmp_artifacts_dir.path(saved_artifacts_dir_subpath, artifact_name) 
             os.makedirs(tmp_artifact_path)
             tmp_artifact_path = _resolve_artifact(
                     artifact_src_uri=artifact_uri, artifact_dst_path=tmp_artifact_path)
-            tmp_artifact_paths.append(tmp_artifact_path)
+            tmp_artifacts_config[artifact_name] = tmp_artifact_path
             saved_artifact_subpath = os.path.relpath(
                     path=tmp_artifact_path, start=tmp_artifacts_dir.path())
             saved_artifacts_config[artifact_name] = saved_artifact_subpath
 
-        _validate_artifacts(tmp_artifact_paths)
+        _validate_artifacts(tmp_artifacts_config)
         shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath), 
-                    os.path.join(dst_path, saved_artifacts_dir_subpath))
+                    os.path.join(path, saved_artifacts_dir_subpath))
 
     saved_parameters_dir_subpath = "parameters"
-    os.makedirs(os.path.join(dst_path, saved_parameters_dir_subpath))
+    os.makedirs(os.path.join(path, saved_parameters_dir_subpath))
     saved_parameters = {}
     for parameter_name, parameter_py_obj in parameters.items():
         saved_parameter_subpath = os.path.join(
             saved_parameters_dir_subpath, "{param_name}.pkl".format(param_name=parameter_name))
-        with open(os.path.join(dst_path, saved_parameter_subpath), "wb") as out:
+        with open(os.path.join(path, saved_parameter_subpath), "wb") as out:
             cloudpickle.dump(parameter_py_obj, out)
         saved_parameters[parameter_name] = saved_parameter_subpath
 
     saved_model_class = {}
     if inspect.isclass(model_class):
         saved_model_class_subpath = "model_class.pkl"
-        with open(os.path.join(dst_path, saved_model_class_subpath), "wb") as out:
+        with open(os.path.join(path, saved_model_class_subpath), "wb") as out:
             cloudpickle.dump(model_class, out)
         saved_model_class[CONFIG_KEY_MODEL_CLASS_PATH] = saved_model_class_subpath
     else:
@@ -115,23 +113,23 @@ def save_model(dst_path, artifacts, parameters, model_class, conda_env=None, cod
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
-    with open(os.path.join(dst_path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    code_subpath = None
-    if code_path:
-        code_subpath = "code"
-        for path in code_path:
-            _copy_file_or_tree(src=path, dst=dst_path, dst_dir=code_subpath)
+    saved_code_subpath = None
+    if code_paths is not None:
+        saved_code_subpath = "code"
+        for code_path in code_paths:
+            _copy_file_or_tree(src=code_path, dst=path, dst_dir=saved_code_subpath)
 
     model_kwargs = {
         CONFIG_KEY_ARTIFACTS: saved_artifacts_config,
         CONFIG_KEY_PARAMETERS: saved_parameters,
         CONFIG_KEY_MODEL_CLASS: saved_model_class,
     }
-    mlflow.pyfunc.add_to_model(model=model, loader_module=__name__, code=code_subpath, 
+    mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath, 
                                env=conda_env_subpath, **model_kwargs)
-    model.save(os.path.join(dst_path, 'MLmodel'))
+    mlflow_model.save(os.path.join(path, 'MLmodel'))
 
 
 def _resolve_artifact(artifact_src_uri, artifact_dst_path):
@@ -152,9 +150,9 @@ def _validate_artifacts(artifacts):
 
     models = dict([
         (artifact_name, artifact_path) for artifact_name, artifact_path in artifacts.items()
-        if os.path.isidr(artifact_path) and "MLmodel" in os.listdir(artifact_path)])
+        if os.path.isdir(artifact_path) and "MLmodel" in os.listdir(artifact_path)])
     model_py_version_data = []
-    for model_name, model_path in models:
+    for model_name, model_path in models.items():
         model_conf = Model.load(os.path.join(model_path, "MLmodel"))
         pyfunc_conf = model_conf.flavors.get(mlflow.pyfunc.FLAVOR_NAME, {})
         
@@ -166,7 +164,7 @@ def _validate_artifacts(artifacts):
             })
             model_py_major_version = StrictVersion(model_py_version).version[0]
             if model_py_major_version != curr_major_py_version:
-                _logger.warn(
+                mlflow.pyfunc._logger.warn(
                     "The artifact with name {artifact_name} is an MLflow model that was"
                     " saved with a different major version of Python. As a result, your new model" 
                     " may not load or perform correctly. Current python version: {curr_py_version}."
@@ -187,7 +185,7 @@ def _validate_artifacts(artifacts):
                                            [MatchSpec(dep) for dep in conda_deps + pip_deps])
             for cloudpickle_dep_spec in cloudpickle_dep_specs:
                 if not curr_cloudpickle_version_spec.match(cloudpickle_dep_spec):
-                    _logger.warn(
+                    mlflow.pyfunc._logger.warn(
                         "The artifact with name {artifact_name} is an MLflow model that contains"
                         " a dependency on either a different version or a range of versions of the"
                         " CloudPickle library. MLflow model artifacts should depend on *exactly*"
@@ -202,18 +200,18 @@ def _validate_artifacts(artifacts):
     if len(set(
         [StrictVersion(version_info["model_version"]).version[0] 
          for version_info in model_py_version_data])) > 1:
-        _logger.warn(
+        mlflow.pyfunc._logger.warn(
             "Artifacts contain MLflow models that were saved with different major versions of"
             " Python. As a result, your new model may not load or perform correctly."
             " The following MLflow models and Python versions were found:"
             " {model_py_version_data}".format(model_py_version_data=model_py_version_data))
 
 
-def log_model(dst_artifact_path, artifacts, parameters, model_class, conda_env=None, 
-              code_path=None):
-    return Model.log(artifact_path=dst_artifact_path, flavor=mlflow.pyfunc.FLAVOR_NAME, 
-                     artifacts=artifacts, parameters=parameters, model_class=model_class,
-                     conda_env=conda_env, code_path=code_path)
+def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None, 
+              code_paths=None):
+    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc.model, artifacts=artifacts, 
+                     parameters=parameters, model_class=model_class, conda_env=conda_env, 
+                     code_paths=code_paths)
 
 
 def _load_pyfunc(model_path):
@@ -233,6 +231,8 @@ def _load_pyfunc(model_path):
             model_class = cloudpickle.load(f)
     elif CONFIG_KEY_MODEL_CLASS_NAME in model_class:
         model_class = pydoc.locate(model_class[CONFIG_KEY_MODEL_CLASS_NAME])
+        if model_class is None:
+            raise Exception("MODEL CLASS BAD")
     else:
         raise MlflowException(
                 message=(
