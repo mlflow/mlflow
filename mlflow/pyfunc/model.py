@@ -165,10 +165,10 @@ def _validate_artifacts(artifacts):
             model_py_major_version = StrictVersion(model_py_version).version[0]
             if model_py_major_version != curr_major_py_version:
                 mlflow.pyfunc._logger.warn(
-                    "The artifact with name {artifact_name} is an MLflow model that was"
+                    "The artifact with name `{artifact_name}` is an MLflow model that was"
                     " saved with a different major version of Python. As a result, your new model" 
-                    " may not load or perform correctly. Current python version: {curr_py_version}."
-                    " Model python version: {model_py_version}".format(
+                    " may not load or perform correctly. Current python version:" 
+                    " `{curr_py_version}`. Model python version: `{model_py_version}`".format(
                         artifact_name=model_name,
                         curr_py_version=mlflow.utils.PYTHON_VERSION,
                         model_py_version=model_py_version))
@@ -186,13 +186,13 @@ def _validate_artifacts(artifacts):
             for cloudpickle_dep_spec in cloudpickle_dep_specs:
                 if not curr_cloudpickle_version_spec.match(cloudpickle_dep_spec):
                     mlflow.pyfunc._logger.warn(
-                        "The artifact with name {artifact_name} is an MLflow model that contains"
+                        "The artifact with name `{artifact_name}` is an MLflow model that contains"
                         " a dependency on either a different version or a range of versions of the"
                         " CloudPickle library. MLflow model artifacts should depend on *exactly*"
                         " the same version of CloudPickle that is currently installed. As a result,"
                         " your new model may not load or perform correctly. Current CloudPickle"
-                        " version: {curr_cloudpickle_version}. Model CloudPickle version:" 
-                        " {model_cloudpickle_version}".format(
+                        " version: `{curr_cloudpickle_version}`. Model CloudPickle version:" 
+                        " `{model_cloudpickle_version}`".format(
                             artifact_name=model_name,
                             curr_cloudpickle_version=curr_cloudpickle_version_spec.version,
                             model_cloudpickle_version=cloudpickle_dep_spec.version))
@@ -223,26 +223,29 @@ def _load_pyfunc(model_path):
         raise MlflowException(
             message=(
                 "Expected `{model_class_config_name}` configuration to contain a single entry, but"
-                " multiple entries were found: {model_class}".format(
+                " multiple entries were found. Model class configuration:" 
+                " `{model_class_config}`".format(
                     model_class_config_name=CONFIG_KEY_MODEL_CLASS,
-                    model_class=model_class)))
+                    model_class_config=model_class)))
     if CONFIG_KEY_MODEL_CLASS_PATH in model_class:
         with open(os.path.join(model_path, model_class[CONFIG_KEY_MODEL_CLASS_PATH]), "rb") as f:
             model_class = cloudpickle.load(f)
     elif CONFIG_KEY_MODEL_CLASS_NAME in model_class:
         model_class = pydoc.locate(model_class[CONFIG_KEY_MODEL_CLASS_NAME])
         if model_class is None:
-            raise Exception("MODEL CLASS BAD")
+            raise MlflowException(
+                "Unable to locate the model class specified by the configuration with name:"
+                " `{model_class_name}`".format(model_class_name=model_class))
     else:
         raise MlflowException(
                 message=(
                     "Expected `{model_class_config_name}` configuration to contain either a"
                     " `{model_class_path_key}` or `{model_class_name_key}` key, but neither"
-                    " was found: {model_class}".format(
+                    " was found. Model class configuration: `{model_class_config}`".format(
                         model_class_config_name=CONFIG_KEY_MODEL_CLASS,
                         model_class_path_key=CONFIG_KEY_MODEL_CLASS_PATH,
                         model_class_name_key=CONFIG_KEY_MODEL_CLASS_NAME,
-                        model_class=model_class)))
+                        model_class_config=model_class)))
 
     parameters = {}
     for saved_parameter_name, saved_parameter_path in\
