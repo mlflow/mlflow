@@ -6,30 +6,51 @@ import sys
 import tempfile
 import unittest
 
+import numpy as np
 import pandas as pd
 import pyspark
-import pytest
-import sklearn.datasets
-from sklearn.neighbors import KNeighborsClassifier
+from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
-from mlflow.pyfunc import load_pyfunc, spark_udf
+import pytest
+
+import mlflow
+from mlflow.pyfunc import spark_udf
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 import mlflow.sklearn
 
+prediction = [int(1), int(2), "class1", float(0.1), 0.2]
+types = [np.int32, np.int, np.str, np.float32, np.double]
 
-def score_model_as_udf(model_path, run_id, pandas_df):
+
+def score_model_as_udf(model_path, run_id, pandas_df, result_type="double"):
     spark = pyspark.sql.SparkSession.builder \
         .config(key="spark.python.worker.reuse", value=True) \
         .master("local-cluster[2, 1, 1024]") \
         .getOrCreate()
     spark_df = spark.createDataFrame(pandas_df)
-    pyfunc_udf = spark_udf(spark, model_path, run_id, result_type="double")
+    pyfunc_udf = spark_udf(spark, model_path, run_id, result_type=result_type)
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x['prediction'] for x in new_df.collect()]
 
 
+class ConstPyfunc(object):
+    @staticmethod
+    def predict(data):
+        m, _ = data.shape
+        prediction_df = pd.DataFrame(data={
+            str(i): np.array([prediction[i] for j in range(m)],
+                             dtype=types[i]) for i in range(len(prediction))},
+            columns=[str(i) for i in range(len(prediction))])
+        return prediction_df
+
+
+def _load_pyfunc(_):
+    return ConstPyfunc
+
+
 class TestSparkUDFs(unittest.TestCase):
     def setUp(self):
+        os.environ["PYSPARK_PYTHON"] = sys.executable
         self._tmp = tempfile.mkdtemp("mlflow-spark-test", dir="/tmp")
         # NB: local-cluster mode actually sets up 2 executors, each given 1 core
         # and 1024 MB of memory. This is the best way to simulate pickling/serialization
@@ -38,34 +59,48 @@ class TestSparkUDFs(unittest.TestCase):
             .config(key="spark.python.worker.reuse", value=True) \
             .master("local-cluster[2, 1, 1024]") \
             .getOrCreate()
-        wine = sklearn.datasets.load_wine()
-        self._pandas_df = pd.DataFrame(wine.data[:, :11], columns=wine.feature_names[:11])
-
-        knn = KNeighborsClassifier()
-        knn.fit(self._pandas_df, wine.target)
         self._model_path = os.path.join(self._tmp, "model")
-        mlflow.sklearn.save_model(knn, path=self._model_path)
-        self._predict = knn.predict(self._pandas_df)
+        mlflow.pyfunc.save_model(self._model_path,
+                                 loader_module=os.path.basename(__file__)[:-3],
+                                 code_path=[__file__])
 
     def tearDown(self):
         shutil.rmtree(self._tmp)
 
     @pytest.mark.large
     def test_spark_udf(self):
-        pandas_df = self._pandas_df
+        pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
         spark_df = self.spark.createDataFrame(pandas_df)
-        pyfunc_udf = spark_udf(self.spark, self._model_path, result_type="integer")
-        new_df = spark_df.withColumn("prediction", pyfunc_udf(*self._pandas_df.columns))
-        spark_results = new_df.collect()
 
-        # Compare against directly running the model.
-        direct_model = load_pyfunc(self._model_path)
-        pandas_results = direct_model.predict(pandas_df)
-        self.assertEqual(178, len(pandas_results))
-        self.assertEqual(178, len(spark_results))
-        for i in range(0, len(pandas_results)):  # noqa
-            self.assertEqual(self._predict[i], pandas_results[i])
-            self.assertEqual(pandas_results[i], spark_results[i]['prediction'])
+        # Test all supported return types
+        type_map = {"float": (FloatType(), np.number),
+                    "int": (IntegerType(), np.int32),
+                    "double": (DoubleType(), np.number),
+                    "long": (LongType(), np.int),
+                    "string": (StringType(), None)}
+
+        for tname, tdef in type_map.items():
+            spark_type, np_type = tdef
+            prediction_df = ConstPyfunc.predict(pandas_df)
+            for is_array in [True, False]:
+                t = ArrayType(spark_type) if is_array else spark_type
+                if tname == "string":
+                    expected = prediction_df.applymap(str)
+                else:
+                    expected = prediction_df.select_dtypes(np_type)
+                    if tname == "float":
+                        expected = expected.astype(np.float32)
+
+                expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
+                pyfunc_udf = spark_udf(self.spark, self._model_path, result_type=t)
+                new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
+                actual = list(new_df.select("prediction").toPandas()['prediction'])
+                assert expected == actual
+                if not is_array:
+                    pyfunc_udf = spark_udf(self.spark, self._model_path, result_type=tname)
+                    new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
+                    actual = list(new_df.select("prediction").toPandas()['prediction'])
+                    assert expected == actual
 
     @pytest.mark.large
     def test_model_cache(self):
@@ -74,12 +109,13 @@ class TestSparkUDFs(unittest.TestCase):
 
         # Ensure we can use the model locally.
         local_model = SparkModelCache.get_or_load(archive_path)
-        assert isinstance(local_model, KNeighborsClassifier)
+        assert local_model.__name__ == "ConstPyfunc"
 
         # Request the model on all executors, and see how many times we got cache hits.
         def get_model(_):
             model = SparkModelCache.get_or_load(archive_path)
-            assert isinstance(model, KNeighborsClassifier)
+            # NB: Can not use instanceof test as remote does not know about ConstPyfunc class
+            assert model.__name__ == "ConstPyfunc"
             return SparkModelCache._cache_hits
 
         # This will run 30 distinct tasks, and we expect most to reuse an already-loaded model.
