@@ -499,3 +499,40 @@ Spark cluster and used to score the model.
 
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+
+The resulting UDF is based Spark's Pandas UDF and is currently limited to producing either a single
+value or an array of values of the same type per observation. By default, we return the first
+numeric column as a double. You can control what result is returned by supplying ``result_type``
+argument. The following values are supported:
+    * ``'int'`` or IntegerType_: The leftmost integer that can fit in
+      ``int32`` result is returned or exception is raised if there is none.
+    * ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
+      result is returned or exception is raised if there is none.
+    * ArrayType_ (IntegerType_ | LongType_): Return all integer columns that can fit
+      into the requested size.
+    * ``'float'`` or FloatType_: The leftmost numeric result cast to
+      ``float32`` is returned or exception is raised if there is no numeric column.
+    * ``'double'`` or DoubleType_: The leftmost numeric result cast to
+      ``double`` is returned or exception is raised if there is no numeric column.
+    * ArrayType_ ( FloatType_ | DoubleType_ ): Return all numeric columns cast to the
+      requested. type. Exception is raised if there are numeric columns.
+    * ``'string'`` or StringType_: Result is the leftmost column converted to string.
+    * ArrayType_ ( StringType_ ): Return all columns converted to string.
+
+.. _IntegerType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.IntegerType
+.. _LongType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.LongType
+.. _FloatType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.FloatType
+.. _DoubleType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.DoubleType
+.. _StringType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.StringType
+.. _ArrayType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.ArrayType
+
+.. rubric:: Example
+
+.. code:: python
+    from pyspark.sql.types import ArrayType, FloatType
+    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
+    # The prediction column will contain all the numeric columns returned by the model as floats
+    df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+
+
+
