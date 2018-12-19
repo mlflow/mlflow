@@ -125,8 +125,7 @@ const paramsByRunUuid = (state = {}, action) => {
       let newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          const runUuid = run.getInfo().getRunUuid();
+          const runUuid = rJson.info.run_uuid;
           const params = rJson.data.params || [];
           newState[runUuid] = paramArrToObject(params);
         });
@@ -169,8 +168,7 @@ const tagsByRunUuid = (state = {}, action) => {
       let newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          const runUuid = run.getInfo().getRunUuid();
+          const runUuid = rJson.info.run_uuid;
           const tags = rJson.data.tags || [];
           newState[runUuid] = tagArrToObject(tags);
         });

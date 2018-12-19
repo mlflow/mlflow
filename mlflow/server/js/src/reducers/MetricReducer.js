@@ -39,8 +39,7 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
       const newState = { ...state };
       if (action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          const runUuid = run.getInfo().getRunUuid();
+          const runUuid = rJson.info.run_uuid;
           const metrics = rJson.data.metrics || [];
           newState[runUuid] = metricArrToObject(metrics);
         });
