@@ -6,7 +6,7 @@ import {
   LIST_ARTIFACTS_API,
   LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
 } from '../Actions';
-import {Experiment, Run, Param, RunInfo, RunTag, Metric} from '../sdk/MlflowMessages';
+import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
 
@@ -113,16 +113,16 @@ const paramsByRunUuid = (state = {}, action) => {
   };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
-      const runInfo = RunInfo.fromJs(action.payload.run.info);
-      const runUuid = runInfo.getRunUuid();
-      const params = action.payload.run.data.params || [];
-      let newState = { ...state };
+      const run = action.payload.run;
+      const runUuid = run.info.run_uuid;
+      const params = run.data.params || [];
+      const newState = { ...state };
       newState[runUuid] = paramArrToObject(params);
       return newState;
     }
     case fulfilled(SEARCH_RUNS_API): {
       const runs = action.payload.runs;
-      let newState = { ...state };
+      const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
           const runUuid = rJson.info.run_uuid;
@@ -132,7 +132,6 @@ const paramsByRunUuid = (state = {}, action) => {
       }
       return newState;
     }
-
     default:
       return state;
   }
@@ -157,7 +156,7 @@ const tagsByRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
-      const tags = action.payload.run.data.tags | [];
+      const tags = action.payload.run.data.tags || [];
       const runUuid = runInfo.getRunUuid();
       const newState = {...state};
       newState[runUuid] = tagArrToObject(tags);
@@ -165,7 +164,7 @@ const tagsByRunUuid = (state = {}, action) => {
     }
     case fulfilled(SEARCH_RUNS_API): {
       const runs = action.payload.runs;
-      let newState = { ...state };
+      const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
           const runUuid = rJson.info.run_uuid;

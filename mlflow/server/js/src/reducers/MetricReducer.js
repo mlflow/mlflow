@@ -1,5 +1,5 @@
 import { fulfilled, GET_METRIC_HISTORY_API, GET_RUN_API, SEARCH_RUNS_API } from '../Actions';
-import { Run, RunInfo, Metric } from '../sdk/MlflowMessages';
+import { RunInfo, Metric } from '../sdk/MlflowMessages';
 
 export const getMetricsByKey = (runUuid, key, state) => {
   return state.entities.metricsByRunUuid[runUuid][key];
