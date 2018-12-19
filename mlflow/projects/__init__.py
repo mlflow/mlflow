@@ -308,6 +308,9 @@ def _unzip_repo(zip_file, dst_dir):
 
 
 def _fetch_zip_repo(uri):
+    # TODO (dbczumar): Replace this method with an invocation of `mlflow.data.download_uri()`
+    # when the API supports the same set of available stores as the artifact repository
+    # (Azure, FTP, etc). See the following issue: https://github.com/mlflow/mlflow/issues/763.
     import requests
     from io import BytesIO
     response = requests.get(uri)
