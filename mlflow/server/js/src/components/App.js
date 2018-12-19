@@ -21,9 +21,9 @@ class App extends Component {
   render() {
     return (
       <Router>
-        <div>
+        <div style={{height: "100vh"}}>
           <ErrorModal/>
-          <header className="App-header">
+          {process.env.HIDE_HEADER === 'true' ? null : <header className="App-header">
             <div className="mlflow-logo">
               <Link
                 to={Routes.rootRoute}
@@ -44,7 +44,7 @@ class App extends Component {
                 </div>
               </a>
             </div>
-          </header>
+          </header>}
           <AppErrorBoundary>
             <Switch>
               <Route exact path={Routes.rootRoute} component={HomePage}/>

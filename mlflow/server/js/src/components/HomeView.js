@@ -30,6 +30,16 @@ class HomeView extends Component {
   }
 
   render() {
+    if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
+      return (
+        <div className="experiment-page-container">
+          { this.props.experimentId !== undefined ?
+            <ExperimentPage experimentId={this.props.experimentId}/> :
+            <NoExperimentView/>
+          }
+        </div>
+      );
+    }
     if (this.state.listExperimentsExpanded) {
       return (
         <div className="outer-container">
@@ -58,7 +68,7 @@ class HomeView extends Component {
                title="Show experiment list"
                className="expander fa fa-chevron-right login-icon"/>
           </div>
-          <div className="experiment-page-container">
+          <div className="experiment-page-container" style={{height: "100vh"}}>
             { this.props.experimentId !== undefined ?
               <ExperimentPage experimentId={this.props.experimentId}/> :
               <NoExperimentView/>
