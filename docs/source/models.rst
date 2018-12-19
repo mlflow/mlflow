@@ -508,23 +508,23 @@ argument. The following values are supported:
       ``int32`` result is returned or exception is raised if there is none.
     * ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
       result is returned or exception is raised if there is none.
-    * ArrayType_ ``(IntegerType|LongType)``: Return all integer columns that can fit
+    * ArrayType_ (IntegerType_ | LongType_): Return all integer columns that can fit
       into the requested size.
     * ``'float'`` or FloatType_: The leftmost numeric result cast to
       ``float32`` is returned or exception is raised if there is no numeric column.
     * ``'double'`` or DoubleType_: The leftmost numeric result cast to
-      double is returned or exception is raised if there is no numeric column.
-    * ``ArrayType(FloatType|DoubleType)``: Return all numeric columns cast to the
+      ``double`` is returned or exception is raised if there is no numeric column.
+    * ArrayType_ ( FloatType_ | DoubleType_ ): Return all numeric columns cast to the
       requested. type. Exception is raised if there are numeric columns.
     * ``'string'`` or StringType_: Result is the leftmost column converted to string.
-    * ``ArrayType(StringType)``: Return all columns converted to string.
+    * ArrayType_ ( StringType_ ): Return all columns converted to string.
 
-.. _IntegerType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.IntegerType
-.. _LongType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.LongType
-.. _FloatType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.FloatType
-.. _DoubleType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.DoubleType
-.. _StringType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.StringType
-.. _ArrayType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=integertype#pyspark.sql.types.ArrayType
+.. _IntegerType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.IntegerType
+.. _LongType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.LongType
+.. _FloatType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.FloatType
+.. _DoubleType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.DoubleType
+.. _StringType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.StringType
+.. _ArrayType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.ArrayType
 
 .. rubric:: Example
 
