@@ -40,7 +40,7 @@ class SqlAlchemyStore(object):
         lifecycle_stage = mappings[view_type]
         experiments = []
         for exp in self.session.query(models.SqlExperiment).filter_by(
-                lifecycle_stage=lifecycle_stage):
+                lifecycle_stage=lifecycle_stage, is_deleted=False):
             experiments.append(exp.to_mlflow_entity())
 
         return experiments
@@ -64,7 +64,7 @@ class SqlAlchemyStore(object):
 
     def get_experiment(self, experiment_id):
         exp = self.session.query(models.SqlExperiment).filter_by(
-            experiment_id=experiment_id).first()
+            experiment_id=experiment_id, is_deleted=False).first()
 
         if not exp:
             raise MlflowException('No Experiment with id={} exists'.format(experiment_id),
@@ -73,9 +73,9 @@ class SqlAlchemyStore(object):
         return exp.to_mlflow_entity()
 
     def delete_experiment(self, experiment_id):
-        self.session.query(models.SqlExperiment).filter_by(
-            experiment_id=experiment_id).delete()
-        self.session.commit()
+        exp = self.session.query(models.SqlExperiment).get(experiment_id)
+        exp.is_deleted = True
+        self._save_to_db(exp)
 
     def restore_experiment(self, experiment_id):
         raise NotImplementedError()
@@ -125,7 +125,8 @@ class SqlAlchemyStore(object):
 
     def get_run(self, run_uuid):
         # TODO this won't always work need to fix how to subquery related models
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid,
+                                                          is_deleted=False).first()
         if run is None:
             raise MlflowException('Run(uuid={}) doesn\'t exist'.format(run_uuid),
                                   error_codes.RESOURCE_DOES_NOT_EXIST)
@@ -134,7 +135,8 @@ class SqlAlchemyStore(object):
 
     def delete_run(self, run_uuid):
         run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
-        self.session.delete(run)
+        run.is_deleted = True
+        self._save_to_db(run)
 
     def log_metric(self, run_uuid, metric):
         run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()

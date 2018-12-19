@@ -2,7 +2,7 @@ import time
 import uuid
 import os
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy import Column, Text, String, Float, ForeignKey, Integer, CheckConstraint
+from sqlalchemy import Column, Text, String, Float, ForeignKey, Integer, CheckConstraint, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import Experiment, RunTag, Metric, Param, RunData, RunInfo,\
     SourceType, RunStatus, Run
@@ -90,6 +90,7 @@ class SqlExperiment(Base):
     __entity__ = Experiment
     __properties__ = Experiment._properties()
     experiment_id = Column(Integer, primary_key=True)
+    is_deleted = Column(Boolean, default=False)
     name = Column(String(256), unique=True, nullable=False)
     artifact_location = Column(Text, nullable=True)
     lifecycle_stage = Column(Integer, default=Experiment.ACTIVE_LIFECYCLE)
@@ -164,6 +165,7 @@ class SqlRun(Base):
     __properties__ = Run._properties()
 
     id = Column(Integer, primary_key=True)
+    is_deleted = Column(Boolean, default=False)
     run_uuid = Column(String(16), default=generate_uuid, unique=True, nullable=False)
     name = Column(Text, unique=True)
     source_type = Column(Integer, default=SourceType.LOCAL)

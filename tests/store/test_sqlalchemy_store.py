@@ -44,16 +44,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_delete_experiment(self):
         experiments = self._experiment_factory(['morty', 'rick', 'rick and morty'])
-        run_data = experiments[0]
-        self.store.delete_experiment(run_data.experiment_id)
+        exp = experiments[0]
+        self.store.delete_experiment(exp.experiment_id)
 
-        all_experiments = self.store.list_experiments()
-        self.assertEqual(len(all_experiments), len(experiments) - 1)
+        actual = self.session.query(models.SqlExperiment).get(exp.experiment_id)
+        self.assertEqual(len(self.store.list_experiments()), len(experiments) - 1)
 
-        # assert the deleted experiment is not is list
-        for exp in all_experiments:
-            self.assertNotEqual(exp.experiment_id, run_data.experiment_id)
-            self.assertNotEqual(exp.name, run_data.name)
+        self.assertTrue(actual.is_deleted)
 
     def test_get_experiment(self):
         name = 'goku'
@@ -253,10 +250,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         run_uuid = run.run_uuid
         self.store.delete_run(run_uuid)
-
-        self.assertEqual(self.session.query(models.SqlRun).count(), 0)
-        self.assertEqual(self.session.query(models.SqlMetric).count(), 0)
-        self.assertEqual(self.session.query(models.SqlParam).count(), 0)
+        actual = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+        self.assertTrue(actual.is_deleted)
 
         with pytest.raises(MlflowException) as e:
             self.store.get_run(run_uuid)
