@@ -236,24 +236,6 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     return pandas_udf(predict, result_type)
 
 
-def log_model(artifact_path, **kwargs):
-    """
-    Export model in Python function form and log it with current MLflow tracking service.
-
-    Model is exported by calling :py:meth:`save_model` and logging the result with
-    :py:meth:`mlflow.tracking.log_artifacts`.
-    """
-    with TempDir() as tmp:
-        local_path = tmp.path(artifact_path)
-        run_id = active_run().info.run_uuid
-        if 'model' in kwargs:
-            raise Exception("Unused argument 'model'. log_model creates a new model object")
-
-        save_model(dst_path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
-                   **kwargs)
-        log_artifacts(local_path, artifact_path)
-
-
 def get_module_loader_src(src_path, dst_path):
     """
     Generate Python source of the model loader.

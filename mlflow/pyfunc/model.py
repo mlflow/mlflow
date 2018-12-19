@@ -1,5 +1,7 @@
 import os
 import inspect
+import logging
+import pydoc
 import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
@@ -8,6 +10,7 @@ from distutils.version import StrictVersion
 import cloudpickle
 
 import mlflow.pyfunc
+import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -30,6 +33,8 @@ CONFIG_KEY_PARAMETERS = "parameters"
 CONFIG_KEY_MODEL_CLASS = "model_class"
 CONFIG_KEY_MODEL_CLASS_PATH = "path"
 CONFIG_KEY_MODEL_CLASS_NAME = "name"
+
+_logger = logging.getLogger(mlflow.pyfunc.__name__)
 
 
 class PythonModel(object):
@@ -125,7 +130,7 @@ def save_model(dst_path, artifacts, parameters, model_class, conda_env=None, cod
         CONFIG_KEY_MODEL_CLASS: saved_model_class,
     }
     mlflow.pyfunc.add_to_model(model=model, loader_module=__name__, code=code_subpath, 
-                              env=conda_env_subpath, **model_kwargs)
+                               env=conda_env_subpath, **model_kwargs)
     model.save(os.path.join(dst_path, 'MLmodel'))
 
 
@@ -139,37 +144,76 @@ def _resolve_artifact(artifact_src_uri, artifact_dst_path):
 
 
 def _validate_artifacts(artifacts):
+    from conda.resolve import MatchSpec
+
+    curr_major_py_version = StrictVersion(mlflow.utils.PYTHON_VERSION).version[0]
+    curr_cloudpickle_version_spec = MatchSpec("cloudpickle=={curr_cloudpickle_version}".format(
+        curr_cloudpickle_version=cloudpickle.__version__))
+
     models = dict([
         (artifact_name, artifact_path) for artifact_name, artifact_path in artifacts.items()
         if os.path.isidr(artifact_path) and "MLmodel" in os.listdir(artifact_path)])
-    model_py_major_versions = set()
-    model_cloudpickle_versions = set()
-    for model_name, model_path in model_paths:
+    model_py_version_data = []
+    for model_name, model_path in models:
         model_conf = Model.load(os.path.join(model_path, "MLmodel"))
         pyfunc_conf = model_conf.flavors.get(mlflow.pyfunc.FLAVOR_NAME, {})
         
         model_py_version = pyfunc_conf.get(mlflow.pyfunc.PY_VERSION, None)
         if model_py_version is not None:
-            model_py_major_version = StrictVersion(model_py_major_version).version[0]
+            model_py_version_data.append({
+                "artifact_name": model_name,
+                "model_version": model_py_version,
+            })
+            model_py_major_version = StrictVersion(model_py_version).version[0]
+            if model_py_major_version != curr_major_py_version:
+                _logger.warn(
+                    "The artifact with name {artifact_name} is an MLflow model that was"
+                    " saved with a different major version of Python. As a result, your new model" 
+                    " may not load or perform correctly. Current python version: {curr_py_version}."
+                    " Model python version: {model_py_version}".format(
+                        artifact_name=model_name,
+                        curr_py_version=mlflow.utils.PYTHON_VERSION,
+                        model_py_version=model_py_version))
 
-            model_py_major_versions.add(model_py_version.version[0])
 
         conda_env_subpath = pyfunc_conf.get(mlflow.pyfunc.ENV, None)
         if conda_env_subpath is not None:
-            try:
-                with open(os.path.join(model_path, conda_env_subpath), "r") as f:
-                    conda_env = yaml.safe_load(f)
-            except yaml.YAMLError as e:
-                print("BAD")
+            with open(os.path.join(model_path, conda_env_subpath), "r") as f:
+                conda_env = yaml.safe_load(f)
 
             conda_deps = conda_env.get("dependencies", [])
             pip_deps = dict(enumerate(conda_deps)).get("pip", [])
-            cloudpickle_versions = 
+            cloudpickle_dep_specs = filter(lambda spec : spec.name == "cloudpickle", 
+                                           [MatchSpec(dep) for dep in conda_deps + pip_deps])
+            for cloudpickle_dep_spec in cloudpickle_dep_specs:
+                if not curr_cloudpickle_version_spec.match(cloudpickle_dep_spec):
+                    _logger.warn(
+                        "The artifact with name {artifact_name} is an MLflow model that contains"
+                        " a dependency on either a different version or a range of versions of the"
+                        " CloudPickle library. MLflow model artifacts should depend on *exactly*"
+                        " the same version of CloudPickle that is currently installed. As a result,"
+                        " your new model may not load or perform correctly. Current CloudPickle"
+                        " version: {curr_cloudpickle_version}. Model CloudPickle version:" 
+                        " {model_cloudpickle_version}".format(
+                            artifact_name=model_name,
+                            curr_cloudpickle_version=curr_cloudpickle_version_spec.version,
+                            model_cloudpickle_version=cloudpickle_dep_spec.version))
+
+    if len(set(
+        [StrictVersion(version_info["model_version"]).version[0] 
+         for version_info in model_py_version_data])) > 1:
+        _logger.warn(
+            "Artifacts contain MLflow models that were saved with different major versions of"
+            " Python. As a result, your new model may not load or perform correctly."
+            " The following MLflow models and Python versions were found:"
+            " {model_py_version_data}".format(model_py_version_data=model_py_version_data))
 
 
-
-def log_model():
-    pass
+def log_model(dst_artifact_path, artifacts, parameters, model_class, conda_env=None, 
+              code_path=None):
+    return Model.log(artifact_path=dst_artifact_path, flavor=mlflow.pyfunc.FLAVOR_NAME, 
+                     artifacts=artifacts, parameters=parameters, model_class=model_class,
+                     conda_env=conda_env, code_path=code_path)
 
 
 def _load_pyfunc(model_path):
@@ -184,11 +228,11 @@ def _load_pyfunc(model_path):
                 " multiple entries were found: {model_class}".format(
                     model_class_config_name=CONFIG_KEY_MODEL_CLASS,
                     model_class=model_class)))
-    elif CONFIG_KEY_MODEL_CLASS_PATH in model_class:
+    if CONFIG_KEY_MODEL_CLASS_PATH in model_class:
         with open(os.path.join(model_path, model_class[CONFIG_KEY_MODEL_CLASS_PATH]), "rb") as f:
             model_class = cloudpickle.load(f)
     elif CONFIG_KEY_MODEL_CLASS_NAME in model_class:
-        raise Exception("Unimplemented")
+        model_class = pydoc.locate(model_class[CONFIG_KEY_MODEL_CLASS_NAME])
     else:
         raise MlflowException(
                 message=(
