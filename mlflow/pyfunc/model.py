@@ -3,6 +3,7 @@ import inspect
 import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
+from distutils.version import StrictVersion
 
 import cloudpickle
 
@@ -137,12 +138,34 @@ def _resolve_artifact(artifact_src_uri, artifact_dst_path):
             artifact_path=artifact_src_relative_path, dst_path=artifact_dst_path)
 
 
-def _validate_artifacts(artifact_paths):
-    model_paths = [
-            artifact_path for artifact_path in artifact_paths if os.path.isdir(artifact_path)
-            and "MLmodel" in os.listdir(artifact_path)]
-    for model_path in model_paths:
+def _validate_artifacts(artifacts):
+    models = dict([
+        (artifact_name, artifact_path) for artifact_name, artifact_path in artifacts.items()
+        if os.path.isidr(artifact_path) and "MLmodel" in os.listdir(artifact_path)])
+    model_py_major_versions = set()
+    model_cloudpickle_versions = set()
+    for model_name, model_path in model_paths:
         model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        pyfunc_conf = model_conf.flavors.get(mlflow.pyfunc.FLAVOR_NAME, {})
+        
+        model_py_version = pyfunc_conf.get(mlflow.pyfunc.PY_VERSION, None)
+        if model_py_version is not None:
+            model_py_major_version = StrictVersion(model_py_major_version).version[0]
+
+            model_py_major_versions.add(model_py_version.version[0])
+
+        conda_env_subpath = pyfunc_conf.get(mlflow.pyfunc.ENV, None)
+        if conda_env_subpath is not None:
+            try:
+                with open(os.path.join(model_path, conda_env_subpath), "r") as f:
+                    conda_env = yaml.safe_load(f)
+            except yaml.YAMLError as e:
+                print("BAD")
+
+            conda_deps = conda_env.get("dependencies", [])
+            pip_deps = dict(enumerate(conda_deps)).get("pip", [])
+            cloudpickle_versions = 
+
 
 
 def log_model():
