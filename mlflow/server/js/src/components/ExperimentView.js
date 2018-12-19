@@ -258,7 +258,7 @@ class ExperimentView extends Component {
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
     const unbaggedParamKeyList = paramKeyFilter.apply(this.state.persistedState.unbaggedParams);
-    const unbaggedMetricKeyList = paramKeyFilter.apply(this.state.persistedState.unbaggedMetrics);
+    const unbaggedMetricKeyList = metricKeyFilter.apply(this.state.persistedState.unbaggedMetrics);
 
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
