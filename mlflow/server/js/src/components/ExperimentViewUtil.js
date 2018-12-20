@@ -334,7 +334,8 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded }) {
+  static getRowRenderMetadata(
+    { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -374,7 +375,8 @@ export default class ExperimentViewUtil {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
-      const sortValue = ExperimentViewUtil.getSortValue({metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
+      const sortValue = ExperimentViewUtil.getSortValue(
+        {metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
       return [{
         idx,
         isParent: true,
@@ -394,7 +396,8 @@ export default class ExperimentViewUtil {
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
           const childrenRows = childrenIdxs.map((idx) => {
-            const sortValue = ExperimentViewUtil.getSortValue({metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
+            const sortValue = ExperimentViewUtil.getSortValue(
+              {metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
             return { idx, isParent: false, hasExpander: false, sortValue };
           });
           ExperimentViewUtil.sortRows(childrenRows, sortState);

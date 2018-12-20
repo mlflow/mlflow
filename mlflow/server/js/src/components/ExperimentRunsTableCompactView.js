@@ -400,8 +400,9 @@ class ExperimentRunsTableCompactView extends PureComponent {
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);
               const runMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
-              const tableMinWidth = BAGGED_COL_WIDTH * (showBaggedParams + showBaggedMetrics)
-                + runMetadataWidth + (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
+              const tableMinWidth = (BAGGED_COL_WIDTH * (showBaggedParams + showBaggedMetrics))
+                + runMetadataWidth +
+                (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
               // If we aren't showing bagged metrics or params (bagged metrics & params are the
               // only cols that use the CellMeasurer component), set the row height statically
               const cellMeasurerProps = {};
