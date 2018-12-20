@@ -355,7 +355,6 @@ class ExperimentRunsTableCompactView extends PureComponent {
       sortState,
       tagsList,
       runsExpanded});
-    console.log("@SID got " + rows.length + " rows");
 
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "div"),
