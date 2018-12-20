@@ -246,3 +246,13 @@ def test_start_deleted_run():
         with mlflow.start_run(run_uuid=run_id):
             pass
     assert mlflow.active_run() is None
+
+
+def test_start_run_exp_id_0(tracking_uri_mock, reset_active_experiment):
+    mlflow.set_experiment("some-experiment")
+    with mlflow.start_run() as active_run:
+        exp_id = active_run.info.experiment_id
+        assert exp_id != 0
+        assert MlflowClient().get_experiment(exp_id).name == "some-experiment"
+    with mlflow.start_run(experiment_id=0) as active_run:
+        assert active_run.info.experiment_id == 0
