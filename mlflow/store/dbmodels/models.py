@@ -10,8 +10,6 @@ from mlflow.entities import Experiment, RunTag, Metric, Param, RunData, RunInfo,
 Base = declarative_base()
 
 # TODO: UPdate the types for better performance
-# TODO: Create custom column type for run_uuid
-# TODO: ADD run_uuid to params, metric, tag, run_data
 
 
 def _get_user_id():

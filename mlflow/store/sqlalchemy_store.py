@@ -3,15 +3,19 @@ from sqlalchemy import orm
 from sqlalchemy.exc import IntegrityError
 from mlflow.store.dbmodels import models
 from mlflow import entities
+from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 import mlflow.protos.databricks_pb2 as error_codes
 
 
-class SqlAlchemyStore(object):
+# TODO: implement the restore functions for runs and metrics
 
-    def __init__(self, db_uri='sqlite://'):
 
+class SqlAlchemyStore(AbstractStore):
+
+    def __init__(self, db_uri):
+        super(SqlAlchemyStore, self).__init__()
         self.engine = sqlalchemy.create_engine(db_uri)
         models.Base.metadata.create_all(self.engine)
         models.Base.metadata.bind = self.engine
@@ -78,7 +82,9 @@ class SqlAlchemyStore(object):
         self._save_to_db(exp)
 
     def restore_experiment(self, experiment_id):
-        raise NotImplementedError()
+        exp = self.session.query(models.SqlExperiment).get(experiment_id)
+        exp.is_deleted = False
+        self._save_to_db(exp)
 
     def rename_experiment(self, experiment_id, new_name):
         experiment = self.session.query(models.SqlExperiment).get(experiment_id)
@@ -120,11 +126,12 @@ class SqlAlchemyStore(object):
 
         return run.info
 
-    def restore_run(self, run_id):
-        raise NotImplementedError()
+    def restore_run(self, run_uuid):
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+        run.is_deleted = False
+        self._save_to_db(run)
 
     def get_run(self, run_uuid):
-        # TODO this won't always work need to fix how to subquery related models
         run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid,
                                                           is_deleted=False).first()
         if run is None:

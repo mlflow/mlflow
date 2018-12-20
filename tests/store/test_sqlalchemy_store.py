@@ -10,10 +10,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
+DB_URI = 'sqlite://'
+
+
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def setUp(self):
-        self.store = SqlAlchemyStore()
-        self.engine = sqlalchemy.create_engine('sqlite://')
+        self.store = SqlAlchemyStore(DB_URI)
+        self.engine = sqlalchemy.create_engine(DB_URI)
         Session = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.session = Session()
         self.store.session = self.session
@@ -393,3 +396,25 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertEqual(actual.status, new_status)
         self.assertEqual(actual.end_time, endtime)
+
+    def test_restore_experiment(self):
+        exp = self._experiment_factory('helloexp')
+
+        self.store.delete_experiment(exp.experiment_id)
+
+        with self.assertRaises(MlflowException):
+            self.store.get_experiment(exp.experiment_id)
+
+        self.store.restore_experiment(exp.experiment_id)
+        self.store.get_experiment(exp.experiment_id)
+
+    def test_restore_run(self):
+        run = self._run_factory()
+
+        self.store.delete_run(run.run_uuid)
+
+        with self.assertRaises(MlflowException):
+            self.store.get_run(run.run_uuid)
+
+        self.store.restore_run(run.run_uuid)
+        self.store.get_run(run.run_uuid)
