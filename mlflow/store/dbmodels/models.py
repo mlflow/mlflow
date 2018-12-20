@@ -9,8 +9,6 @@ from mlflow.entities import Experiment, RunTag, Metric, Param, RunData, RunInfo,
 
 Base = declarative_base()
 
-# TODO: UPdate the types for better performance
-
 
 def _get_user_id():
     try:

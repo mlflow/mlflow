@@ -9,9 +9,6 @@ from mlflow.exceptions import MlflowException
 import mlflow.protos.databricks_pb2 as error_codes
 
 
-# TODO: implement the restore functions for runs and metrics
-
-
 class SqlAlchemyStore(AbstractStore):
 
     def __init__(self, db_uri):
