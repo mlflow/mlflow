@@ -255,5 +255,6 @@ def test_start_run_exp_id_0(tracking_uri_mock, reset_active_experiment):
         exp_id = active_run.info.experiment_id
         assert exp_id != 0
         assert MlflowClient().get_experiment(exp_id).name == "some-experiment"
+    # Set experiment ID to 0 when creating a run, verify that the specified experiment ID is honored
     with mlflow.start_run(experiment_id=0) as active_run:
         assert active_run.info.experiment_id == 0
