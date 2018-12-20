@@ -291,6 +291,7 @@ export default class ExperimentViewUtil {
   static isExpanderOpen(runsExpanded, runId) {
     let expanderOpen = DEFAULT_EXPANDED_VALUE;
     if (runsExpanded[runId] !== undefined) expanderOpen = runsExpanded[runId];
+    console.log("isExpanderOpen for " + runId + ": " + expanderOpen);
     return expanderOpen;
   }
 
@@ -354,12 +355,14 @@ export default class ExperimentViewUtil {
         } else {
           newList = [idx];
         }
+        console.log("Assigning child idxs " + JSON.stringify(newList) + " to id " + root.value);
         parentIdToChildren[root.value] = newList;
       }
     });
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
       if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
+      console.log("Processing parent run with id " + runId);
       let hasExpander = false;
       let childrenIds = undefined;
       if (parentIdToChildren[runId]) {
@@ -372,16 +375,19 @@ export default class ExperimentViewUtil {
         hasExpander,
         expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
         childrenIds,
+        runId,
       }];
     });
     ExperimentViewUtil.sortRows(parentRows, sortState);
     const mergedRows = [];
     parentRows.forEach((r) => {
-      const runId = r.key;
+      const runId = r.runId;
       mergedRows.push(r);
       const childrenIdxs = parentIdToChildren[runId];
+      console.log("Got children Idxs " + JSON.stringify(childrenIdxs) + " for run with id " + runId);
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
+          console.log("Looping through children rows");
           const childrenRows = childrenIdxs.map((idx) =>
             ({ idx, isParent: false, hasExpander: false }));
           ExperimentViewUtil.sortRows(childrenRows, sortState);

@@ -350,31 +350,12 @@ class ExperimentRunsTableCompactView extends PureComponent {
       unbaggedParams,
     } = this.props;
 
-    // Compute metadata for row generation, don't actually generate though
-    // const rowData = ExperimentViewUtil.getRowGenerationMetadata({
-    //   runInfos,
-    //   tagsList,
-    //   runsExpanded});
-    // How do we render a row given its index? Can we actually do that?
-    // Maybe: have a map of row index to the metadata needed to generate the row, then generate
-    // the row separately. Compute the map by looking through the expanded runs. The dependencies
-    // of row-generation are
-    // { idx, isParent, hasExpander, expanderOpen, childrenIds }
-    // However this assumes that computing all this metadata isn't the bottleneck, should probs
-    // check that - seems true in dev, just not super sure if it holds in prod.
-
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       sortState,
       tagsList,
       runsExpanded});
-
-    // const rows = ExperimentViewUtil.getRows({
-    //   runInfos,
-    //   sortState,
-    //   tagsList,
-    //   runsExpanded,
-    //   getRow: this.getRow });
+    console.log("@SID got " + rows.length + " rows");
 
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "div"),

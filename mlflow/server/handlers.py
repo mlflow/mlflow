@@ -8,7 +8,7 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities import Metric, Param, RunTag, ViewType, Run, RunData, RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
@@ -267,9 +267,17 @@ def _search_runs():
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
-    run_entities = _get_store().search_runs(request_message.experiment_ids,
-                                            request_message.anded_expressions,
-                                            run_view_type)
+    # run_entities = _get_store().search_runs(request_message.experiment_ids,
+    #                                         request_message.anded_expressions,
+    #                                         run_view_type)
+    metrics = [Metric(key="metric %s" % i, value=i, timestamp=0) for i in range(3)]
+    params = [Param(key="param %s" % i, value="asdf") for i in range(3)]
+    tags = [RunTag(key="tag %s" % i, value="asdf") for i in range(3)]
+    numRuns = 50
+    run_info = [RunInfo(run_uuid="abc %s" % i, experiment_id=0, start_time=3, user_id="Sid", name="abc", source_type=1, entry_point_name="ef", status=3, end_time=5, source_version="asdf", lifecycle_stage='active', source_name="ieowjf") for i in range(numRuns)]
+    run_data = [RunData(metrics=metrics, params=params, tags=tags + ([ RunTag(key="mlflow.parentRunId", value="abc %s" % (i // 10))] if i % 10 != 0 else [])) for i in range(numRuns)]
+    # run_data = [RunData(metrics=metrics, params=params, tags=tags) for i in range(numRuns)]
+    run_entities = [Run(run_info=run_info[i], run_data=run_data[i]) for i in range(numRuns)]
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
