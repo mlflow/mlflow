@@ -14,11 +14,10 @@ import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking import _get_store
+from mlflow.tracking.utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration 
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
-from mlflow.store.artifact_repo import ArtifactRepository
 
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_conda_deps=[
@@ -77,7 +76,7 @@ def save_model(path, artifacts, parameters, model_class, conda_env=None, code_pa
         for artifact_name, artifact_uri in artifacts.items():
             tmp_artifact_path = tmp_artifacts_dir.path(saved_artifacts_dir_subpath, artifact_name) 
             os.makedirs(tmp_artifact_path)
-            tmp_artifact_path = _resolve_artifact(
+            tmp_artifact_path = _download_artifact_from_uri(
                     artifact_src_uri=artifact_uri, artifact_dst_path=tmp_artifact_path)
             tmp_artifacts_config[artifact_name] = tmp_artifact_path
             saved_artifact_subpath = os.path.relpath(
@@ -130,15 +129,6 @@ def save_model(path, artifacts, parameters, model_class, conda_env=None, code_pa
     mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath, 
                                env=conda_env_subpath, **model_kwargs)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
-
-
-def _resolve_artifact(artifact_src_uri, artifact_dst_path):
-    artifact_src_dir = os.path.dirname(artifact_src_uri)
-    artifact_src_relative_path = os.path.basename(artifact_src_uri)
-    artifact_repo = ArtifactRepository.from_artifact_uri(
-            artifact_uri=artifact_src_dir, store=_get_store())
-    return artifact_repo.download_artifacts(
-            artifact_path=artifact_src_relative_path, dst_path=artifact_dst_path)
 
 
 def _validate_artifacts(artifacts):

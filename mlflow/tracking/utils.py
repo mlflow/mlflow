@@ -85,7 +85,20 @@ def get_artifact_uri(artifact_path, run_id):
                 error_code=INVALID_PARAMETER_VALUE)
     store = _get_store()
     run = store.get_run(run_id)
-    return os.path.join(run.info.artifact_uri, artifact_path) 
+    return os.path.join(run.info.artifact_uri, artifact_path)
+
+
+def _download_artifact_from_uri(artifact_uri, output_path):
+    """
+    :param artifact_uri: The *absolute* URI of the artifact to download.
+    :param output_path: The local filesystem path to which to download the artifact.
+    """
+    artifact_src_dir = os.path.dirname(artifact_uri)
+    artifact_src_relative_path = os.path.basename(artifact_uri)
+    artifact_repo = ArtifactRepository.from_artifact_uri(
+            artifact_uri=artifact_src_dir, store=_get_store())
+    return artifact_repo.download_artifacts(
+            artifact_path=artifact_src_relative_path, dst_path=output_path)
 
 
 def _get_store(store_uri=None):

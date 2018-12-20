@@ -6,6 +6,7 @@ from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobServic
 
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.tracking.utils import _download_artifact_from_uri
 
 
 TEST_ROOT_PATH = "some/path"
@@ -198,3 +199,107 @@ def test_download_directory_artifact(mock_client, tmpdir):
     dir_contents = os.listdir(tmpdir.strpath)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
+
+
+def test_tracking_download_file_artifact_from_absolute_azure_uri_succeeds(mock_client, tmpdir):
+    from mlflow.tracking.utils import _download_artifact_from_uri
+    os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
+
+    mock_client.list_blobs.return_value = MockBlobList([])
+
+    expected_file_text = "hello world!"
+    def create_file(container, cloud_path, local_path):
+        # pylint: disable=unused-argument
+        local_path = os.path.basename(local_path)
+        f = tmpdir.join(local_path)
+        f.write(expected_file_text)
+
+    mock_client.get_blob_to_path.side_effect = create_file
+
+    orig_from_uri = ArtifactRepository.from_artifact_uri
+    def mock_from_artifact_uri(artifact_uri, store):
+        if artifact_uri.startswith("wasbs:/"):
+            return AzureBlobArtifactRepository(artifact_uri, mock_client)
+        else:
+            return orig_from_uri(artifact_uri, store)
+
+    with mock.patch(
+            "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri", 
+            side_effect=mock_from_artifact_uri):
+        uri = "wasbs://container@myaccountname.blob.core.windows.net/test.txt"
+        output_path = _download_artifact_from_uri(uri, output_path=tmpdir.strpath)
+
+    mock_client.get_blob_to_path.assert_called_with(
+        "container", TEST_ROOT_PATH + "/test.txt", mock.ANY)
+    assert os.path.exists(output_path)
+    with open(output_path, "r") as f:
+        assert f.read() == expected_file_text
+
+
+def test_tracking_download_directory_artifact_from_absolute_azure_uri_succeeds(mock_client, tmpdir):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    artifact_dir_subpath = "mydirectory"
+    artifact_uri = os.path.join(
+        "wasbs://container@myaccountname.blob.core.windows.net/", artifact_dir_subpath)
+
+    file_path_1 = "file_1"
+    file_path_2 = "file_2"
+
+    blob_props_1 = BlobProperties()
+    blob_props_1.content_length = 42
+    blob_1 = Blob(os.path.join(artifact_dir_subpath, file_path_1), props=blob_props_1)
+
+    blob_props_2 = BlobProperties()
+    blob_props_2.content_length = 42
+    blob_2 = Blob(os.path.join(artifact_dir_subpath, file_path_2), props=blob_props_2)
+
+    def get_mock_listing(*args, **kwargs):
+        """
+        Produces a mock listing that only contains content if the
+        specified prefix is a certain path. This allows us to mock
+        `list_artifacts` during the `_download_artifacts_into` subroutine
+        without recursively listing the same artifacts at every level of the
+        directory traversal.
+        """
+        # pylint: disable=unused-argument
+        print("PREFIX", os.path.abspath(kwargs["prefix"]))
+        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(artifact_dir_subpath):
+            return MockBlobList([blob_1, blob_2])
+        else:
+            return MockBlobList([])
+
+    def create_file(container, cloud_path, local_path):
+        # pylint: disable=unused-argument
+        fname = os.path.basename(local_path)
+        f = tmpdir.join(fname)
+        f.write("hello world!")
+
+    mock_client.list_blobs.side_effect = get_mock_listing
+    mock_client.get_blob_to_path.side_effect = create_file
+
+    orig_from_uri = ArtifactRepository.from_artifact_uri
+    def mock_from_artifact_uri(artifact_uri, store):
+        if artifact_uri.startswith("wasbs:/"):
+            return AzureBlobArtifactRepository(artifact_uri, mock_client)
+        else:
+            return orig_from_uri(artifact_uri, store)
+
+    with mock.patch(
+            "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri", 
+            side_effect=mock_from_artifact_uri):
+        output_path = _download_artifact_from_uri(artifact_uri, output_path=tmpdir.strpath)
+
+    print(os.listdir(tmpdir.strpath))
+    print("DIR CONTENTS", os.listdir(output_path))
+    # mock_client.get_blob_to_path.assert_called_with(
+    #     "container", TEST_ROOT_PATH + "/test.txt", mock.ANY)
+    # assert os.path.exists(output_path)
+    # with open(output_path, "r") as f:
+    #     assert f.read() == expected_file_text
+    #
+    # # Ensure that the root directory can be downloaded successfully
+    # repo.download_artifacts("")
+    # # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
+    # dir_contents = os.listdir(tmpdir.strpath)
+    # assert file_path_1 in dir_contents
+    # assert file_path_2 in dir_contents
