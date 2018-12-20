@@ -114,7 +114,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.key, run_data.key)
 
     def test_param_model(self):
-        run_data = models.SqlParam(key='accuracy', value='test param')
+        run_data = models.SqlParam(run_uuid='test',key='accuracy', value='test param')
         self.session.add(run_data)
         self.session.commit()
         params = self.session.query(models.SqlParam).all()
@@ -307,6 +307,22 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 found = True
 
         self.assertTrue(found)
+
+    def test_log_param_uniqueness(self):
+        run = self._run_factory('test')
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = '100.0'
+        param = entities.Param(tkey, tval)
+        param2 = entities.Param(tkey, 'newval')
+        self.store.log_param(run.run_uuid, param)
+
+        with self.assertRaises(MlflowException):
+            self.store.log_param(run.run_uuid, param2)
+
+        pass
 
     def test_set_tag(self):
         run = self._run_factory('test')

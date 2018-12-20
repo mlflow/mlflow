@@ -110,7 +110,7 @@ class SqlRunTag(Base):
     id = Column(Integer, primary_key=True)
     key = Column(Text, nullable=False)
     value = Column(Text, nullable=True)
-    run_id = Column(Integer, ForeignKey('run.run_uuid'))
+    run_uuid = Column(Integer, ForeignKey('run.run_uuid'))
     run = relationship('SqlRun', backref=backref('tags', cascade='all,delete'))
 
     def __repr__(self):
@@ -128,7 +128,7 @@ class SqlMetric(Base):
     key = Column(Text, nullable=False)
     value = Column(Float, nullable=False)
     timestamp = Column(Integer, default=int(time.time()))
-    run_id = Column(Integer, ForeignKey('run.run_uuid'))
+    run_uuid = Column(Integer, ForeignKey('run.run_uuid'))
     run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
 
     def __repr__(self):
@@ -142,10 +142,9 @@ class SqlParam(Base):
     __tablename__ = 'param'
     __entity__ = Param
     __properties__ = Param._properties()
-    id = Column(Integer, primary_key=True)
-    key = Column(Text, nullable=False)
+    key = Column(Text, primary_key=True)
     value = Column(Text, nullable=False)
-    run_id = Column(Integer, ForeignKey('run.run_uuid'))
+    run_uuid = Column(Integer, ForeignKey('run.run_uuid'), primary_key=True)
     run = relationship('SqlRun', backref=backref('params', cascade='all,delete'))
 
     def __repr__(self):

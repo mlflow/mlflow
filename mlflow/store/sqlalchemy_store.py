@@ -32,6 +32,19 @@ class SqlAlchemyStore(AbstractStore):
 
         self.session.commit()
 
+    def _get_or_create(self, model, **kwargs):
+        instance = self.session.query(model).filter_by(**kwargs).first()
+        create = False
+
+        if instance:
+            return instance, create
+        else:
+            instance = model(**kwargs)
+            self._save_to_db(instance)
+            create = True
+
+        return instance, create
+
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         mappings = {
             ViewType.ACTIVE_ONLY: entities.Experiment.ACTIVE_LIFECYCLE,
@@ -150,10 +163,13 @@ class SqlAlchemyStore(AbstractStore):
         self._save_to_db([run, new_metric])
 
     def log_param(self, run_uuid, param):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
-        new_param = models.SqlParam(key=param.key, value=param.value)
-        run.params.append(new_param)
-        self._save_to_db([run, new_param])
+        # if we try to update the value of an existing param this will fail
+        try:
+            self._get_or_create(models.SqlParam, run_uuid=run_uuid, key=param.key,
+                                value=param.value)
+        except IntegrityError:
+            raise MlflowException('changing parameter value is not allowed',
+                                  error_codes.INVALID_PARAMETER_VALUE)
 
     def set_tag(self, run_uuid, tag):
         run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
