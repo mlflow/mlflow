@@ -214,7 +214,7 @@ class KerasImageClassifierPyfunc(object):
         probs_names = ["p({})".format(x) for x in domain]
         self._column_names = ["predicted_label_id", "predicted_label"] + probs_names
 
-    def predict_images(self, images):
+    def _predict_images(self, images):
         def preprocess_f(z):
             return decode_and_resize_image(z, self._image_dims[:2])
 
@@ -223,12 +223,26 @@ class KerasImageClassifierPyfunc(object):
         return self._model.predict(x)
 
     def predict(self, data):
+        """
+        Generate prediction for the data.
+
+        :param data: pandas.DataFrame with one column containing images to be scored. The image
+                     column must contain base64 encoded binary content of the image files. The image
+                     format must be supported by PIL (e.g. jpeg or png).
+
+        :return: pandas.DataFrame containing predictions with the following schema:
+                     Predicted class: string,
+                     Predicted class index: int,
+                     Probability(class==0): float,
+                     ...,
+                     Probability(class==N): float,
+        """
         # decode image bytes from base64 encoding
         def decode_img(x):
             return pd.Series(base64.decodebytes(bytearray(x[0], encoding="utf8")))
 
         images = data.apply(axis=1, func=decode_img)
-        probs = self.predict_images(images)
+        probs = self._predict_images(images)
         m, n = probs.shape
         label_idx = np.argmax(probs, axis=1)
         labels = np.array([self._domain[i] for i in label_idx], dtype=np.str).reshape(m, 1)

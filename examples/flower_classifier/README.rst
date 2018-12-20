@@ -17,7 +17,7 @@ encoded binary data.
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 
-You can run the example as a standard MLflow run.
+You can run the example as a standard MLflow project.
 
 
 .. code:: bash
