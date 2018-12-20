@@ -83,6 +83,14 @@ export default class ExperimentViewUtil {
     ];
   }
 
+  static getSortValue({metricsList, paramsList, tagsList, idx, sortState, runInfo}) {
+    return ExperimentViewUtil.computeSortValue(sortState,
+      ExperimentViewUtil.toMetricsMap(metricsList[idx]),
+      ExperimentViewUtil.toParamsMap(paramsList[idx]),
+      runInfo,
+      tagsList[idx]);
+  }
+
   /**
    * Returns an icon for sorting the metric or param column with the specified key. The icon
    * is visible if we're currently sorting by the corresponding column. Otherwise, the icon is
@@ -326,7 +334,7 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata({ runInfos, sortState, tagsList, runsExpanded }) {
+  static getRowRenderMetadata({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -366,6 +374,7 @@ export default class ExperimentViewUtil {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
+      const sortValue = ExperimentViewUtil.getSortValue({metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
       return [{
         idx,
         isParent: true,
@@ -373,6 +382,7 @@ export default class ExperimentViewUtil {
         expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
         childrenIds,
         runId,
+        sortValue,
       }];
     });
     ExperimentViewUtil.sortRows(parentRows, sortState);
@@ -383,8 +393,10 @@ export default class ExperimentViewUtil {
       const childrenIdxs = parentIdToChildren[runId];
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
-          const childrenRows = childrenIdxs.map((idx) =>
-            ({ idx, isParent: false, hasExpander: false }));
+          const childrenRows = childrenIdxs.map((idx) => {
+            const sortValue = ExperimentViewUtil.getSortValue({metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
+            return { idx, isParent: false, hasExpander: false, sortValue };
+          });
           ExperimentViewUtil.sortRows(childrenRows, sortState);
           mergedRows.push(...childrenRows);
         }
@@ -393,9 +405,9 @@ export default class ExperimentViewUtil {
     return mergedRows;
   }
 
-  static getRows({ runInfos, sortState, tagsList, runsExpanded, getRow }) {
+  static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
-      { runInfos, sortState, tagsList, runsExpanded });
+      { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded });
     return mergedRows.map((rowMetadata) => getRow(rowMetadata));
   }
 

@@ -344,6 +344,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
       isAllChecked,
       onSortBy,
       sortState,
+      metricsList,
+      paramsList,
       tagsList,
       runsExpanded,
       unbaggedMetrics,
@@ -354,6 +356,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
       runInfos,
       sortState,
       tagsList,
+      metricsList,
+      paramsList,
       runsExpanded});
 
     const headerCells = [
@@ -393,20 +397,27 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 100, // 'Source' column width
                 80, // 'Version' column width
               ];
-              const runMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
-              const tableMinWidth = (BAGGED_COL_WIDTH * 2) + runMetadataWidth +
-                (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);
+              const runMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
+              const tableMinWidth = BAGGED_COL_WIDTH * (showBaggedParams + showBaggedMetrics)
+                + runMetadataWidth + (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
+              // If we aren't showing bagged metrics or params (bagged metrics & params are the
+              // only cols that use the CellMeasurer component), set the row height statically
+              const cellMeasurerProps = {};
+              if (showBaggedMetrics || showBaggedParams) {
+                cellMeasurerProps.rowHeight = this._cache.rowHeight;
+                cellMeasurerProps.deferredMeasurementCache = this._cache;
+              } else {
+                cellMeasurerProps.rowHeight = 32;
+              }
               return (<Table
+                {...cellMeasurerProps}
                 width={
                   Math.max(width, tableMinWidth)
                 }
-                deferredMeasurementCache={this._cache}
                 height={Math.max(height - TABLE_HEADER_HEIGHT, 200)}
                 headerHeight={TABLE_HEADER_HEIGHT}
-                overscanRowCount={2}
-                rowHeight={this._cache.rowHeight}
                 rowCount={rows.length}
                 gridStyle={{
                   borderLeft: BORDER_STYLE,
@@ -448,9 +459,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     width={UNBAGGED_COL_WIDTH}
                     headerRenderer={() => headerCells[NUM_RUN_METADATA_COLS + idx]}
                     style={styles.columnStyle}
-                    cellRenderer={({rowData}) => {
-                      return rowData.contents[NUM_RUN_METADATA_COLS + idx];
-                    }}
+                    cellRenderer={({rowData}) => rowData.contents[NUM_RUN_METADATA_COLS + idx]}
                   />;
                 })}
                 {showBaggedParams && <Column

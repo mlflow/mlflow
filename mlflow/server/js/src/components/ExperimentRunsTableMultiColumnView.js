@@ -147,10 +147,14 @@ class ExperimentRunsTableMultiColumnView extends Component {
       runsExpanded,
       paramKeyList,
       metricKeyList,
+      paramsList,
+      metricsList
     } = this.props;
     const rows = ExperimentViewUtil.getRows({
       runInfos,
       sortState,
+      paramsList,
+      metricsList,
       tagsList,
       runsExpanded,
       getRow: this.getRow
