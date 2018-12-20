@@ -207,19 +207,20 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
         mock_client, tmpdir):
     repo = AzureBlobArtifactRepository(TEST_BLOB_CONTAINER_ROOT, mock_client)
 
+    subdir_path = "my_directory"
     dir_prefix = BlobPrefix()
-    dir_prefix.name = TEST_ROOT_PATH
+    dir_prefix.name = subdir_path
 
     file_path_1 = "file_1"
     file_path_2 = "file_2"
 
     blob_props_1 = BlobProperties()
     blob_props_1.content_length = 42
-    blob_1 = Blob(os.path.join(TEST_ROOT_PATH, file_path_1), props=blob_props_1)
+    blob_1 = Blob(os.path.join(subdir_path, file_path_1), props=blob_props_1)
 
     blob_props_2 = BlobProperties()
     blob_props_2.content_length = 42
-    blob_2 = Blob(os.path.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
+    blob_2 = Blob(os.path.join(subdir_path, file_path_2), props=blob_props_2)
 
     def get_mock_listing(*args, **kwargs):
         """
@@ -231,7 +232,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
         # pylint: disable=unused-argument
         if os.path.abspath(kwargs["prefix"]) == "/":
             return MockBlobList([dir_prefix])
-        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(TEST_ROOT_PATH):
+        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(subdir_path):
             return MockBlobList([blob_1, blob_2])
         else:
             return MockBlobList([])
