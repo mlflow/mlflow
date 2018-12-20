@@ -423,6 +423,7 @@ class TreeNode {
       if (visited.has(current.parent.value)) {
         return undefined;
       }
+      visited.add(current.value);
       current = current.parent;
     }
     return current;
