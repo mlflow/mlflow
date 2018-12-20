@@ -13,7 +13,7 @@ MLflow 0.8.1 introduces several major improvements:
 Features:
 
 - [API/CLI] Support for running MLflow projects from ZIP files (#759, @jmorefieldexpe)
-- [Python API] Support for passing model conda environments as dictionaries to ``save_model` and `log_model`` functions (#748, @dbczumar)
+- [Python API] Support for passing model conda environments as dictionaries to ``save_model`` and ``log_model`` functions (#748, @dbczumar)
 - [Models] Default Anaconda environments have been added to many of MLflow's Python model flavors. By default, models with these flavors that are produced by MLflow's various `save_model` and `log_model` functions will include an environment specifying all of the versioned dependencies that are necessary to load and serve the model (#705, #707, #708, #749, @dbczumar)
 - [Scoring] Support for synchronous deployment of models to SageMaker (#717, @dbczumar)
 - [Tracking] Include the Git repository URL as a tag when tracking an MLflow run within a Git repository (#741, @whiletruelearn, @mateiz)
