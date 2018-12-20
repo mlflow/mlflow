@@ -9,7 +9,8 @@ from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
 
 TEST_ROOT_PATH = "some/path"
-TEST_URI = "wasbs://container@account.blob.core.windows.net/" + TEST_ROOT_PATH
+TEST_BLOB_CONTAINER_ROOT = "wasbs://container@account.blob.core.windows.net/"
+TEST_URI = os.path.join(TEST_BLOB_CONTAINER_ROOT, TEST_ROOT_PATH)
 
 
 class MockBlobList(object):
@@ -155,7 +156,9 @@ def test_download_file_artifact(mock_client, tmpdir):
         "container", TEST_ROOT_PATH + "/test.txt", mock.ANY)
 
 
-def test_download_directory_artifact(mock_client, tmpdir):
+def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_container_root(
+        mock_client, tmpdir):
+    assert TEST_URI is not TEST_BLOB_CONTAINER_ROOT
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 
     file_path_1 = "file_1"
@@ -178,6 +181,56 @@ def test_download_directory_artifact(mock_client, tmpdir):
         directory traversal.
         """
         # pylint: disable=unused-argument
+        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(TEST_ROOT_PATH):
+            return MockBlobList([blob_1, blob_2])
+        else:
+            return MockBlobList([])
+
+    def create_file(container, cloud_path, local_path):
+        # pylint: disable=unused-argument
+        fname = os.path.basename(local_path)
+        f = tmpdir.join(fname)
+        f.write("hello world!")
+
+    mock_client.list_blobs.side_effect = get_mock_listing
+    mock_client.get_blob_to_path.side_effect = create_file
+
+    # Ensure that the root directory can be downloaded successfully
+    repo.download_artifacts("")
+    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
+    dir_contents = os.listdir(tmpdir.strpath)
+    assert file_path_1 in dir_contents
+    assert file_path_2 in dir_contents
+
+
+def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_container_root(
+        mock_client, tmpdir):
+    repo = AzureBlobArtifactRepository(TEST_BLOB_CONTAINER_ROOT, mock_client)
+
+    dir_prefix = BlobPrefix()
+    dir_prefix.name = TEST_ROOT_PATH
+
+    file_path_1 = "file_1"
+    file_path_2 = "file_2"
+
+    blob_props_1 = BlobProperties()
+    blob_props_1.content_length = 42
+    blob_1 = Blob(os.path.join(TEST_ROOT_PATH, file_path_1), props=blob_props_1)
+
+    blob_props_2 = BlobProperties()
+    blob_props_2.content_length = 42
+    blob_2 = Blob(os.path.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
+
+    def get_mock_listing(*args, **kwargs):
+        """
+        Produces a mock listing that only contains content if the specified prefix is the artifact
+        root or a relevant subdirectory. This allows us to mock `list_artifacts` during the
+        `_download_artifacts_into` subroutine without recursively listing the same artifacts at
+        every level of the directory traversal.
+        """
+        # pylint: disable=unused-argument
+        if os.path.abspath(kwargs["prefix"]) == "/":
+            return MockBlobList([dir_prefix])
         if os.path.abspath(kwargs["prefix"]) == os.path.abspath(TEST_ROOT_PATH):
             return MockBlobList([blob_1, blob_2])
         else:
