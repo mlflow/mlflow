@@ -326,7 +326,7 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRows({ runInfos, sortState, tagsList, runsExpanded, getRow }) {
+  static getRowRenderMetadata({ runInfos, sortState, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -366,13 +366,13 @@ export default class ExperimentViewUtil {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
-      return [getRow({
+      return [{
         idx,
         isParent: true,
         hasExpander,
         expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
         childrenIds,
-      })];
+      }];
     });
     ExperimentViewUtil.sortRows(parentRows, sortState);
     const mergedRows = [];
@@ -383,13 +383,19 @@ export default class ExperimentViewUtil {
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
           const childrenRows = childrenIdxs.map((idx) =>
-            getRow({ idx, isParent: false, hasExpander: false }));
+            ({ idx, isParent: false, hasExpander: false }));
           ExperimentViewUtil.sortRows(childrenRows, sortState);
           mergedRows.push(...childrenRows);
         }
       }
     });
     return mergedRows;
+  }
+
+  static getRows({ runInfos, sortState, tagsList, runsExpanded, getRow }) {
+    const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
+      { runInfos, sortState, tagsList, runsExpanded });
+    return mergedRows.map((rowMetadata) => getRow(rowMetadata));
   }
 
   static renderRows(rows) {

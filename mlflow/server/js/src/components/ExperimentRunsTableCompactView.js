@@ -349,12 +349,32 @@ class ExperimentRunsTableCompactView extends PureComponent {
       unbaggedMetrics,
       unbaggedParams,
     } = this.props;
-    const rows = ExperimentViewUtil.getRows({
+
+    // Compute metadata for row generation, don't actually generate though
+    // const rowData = ExperimentViewUtil.getRowGenerationMetadata({
+    //   runInfos,
+    //   tagsList,
+    //   runsExpanded});
+    // How do we render a row given its index? Can we actually do that?
+    // Maybe: have a map of row index to the metadata needed to generate the row, then generate
+    // the row separately. Compute the map by looking through the expanded runs. The dependencies
+    // of row-generation are
+    // { idx, isParent, hasExpander, expanderOpen, childrenIds }
+    // However this assumes that computing all this metadata isn't the bottleneck, should probs
+    // check that - seems true in dev, just not super sure if it holds in prod.
+
+    const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       sortState,
       tagsList,
-      runsExpanded,
-      getRow: this.getRow });
+      runsExpanded});
+
+    // const rows = ExperimentViewUtil.getRows({
+    //   runInfos,
+    //   sortState,
+    //   tagsList,
+    //   runsExpanded,
+    //   getRow: this.getRow });
 
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "div"),
@@ -413,7 +433,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                   borderBottom: BORDER_STYLE,
                   borderRight: BORDER_STYLE,
                 }}
-                rowGetter={({index}) => rows[index]}
+                rowGetter={({index}) => this.getRow(rows[index])}
                 rowStyle={({index}) => {
                   const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
                     overflow: "visible"};
@@ -436,8 +456,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     width={runMetadataColWidths[colIdx]}
                     headerRenderer={() => headerCells[colIdx]}
                     style={styles.columnStyle}
-                    cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[colIdx];
+                    cellRenderer={({rowData}) => {
+                      return rowData.contents[colIdx];
                     }}
                   />;
                 })}
@@ -448,8 +468,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     width={UNBAGGED_COL_WIDTH}
                     headerRenderer={() => headerCells[NUM_RUN_METADATA_COLS + idx]}
                     style={styles.columnStyle}
-                    cellRenderer={({rowIndex}) => {
-                      return rows[rowIndex].contents[NUM_RUN_METADATA_COLS + idx];
+                    cellRenderer={({rowData}) => {
+                      return rowData.contents[NUM_RUN_METADATA_COLS + idx];
                     }}
                   />;
                 })}
@@ -466,7 +486,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     </div>;
                   }}
                   style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
-                  cellRenderer={({rowIndex, parent, dataKey}) => {
+                  cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
                     // Add extra padding to last row so that we can render dropdowns for bagged
                     // param key-value pairs in that row
                     const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
@@ -477,7 +497,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                       parent={parent}
                       rowIndex={rowIndex}>
                       <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
-                        {rows[rowIndex].contents[NUM_RUN_METADATA_COLS + unbaggedParams.length]}
+                        {rowData.contents[NUM_RUN_METADATA_COLS + unbaggedParams.length]}
                       </div>
                     </CellMeasurer>);
                   }}
@@ -492,7 +512,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     width={UNBAGGED_COL_WIDTH}
                     headerRenderer={() => headerCells[colIdx]}
                     style={styles.columnStyle}
-                    cellRenderer={({rowIndex}) => rows[rowIndex].contents[colIdx]}
+                    cellRenderer={({rowData}) => rowData.contents[colIdx]}
                   />;
                 })}
                 {showBaggedMetrics && <Column
@@ -508,7 +528,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     </div>;
                   }}
                   style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
-                  cellRenderer={({rowIndex, parent, dataKey}) => {
+                  cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
                     const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
                       unbaggedParams.length + unbaggedMetrics.length;
                     // Add extra padding to last row so that we can render dropdowns for bagged
@@ -521,7 +541,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                       parent={parent}
                       rowIndex={rowIndex}>
                       <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
-                        {rows[rowIndex].contents[colIdx]}
+                        {rowData.contents[colIdx]}
                       </div>
                     </CellMeasurer>);
                   }}
