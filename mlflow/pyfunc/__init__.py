@@ -75,12 +75,14 @@ following parameters:
 """
 
 import importlib
+import logging
+import numpy as np
 import os
+import pandas
 import shutil
 import sys
 import pandas
 import logging
-import cloudpickle
 
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
@@ -88,6 +90,8 @@ from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.pyfunc.model import save_model, log_model, PythonModel, PythonModelContext 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -95,7 +99,6 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 PY_VERSION = "python_version"
-
 
 _logger = logging.getLogger(__name__)
 
@@ -204,6 +207,11 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
     ordinals (0, 1, ...).
 
+    The predictions are filtered to contain only the columns that can be represented as the
+    ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
+    converted to string. If the result type is not an array type, the left most column with
+    matching type will be returned.
+
     >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
     >>> df.withColumn("prediction", predict("name", "age")).show()
 
@@ -211,13 +219,51 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     :param path: A path containing a :py:mod:`mlflow.pyfunc` model.
     :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
                    retrieve the model logged with MLflow.
-    :return: Spark UDF type returned by the model's prediction method. Default double.
+    :param result_type: the return type of the user-defined function. The value can be either a
+                        :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
+                        Only a primitive type or an array (pyspark.sql.types.ArrayType) of primitive
+                        types are allowed. The following classes of result type are supported:
+                        - "int" or pyspark.sql.types.IntegerType: The leftmost integer that can fit
+                          in int32 result is returned or exception is raised if there is none.
+                        - "long" or pyspark.sql.types.LongType: The leftmost long integer that can
+                          fit in int64 result is returned or exception is raised if there is none.
+                        - ArrayType(IntegerType|LongType): Return all integer columns that can fit
+                          into the requested size.
+                        - "float" or pyspark.sql.types.FloatType: The leftmost numeric result cast
+                          to float32 is returned or exception is raised if there is none.
+                        - "double" or pyspark.sql.types.DoubleType: The leftmost numeric result cast
+                          to double is returned or exception is raised if there is none..
+                        - ArrayType(FloatType|DoubleType): Return all numeric columns cast to the
+                          requested type. Exception is raised if there are no numeric columns.
+                        - "string" or pyspark.sql.types.StringType: Result is the leftmost column
+                          converted to string.
+                        - ArrayType(StringType): Return all columns converted to string.
+
+    :return: Spark UDF which will apply model's prediction method to the data. Default double.
     """
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
+    from pyspark.sql.types import _parse_datatype_string
+    from pyspark.sql.types import ArrayType, DataType
+    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+
+    if not isinstance(result_type, DataType):
+        result_type = _parse_datatype_string(result_type)
+
+    elem_type = result_type
+    if isinstance(elem_type, ArrayType):
+        elem_type = elem_type.elementType
+
+    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
+
+    if not any([isinstance(elem_type, x) for x in supported_types]):
+        raise MlflowException(
+            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
+                    "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            error_code=INVALID_PARAMETER_VALUE)
 
     if run_id:
         path = tracking.utils._get_model_log_dir(path, run_id)
@@ -231,7 +277,36 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
         columns = [str(i) for i, _ in enumerate(args)]
         pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
-        return pandas.Series(result)
+        if not isinstance(result, pandas.DataFrame):
+            result = pandas.DataFrame(data=result)
+
+        elif type(elem_type) == IntegerType:
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort,
+                                           np.int32]).astype(np.int32)
+
+        elif type(elem_type) == LongType:
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
+
+        elif type(elem_type) == FloatType:
+            result = result.select_dtypes(include=np.number).astype(np.float32)
+
+        elif type(elem_type) == DoubleType:
+            result = result.select_dtypes(include=np.number).astype(np.float64)
+
+        if len(result.columns) == 0:
+            raise MlflowException(
+                message="The the model did not produce any values compatible with the requested "
+                        "type '{}'. Consider requesting udf with StringType or "
+                        "Arraytype(StringType).".format(str(elem_type)),
+                error_code=INVALID_PARAMETER_VALUE)
+
+        if type(elem_type) == StringType:
+            result = result.applymap(str)
+
+        if type(result_type) == ArrayType:
+            return pandas.Series([row[1].values for row in result.iterrows()])
+        else:
+            return result[result.columns[0]]
 
     return pandas_udf(predict, result_type)
 

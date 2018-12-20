@@ -30,9 +30,21 @@ class HomeView extends Component {
   }
 
   render() {
+    const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
+    const containerHeight = "calc(100% - " + headerHeight + "px)";
+    if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
+      return (
+        <div className="experiment-page-container" style={{height: containerHeight}}>
+          { this.props.experimentId !== undefined ?
+            <ExperimentPage experimentId={this.props.experimentId}/> :
+            <NoExperimentView/>
+          }
+        </div>
+      );
+    }
     if (this.state.listExperimentsExpanded) {
       return (
-        <div className="outer-container">
+        <div className="outer-container" style={{height: containerHeight}}>
           <div className="HomePage-experiment-list-container">
             <div className="collapsed-expander-container">
               <ExperimentListView
@@ -52,7 +64,7 @@ class HomeView extends Component {
       );
     } else {
       return (
-        <div>
+        <div className="outer-container" style={{height: containerHeight}}>
           <div className="collapsed-expander-container">
             <i onClick={this.onClickListExperiments}
                title="Show experiment list"

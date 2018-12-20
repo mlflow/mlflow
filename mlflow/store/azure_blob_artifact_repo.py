@@ -91,20 +91,16 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         prefix = dest_path + "/"
         marker = None  # Used to make next list request if this one exceeded the result limit
         while True:
-            print("CLIENT PREFIX", prefix)
             results = self.client.list_blobs(container, prefix=prefix, delimiter='/', marker=marker)
             for r in results:
                 if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
-                    subdir = r.name[len(artifact_path)+1:]
+                    subdir = os.path.relpath(path=r.name, start=artifact_path)
                     if subdir.endswith("/"):
                         subdir = subdir[:-1]
                     infos.append(FileInfo(subdir, True, None))
                 else:  # Just a plain old blob
-                    file_path = os.path.relpath(path=r.name, start=artifact_path)
-                    # file_name = r.name[len(artifact_path)+1:]
-                    # print("FILE NAME", file_name, r.name)
-                    # infos.append(FileInfo(file_name, False, r.properties.content_length))
-                    infos.append(FileInfo(file_path, False, r.properties.content_length))
+                    file_name = os.path.relpath(path=r.name, start=artifact_path)
+                    infos.append(FileInfo(file_name, False, r.properties.content_length))
             # Check whether a new marker is returned, meaning we have to make another request
             if results.next_marker:
                 marker = results.next_marker

@@ -22,7 +22,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 
-export const DEFAULT_EXPANDED_VALUE = true;
+export const DEFAULT_EXPANDED_VALUE = false;
 
 
 class ExperimentView extends Component {
@@ -258,13 +258,13 @@ class ExperimentView extends Component {
     const paramKeyList = paramKeyFilter.apply(this.props.paramKeyList);
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
     const unbaggedParamKeyList = paramKeyFilter.apply(this.state.persistedState.unbaggedParams);
-    const unbaggedMetricKeyList = paramKeyFilter.apply(this.state.persistedState.unbaggedMetrics);
+    const unbaggedMetricKeyList = metricKeyFilter.apply(this.state.persistedState.unbaggedMetrics);
 
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     return (
-      <div className="ExperimentView">
+      <div className="ExperimentView runs-table-flex-container">
         <DeleteRunModal
           isOpen={this.state.showDeleteRunModal}
           onClose={this.onCloseDeleteRunModal}
@@ -286,7 +286,7 @@ class ExperimentView extends Component {
             {artifact_location}
           </span>
         </div>
-        <div className="ExperimentView-runs">
+        <div className="ExperimentView-runs runs-table-flex-container">
           {this.state.searchErrorMessage !== undefined ?
             <div className="error-message">
               <span className="error-message">{this.state.searchErrorMessage}</span>
@@ -549,7 +549,7 @@ class ExperimentView extends Component {
   }
 
   onLifecycleFilterInput(newLifecycleInput) {
-    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch());
+    this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
   }
 
   onSearch(e) {
