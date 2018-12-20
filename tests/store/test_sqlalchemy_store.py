@@ -102,7 +102,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.key, run_data.key)
 
     def test_metric_model(self):
-        run_data = models.SqlMetric(key='accuracy', value=0.89)
+        run_data = models.SqlMetric(run_uuid='testuid', key='accuracy', value=0.89)
         self.session.add(run_data)
         self.session.commit()
         metrics = self.session.query(models.SqlMetric).all()
@@ -270,7 +270,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tkey = 'blahmetric'
         tval = 100.0
         metric = entities.Metric(tkey, tval, int(time.time()))
+        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2)
         self.store.log_metric(run.run_uuid, metric)
+        self.store.log_metric(run.run_uuid, metric2)
 
         actual = self.session.query(models.SqlMetric).filter_by(key=tkey, value=tval)
 
@@ -278,12 +280,27 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         run = self.store.get_run(run.run_uuid)
 
+        self.assertEqual(4, len(run.data.metrics))
         found = False
         for m in run.data.metrics:
             if m.key == tkey and m.value == tval:
                 found = True
 
         self.assertTrue(found)
+
+    def test_log_metric_uniqueness(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = 100.0
+        metric = entities.Metric(tkey, tval, int(time.time()))
+        metric2 = entities.Metric(tkey, 1.02, int(time.time()))
+        self.store.log_metric(run.run_uuid, metric)
+
+        with self.assertRaises(MlflowException):
+            self.store.log_metric(run.run_uuid, metric2)
 
     def test_log_param(self):
         run = self._run_factory('test')
@@ -293,13 +310,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tkey = 'blahmetric'
         tval = '100.0'
         param = entities.Param(tkey, tval)
+        param2 = entities.Param('new param', 'new key')
         self.store.log_param(run.run_uuid, param)
+        self.store.log_param(run.run_uuid, param2)
 
         actual = self.session.query(models.SqlParam).filter_by(key=tkey, value=tval)
-
         self.assertIsNotNone(actual)
 
         run = self.store.get_run(run.run_uuid)
+        self.assertEqual(4, len(run.data.params))
 
         found = False
         for m in run.data.params:
@@ -321,8 +340,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         with self.assertRaises(MlflowException):
             self.store.log_param(run.run_uuid, param2)
-
-        pass
 
     def test_set_tag(self):
         run = self._run_factory('test')
@@ -370,8 +387,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.session.commit()
         key = 'test'
         expected = [
-            models.SqlMetric(key=key, value=0.6).to_mlflow_entity(),
-            models.SqlMetric(key=key, value=0.7).to_mlflow_entity()
+            models.SqlMetric(key=key, value=0.6, timestamp=1).to_mlflow_entity(),
+            models.SqlMetric(key=key, value=0.7, timestamp=2).to_mlflow_entity()
         ]
 
         for metric in expected:

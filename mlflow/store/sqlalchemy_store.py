@@ -156,19 +156,22 @@ class SqlAlchemyStore(AbstractStore):
         self._save_to_db(run)
 
     def log_metric(self, run_uuid, metric):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
-
-        new_metric = models.SqlMetric(key=metric.key, value=metric.value)
-        run.metrics.append(new_metric)
-        self._save_to_db([run, new_metric])
+        try:
+            self._get_or_create(models.SqlMetric, run_uuid=run_uuid, key=metric.key,
+                                value=metric.value, timestamp=metric.timestamp)
+        except IntegrityError:
+            raise MlflowException('Metric={} must be unique'.format(metric),
+                                  error_codes.INVALID_PARAMETER_VALUE)
 
     def log_param(self, run_uuid, param):
         # if we try to update the value of an existing param this will fail
+        # because it will try to create it with same run_uuid, param key
         try:
             self._get_or_create(models.SqlParam, run_uuid=run_uuid, key=param.key,
                                 value=param.value)
         except IntegrityError:
-            raise MlflowException('changing parameter value is not allowed',
+            raise MlflowException('changing parameter {} value is not allowed'.format((run_uuid,
+                                                                                      param)),
                                   error_codes.INVALID_PARAMETER_VALUE)
 
     def set_tag(self, run_uuid, tag):

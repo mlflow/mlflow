@@ -124,11 +124,10 @@ class SqlMetric(Base):
     __tablename__ = 'metric'
     __entity__ = Metric
     __properties__ = Metric._properties()
-    id = Column(Integer, primary_key=True)
-    key = Column(Text, nullable=False)
+    key = Column(Text, primary_key=True)
     value = Column(Float, nullable=False)
-    timestamp = Column(Integer, default=int(time.time()))
-    run_uuid = Column(Integer, ForeignKey('run.run_uuid'))
+    timestamp = Column(Integer, default=int(time.time()), primary_key=True)
+    run_uuid = Column(Integer, ForeignKey('run.run_uuid'), primary_key=True)
     run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
 
     def __repr__(self):
