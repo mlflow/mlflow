@@ -46,7 +46,6 @@ class ExperimentRunsTableMultiColumnView extends Component {
       paramKeyList,
       metricKeyList,
       onCheckbox,
-      sortState,
       runsSelected,
       tagsList,
       onExpand,
@@ -79,11 +78,8 @@ class ExperimentRunsTableMultiColumnView extends Component {
     if (numMetrics === 0) {
       rowContents.push(<td className="left-border" key="meta-metric-empty" />);
     }
-    const sortValue = ExperimentViewUtil.computeSortValue(
-      sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
     return {
       key: runInfo.run_uuid,
-      sortValue: sortValue,
       contents: rowContents,
       isChild: !isParent,
     };

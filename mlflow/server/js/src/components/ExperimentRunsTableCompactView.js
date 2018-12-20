@@ -194,11 +194,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
         </div>
       );
     }
-    const sortValue = ExperimentViewUtil.computeSortValue(
-      sortState, metricsMap, paramsMap, runInfo, tagsList[idx]);
     return {
       key: runInfo.run_uuid,
-      sortValue,
       contents: rowContents,
       isChild: !isParent,
     };
@@ -419,6 +416,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 }
                 height={Math.max(height - TABLE_HEADER_HEIGHT, 200)}
                 headerHeight={TABLE_HEADER_HEIGHT}
+                overscanRowCount={2}
                 rowCount={rows.length}
                 gridStyle={{
                   borderLeft: BORDER_STYLE,

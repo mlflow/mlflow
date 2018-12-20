@@ -83,14 +83,6 @@ export default class ExperimentViewUtil {
     ];
   }
 
-  static getSortValue({metricsList, paramsList, tagsList, idx, sortState, runInfo}) {
-    return ExperimentViewUtil.computeSortValue(sortState,
-      ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-      ExperimentViewUtil.toParamsMap(paramsList[idx]),
-      runInfo,
-      tagsList[idx]);
-  }
-
   /**
    * Returns an icon for sorting the metric or param column with the specified key. The icon
    * is visible if we're currently sorting by the corresponding column. Otherwise, the icon is
@@ -375,8 +367,9 @@ export default class ExperimentViewUtil {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
-      const sortValue = ExperimentViewUtil.getSortValue(
-        {metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
+      const sortValue = ExperimentViewUtil.computeSortValue(sortState,
+        ExperimentViewUtil.toMetricsMap(metricsList[idx]),
+        ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
       return [{
         idx,
         isParent: true,
@@ -396,8 +389,9 @@ export default class ExperimentViewUtil {
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
           const childrenRows = childrenIdxs.map((idx) => {
-            const sortValue = ExperimentViewUtil.getSortValue(
-              {metricsList, paramsList, tagsList, idx, sortState, runInfo: runInfos[idx]});
+            const sortValue = ExperimentViewUtil.computeSortValue(sortState,
+              ExperimentViewUtil.toMetricsMap(metricsList[idx]),
+              ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
             return { idx, isParent: false, hasExpander: false, sortValue };
           });
           ExperimentViewUtil.sortRows(childrenRows, sortState);
