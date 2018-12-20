@@ -311,7 +311,7 @@ Breaking changes:
   (``--new-dir`` flag in the ``mlflow run`` CLI). Runs of local projects now use the local project
   directory as their working directory. Git projects are still fetched into temporary directories
   (#215, @smurching)
-- [Tracking] GCS artifact storage is now a pluggable dependency (no longer installed by default).
+- [Tracking] GCS artifact storage is now a pluggable dependency (no longer installed by default). 
   To enable GCS support, install ``google-cloud-storage`` on both the client and tracking server via pip.
   (#202, @smurching)
 - [Tracking] Clients running MLflow 0.4.0 and above require a server running MLflow 0.4.0
