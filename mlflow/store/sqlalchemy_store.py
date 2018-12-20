@@ -123,8 +123,8 @@ class SqlAlchemyStore(AbstractStore):
 
         return run.info
 
-    def restore_run(self, run_uuid):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+    def restore_run(self, run_id):
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_id).first()
         run.is_deleted = False
         self._save_to_db(run)
 
@@ -137,8 +137,8 @@ class SqlAlchemyStore(AbstractStore):
 
         return run.to_mlflow_entity()
 
-    def delete_run(self, run_uuid):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+    def delete_run(self, run_id):
+        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_id).first()
         run.is_deleted = True
         self._save_to_db(run)
 
@@ -162,32 +162,32 @@ class SqlAlchemyStore(AbstractStore):
         run.tags.append(new_tag)
         self._save_to_db([run, new_tag])
 
-    def get_metric(self, run_uuid, key):
+    def get_metric(self, run_uuid, metric_key):
         run = self.get_run(run_uuid)
 
         for metric in run.data.metrics:
-            if metric.key == key:
+            if metric.key == metric_key:
                 return metric.value
 
-        raise MlflowException('Metric={} does not exist'.format(key),
+        raise MlflowException('Metric={} does not exist'.format(metric_key),
                               error_codes.RESOURCE_DOES_NOT_EXIST)
 
-    def get_param(self, run_uuid, key):
+    def get_param(self, run_uuid, param_name):
         run = self.get_run(run_uuid)
 
         for param in run.data.params:
-            if param.key == key:
+            if param.key == param_name:
                 return param.value
 
-        raise MlflowException('Param={} does not exist'.format(key),
+        raise MlflowException('Param={} does not exist'.format(param_name),
                               error_codes.RESOURCE_DOES_NOT_EXIST)
 
-    def get_metric_history(self, run_uuid, key):
+    def get_metric_history(self, run_uuid, metric_key):
         run = self.get_run(run_uuid)
         metrics_values = []
 
         for metric in run.data.metrics:
-            if metric.key == key:
+            if metric.key == metric_key:
                 metrics_values.append(metric.value)
 
         return metrics_values
