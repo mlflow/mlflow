@@ -93,13 +93,22 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         while True:
             results = self.client.list_blobs(container, prefix=prefix, delimiter='/', marker=marker)
             for r in results:
+                if not r.name.startswith(artifact_path):
+                    raise ValueError(
+                        "The name of the listed Azure blob does not begin with the specified"
+                        " artifact path. Artifact path: {artifact_path}. Blob name:"
+                        " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))
                 if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
-                    subdir = os.path.relpath(path=r.name, start=artifact_path)
+                    # Separator needs to be fixed as '/' because of azure blob storage pattern.
+                    # Do not change to os.relpath because in Windows system path separator is '\'
+                    subdir = posixpath.relpath(path=r.name, start=artifact_path)
                     if subdir.endswith("/"):
                         subdir = subdir[:-1]
                     infos.append(FileInfo(subdir, True, None))
                 else:  # Just a plain old blob
-                    file_name = os.path.relpath(path=r.name, start=artifact_path)
+                    # Separator needs to be fixed as '/' because of azure blob storage pattern.
+                    # Do not change to os.relpath because in Windows system path separator is '\'
+                    file_name = posixpath.relpath(path=r.name, start=artifact_path)
                     infos.append(FileInfo(file_name, False, r.properties.content_length))
             # Check whether a new marker is returned, meaning we have to make another request
             if results.next_marker:

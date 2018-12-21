@@ -255,6 +255,39 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
     assert file_path_2 in dir_contents
 
 
+def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_artifact_root_prefix(
+        mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Create a "bad blob" with a name that is not prefixed by the root path of the artifact store
+    bad_blob_props = BlobProperties()
+    bad_blob_props.content_length = 42
+    bad_blob = Blob("file_path", props=bad_blob_props)
+
+    def get_mock_listing(*args, **kwargs):
+        """
+        Produces a mock listing that only contains content if the
+        specified prefix is the artifact root. This allows us to mock
+        `list_artifacts` during the `_download_artifacts_into` subroutine
+        without recursively listing the same artifacts at every level of the
+        directory traversal.
+        """
+        # pylint: disable=unused-argument
+        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(TEST_ROOT_PATH):
+            # Return a blob that is not prefixed by the root path of the artifact store. This
+            # should result in an exception being raised
+            return MockBlobList([bad_blob])
+        else:
+            return MockBlobList([])
+
+    mock_client.list_blobs.side_effect = get_mock_listing
+
+    with pytest.raises(ValueError) as exc:
+        repo.download_artifacts("")
+
+    assert "Azure blob does not begin with the specified artifact path" in exc.value.message
+
+
 def test_tracking_download_file_artifact_from_absolute_azure_uri_succeeds(mock_client, tmpdir):
     os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
 
@@ -342,19 +375,9 @@ def test_tracking_download_directory_artifact_from_absolute_azure_uri_succeeds(m
     with mock.patch(
             "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri", 
             side_effect=mock_from_artifact_uri):
-        output_path = _download_artifact_from_uri(artifact_uri, output_path=tmpdir.strpath)
+        _download_artifact_from_uri(artifact_uri, output_path=tmpdir.strpath)
 
-    print(os.listdir(tmpdir.strpath))
-    print("DIR CONTENTS", os.listdir(output_path))
-    # mock_client.get_blob_to_path.assert_called_with(
-    #     "container", TEST_ROOT_PATH + "/test.txt", mock.ANY)
-    # assert os.path.exists(output_path)
-    # with open(output_path, "r") as f:
-    #     assert f.read() == expected_file_text
-    #
-    # # Ensure that the root directory can be downloaded successfully
-    # repo.download_artifacts("")
-    # # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
-    # dir_contents = os.listdir(tmpdir.strpath)
-    # assert file_path_1 in dir_contents
-    # assert file_path_2 in dir_contents
+    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
+    dir_contents = os.listdir(tmpdir.strpath)
+    assert file_path_1 in dir_contents
+    assert file_path_2 in dir_contents
