@@ -284,4 +284,4 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
     with pytest.raises(ValueError) as exc:
         repo.download_artifacts("")
 
-    assert "Azure blob does not begin with the specified artifact path" in exc.value.message
+    assert "Azure blob does not begin with the specified artifact path" in str(exc)
