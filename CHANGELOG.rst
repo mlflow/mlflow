@@ -4,22 +4,23 @@ Changelog
 0.8.1 (2018-12-20)
 ------------------
 
-MLflow 0.8.1 introduces several improvements:
+MLflow 0.8.1 introduces several significant improvements:
 
-- Better UI performance, especially when navigating within experiments containing many runs, parameters, and metrics
+- Improved UI responsiveness and load time, especially when displaying experiments containing hundreds to thousands of runs.
 - Improved visualizations, including interactive scatter plots for MLflow run comparisons
-- Expanded support for scoring Python models as Spark UDFs
+- Expanded support for scoring Python models as Spark UDFs. For more information, see the `updated documentation for this feature <https://mlflow.org/docs/latest/models.html#export-a-python-function-model-as-an-apache-spark-udf>`_.
+- By default, saved models will now include a Conda environment specifying all of the dependencies necessary for loading them in a new environment.
 
 Features:
 
 - [API/CLI] Support for running MLflow projects from ZIP files (#759, @jmorefieldexpe)
 - [Python API] Support for passing model conda environments as dictionaries to ``save_model`` and ``log_model`` functions (#748, @dbczumar)
-- [Models] Default Anaconda environments have been added to many of MLflow's Python model flavors. By default, models with these flavors that are produced by MLflow's various `save_model` and `log_model` functions will include an environment specifying all of the versioned dependencies that are necessary to load and serve the model (#705, #707, #708, #749, @dbczumar)
+- [Models] Default Anaconda environments have been added to many Python model flavors. By default, models produced by `save_model` and `log_model` functions will include an environment that specifies all of the versioned dependencies necessary to load and serve the models. Previously, users had to specify these environments manually. (#705, #707, #708, #749, @dbczumar)
 - [Scoring] Support for synchronous deployment of models to SageMaker (#717, @dbczumar)
 - [Tracking] Include the Git repository URL as a tag when tracking an MLflow run within a Git repository (#741, @whiletruelearn, @mateiz)
 - [UI] Improved runs UI performance by using a react-virtualized table to optimize row rendering (#765, #762, #745, @smurching)
 - [UI] Significant performance improvements for rendering run metrics, tags, and parameter information (#764, #747, @smurching)
-- [UI] Scatter plots, including run comparsion plots, are now interactive and are generated using `Plotly <https://github.com/plotly/plotly.js>`_) (#737, @mateiz)
+- [UI] Scatter plots, including run comparsion plots, are now interactive (#737, @mateiz)
 - [UI] Extended CSRF support by allowing the MLflow UI server to specify a set of expected headers that clients should set when making AJAX requests (#733, @aarondav)
 
 Bug fixes and documentation updates:
