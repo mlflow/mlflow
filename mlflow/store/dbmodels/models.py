@@ -107,10 +107,9 @@ class SqlRunTag(Base):
     __tablename__ = 'run_tag'
     __entity__ = RunTag
     __properties__ = RunTag._properties()
-    id = Column(Integer, primary_key=True)
-    key = Column(Text, nullable=False)
+    key = Column(Text, primary_key=True)
     value = Column(Text, nullable=True)
-    run_uuid = Column(Integer, ForeignKey('run.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey('run.run_uuid'), primary_key=True)
     run = relationship('SqlRun', backref=backref('tags', cascade='all,delete'))
 
     def __repr__(self):
@@ -127,7 +126,7 @@ class SqlMetric(Base):
     key = Column(Text, primary_key=True)
     value = Column(Float, nullable=False)
     timestamp = Column(Integer, default=int(time.time()), primary_key=True)
-    run_uuid = Column(Integer, ForeignKey('run.run_uuid'), primary_key=True)
+    run_uuid = Column(String(32), ForeignKey('run.run_uuid'), primary_key=True)
     run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
 
     def __repr__(self):
@@ -143,7 +142,7 @@ class SqlParam(Base):
     __properties__ = Param._properties()
     key = Column(Text, primary_key=True)
     value = Column(Text, nullable=False)
-    run_uuid = Column(Integer, ForeignKey('run.run_uuid'), primary_key=True)
+    run_uuid = Column(String(32), ForeignKey('run.run_uuid'), primary_key=True)
     run = relationship('SqlRun', backref=backref('params', cascade='all,delete'))
 
     def __repr__(self):
@@ -160,16 +159,16 @@ class SqlRun(Base):
 
     id = Column(Integer, primary_key=True)
     is_deleted = Column(Boolean, default=False)
-    run_uuid = Column(String(16), default=generate_uuid, unique=True, nullable=False)
-    name = Column(Text, unique=True)
+    run_uuid = Column(String(32), default=generate_uuid, unique=True, nullable=False)
+    name = Column(String(256), unique=True)
     source_type = Column(Integer, default=SourceType.LOCAL)
     source_name = Column(String(256))
-    entry_point_name = Column(Text)
-    user_id = Column(Text, default=_get_user_id(), nullable=False)
+    entry_point_name = Column(String(256))
+    user_id = Column(String(256), default=_get_user_id(), nullable=False)
     status = Column(Integer, default=RunStatus.SCHEDULED)
     start_time = Column(Integer, default=int(time.time()))
     end_time = Column(Integer, nullable=True, default=None)
-    source_version = Column(Text)
+    source_version = Column(String(10))
     lifecycle_stage = Column(Integer, default=RunInfo.ACTIVE_LIFECYCLE)
     artifact_uri = Column(Text, default=None)
 

@@ -90,7 +90,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.name, run_data.name)
 
     def test_run_tag_model(self):
-        run_data = models.SqlRunTag(key='test', value='val')
+        run_data = models.SqlRunTag(run_uuid='tuuid', key='test', value='val')
         self.session.add(run_data)
         self.session.commit()
         tags = self.session.query(models.SqlRunTag).all()
@@ -114,7 +114,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.key, run_data.key)
 
     def test_param_model(self):
-        run_data = models.SqlParam(run_uuid='test',key='accuracy', value='test param')
+        run_data = models.SqlParam(run_uuid='test', key='accuracy', value='test param')
         self.session.add(run_data)
         self.session.commit()
         params = self.session.query(models.SqlParam).all()
