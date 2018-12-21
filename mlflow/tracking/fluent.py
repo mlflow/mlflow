@@ -115,7 +115,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         else:
             parent_run_id = None
 
-        exp_id_for_run = experiment_id or _get_experiment_id()
+        exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
         if is_in_databricks_notebook():
             databricks_tags = {}
             notebook_id = get_notebook_id()
