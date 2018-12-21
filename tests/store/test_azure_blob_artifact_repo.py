@@ -256,7 +256,6 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
 
 
 def test_tracking_download_file_artifact_from_absolute_azure_uri_succeeds(mock_client, tmpdir):
-    from mlflow.tracking.utils import _download_artifact_from_uri
     os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
 
     mock_client.list_blobs.return_value = MockBlobList([])
@@ -280,7 +279,7 @@ def test_tracking_download_file_artifact_from_absolute_azure_uri_succeeds(mock_c
     with mock.patch(
             "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri", 
             side_effect=mock_from_artifact_uri):
-        uri = "wasbs://container@myaccountname.blob.core.windows.net/test.txt"
+        uri = os.path.join(TEST_BLOB_CONTAINER_ROOT, "test.txt")
         output_path = _download_artifact_from_uri(uri, output_path=tmpdir.strpath)
 
     mock_client.get_blob_to_path.assert_called_with(
@@ -291,10 +290,8 @@ def test_tracking_download_file_artifact_from_absolute_azure_uri_succeeds(mock_c
 
 
 def test_tracking_download_directory_artifact_from_absolute_azure_uri_succeeds(mock_client, tmpdir):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
     artifact_dir_subpath = "mydirectory"
-    artifact_uri = os.path.join(
-        "wasbs://container@myaccountname.blob.core.windows.net/", artifact_dir_subpath)
+    artifact_uri = os.path.join(TEST_BLOB_CONTAINER_ROOT, artifact_dir_subpath)
 
     dir_prefix = BlobPrefix()
     dir_prefix.name = artifact_dir_subpath 
@@ -324,6 +321,16 @@ def test_tracking_download_directory_artifact_from_absolute_azure_uri_succeeds(m
             return MockBlobList([blob_1, blob_2])
         else:
             return MockBlobList([])
+
+    expected_file_text = "hello world!"
+    def create_file(container, cloud_path, local_path):
+        # pylint: disable=unused-argument
+        local_path = os.path.basename(local_path)
+        f = tmpdir.join(local_path)
+        f.write(expected_file_text)
+
+    mock_client.list_blobs.side_effect = get_mock_listing
+    mock_client.get_blob_to_path.side_effect = create_file
 
     orig_from_uri = ArtifactRepository.from_artifact_uri
     def mock_from_artifact_uri(artifact_uri, store):
