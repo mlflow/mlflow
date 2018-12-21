@@ -17,8 +17,8 @@ Features:
 - [Models] Default Anaconda environments have been added to many of MLflow's Python model flavors. By default, models with these flavors that are produced by MLflow's various `save_model` and `log_model` functions will include an environment specifying all of the versioned dependencies that are necessary to load and serve the model (#705, #707, #708, #749, @dbczumar)
 - [Scoring] Support for synchronous deployment of models to SageMaker (#717, @dbczumar)
 - [Tracking] Include the Git repository URL as a tag when tracking an MLflow run within a Git repository (#741, @whiletruelearn, @mateiz)
-- [UI] Improved runs UI performance by using a react-virtualized table to optimize row rendering (#762, #745, @smurching)
-- [UI] Significant performance improvements for rendering run metrics and parameter information (#747, @smurching)
+- [UI] Improved runs UI performance by using a react-virtualized table to optimize row rendering (#765, #762, #745, @smurching)
+- [UI] Significant performance improvements for rendering run metrics, tags, and parameter information (#764, #747, @smurching)
 - [UI] Scatter plots, including run comparsion plots, are now interactive and are generated using `Plotly <https://github.com/plotly/plotly.js>`_) (#737, @mateiz)
 - [UI] Extended CSRF support by allowing the MLflow UI server to specify a set of expected headers that clients should set when making AJAX requests (#733, @aarondav)
 
@@ -31,7 +31,7 @@ Bug fixes and documentation updates:
 - [Docs] Added clarification about user setup requirements for executing remote MLflow runs on Databricks (#736, @andyk)
 - [UI] Updated font storage structure for compatibility with fontawesome resolution logic (#755, @smurching)
 
-Small bug fixes and doc updates (#715, @smurching; #728, dodysw; #730, mshr-h; #725, @kryptec; #721, @dbczumar; #714, @stbof)
+Small bug fixes and doc updates (#768, #715, @smurching; #728, dodysw; #730, mshr-h; #725, @kryptec; #769, #721, @dbczumar; #714, @stbof)
 
 
 0.8.0 (2018-11-08)
