@@ -4,7 +4,7 @@ Changelog
 0.8.1 (2018-12-20)
 ------------------
 
-MLflow 0.8.1 introduces several major improvements:
+MLflow 0.8.1 introduces several improvements:
 
 - Better UI performance, especially when navigating within experiments containing many runs, parameters, and metrics
 - Improved visualizations, including interactive scatter plots for MLflow run comparisons
