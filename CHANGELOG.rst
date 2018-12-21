@@ -29,7 +29,6 @@ Bug fixes and documentation updates:
 - [Docs] New example demonstrating how the MLflow REST API can be used to create experiments and log run information (#750, kjahan)
 - [Docs] R documentation has been updated for clarity and style consistency (#683, @stbof)
 - [Docs] Added clarification about user setup requirements for executing remote MLflow runs on Databricks (#736, @andyk)
-- [UI] Updated font storage structure for compatibility with fontawesome resolution logic (#755, @smurching)
 
 Small bug fixes and doc updates (#768, #715, @smurching; #728, dodysw; #730, mshr-h; #725, @kryptec; #769, #721, @dbczumar; #714, @stbof)
 
