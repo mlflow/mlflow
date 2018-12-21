@@ -10,12 +10,8 @@ entry_points:
       epochs: {type: int, default: 1}
       batch_size: {type: int, default: 16}
       test_ratio: {type: float, default: 0.2}
-      pretrained_weights: {type: string, default: "None"}
       seed: {type: int, default: 97531}
-      model_type: {type: string, default: "VGG16"}
     command: "python train.py --training-data {training_data}
                               --batch-size {batch_size}
                               --epochs {epochs}
-                              --test-ratio {test_ratio}
-                              --pretrained-weights {pretrained_weights}
-                              --model-type {model_type}"
+                              --test-ratio {test_ratio}"

@@ -1,6 +1,6 @@
 import click
 
-from keras_image_classifier import MLflowInceptionV3, KerasImageClassifier, MLflow_VGG16
+from keras_image_classifier import KerasImageClassifier
 
 import os
 
@@ -28,9 +28,7 @@ def download_input():
 @click.option("--seed", type=click.INT, default=97531, help="Seed for the random generator.")
 @click.option("--training-data")
 @click.option("--test-ratio", type=click.FLOAT, default=0.2)
-@click.option("--pretrained-weights", type=click.STRING, default="None")
-@click.option("--model-type", type=click.STRING, default="VGG16")
-def run(training_data, test_ratio, epochs, batch_size, seed, pretrained_weights, model_type):
+def run(training_data, test_ratio, epochs, batch_size, seed):
     image_files = []
     labels = []
     domain = {}
@@ -38,9 +36,6 @@ def run(training_data, test_ratio, epochs, batch_size, seed, pretrained_weights,
     for param, value in locals().items():
         print("  ", param, "=", value)
 
-    if pretrained_weights == "None":
-        pretrained_weights = None
-        
     if training_data == "./flower_photos" and not os.path.exists(training_data):
         print("Input data not found, attempting to download the data from the web.")
         download_input()
@@ -54,13 +49,7 @@ def run(training_data, test_ratio, epochs, batch_size, seed, pretrained_weights,
                     domain[clazz] = len(domain)
                 labels.append(domain[clazz])
 
-    if model_type == "VGG16":
-        classifier = MLflow_VGG16(weights=pretrained_weights)
-    elif model_type == "Inception_V3":
-        classifier = MLflowInceptionV3(weights=pretrained_weights)
-    else:
-        raise Exception("Unknown model type '{}'".format(model_type))
-
+    classifier = KerasImageClassifier()
     classifier.train(image_files,
                      labels,
                      domain,

@@ -48,23 +48,23 @@ CONTENT_TYPES = [
 _logger = logging.getLogger(__name__)
 
 
-def parse_json_input(json_input, orientation="split"):
+def parse_json_input(json_input, orient="split"):
     """
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
                        containing such a string representation.
-    :param orientation: The Pandas DataFrame orientation of the JSON input. This is either 'split'
-                        or 'records'.
+    :param orient: The Pandas DataFrame orientation of the JSON input. This is either 'split'
+                   or 'records'.
     """
     # pylint: disable=broad-except
     try:
-        return pd.read_json(json_input, orient=orientation)
+        return pd.read_json(json_input, orient=orient)
     except Exception:
         _handle_serving_error(
                 error_message=(
                     "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                    " a valid JSON-formatted Pandas DataFrame with the `{orientation}` orientation"
-                    " produced using the `pandas.DataFrame.to_json(..., orient='{orientation}')`"
-                    " method.".format(orientation=orientation)),
+                    " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
+                    " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
+                    " method.".format(orient=orient)),
                 error_code=MALFORMED_REQUEST)
 
 
@@ -142,25 +142,25 @@ def init(model):
                 _logger.warning(
                     "**IMPORTANT UPDATE**: Starting in MLflow 0.9.0, requests received with a"
                     " `Content-Type` header value of `%s` will be interpreted"
-                    " as JSON-serialized Pandas DataFrames with the `split` orientation, instead"
-                    " of the `records` orientation. The `records` orientation is unsafe because"
+                    " as JSON-serialized Pandas DataFrames with the `split` orient, instead"
+                    " of the `records` orient. The `records` orient is unsafe because"
                     " it may not preserve column ordering. Client code should be updated to"
-                    " either send serialized DataFrames with the `split` orientation and the"
+                    " either send serialized DataFrames with the `split` orient and the"
                     " `%s` content type (recommended) or use the `%s` content type with the"
-                    " `records` orientation. For more information, see"
+                    " `records` orient. For more information, see"
                     " https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.\n",
                     CONTENT_TYPE_JSON,
                     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
                     CONTENT_TYPE_JSON_RECORDS_ORIENTED)
                 logged_pandas_records_format_warning = True
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orientation="records")
+                                    orient="records")
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orientation="records")
+                                    orient="records")
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orientation="split")
+                                    orient="split")
         else:
             return flask.Response(
                     response=("This predictor only supports the following content types,"
@@ -182,7 +182,7 @@ def init(model):
                         " inference."),
                     error_code=BAD_REQUEST)
 
-        predictions = get_jsonable_obj(raw_predictions, pandas_orientation="records")
+        predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
         result = json.dumps(predictions, cls=NumpyEncoder)
         return flask.Response(response=result, status=200, mimetype='application/json')
 

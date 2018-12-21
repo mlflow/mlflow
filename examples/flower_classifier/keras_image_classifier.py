@@ -26,12 +26,14 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
 
 
-def read_image(filename):
-    with open(filename, "rb") as f:
-        return f.read()
-
-
 def decode_and_resize_image(raw_bytes, size):
+    """
+    Read, decode and resize raw image bytes (e.g. raw content of a jpeg file).
+
+    :param raw_bytes: Image bits, e.g. jpeg image.
+    :param size: requested output dimensions
+    :return: Multidimensional numpy array representing the resized image.
+    """
     return np.asarray(Image.open(BytesIO(raw_bytes)).resize(size), dtype=np.float32)
 
 
@@ -90,6 +92,10 @@ class MLflowLogger(Callback):
         KerasImageClassifierPyfunc.log_model(keras_model=self._model, **self._pyfunc_params)
 
 
+def _imagenet_preprocess_tf(x):
+    return (x / 127.5) - 1
+
+
 class KerasImageClassifier(object):
     """
         Base class for image classification with MLflow and Keras.
@@ -102,29 +108,23 @@ class KerasImageClassifier(object):
 
     """
 
-    def __init__(self, image_dims):
-        self._input_shape = image_dims
+    def __init__(self):
+        self._input_shape = (224, 224, 3)
 
-    @abstractmethod
-    def params(self):
-        """
-        Override this method to provide any additional parameters belonging to your model.
-        :return: dictionary of additional parameters to be logged with MLflow.
-        """
-        return {}
+    def _create_model(self, classes):
+        image = Input(shape=self._input_shape)
+        lambda_layer = Lambda(_imagenet_preprocess_tf)
+        preprocessed_image = lambda_layer(image)
+        model = vgg16.VGG16(classes=classes,
+                            input_tensor=preprocessed_image,
+                            weights=None,
+                            include_top=False)
 
-    @abstractmethod
-    def create_model(self, classes):
-        """
-        Create the Keras model to be trained.
-
-        The model is expected to take decoded image (shape=self._input_shape) on the input and to
-        produce vector of class probabilities on the output.
-
-        :param classes: Number of output classes.
-        :return: Keras model; input is decoded image, output is vector of class probabilities.
-        """
-        pass
+        x = Flatten(name='flatten')(model.output)
+        x = Dense(4096, activation='relu', name='fc1')(x)
+        x = Dense(4096, activation='relu', name='fc2')(x)
+        x = Dense(classes, activation='softmax', name='predictions')(x)
+        return Model(inputs=model.input, outputs=x)
 
     def train(self,
               image_files,
@@ -133,7 +133,6 @@ class KerasImageClassifier(object):
               epochs=1,
               batch_size=16,
               test_ratio=0.2,
-              custom_preprocessor=None,
               optimizer=lambda: keras.optimizers.SGD(decay=1e-5, nesterov=True, momentum=.9),
               seed=None):
         """
@@ -158,9 +157,6 @@ class KerasImageClassifier(object):
         """
         assert len(set(labels)) == len(domain)
         with mlflow.start_run() as run:
-            for param, value in self.params().items():
-                mlflow.log_param(str(param), str(value))
-
             mlflow.log_param("epochs", str(epochs))
             mlflow.log_param("batch_size", str(batch_size))
             mlflow.log_param("validation_ratio", str(test_ratio))
@@ -168,33 +164,40 @@ class KerasImageClassifier(object):
             if seed:
                 mlflow.log_param("seed", str(seed))
 
-            with tf.Graph().as_default() as graph:
-                import keras.backend as K
-                K.set_session(tf.Session(graph=graph))
-                dims = self._input_shape[:2]
-                x = np.array([decode_and_resize_image(read_image(x), dims) for x in image_files])
-                y = np_utils.to_categorical(np.array(labels), num_classes=len(domain))
-                x_train, x_valid, y_train, y_valid = train_test_split(x, y, random_state=seed,
-                                                                      train_size=(1 - test_ratio))
-                model = self.create_model(classes=len(domain))
-                model.compile(
-                    optimizer=optimizer(),
-                    loss=tf.keras.losses.categorical_crossentropy,
-                    metrics=["accuracy"])
-                model.fit(
-                    x=x_train,
-                    y=y_train,
-                    validation_data=(x_valid, y_valid),
-                    epochs=epochs,
-                    batch_size=batch_size,
-                    callbacks=[MLflowLogger(model=model,
-                                            x_train=x_train,
-                                            y_train=y_train,
-                                            x_valid=x_valid,
-                                            y_valid=y_valid,
-                                            artifact_path="model",
-                                            domain=sorted(domain.keys(), key=lambda x: domain[x]),
-                                            image_dims=self._input_shape)])
+            with tf.Graph().as_default() as g:
+                with tf.Session(graph=g).as_default():
+                    dims = self._input_shape[:2]
+
+                    def read_image(filename):
+                        with open(filename, "rb") as f:
+                            return f.read()
+
+                    x = np.array([decode_and_resize_image(read_image(x), dims)
+                                  for x in image_files])
+                    y = np_utils.to_categorical(np.array(labels), num_classes=len(domain))
+                    train_size = 1 - test_ratio
+                    x_train, x_valid, y_train, y_valid = train_test_split(x, y, random_state=seed,
+                                                                          train_size=train_size)
+                    model = self._create_model(classes=len(domain))
+                    model.compile(
+                        optimizer=optimizer(),
+                        loss=tf.keras.losses.categorical_crossentropy,
+                        metrics=["accuracy"])
+                    sorted_domain = sorted(domain.keys(), key=lambda x: domain[x])
+                    model.fit(
+                        x=x_train,
+                        y=y_train,
+                        validation_data=(x_valid, y_valid),
+                        epochs=epochs,
+                        batch_size=batch_size,
+                        callbacks=[MLflowLogger(model=model,
+                                                x_train=x_train,
+                                                y_train=y_train,
+                                                x_valid=x_valid,
+                                                y_valid=y_valid,
+                                                artifact_path="model",
+                                                domain=sorted_domain,
+                                                image_dims=self._input_shape)])
 
 
 class KerasImageClassifierPyfunc(object):
@@ -207,7 +210,9 @@ class KerasImageClassifierPyfunc(object):
     The prediction output is the predicted class id.
     """
 
-    def __init__(self, model, image_dims, domain):
+    def __init__(self, graph, session, model, image_dims, domain):
+        self._graph = graph
+        self._session = session
         self._model = model
         self._image_dims = image_dims
         self._domain = domain
@@ -217,12 +222,13 @@ class KerasImageClassifierPyfunc(object):
     def _predict_images(self, images):
         def preprocess_f(z):
             return decode_and_resize_image(z, self._image_dims[:2])
-
         x = np.array(
             images[images.columns[0]].apply(preprocess_f).tolist())
-        return self._model.predict(x)
+        with self._graph.as_default():
+            with self._session.as_default():
+                return self._model.predict(x)
 
-    def predict(self, data):
+    def predict(self, input):
         """
         Generate prediction for the data.
 
@@ -237,17 +243,20 @@ class KerasImageClassifierPyfunc(object):
                      ...,
                      Probability(class==N): float,
         """
+
         # decode image bytes from base64 encoding
         def decode_img(x):
             return pd.Series(base64.decodebytes(bytearray(x[0], encoding="utf8")))
 
-        images = data.apply(axis=1, func=decode_img)
+        images = input.apply(axis=1, func=decode_img)
         probs = self._predict_images(images)
         m, n = probs.shape
         label_idx = np.argmax(probs, axis=1)
         labels = np.array([self._domain[i] for i in label_idx], dtype=np.str).reshape(m, 1)
-        data = np.concatenate((label_idx.reshape(m, 1), labels, probs), axis=1)
-        return pd.DataFrame(columns=self._column_names, data=data)
+        output_data = np.concatenate((label_idx.reshape(m, 1), labels, probs), axis=1)
+        res = pd.DataFrame(columns=self._column_names, data=output_data)
+        res.index = input.index
+        return res
 
     @staticmethod
     def save_model(path, mlflow_model, keras_model, image_dims, domain):
@@ -258,9 +267,8 @@ class KerasImageClassifierPyfunc(object):
             }
             with open(tmp.path("conf.yaml"), "w") as f:
                 yaml.safe_dump(conf, stream=f)
-
             keras_path = tmp.path("keras_model")
-            mlflow.keras.save_model(keras_model, keras_path)
+            mlflow.keras.save_model(keras_model, path=keras_path)
             conda_env = tmp.path("conda_env.yaml")
             conda_env = _mlflow_conda_env(
                 path=conda_env,
@@ -274,7 +282,7 @@ class KerasImageClassifierPyfunc(object):
             mlflow.pyfunc.save_model(path,
                                      __name__,
                                      code_path=[__file__],
-                                     data_path=tmp.path(""),
+                                     data_path=tmp.path("."),
                                      model=mlflow_model,
                                      conda_env=conda_env)
 
@@ -289,90 +297,17 @@ class KerasImageClassifierPyfunc(object):
 
 
 def _load_pyfunc(path):
+    """
+    This function loads are custom PyFunc flavor.
+    """
     with open(os.path.join(path, "conf.yaml"), "r") as f:
         conf = yaml.safe_load(f)
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(os.path.join(path, "keras_model"))
+    keras_model_path = os.path.join(path, "keras_model")
     domain = conf["domain"].split("/")
     image_dims = np.array([int(x) for x in conf["image_dims"].split("/")], dtype=np.int32)
-    return KerasImageClassifierPyfunc(pyfunc_model, image_dims, domain=domain)
-
-
-class MLflowInceptionV3(KerasImageClassifier):
-    """
-    Image classifier based on Keras InceptionV3 model.
-
-    Can be trained from scratch or use pre-trained model with weights trained on imagenet dataset.
-    When using pretrained weights, the last softmax layer of the model is dropped and the
-    model will train a new one. Note that  in this mode, the pre-initialized layers are fixed and
-    only the last output layer is trained.
-    """
-
-    def __init__(self, weights='imagenet'):
-        super(MLflowInceptionV3, self).__init__(image_dims=(299, 299, 3))
-        self.weights = weights
-
-    def params(self):
-        return {"weights": self.weights}
-
-    def create_model(self, classes=None):
-        include_top = (classes == 1000)
-        image = Input(shape=self._input_shape)
-        lambda_layer = Lambda(_imagenet_preprocess_tf)
-        preprocessed_image = lambda_layer(image)
-        preprocessed_image.trainable = False
-        model = inception_v3.InceptionV3(classes=classes,
-                                         weights=self.weights,
-                                         include_top=include_top,
-                                         input_tensor=preprocessed_image,
-                                         pooling='avg')
-        if not include_top:
-            if self._weights == 'imagenet':
-                for l in model.layers:
-                    l.trainable = False
-            model = Model(inputs=model.input,
-                          outputs=Dense(classes,
-                                        activation='softmax',
-                                        name='predictions')(model.output))
-        return model
-
-
-def _imagenet_preprocess_tf(x):
-    return (x / 127.5) - 1
-
-
-class MLflow_VGG16(KerasImageClassifier):
-    """
-    Image classifier based on Keras VGG16 model.
-
-    Can be trained from scratch or use pre-trained model with weights trained on imagenet dataset.
-    When using pretrained weights, the fully connected layers are dropped and replaced with new
-    ones. Note that in this mode, the pre-initialized layers are fixed and only the fully connected
-    layers are trained.
-    """
-
-    def __init__(self, weights="imagenet"):
-        super(MLflow_VGG16, self).__init__(image_dims=(224, 224, 3))
-        self._weights = weights
-
-    def params(self):
-        return {"weights": self._weights}
-
-    def create_model(self, classes):
-        include_top = (classes == 1000)
-        image = Input(shape=self._input_shape)
-        lambda_layer = Lambda(_imagenet_preprocess_tf)
-        preprocessed_image = lambda_layer(image)
-        preprocessed_image.trainable = False
-        model = vgg16.VGG16(classes=classes,
-                            input_tensor=preprocessed_image,
-                            weights=self._weights, include_top=include_top)
-        if not include_top:
-            if self._weights == 'imagenet':
-                for l in model.layers:
-                    l.trainable = False
-            x = Flatten(name='flatten')(model.output)
-            x = Dense(4096, activation='relu', name='fc1')(x)
-            x = Dense(4096, activation='relu', name='fc2')(x)
-            x = Dense(classes, activation='softmax', name='predictions')(x)
-            model = Model(inputs=model.input, outputs=x)
-        return model
+    print('keras model path', keras_model_path)
+    print(os.listdir(keras_model_path))
+    with tf.Graph().as_default() as g:
+        with tf.Session().as_default() as sess:
+            keras_model = mlflow.keras.load_model(keras_model_path)
+    return KerasImageClassifierPyfunc(g, sess, keras_model, image_dims, domain=domain)
