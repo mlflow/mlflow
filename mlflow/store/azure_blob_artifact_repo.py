@@ -95,8 +95,8 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             for r in results:
                 if not r.name.startswith(artifact_path):
                     raise ValueError(
-                        "The name of the listed Azure blob does not begin with the specified" 
-                        " artifact path. Artifact path: {artifact_path}. Blob name:" 
+                        "The name of the listed Azure blob does not begin with the specified"
+                        " artifact path. Artifact path: {artifact_path}. Blob name:"
                         " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))
                 if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
                     # Separator needs to be fixed as '/' because of azure blob storage pattern.
