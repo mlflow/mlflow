@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.8.1 (2018-12-20)
+0.8.1 (2018-12-21)
 ------------------
 
 MLflow 0.8.1 introduces several significant improvements:
