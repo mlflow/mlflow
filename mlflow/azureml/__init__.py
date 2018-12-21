@@ -323,7 +323,7 @@ def init():
 
 
 def run(json_input):
-    input_df = parse_json_input(json_input=json_input, orientation="split")
-    return get_jsonable_obj(model.predict(input_df))
+    input_df = parse_json_input(json_input=json_input, orient="split")
+    return get_jsonable_obj(model.predict(input_df), pandas_orient="records")
 
 """

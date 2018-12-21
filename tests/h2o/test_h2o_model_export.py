@@ -141,6 +141,20 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == h2o_custom_env_text
 
 
+def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
+    conda_env = dict(mlflow.h2o.DEFAULT_CONDA_ENV)
+    conda_env["dependencies"].append("pytest")
+    mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=conda_env)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == conda_env
+
+
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         h2o_iris_model, h2o_custom_env):
     artifact_path = "model"

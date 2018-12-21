@@ -24,9 +24,12 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
+_FILE_URI_REGEX = re.compile(r"^file://.+")
+_ZIP_URI_REGEX = re.compile(r".+\.zip$")
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
@@ -63,6 +66,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
 
+    repo_url = _get_git_repo_url(work_dir)
+    if repo_url is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL, repo_url)
+
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
@@ -73,6 +80,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=exp_id, cluster_spec=cluster_spec)
+
     elif mode == "local" or mode is None:
         # Synchronously create a conda environment (even though this may take some time) to avoid
         # failures due to multiple concurrent attempts to create the same conda env.
@@ -206,15 +214,40 @@ def _get_storage_dir(storage_dir):
     return tempfile.mkdtemp(dir=storage_dir)
 
 
+def _get_git_repo_url(work_dir):
+    from git import Repo
+    from git.exc import GitCommandError, InvalidGitRepositoryError
+    try:
+        repo = Repo(work_dir, search_parent_directories=True)
+        remote_urls = [remote.url for remote in repo.remotes]
+        if len(remote_urls) == 0:
+            return None
+    except GitCommandError:
+        return None
+    except InvalidGitRepositoryError:
+        return None
+    return remote_urls[0]
+
+
 def _expand_uri(uri):
     if _is_local_uri(uri):
         return os.path.abspath(uri)
     return uri
 
 
+def _is_file_uri(uri):
+    """Returns True if the passed-in URI is a file:// URI."""
+    return _FILE_URI_REGEX.match(uri)
+
+
 def _is_local_uri(uri):
     """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
     return not _GIT_URI_REGEX.match(uri)
+
+
+def _is_zip_uri(uri):
+    """Returns True if the passed-in URI points to a ZIP file."""
+    return _ZIP_URI_REGEX.match(uri)
 
 
 def _is_valid_branch_name(work_dir, version):
@@ -237,15 +270,24 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     """
     Fetch a project into a local directory, returning the path to the local project directory.
     :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
-                          will fetch Git projects into a temporary directory but simply return the
-                          path of local projects (i.e. perform a no-op for local projects).
+                          will fetch ZIP or Git projects into a temporary directory but simply
+                          return the path of local projects (i.e. perform a no-op for local
+                          projects).
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    use_temp_dst_dir = force_tempdir or not _is_local_uri(parsed_uri)
+    use_temp_dst_dir = force_tempdir or _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
-    if _is_local_uri(uri):
+    if _is_zip_uri(parsed_uri):
+        if _is_file_uri(parsed_uri):
+            from six.moves import urllib
+            parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
+            parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
+        _unzip_repo(zip_file=(
+                        parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
+                    dst_dir=dst_dir)
+    elif _is_local_uri(uri):
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
         if use_temp_dst_dir:
@@ -257,6 +299,27 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
     return res
+
+
+def _unzip_repo(zip_file, dst_dir):
+    import zipfile
+    with zipfile.ZipFile(zip_file) as zip_in:
+        zip_in.extractall(dst_dir)
+
+
+def _fetch_zip_repo(uri):
+    import requests
+    from io import BytesIO
+    # TODO (dbczumar): Replace HTTP resolution via ``requests.get`` with an invocation of
+    # ```mlflow.data.download_uri()`` when the API supports the same set of available stores as
+    # the artifact repository (Azure, FTP, etc). See the following issue:
+    # https://github.com/mlflow/mlflow/issues/763.
+    response = requests.get(uri)
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as error:
+        raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
+    return BytesIO(response.content)
 
 
 def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):

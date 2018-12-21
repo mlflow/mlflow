@@ -13,8 +13,8 @@ from __future__ import absolute_import
 
 import os
 import pickle
-import shutil
 import yaml
+import copy
 
 import sklearn
 
@@ -22,6 +22,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -52,10 +53,23 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'scikit-learn=0.19.2'
+                            ]
+                        }
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
@@ -63,6 +77,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
+
     >>> import mlflow.sklearn
     >>> from sklearn.datasets import load_iris
     >>> from sklearn import tree
@@ -92,18 +107,24 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                 error_code=INVALID_PARAMETER_VALUE)
 
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
+        raise MlflowException(message="Path '{}' already exists".format(path),
+                              error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
     model_data_subpath = "model.pkl"
     _save_model(sk_model=sk_model, output_path=os.path.join(path, model_data_subpath),
                 serialization_format=serialization_format)
 
     conda_env_subpath = "conda.yaml"
-    if conda_env is not None:
-        shutil.copyfile(conda_env, os.path.join(path, conda_env_subpath))
-    else:
-        with open(os.path.join(path, conda_env_subpath), "w") as f:
-            yaml.safe_dump(DEFAULT_CONDA_ENV, stream=f, default_flow_style=False)
+    if conda_env is None:
+        conda_env = copy.deepcopy(DEFAULT_CONDA_ENV)
+        if serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+            import cloudpickle
+            conda_env["dependencies"].append("cloudpickle=={}".format(cloudpickle.__version__))
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data=model_data_subpath,
                         env=conda_env_subpath)
@@ -121,10 +142,23 @@ def log_model(sk_model, artifact_path, conda_env=None,
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
                       ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'scikit-learn=0.19.2'
+                            ]
+                        }
+
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle

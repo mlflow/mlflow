@@ -26,6 +26,7 @@ from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
+_AUTODETECT_EXPERIMENT = "MLFLOW_AUTODETECT_EXPERIMENT_ID"
 _active_run_stack = []
 _active_experiment_id = None
 
@@ -115,7 +116,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         else:
             parent_run_id = None
 
-        exp_id_for_run = experiment_id or _get_experiment_id()
+        exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
         if is_in_databricks_notebook():
             databricks_tags = {}
             notebook_id = get_notebook_id()
@@ -279,6 +280,8 @@ def _get_source_type():
 def _get_experiment_id():
     return int(_active_experiment_id or
                env.get_env(_EXPERIMENT_ID_ENV_VAR) or
+               (env.get_env(_AUTODETECT_EXPERIMENT) and
+                is_in_databricks_notebook() and get_notebook_id()) or
                Experiment.DEFAULT_EXPERIMENT_ID)
 
 

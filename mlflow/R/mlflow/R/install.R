@@ -2,8 +2,8 @@
 #'
 #' Installs MLflow for individual use.
 #'
-#' Notice that MLflow requires Python and Conda to be installed,
-#' see \url{https://www.python.org/getit/} and \url{https://conda.io/docs/installation.html}.
+#' MLflow requires Python and Conda to be installed.
+#' See \url{https://www.python.org/getit/} and \url{https://conda.io/docs/installation.html}.
 #'
 #' @examples
 #' \dontrun{
@@ -25,7 +25,7 @@ mlflow_install <- function() {
   }
 }
 
-#' Uninstalls MLflow.
+#' Uninstall MLflow
 #'
 #' Uninstalls MLflow by removing the Conda environment.
 #'
