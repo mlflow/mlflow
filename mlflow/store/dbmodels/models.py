@@ -2,10 +2,13 @@ import time
 import uuid
 import os
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy import Column, Text, String, Float, ForeignKey, Integer, CheckConstraint, Boolean, PrimaryKeyConstraint
+from sqlalchemy import (
+    Column, Text, String, Float, ForeignKey, Integer, CheckConstraint, Boolean,
+    BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
-from mlflow.entities import Experiment, RunTag, Metric, Param, RunData, RunInfo,\
-    SourceType, RunStatus, Run
+from mlflow.entities import (
+    Experiment, RunTag, Metric, Param, RunData, RunInfo,
+    SourceType, RunStatus, Run)
 
 Base = declarative_base()
 
@@ -82,7 +85,7 @@ class SqlExperiment(Base):
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(ExperimentLifecycleStages), name='lifecycle_stage'),
-        PrimaryKeyConstraint('experiment_id')
+        PrimaryKeyConstraint('experiment_id', name='experiment_id')
     )
 
     def __repr__(self):
@@ -95,9 +98,8 @@ class SqlExperiment(Base):
 class SqlRun(Base):
     __tablename__ = 'run'
 
-    id = Column(Integer)
     is_deleted = Column(Boolean, default=False)
-    run_uuid = Column(String(32), default=generate_uuid, unique=True, nullable=False)
+    run_uuid = Column(String(32), default=generate_uuid)
     name = Column(String(256), unique=True)
     source_type = Column(Integer, default=SourceType.LOCAL)
     source_name = Column(String(256))
@@ -109,16 +111,15 @@ class SqlRun(Base):
     source_version = Column(String(10))
     lifecycle_stage = Column(Integer, default=RunInfo.ACTIVE_LIFECYCLE)
     artifact_uri = Column(Text, default=None)
+    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
+    experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all,delete'))
 
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
         CheckConstraint(lifecycle_stage.in_(LifecycleStageTypes), name='lifecycle_stage'),
-        PrimaryKeyConstraint('id')
+        PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
-
-    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
-    experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all,delete'))
 
     def to_mlflow_entity(self):
 
@@ -136,7 +137,7 @@ class SqlTag(Base):
     run = relationship('SqlRun', backref=backref('tags', cascade='all,delete'))
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid'),
+        PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'),
     )
 
     def __repr__(self):
@@ -150,12 +151,12 @@ class SqlMetric(Base):
     __tablename__ = 'metric'
     key = Column(Text)
     value = Column(Float, nullable=False)
-    timestamp = Column(Integer, default=int(time.time()))
+    timestamp = Column(BigInteger, default=int(time.time()))
     run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
     run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid'),
+        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'),
     )
 
     def __repr__(self):
@@ -173,7 +174,7 @@ class SqlParam(Base):
     run = relationship('SqlRun', backref=backref('params', cascade='all,delete'))
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid'),
+        PrimaryKeyConstraint('key', 'run_uuid', name='param_pk'),
     )
 
     def __repr__(self):
