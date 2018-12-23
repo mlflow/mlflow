@@ -27,18 +27,18 @@ ExperimentLifecycleStages = [
 ]
 
 SourceTypes = [
-    SourceType.NOTEBOOK,
-    SourceType.JOB,
-    SourceType.LOCAL,
-    SourceType.UNKNOWN,
-    SourceType.PROJECT
+    SourceType.to_string(SourceType.NOTEBOOK),
+    SourceType.to_string(SourceType.JOB),
+    SourceType.to_string(SourceType.LOCAL),
+    SourceType.to_string(SourceType.UNKNOWN),
+    SourceType.to_string(SourceType.PROJECT)
 ]
 
 RunStatusTypes = [
-    RunStatus.SCHEDULED,
-    RunStatus.FAILED,
-    RunStatus.FINISHED,
-    RunStatus.RUNNING
+    RunStatus.to_string(RunStatus.SCHEDULED),
+    RunStatus.to_string(RunStatus.FAILED),
+    RunStatus.to_string(RunStatus.FINISHED),
+    RunStatus.to_string(RunStatus.RUNNING)
 ]
 
 LifecycleStageTypes = [
@@ -100,19 +100,19 @@ class SqlRun(Base):
 
     is_deleted = Column(Boolean, default=False)
     run_uuid = Column(String(32), default=generate_uuid)
-    name = Column(String(256), unique=True)
-    source_type = Column(Integer, default=SourceType.LOCAL)
-    source_name = Column(String(256))
-    entry_point_name = Column(String(256))
+    name = Column(String(250), unique=True)
+    source_type = Column(String(20), default=SourceType.to_string(SourceType.LOCAL))
+    source_name = Column(String(500))
+    entry_point_name = Column(String(50))
     user_id = Column(String(256), default=_get_user_id(), nullable=False)
-    status = Column(Integer, default=RunStatus.SCHEDULED)
-    start_time = Column(Integer, default=int(time.time()))
-    end_time = Column(Integer, nullable=True, default=None)
-    source_version = Column(String(10))
-    lifecycle_stage = Column(Integer, default=RunInfo.ACTIVE_LIFECYCLE)
-    artifact_uri = Column(Text, default=None)
+    status = Column(String(20), default=RunStatus.to_string(RunStatus.SCHEDULED))
+    start_time = Column(BigInteger, default=int(time.time()))
+    end_time = Column(BigInteger, nullable=True, default=None)
+    source_version = Column(String(20))
+    lifecycle_stage = Column(String(20), default=RunInfo.ACTIVE_LIFECYCLE)
+    artifact_uri = Column(String(20), default=None)
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
-    experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all,delete'))
+    experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all'))
 
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
@@ -131,10 +131,10 @@ class SqlRun(Base):
 
 class SqlTag(Base):
     __tablename__ = 'tag'
-    key = Column(Text)
-    value = Column(Text, nullable=True)
+    key = Column(String(250))
+    value = Column(String(250), nullable=True)
     run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
-    run = relationship('SqlRun', backref=backref('tags', cascade='all,delete'))
+    run = relationship('SqlRun', backref=backref('tags', cascade='all'))
 
     __table_args__ = (
         PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'),
@@ -149,11 +149,11 @@ class SqlTag(Base):
 
 class SqlMetric(Base):
     __tablename__ = 'metric'
-    key = Column(Text)
+    key = Column(String(250))
     value = Column(Float, nullable=False)
     timestamp = Column(BigInteger, default=int(time.time()))
     run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
-    run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
+    run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
 
     __table_args__ = (
         PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'),
@@ -168,10 +168,10 @@ class SqlMetric(Base):
 
 class SqlParam(Base):
     __tablename__ = 'param'
-    key = Column(Text)
-    value = Column(Text, nullable=False)
+    key = Column(String(250))
+    value = Column(String(250), nullable=False)
     run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
-    run = relationship('SqlRun', backref=backref('params', cascade='all,delete'))
+    run = relationship('SqlRun', backref=backref('params', cascade='all'))
 
     __table_args__ = (
         PrimaryKeyConstraint('key', 'run_uuid', name='param_pk'),

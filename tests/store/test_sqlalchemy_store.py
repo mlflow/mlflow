@@ -185,8 +185,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'name': name,
             'user_id': 'Anderson',
             'run_uuid': uuid.uuid4().hex,
-            'status': entities.RunStatus.SCHEDULED,
-            'source_type': entities.SourceType.NOTEBOOK,
+            'status': entities.RunStatus.to_string(entities.RunStatus.SCHEDULED),
+            'source_type': entities.SourceType.to_string(entities.SourceType.NOTEBOOK),
             'source_name': 'Python application',
             'entry_point_name': 'main.py',
             'start_time': int(time.time()),
@@ -422,7 +422,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_update_run_info(self):
         run = self._run_factory()
-        new_status = entities.RunStatus.FINISHED
+        new_status = entities.RunStatus.to_string(entities.RunStatus.FINISHED)
         endtime = int(time.time())
 
         actual = self.store.update_run_info(run.run_uuid, new_status, endtime)
