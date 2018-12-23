@@ -2,7 +2,7 @@ import time
 import uuid
 import os
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy import Column, Text, String, Float, ForeignKey, Integer, CheckConstraint, Boolean
+from sqlalchemy import Column, Text, String, Float, ForeignKey, Integer, CheckConstraint, Boolean, PrimaryKeyConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import Experiment, RunTag, Metric, Param, RunData, RunInfo,\
     SourceType, RunStatus, Run
@@ -48,16 +48,6 @@ def generate_uuid():
     return uuid.uuid4().hex
 
 
-def _validate(self):
-    if not hasattr(self, '__entity__') and self.__entity__ is not None:
-        raise Exception(
-            'sqlalchemy model <{}> needs __entity__ set'.format(self.__class__.__name__))
-
-    if not hasattr(self, '__properties__') and self.__entity__ is not None:
-        raise Exception(
-            'sqlalchemy model <{}> needs __properties__ set'.format(self.__class__.__name__))
-
-
 def _create_entity(base, model):
 
     # create dict of kwargs properties for entity and return the intialized entity
@@ -83,17 +73,16 @@ def _create_entity(base, model):
 
 class SqlExperiment(Base):
     __tablename__ = 'experiments'
-    __entity__ = Experiment
-    __properties__ = Experiment._properties()
-    experiment_id = Column(Integer, primary_key=True)
+    experiment_id = Column(Integer)
     is_deleted = Column(Boolean, default=False)
     name = Column(String(256), unique=True, nullable=False)
     artifact_location = Column(Text, nullable=True)
-    lifecycle_stage = Column(Integer, default=Experiment.ACTIVE_LIFECYCLE)
+    lifecycle_stage = Column(String(32), default=Experiment.ACTIVE_LIFECYCLE)
 
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(ExperimentLifecycleStages), name='lifecycle_stage'),
+        PrimaryKeyConstraint('experiment_id')
     )
 
     def __repr__(self):
@@ -103,61 +92,10 @@ class SqlExperiment(Base):
         return _create_entity(Experiment, self)
 
 
-class SqlRunTag(Base):
-    __tablename__ = 'run_tag'
-    __entity__ = RunTag
-    __properties__ = RunTag._properties()
-    key = Column(Text, primary_key=True)
-    value = Column(Text, nullable=True)
-    run_uuid = Column(String(32), ForeignKey('run.run_uuid'), primary_key=True)
-    run = relationship('SqlRun', backref=backref('tags', cascade='all,delete'))
-
-    def __repr__(self):
-        return '<SqlRunTag({}, {})>'.format(self.key, self.value)
-
-    def to_mlflow_entity(self):
-        return _create_entity(RunTag, self)
-
-
-class SqlMetric(Base):
-    __tablename__ = 'metric'
-    __entity__ = Metric
-    __properties__ = Metric._properties()
-    key = Column(Text, primary_key=True)
-    value = Column(Float, nullable=False)
-    timestamp = Column(Integer, default=int(time.time()), primary_key=True)
-    run_uuid = Column(String(32), ForeignKey('run.run_uuid'), primary_key=True)
-    run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
-
-    def __repr__(self):
-        return '<SqlMetric({}, {})>'.format(self.key, self.value)
-
-    def to_mlflow_entity(self):
-        return _create_entity(Metric, self)
-
-
-class SqlParam(Base):
-    __tablename__ = 'param'
-    __entity__ = Param
-    __properties__ = Param._properties()
-    key = Column(Text, primary_key=True)
-    value = Column(Text, nullable=False)
-    run_uuid = Column(String(32), ForeignKey('run.run_uuid'), primary_key=True)
-    run = relationship('SqlRun', backref=backref('params', cascade='all,delete'))
-
-    def __repr__(self):
-        return '<SqlParam({}, {})>'.format(self.key, self.value)
-
-    def to_mlflow_entity(self):
-        return _create_entity(Param, self)
-
-
 class SqlRun(Base):
     __tablename__ = 'run'
-    __entity__ = Run
-    __properties__ = Run._properties()
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer)
     is_deleted = Column(Boolean, default=False)
     run_uuid = Column(String(32), default=generate_uuid, unique=True, nullable=False)
     name = Column(String(256), unique=True)
@@ -176,6 +114,7 @@ class SqlRun(Base):
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
         CheckConstraint(lifecycle_stage.in_(LifecycleStageTypes), name='lifecycle_stage'),
+        PrimaryKeyConstraint('id')
     )
 
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
@@ -187,3 +126,58 @@ class SqlRun(Base):
         info = _create_entity(RunInfo, self)
         data = _create_entity(RunData, self)
         return Run(run_info=info, run_data=data)
+
+
+class SqlTag(Base):
+    __tablename__ = 'tag'
+    key = Column(Text)
+    value = Column(Text, nullable=True)
+    run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
+    run = relationship('SqlRun', backref=backref('tags', cascade='all,delete'))
+
+    __table_args__ = (
+        PrimaryKeyConstraint('key', 'run_uuid'),
+    )
+
+    def __repr__(self):
+        return '<SqlRunTag({}, {})>'.format(self.key, self.value)
+
+    def to_mlflow_entity(self):
+        return _create_entity(RunTag, self)
+
+
+class SqlMetric(Base):
+    __tablename__ = 'metric'
+    key = Column(Text)
+    value = Column(Float, nullable=False)
+    timestamp = Column(Integer, default=int(time.time()))
+    run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
+    run = relationship('SqlRun', backref=backref('metrics', cascade='all,delete'))
+
+    __table_args__ = (
+        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid'),
+    )
+
+    def __repr__(self):
+        return '<SqlMetric({}, {})>'.format(self.key, self.value)
+
+    def to_mlflow_entity(self):
+        return _create_entity(Metric, self)
+
+
+class SqlParam(Base):
+    __tablename__ = 'param'
+    key = Column(Text)
+    value = Column(Text, nullable=False)
+    run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
+    run = relationship('SqlRun', backref=backref('params', cascade='all,delete'))
+
+    __table_args__ = (
+        PrimaryKeyConstraint('key', 'run_uuid'),
+    )
+
+    def __repr__(self):
+        return '<SqlParam({}, {})>'.format(self.key, self.value)
+
+    def to_mlflow_entity(self):
+        return _create_entity(Param, self)

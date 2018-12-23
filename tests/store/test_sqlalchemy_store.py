@@ -90,10 +90,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.name, run_data.name)
 
     def test_run_tag_model(self):
-        run_data = models.SqlRunTag(run_uuid='tuuid', key='test', value='val')
+        run_data = models.SqlTag(run_uuid='tuuid', key='test', value='val')
         self.session.add(run_data)
         self.session.commit()
-        tags = self.session.query(models.SqlRunTag).all()
+        tags = self.session.query(models.SqlTag).all()
         self.assertEqual(len(tags), 1)
 
         actual = tags[0].to_mlflow_entity()
@@ -209,8 +209,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_create_run(self):
         expected = self._run_factory()
         name = 'booyya'
-        expected.tags.append(models.SqlRunTag(key='3', value='4'))
-        expected.tags.append(models.SqlRunTag(key='1', value='2'))
+        expected.tags.append(models.SqlTag(key='3', value='4'))
+        expected.tags.append(models.SqlTag(key='1', value='2'))
         self.session.add_all([expected, expected.tags[0], expected.tags[1]])
         self.session.commit()
 
@@ -351,7 +351,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tag = entities.RunTag(tkey, tval)
         self.store.set_tag(run.run_uuid, tag)
 
-        actual = self.session.query(models.SqlRunTag).filter_by(key=tkey, value=tval)
+        actual = self.session.query(models.SqlTag).filter_by(key=tkey, value=tval)
 
         self.assertIsNotNone(actual)
 

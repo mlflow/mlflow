@@ -119,7 +119,7 @@ class SqlAlchemyStore(AbstractStore):
                             lifecycle_stage=entities.RunInfo.ACTIVE_LIFECYCLE)
 
         for tag in tags:
-            run.tags.append(models.SqlRunTag(key=tag.key, value=tag.value))
+            run.tags.append(models.SqlTag(key=tag.key, value=tag.value))
         self._save_to_db([run])
 
         run = run.to_mlflow_entity()
@@ -177,7 +177,7 @@ class SqlAlchemyStore(AbstractStore):
     def set_tag(self, run_uuid, tag):
         run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
 
-        new_tag = models.SqlRunTag(key=tag.key, value=tag.value)
+        new_tag = models.SqlTag(key=tag.key, value=tag.value)
         run.tags.append(new_tag)
         self._save_to_db([run, new_tag])
 
