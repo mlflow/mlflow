@@ -54,7 +54,7 @@ class SqlAlchemyStore(AbstractStore):
             filter_args['is_deleted'] = False
         elif view_type == ViewType.DELETED_ONLY:
             filter_args['is_deleted'] = True
-        
+
         # if view_type is ALL then just leave filter_Args empty to get all experiments
 
         for exp in self.session.query(models.SqlExperiment).filter_by(
@@ -191,7 +191,7 @@ class SqlAlchemyStore(AbstractStore):
         if metric is None:
             raise MlflowException('Metric={} does not exist'.format(metric_key),
                                   error_codes.RESOURCE_DOES_NOT_EXIST)
-        
+
         return metric.value
 
     def get_param(self, run_uuid, param_name):
@@ -201,7 +201,7 @@ class SqlAlchemyStore(AbstractStore):
 
             raise MlflowException('Param={} does not exist'.format(param_name),
                                   error_codes.RESOURCE_DOES_NOT_EXIST)
-        
+
         return param.value
 
     def get_metric_history(self, run_uuid, metric_key):
@@ -209,7 +209,7 @@ class SqlAlchemyStore(AbstractStore):
                                                                        key=metric_key)
         values = []
         for metric in metrics:
-                values.append(metric.value)
+            values.append(metric.value)
 
         return values
 
