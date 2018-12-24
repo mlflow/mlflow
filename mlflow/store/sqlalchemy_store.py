@@ -3,8 +3,7 @@ import uuid
 from sqlalchemy import orm
 from sqlalchemy.exc import IntegrityError
 from mlflow.store.dbmodels import models
-from mlflow import entities
-from mlflow.entities import Experiment, Run, RunData, RunInfo, RunStatus, RunTag
+from mlflow.entities import Experiment, RunInfo, RunStatus
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -191,7 +190,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if metric is None:
             raise MlflowException('Metric={} does not exist'.format(metric_key),
-                                error_codes.RESOURCE_DOES_NOT_EXIST)
+                                  error_codes.RESOURCE_DOES_NOT_EXIST)
         
         return metric.value
 
@@ -201,13 +200,13 @@ class SqlAlchemyStore(AbstractStore):
         if param is None:
 
             raise MlflowException('Param={} does not exist'.format(param_name),
-                                error_codes.RESOURCE_DOES_NOT_EXIST)
+                                  error_codes.RESOURCE_DOES_NOT_EXIST)
         
         return param.value
 
     def get_metric_history(self, run_uuid, metric_key):
         metrics = self.session.query(models.SqlMetric.value).filter_by(run_uuid=run_uuid,
-                                                                 key=metric_key)
+                                                                       key=metric_key)
         values = []
         for metric in metrics:
                 values.append(metric.value)
