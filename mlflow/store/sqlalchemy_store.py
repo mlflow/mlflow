@@ -180,41 +180,39 @@ class SqlAlchemyStore(AbstractStore):
                                   error_codes.INVALID_PARAMETER_VALUE)
 
     def set_tag(self, run_uuid, tag):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
-
-        new_tag = models.SqlTag(key=tag.key, value=tag.value)
-        run.tags.append(new_tag)
-        self._save_to_db([run, new_tag])
+        new_tag = models.SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
+        self._save_to_db(new_tag)
 
     def get_metric(self, run_uuid, metric_key):
-        run = self.get_run(run_uuid)
+        metric = self.session.query(models.SqlMetric.value).filter_by(
+            run_uuid=run_uuid, key=metric_key
+        ).order_by(
+            sqlalchemy.desc(models.SqlMetric.timestamp)).first()
 
-        for metric in run.data.metrics:
-            if metric.key == metric_key:
-                return metric.value
-
-        raise MlflowException('Metric={} does not exist'.format(metric_key),
-                              error_codes.RESOURCE_DOES_NOT_EXIST)
+        if metric is None:
+            raise MlflowException('Metric={} does not exist'.format(metric_key),
+                                error_codes.RESOURCE_DOES_NOT_EXIST)
+        
+        return metric.value
 
     def get_param(self, run_uuid, param_name):
-        run = self.get_run(run_uuid)
+        param = self.session.query(models.SqlParam).get((param_name, run_uuid))
 
-        for param in run.data.params:
-            if param.key == param_name:
-                return param.value
+        if param is None:
 
-        raise MlflowException('Param={} does not exist'.format(param_name),
-                              error_codes.RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException('Param={} does not exist'.format(param_name),
+                                error_codes.RESOURCE_DOES_NOT_EXIST)
+        
+        return param.value
 
     def get_metric_history(self, run_uuid, metric_key):
-        run = self.get_run(run_uuid)
-        metrics_values = []
+        metrics = self.session.query(models.SqlMetric.value).filter_by(run_uuid=run_uuid,
+                                                                 key=metric_key)
+        values = []
+        for metric in metrics:
+                values.append(metric.value)
 
-        for metric in run.data.metrics:
-            if metric.key == metric_key:
-                metrics_values.append(metric.value)
-
-        return metrics_values
+        return values
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         raise NotImplementedError()
