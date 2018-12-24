@@ -3,7 +3,7 @@ import uuid
 import os
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
-    Column, Text, String, Float, ForeignKey, Integer, CheckConstraint, Boolean,
+    Column, String, Float, ForeignKey, Integer, CheckConstraint, Boolean,
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
@@ -79,13 +79,13 @@ class SqlExperiment(Base):
     experiment_id = Column(Integer)
     is_deleted = Column(Boolean, default=False)
     name = Column(String(256), unique=True, nullable=False)
-    artifact_location = Column(Text, nullable=True)
+    artifact_location = Column(String(256), nullable=True)
     lifecycle_stage = Column(String(32), default=Experiment.ACTIVE_LIFECYCLE)
 
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(ExperimentLifecycleStages), name='lifecycle_stage'),
-        PrimaryKeyConstraint('experiment_id', name='experiment_id')
+        PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
     def __repr__(self):

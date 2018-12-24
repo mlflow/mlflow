@@ -3,6 +3,7 @@ from sqlalchemy import orm
 from sqlalchemy.exc import IntegrityError
 from mlflow.store.dbmodels import models
 from mlflow import entities
+from mlflow.entities import Experiment, Run, RunData, RunInfo, RunStatus, RunTag
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -46,15 +47,18 @@ class SqlAlchemyStore(AbstractStore):
         return instance, create
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
-        mappings = {
-            ViewType.ACTIVE_ONLY: entities.Experiment.ACTIVE_LIFECYCLE,
-            ViewType.DELETED_ONLY: entities.Experiment.DELETED_LIFECYCLE
-        }
-
-        lifecycle_stage = mappings[view_type]
         experiments = []
+        filter_args = {}
+
+        if view_type == ViewType.ACTIVE_ONLY:
+            filter_args['is_deleted'] = False
+        elif view_type == ViewType.DELETED_ONLY:
+            filter_args['is_deleted'] = True
+        
+        # if view_type is ALL then just leave filter_Args empty to get all experiments
+
         for exp in self.session.query(models.SqlExperiment).filter_by(
-                lifecycle_stage=lifecycle_stage, is_deleted=False):
+                **filter_args):
             experiments.append(exp.to_mlflow_entity())
 
         return experiments
@@ -64,7 +68,7 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException('Invalid experiment name', error_codes.INVALID_PARAMETER_VALUE)
         try:
             experiment = models.SqlExperiment(
-                name=name,  lifecycle_stage=entities.Experiment.ACTIVE_LIFECYCLE,
+                name=name,  lifecycle_stage=Experiment.ACTIVE_LIFECYCLE,
                 artifact_location=artifact_location
             )
             self.session.add(experiment)
@@ -77,10 +81,9 @@ class SqlAlchemyStore(AbstractStore):
         return experiment.to_mlflow_entity()
 
     def get_experiment(self, experiment_id):
-        exp = self.session.query(models.SqlExperiment).filter_by(
-            experiment_id=experiment_id, is_deleted=False).first()
+        exp = self.session.query(models.SqlExperiment).get(experiment_id)
 
-        if not exp:
+        if exp.is_deleted:
             raise MlflowException('No Experiment with id={} exists'.format(experiment_id),
                                   error_codes.RESOURCE_DOES_NOT_EXIST)
 
@@ -106,17 +109,17 @@ class SqlAlchemyStore(AbstractStore):
         _ = parent_run_id
         experiment = self.get_experiment(experiment_id)
 
-        if experiment.lifecycle_stage != entities.Experiment.ACTIVE_LIFECYCLE:
+        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
             raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                   error_codes.INVALID_STATE)
-        status = entities.RunStatus.to_string(entities.RunStatus.RUNNING)
+        status = RunStatus.to_string(RunStatus.RUNNING)
         run = models.SqlRun(name=run_name, artifact_uri=None,
                             experiment_id=experiment_id, source_type=source_type,
                             source_name=source_name, entry_point_name=entry_point_name,
                             user_id=user_id, status=status,
                             start_time=start_time, end_time=None,
                             source_version=source_version,
-                            lifecycle_stage=entities.RunInfo.ACTIVE_LIFECYCLE)
+                            lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
 
         for tag in tags:
             run.tags.append(models.SqlTag(key=tag.key, value=tag.value))
