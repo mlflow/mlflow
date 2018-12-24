@@ -1,4 +1,5 @@
 import sqlalchemy
+import uuid
 from sqlalchemy import orm
 from sqlalchemy.exc import IntegrityError
 from mlflow.store.dbmodels import models
@@ -113,7 +114,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                   error_codes.INVALID_STATE)
         status = RunStatus.to_string(RunStatus.RUNNING)
-        run = models.SqlRun(name=run_name, artifact_uri=None,
+        run_uuid = uuid.uuid4().hex
+        run = models.SqlRun(name=run_name, artifact_uri=None, run_uuid=run_uuid,
                             experiment_id=experiment_id, source_type=source_type,
                             source_name=source_name, entry_point_name=entry_point_name,
                             user_id=user_id, status=status,
