@@ -5,6 +5,8 @@ import sys
 
 from six.moves import urllib
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
@@ -67,6 +69,36 @@ def get_tracking_uri():
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
         return os.path.abspath("./mlruns")
+
+
+def get_artifact_uri(artifact_path, run_id):
+    """
+    :param artifact_path: The run-relative artifact path.
+    :param run_id: The ID of the run containing the specified artifact.
+    :return: An *absolute* URI referring to the specified artifact. For example, if the artifact
+             belongs to an S3-backed store, this may be a uri of the form 
+             ``s3://<bucket_name>/path/to/artifact``.
+    """
+    if not run_id:
+        raise MlflowException(
+                message="A run_id must be specified in order to obtain an artifact uri!",
+                error_code=INVALID_PARAMETER_VALUE)
+    store = _get_store()
+    run = store.get_run(run_id)
+    return os.path.join(run.info.artifact_uri, artifact_path)
+
+
+def _download_artifact_from_uri(artifact_uri, output_path):
+    """
+    :param artifact_uri: The *absolute* URI of the artifact to download.
+    :param output_path: The local filesystem path to which to download the artifact.
+    """
+    artifact_src_dir = os.path.dirname(artifact_uri)
+    artifact_src_relative_path = os.path.basename(artifact_uri)
+    artifact_repo = ArtifactRepository.from_artifact_uri(
+            artifact_uri=artifact_src_dir, store=_get_store())
+    return artifact_repo.download_artifacts(
+            artifact_path=artifact_src_relative_path, dst_path=output_path)
 
 
 def _get_store(store_uri=None):
