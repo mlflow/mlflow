@@ -12,43 +12,43 @@ class Utils {
      * @param keyValueList - A list of objects. One object for each run.
      * @retuns A key to a map of (runUuid -> value)
      */
-    static mergeRuns(runUuids, keyValueList) {
-      const ret = {};
-        keyValueList.forEach((keyValueObj, i) => {
-          const curRunUuid = runUuids[i];
-          Object.keys(keyValueObj).forEach((key) => {
-            const cur = ret[key] || {};
-            ret[key] = {
-              ...cur,
-              [curRunUuid]: keyValueObj[key]
-            };
-          });
-        });
-        return ret;
-    }
+  static mergeRuns(runUuids, keyValueList) {
+    const ret = {};
+    keyValueList.forEach((keyValueObj, i) => {
+      const curRunUuid = runUuids[i];
+      Object.keys(keyValueObj).forEach((key) => {
+        const cur = ret[key] || {};
+        ret[key] = {
+          ...cur,
+          [curRunUuid]: keyValueObj[key]
+        };
+      });
+    });
+    return ret;
+  }
 
-    static runNameTag = 'mlflow.runName';
+  static runNameTag = 'mlflow.runName';
 
-    static formatMetric(value) {
-      if (Math.abs(value) < 10) {
-        return (Math.round(value * 1000) / 1000).toString();
-      } else if (Math.abs(value) < 100) {
-        return (Math.round(value * 100) / 100).toString();
-      } else {
-        return (Math.round(value * 10) / 10).toString();
-      }
+  static formatMetric(value) {
+    if (Math.abs(value) < 10) {
+      return (Math.round(value * 1000) / 1000).toString();
+    } else if (Math.abs(value) < 100) {
+      return (Math.round(value * 100) / 100).toString();
+    } else {
+      return (Math.round(value * 10) / 10).toString();
     }
+  }
 
     /**
      * Helper method for that returns a truncated version of the passed-in string (with trailing
      * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
      */
-    static truncateString(string, maxLength) {
-      if (string.length > maxLength) {
-        return string.slice(0, maxLength - 3) + "...";
-      }
-      return string;
+  static truncateString(string, maxLength) {
+    if (string.length > maxLength) {
+      return string.slice(0, maxLength - 3) + "...";
     }
+    return string;
+  }
 
     /**
      * We need to cast all of the timestamps back to numbers since keys of JS objects are auto casted
@@ -57,211 +57,208 @@ class Utils {
      * @param metrics - List of { timestamp: "1", [run1.uuid]: 7, ... }
      * @returns Same list but all of the timestamps casted to numbers.
      */
-    static convertTimestampToInt(metrics) {
-      return metrics.map((metric) => {
-        return {
-          ...metric,
-          timestamp: Number.parseFloat(metric.timestamp),
-        };
-      });
-    }
+  static convertTimestampToInt(metrics) {
+    return metrics.map((metric) => {
+      return {
+        ...metric,
+        timestamp: Number.parseFloat(metric.timestamp),
+      };
+    });
+  }
 
     /**
      * Format timestamps from millisecond epoch time.
      */
-    static formatTimestamp(timestamp) {
-      if (timestamp === undefined) {
-        return '(unknown)';
-      }
-      const d = new Date(0);
-      d.setUTCMilliseconds(timestamp);
-      return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
+  static formatTimestamp(timestamp) {
+    if (timestamp === undefined) {
+      return '(unknown)';
     }
+    const d = new Date(0);
+    d.setUTCMilliseconds(timestamp);
+    return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
+  }
 
     /**
      * Format a duration given in milliseconds.
      *
      * @param duration in milliseconds
      */
-    static formatDuration(duration) {
-      if (duration < 500) {
-        return duration + "ms";
-      } else if (duration < 1000 * 60) {
-        return (duration / 1000).toFixed(1) + "s";
-      } else if (duration < 1000 * 60 * 60) {
-        return (duration / 1000 / 60).toFixed(1) + "min";
-      } else if (duration < 1000 * 60 * 60 * 24) {
-        return (duration / 1000 / 60 / 60).toFixed(1) + "h";
-      } else {
-        return (duration / 1000 / 60 / 60 / 24).toFixed(1) + "d";
-      }
+  static formatDuration(duration) {
+    if (duration < 500) {
+      return duration + "ms";
+    } else if (duration < 1000 * 60) {
+      return (duration / 1000).toFixed(1) + "s";
+    } else if (duration < 1000 * 60 * 60) {
+      return (duration / 1000 / 60).toFixed(1) + "min";
+    } else if (duration < 1000 * 60 * 60 * 24) {
+      return (duration / 1000 / 60 / 60).toFixed(1) + "h";
+    } else {
+      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + "d";
     }
+  }
 
-    static formatUser(userId) {
-      return userId.replace(/@.*/, "");
-    }
+  static formatUser(userId) {
+    return userId.replace(/@.*/, "");
+  }
 
-    static baseName(path) {
-      const pieces = path.split("/");
-      return pieces[pieces.length - 1];
-    }
+  static baseName(path) {
+    const pieces = path.split("/");
+    return pieces[pieces.length - 1];
+  }
 
-    static dropExtension(path) {
-      return path.replace(/(.*[^/])\.[^/.]+$/, "$1");
-    }
+  static dropExtension(path) {
+    return path.replace(/(.*[^/])\.[^/.]+$/, "$1");
+  }
 
-    static getGitHubRegex() {
-      return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
-    }
+  static getGitHubRegex() {
+    return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
+  }
 
-    static getBitBucketRegex() {
-      return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
-    }
+  static getBitBucketRegex() {
+    return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
+  }
 
     /**
      * Renders the source name and entry point into an HTML element. Used for display.
      * @param run MlflowMessages.RunInfo
      * @param tags Object containing tag key value pairs.
      */
-    static renderSource(run, tags) {
-      let res = Utils.formatSource(run);
-      if (run.source_type === "PROJECT") {
-        const match = run.source_name.match(Utils.getGitHubRegex());
-        const match1 = run.source_name.match(Utils.getBitBucketRegex());
-        if (match) {
-          let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
-          if (match[3]) {
-            url = url + "/tree/master/" + match[3];
+  static renderSource(run, tags) {
+    let res = Utils.formatSource(run);
+    if (run.source_type === "PROJECT") {
+      const match = run.source_name.match(Utils.getGitHubRegex());
+      const match1 = run.source_name.match(Utils.getBitBucketRegex());
+      if (match) {
+        let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
+        if (match[3]) {
+          url = url + "/tree/master/" + match[3];
+          res = <a href={url}>{res}</a>;
+        } else if (match1) {
+          let url = "https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '');
+          if (match1[3]) {
+            url = url + "/commits/master/" + match1[3];
             res = <a href={url}>{res}</a>;
-          } else if (match1) {
-            let url = "https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '');
-            if (match1[3]) {
-              url = url + "/commits/master/" + match1[3];
-              res = <a href={url}>{res}</a>;
-            }
           }
-          return res;
-        } else if (run.source_type === "NOTEBOOK") {
-          const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
-          const notebookIdTag = 'mlflow.databricks.notebookID';
-          const webappUrlTag = 'mlflow.databricks.webappURL';
-          const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
-          const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
-          const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
-          if (notebookId && webappUrl) {
-            let url = `${webappUrl}/#notebook/${notebookId}`;
-            if (revisionId) {
-              url += `/revision/${revisionId}`;
-            }
-            res = (<a title={run.source_name} href={url}>
-              {Utils.baseName(run.source_name)}
-            </a>);
-          }
-          return res;
-        } else {
-          return res;
         }
+        return res;
+      } else if (run.source_type === "NOTEBOOK") {
+        const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
+        const notebookIdTag = 'mlflow.databricks.notebookID';
+        const webappUrlTag = 'mlflow.databricks.webappURL';
+        const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
+        const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
+        const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
+        if (notebookId && webappUrl) {
+          let url = `${webappUrl}/#notebook/${notebookId}`;
+          if (revisionId) {
+            url += `/revision/${revisionId}`;
+          }
+          res = (<a title={run.source_name} href={url}>
+            {Utils.baseName(run.source_name)}
+          </a>);
+        }
+        return res;
+      } else {
+        return res;
       }
     }
+  }
 
     /* Returns
-
     an
     svg
     with
     some
     styling
     applied
-
 */
 
-    static renderSourceTypeIcon(sourceType) {
-      const imageStyle = {
-        height: '20px',
-        position: 'relative',
-        top: '-1px',
-        marginRight: '2px',
-      };
-      if (sourceType === "NOTEBOOK") {
-        return <img title="Notebook" style={imageStyle} src={notebookSvg}/>;
-        } else if (sourceType === "LOCAL") {
-          return <img title="Local Source" style={imageStyle} src={laptopSvg}/>;
-        } else if (sourceType === "PROJECT") {
-            return <img title="Project" style={imageStyle} src={projectSvg}/>;
-        }
-        return <img style={imageStyle} src={emptySvg}/>;
-    }
+  static renderSourceTypeIcon(sourceType) {
+    const imageStyle = {
+      height: '20px',
+      position: 'relative',
+      top: '-1px',
+      marginRight: '2px',
+    };
+    if (sourceType === "NOTEBOOK") {
+      return <img title="Notebook" style={imageStyle} src={notebookSvg}/>;
+      } else if (sourceType === "LOCAL") {
+        return <img title="Local Source" style={imageStyle} src={laptopSvg}/>;
+      } else if (sourceType === "PROJECT") {
+        return <img title="Project" style={imageStyle} src={projectSvg}/>;
+      }
+      return <img style={imageStyle} src={emptySvg}/>;
+  }
 
     /**
      * Renders the source name and entry point into a string. Used for sorting.
      * @param run MlflowMessages.RunInfo
      */
-    static formatSource(run) {
-      if (run.source_type === "PROJECT") {
-        let res = Utils.dropExtension(Utils.baseName(run.source_name));
-        if (run.entry_point_name && run.entry_point_name !== "main") {
-          res += ":" + run.entry_point_name;
-        }
-        return res;
-      } else {
-        return Utils.baseName(run.source_name);
+  static formatSource(run) {
+    if (run.source_type === "PROJECT") {
+      let res = Utils.dropExtension(Utils.baseName(run.source_name));
+      if (run.entry_point_name && run.entry_point_name !== "main") {
+        res += ":" + run.entry_point_name;
       }
+      return res;
+    } else {
+      return Utils.baseName(run.source_name);
     }
+  }
 
     /**
      * Renders the run name into a string.
      * @param runTags Object of tag name to MlflowMessages.RunTag instance
      */
-    static getRunDisplayName(runTags, runUuid) {
-      return Utils.getRunName(runTags) || "Run " + runUuid;
-    }
+  static getRunDisplayName(runTags, runUuid) {
+    return Utils.getRunName(runTags) || "Run " + runUuid;
+  }
 
-    static getRunName(runTags) {
-      const runNameTag = runTags[Utils.runNameTag];
-      if (runNameTag) {
-        return runNameTag.value;
-      }
-      return "";
+  static getRunName(runTags) {
+    const runNameTag = runTags[Utils.runNameTag];
+    if (runNameTag) {
+      return runNameTag.value;
     }
+    return "";
+  }
 
-    static renderVersion(run, shortVersion = true) {
-      if (run.source_version) {
-        const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
-        if (run.source_type === "PROJECT") {
-          const match = run.source_name.match(Utils.getGitHubRegex());
-          const match1 = run.source_name.match(Utils.getBitBucketRegex());
-          if (match) {
-            const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
-              "/tree/" + run.source_version) + "/" + match[3];
-            return <a href={url}>{versionString}</a>;
-          }
-          else if (match1){
-            const url = ("https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '') +
-              "/commits/" + run.source_version) + "/" + match1[3];
-            return <a href={url}>{versionString}</a>;
-          }
-          return versionString;
+  static renderVersion(run, shortVersion = true) {
+    if (run.source_version) {
+      const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
+      if (run.source_type === "PROJECT") {
+        const match = run.source_name.match(Utils.getGitHubRegex());
+        const match1 = run.source_name.match(Utils.getBitBucketRegex());
+        if (match) {
+          const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
+            "/tree/" + run.source_version) + "/" + match[3];
+          return <a href={url}>{versionString}</a>;
         }
-        else {
-          return versionString;
+        else if (match1){
+          const url = ("https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '') +
+            "/commits/" + run.source_version) + "/" + match1[3];
+          return <a href={url}>{versionString}</a>;
         }
+        return versionString;
       }
-      return null;
-    }
-
-
-    static pluralize(word, quantity) {
-      if (quantity > 1) {
-        return word + 's';
-      } else {
-        return word;
+      else {
+        return versionString;
       }
     }
+    return null;
+  }
 
-    static getRequestWithId(requests, requestId) {
-      return requests.find((r) => r.id === requestId);
+
+  static pluralize(word, quantity) {
+    if (quantity > 1) {
+      return word + 's';
+    } else {
+      return word;
     }
+  }
+
+  static getRequestWithId(requests, requestId) {
+    return requests.find((r) => r.id === requestId);
+  }
 }
 
 export default Utils;
-
