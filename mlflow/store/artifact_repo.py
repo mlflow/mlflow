@@ -1,8 +1,9 @@
 import os
 from abc import abstractmethod, ABCMeta
 
-from mlflow.store.rest_store import RestStore
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.rest_store import RestStore
 from mlflow.utils.file_utils import build_path, TempDir
 
 
@@ -16,6 +17,14 @@ class ArtifactRepository:
 
     def __init__(self, artifact_uri):
         self.artifact_uri = artifact_uri
+
+    @abstractmethod
+    def get_path_module(self):
+        """
+        :return: The Python path module that should be used for parsing and modifying artifact
+                 paths. For example, if the artifact repository's URI scheme uses POSIX paths,
+                 this method may return the ``posixpath`` module.
+        """
 
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
@@ -51,13 +60,17 @@ class ArtifactRepository:
         """
         pass
 
-    def download_artifacts(self, artifact_path):
+    def download_artifacts(self, artifact_path, dst_path=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
-        :param path: Relative source path to the desired artifact
-        :return: Full path desired artifact.
+        :param path: Relative source path to the desired artifacts.
+        :param dst_path: Absolute path of the local filesystem destination directory to which to
+                         download the specified artifacts. This directory must already exist. If
+                         unspecified, the artifacts will be downloaded to a new, uniquely-named
+                         directory on the local filesystem.
+        :return: Absolute path of the local filesystem location containing the downloaded artifacts.
         """
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         # without downloading it, or to get a pre-signed URL for cloud storage.
@@ -76,8 +89,24 @@ class ArtifactRepository:
                 self._download_file(remote_file_path=artifact_path, local_path=local_path)
             return local_path
 
-        with TempDir(remove_on_exit=False) as tmp:
-            return download_artifacts_into(artifact_path, tmp.path())
+        if dst_path is not None:
+            if not os.path.exists(dst_path):
+                raise MlflowException(
+                        message=(
+                            "The specified destination path for downloaded artifacts does not"
+                            " exist! Specified path: {dst_path}".format(dst_path=dst_path)),
+                        error_code=RESOURCE_DOES_NOT_EXIST)
+            elif not os.path.isdir(dst_path):
+                raise MlflowException(
+                        message=(
+                            "The specified destination path for downloaded artifacts must be a"
+                            " directory! Specified path: {dst_path}".format(dst_path=dst_path)),
+                        error_code=INVALID_PARAMETER_VALUE)
+
+            return download_artifacts_into(artifact_path, dst_path)
+        else:
+            with TempDir(remove_on_exit=False) as tmp:
+                return download_artifacts_into(artifact_path, tmp.path())
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):

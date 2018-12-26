@@ -310,13 +310,11 @@ def test_tracking_download_file_artifact_from_absolute_azure_uri_succeeds(mock_c
             return orig_from_uri(artifact_uri, store)
 
     with mock.patch(
-            "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri", 
+            "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri",
             side_effect=mock_from_artifact_uri):
         uri = os.path.join(TEST_BLOB_CONTAINER_ROOT, "test.txt")
         output_path = _download_artifact_from_uri(uri, output_path=tmpdir.strpath)
 
-    mock_client.get_blob_to_path.assert_called_with(
-        "container", TEST_ROOT_PATH + "/test.txt", mock.ANY)
     assert os.path.exists(output_path)
     with open(output_path, "r") as f:
         assert f.read() == expected_file_text
@@ -327,7 +325,7 @@ def test_tracking_download_directory_artifact_from_absolute_azure_uri_succeeds(m
     artifact_uri = os.path.join(TEST_BLOB_CONTAINER_ROOT, artifact_dir_subpath)
 
     dir_prefix = BlobPrefix()
-    dir_prefix.name = artifact_dir_subpath 
+    dir_prefix.name = artifact_dir_subpath
 
     file_path_1 = "file_1"
     file_path_2 = "file_2"
@@ -373,7 +371,7 @@ def test_tracking_download_directory_artifact_from_absolute_azure_uri_succeeds(m
             return orig_from_uri(artifact_uri, store)
 
     with mock.patch(
-            "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri", 
+            "mlflow.store.artifact_repo.ArtifactRepository.from_artifact_uri",
             side_effect=mock_from_artifact_uri):
         _download_artifact_from_uri(artifact_uri, output_path=tmpdir.strpath)
 

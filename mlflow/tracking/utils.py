@@ -76,7 +76,7 @@ def get_artifact_uri(artifact_path, run_id):
     :param artifact_path: The run-relative artifact path.
     :param run_id: The ID of the run containing the specified artifact.
     :return: An *absolute* URI referring to the specified artifact. For example, if the artifact
-             belongs to an S3-backed store, this may be a uri of the form 
+             belongs to an S3-backed store, this may be a uri of the form
              ``s3://<bucket_name>/path/to/artifact``.
     """
     if not run_id:
@@ -85,7 +85,12 @@ def get_artifact_uri(artifact_path, run_id):
                 error_code=INVALID_PARAMETER_VALUE)
     store = _get_store()
     run = store.get_run(run_id)
-    return os.path.join(run.info.artifact_uri, artifact_path)
+    # Path separators may not be consistent across all artifact repositories. Therefore, when
+    # joining the run's artifact root directory with the artifact's relative path, we use the
+    # path module defined by the appropriate artifact repository
+    artifact_path_module =\
+        ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store).get_path_module()
+    return artifact_path_module.join(run.info.artifact_uri, artifact_path)
 
 
 def _download_artifact_from_uri(artifact_uri, output_path):

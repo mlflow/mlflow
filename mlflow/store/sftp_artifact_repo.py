@@ -29,8 +29,8 @@ class SFTPArtifactRepository(ArtifactRepository):
                 self.config['host'] = 'localhost'
 
             ssh_config = paramiko.SSHConfig()
-            user_config_file = os.path.expanduser("~/.ssh/config")
-            if os.path.exists(user_config_file):
+            user_config_file = self.get_path_module().expanduser("~/.ssh/config")
+            if self.get_path_module().exists(user_config_file):
                 with open(user_config_file) as f:
                     ssh_config.parse(f)
 
@@ -49,26 +49,32 @@ class SFTPArtifactRepository(ArtifactRepository):
 
         super(SFTPArtifactRepository, self).__init__(artifact_uri)
 
+    def get_path_module(self):
+        import posixpath
+        return posixpath
+
     def log_artifact(self, local_file, artifact_path=None):
-        artifact_dir = os.path.join(self.path, artifact_path) \
+        artifact_dir = self.get_path_module().join(self.path, artifact_path) \
             if artifact_path else self.path
         self.sftp.makedirs(artifact_dir)
-        self.sftp.put(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
+        self.sftp.put(local_file,
+                      self.get_path_module().join(
+                          artifact_dir, self.get_path_module().basename(local_file)))
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        artifact_dir = os.path.join(self.path, artifact_path) \
+        artifact_dir = self.get_path_module().join(self.path, artifact_path) \
             if artifact_path else self.path
         self.sftp.makedirs(artifact_dir)
         self.sftp.put_r(local_dir, artifact_dir)
 
     def list_artifacts(self, path=None):
         artifact_dir = self.path
-        list_dir = os.path.join(artifact_dir, path) if path else artifact_dir
+        list_dir = self.get_path_module().join(artifact_dir, path) if path else artifact_dir
         artifact_files = self.sftp.listdir(list_dir)
         infos = []
         for file_name in artifact_files:
-            file_path = file_name if path is None else os.path.join(path, file_name)
-            full_file_path = os.path.join(list_dir, file_name)
+            file_path = file_name if path is None else self.get_path_module().join(path, file_name)
+            full_file_path = self.get_path_module().join(list_dir, file_name)
             if self.sftp.isdir(full_file_path):
                 infos.append(FileInfo(file_path, True, None))
             else:
@@ -76,5 +82,5 @@ class SFTPArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        remote_full_path = os.path.join(self.path, remote_file_path)
+        remote_full_path = self.get_path_module().join(self.path, remote_file_path)
         self.sftp.get(remote_full_path, local_path)
