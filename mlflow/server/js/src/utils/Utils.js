@@ -39,10 +39,10 @@ class Utils {
     }
   }
 
-    /**
-     * Helper method for that returns a truncated version of the passed-in string (with trailing
-     * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
-     */
+/**
+* Helper method for that returns a truncated version of the passed-in string (with trailing
+* ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
+*/
   static truncateString(string, maxLength) {
     if (string.length > maxLength) {
       return string.slice(0, maxLength - 3) + "...";
@@ -50,13 +50,13 @@ class Utils {
     return string;
   }
 
-    /**
-     * We need to cast all of the timestamps back to numbers since keys of JS objects are auto casted
-     * to strings.
-     *
-     * @param metrics - List of { timestamp: "1", [run1.uuid]: 7, ... }
-     * @returns Same list but all of the timestamps casted to numbers.
-     */
+/**
+* We need to cast all of the timestamps back to numbers since keys of 
+*JS objects are auto casted to strings.
+*
+* @param metrics - List of { timestamp: "1", [run1.uuid]: 7, ... }
+*@returns Same list but all of the timestamps casted to numbers.
+*/
   static convertTimestampToInt(metrics) {
     return metrics.map((metric) => {
       return {
@@ -140,6 +140,7 @@ class Utils {
             res = <a href={url}>{res}</a>;
           }
         }
+      }
         return res;
       } else if (run.source_type === "NOTEBOOK") {
         const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
@@ -162,7 +163,6 @@ class Utils {
         return res;
       }
     }
-  }
 
     /* Returns
     an
@@ -174,26 +174,26 @@ class Utils {
 */
 
   static renderSourceTypeIcon(sourceType) {
-    const imageStyle = {
-      height: '20px',
-      position: 'relative',
-      top: '-1px',
-      marginRight: '2px',
-    };
-    if (sourceType === "NOTEBOOK") {
-      return <img title="Notebook" style={imageStyle} src={notebookSvg}/>;
-      } else if (sourceType === "LOCAL") {
-        return <img title="Local Source" style={imageStyle} src={laptopSvg}/>;
-      } else if (sourceType === "PROJECT") {
-        return <img title="Project" style={imageStyle} src={projectSvg}/>;
-      }
-      return <img style={imageStyle} src={emptySvg}/>;
-  }
+  const imageStyle = {
+    height: '20px',
+    position: 'relative',
+    top: '-1px',
+    marginRight: '2px',
+  };
+  if (sourceType === "NOTEBOOK") {
+    return <img title="Notebook" style={imageStyle} src={notebookSvg}/>;
+    } else if (sourceType === "LOCAL") {
+      return <img title="Local Source" style={imageStyle} src={laptopSvg}/>;
+    } else if (sourceType === "PROJECT") {
+      return <img title="Project" style={imageStyle} src={projectSvg}/>;
+    }
+    return <img style={imageStyle} src={emptySvg}/>;
+}
 
-    /**
-     * Renders the source name and entry point into a string. Used for sorting.
-     * @param run MlflowMessages.RunInfo
-     */
+/**
+* Renders the source name and entry point into a string. Used for sorting.
+* @param run MlflowMessages.RunInfo
+*/
   static formatSource(run) {
     if (run.source_type === "PROJECT") {
       let res = Utils.dropExtension(Utils.baseName(run.source_name));
@@ -206,10 +206,10 @@ class Utils {
     }
   }
 
-    /**
-     * Renders the run name into a string.
-     * @param runTags Object of tag name to MlflowMessages.RunTag instance
-     */
+/**
+* Renders the run name into a string.
+* @param runTags Object of tag name to MlflowMessages.RunTag instance
+*/
   static getRunDisplayName(runTags, runUuid) {
     return Utils.getRunName(runTags) || "Run " + runUuid;
   }
@@ -232,15 +232,13 @@ class Utils {
           const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
             "/tree/" + run.source_version) + "/" + match[3];
           return <a href={url}>{versionString}</a>;
-        }
-        else if (match1){
+        } else if (match1) {
           const url = ("https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '') +
             "/commits/" + run.source_version) + "/" + match1[3];
           return <a href={url}>{versionString}</a>;
         }
         return versionString;
-      }
-      else {
+      } else {
         return versionString;
       }
     }
