@@ -134,7 +134,7 @@ class Utils {
           url = url + "/tree/master/" + match[3];
           res = <a href={url}>{res}</a>;
         } else if (match1) {
-          let url = "https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '');
+          url = "https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '');
           if (match1[3]) {
             url = url + "/commits/master/" + match1[3];
             res = <a href={url}>{res}</a>;
