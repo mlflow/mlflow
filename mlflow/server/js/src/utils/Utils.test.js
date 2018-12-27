@@ -2,7 +2,6 @@ import Utils from './Utils';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { shallow } from 'enzyme';
 
-
 test("formatMetric", () => {
   expect(Utils.formatMetric(0)).toEqual("0");
   expect(Utils.formatMetric(0.5)).toEqual("0.5");
