@@ -51,7 +51,7 @@ class Utils {
   }
 
 /**
-* We need to cast all of the timestamps back to numbers since keys of 
+* We need to cast all of the timestamps back to numbers since keys of
 *JS objects are auto casted to strings.
 *
 * @param metrics - List of { timestamp: "1", [run1.uuid]: 7, ... }
