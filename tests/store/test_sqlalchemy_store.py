@@ -1,4 +1,6 @@
 import unittest
+import warnings
+
 import sqlalchemy
 import time
 import mlflow
@@ -124,6 +126,16 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.value, run_data.value)
         self.assertEqual(actual.key, run_data.key)
 
+    def test_run_needs_uuid(self):
+        run = models.SqlRun()
+        self.session.add(run)
+
+        with self.assertRaises(sqlalchemy.exc.IntegrityError):
+            warnings.simplefilter("ignore")
+            with warnings.catch_warnings():
+                self.session.commit()
+            warnings.resetwarnings()
+
     def test_run_data_model(self):
         m1 = models.SqlMetric(key='accuracy', value=0.89)
         m2 = models.SqlMetric(key='recal', value=0.89)
@@ -132,7 +144,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.session.add_all([m1, m2, p1, p2])
 
-        run_data = models.SqlRun()
+        run_data = models.SqlRun(run_uuid=uuid.uuid4().hex)
         run_data.params.append(p1)
         run_data.params.append(p2)
         run_data.metrics.append(m1)

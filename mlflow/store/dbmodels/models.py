@@ -1,5 +1,4 @@
 import time
-import uuid
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column, String, Float, ForeignKey, Integer, CheckConstraint,
@@ -36,10 +35,6 @@ RunLifecycleStageTypes = [
     RunInfo.ACTIVE_LIFECYCLE,
     RunInfo.DELETED_LIFECYCLE
 ]
-
-
-def generate_uuid():
-    return uuid.uuid4().hex
 
 
 def _create_entity(base, model):
@@ -87,9 +82,9 @@ class SqlExperiment(Base):
 
 
 class SqlRun(Base):
-    __tablename__ = 'run'
+    __tablename__ = 'runs'
 
-    run_uuid = Column(String(32), default=generate_uuid)
+    run_uuid = Column(String(32), nullable=False)
     name = Column(String(250), unique=True)
     source_type = Column(String(20), default=SourceType.to_string(SourceType.LOCAL))
     source_name = Column(String(500))
@@ -119,10 +114,11 @@ class SqlRun(Base):
 
 
 class SqlTag(Base):
-    __tablename__ = 'tag'
+    __tablename__ = 'tags'
+
     key = Column(String(250))
     value = Column(String(250), nullable=True)
-    run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     run = relationship('SqlRun', backref=backref('tags', cascade='all'))
 
     __table_args__ = (
@@ -137,11 +133,12 @@ class SqlTag(Base):
 
 
 class SqlMetric(Base):
-    __tablename__ = 'metric'
+    __tablename__ = 'metrics'
+
     key = Column(String(250))
     value = Column(Float, nullable=False)
     timestamp = Column(BigInteger, default=int(time.time()))
-    run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
 
     __table_args__ = (
@@ -156,10 +153,11 @@ class SqlMetric(Base):
 
 
 class SqlParam(Base):
-    __tablename__ = 'param'
+    __tablename__ = 'params'
+
     key = Column(String(250))
     value = Column(String(250), nullable=False)
-    run_uuid = Column(String(32), ForeignKey('run.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     run = relationship('SqlRun', backref=backref('params', cascade='all'))
 
     __table_args__ = (
