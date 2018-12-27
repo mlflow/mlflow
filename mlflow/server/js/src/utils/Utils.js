@@ -133,17 +133,15 @@ class Utils {
         if (match[3]) {
           url = url + "/tree/master/" + match[3];
           res = <a href={url}>{res}</a>;
-          return res;
         } else if (match1) {
           url = "https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '');
           if (match1[3]) {
             url = url + "/commits/master/" + match1[3];
             res = <a href={url}>{res}</a>;
-            return res;
           }
         }
       }
-      // return res;
+      return res;
     } else if (run.source_type === "NOTEBOOK") {
       const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
       const notebookIdTag = 'mlflow.databricks.notebookID';
