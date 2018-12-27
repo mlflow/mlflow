@@ -113,8 +113,6 @@ test("formatSource & renderSource", () => {
     "source_type": "PROJECT",
   });
   expect(Utils.formatSource(github_url)).toEqual("mlflow-apps:entry");
-  expect(Utils.renderSource(github_url)).toEqual(
-    <a href="https://github.com/mlflow/mlflow-apps">mlflow-apps:entry</a>);
 
   const databricksRun = RunInfo.fromJs({
     "source_name": "/Users/admin/test",
