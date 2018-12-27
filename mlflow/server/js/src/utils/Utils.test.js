@@ -1,6 +1,5 @@
 import Utils from './Utils';
 import { RunInfo } from '../sdk/MlflowMessages';
-import React from 'react';
 import { shallow } from 'enzyme';
 
 
