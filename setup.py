@@ -44,7 +44,7 @@ setup(
         'querystring_parser',
         'simplejson',
         'mleap>=0.8.1',
-        'cloudpickle'
+        'cloudpickle',
     ],
     entry_points='''
         [console_scripts]
