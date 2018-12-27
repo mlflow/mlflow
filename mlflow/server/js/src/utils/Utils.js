@@ -141,30 +141,30 @@ class Utils {
           }
         }
       }
-        return res;
-      } else if (run.source_type === "NOTEBOOK") {
-        const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
-        const notebookIdTag = 'mlflow.databricks.notebookID';
-        const webappUrlTag = 'mlflow.databricks.webappURL';
-        const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
-        const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
-        const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
-        if (notebookId && webappUrl) {
-          let url = `${webappUrl}/#notebook/${notebookId}`;
-          if (revisionId) {
-            url += `/revision/${revisionId}`;
-          }
-          res = (<a title={run.source_name} href={url}>
-            {Utils.baseName(run.source_name)}
-          </a>);
+      return res;
+    } else if (run.source_type === "NOTEBOOK") {
+      const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
+      const notebookIdTag = 'mlflow.databricks.notebookID';
+      const webappUrlTag = 'mlflow.databricks.webappURL';
+      const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
+      const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
+      const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
+      if (notebookId && webappUrl) {
+        let url = `${webappUrl}/#notebook/${notebookId}`;
+        if (revisionId) {
+          url += `/revision/${revisionId}`;
         }
-        return res;
-      } else {
-        return res;
+        res = (<a title={run.source_name} href={url}>
+          {Utils.baseName(run.source_name)}
+        </a>);
       }
+      return res;
+    } else {
+      return res;
     }
+  }
 
-    /* Returns
+/* Returns
     an
     svg
     with
@@ -174,21 +174,21 @@ class Utils {
 */
 
   static renderSourceTypeIcon(sourceType) {
-  const imageStyle = {
-    height: '20px',
-    position: 'relative',
-    top: '-1px',
-    marginRight: '2px',
-  };
-  if (sourceType === "NOTEBOOK") {
-    return <img title="Notebook" style={imageStyle} src={notebookSvg}/>;
+    const imageStyle = {
+      height: '20px',
+      position: 'relative',
+      top: '-1px',
+      marginRight: '2px',
+    };
+    if (sourceType === "NOTEBOOK") {
+      return <img title="Notebook" style={imageStyle} src={notebookSvg}/>;
     } else if (sourceType === "LOCAL") {
       return <img title="Local Source" style={imageStyle} src={laptopSvg}/>;
     } else if (sourceType === "PROJECT") {
       return <img title="Project" style={imageStyle} src={projectSvg}/>;
     }
     return <img style={imageStyle} src={emptySvg}/>;
-}
+  }
 
 /**
 * Renders the source name and entry point into a string. Used for sorting.
