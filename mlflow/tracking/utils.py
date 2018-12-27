@@ -7,6 +7,7 @@ from six.moves import urllib
 
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
+from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -22,6 +23,13 @@ _TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
 _TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
 _TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
 _TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
+
+_DBENGINES = [
+    'postgresql',
+    'mysql',
+    'sqlite',
+    'mssql',
+]
 
 
 _tracking_uri = None
@@ -74,7 +82,10 @@ def _get_store(store_uri=None):
     # Default: if URI hasn't been set, return a FileStore
     if store_uri is None:
         return FileStore()
+
     # Pattern-match on the URI
+    if _is_db_uri(store_uri):
+        return SqlAlchemyStore(store_uri)
     if _is_databricks_uri(store_uri):
         return _get_databricks_rest_store(store_uri)
     if _is_local_uri(store_uri):
@@ -106,6 +117,12 @@ def _is_databricks_uri(uri):
 def _get_file_store(store_uri):
     path = urllib.parse.urlparse(store_uri).path
     return FileStore(path)
+
+
+def _is_db_uri(uri):
+    if uri.split(':')[0] not in _DBENGINES:
+        return False
+    return True
 
 
 def _get_rest_store(store_uri):
