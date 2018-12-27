@@ -131,12 +131,12 @@ class Utils {
       if (match) {
         let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
         if (match[3]) {
-          url = url + match[3];
+          url = url + "/tree/master/" + match[3];
           res = <a href={url}>{res}</a>;
         } else if (match1) {
           url = "https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '');
           if (match1[3]) {
-            url = url + match1[3];
+            url = url + "/commits/master/" + match1[3];
             res = <a href={url}>{res}</a>;
           }
         }
