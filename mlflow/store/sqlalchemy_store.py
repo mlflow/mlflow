@@ -1,13 +1,12 @@
 import sqlalchemy
 import uuid
-from sqlalchemy import orm
-from sqlalchemy.exc import IntegrityError
-from mlflow.store.dbmodels import models
+from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
 from mlflow.entities import Experiment, RunInfo, RunStatus
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
-import mlflow.protos.databricks_pb2 as error_codes
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
+    INVALID_STATE, RESOURCE_DOES_NOT_EXIST
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -15,9 +14,9 @@ class SqlAlchemyStore(AbstractStore):
     def __init__(self, db_uri):
         super(SqlAlchemyStore, self).__init__()
         self.engine = sqlalchemy.create_engine(db_uri)
-        models.Base.metadata.create_all(self.engine)
-        models.Base.metadata.bind = self.engine
-        db_session = orm.sessionmaker(bind=self.engine)
+        Base.metadata.create_all(self.engine)
+        Base.metadata.bind = self.engine
+        db_session = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.session = db_session()
 
     def _save_to_db(self, objs):
@@ -35,72 +34,81 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_or_create(self, model, **kwargs):
         instance = self.session.query(model).filter_by(**kwargs).first()
-        create = False
+        created = False
 
         if instance:
-            return instance, create
+            return instance, created
         else:
             instance = model(**kwargs)
             self._save_to_db(instance)
-            create = True
+            created = True
 
-        return instance, create
-
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
-        experiments = []
-        filter_args = {}
-
-        if view_type == ViewType.ACTIVE_ONLY:
-            filter_args['is_deleted'] = False
-        elif view_type == ViewType.DELETED_ONLY:
-            filter_args['is_deleted'] = True
-
-        # if view_type is ALL then just leave filter_Args empty to get all experiments
-
-        for exp in self.session.query(models.SqlExperiment).filter_by(
-                **filter_args):
-            experiments.append(exp.to_mlflow_entity())
-
-        return experiments
+        return instance, created
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
-            raise MlflowException('Invalid experiment name', error_codes.INVALID_PARAMETER_VALUE)
+            raise MlflowException('Invalid experiment name', INVALID_PARAMETER_VALUE)
         try:
-            experiment = models.SqlExperiment(
-                name=name,  lifecycle_stage=Experiment.ACTIVE_LIFECYCLE,
+            experiment = SqlExperiment(
+                name=name, lifecycle_stage=Experiment.ACTIVE_LIFECYCLE,
                 artifact_location=artifact_location
             )
             self.session.add(experiment)
             self.session.commit()
-        except IntegrityError:
+        except sqlalchemy.exc.IntegrityError as e:
             self.session.rollback()
+            print(e)
             raise MlflowException('Experiment(name={}) already exists'.format(name),
-                                  error_codes.RESOURCE_ALREADY_EXISTS)
+                                  RESOURCE_ALREADY_EXISTS, exc_info=e)
 
         return experiment.to_mlflow_entity()
 
-    def get_experiment(self, experiment_id):
-        exp = self.session.query(models.SqlExperiment).get(experiment_id)
+    def _list_experiments(self, experiments, view_type=ViewType.ACTIVE_ONLY):
+        stages = []
+        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+            stages.append(Experiment.ACTIVE_LIFECYCLE)
+        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+            stages.append(Experiment.DELETED_LIFECYCLE)
 
-        if exp.is_deleted:
+        conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
+
+        if len(experiments) > 0:
+            conditions.append(SqlExperiment.experiment_id.in_(experiments))
+
+        return self.session.query(SqlExperiment).filter(*conditions)
+
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+        return [exp.to_mlflow_entity() for exp in self._list_experiments([], view_type)]
+
+    def _get_experiment(self, experiment_id, view_type):
+        experiments = self._list_experiments([experiment_id], view_type).all()
+        if len(experiments) == 0:
             raise MlflowException('No Experiment with id={} exists'.format(experiment_id),
-                                  error_codes.RESOURCE_DOES_NOT_EXIST)
+                                  RESOURCE_DOES_NOT_EXIST)
+        if len(experiments) > 1:
+            raise MlflowException('Expected only 1 experiment with id={}. Found {}.'.format(
+                experiment_id, len(experiments)), INVALID_STATE)
 
-        return exp.to_mlflow_entity()
+        return experiments[0]
+
+    def get_experiment(self, experiment_id):
+        return self._get_experiment(experiment_id, ViewType.ALL).to_mlflow_entity()
 
     def delete_experiment(self, experiment_id):
-        exp = self.session.query(models.SqlExperiment).get(experiment_id)
-        exp.is_deleted = True
-        self._save_to_db(exp)
+        experiment = self._get_experiment(experiment_id, ViewType.ACTIVE_ONLY)
+        experiment.lifecycle_stage = Experiment.DELETED_LIFECYCLE
+        self._save_to_db(experiment)
 
     def restore_experiment(self, experiment_id):
-        exp = self.session.query(models.SqlExperiment).get(experiment_id)
-        exp.is_deleted = False
-        self._save_to_db(exp)
+        experiment = self._get_experiment(experiment_id, ViewType.DELETED_ONLY)
+        experiment.lifecycle_stage = Experiment.ACTIVE_LIFECYCLE
+        self._save_to_db(experiment)
 
     def rename_experiment(self, experiment_id, new_name):
-        experiment = self.session.query(models.SqlExperiment).get(experiment_id)
+        experiment = self._get_experiment(experiment_id, ViewType.ALL)
+        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+            raise MlflowException('Cannot rename a non-active experiment.', INVALID_STATE)
+
         experiment.name = new_name
         self._save_to_db(experiment)
 
@@ -111,27 +119,43 @@ class SqlAlchemyStore(AbstractStore):
 
         if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
             raise MlflowException('Experiment id={} must be active'.format(experiment_id),
-                                  error_codes.INVALID_STATE)
+                                  INVALID_STATE)
         status = RunStatus.to_string(RunStatus.RUNNING)
         run_uuid = uuid.uuid4().hex
-        run = models.SqlRun(name=run_name, artifact_uri=None, run_uuid=run_uuid,
-                            experiment_id=experiment_id, source_type=source_type,
-                            source_name=source_name, entry_point_name=entry_point_name,
-                            user_id=user_id, status=status,
-                            start_time=start_time, end_time=None,
-                            source_version=source_version,
-                            lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
+        run = SqlRun(name=run_name, artifact_uri=None, run_uuid=run_uuid,
+                     experiment_id=experiment_id, source_type=source_type,
+                     source_name=source_name, entry_point_name=entry_point_name,
+                     user_id=user_id, status=status, start_time=start_time, end_time=None,
+                     source_version=source_version, lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
 
         for tag in tags:
-            run.tags.append(models.SqlTag(key=tag.key, value=tag.value))
+            run.tags.append(SqlTag(key=tag.key, value=tag.value))
         self._save_to_db([run])
 
-        run = run.to_mlflow_entity()
+        return run.to_mlflow_entity()
 
-        return run
+    def _get_run(self, run_uuid, view_type):
+        stages = []
+        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+            stages.append(RunInfo.ACTIVE_LIFECYCLE)
+        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+            stages.append(RunInfo.DELETED_LIFECYCLE)
+
+        runs = self.session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid,
+                                                 SqlRun.lifecycle_stage.in_(stages)).all()
+
+        if len(runs) == 0:
+            raise MlflowException('No runs with id={} exists'.format(run_uuid),
+                                  RESOURCE_DOES_NOT_EXIST)
+        if len(runs) > 1:
+            raise MlflowException('Expected only 1 run with id={}. Found {}.'.format(run_uuid,
+                                                                                     len(runs)),
+                                  INVALID_STATE)
+
+        return runs[0]
 
     def update_run_info(self, run_uuid, run_status, end_time):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+        run = self._get_run(run_uuid, ViewType.ACTIVE_ONLY)
         run.status = run_status
         run.end_time = end_time
 
@@ -140,84 +164,76 @@ class SqlAlchemyStore(AbstractStore):
 
         return run.info
 
-    def restore_run(self, run_id):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_id).first()
-        run.is_deleted = False
-        self._save_to_db(run)
-
     def get_run(self, run_uuid):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid,
-                                                          is_deleted=False).first()
-        if run is None:
-            raise MlflowException('Run(uuid={}) doesn\'t exist'.format(run_uuid),
-                                  error_codes.RESOURCE_DOES_NOT_EXIST)
-
+        run = self._get_run(run_uuid, ViewType.ALL)
         return run.to_mlflow_entity()
 
+    def restore_run(self, run_id):
+        run = self._get_run(run_id, ViewType.DELETED_ONLY)
+        run.lifecycle_stage = RunInfo.ACTIVE_LIFECYCLE
+        self._save_to_db(run)
+
     def delete_run(self, run_id):
-        run = self.session.query(models.SqlRun).filter_by(run_uuid=run_id).first()
-        run.is_deleted = True
+        run = self._get_run(run_id, ViewType.ACTIVE_ONLY)
+        run.lifecycle_stage = RunInfo.DELETED_LIFECYCLE
         self._save_to_db(run)
 
     def log_metric(self, run_uuid, metric):
         try:
-            self._get_or_create(models.SqlMetric, run_uuid=run_uuid, key=metric.key,
+            self._get_or_create(SqlMetric, run_uuid=run_uuid, key=metric.key,
                                 value=metric.value, timestamp=metric.timestamp)
-        except IntegrityError:
+        except sqlalchemy.exc.IntegrityError:
             raise MlflowException('Metric={} must be unique'.format(metric),
-                                  error_codes.INVALID_PARAMETER_VALUE)
+                                  INVALID_PARAMETER_VALUE)
 
     def log_param(self, run_uuid, param):
         # if we try to update the value of an existing param this will fail
         # because it will try to create it with same run_uuid, param key
         try:
-            self._get_or_create(models.SqlParam, run_uuid=run_uuid, key=param.key,
+            self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key,
                                 value=param.value)
-        except IntegrityError:
+        except sqlalchemy.exc.IntegrityError:
             raise MlflowException('changing parameter {} value is not allowed'.format((run_uuid,
                                                                                       param)),
-                                  error_codes.INVALID_PARAMETER_VALUE)
+                                  INVALID_PARAMETER_VALUE)
 
     def set_tag(self, run_uuid, tag):
-        new_tag = models.SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
+        new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
         self._save_to_db(new_tag)
 
-    def get_metric(self, run_uuid, metric_key):
-        metric = self.session.query(models.SqlMetric.value).filter_by(
-            run_uuid=run_uuid, key=metric_key
-        ).order_by(
-            sqlalchemy.desc(models.SqlMetric.timestamp)).first()
-
-        if metric is None:
-            raise MlflowException('Metric={} does not exist'.format(metric_key),
-                                  error_codes.RESOURCE_DOES_NOT_EXIST)
-
-        return metric.value
-
     def get_param(self, run_uuid, param_name):
-        param = self.session.query(models.SqlParam).get((param_name, run_uuid))
+        param = self.session.query(SqlParam).get((param_name, run_uuid))
 
         if param is None:
-
             raise MlflowException('Param={} does not exist'.format(param_name),
-                                  error_codes.RESOURCE_DOES_NOT_EXIST)
+                                  RESOURCE_DOES_NOT_EXIST)
 
         return param.value
 
     def get_metric_history(self, run_uuid, metric_key):
-        metrics = self.session.query(models.SqlMetric.value).filter_by(run_uuid=run_uuid,
-                                                                       key=metric_key)
+        metrics = self.session.query(SqlMetric.value).filter_by(run_uuid=run_uuid, key=metric_key)
         values = []
         for metric in metrics:
             values.append(metric.value)
 
         return values
 
+    def get_metric(self, run_uuid, metric_key):
+        metric = self.session.query(SqlMetric.value).filter_by(
+            run_uuid=run_uuid, key=metric_key
+        ).order_by(sqlalchemy.desc(SqlMetric.timestamp)).first()
+
+        if metric is None:
+            raise MlflowException('Metric={} does not exist'.format(metric_key),
+                                  RESOURCE_DOES_NOT_EXIST)
+
+        return metric.value
+
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         raise NotImplementedError()
 
     def list_run_infos(self, experiment_id, _=None):
-        exp = self.session.query(models.SqlExperiment).get(experiment_id)
+        exp = self.session.query(SqlExperiment).get(experiment_id)
         infos = []
         for run in exp.runs:
             infos.append(run.to_mlflow_entity().info)

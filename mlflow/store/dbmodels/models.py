@@ -1,9 +1,8 @@
 import time
 import uuid
-import os
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
-    Column, String, Float, ForeignKey, Integer, CheckConstraint, Boolean,
+    Column, String, Float, ForeignKey, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
@@ -13,15 +12,7 @@ from mlflow.entities import (
 Base = declarative_base()
 
 
-def _get_user_id():
-    try:
-        import pwd
-        return pwd.getpwuid(os.getuid())[0]
-    except ImportError:
-        return 'Unknown'
-
-
-ExperimentLifecycleStages = [
+ExperimentLifecycleStageTypes = [
     Experiment.ACTIVE_LIFECYCLE,
     Experiment.DELETED_LIFECYCLE
 ]
@@ -41,7 +32,7 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.RUNNING)
 ]
 
-LifecycleStageTypes = [
+RunLifecycleStageTypes = [
     RunInfo.ACTIVE_LIFECYCLE,
     RunInfo.DELETED_LIFECYCLE
 ]
@@ -76,15 +67,15 @@ def _create_entity(base, model):
 
 class SqlExperiment(Base):
     __tablename__ = 'experiments'
-    experiment_id = Column(Integer)
-    is_deleted = Column(Boolean, default=False)
+
+    experiment_id = Column(Integer, autoincrement=True)
     name = Column(String(256), unique=True, nullable=False)
     artifact_location = Column(String(256), nullable=True)
     lifecycle_stage = Column(String(32), default=Experiment.ACTIVE_LIFECYCLE)
 
     __table_args__ = (
         CheckConstraint(
-            lifecycle_stage.in_(ExperimentLifecycleStages), name='lifecycle_stage'),
+            lifecycle_stage.in_(ExperimentLifecycleStageTypes), name='lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
@@ -98,13 +89,12 @@ class SqlExperiment(Base):
 class SqlRun(Base):
     __tablename__ = 'run'
 
-    is_deleted = Column(Boolean, default=False)
     run_uuid = Column(String(32), default=generate_uuid)
     name = Column(String(250), unique=True)
     source_type = Column(String(20), default=SourceType.to_string(SourceType.LOCAL))
     source_name = Column(String(500))
     entry_point_name = Column(String(50))
-    user_id = Column(String(256), default=_get_user_id(), nullable=False)
+    user_id = Column(String(256), nullable=True, default=None)
     status = Column(String(20), default=RunStatus.to_string(RunStatus.SCHEDULED))
     start_time = Column(BigInteger, default=int(time.time()))
     end_time = Column(BigInteger, nullable=True, default=None)
@@ -117,12 +107,11 @@ class SqlRun(Base):
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(LifecycleStageTypes), name='lifecycle_stage'),
+        CheckConstraint(lifecycle_stage.in_(RunLifecycleStageTypes), name='lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
     def to_mlflow_entity(self):
-
         # run has diff parameter names in __init__ than in properties_ so we do this manually
         info = _create_entity(RunInfo, self)
         data = _create_entity(RunData, self)

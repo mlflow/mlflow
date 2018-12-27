@@ -2,7 +2,6 @@ import unittest
 import sqlalchemy
 import time
 import mlflow
-import pytest
 import uuid
 from mlflow.store.dbmodels import models
 from mlflow import entities
@@ -53,7 +52,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         actual = self.session.query(models.SqlExperiment).get(exp.experiment_id)
         self.assertEqual(len(self.store.list_experiments()), len(experiments) - 1)
 
-        self.assertTrue(actual.is_deleted)
+        self.assertEqual(actual.lifecycle_stage, entities.Experiment.DELETED_LIFECYCLE)
 
     def test_get_experiment(self):
         name = 'goku'
@@ -254,13 +253,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run_uuid = run.run_uuid
         self.store.delete_run(run_uuid)
         actual = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
-        self.assertTrue(actual.is_deleted)
+        self.assertEqual(actual.lifecycle_stage, entities.RunInfo.DELETED_LIFECYCLE)
 
-        with pytest.raises(MlflowException) as e:
-            self.store.get_run(run_uuid)
-
-        error = e.value
-        self.assertEqual(error.error_code, 'RESOURCE_DOES_NOT_EXIST')
+        deleted_run = self.store.get_run(run_uuid)
+        self.assertEqual(actual.run_uuid, deleted_run.info.run_uuid)
 
     def test_log_metric(self):
         run = self._run_factory()
@@ -432,22 +428,32 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_restore_experiment(self):
         exp = self._experiment_factory('helloexp')
+        self.assertEqual(exp.lifecycle_stage, entities.Experiment.ACTIVE_LIFECYCLE)
 
-        self.store.delete_experiment(exp.experiment_id)
+        experiment_id = exp.experiment_id
+        self.store.delete_experiment(experiment_id)
 
-        with self.assertRaises(MlflowException):
-            self.store.get_experiment(exp.experiment_id)
+        deleted = self.store.get_experiment(experiment_id)
+        self.assertEqual(deleted.experiment_id, experiment_id)
+        self.assertEqual(deleted.lifecycle_stage, entities.Experiment.DELETED_LIFECYCLE)
 
         self.store.restore_experiment(exp.experiment_id)
-        self.store.get_experiment(exp.experiment_id)
+        restored = self.store.get_experiment(exp.experiment_id)
+        self.assertEqual(restored.experiment_id, experiment_id)
+        self.assertEqual(restored.lifecycle_stage, entities.Experiment.ACTIVE_LIFECYCLE)
 
     def test_restore_run(self):
         run = self._run_factory()
+        self.assertEqual(run.lifecycle_stage, entities.RunInfo.ACTIVE_LIFECYCLE)
 
-        self.store.delete_run(run.run_uuid)
+        run_uuid = run.run_uuid
+        self.store.delete_run(run_uuid)
 
-        with self.assertRaises(MlflowException):
-            self.store.get_run(run.run_uuid)
+        deleted = self.store.get_run(run_uuid)
+        self.assertEqual(deleted.info.run_uuid, run_uuid)
+        self.assertEqual(deleted.info.lifecycle_stage, entities.RunInfo.DELETED_LIFECYCLE)
 
-        self.store.restore_run(run.run_uuid)
-        self.store.get_run(run.run_uuid)
+        self.store.restore_run(run_uuid)
+        restored = self.store.get_run(run_uuid)
+        self.assertEqual(restored.info.run_uuid, run_uuid)
+        self.assertEqual(restored.info.lifecycle_stage, entities.RunInfo.ACTIVE_LIFECYCLE)
