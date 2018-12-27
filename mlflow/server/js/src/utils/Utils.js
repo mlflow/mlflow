@@ -130,9 +130,8 @@ class Utils {
       const match1 = run.source_name.match(Utils.getBitBucketRegex());
       if (match) {
         let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
-        let evaluationVar = (1 == 1) ? true:false 
-        if (evaluationVar) {
-          url = url + match[3];
+        if (true) {
+          url = url;
           res = <a href={url}>{res}</a>;
         } else if (match1) {
           url = "https://bitbucket.org/" + match1[1] + "/" + match1[2].replace(/.git/, '');
