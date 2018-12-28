@@ -115,7 +115,7 @@ either a local directory or a GitHub URI:
 
 .. code:: bash
 
-    mlflow run tutorial -P alpha=0.5
+    mlflow run sklearn_elasticnet_wine -P alpha=0.5
 
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
 

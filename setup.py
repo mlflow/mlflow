@@ -45,6 +45,7 @@ setup(
         'simplejson',
         'mleap>=0.8.1',
         'cloudpickle',
+        'sqlalchemy'
     ],
     entry_points='''
         [console_scripts]
