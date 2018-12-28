@@ -73,7 +73,8 @@ def get_tracking_uri():
 
 def get_artifact_uri(artifact_path, run_id):
     """
-    :param artifact_path: The run-relative artifact path.
+    :param artifact_path: The run-relative artifact path. For example,
+                          ``path/to/artifact``.
     :param run_id: The ID of the run containing the specified artifact.
     :return: An *absolute* URI referring to the specified artifact. For example, if the artifact
              belongs to an S3-backed store, this may be a uri of the form
@@ -104,7 +105,7 @@ def _download_artifact_from_uri(artifact_uri, output_path):
     artifact_src_dir = artifact_path_module.dirname(artifact_uri)
     artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
     artifact_repo = ArtifactRepository.from_artifact_uri(
-            artifact_uri=artifact_src_dir, store=_get_store())
+            artifact_uri=artifact_src_dir, store=store)
     return artifact_repo.download_artifacts(
             artifact_path=artifact_src_relative_path, dst_path=output_path)
 

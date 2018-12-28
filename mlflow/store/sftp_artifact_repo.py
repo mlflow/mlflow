@@ -29,8 +29,8 @@ class SFTPArtifactRepository(ArtifactRepository):
                 self.config['host'] = 'localhost'
 
             ssh_config = paramiko.SSHConfig()
-            user_config_file = self.get_path_module().expanduser("~/.ssh/config")
-            if self.get_path_module().exists(user_config_file):
+            user_config_file = os.path.expanduser("~/.ssh/config")
+            if os.path.exists(user_config_file):
                 with open(user_config_file) as f:
                     ssh_config.parse(f)
 
@@ -50,8 +50,7 @@ class SFTPArtifactRepository(ArtifactRepository):
         super(SFTPArtifactRepository, self).__init__(artifact_uri)
 
     def get_path_module(self):
-        import posixpath
-        return posixpath
+        return os.path 
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = self.get_path_module().join(self.path, artifact_path) \

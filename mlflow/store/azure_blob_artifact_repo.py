@@ -64,14 +64,15 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = self.get_path_module().join(dest_path, artifact_path)
-        dest_path = self.get_path_module().join(dest_path, os.path.basename(local_file))
+        dest_path = self.get_path_module().join(
+                dest_path, self.get_path_module().basename(local_file))
         self.client.create_blob_from_path(container, dest_path, local_file)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = self.get_path_module().join(dest_path, artifact_path)
-        local_dir = os.path.abspath(local_dir)
+        local_dir = self.get_path_module().abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:

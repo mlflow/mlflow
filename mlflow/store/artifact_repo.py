@@ -1,10 +1,11 @@
 import os
+import tempfile
 from abc import abstractmethod, ABCMeta
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.rest_store import RestStore
-from mlflow.utils.file_utils import build_path, TempDir
+from mlflow.utils.file_utils import build_path 
 
 
 class ArtifactRepository:
@@ -89,24 +90,23 @@ class ArtifactRepository:
                 self._download_file(remote_file_path=artifact_path, local_path=local_path)
             return local_path
 
-        if dst_path is not None:
-            if not os.path.exists(dst_path):
-                raise MlflowException(
-                        message=(
-                            "The specified destination path for downloaded artifacts does not"
-                            " exist! Specified path: {dst_path}".format(dst_path=dst_path)),
-                        error_code=RESOURCE_DOES_NOT_EXIST)
-            elif not os.path.isdir(dst_path):
-                raise MlflowException(
-                        message=(
-                            "The specified destination path for downloaded artifacts must be a"
-                            " directory! Specified path: {dst_path}".format(dst_path=dst_path)),
-                        error_code=INVALID_PARAMETER_VALUE)
+        if dst_path is None:
+            dst_path = os.path.abspath(tempfile.mkdtemp())
 
-            return download_artifacts_into(artifact_path, dst_path)
-        else:
-            with TempDir(remove_on_exit=False) as tmp:
-                return download_artifacts_into(artifact_path, tmp.path())
+        if not os.path.exists(dst_path):
+            raise MlflowException(
+                    message=(
+                        "The destination path for downloaded artifacts does not"
+                        " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
+                    error_code=RESOURCE_DOES_NOT_EXIST)
+        elif not os.path.isdir(dst_path):
+            raise MlflowException(
+                    message=(
+                        "The destination path for downloaded artifacts must be a directory!" 
+                        " Destination path: {dst_path}".format(dst_path=dst_path)),
+                    error_code=INVALID_PARAMETER_VALUE)
+
+        return download_artifacts_into(artifact_path, dst_path)
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):

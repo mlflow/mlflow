@@ -63,8 +63,7 @@ class FTPArtifactRepository(ArtifactRepository):
         return size
 
     def get_path_module(self):
-        import posixpath
-        return posixpath
+        return os.path 
 
     def log_artifact(self, local_file, artifact_path=None):
         with self.get_ftp_client() as ftp:
@@ -103,7 +102,6 @@ class FTPArtifactRepository(ArtifactRepository):
             artifact_dir = self.path
             list_dir = self.get_path_module().join(artifact_dir, path) if path else artifact_dir
 
-            print(list_dir, self._is_dir(list_dir))
             if not self._is_dir(list_dir):
                 return []
 
