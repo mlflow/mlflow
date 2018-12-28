@@ -228,7 +228,7 @@ class Utils {
                      "/tree/" + run.source_version) + "/" + GitHubMatch[3];
           return <a href={url}>{versionString}</a>;
         } else if (BitBucketMatch) {
-          const url = ("https://bitbucket.org/" + BitBucketMatch[1] + "/" + 
+          const url = ("https://bitbucket.org/" + BitBucketMatch[1] + "/" +
                      BitBucketMatch[2].replace(/.git/, '') + "/commits/" + run.source_version) + "/" + BitBucketMatch[3];
           return <a href={url}>{versionString}</a>;
         }
