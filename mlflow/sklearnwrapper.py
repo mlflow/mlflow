@@ -300,30 +300,6 @@ class SKLearnModelWrapper:
         self.coltypes = coltypes
         self.features = features
 
-    # def transform(self, input_df):
-    #     """Transforms input when serving the model."""
-    #     df = input_df.copy()
-    #     for col in self.coltypes['cont_num_cols']:
-    #         if col in df.columns:
-    #             df[col] = df[col].astype('float64')
-    #             df[col] = df[col].fillna(df[col].mean())
-    #     for col in self.coltypes['disc_num_cols']:
-    #         if col in df.columns:
-    #             df[col] = df[col].astype('int64')
-    #             df[col] = df[col].fillna(0)
-    #     for col in self.coltypes['categoric_cols']:
-    #         if col in df.columns:
-    #             df[col] = df[col].astype('object')
-    #             df[col] = df[col].fillna('UNKNOWN')
-    #     df = pd.get_dummies(df)
-    #     missing_cols = set(self.features) - set(df.columns)
-    #     for c in missing_cols:
-    #         df[c] = 0
-    #     extra_cols = set( df.columns ) - set(self.features)
-    #     print('extra columns: {}'.format(extra_cols))
-    #     df = df[self.features]
-    #     return df
-
     def predict(self, df):
         transformed = transform_input(df, self.coltypes, self.features, fit=False)
         return self.model.predict_proba(transformed)[:,1]
