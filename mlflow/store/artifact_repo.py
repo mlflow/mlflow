@@ -5,7 +5,7 @@ from abc import abstractmethod, ABCMeta
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.rest_store import RestStore
-from mlflow.utils.file_utils import build_path 
+from mlflow.utils.file_utils import build_path
 
 
 class ArtifactRepository:
@@ -102,7 +102,7 @@ class ArtifactRepository:
         elif not os.path.isdir(dst_path):
             raise MlflowException(
                     message=(
-                        "The destination path for downloaded artifacts must be a directory!" 
+                        "The destination path for downloaded artifacts must be a directory!"
                         " Destination path: {dst_path}".format(dst_path=dst_path)),
                     error_code=INVALID_PARAMETER_VALUE)
 

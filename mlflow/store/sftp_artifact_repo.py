@@ -50,7 +50,7 @@ class SFTPArtifactRepository(ArtifactRepository):
         super(SFTPArtifactRepository, self).__init__(artifact_uri)
 
     def get_path_module(self):
-        return os.path 
+        return os.path
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = self.get_path_module().join(self.path, artifact_path) \

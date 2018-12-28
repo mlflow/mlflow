@@ -62,7 +62,7 @@ class FTPArtifactRepository(ArtifactRepository):
         return size
 
     def get_path_module(self):
-        return os.path 
+        return os.path
 
     def log_artifact(self, local_file, artifact_path=None):
         with self.get_ftp_client() as ftp:
