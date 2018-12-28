@@ -77,7 +77,7 @@ class ArtifactRepository:
         # without downloading it, or to get a pre-signed URL for cloud storage.
 
         def download_artifacts_into(artifact_path, dest_dir):
-            basename = os.path.basename(artifact_path)
+            basename = self.get_path_module().basename(artifact_path)
             local_path = build_path(dest_dir, basename)
             listing = self.list_artifacts(artifact_path)
             if len(listing) > 0:

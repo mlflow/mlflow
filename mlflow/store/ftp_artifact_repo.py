@@ -7,7 +7,6 @@ from six.moves import urllib
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import TempDir
 
 
 class FTPArtifactRepository(ArtifactRepository):
@@ -101,10 +100,8 @@ class FTPArtifactRepository(ArtifactRepository):
         with self.get_ftp_client() as ftp:
             artifact_dir = self.path
             list_dir = self.get_path_module().join(artifact_dir, path) if path else artifact_dir
-
             if not self._is_dir(list_dir):
                 return []
-
             artifact_files = ftp.nlst(list_dir)
             infos = []
             for file_name in artifact_files:

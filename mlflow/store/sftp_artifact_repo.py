@@ -69,6 +69,8 @@ class SFTPArtifactRepository(ArtifactRepository):
     def list_artifacts(self, path=None):
         artifact_dir = self.path
         list_dir = self.get_path_module().join(artifact_dir, path) if path else artifact_dir
+        if not self.sftp.isdir(list_dir):
+            return []
         artifact_files = self.sftp.listdir(list_dir)
         infos = []
         for file_name in artifact_files:
