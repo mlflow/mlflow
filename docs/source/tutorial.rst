@@ -247,12 +247,12 @@ Now that you have your training code, you can package it so that other data scie
 
     .. container:: python
 
-      You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``tutorial/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
       .. code:: yaml
 
-          # tutorial/MLproject
+          # sklearn_elasticnet_wine/MLproject
 
           name: tutorial
 
@@ -270,7 +270,7 @@ Now that you have your training code, you can package it so that other data scie
 
       .. code:: yaml
 
-          # tutorial/conda.yaml
+          # sklearn_elasticnet_wine/conda.yaml
 
           name: tutorial
           channels:
