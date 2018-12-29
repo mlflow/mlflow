@@ -2,11 +2,13 @@ import mock
 import os
 import pytest
 
+import mlflow
+import mlflow.tracking.utils
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
-    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
-    _TRACKING_INSECURE_TLS_ENV_VAR, get_db_profile_from_uri
+    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
+    get_db_profile_from_uri, _download_artifact_from_uri
 
 
 def test_get_store_file_store(tmpdir):
@@ -118,3 +120,23 @@ def test_get_store_databricks_profile(tmpdir):
 
 def test_get_db_profile_from_uri_casing():
     assert get_db_profile_from_uri('databricks://aAbB') == 'aAbB'
+
+
+def test_artifact_can_be_downloaded_from_absolute_uri_successfully(tmpdir):
+    artifact_file_name = "artifact.txt"
+    artifact_text = "Sample artifact text"
+    local_artifact_path = tmpdir.join(artifact_file_name).strpath
+    with open(local_artifact_path, "w") as out:
+        out.write(artifact_text)
+
+    logged_artifact_path = "artifact"
+    with mlflow.start_run():
+        mlflow.log_artifact(local_path=local_artifact_path, artifact_path=logged_artifact_path)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path=logged_artifact_path)
+
+    downloaded_artifact_path = os.path.join(
+        _download_artifact_from_uri(artifact_uri), artifact_file_name)
+    assert downloaded_artifact_path != local_artifact_path
+    assert downloaded_artifact_path != logged_artifact_path
+    with open(downloaded_artifact_path, "r") as f:
+        assert f.read() == artifact_text
