@@ -247,14 +247,14 @@ def get_artifact_uri(artifact_path=None):
     run will be returned; calls to ``log_artifact`` and ``log_artifacts`` write
     artifact(s) to subdirectories of the artifact root URI.
 
-    :param artifact_path: The run-relative artifact path for which to obtain an absolute URI. 
-                          For example, "path/to/artifact". If unspecified, the artifact root URI 
+    :param artifact_path: The run-relative artifact path for which to obtain an absolute URI.
+                          For example, "path/to/artifact". If unspecified, the artifact root URI
                           for the currently active run will be returned.
-    :return: An *absolute* URI referring to the specified artifact or the currently adtive run's 
-             artifact root. For example, if an artifact path is provided and the currently active 
+    :return: An *absolute* URI referring to the specified artifact or the currently adtive run's
+             artifact root. For example, if an artifact path is provided and the currently active
              run uses an S3-backed store, this may be a uri of the form
              ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
-             is not provided and the currently active run uses an S3-backed store, this may be a 
+             is not provided and the currently active run uses an S3-backed store, this may be a
              URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
     """
     return mlflow.tracking.utils.get_artifact_uri(

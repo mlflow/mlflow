@@ -73,8 +73,8 @@ def get_tracking_uri():
 
 def get_artifact_uri(run_id, artifact_path=None):
     """
-    Get the absolute URI of the specified artifact in the specified run. If `path` is not specified, 
-    the artifact root URI of the specified run will be returned; calls to ``log_artifact`` 
+    Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,
+    the artifact root URI of the specified run will be returned; calls to ``log_artifact``
     and ``log_artifacts`` write artifact(s) to subdirectories of the artifact root URI.
 
     :param run_id: The ID of the run for which to obtain an absolute artifact URI.
@@ -82,10 +82,10 @@ def get_artifact_uri(run_id, artifact_path=None):
                           ``path/to/artifact``. If unspecified, the artifact root URI for the
                           specified run will be returned.
     :return: An *absolute* URI referring to the specified artifact or the specified run's artifact
-             root. For example, if an artifact path is provided and the specified run uses an 
+             root. For example, if an artifact path is provided and the specified run uses an
              S3-backed  store, this may be a uri of the form
              ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
-             is not provided and the specified run uses an S3-backed store, this may be a URI of 
+             is not provided and the specified run uses an S3-backed store, this may be a URI of
              the form ``s3://<bucket_name>/path/to/artifact/root``.
     """
     if not run_id:

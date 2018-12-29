@@ -270,4 +270,4 @@ def test_get_artifact_uri_uses_currently_active_run_id():
     with mlflow.start_run() as active_run:
         assert mlflow.get_artifact_uri(artifact_path=artifact_path) ==\
             tracking.utils.get_artifact_uri(
-                run_id=active_run.info.run_uuid, artifact_path=artifact_path) 
+                run_id=active_run.info.run_uuid, artifact_path=artifact_path)
