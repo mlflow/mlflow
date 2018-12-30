@@ -3,7 +3,6 @@ import os
 import pytest
 
 import mlflow
-import mlflow.tracking.utils
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
