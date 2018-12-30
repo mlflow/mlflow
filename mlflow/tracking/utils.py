@@ -114,7 +114,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     store = _get_store()
     artifact_path_module =\
-            ArtifactRepository.from_artifact_uri(artifact_uri, store).get_path_module()
+        ArtifactRepository.from_artifact_uri(artifact_uri, store).get_path_module()
     artifact_src_dir = artifact_path_module.dirname(artifact_uri)
     artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
     artifact_repo = ArtifactRepository.from_artifact_uri(
