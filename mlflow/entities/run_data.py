@@ -55,8 +55,8 @@ class RunData(_MLflowObject):
         return run_data
 
     def to_dictionary(self):
-        return { prop: [dict(value) for value in getattr(self, prop)]
-                 for prop in RunData._properties() }
+        return {prop: [dict(value) for value in getattr(self, prop)]
+                 for prop in RunData._properties()}
 
     @classmethod
     def from_proto(cls, proto):
