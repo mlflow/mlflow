@@ -6,12 +6,12 @@ import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
 
 class Utils {
-   /**
-    * Merge a runs parameters / metrics.
-    * @param runsUuids - A list of Run UUIDs.
-    * @param keyValueList - A list of objects. One object for each run.
-    * @retuns A key to a map of (runUuid -> value)
-    */
+  /**
+   * Merge a runs parameters / metrics.
+   * @param runsUuids - A list of Run UUIDs.
+   * @param keyValueList - A list of objects. One object for each run.
+   * @retuns A key to a map of (runUuid -> value)
+   */
   static mergeRuns(runUuids, keyValueList) {
     const ret = {};
     keyValueList.forEach((keyValueObj, i) => {
@@ -39,10 +39,10 @@ class Utils {
     }
   }
 
-/**
- * Helper method for that returns a truncated version of the passed-in string (with trailing
- * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
- */
+  /**
+   * Helper method for that returns a truncated version of the passed-in string (with trailing
+   * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
+   */
   static truncateString(string, maxLength) {
     if (string.length > maxLength) {
       return string.slice(0, maxLength - 3) + "...";
@@ -50,13 +50,13 @@ class Utils {
     return string;
   }
 
-/**
- * We need to cast all of the timestamps back to numbers since keys of
- *JS objects are auto casted to strings.
- *
- * @param metrics - List of { timestamp: "1", [run1.uuid]: 7, ... }
- *@returns Same list but all of the timestamps casted to numbers.
- */
+  /**
+   * We need to cast all of the timestamps back to numbers since keys of
+   *JS objects are auto casted to strings.
+   *
+   * @param metrics - List of { timestamp: "1", [run1.uuid]: 7, ... }
+   *@returns Same list but all of the timestamps casted to numbers.
+   */
   static convertTimestampToInt(metrics) {
     return metrics.map((metric) => {
       return {
@@ -66,9 +66,9 @@ class Utils {
     });
   }
 
-    /**
-    * Format timestamps from millisecond epoch time.
-    */
+  /**
+   * Format timestamps from millisecond epoch time.
+   */
   static formatTimestamp(timestamp) {
     if (timestamp === undefined) {
       return '(unknown)';
@@ -78,11 +78,11 @@ class Utils {
     return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
   }
 
-    /**
-     * Format a duration given in milliseconds.
-     *
-     * @param duration in milliseconds
-     */
+  /**
+   * Format a duration given in milliseconds.
+   *
+   * @param duration in milliseconds
+   */
   static formatDuration(duration) {
     if (duration < 500) {
       return duration + "ms";
@@ -118,11 +118,11 @@ class Utils {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
-    /**
-    * Renders the source name and entry point into an HTML element. Used for display.
-    * @param run MlflowMessages.RunInfo
-    * @param tags Object containing tag key value pairs.
-    */
+  /**
+   * Renders the source name and entry point into an HTML element. Used for display.
+   * @param run MlflowMessages.RunInfo
+   * @param tags Object containing tag key value pairs.
+   */
   static renderSource(run, tags) {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
@@ -167,7 +167,6 @@ class Utils {
   /**
    * Returns an svg with some styling applied.
    */
-
   static renderSourceTypeIcon(sourceType) {
     const imageStyle = {
       height: '20px',
@@ -185,10 +184,10 @@ class Utils {
     return <img style={imageStyle} src={emptySvg} />;
   }
 
-/**
- * Renders the source name and entry point into a string. Used for sorting.
- * @param run MlflowMessages.RunInfo
- */
+  /**
+   * Renders the source name and entry point into a string. Used for sorting.
+   * @param run MlflowMessages.RunInfo
+   */
   static formatSource(run) {
     if (run.source_type === "PROJECT") {
       let res = Utils.dropExtension(Utils.baseName(run.source_name));
@@ -201,10 +200,10 @@ class Utils {
     }
   }
 
-/**
- * Renders the run name into a string.
- * @param runTags Object of tag name to MlflowMessages.RunTag instance
- */
+  /**
+   * Renders the run name into a string.
+   * @param runTags Object of tag name to MlflowMessages.RunTag instance
+   */
   static getRunDisplayName(runTags, runUuid) {
     return Utils.getRunName(runTags) || "Run " + runUuid;
   }
@@ -239,7 +238,6 @@ class Utils {
     }
     return null;
   }
-
 
   static pluralize(word, quantity) {
     if (quantity > 1) {
