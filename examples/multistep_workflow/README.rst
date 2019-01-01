@@ -48,7 +48,7 @@ run:
 
 .. code::
 
-    cd example/multistep
+    cd examples/multistep_workflow
     mlflow run .
 
 
