@@ -1,3 +1,9 @@
+"""
+Example of scoring images with MLflow model deployed to a REST API endpoint.
+
+The MLflow model to be scored is expected to be an instance of KerasImageClassifierPyfunc
+(e.g. produced by running this project) and deployed with MLflow prior to invoking this script.
+"""
 import os
 import base64
 import requests
@@ -7,6 +13,14 @@ import pandas as pd
 
 
 def score_model(path, uri, port):
+    """
+    Score images on the local path with MLflow model deployed at given uri and port.
+
+    :param path: Path to a single image file or a directory of images.
+    :param uri: URI the model is deployed at
+    :param port: Port the model is deployed at.
+    :return: Server response.
+    """
     if os.path.isdir(path):
         filenames = [os.path.join(path, x) for x in os.listdir(path)
                      if os.path.isfile(os.path.join(path, x))]
@@ -37,6 +51,10 @@ def score_model(path, uri, port):
 @click.argument("model_uri")
 @click.argument("input_data_path")
 def run(input_data_path, model_uri, port):
+    """
+    Score images with MLflow deployed deployed at given uri and port and print out the response
+    to standard out.
+    """
     print(score_model(input_data_path, model_uri, port).text)
 
 

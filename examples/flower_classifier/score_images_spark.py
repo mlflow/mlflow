@@ -1,3 +1,12 @@
+"""
+Example of scoring images with MLflow model produced by running this project in Spark.
+
+The MLflow model is loaded to Spark using ``mlflow.pyfunc.spark_udf``. The images are read as binary
+data and represented as base64 encoded string column and passed to the model. The results are
+returned as a column with predicted class label, class id and probabilities for each class encoded
+as an array of strings.
+
+"""
 import os
 import base64
 
