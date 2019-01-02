@@ -131,7 +131,7 @@ class Utils {
         let url = "https://github.com/" + GitHubMatch[1] + "/" + GitHubMatch[2].replace(/.git/, '');
         if (GitHubMatch[3]) {
           url = url + "/tree/master/" + GitHubMatch[3];
-        } 
+        }
         res = <a href={url}>{res}</a>;
       }
       return res;
