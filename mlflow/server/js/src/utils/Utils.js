@@ -127,19 +127,12 @@ class Utils {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
       const GitHubMatch = run.source_name.match(Utils.getGitHubRegex());
-      const BitBucketMatch = run.source_name.match(Utils.getBitBucketRegex());
       if (GitHubMatch) {
         let url = "https://github.com/" + GitHubMatch[1] + "/" + GitHubMatch[2].replace(/.git/, '');
         if (GitHubMatch[3]) {
           url = url + "/tree/master/" + GitHubMatch[3];
-          res = <a href={url}>{res}</a>;
-        } else if (BitBucketMatch) {
-          url = "https://bitbucket.org/" + BitBucketMatch[1] + "/" + BitBucketMatch[2].replace(/.git/, '');
-          if (BitBucketMatch[3]) {
-            url = url + "/commits/master/" + BitBucketMatch[3];
-            res = <a href={url}>{res}</a>;
-          }
-        }
+        } 
+        res = <a href={url}>{res}</a>;
       }
       return res;
     } else if (run.source_type === "NOTEBOOK") {
