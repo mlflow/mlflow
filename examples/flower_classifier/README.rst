@@ -4,7 +4,7 @@ How To Train and Deploy Image Classifier with MLflow and Keras
 In this example we demonstrate how to train and deploy image classification models with MLflow.
 We train a VGG16 deep learning model to classify flower species from photos using a `dataset
 <http://download.tensorflow.org/example_images/flower_photos.tgz>`_ available from `tensorflow.org
-<http://www.tensorflow.org>`_. Note that although we use Keras to train the model in this case, a
+<http://www.tensorflow.org>`_. Note that although we use Keras to train the model in this case,
 similar approach can be applied to other deep learning frameworks such as ``PyTorch``.
 
 The MLflow model produced by running this example can be deployed to any MLflow supported endpoints.

@@ -1,12 +1,7 @@
 """
-Example of image classification with MLflow using Keras to classify flowers fromw photos.
-
-The run method is the main entry point. It will read the comand line arguments and call train.
-
-The train method will read images from local path and train a Keras model wrapped inside MLflow
-Pyfunc model together with the preprocessing logic necessary to score the model on image data.
-
-The MLflowLogger is a Keras callback which logs metrics and the final model with MLflow.
+Example of image classification with MLflow using Keras to classify flowers from photos. The data is
+taken from ``http://download.tensorflow.org/example_images/flower_photos.tgz`` and may be
+downloaded during running this project if it is missing.
 """
 import math
 import os
