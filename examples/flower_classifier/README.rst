@@ -1,31 +1,115 @@
-Hyperparameter Tuning Example
-------------------------------
+How To Train and Deploy Image Classifier with MLflow and Keras
+---------------------------------------------------------------
 
-Example of image classification with MLflow and Keras.
+In this example we demonstrate how to train and deploy image classification models with MLflow.
+We train a VGG16 deep learning model to classify flower species from photos using a `dataset
+<http://download.tensorflow.org/example_images/flower_photos.tgz>`_ available from `tensorflow.org
+<http://www.tensorflow.org>`_. Note that although we use Keras to train the model in this case, a
+similar approach can be applied to other deep learning frameworks such as ``PyTorch``.
 
-This example builds an image classifier for flower photos available from tensorflow.org. It uses
-VGG16 and InceptionV3 models from Keras with an option to use pretrained weights. The image
-preprocessing required  in order to train or score the model is packaged with the model using custom
-python function.
+The MLflow model produced by running this example can be deployed to any MLflow supported endpoints.
+All the necessary image preprocessing is packaged with the model. The model can therefore be applied
+to image data directly. All that is required in order to pass new data tot he model is to encode the
+image binary data as base64 encoded string in pandas DataFrame (standard interface for MLflow python
+function models). You can check included python scripts showing how to score model deployed to a
+REST api endpoint and also of batch scoring in Spark.
 
-The MLflow model produced by running this example can be deployed at any of supported mlflow
-endpoints. It accepts pandas DataFrame with a single column containing the (jpeg) image as base64
-encoded binary data.
+In order to include a custom image pre-processing logic with the model, we define the model as a
+custom python function model wrapping around the underlying Keras model. The wrapper provides
+necessary preprocessing to convert input data into a multidimensional arrays expected by the
+Keras model. The preprocessing logic is stored with the model as a code dependency. Here is an
+example of the output model directory layout:
+
+.. code:: bash
+
+   tree model
+
+::
+
+    model
+    ├── MLmodel
+    ├── code
+    │   └── image_pyfunc.py
+    └── data
+        └── tmpf7mnjr6w
+            ├── conda_env.yaml
+            ├── conf.yaml
+            └── keras_model
+                └── keras_model
+                    ├── MLmodel
+                    ├── conda.yaml
+                    └── model.h5
+
+
+The example contains the following files:
+
+ * MLproject
+   Contains definition of this project. Contains only one entry point to train the model.
+
+ * conda.yaml
+   Defines project dependencies. NOTE: You might want to change tensorflow package to tensroflow-gpu
+   if you have gpu(s) available.
+
+ * train.py
+   Main entry point of the projects. Handles command line arguments and possibly downloads the
+   dataset.
+
+ * keras_image_classifier.py
+   The implementation of the model train and also of the outputed custom python flavor model. Note
+   that the same preprocessing code that is used during model training is packaged with the output
+   model and is used during scoring.
+
+ * score_images_rest.py
+   Score an image or a directory of images using a model deployed to a REST endpoint.
+
+ * score_images_spark.py
+   Score an image or a directory of images using model deployed to Spark.
 
 
 
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 
-You can run the example as a standard MLflow project.
+To train the model, run the example as a standard MLflow project:
 
 
 .. code:: bash
 
     mlflow run -e train examples/flower_classifier
 
-Will download the training dataset from tensorflow org, train a classifier using Keras and log
-result with Mlflow.
+This will download the training dataset from ``tensorflow.org``, train a classifier using Keras and
+log results with Mlflow.
+
+To test your model, run the included scoring scripts. For example, say your model was trained with
+run_id ``101``.
+
+- To test REST api scoring do the following two steps:
+
+  1. Deploy it as a local REST endpoint by running mlflow pyfunc serve:
+
+  .. code:: bash
+
+      # deploy the model to local REST api endpoint
+      mlflow pyfunc serve -p 54321 -r 101 -m model
 
 
-You can experiment with the model paramaters and compare these results by using ``mlflow ui``.
+  2. Apply the model to new data using the provided score_images_rest.py script:
+
+  .. code:: bash
+
+      # score the deployed model
+      python score_images_rest.py --port 54321 http://127.0.0.1 ./my_images_to_score
+
+
+- To test batch scoring in spark, run score_images_spark.py to score the model in Spark like this:
+
+.. code:: bash
+
+   python score_images_spark.py ./my_images_to_score model --run-id 101
+
+
+
+
+
+
+

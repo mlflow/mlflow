@@ -34,10 +34,10 @@ def score_model(path, uri, port):
 
 @click.command(help="Score images.")
 @click.option("--port", type=click.INT, default=80, help="Port at which the model is deployed.")
-@click.argument("uri")
-@click.argument("path")
-def run(path, uri, port):
-    print(score_model(path, uri, port).text)
+@click.argument("model_uri")
+@click.argument("input_data_path")
+def run(input_data_path, model_uri, port):
+    print(score_model(input_data_path, model_uri, port).text)
 
 
 if __name__ == '__main__':
