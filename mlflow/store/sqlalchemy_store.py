@@ -1,7 +1,7 @@
 import sqlalchemy
 import uuid
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
-from mlflow.entities import Experiment, RunInfo, RunStatus
+from mlflow.entities import Experiment, RunInfo, RunStatus, SourceType
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -123,7 +123,7 @@ class SqlAlchemyStore(AbstractStore):
         status = RunStatus.to_string(RunStatus.RUNNING)
         run_uuid = uuid.uuid4().hex
         run = SqlRun(name=run_name, artifact_uri=None, run_uuid=run_uuid,
-                     experiment_id=experiment_id, source_type=source_type,
+                     experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                      source_name=source_name, entry_point_name=entry_point_name,
                      user_id=user_id, status=status, start_time=start_time, end_time=None,
                      source_version=source_version, lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
@@ -156,7 +156,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def update_run_info(self, run_uuid, run_status, end_time):
         run = self._get_run(run_uuid, ViewType.ACTIVE_ONLY)
-        run.status = run_status
+        run.status = RunStatus.to_string(run_status)
         run.end_time = end_time
 
         self._save_to_db(run)

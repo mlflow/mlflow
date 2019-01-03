@@ -227,7 +227,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         tags = [t.to_mlflow_entity() for t in expected.tags]
         actual = self.store.create_run(expected.experiment_id, expected.user_id, name,
-                                       expected.source_type, expected.source_name,
+                                       entities.SourceType.from_string(expected.source_type),
+                                       expected.source_name,
                                        expected.entry_point_name, expected.start_time,
                                        expected.source_version, tags, -1)
 
@@ -430,12 +431,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_update_run_info(self):
         run = self._run_factory()
-        new_status = entities.RunStatus.to_string(entities.RunStatus.FINISHED)
+        new_status = entities.RunStatus.FINISHED
         endtime = int(time.time())
 
         actual = self.store.update_run_info(run.run_uuid, new_status, endtime)
 
-        self.assertEqual(actual.status, new_status)
+        self.assertEqual(actual.status, entities.RunStatus.to_string(new_status))
         self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):

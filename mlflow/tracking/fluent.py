@@ -13,7 +13,7 @@ import sys
 import time
 import logging
 
-from mlflow.entities import Experiment, Run, SourceType, RunInfo
+from mlflow.entities import Experiment, Run, SourceType, RunInfo, RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
@@ -61,7 +61,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        status = "FINISHED" if exc_type is None else "FAILED"
+        status = RunStatus.FINISHED if exc_type is None else RunStatus.FAILED
         end_run(status)
         return exc_type is None
 
@@ -150,7 +150,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     return _active_run_stack[-1]
 
 
-def end_run(status="FINISHED"):
+def end_run(status=RunStatus.FINISHED):
     """End an active MLflow run (if there is one)."""
     global _active_run_stack
     if len(_active_run_stack) > 0:
