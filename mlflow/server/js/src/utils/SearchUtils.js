@@ -10,7 +10,7 @@ export class SearchUtils {
 }
 
 const METRIC_CLAUSE_REGEX = /metrics\.([a-zA-z0-9]+)\s{0,}(=|!=|>|>=|<=|<)\s{0,}(\d+\.{0,}\d{0,})/;
-const PARAM_CLAUSE_REGEX = /params\.([a-zA-z0-9]+)\s{0,}(=|!=)\s{0,}"([a-zA-Z0-9.-]+)"/;
+const PARAM_CLAUSE_REGEX = /params\.([a-zA-z0-9]+)\s{0,}(=|!=)\s{0,}"(.*)"/;
 class Private {
   static parseSearchClause(searchClauseString) {
     const trimmedInput = searchClauseString.trim();
