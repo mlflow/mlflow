@@ -46,12 +46,12 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 ]
 
 
-def save_model(model_wrapper, path, conda_env=None, mlflow_model=Model(),
+def save_model(pipeline_wrapper, path, conda_env=None, mlflow_model=Model(),
                serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
     """
-    Save a sklearn model wrapper to a path on the local file system.
+    Save a sklearn pipeline wrapper to a path on the local file system.
 
-    :param model_wrapper: model wrapper to be saved.
+    :param pipeline_wrapper: pipeline wrapper to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
@@ -84,18 +84,18 @@ def save_model(model_wrapper, path, conda_env=None, mlflow_model=Model(),
     >>> iris = load_iris()
     >>> sk_model = tree.DecisionTreeClassifier()
     >>> sk_model = sk_model.fit(iris.data, iris.target)
-    >>> model_wrapper = SKLearnModelWrapper(sk_model)
+    >>> pipeline_wrapper = SKLearnPipelineWrapper(sk_model)
     >>> #Save the model in cloudpickle format
     >>> #set path to location for persistence
     >>> sk_path_dir_1 = ...
     >>> mlflow.sklearnwrapper.save_model(
-    >>>         model_wrapper, sk_path_dir_1,
+    >>>         pipeline_wrapper, sk_path_dir_1,
     >>>         serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
     >>>
     >>> #Save the model in pickle format
     >>> #set path to location for persistence
     >>> sk_path_dir_2 = ...
-    >>> mlflow.sklearnwrapper.save_model(model_wrapper, sk_path_dir_2,
+    >>> mlflow.sklearnwrapper.save_model(pipeline_wrapper, sk_path_dir_2,
     >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
@@ -112,7 +112,7 @@ def save_model(model_wrapper, path, conda_env=None, mlflow_model=Model(),
                               error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
     model_data_subpath = "model.pkl"
-    _save_model(model_wrapper=model_wrapper, output_path=os.path.join(path, model_data_subpath),
+    _save_model(pipeline_wrapper=pipeline_wrapper, output_path=os.path.join(path, model_data_subpath),
                 serialization_format=serialization_format)
 
     conda_env_subpath = "conda.yaml"
@@ -136,12 +136,12 @@ def save_model(model_wrapper, path, conda_env=None, mlflow_model=Model(),
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(model_wrapper, artifact_path, conda_env=None,
+def log_model(pipeline_wrapper, artifact_path, conda_env=None,
               serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
     """
-    Log a scikit-learn model wrapper as an MLflow artifact for the current run.
+    Log a scikit-learn pipeline wrapper as an MLflow artifact for the current run.
 
-    :param model_wrapper: scikit-learn model wrapper to be saved.
+    :param pipeline_wrapper: scikit-learn pipeline wrapper to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
@@ -174,23 +174,23 @@ def log_model(model_wrapper, artifact_path, conda_env=None,
     >>> iris = load_iris()
     >>> sk_model = tree.DecisionTreeClassifier()
     >>> sk_model = sk_model.fit(iris.data, iris.target)
-    >>> model_wrapper = SKLearnModelWrapper(sk_model)
+    >>> pipeline_wrapper = SKLearnPipelineWrapper(sk_model)
     >>> #set the artifact_path to location where experiment artifacts will be saved
     >>> #log model params
     >>> mlflow.log_param("criterion", sk_model.criterion)
     >>> mlflow.log_param("splitter", sk_model.splitter)
     >>> #log model
-    >>> mlflow.sklearnwrapper.log_model(model_wrapper, "model_wrappers")
+    >>> mlflow.sklearnwrapper.log_model(pipeline_wrapper, "pipeline_wrappers")
     """
     return Model.log(artifact_path=artifact_path,
                      flavor=mlflow.sklearnwrapper,
-                     model_wrapper=model_wrapper,
+                     pipeline_wrapper=pipeline_wrapper,
                      conda_env=conda_env,
                      serialization_format=serialization_format)
 
 
 def _load_model_from_local_file(path):
-    """Load a scikit-learn model wrapper saved as an MLflow artifact on the local file system."""
+    """Load a scikit-learn pipeline wrapper saved as an MLflow artifact on the local file system."""
     # TODO: we could validate the SciKit-Learn version here
     with open(path, "rb") as f:
         # Models serialized with Cloudpickle can be deserialized using Pickle; in fact,
@@ -205,9 +205,9 @@ def _load_pyfunc(path):
         return pickle.load(f)
 
 
-def _save_model(model_wrapper, output_path, serialization_format):
+def _save_model(pipeline_wrapper, output_path, serialization_format):
     """
-    :param model_wrapper: The Scikit-learn model wrapper to serialize.
+    :param pipeline_wrapper: The Scikit-learn pipeline wrapper to serialize.
     :param output_path: The file path to which to write the serialized model.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the following: `mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`,
@@ -215,10 +215,10 @@ def _save_model(model_wrapper, output_path, serialization_format):
     """
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-            pickle.dump(model_wrapper, out)
+            pickle.dump(pipeline_wrapper, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
-            cloudpickle.dump(model_wrapper, out)
+            cloudpickle.dump(pipeline_wrapper, out)
         else:
             raise MlflowException(
                     message="Unrecognized serialization format: {serialization_format}".format(
@@ -227,17 +227,17 @@ def _save_model(model_wrapper, output_path, serialization_format):
 
 def load_model(path, run_id=None):
     """
-    Load a sklearn model wrapper from a local file (if ``run_id`` is None) or a run.
+    Load a sklearn pipeline wrapper from a local file (if ``run_id`` is None) or a run.
 
     :param path: Local filesystem path or run-relative artifact path to the model saved
                  by :py:func:`mlflow.sklearn.save_model`.
     :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
 
     >>> import mlflow.sklearn
-    >>> model_wrapper = mlflow.sklearn.load_model("model_wrappers", run_id="96771d893a5e46159d9f3b49bf9013e2")
+    >>> pipeline_wrapper = mlflow.sklearn.load_model("pipeline_wrappers", run_id="96771d893a5e46159d9f3b49bf9013e2")
     >>> #use Pandas DataFrame to make predictions
     >>> pandas_df = ...
-    >>> predictions = model_wrapper.predict(pandas_df)
+    >>> predictions = pipeline_wrapper.predict(pandas_df)
     """
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
@@ -246,60 +246,102 @@ def load_model(path, run_id=None):
     sklearn_model_artifacts_path = os.path.join(path, flavor_conf['pickled_model'])
     return _load_model_from_local_file(path=sklearn_model_artifacts_path)
 
-def transform_input(input_df, coltypes, features=None, fit=True):
-    """Transforms raw input into model features.
+class DtypeTransform():
 
-    >>> coltypes = {
-    >>>     'cont_num_cols': ['age', 'income'],
-    >>>     'disc_num_cols': ['count'],
-    >>>     'categoric_cols': ['day_of_week'],
-    >>> }
-    >>> X = mlflow.sklearnwrapper.transform_input(X, coltypes, fit=True)
-    """
-    df = input_df.copy()
-    for col in coltypes['cont_num_cols']:
-        if col in df.columns:
-            df[col] = df[col].astype('float64')
-            df[col] = df[col].fillna(df[col].mean())
-    for col in coltypes['disc_num_cols']:
-        if col in df.columns:
-            df[col] = df[col].astype('int64')
-            df[col] = df[col].fillna(0)
-    for col in coltypes['categoric_cols']:
-        if col in df.columns:
-            df[col] = df[col].astype('object')
-            df[col] = df[col].fillna('UNKNOWN')
-    df = pd.get_dummies(df)
-    if not fit:
-        missing_cols = set(features) - set(df.columns)
-        for c in missing_cols:
-            df[c] = 0
-        extra_cols = set( df.columns ) - set(features)
-        print('extra columns: {}'.format(extra_cols))
-        df = df[features]
-    return df
-
-
-class SKLearnModelWrapper:
-
-    def __init__(self, model, coltypes, features):
+    def __init__(self, coltypes):
         """
-        A wrapper around an scikit-learn model with ability to transform raw input in the same
+        Sets column dtypes.
+
+        >>> coltypes = {
+        >>>     'cont_num_cols': ['age', 'income'],
+        >>>     'disc_num_cols': ['count'],
+        >>>     'categoric_cols': ['day_of_week'],
+        >>> }
+        >>> trans = mlflow.sklearnwrapper.DtypeTransform(coltypes)
+        >>> df = trans.fit_transform(df)
+
+        """
+        self.coltypes = coltypes
+
+    def fit(self, X, y=None):
+        pass
+
+    def transform(self, X, y=None):
+        df = X.copy()
+        for col in self.coltypes['cont_num_cols']:
+            if col in df.columns:
+                df[col] = df[col].astype('float64')
+                df[col] = df[col].fillna(df[col].mean())
+        for col in self.coltypes['disc_num_cols']:
+            if col in df.columns:
+                df[col] = df[col].astype('int64')
+                df[col] = df[col].fillna(0)
+        for col in self.coltypes['categoric_cols']:
+            if col in df.columns:
+                df[col] = df[col].astype('object')
+                df[col] = df[col].fillna('UNKNOWN')
+
+        # Flatten columns
+        all_cols = [col for cols in self.coltypes.values() for col in cols]
+
+        # Remove columns without dtype specified
+        df = df[all_cols]
+
+        return df
+
+    def fit_transform(self, X, y=None):
+        return self.transform(X, y)
+
+
+class SKLearnPipelineWrapper:
+
+    def __init__(self, pipeline):
+        """
+        A wrapper around an scikit-learn pipeline with ability to transform raw input in the same
         manner as in training.
 
-        :param model: sckit-learn model
-        :param coltypes: dict used to transform raw inputs into model features
-        :param features: list of all feature names (after one-hot encoding)
+        :param pipeline: an sklearn.pipeline
 
-        >>> clf = LogisticRegression(penalty='l1', C=0.1, random_state=123)
-        >>> clf.fit(X_train, y_train)
-        >>> model_wrapper = mlflow.sklearnwrapper.SKLearnModelWrapper(clf, coltypes,
-                                                                  X_train.columns.values)
+        >>> # Build pipeline
+        >>> dt_trans = mlflow.sklearnwrapper.DtypeTransform(coltypes)
+        >>> numeric_transformer = Pipeline(steps=[('scaler', StandardScaler())])
+        >>> categoric_transormer = Pipeline(steps=[('onehot', OneHotEncoder(handle_unknown='ignore'))])
+        >>> numeric_cols = coltypes['cont_num_cols'] + coltypes['disc_num_cols']
+        >>> preprocessor = ColumnTransformer(transformers=[
+        >>>     ('categoric_transformer', categoric_transormer, coltypes['categoric_cols']),
+        >>>     ('numeric_transformer', numeric_transformer, numeric_cols),
+        >>> ])
+        >>> clf = LogisticRegression(penalty=penalty, C=C, random_state=123)
+        >>> pipe = Pipeline(steps=[
+        >>>     ('dtype_trans', dt_trans),
+        >>>     ('preprocessor', preprocessor),
+        >>>     ('clf', clf),
+        >>> ])
+        >>> pipe.fit(X_train, y_train)
+        >>>
+        >>> # Create pipeline wrapper
+        >>> pipeline_wrapper = mlflow.sklearnwrapper.SKLearnPipelineWrapper(pipe)
+        >>> pipeline_wrapper.fit(X_train, y_train)
+        >>>
+        >>> # Evaluate Metrics
+        >>> preds = pipeline_wrapper._predict(X_test)
+        >>> pred_probas = pipeline_wrapper._predict_proba(X_test)
+        >>> (acc, auc) = eval_metrics(y_test, preds, pred_probas)
         """
-        self.model = model
-        self.coltypes = coltypes
-        self.features = features
+        self.pipeline = pipeline
+
+    def fit(self, X, y):
+        return self.pipeline.fit(X, y)
 
     def predict(self, df):
-        transformed = transform_input(df, self.coltypes, self.features, fit=False)
-        return self.model.predict_proba(transformed)[:,1]
+        """Used for serving pipeline in production."""
+        return self._predict_proba(df)
+
+    def _predict(self, df):
+        """Used during training for model evaluation."""
+        return self.pipeline.predict(df)
+
+    def _predict_proba(self, df):
+        """Used during training for model evaluation."""
+        return self.pipeline.predict_proba(df)[:,1]
+
