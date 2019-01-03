@@ -3,6 +3,7 @@ import { RunInfo } from '../sdk/MlflowMessages';
 import React from 'react';
 import { shallow } from 'enzyme';
 
+
 test("formatMetric", () => {
   expect(Utils.formatMetric(0)).toEqual("0");
   expect(Utils.formatMetric(0.5)).toEqual("0.5");
