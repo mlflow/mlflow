@@ -62,7 +62,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         status = RunStatus.FINISHED if exc_type is None else RunStatus.FAILED
-        end_run(status)
+        end_run(RunStatus.to_string(status))
         return exc_type is None
 
 
@@ -150,7 +150,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     return _active_run_stack[-1]
 
 
-def end_run(status=RunStatus.FINISHED):
+def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
     """End an active MLflow run (if there is one)."""
     global _active_run_stack
     if len(_active_run_stack) > 0:
