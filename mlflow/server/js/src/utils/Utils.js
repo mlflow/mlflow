@@ -51,11 +51,10 @@ class Utils {
   }
 
   /**
-   * We need to cast all of the timestamps back to numbers since keys of
-   *JS objects are auto casted to strings.
-   *
+   * We need to cast all of the timestamps back to numbers since keys of JS objects are auto casted
+   * to strings.
    * @param metrics - List of { timestamp: "1", [run1.uuid]: 7, ... }
-   *@returns Same list but all of the timestamps casted to numbers.
+   * @returns Same list but all of the timestamps casted to numbers.
    */
   static convertTimestampToInt(metrics) {
     return metrics.map((metric) => {
