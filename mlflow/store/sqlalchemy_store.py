@@ -115,7 +115,6 @@ class SqlAlchemyStore(AbstractStore):
 
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
                    entry_point_name, start_time, source_version, tags, parent_run_id):
-        _ = parent_run_id
         experiment = self.get_experiment(experiment_id)
 
         if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
