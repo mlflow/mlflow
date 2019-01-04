@@ -222,14 +222,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         name = 'booyya'
         expected.tags.append(models.SqlTag(key='3', value='4'))
         expected.tags.append(models.SqlTag(key='1', value='2'))
-        self.session.add_all([expected, expected.tags[0], expected.tags[1]])
-        self.session.commit()
 
         tags = [t.to_mlflow_entity() for t in expected.tags]
         actual = self.store.create_run(expected.experiment_id, expected.user_id, name,
-                                       expected.source_type, expected.source_name,
+                                       entities.SourceType.from_string(expected.source_type),
+                                       expected.source_name,
                                        expected.entry_point_name, expected.start_time,
-                                       expected.source_version, tags, -1)
+                                       expected.source_version, tags, None)
 
         self.assertEqual(actual.info.experiment_id, expected.experiment_id)
         self.assertEqual(actual.info.user_id, expected.user_id)
@@ -239,8 +238,38 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.source_version, expected.source_version)
         self.assertEqual(actual.info.entry_point_name, expected.entry_point_name)
         self.assertEqual(actual.info.start_time, expected.start_time)
-        self.assertEqual(len(actual.data.tags), 2)
-        self.assertListEqual(actual.data.tags, tags)
+        self.assertEqual(len(actual.data.tags), 3)
+
+        name_tag = models.SqlTag(key='mlflow.runName', value=name).to_mlflow_entity()
+        self.assertListEqual(actual.data.tags, tags + [name_tag])
+
+    def test_create_run_with_parent_id(self):
+        expected = self._run_factory()
+        name = 'booyya'
+        expected.tags.append(models.SqlTag(key='3', value='4'))
+        expected.tags.append(models.SqlTag(key='1', value='2'))
+
+        tags = [t.to_mlflow_entity() for t in expected.tags]
+        actual = self.store.create_run(expected.experiment_id, expected.user_id, name,
+                                       entities.SourceType.from_string(expected.source_type),
+                                       expected.source_name,
+                                       expected.entry_point_name, expected.start_time,
+                                       expected.source_version, tags, "parent_uuid_5")
+
+        self.assertEqual(actual.info.experiment_id, expected.experiment_id)
+        self.assertEqual(actual.info.user_id, expected.user_id)
+        self.assertEqual(actual.info.name, name)
+        self.assertEqual(actual.info.source_type, expected.source_type)
+        self.assertEqual(actual.info.source_name, expected.source_name)
+        self.assertEqual(actual.info.source_version, expected.source_version)
+        self.assertEqual(actual.info.entry_point_name, expected.entry_point_name)
+        self.assertEqual(actual.info.start_time, expected.start_time)
+        self.assertEqual(len(actual.data.tags), 4)
+
+        name_tag = models.SqlTag(key='mlflow.runName', value=name).to_mlflow_entity()
+        parent_id_tag = models.SqlTag(key='mlflow.parentRunId',
+                                      value='parent_uuid_5').to_mlflow_entity()
+        self.assertListEqual(actual.data.tags, tags + [parent_id_tag, name_tag])
 
     def test_to_mlflow_entity(self):
         run = self._run_factory()
@@ -430,12 +459,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_update_run_info(self):
         run = self._run_factory()
-        new_status = entities.RunStatus.to_string(entities.RunStatus.FINISHED)
+        new_status = entities.RunStatus.FINISHED
         endtime = int(time.time())
 
         actual = self.store.update_run_info(run.run_uuid, new_status, endtime)
 
-        self.assertEqual(actual.status, new_status)
+        self.assertEqual(actual.status, entities.RunStatus.to_string(new_status))
         self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):

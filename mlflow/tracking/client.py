@@ -208,7 +208,7 @@ class MlflowClient(object):
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else int(time.time() * 1000)
-        status = status if status else "FINISHED"
+        status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
                                    end_time=end_time)
 
