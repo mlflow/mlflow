@@ -85,7 +85,7 @@ class SqlRun(Base):
     __tablename__ = 'runs'
 
     run_uuid = Column(String(32), nullable=False)
-    name = Column(String(250), unique=True)
+    name = Column(String(250))
     source_type = Column(String(20), default=SourceType.to_string(SourceType.LOCAL))
     source_name = Column(String(500))
     entry_point_name = Column(String(50))
@@ -93,7 +93,7 @@ class SqlRun(Base):
     status = Column(String(20), default=RunStatus.to_string(RunStatus.SCHEDULED))
     start_time = Column(BigInteger, default=int(time.time()))
     end_time = Column(BigInteger, nullable=True, default=None)
-    source_version = Column(String(20))
+    source_version = Column(String(50))
     lifecycle_stage = Column(String(20), default=RunInfo.ACTIVE_LIFECYCLE)
     artifact_uri = Column(String(20), default=None)
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))

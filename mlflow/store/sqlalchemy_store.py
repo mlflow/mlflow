@@ -7,6 +7,7 @@ from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -122,7 +123,7 @@ class SqlAlchemyStore(AbstractStore):
                                   INVALID_STATE)
         status = RunStatus.to_string(RunStatus.RUNNING)
         run_uuid = uuid.uuid4().hex
-        run = SqlRun(name=run_name, artifact_uri=None, run_uuid=run_uuid,
+        run = SqlRun(name=run_name or "", artifact_uri=None, run_uuid=run_uuid,
                      experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                      source_name=source_name, entry_point_name=entry_point_name,
                      user_id=user_id, status=status, start_time=start_time, end_time=None,
@@ -130,6 +131,11 @@ class SqlAlchemyStore(AbstractStore):
 
         for tag in tags:
             run.tags.append(SqlTag(key=tag.key, value=tag.value))
+        if parent_run_id:
+            run.tags.append(SqlTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
+        if run_name:
+            run.tags.append(SqlTag(key=MLFLOW_RUN_NAME, value=run_name))
+
         self._save_to_db([run])
 
         return run.to_mlflow_entity()
