@@ -22,6 +22,7 @@ import mlflow.pyfunc.cli
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.models import Model
+<<<<<<< HEAD
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 
@@ -118,6 +119,24 @@ def test_model_log_load(sklearn_knn_model, model_class, iris_data):
     np.testing.assert_array_equal(
             loaded_pyfunc_model.predict(input_df=iris_data[0]),
             test_predict(sk_model=sklearn_knn_model, input_df=iris_data[0]))
+
+
+def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
+        custom_kwargs = {
+            "key1": "value1",
+            "key2": 20,
+            "key3": range(10),
+        }
+        model_config = Model()
+        mlflow.pyfunc.add_to_model(model=model_config,
+                                   loader_module=os.path.basename(__file__)[:-3],
+                                   data="data",
+                                   code="code",
+                                   env=None,
+                                   **custom_kwargs)
+
+        assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
+        assert all([item in model_config.flavors[pyfunc.FLAVOR_NAME] for item in custom_kwargs])
 
 
 def test_pyfunc_model_serving_without_conda_env_activation_succeeds(
