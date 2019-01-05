@@ -13,6 +13,7 @@ import sys
 import time
 import logging
 
+import mlflow.tracking.utils
 from mlflow.entities import Experiment, Run, SourceType, RunInfo, RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -239,12 +240,25 @@ def create_experiment(name, artifact_location=None):
     return MlflowClient().create_experiment(name, artifact_location)
 
 
-def get_artifact_uri():
+def get_artifact_uri(artifact_path=None):
     """
-    Get the artifact URI of the currently active run. Calls to ``log_artifact`` and
-    ``log_artifacts`` write artifact(s) to subdirectories of the returned URI.
+    Get the absolute URI of the specified artifact in the currently active run.
+    If `path` is not specified, the artifact root URI of the currently active
+    run will be returned; calls to ``log_artifact`` and ``log_artifacts`` write
+    artifact(s) to subdirectories of the artifact root URI.
+
+    :param artifact_path: The run-relative artifact path for which to obtain an absolute URI.
+                          For example, "path/to/artifact". If unspecified, the artifact root URI
+                          for the currently active run will be returned.
+    :return: An *absolute* URI referring to the specified artifact or the currently adtive run's
+             artifact root. For example, if an artifact path is provided and the currently active
+             run uses an S3-backed store, this may be a uri of the form
+             ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
+             is not provided and the currently active run uses an S3-backed store, this may be a
+             URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
     """
-    return _get_or_start_run().info.artifact_uri
+    return mlflow.tracking.utils.get_artifact_uri(
+        run_id=_get_or_start_run().info.run_uuid, artifact_path=artifact_path)
 
 
 def _get_or_start_run():
