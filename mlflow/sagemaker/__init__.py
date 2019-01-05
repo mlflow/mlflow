@@ -183,7 +183,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     region = my_session.region_name or "us-west-2"
     fullname = _full_template.format(account=account, region=region, image=image,
                                      version=mlflow.version.VERSION)
-    _logger.info("Pushing docker image %s to %s", image=image, repo=fullname)
+    _logger.info("Pushing docker image %s to %s", image, fullname)
     ecr_client = boto3.client('ecr')
     try:
         ecr_client.describe_repositories(repositoryNames=[image])['repositories']
