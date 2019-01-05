@@ -6,7 +6,6 @@ from six.moves import urllib
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import build_path, get_relative_path
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -27,33 +26,41 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
         return boto3.client('s3', endpoint_url=s3_endpoint_url)
 
+    def get_path_module(self):
+        import posixpath
+        return posixpath
+
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
-            dest_path = build_path(dest_path, artifact_path)
-        dest_path = build_path(dest_path, os.path.basename(local_file))
+            dest_path = self.get_path_module().join(dest_path, artifact_path)
+        dest_path = self.get_path_module().join(
+            dest_path, self.get_path_module().basename(local_file))
         s3_client = self._get_s3_client()
         s3_client.upload_file(local_file, bucket, dest_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
-            dest_path = build_path(dest_path, artifact_path)
+            dest_path = self.get_path_module().join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
-        local_dir = os.path.abspath(local_dir)
+        local_dir = self.get_path_module().abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
-                rel_path = get_relative_path(local_dir, root)
-                upload_path = build_path(dest_path, rel_path)
+                rel_path = self.get_path_module().relpath(root, local_dir)
+                upload_path = self.get_path_module().join(dest_path, rel_path)
             for f in filenames:
-                s3_client.upload_file(build_path(root, f), bucket, build_path(upload_path, f))
+                s3_client.upload_file(
+                        self.get_path_module().join(root, f),
+                        bucket,
+                        self.get_path_module().join(upload_path, f))
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
-            dest_path = build_path(dest_path, path)
+            dest_path = self.get_path_module().join(dest_path, path)
         infos = []
         prefix = dest_path + "/"
         s3_client = self._get_s3_client()
@@ -75,6 +82,6 @@ class S3ArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
-        s3_full_path = build_path(s3_root_path, remote_file_path)
+        s3_full_path = self.get_path_module().join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
         s3_client.download_file(bucket, s3_full_path, local_path)

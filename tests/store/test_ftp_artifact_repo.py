@@ -47,7 +47,7 @@ def test_list_artifacts(ftp_mock):
     file_path = "file"
     file_size = 678
     dir_path = "model"
-    ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None])
+    ftp_mock.cwd = MagicMock(side_effect=[None, ftplib.error_perm, None])
     ftp_mock.nlst = MagicMock(return_value=[file_path, dir_path])
 
     ftp_mock.size = MagicMock(return_value=file_size)
@@ -87,7 +87,7 @@ def test_list_artifacts_with_subdir(ftp_mock):
 
     ftp_mock.nlst = MagicMock(return_value=[file_path, subdir_name])
 
-    ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None])
+    ftp_mock.cwd = MagicMock(side_effect=[None, ftplib.error_perm, None])
 
     ftp_mock.size = MagicMock(return_value=file_size)
 
@@ -163,7 +163,8 @@ def test_download_artifacts_single(ftp_mock):
 
 
 def test_download_artifacts(ftp_mock):
-    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+    artifact_root_path = "/some/path"
+    repo = FTPArtifactRepository("ftp://test_ftp" + artifact_root_path)
 
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
@@ -174,25 +175,40 @@ def test_download_artifacts(ftp_mock):
     #     |- model.pb
     #     |- variables
     #        |- test.txt
-    dir_name = 'model'
+    dir_path = os.path.join(artifact_root_path, 'model')
 
     # list artifacts at sub directory level
-    file_path = 'model.pb'
+    model_file_path_sub = 'model.pb'
+    model_file_path_full = os.path.join(dir_path, model_file_path_sub)
     subdir_name = 'variables'
+    subdir_path_full = os.path.join(dir_path, subdir_name)
     subfile_name = 'test.txt'
-    ftp_dir_name = '/some/path/' + dir_name
+    subfile_path_full = os.path.join(artifact_root_path, subdir_path_full, subfile_name)
 
-    ftp_mock.cwd = MagicMock(side_effect=[None, None, ftplib.error_perm,
-                                          None, None, ftplib.error_perm])
-    ftp_mock.nlst = MagicMock(side_effect=[[file_path, subdir_name], [subfile_name]])
+    is_dir_mapping = {
+        dir_path: True,
+        model_file_path_full: False,
+        subdir_path_full: True,
+        subfile_path_full: False,
+    }
+
+    is_dir_call_args = [
+        dir_path, model_file_path_full, subdir_path_full,
+        model_file_path_full,
+        subdir_path_full, subfile_path_full,
+        subfile_path_full
+    ]
+
+    cwd_side_effect = [
+        None if is_dir_mapping[call_arg] else ftplib.error_perm for call_arg in is_dir_call_args
+    ]
+    ftp_mock.cwd = MagicMock(side_effect=cwd_side_effect)
+    ftp_mock.nlst = MagicMock(side_effect=[[model_file_path_sub, subdir_name], [subfile_name]])
 
     repo.download_artifacts("model")
 
-    cwd_call_args = sorted([ftp_mock.cwd.call_args_list[i][0][0] for i in range(6)])
-    expect_args = [ftp_dir_name, ftp_dir_name, os.path.join(ftp_dir_name, file_path),
-                   os.path.join(ftp_dir_name, subdir_name), os.path.join(ftp_dir_name, subdir_name),
-                   os.path.join(ftp_dir_name, subdir_name, subfile_name)]
-    assert cwd_call_args == expect_args
+    cwd_call_args = [arg_entry[0][0] for arg_entry in ftp_mock.cwd.call_args_list]
+    assert cwd_call_args == is_dir_call_args
     assert ftp_mock.nlst.call_count == 2
-    assert ftp_mock.retrbinary.call_args_list[0][0][0] == 'RETR ' + file_path
-    assert ftp_mock.retrbinary.call_args_list[1][0][0] == 'RETR ' + subfile_name
+    assert ftp_mock.retrbinary.call_args_list[0][0][0] == 'RETR ' + model_file_path_full
+    assert ftp_mock.retrbinary.call_args_list[1][0][0] == 'RETR ' + subfile_path_full
