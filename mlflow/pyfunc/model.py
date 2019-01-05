@@ -27,6 +27,8 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
 )
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
+CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
+CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PARAMETERS = "parameters"
 CONFIG_KEY_MODEL_CLASS = "model_class"
 CONFIG_KEY_MODEL_CLASS_PATH = "path"
@@ -38,10 +40,21 @@ class PythonModel(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, context):
+        """
+        :param context: A PythonModelContext instance containing artifacts and parameters
+                        that the model can use to perform inference.
+        """
         self.context = context
 
     @abstractmethod
     def predict(self, model_input):
+        """
+        Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
+        For more information about the pyfunc input/output API, see the pyfunc flavor documentation:
+        `https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html`_.
+
+        :param model_input: A pyfunc-compatible input for the model to evaluate. 
+        """
         pass
 
 
@@ -130,7 +143,10 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
             tmp_artifacts_config[artifact_name] = tmp_artifact_path
             saved_artifact_subpath = os.path.relpath(
                     path=tmp_artifact_path, start=tmp_artifacts_dir.path())
-            saved_artifacts_config[artifact_name] = saved_artifact_subpath
+            saved_artifacts_config[artifact_name] = {
+                CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
+                CONFIG_KEY_ARTIFACT_URI: artifact_uri, 
+            }
 
         _validate_artifacts(tmp_artifacts_config)
         shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath), 
@@ -336,12 +352,13 @@ def _load_pyfunc(model_path):
     with TempDir() as tmp:
         artifacts = {}
         tmp_artifacts_dir = tmp.path("artifacts")
-        for saved_artifact_name, saved_artifact_path in\
+        for saved_artifact_name, saved_artifact_info in\
                 pyfunc_config.get(CONFIG_KEY_ARTIFACTS, {}).items():
             tmp_artifact_path = os.path.join(
                     tmp_artifacts_dir,
                     _copy_file_or_tree(
-                        src=os.path.join(model_path, saved_artifact_path),
+                        src=os.path.join(
+                            model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]),
                         dst=tmp_artifacts_dir, 
                         dst_dir=saved_artifact_name))
             artifacts[saved_artifact_name] = tmp_artifact_path
