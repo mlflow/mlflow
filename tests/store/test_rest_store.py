@@ -22,7 +22,7 @@ class TestRestStore(unittest.TestCase):
             kwargs = dict((k, v) for k, v in six.iteritems(kwargs) if v is not None)
             assert kwargs == {
                 'method': 'GET',
-                'json': {'view_type': 'ACTIVE_ONLY'},
+                'params': {'view_type': 'ACTIVE_ONLY'},
                 'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
                 'headers': {},
                 'verify': True,
