@@ -1,7 +1,6 @@
 import os
 
 import mlflow.pyfunc
-from mlflow.pyfunc import ENV, FLAVOR_NAME
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking.utils import _get_model_log_dir
@@ -50,4 +49,5 @@ def _load_model_env(path, run_id=None):
     """
     if run_id is not None:
         path = _get_model_log_dir(path, run_id)
-    return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
+    return _get_flavor_configuration(model_path=path, flavor_name=mlflow.pyfunc.FLAVOR_NAME).get(
+        mlflow.pyfunc.ENV, None)
