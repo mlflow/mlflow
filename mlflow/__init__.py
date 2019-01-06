@@ -56,7 +56,6 @@ end_run = mlflow.tracking.fluent.end_run
 get_artifact_uri = mlflow.tracking.fluent.get_artifact_uri
 set_tracking_uri = tracking.set_tracking_uri
 get_tracking_uri = tracking.get_tracking_uri
-get_artifact_uri = tracking.get_artifact_uri
 create_experiment = mlflow.tracking.fluent.create_experiment
 set_experiment = mlflow.tracking.fluent.set_experiment
 
