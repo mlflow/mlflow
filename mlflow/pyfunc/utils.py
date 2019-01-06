@@ -8,6 +8,14 @@ from mlflow.tracking.utils import _get_model_log_dir
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
+    """
+    Obtains the names of the subdirectories contained under the specified source code
+    path and joins them with the specified destination code path.
+
+    :param src_code_path: The path of the source code directory for which to list subdirectories.
+    :param dst_code_path: The destination directory path to which subdirectory names should be
+                          joined.
+    """
     if not dst_code_path:
         dst_code_path = src_code_path
     return [(os.path.join(dst_code_path, x))
@@ -15,7 +23,12 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
             x.endswith(".pyc") and not x == "__pycache__"]
 
 
-def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
+def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
+    """
+    Compares the version of Python that was used to save a given model with the version
+    of Python that is currently running. If a major or minor version difference is detected,
+    logs an appropriate warning.
+    """
     if model_py_version is None:
         mlflow.pyfunc._logger.warning(
             "The specified model does not have a specified Python version. It may be"
@@ -31,9 +44,9 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
 
 def _load_model_env(path, run_id=None):
     """
-        Get ENV file string from a model configuration stored in Python Function format.
-        Returned value is a model-relative path to a Conda Environment file,
-        or None if none was specified at model save time
+    Get ENV file string from a model configuration stored in Python Function format.
+    Returned value is a model-relative path to a Conda Environment file,
+    or None if none was specified at model save time
     """
     if run_id is not None:
         path = _get_model_log_dir(path, run_id)
