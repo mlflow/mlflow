@@ -37,14 +37,17 @@ CONFIG_KEY_MODEL_CLASS_NAME = "name"
 
 class PythonModel(object):
     """
-    Some docs
+    Represents a generic Python model that leverages a collection of artifacts and parameters 
+    (Python objects) to evaluate inputs and produce API-compatible outputs. By subclassing 
+    :class:`~PythonModel`, users can create customized MLflow models with the "python_function" 
+    ("pyfunc") flavor, leveraging custom inference logic and dependencies. 
     """
 
     __metaclass__ = ABCMeta
 
     def __init__(self, context):
         """
-        :param context: A PythonModelContext instance containing artifacts and parameters
+        :param context: A :class:`~PythonModelContext`, instance containing artifacts and parameters
                         that the model can use to perform inference.
         """
         self.context = context
@@ -62,6 +65,13 @@ class PythonModel(object):
 
 
 class PythonModelContext(object):
+    """
+    A collection of artifacts and parameters that a :class:`~PythonModel` can use when performing 
+    inference. :class:`~PythonModelContext` objects are created implicitly by the 
+    :func:`save_model() <mlflow.pyfunc.save_model>` and 
+    :func:`log_model() <mlflow.pyfunc.log_model>` methods, using the contents specified by the 
+    ``artifacts`` and ``parameters`` arguments of these methods.
+    """
 
     def __init__(self, artifacts, parameters):
         self._artifacts = artifacts
@@ -69,10 +79,17 @@ class PythonModelContext(object):
 
     @property
     def artifacts(self):
+        """
+        :return: A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path``
+                 is an absolute filesystem path to the artifact.
+        """
         return self._artifacts
 
     @property
     def parameters(self):
+        """
+        :return: A dictionary containing ``<name, python object>`` entries.
+        """
         return self._parameters
 
 
@@ -80,16 +97,16 @@ def _save_model(path, model_class, artifacts, parameters, conda_env=None, code_p
                mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
-    :param model_class: A ``type`` object referring to a subclass of ``PythonModel``, or the
+    :param model_class: A ``type`` object referring to a subclass of :class:`~PythonModel`, or the
                         fully-qualified name of such a subclass. ``model_class`` defines
                         how the model is loaded and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` pairs. Remote artifact URIs
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` pairs. ``model_class`` can reference these resolved
-                      pairs as the ``artifacts`` property of the ``context`` attribute.
-    :param parameters: A dictionary containing ``<name, python_object>`` pairs. ``python_object``
+                      ``<name, absolute_path>`` entries. ``model_class`` can reference these 
+                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
+    :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
                        may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved pairs as the ``parameters``
+                       ``model_class`` can reference these resolved entries as the ``parameters``
                        property of the ``context`` attribute.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment

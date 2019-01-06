@@ -148,13 +148,13 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
                mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
-    :param model_class: A ``type`` object referring to a subclass of ``PythonModel``, or the
+    :param model_class: A ``type`` object referring to a subclass of :class:`~PythonModel`, or the
                         fully-qualified name of such a subclass. ``model_class`` defines
                         how the model is loaded and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` pairs. Remote artifact URIs
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` pairs. ``model_class`` can reference these resolved
-                      pairs as the ``artifacts`` property of the ``context`` attribute.
+                      ``<name, absolute_path>`` entries. ``model_class`` can reference these 
+                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
                       For example, consider the following ``artifacts`` dictionary::
 
                         {
@@ -164,9 +164,9 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
                       In this case, the ``"my_file"`` artifact will be downloaded from S3. The
                       ``model_class`` can then refer to ``"my_file"`` as an absolute path via
                       ``self.context.artifacts["my_file"]``.
-    :param parameters: A dictionary containing ``<name, python_object>`` pairs. ``python_object``
+    :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
                        may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved pairs as the ``parameters``
+                       ``model_class`` can reference these resolved entries as the ``parameters``
                        property of the ``context`` attribute. For example, consider the following
                        ``parameters`` dictionary::
 
@@ -205,13 +205,13 @@ def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None,
               code_paths=None):
     """
     :param path: The run-relative artifact path to which to log the Python model.
-    :param model_class: A ``type`` object referring to a subclass of ``PythonModel``, or the
+    :param model_class: A ``type`` object referring to a subclass of :class:`~PythonModel`, or the
                         fully-qualified name of such a subclass. ``model_class`` defines
                         how the model is loaded and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` pairs. Remote artifact URIs
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` pairs. ``model_class`` can reference these resolved
-                      pairs as the ``artifacts`` property of the ``context`` attribute.
+                      ``<name, absolute_path>`` entries. ``model_class`` can reference these 
+                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
                       For example, consider the following ``artifacts`` dictionary::
 
                         {
@@ -221,9 +221,9 @@ def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None,
                       In this case, the ``"my_file"`` artifact will be downloaded from S3. The
                       ``model_class`` can then refer to ``"my_file"`` as an absolute path via
                       ``self.context.artifacts["my_file"]``.
-    :param parameters: A dictionary containing ``<name, python_object>`` pairs. ``python_object``
+    :param parameters: A dictionary containing ``<name, python_object>`` entries. ``python_object``
                        may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved pairs as the ``parameters``
+                       ``model_class`` can reference these resolved entries as the ``parameters``
                        property of the ``context`` attribute. For example, consider the following
                        ``parameters`` dictionary::
 
