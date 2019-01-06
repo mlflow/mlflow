@@ -87,7 +87,7 @@ from mlflow import tracking
 from mlflow.models import Model
 from mlflow.pyfunc.utils import _get_code_dirs,\
         _warn_potentially_incompatible_py_version_if_necessary
-from mlflow.utils import PYTHON_VERSION 
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
