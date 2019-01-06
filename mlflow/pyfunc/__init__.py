@@ -153,7 +153,7 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
                         how the model is loaded and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``model_class`` can reference these 
+                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
                       resolved entries as the ``artifacts`` property of the ``context`` attribute.
                       For example, consider the following ``artifacts`` dictionary::
 
@@ -179,10 +179,10 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
+                      contained in :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV`. If `None`, the
+                      default :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV` environment will be
+                      added to the model. The following is an *example* dictionary representation of
+                      a Conda environment::
 
                         {
                             'name': 'mlflow-env',
@@ -210,7 +210,7 @@ def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None,
                         how the model is loaded and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``model_class`` can reference these 
+                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
                       resolved entries as the ``artifacts`` property of the ``context`` attribute.
                       For example, consider the following ``artifacts`` dictionary::
 
@@ -236,10 +236,10 @@ def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
+                      contained in :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV`. If `None`, the
+                      default :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV` environment will be
+                      added to the model. The following is an *example* dictionary representation of
+                      a Conda environment::
 
                         {
                             'name': 'mlflow-env',
