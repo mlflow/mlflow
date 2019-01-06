@@ -7,7 +7,6 @@ from mock import Mock
 
 from mlflow.exceptions import IllegalArtifactPathError, MlflowException
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
-from mlflow.tracking.utils import _download_artifact_from_uri
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
@@ -184,38 +183,3 @@ class TestDbfsArtifactRepository(object):
             _, kwargs_call_2 = chronological_download_calls[1]
             assert kwargs_call_1['endpoint'] == '/dbfs/test/dir'
             assert kwargs_call_2['endpoint'] == '/dbfs/test/a.txt'
-
-
-    def test_tracking_download_directory_artifact_from_absolute_dbfs_uri_succeeds(self, tmpdir):
-        artifact_uri = "dbfs:/test/dir"
-
-        with mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_is_dir') as is_dir_mock,\
-                mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_list_api') as list_mock, \
-                mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._dbfs_download') as download_mock:
-            is_dir_mock.side_effect = [
-                True,
-                False,
-                True,
-            ]
-
-            def list_mock_fn(path):
-                print("PATH", path)
-
-            _download_artifact_from_uri(artifact_uri, output_path=tmpdir.strpath)
-
-            list_mock.side_effect = list_mock_fn
-            # list_mock.side_effect = [
-            #     Mock(text=json.dumps(LIST_ARTIFACTS_RESPONSE)),
-            #     Mock(text='{}'),  # this call is for listing `/dir`.
-            #     Mock(text='{}')   # this call is for listing `/dir/a.txt`.
-            # ]
-            # dbfs_artifact_repo.download_artifacts('/')
-            # assert list_mock.call_count == 3
-            # assert download_mock.call_count == 2
-            # chronological_download_calls = list(download_mock.call_args_list)
-            # # Calls are in reverse chronological order by default
-            # chronological_download_calls.reverse()
-            # _, kwargs_call_1 = chronological_download_calls[0]
-            # _, kwargs_call_2 = chronological_download_calls[1]
-            # assert kwargs_call_1['endpoint'] == '/dbfs/test/dir'
-            # assert kwargs_call_2['endpoint'] == '/dbfs/test/a.txt'
