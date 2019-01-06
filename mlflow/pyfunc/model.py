@@ -15,7 +15,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
@@ -36,6 +36,9 @@ CONFIG_KEY_MODEL_CLASS_NAME = "name"
 
 
 class PythonModel(object):
+    """
+    Some docs
+    """
 
     __metaclass__ = ABCMeta
 
@@ -50,10 +53,10 @@ class PythonModel(object):
     def predict(self, model_input):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
-        For more information about the pyfunc input/output API, see the pyfunc flavor documentation:
-        `https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html`_.
+        For more information about the pyfunc input/output API, see the `pyfunc flavor
+        documentation <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html>`_.
 
-        :param model_input: A pyfunc-compatible input for the model to evaluate. 
+        :param model_input: A pyfunc-compatible input for the model to evaluate.
         """
         pass
 
@@ -73,57 +76,30 @@ class PythonModelContext(object):
         return self._parameters
 
 
-def save_model(path, model_class, artifacts, parameters, conda_env=None, code_paths=None, 
+def _save_model(path, model_class, artifacts, parameters, conda_env=None, code_paths=None,
                mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
-    :param model_class: A ``type`` object referring to a subclass of ``PythonModel``, or the 
+    :param model_class: A ``type`` object referring to a subclass of ``PythonModel``, or the
                         fully-qualified name of such a subclass. ``model_class`` defines
                         how the model is loaded and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` pairs. Remote artifact URIs
-                      will be resolved to absolute filesystem paths, producing a dictionary of 
+                      will be resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` pairs. ``model_class`` can reference these resolved
                       pairs as the ``artifacts`` property of the ``context`` attribute.
-                      For example, consider the following ``artifacts`` dictionary::
-
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
-
-                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute path via
-                      ``self.context.artifacts["my_file"]``.
     :param parameters: A dictionary containing ``<name, python_object>`` pairs. ``python_object``
-                       may be any Python object that is serializable with CloudPickle. 
-                       ``model_class`` can reference these resolved pairs as the ``parameters`` 
-                       property of the ``context`` attribute. For example, consider the following 
-                       ``parameters`` dictionary::
-
-                         {
-                             "my_list": range(10)
-                         }
-
-                       The ``model_class`` can refer to the Python list named ``"my_list"`` as 
-                       ``self.context.parameters["my_list"]``.
+                       may be any Python object that is serializable with CloudPickle.
+                       ``model_class`` can reference these resolved pairs as the ``parameters``
+                       property of the ``context`` attribute.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV`` environment will be added to the 
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle=0.5.8'
-                            ]
-                        }
+                      ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV`` environment will be added to the
+                      model.
     :param code_paths: A list of paths to Python file dependencies that are required by
                        instances of ``model_class``.
-    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor. 
+    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
     if os.path.exists(path):
         raise MlflowException(
@@ -136,7 +112,7 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
         tmp_artifacts_config = {}
         saved_artifacts_dir_subpath = "artifacts"
         for artifact_name, artifact_uri in artifacts.items():
-            tmp_artifact_path = tmp_artifacts_dir.path(saved_artifacts_dir_subpath, artifact_name) 
+            tmp_artifact_path = tmp_artifacts_dir.path(saved_artifacts_dir_subpath, artifact_name)
             os.makedirs(tmp_artifact_path)
             tmp_artifact_path = _download_artifact_from_uri(
                 artifact_uri=artifact_uri, output_path=tmp_artifact_path)
@@ -145,11 +121,11 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
                     path=tmp_artifact_path, start=tmp_artifacts_dir.path())
             saved_artifacts_config[artifact_name] = {
                 CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
-                CONFIG_KEY_ARTIFACT_URI: artifact_uri, 
+                CONFIG_KEY_ARTIFACT_URI: artifact_uri,
             }
 
         _validate_artifacts(tmp_artifacts_config)
-        shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath), 
+        shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath),
                     os.path.join(path, saved_artifacts_dir_subpath))
 
     saved_parameters_dir_subpath = "parameters"
@@ -191,7 +167,7 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
         CONFIG_KEY_PARAMETERS: saved_parameters,
         CONFIG_KEY_MODEL_CLASS: saved_model_class,
     }
-    mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath, 
+    mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath,
                                env=conda_env_subpath, **model_kwargs)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
 
@@ -210,7 +186,7 @@ def _validate_artifacts(artifacts):
     for model_name, model_path in models.items():
         model_conf = Model.load(os.path.join(model_path, "MLmodel"))
         pyfunc_conf = model_conf.flavors.get(mlflow.pyfunc.FLAVOR_NAME, {})
-        
+
         model_py_version = pyfunc_conf.get(mlflow.pyfunc.PY_VERSION, None)
         if model_py_version is not None:
             model_py_version_data.append({
@@ -221,8 +197,8 @@ def _validate_artifacts(artifacts):
             if model_py_major_version != curr_major_py_version:
                 mlflow.pyfunc._logger.warn(
                     "The artifact with name `{artifact_name}` is an MLflow model that was"
-                    " saved with a different major version of Python. As a result, your new model" 
-                    " may not load or perform correctly. Current python version:" 
+                    " saved with a different major version of Python. As a result, your new model"
+                    " may not load or perform correctly. Current python version:"
                     " `{curr_py_version}`. Model python version: `{model_py_version}`.".format(
                         artifact_name=model_name,
                         curr_py_version=mlflow.utils.PYTHON_VERSION,
@@ -236,7 +212,7 @@ def _validate_artifacts(artifacts):
 
             conda_deps = conda_env.get("dependencies", [])
             pip_deps = dict(enumerate(conda_deps)).get("pip", [])
-            cloudpickle_dep_specs = filter(lambda spec : spec.name == "cloudpickle", 
+            cloudpickle_dep_specs = filter(lambda spec : spec.name == "cloudpickle",
                                            [MatchSpec(dep) for dep in conda_deps + pip_deps])
             for cloudpickle_dep_spec in cloudpickle_dep_specs:
                 if not curr_cloudpickle_version_spec.match(cloudpickle_dep_spec):
@@ -246,68 +222,11 @@ def _validate_artifacts(artifacts):
                         " CloudPickle library. MLflow model artifacts should depend on *exactly*"
                         " the same version of CloudPickle that is currently installed. As a result,"
                         " your new model may not load or perform correctly. Current CloudPickle"
-                        " version: `{curr_cloudpickle_version}`. Model CloudPickle version:" 
+                        " version: `{curr_cloudpickle_version}`. Model CloudPickle version:"
                         " `{model_cloudpickle_version}`.".format(
                             artifact_name=model_name,
                             curr_cloudpickle_version=curr_cloudpickle_version_spec.version,
                             model_cloudpickle_version=cloudpickle_dep_spec.version))
-
-
-def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None, 
-              code_paths=None):
-    """
-    :param path: The run-relative artifact path to which to log the Python model.
-    :param model_class: A ``type`` object referring to a subclass of ``PythonModel``, or the 
-                        fully-qualified name of such a subclass. ``model_class`` defines
-                        how the model is loaded and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` pairs. Remote artifact URIs
-                      will be resolved to absolute filesystem paths, producing a dictionary of 
-                      ``<name, absolute_path>`` pairs. ``model_class`` can reference these resolved
-                      pairs as the ``artifacts`` property of the ``context`` attribute.
-                      For example, consider the following ``artifacts`` dictionary::
-
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
-
-                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute path via
-                      ``self.context.artifacts["my_file"]``.
-    :param parameters: A dictionary containing ``<name, python_object>`` pairs. ``python_object``
-                       may be any Python object that is serializable with CloudPickle. 
-                       ``model_class`` can reference these resolved pairs as the ``parameters`` 
-                       property of the ``context`` attribute. For example, consider the following 
-                       ``parameters`` dictionary::
-
-                         {
-                             "my_list": range(10)
-                         }
-
-                       The ``model_class`` can refer to the Python list named ``"my_list"`` as 
-                       ``self.context.parameters["my_list"]``.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.pyfunc.model.DEFAULT_CONDA_ENV`` environment will be added to the 
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle=0.5.8'
-                            ]
-                        }
-    :param code_paths: A list of paths to Python file dependencies that are required by
-                       instances of ``model_class``.
-    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor. 
-    """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc.model, artifacts=artifacts, 
-                     parameters=parameters, model_class=model_class, conda_env=conda_env, 
-                     code_paths=code_paths)
 
 
 def _load_pyfunc(model_path):
@@ -319,7 +238,7 @@ def _load_pyfunc(model_path):
         raise MlflowException(
             message=(
                 "Expected `{model_class_config_name}` configuration to contain a single entry, but"
-                " multiple entries were found. Model class configuration:" 
+                " multiple entries were found. Model class configuration:"
                 " `{model_class_config}`".format(
                     model_class_config_name=CONFIG_KEY_MODEL_CLASS,
                     model_class_config=model_class)))
@@ -359,7 +278,7 @@ def _load_pyfunc(model_path):
                     _copy_file_or_tree(
                         src=os.path.join(
                             model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]),
-                        dst=tmp_artifacts_dir, 
+                        dst=tmp_artifacts_dir,
                         dst_dir=saved_artifact_name))
             artifacts[saved_artifact_name] = tmp_artifact_path
 

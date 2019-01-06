@@ -56,7 +56,7 @@ def pyfunc_serve_and_score_model(
                          one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
-    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For 
+    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
                        example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
                        flag to the scoring server to ensure that conda environment activation
                        is skipped.

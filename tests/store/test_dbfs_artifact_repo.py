@@ -203,7 +203,7 @@ class TestDbfsArtifactRepository(object):
 
             _download_artifact_from_uri(artifact_uri, output_path=tmpdir.strpath)
 
-            list_mock.side_effect = list_mock_fn 
+            list_mock.side_effect = list_mock_fn
             # list_mock.side_effect = [
             #     Mock(text=json.dumps(LIST_ARTIFACTS_RESPONSE)),
             #     Mock(text='{}'),  # this call is for listing `/dir`.
