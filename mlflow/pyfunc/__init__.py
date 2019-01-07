@@ -22,6 +22,9 @@ configuration::
         <data>: data packaged with the model (specified in the MLmodel file)
         <env>: Conda environment definition (specified in the MLmodel file)
 
+* The directory structure may contain additional contents that can be referenced by the
+  ``MLmodel`` configuration.
+
 A Python model contains an ``MLmodel`` file in "python_function" format in its root with the
 following parameters:
 
@@ -47,6 +50,9 @@ following parameters:
 - env [optional]:
          Relative path to an exported Conda environment. If present this environment
          should be activated prior to running the model.
+
+- **Optionally, any additional parameters necessary for interpreting the serialized model in pyfunc
+  format.**
 
 .. rubric:: Example
 
@@ -81,6 +87,7 @@ import os
 import pandas
 import shutil
 import sys
+from copy import deepcopy
 
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
@@ -100,7 +107,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None):
+def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
     """
     Add a pyfunc spec to the model configuration.
 
@@ -117,9 +124,12 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
+    :param kwargs: Additional key-value pairs to include in the pyfunc flavor specification.
+                   Values must be YAML-serializable.
     :return: Updated model configuration.
     """
-    parms = {MAIN: loader_module}
+    parms = deepcopy(kwargs)
+    parms[MAIN] = loader_module
     parms[PY_VERSION] = PYTHON_VERSION
     if code:
         parms[CODE] = code
