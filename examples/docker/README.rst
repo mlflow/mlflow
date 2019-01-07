@@ -1,33 +1,10 @@
-Hyperparameter Tuning Example
-------------------------------
-
-Example of how to do hyperparameter tuning with MLflow and some popular optimization libraries.
-
-This example tries to optimize the RMSE metric of a Keras deep learning model on a wine quality
-dataset. The Keras model is fitted by the ``train`` entry point and has two hyperparameters that we
-try to optimize: ``learning-rate`` and ``momentum``. The input dataset is split into three parts: training,
-validation, and test. The training dataset is used to fit the model and the validation dataset is used to
-select the best hyperparameter values, and the test set is used to evaluate expected performance and
-to verify that we did not overfit on the particular training and validation combination. All three
-metrics are logged with MLflow and you can use the MLflow UI to inspect how they vary between different
-hyperparameter values.
-
-examples/hyperparam/MLproject has 4 targets:
-  * train
-    train simple deep learning model on the wine-quality dataset from our tutorial.
-    It has 2 tunable hyperparameters: ``learning-rate`` and ``momentum``.
-    Contains examples of how Keras callbacks can be used for MLflow integration.
-  * random
-    perform simple random search over the parameter space.
-  * gpyopt
-    use `GPyOpt <https://github.com/SheffieldML/GPyOpt>`_ to optimize hyperparameters of train.
-    GPyOpt can run multiple mlflow runs in parallel if run with ``batch-size`` > 1 and ``max_p`` > 1.
-  * hyperopt
-    use `Hyperopt <https://github.com/hyperopt/hyperopt>`_ to optimize hyperparameters.
-
-All the hyperparameter targets take an optional experiment ID for training runs. If provided,
-training runs are logged under this experiment ID. This organizes the runs so that it is
-easy to view individual training runs and the hyperparameter runs separately.
+Dockerized Model Training with MLflow
+-------------------------------------
+This directory contains an MLflow project that trains a linear regression model on the UC Irvine
+Wine Quality Dataset. The project uses a docker image to capture the dependencies needed to run
+training code. Running a project in a docker environment (as opposed to conda) allows for capturing
+non-Python dependencies, e.g. Java libraries. In the future, we also hope to add tools to MLflow
+for running dockerized projects e.g. on a Kubernetes cluster for scaleout.
 
 
 Running this Example
@@ -36,4 +13,27 @@ Running this Example
 Install MLflow via `pip install mlflow` and `docker <https://www.docker.com/get-started>`_.
 Then, build a docker image containing MLflow via `docker build examples/docker -t mlflow-docker-example`
 and run the example project via `mlflow run examples/docker -P alpha=0.5`
+
+What happens when the project is run?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Let's start by looking at the MLproject file, which specifies the docker image in which to run the
+project via a docker_env field:
+
+```
+docker_env:
+  image:  mlflow-docker-example
+```
+
+Here, `image` can be any valid argument to `docker run`, such as the tag, ID or
+URL of a docker image (see `Docker docs <https://docs.docker.com/engine/reference/run/#general-form>`_).
+The above example references a locally-stored image (mlflow-docker-example) by tag.
+
+Running `mlflow run examples/docker` builds a new docker image based on `mlflow-docker-example`
+but also containing our project code, then executes the default (main) project entry point
+within the container via `docker run`.
+
+Environment variables such as MLFLOW_TRACKING_URI are
+propagated inside the container during project execution. When running against a local tracking URI,
+e.g. a local `mlruns` directory, MLflow will mount the host system's tracking directory inside the
+container so that metrics and params logged during project execution are accessible afterwards.
 

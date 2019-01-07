@@ -597,7 +597,8 @@ def _get_docker_command(image, active_run):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
         # We set these via environment variables so that only the current profile is exposed, rather
-        # than all profiles in ~/.databrickscfg
+        # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
+        # part of ~/.databrickscfg into the container
         env_vars[_TRACKING_URI_ENV_VAR] = 'databricks'
         env_vars['DATABRICKS_HOST'] = config.host
         if config.username:
