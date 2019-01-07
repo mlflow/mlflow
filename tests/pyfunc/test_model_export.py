@@ -608,18 +608,14 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
         f.write(nested_file_text)
 
     class ArtifactValidationModel(mlflow.pyfunc.PythonModel):
-        def __init__(self, context):
-            super(ArtifactValidationModel, self).__init__(context)
+        def predict(self, model_input):
             expected_file_path = os.path.join(
-                context.artifacts["testdir"], nested_file_relative_path)
+                self.context.artifacts["testdir"], nested_file_relative_path)
             if not os.path.exists(expected_file_path):
-                self.result = False
+                return False
             else:
                 with open(expected_file_path, "r") as f:
-                    self.result = (f.read() == nested_file_text)
-
-        def predict(self, model_input):
-            return self.result
+                    return (f.read() == nested_file_text)
 
     mlflow.pyfunc.save_model(path=model_path,
                              artifacts={
