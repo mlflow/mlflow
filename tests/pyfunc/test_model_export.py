@@ -21,6 +21,7 @@ import mlflow.pyfunc
 import mlflow.pyfunc.cli
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
+from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.models import Model
 from mlflow.tracking.utils import get_artifact_uri as utils_get_artifact_uri
 
@@ -95,6 +96,15 @@ def sklearn_logreg_model(iris_data):
 @pytest.fixture
 def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
+
+
+@pytest.fixture
+def sklearn_custom_env(tmpdir):
+    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+    _mlflow_conda_env(
+            conda_env,
+            additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"])
+    return conda_env
 
 
 def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
