@@ -143,7 +143,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
-def save_model(path, model_class, artifacts, parameters, conda_env=None, code_paths=None,
+def save_model(path, model_class, artifacts=None, parameters=None, conda_env=None, code_paths=None,
                mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
@@ -200,7 +200,7 @@ def save_model(path, model_class, artifacts, parameters, conda_env=None, code_pa
                        mlflow_model=mlflow_model)
 
 
-def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None,
+def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda_env=None,
               code_paths=None):
     """
     :param path: The run-relative artifact path to which to log the Python model.

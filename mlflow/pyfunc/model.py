@@ -20,7 +20,7 @@ from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_conda_deps=[
-        "cloudpickle={}".format(cloudpickle.__version__),
+        "cloudpickle=={}".format(cloudpickle.__version__),
     ],
     additional_pip_deps=None,
     additional_conda_channels=None,
@@ -42,7 +42,6 @@ class PythonModel(object):
     :class:`~PythonModel`, users can create customized MLflow models with the "python_function"
     ("pyfunc") flavor, leveraging custom inference logic and dependencies.
     """
-
     __metaclass__ = ABCMeta
 
     def __init__(self, context):
@@ -93,8 +92,8 @@ class PythonModelContext(object):
         return self._parameters
 
 
-def _save_model(path, model_class, artifacts, parameters, conda_env=None, code_paths=None,
-               mlflow_model=Model()):
+def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=None, code_paths=None,
+                mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
     :param model_class: A ``type`` object referring to a subclass of :class:`~PythonModel`, or the
@@ -124,45 +123,53 @@ def _save_model(path, model_class, artifacts, parameters, conda_env=None, code_p
                 error_code=INVALID_PARAMETER_VALUE)
     os.makedirs(path)
 
-    saved_artifacts_config = {}
-    with TempDir() as tmp_artifacts_dir:
-        tmp_artifacts_config = {}
-        saved_artifacts_dir_subpath = "artifacts"
-        for artifact_name, artifact_uri in artifacts.items():
-            tmp_artifact_path = tmp_artifacts_dir.path(saved_artifacts_dir_subpath, artifact_name)
-            os.makedirs(tmp_artifact_path)
-            tmp_artifact_path = _download_artifact_from_uri(
-                artifact_uri=artifact_uri, output_path=tmp_artifact_path)
-            tmp_artifacts_config[artifact_name] = tmp_artifact_path
-            saved_artifact_subpath = os.path.relpath(
-                    path=tmp_artifact_path, start=tmp_artifacts_dir.path())
-            saved_artifacts_config[artifact_name] = {
-                CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
-                CONFIG_KEY_ARTIFACT_URI: artifact_uri,
-            }
+    custom_model_config_kwargs = {}
+    
+    if artifacts is not None and len(artifacts) > 0:
+        saved_artifacts_config = {}
+        with TempDir() as tmp_artifacts_dir:
+            tmp_artifacts_config = {}
+            saved_artifacts_dir_subpath = "artifacts"
+            for artifact_name, artifact_uri in artifacts.items():
+                tmp_artifact_path = tmp_artifacts_dir.path(
+                    saved_artifacts_dir_subpath, artifact_name)
+                os.makedirs(tmp_artifact_path)
+                tmp_artifact_path = _download_artifact_from_uri(
+                    artifact_uri=artifact_uri, output_path=tmp_artifact_path)
+                tmp_artifacts_config[artifact_name] = tmp_artifact_path
+                saved_artifact_subpath = os.path.relpath(
+                        path=tmp_artifact_path, start=tmp_artifacts_dir.path())
+                saved_artifacts_config[artifact_name] = {
+                    CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
+                    CONFIG_KEY_ARTIFACT_URI: artifact_uri,
+                }
 
-        _validate_artifacts(tmp_artifacts_config)
-        shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath),
-                    os.path.join(path, saved_artifacts_dir_subpath))
+            _validate_artifacts(tmp_artifacts_config)
+            shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath),
+                        os.path.join(path, saved_artifacts_dir_subpath))
+        custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
-    saved_parameters_dir_subpath = "parameters"
-    os.makedirs(os.path.join(path, saved_parameters_dir_subpath))
-    saved_parameters = {}
-    for parameter_name, parameter_py_obj in parameters.items():
-        saved_parameter_subpath = os.path.join(
-            saved_parameters_dir_subpath, "{param_name}.pkl".format(param_name=parameter_name))
-        with open(os.path.join(path, saved_parameter_subpath), "wb") as out:
-            cloudpickle.dump(parameter_py_obj, out)
-        saved_parameters[parameter_name] = saved_parameter_subpath
+    if parameters is not None and len(parameters) > 0:
+        saved_parameters_dir_subpath = "parameters"
+        os.makedirs(os.path.join(path, saved_parameters_dir_subpath))
+        saved_parameters_config = {}
+        for parameter_name, parameter_py_obj in parameters.items():
+            saved_parameter_subpath = os.path.join(
+                saved_parameters_dir_subpath, "{param_name}.pkl".format(param_name=parameter_name))
+            with open(os.path.join(path, saved_parameter_subpath), "wb") as out:
+                cloudpickle.dump(parameter_py_obj, out)
+            saved_parameters_config[parameter_name] = saved_parameter_subpath
+        custom_model_config_kwargs[CONFIG_KEY_PARAMETERS] = saved_parameters_config
 
-    saved_model_class = {}
+    saved_model_class_config = {}
     if inspect.isclass(model_class):
         saved_model_class_subpath = "model_class.pkl"
         with open(os.path.join(path, saved_model_class_subpath), "wb") as out:
             cloudpickle.dump(model_class, out)
-        saved_model_class[CONFIG_KEY_MODEL_CLASS_PATH] = saved_model_class_subpath
+        saved_model_class_config[CONFIG_KEY_MODEL_CLASS_PATH] = saved_model_class_subpath
     else:
-        saved_model_class[CONFIG_KEY_MODEL_CLASS_NAME] = model_class
+        saved_model_class_config[CONFIG_KEY_MODEL_CLASS_NAME] = model_class
+    custom_model_config_kwargs[CONFIG_KEY_MODEL_CLASS] = saved_model_class_config
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -179,13 +186,8 @@ def _save_model(path, model_class, artifacts, parameters, conda_env=None, code_p
         for code_path in code_paths:
             _copy_file_or_tree(src=code_path, dst=path, dst_dir=saved_code_subpath)
 
-    model_kwargs = {
-        CONFIG_KEY_ARTIFACTS: saved_artifacts_config,
-        CONFIG_KEY_PARAMETERS: saved_parameters,
-        CONFIG_KEY_MODEL_CLASS: saved_model_class,
-    }
     mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath,
-                               env=conda_env_subpath, **model_kwargs)
+                               env=conda_env_subpath, **custom_model_config_kwargs)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
 
 

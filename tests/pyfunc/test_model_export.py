@@ -19,6 +19,7 @@ import yaml
 import mlflow
 import mlflow.pyfunc
 import mlflow.pyfunc.cli
+import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.models import Model
@@ -109,7 +110,7 @@ def pyfunc_custom_env(tmpdir):
     return conda_env
 
 
-def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
+def test_save_model_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -132,7 +133,7 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
             test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
-def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
+def test_log_model_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
@@ -538,7 +539,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
 
-def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sklearn_logreg_model, main_scoped_model_class, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
@@ -563,8 +564,8 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
 
 
-def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env):
+def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        sklearn_knn_model, main_scoped_model_class):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
@@ -592,3 +593,93 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
+
+
+def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
+        tmpdir, model_path, iris_data):
+    directory_artifact_path = os.path.join(str(tmpdir), "directory_artifact")
+    nested_file_relative_path = os.path.join(
+        "my", "somewhat", "heavily", "nested", "directory", "myfile.txt")
+    nested_file_path = os.path.join(directory_artifact_path, nested_file_relative_path)
+    os.makedirs(os.path.dirname(nested_file_path))
+    nested_file_text = "some sample file text"
+    with open(nested_file_path, "w") as f:
+        f.write(nested_file_text)
+    
+    class ArtifactValidationModel(mlflow.pyfunc.PythonModel):
+        def __init__(self, context):
+            super(ArtifactValidationModel, self).__init__(context)
+            expected_file_path = os.path.join(
+                context.artifacts["testdir"], nested_file_relative_path)
+            if not os.path.exists(expected_file_path):
+                self.result = False
+            else:
+                with open(expected_file_path, "r") as f:
+                    self.result = (f.read() == nested_file_text)
+
+        def predict(self, model_input):
+            return self.result
+
+    mlflow.pyfunc.save_model(path=model_path,
+                             artifacts={
+                                 "testdir": directory_artifact_path
+                             },
+                             model_class=ArtifactValidationModel)
+
+    loaded_model = mlflow.pyfunc.load_pyfunc(model_path)
+    assert loaded_model.predict(iris_data[0])
+
+
+def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_or_parameters_dirs(
+        tmpdir):
+    no_params_or_artifacts_model_path = os.path.join(str(tmpdir), "no_params_or_artifacts")
+    mlflow.pyfunc.save_model(path=no_params_or_artifacts_model_path,
+                             model_class="a.sample.ClassName",
+                             parameters=None,
+                             artifacts=None)
+
+    no_artifacts_model_path = os.path.join(str(tmpdir), "no_artifacts")
+    mlflow.pyfunc.save_model(path=no_artifacts_model_path,
+                             model_class="a.sample.ClassName",
+                             parameters={
+                                "sample_set": set(range(10)),
+                             },
+                             artifacts=None)
+
+    no_params_model_path = os.path.join(str(tmpdir), "no_params")
+    mlflow.pyfunc.save_model(path=no_params_model_path,
+                             model_class="a.sample.ClassName",
+                             parameters=None,
+                             artifacts={
+                                "no_artifacts_model": no_artifacts_model_path,
+                             })
+
+    model_paths_and_expected_existence_results = {
+        no_params_or_artifacts_model_path: {
+            "artifacts_exists": False,
+            "params_exists": False,
+        },
+        no_artifacts_model_path: {
+            "artifacts_exists": False,
+            "params_exists": True,
+        },
+        no_params_model_path: {
+            "artifacts_exists": True,
+            "params_exists": False,
+        },
+    }
+
+    for model_path, expected_existence_result in\
+            model_paths_and_expected_existence_results.items():
+        assert os.path.exists(model_path)
+        assert os.path.exists(os.path.join(model_path, "artifacts")) ==\
+            expected_existence_result["artifacts_exists"]
+        assert os.path.exists(os.path.join(model_path, "parameters")) ==\
+            expected_existence_result["params_exists"]
+        
+        pyfunc_conf = _get_flavor_configuration(
+            model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+        assert (mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS in pyfunc_conf) ==\
+            expected_existence_result["artifacts_exists"]
+        assert (mlflow.pyfunc.model.CONFIG_KEY_PARAMETERS in pyfunc_conf) ==\
+            expected_existence_result["params_exists"]

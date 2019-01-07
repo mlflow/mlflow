@@ -334,7 +334,6 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         assert os.path.exists(saved_conda_env_path)
         with open(saved_conda_env_path, "r") as f:
             saved_conda_env_parsed = yaml.safe_load(f)
-            print("DEFAULT ENV", mlflow.sklearn.DEFAULT_CONDA_ENV)
         assert all(["cloudpickle" not in dependency
                     for dependency in saved_conda_env_parsed["dependencies"]])
 
