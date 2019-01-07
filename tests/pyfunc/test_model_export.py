@@ -50,7 +50,7 @@ class SklearnModel(get_model_class()):
     """
     A custom Python model class defined in the test module scope. This is intended to be used for
     testing model export where the specified model class is a fully-qualified class name, as opposed
-    to a ``type`` object. 
+    to a ``type`` object.
     """
     pass
 
