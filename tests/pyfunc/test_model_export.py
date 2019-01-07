@@ -21,9 +21,11 @@ import mlflow.pyfunc
 import mlflow.pyfunc.cli
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
-from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.models import Model
 from mlflow.tracking.utils import get_artifact_uri as utils_get_artifact_uri
+from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -99,7 +101,7 @@ def model_path(tmpdir):
 
 
 @pytest.fixture
-def sklearn_custom_env(tmpdir):
+def pyfunc_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
             conda_env,
@@ -467,3 +469,126 @@ def test_save_model_specifying_model_dependency_with_same_cloudpickle_verison_do
         " range of versions of the CloudPickle library" in log_message
         for log_message in log_messages
     ])
+
+
+def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
+        sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmpdir):
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model,
+                          path=sklearn_model_path,
+                          serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+
+    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+                             artifacts={
+                                "sk_model": sklearn_model_path
+                             },
+                             parameters={
+                                "predict_fn": lambda sk_model, model_input: None
+                             },
+                             model_class=main_scoped_model_class,
+                             conda_env=pyfunc_custom_env)
+
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != pyfunc_custom_env
+
+    with open(pyfunc_custom_env, "r") as f:
+        pyfunc_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == pyfunc_custom_env_parsed
+
+
+def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
+        sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env):
+    sklearn_artifact_path = "sk_model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        sklearn_run_id = mlflow.active_run().info.run_uuid
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                                artifacts={
+                                    "sk_model": utils_get_artifact_uri(
+                                        artifact_path=sklearn_artifact_path,
+                                        run_id=sklearn_run_id)
+                                },
+                                parameters={
+                                    "predict_fn": lambda sk_model, model_input: None
+                                },
+                                model_class=main_scoped_model_class,
+                                conda_env=pyfunc_custom_env)
+        pyfunc_run_id = mlflow.active_run().info.run_uuid
+
+    pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != pyfunc_custom_env
+
+    with open(pyfunc_custom_env, "r") as f:
+        pyfunc_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == pyfunc_custom_env_parsed
+
+
+def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        sklearn_logreg_model, main_scoped_model_class, tmpdir):
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
+
+    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+                             artifacts={
+                                "sk_model": sklearn_model_path
+                             },
+                             parameters={
+                                "predict_fn": lambda sk_model, model_input: None
+                             },
+                             model_class=main_scoped_model_class)
+
+
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
+
+
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env):
+    sklearn_artifact_path = "sk_model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        sklearn_run_id = mlflow.active_run().info.run_uuid
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                                artifacts={
+                                    "sk_model": utils_get_artifact_uri(
+                                        artifact_path=sklearn_artifact_path,
+                                        run_id=sklearn_run_id)
+                                },
+                                parameters={
+                                    "predict_fn": lambda sk_model, model_input: None
+                                },
+                                model_class=main_scoped_model_class)
+        pyfunc_run_id = mlflow.active_run().info.run_uuid
+
+    pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
