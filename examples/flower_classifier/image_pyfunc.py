@@ -122,15 +122,14 @@ def log_model(keras_model, artifact_path, image_dims, domain):
         keras_path = os.path.join(data_path, "keras_model")
         mlflow.keras.save_model(keras_model, path=keras_path)
         conda_env = tmp.path("conda_env.yaml")
-        conda_env = _mlflow_conda_env(
+        _mlflow_conda_env(
             path=conda_env,
             additional_conda_deps=[
                 "keras=={}".format(keras.__version__),
                 "{tf}=={version}".format(tf=tf.__name__, version=tf.__version__)
             ],
             additional_pip_deps=["pillow=={}".format(PIL.__version__)],
-            additional_conda_channels=None,
-        )
+            additional_conda_channels=None)
         mlflow.pyfunc.log_model(artifact_path=artifact_path,
                                 loader_module=__name__,
                                 code_path=[__file__],

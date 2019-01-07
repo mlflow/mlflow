@@ -27,16 +27,18 @@ example of the output model directory layout:
 ::
 
    model
-    ├── MLmodel
-    ├── code
-    │   └── image_pyfunc.py
-    └── data
-        └── image_model
-            ├── conf.yaml
-            └── keras_model
-                ├── MLmodel
-                ├── conda.yaml
-                └── model.h5
+   ├── MLmodel
+   ├── code
+   │   └── image_pyfunc.py
+   ├── data
+   │   └── image_model
+   │       ├── conf.yaml
+   │       └── keras_model
+   │           ├── MLmodel
+   │           ├── conda.yaml
+   │           └── model.h5
+   └── mlflow_env.yml
+
 
 
 The example contains the following files:
