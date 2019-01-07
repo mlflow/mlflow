@@ -1,7 +1,8 @@
 """
 CLI for runs
 """
-import sys
+from __future__ import print_function
+
 import click
 import json
 import mlflow.tracking
@@ -38,7 +39,7 @@ def list_run(experiment_id, view):
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
     runs = store.list_run_infos(experiment_id, view_type)
     table = [[conv_longdate_to_str(run.start_time), run.name, run.run_uuid] for run in runs]
-    print(tabulate(sorted(table), headers=["Date", "Name", "ID"]))
+    print(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 
 @commands.command("delete")
@@ -75,4 +76,4 @@ def describe_run(run_id):
     store = _get_store()
     run = store.get_run(run_id)
     json_run = json.dumps(run.to_dictionary(), indent=4)
-    print(json_run, file=sys.stdout)
+    print(json_run)
