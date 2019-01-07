@@ -98,6 +98,23 @@ class TestModelExport(unittest.TestCase):
                 # Remove the log directory in order to avoid adding new tests to pytest...
                 shutil.rmtree(tracking_dir)
 
+    def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration(self):
+        custom_kwargs = {
+            "key1": "value1",
+            "key2": 20,
+            "key3": range(10),
+        }
+        model_config = Model()
+        pyfunc.add_to_model(model=model_config,
+                            loader_module=os.path.basename(__file__)[:-3],
+                            data="data",
+                            code="code",
+                            env=None,
+                            **custom_kwargs)
+
+        assert pyfunc.FLAVOR_NAME in model_config.flavors
+        assert all([item in model_config.flavors[pyfunc.FLAVOR_NAME] for item in custom_kwargs])
+
     def _create_conda_env_file(self, tmp):
         conda_env_path = tmp.path("conda.yml")
         with open(conda_env_path, "w") as f:
