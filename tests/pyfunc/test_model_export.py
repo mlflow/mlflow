@@ -46,7 +46,7 @@ def get_model_class():
     return CustomSklearnModel
 
 
-class SklearnModel(get_model_class()):
+class ModuleScopedSklearnModel(get_model_class()):
     """
     A custom Python model class defined in the test module scope. This is intended to be used for
     testing model export where the specified model class is a fully-qualified class name, as opposed
@@ -56,12 +56,14 @@ class SklearnModel(get_model_class()):
 
 
 @pytest.fixture(scope="module")
-def model_class():
+def main_scoped_model_class():
     """
     A custom Python model class defined in the ``__main__`` scope. This is intended to be used
     for testing model export where the specified model class is a ``type`` object; in these cases,
     CloudPickle is used to serialize the model class, and it requires that the class be defined
-    in ``__main__``.
+    in ``__main__`` or be resolvable from a module on the system path. When running a scoring server,
+    MLflow's "tests" module is not available on the system path, so we opt for a class defined in
+    ``__main__``.
     """
     return get_model_class()
 
@@ -95,7 +97,7 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-def test_model_save_load(sklearn_knn_model, model_class, iris_data, tmpdir):
+def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -110,7 +112,7 @@ def test_model_save_load(sklearn_knn_model, model_class, iris_data, tmpdir):
                              parameters={
                                 "predict_fn": test_predict
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
 
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
     np.testing.assert_array_equal(
@@ -118,7 +120,7 @@ def test_model_save_load(sklearn_knn_model, model_class, iris_data, tmpdir):
             test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
-def test_model_log_load(sklearn_knn_model, model_class, iris_data):
+def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
@@ -138,7 +140,7 @@ def test_model_log_load(sklearn_knn_model, model_class, iris_data):
                                 parameters={
                                     "predict_fn": test_predict
                                 },
-                                model_class=model_class)
+                                model_class=main_scoped_model_class)
         pyfunc_run_id = mlflow.active_run().info.run_uuid
 
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_artifact_path, run_id=pyfunc_run_id)
@@ -166,7 +168,7 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
 
 
 def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_model_class_type_object(
-        sklearn_knn_model, model_class, iris_data, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -181,7 +183,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_model_c
                              parameters={
                                 "predict_fn": test_predict
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
@@ -197,7 +199,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_model_c
 
 
 def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_model_class_type_object(
-        sklearn_knn_model, model_class, iris_data, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -212,7 +214,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_model_clas
                              parameters={
                                 "predict_fn": test_predict
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
@@ -242,7 +244,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_qualifi
                              parameters={
                                 "predict_fn": test_predict
                              },
-                             model_class=".".join([__name__, SklearnModel.__name__]),
+                             model_class=".".join([__name__, ModuleScopedSklearnModel.__name__]),
                              code_paths=[os.path.dirname(tests.__file__)])
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
 
@@ -259,7 +261,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_qualifi
 
 
 def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
-        sklearn_knn_model, model_class, iris_data, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -274,7 +276,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
                              parameters={
                                 "predict_fn": test_predict
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
@@ -295,7 +297,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
 
 
 def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
-        sklearn_knn_model, model_class, iris_data, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -310,7 +312,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
                              parameters={
                                 "predict_fn": test_predict
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
@@ -330,7 +332,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
 
 
 def test_save_model_specifying_model_dependency_with_different_major_python_verison_logs_warning(
-        sklearn_knn_model, model_class, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
     sk_model_config_path = os.path.join(sklearn_model_path, "MLmodel")
@@ -354,7 +356,7 @@ def test_save_model_specifying_model_dependency_with_different_major_python_veri
                              parameters={
                                 "predict_fn": lambda sk_model, model_input: None
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
 
     assert any([
         "MLflow model that was saved with a different major version of Python" in log_message
@@ -363,7 +365,7 @@ def test_save_model_specifying_model_dependency_with_different_major_python_veri
 
 
 def test_save_model_specifying_model_dependency_with_same_major_python_version_does_not_log_warning(
-        sklearn_knn_model, model_class, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
     sk_model_config_path = os.path.join(sklearn_model_path, "MLmodel")
@@ -386,7 +388,7 @@ def test_save_model_specifying_model_dependency_with_same_major_python_version_d
                              parameters={
                                 "predict_fn": lambda sk_model, model_input: None
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
 
     assert not any([
         "MLflow model that was saved with a different major version of Python" in log_message
@@ -395,7 +397,7 @@ def test_save_model_specifying_model_dependency_with_same_major_python_version_d
 
 
 def test_save_model_specifying_model_dependency_with_different_cloudpickle_verison_logs_warning(
-        sklearn_knn_model, model_class, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     with mock.patch("cloudpickle.__version__") as cloudpickle_version_mock:
         cloudpickle_version_mock.__str__ = lambda *args, **kwargs: "0.4.6"
@@ -419,7 +421,7 @@ def test_save_model_specifying_model_dependency_with_different_cloudpickle_veris
                              parameters={
                                 "predict_fn": lambda sk_model, model_input: None
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
 
     assert any([
         "MLflow model that contains a dependency on either a different version or a"
@@ -429,7 +431,7 @@ def test_save_model_specifying_model_dependency_with_different_cloudpickle_veris
 
 
 def test_save_model_specifying_model_dependency_with_same_cloudpickle_verison_does_not_log_warning(
-        sklearn_knn_model, model_class, tmpdir):
+        sklearn_knn_model, main_scoped_model_class, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model,
                           path=sklearn_model_path,
@@ -448,7 +450,7 @@ def test_save_model_specifying_model_dependency_with_same_cloudpickle_verison_do
                              parameters={
                                 "predict_fn": lambda sk_model, model_input: None
                              },
-                             model_class=model_class)
+                             model_class=main_scoped_model_class)
 
     assert not any([
         "MLflow model that contains a dependency on either a different version or a"
