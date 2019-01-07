@@ -9,7 +9,7 @@ dependencies:
   - pandas
   - pip:
     - tensorflow-gpu==1.10.0
-    - mlflow==0.8
+    - mlflow
     - click==6.7
     - scikit-learn
     - pillow

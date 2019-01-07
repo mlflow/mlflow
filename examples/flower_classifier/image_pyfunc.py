@@ -8,6 +8,7 @@ import keras
 import numpy as np
 import os
 import pandas as pd
+import PIL
 from PIL import Image
 import yaml
 import tensorflow as tf
@@ -52,19 +53,9 @@ class KerasImageClassifierPyfunc(object):
         probs_names = ["p({})".format(x) for x in domain]
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
-    def _predict_images(self, images):
-        def preprocess_f(z):
-            return decode_and_resize_image(z, self._image_dims[:2])
-
-        x = np.array(
-            images[images.columns[0]].apply(preprocess_f).tolist())
-        with self._graph.as_default():
-            with self._session.as_default():
-                return self._model.predict(x)
-
     def predict(self, input):
         """
-        Generate prediction for the data.
+        Generate predictions for the data.
 
         :param input: pandas.DataFrame with one column containing images to be scored. The image
                      column must contain base64 encoded binary content of the image files. The image
@@ -92,6 +83,21 @@ class KerasImageClassifierPyfunc(object):
         res.index = input.index
         return res
 
+    def _predict_images(self, images):
+        """
+        Generate predictions for input images.
+        :param images: binary image data
+        :return: predicted probabilities for each class
+        """
+
+        def preprocess_f(z):
+            return decode_and_resize_image(z, self._image_dims[:2])
+
+        x = np.array(
+            images[images.columns[0]].apply(preprocess_f).tolist())
+        with self._graph.as_default():
+            with self._session.as_default():
+                return self._model.predict(x)
 
 
 def log_model(keras_model, artifact_path, image_dims, domain):
@@ -105,28 +111,30 @@ def log_model(keras_model, artifact_path, image_dims, domain):
     """
 
     with TempDir() as tmp:
+        data_path = tmp.path("image_model")
+        os.mkdir(data_path)
         conf = {
             "image_dims": "/".join(map(str, image_dims)),
             "domain": "/".join(map(str, domain))
         }
-        with open(tmp.path("conf.yaml"), "w") as f:
+        with open(os.path.join(data_path, "conf.yaml"), "w") as f:
             yaml.safe_dump(conf, stream=f)
-        keras_path = tmp.path("keras_model")
+        keras_path = os.path.join(data_path, "keras_model")
         mlflow.keras.save_model(keras_model, path=keras_path)
         conda_env = tmp.path("conda_env.yaml")
         conda_env = _mlflow_conda_env(
             path=conda_env,
             additional_conda_deps=[
-                "keras={}".format(keras.__version__),
+                "keras=={}".format(keras.__version__),
                 "{tf}=={version}".format(tf=tf.__name__, version=tf.__version__)
             ],
-            additional_pip_deps=["pillow"],
+            additional_pip_deps=["pillow=={}".format(PIL.__version__)],
             additional_conda_channels=None,
         )
         mlflow.pyfunc.log_model(artifact_path=artifact_path,
                                 loader_module=__name__,
                                 code_path=[__file__],
-                                data_path=tmp.path("."),
+                                data_path=data_path,
                                 conda_env=conda_env)
 
 

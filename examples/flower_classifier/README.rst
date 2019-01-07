@@ -9,10 +9,10 @@ similar approach can be applied to other deep learning frameworks such as ``PyTo
 
 The MLflow model produced by running this example can be deployed to any MLflow supported endpoints.
 All the necessary image preprocessing is packaged with the model. The model can therefore be applied
-to image data directly. All that is required in order to pass new data tot he model is to encode the
+to image data directly. All that is required in order to pass new data to the model is to encode the
 image binary data as base64 encoded string in pandas DataFrame (standard interface for MLflow python
 function models). You can check included python scripts showing how to score model deployed to a
-REST api endpoint and also of batch scoring in Spark.
+REST API endpoint and also of batch scoring in Spark.
 
 In order to include a custom image pre-processing logic with the model, we define the model as a
 custom python function model wrapping around the underlying Keras model. The wrapper provides
@@ -26,19 +26,17 @@ example of the output model directory layout:
 
 ::
 
-    model
+   model
     ├── MLmodel
     ├── code
     │   └── image_pyfunc.py
     └── data
-        └── tmpf7mnjr6w
-            ├── conda_env.yaml
+        └── image_model
             ├── conf.yaml
             └── keras_model
-                └── keras_model
-                    ├── MLmodel
-                    ├── conda.yaml
-                    └── model.h5
+                ├── MLmodel
+                ├── conda.yaml
+                └── model.h5
 
 
 The example contains the following files:
@@ -101,7 +99,7 @@ run_id ``101``.
       python score_images_rest.py --port 54321 http://127.0.0.1 ./my_images_to_score
 
 
-- To test batch scoring in spark, run score_images_spark.py to score the model in Spark like this:
+- To test batch scoring in Spark, run score_images_spark.py to score the model in Spark like this:
 
 .. code:: bash
 
