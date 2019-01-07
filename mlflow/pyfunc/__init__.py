@@ -195,9 +195,8 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
     """
     if not dst_code_path:
         dst_code_path = src_code_path
-    return [(os.path.join(dst_code_path, x))
-            for x in os.listdir(src_code_path) if not x.endswith(".py") and not
-            x.endswith(".pyc") and not x == "__pycache__"]
+    return [(os.path.join(dst_code_path, x)) for x in os.listdir(src_code_path)
+            if os.isdir(x) and not x == "__pycache__"]
 
 
 def spark_udf(spark, path, run_id=None, result_type="double"):
