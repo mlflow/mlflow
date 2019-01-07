@@ -651,11 +651,12 @@ def _build_docker_image(work_dir, project, active_run, project_mount_path="/mlfl
         "WORKDIR \"{project_mount_path}\"\n"
     ).format(imagename=project.docker_env.get('image'), built_image=built_image,
              work_dir=work_dir, project_mount_path=project_mount_path)
-    docker_build_ctx = _create_docker_build_ctx(work_dir, dockerfile)
+    docker_build_ctx = open(_create_docker_build_ctx(work_dir, dockerfile), 'rb')
 
     _logger.info("=== Building docker image %s ===", built_image)
     client = docker.from_env()
-    image = client.images.build(tag=built_image, forcerm=True, fileobj=docker_build_ctx, custom_encoding=True)
+    image = client.images.build(tag=built_image, forcerm=True, dockerfile="build-context/Dockerfile",
+                                fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     built_image)
