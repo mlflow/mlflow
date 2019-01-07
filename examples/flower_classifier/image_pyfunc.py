@@ -93,41 +93,41 @@ class KerasImageClassifierPyfunc(object):
         return res
 
 
-    @staticmethod
-    def log_model(keras_model, artifact_path, image_dims, domain):
-        """
-        Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 
-        :param keras_model: Keras model to be saved.
-        :param artifact_path: Run-relative artifact path this model is to be saved to.
-        :param image_dims: Image dimensions the Keras model expects.
-        :param domain: Labels for the classes this model can predict.
-        """
+def log_model(keras_model, artifact_path, image_dims, domain):
+    """
+    Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 
-        with TempDir() as tmp:
-            conf = {
-                "image_dims": "/".join(map(str, image_dims)),
-                "domain": "/".join(map(str, domain))
-            }
-            with open(tmp.path("conf.yaml"), "w") as f:
-                yaml.safe_dump(conf, stream=f)
-            keras_path = tmp.path("keras_model")
-            mlflow.keras.save_model(keras_model, path=keras_path)
-            conda_env = tmp.path("conda_env.yaml")
-            conda_env = _mlflow_conda_env(
-                path=conda_env,
-                additional_conda_deps=[
-                    "keras={}".format(keras.__version__),
-                    "{tf}=={version}".format(tf=tf.__name__, version=tf.__version__)
-                ],
-                additional_pip_deps=["pillow"],
-                additional_conda_channels=None,
-            )
-            mlflow.pyfunc.log_model(artifact_path=artifact_path,
-                                    loader_module=__name__,
-                                    code_path=[__file__],
-                                    data_path=tmp.path("."),
-                                    conda_env=conda_env)
+    :param keras_model: Keras model to be saved.
+    :param artifact_path: Run-relative artifact path this model is to be saved to.
+    :param image_dims: Image dimensions the Keras model expects.
+    :param domain: Labels for the classes this model can predict.
+    """
+
+    with TempDir() as tmp:
+        conf = {
+            "image_dims": "/".join(map(str, image_dims)),
+            "domain": "/".join(map(str, domain))
+        }
+        with open(tmp.path("conf.yaml"), "w") as f:
+            yaml.safe_dump(conf, stream=f)
+        keras_path = tmp.path("keras_model")
+        mlflow.keras.save_model(keras_model, path=keras_path)
+        conda_env = tmp.path("conda_env.yaml")
+        conda_env = _mlflow_conda_env(
+            path=conda_env,
+            additional_conda_deps=[
+                "keras={}".format(keras.__version__),
+                "{tf}=={version}".format(tf=tf.__name__, version=tf.__version__)
+            ],
+            additional_pip_deps=["pillow"],
+            additional_conda_channels=None,
+        )
+        mlflow.pyfunc.log_model(artifact_path=artifact_path,
+                                loader_module=__name__,
+                                code_path=[__file__],
+                                data_path=tmp.path("."),
+                                conda_env=conda_env)
 
 
 def _load_pyfunc(path):

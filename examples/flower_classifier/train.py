@@ -19,7 +19,7 @@ import tensorflow as tf
 
 import mlflow
 
-from image_pyfunc import decode_and_resize_image, KerasImageClassifierPyfunc
+from image_pyfunc import decode_and_resize_image, log_model, KerasImageClassifierPyfunc
 
 
 def download_input():
@@ -126,7 +126,7 @@ class MLflowLogger(Callback):
         valid_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, valid_res):
             mlflow.log_metric("valid_{}".format(name), value)
-        KerasImageClassifierPyfunc.log_model(keras_model=self._model, **self._pyfunc_params)
+        log_model(keras_model=self._model, **self._pyfunc_params)
 
 
 def _imagenet_preprocess_tf(x):
