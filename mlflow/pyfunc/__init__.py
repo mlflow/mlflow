@@ -89,6 +89,7 @@ import sys
 import logging
 from copy import deepcopy
 
+import mlflow
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
@@ -253,7 +254,7 @@ def log_model(artifact_path, artifacts, parameters, model_class, conda_env=None,
                        instances of ``model_class``.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
-    return Model.log(artifact_path=artifact_path, flavor=__name__, artifacts=artifacts,
+    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc, artifacts=artifacts,
                      parameters=parameters, model_class=model_class, conda_env=conda_env,
                      code_paths=code_paths)
 
@@ -277,6 +278,8 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(path, conf[CODE])
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
+
+    print("SYS PATH", sys.path)
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
     return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 

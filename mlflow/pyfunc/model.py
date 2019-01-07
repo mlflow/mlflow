@@ -258,31 +258,30 @@ def _load_pyfunc(model_path):
     pyfunc_config = _get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
 
-    model_class = pyfunc_config.get(CONFIG_KEY_MODEL_CLASS, {})
-    if len(model_class) != 1:
+    model_class_config = pyfunc_config.get(CONFIG_KEY_MODEL_CLASS, {})
+    if len(model_class_config) != 1:
         raise MlflowException(
             message=(
-                "Expected `{model_class_config_name}` configuration to contain a single entry, but"
+                "Expected model class configuration to contain a single entry, but"
                 " multiple entries were found. Model class configuration:"
-                " `{model_class_config}`".format(
-                    model_class_config_name=CONFIG_KEY_MODEL_CLASS,
-                    model_class_config=model_class)))
-    if CONFIG_KEY_MODEL_CLASS_PATH in model_class:
-        with open(os.path.join(model_path, model_class[CONFIG_KEY_MODEL_CLASS_PATH]), "rb") as f:
+                " `{model_class_config}`".format(model_class_config=model_class_config)))
+    if CONFIG_KEY_MODEL_CLASS_PATH in model_class_config:
+        with open(os.path.join(
+                model_path, model_class_config[CONFIG_KEY_MODEL_CLASS_PATH]), "rb") as f:
             model_class = cloudpickle.load(f)
-    elif CONFIG_KEY_MODEL_CLASS_NAME in model_class:
-        model_class = pydoc.locate(model_class[CONFIG_KEY_MODEL_CLASS_NAME])
+    elif CONFIG_KEY_MODEL_CLASS_NAME in model_class_config:
+        model_class_name = model_class_config[CONFIG_KEY_MODEL_CLASS_NAME]
+        model_class = pydoc.locate(model_class_name)
         if model_class is None:
             raise MlflowException(
                 "Unable to locate the model class specified by the configuration with name:"
-                " `{model_class_name}`".format(model_class_name=model_class))
+                " `{model_class_name}`".format(model_class_name=model_class_name))
     else:
         raise MlflowException(
                 message=(
-                    "Expected `{model_class_config_name}` configuration to contain either a"
+                    "Expected model class configuration to contain either a"
                     " `{model_class_path_key}` or `{model_class_name_key}` key, but neither"
                     " was found. Model class configuration: `{model_class_config}`".format(
-                        model_class_config_name=CONFIG_KEY_MODEL_CLASS,
                         model_class_path_key=CONFIG_KEY_MODEL_CLASS_PATH,
                         model_class_name_key=CONFIG_KEY_MODEL_CLASS_NAME,
                         model_class_config=model_class)))
