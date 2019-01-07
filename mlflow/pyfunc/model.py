@@ -37,7 +37,7 @@ CONFIG_KEY_MODEL_CLASS_NAME = "name"
 
 class PythonModel(object):
     """
-    Represents a generic Python model that leverages a collection of artifacts and parameters
+    Represents a generic Python model that leverages a collection of *artifacts* and *parameters*
     (Python objects) to evaluate inputs and produce API-compatible outputs. By subclassing
     :class:`~PythonModel`, users can create customized MLflow models with the "python_function"
     ("pyfunc") flavor, leveraging custom inference logic and dependencies.
@@ -46,8 +46,8 @@ class PythonModel(object):
 
     def __init__(self, context):
         """
-        :param context: A :class:`~PythonModelContext`, instance containing artifacts and parameters
-                        that the model can use to perform inference.
+        :param context: A :class:`~PythonModelContext`, instance containing *artifacts* and
+                        *parameters* that the model can use to perform inference.
         """
         self.context = context
 
@@ -55,8 +55,8 @@ class PythonModel(object):
     def predict(self, model_input):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
-        For more information about the pyfunc input/output API, see the `pyfunc flavor
-        documentation <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html>`_.
+        For more information about the pyfunc input/output API, see the :mod:`pyfunc flavor
+        documentation <mlflow.pyfunc>`.
 
         :param model_input: A pyfunc-compatible input for the model to evaluate.
         """
@@ -65,11 +65,11 @@ class PythonModel(object):
 
 class PythonModelContext(object):
     """
-    A collection of artifacts and parameters that a :class:`~PythonModel` can use when performing
-    inference. :class:`~PythonModelContext` objects are created implicitly by the
-    :func:`save_model() <mlflow.pyfunc.save_model>` and
-    :func:`log_model() <mlflow.pyfunc.log_model>` methods, using the contents specified by the
-    ``artifacts`` and ``parameters`` arguments of these methods.
+    A collection of *artifacts* and *parameters* (Python objects) that a :class:`~PythonModel` can
+    use when performing inference. :class:`~PythonModelContext` objects are created implicitly by
+    the :func:`save_model() <mlflow.pyfunc.save_model>` and
+    :func:`log_model() <mlflow.pyfunc.log_model>` persistence methods, using the contents specified
+    by the ``artifacts`` and ``parameters`` arguments of these methods.
     """
 
     def __init__(self, artifacts, parameters):
@@ -103,10 +103,12 @@ def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=No
                       will be resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``model_class`` can reference these
                       resolved entries as the ``artifacts`` property of the ``context`` attribute.
+                      If *None*, no artifacts will be added to the model.
     :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
                        may be any Python object that is serializable with CloudPickle.
                        ``model_class`` can reference these resolved entries as the ``parameters``
-                       property of the ``context`` attribute.
+                       property of the ``context`` attribute. If *None*, no object parameters will
+                       be added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -124,7 +126,7 @@ def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=No
     os.makedirs(path)
 
     custom_model_config_kwargs = {}
-    
+
     if artifacts is not None and len(artifacts) > 0:
         saved_artifacts_config = {}
         with TempDir() as tmp_artifacts_dir:

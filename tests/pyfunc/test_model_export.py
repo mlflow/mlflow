@@ -605,7 +605,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
     nested_file_text = "some sample file text"
     with open(nested_file_path, "w") as f:
         f.write(nested_file_text)
-    
+
     class ArtifactValidationModel(mlflow.pyfunc.PythonModel):
         def __init__(self, context):
             super(ArtifactValidationModel, self).__init__(context)
@@ -676,7 +676,7 @@ def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_o
             expected_existence_result["artifacts_exists"]
         assert os.path.exists(os.path.join(model_path, "parameters")) ==\
             expected_existence_result["params_exists"]
-        
+
         pyfunc_conf = _get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
         assert (mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS in pyfunc_conf) ==\

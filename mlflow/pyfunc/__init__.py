@@ -147,7 +147,8 @@ def save_model(path, model_class, artifacts=None, parameters=None, conda_env=Non
                mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
-    :param model_class: A ``type`` object referring to a subclass of :class:`~PythonModel`, or the
+    :param model_class: A ``type`` object referring to a subclass of
+                        :class:`PythonModel <mlflow.pyfunc.model.PythonModel>`, or the
                         fully-qualified name of such a subclass. ``model_class`` defines
                         how the model is loaded and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
@@ -161,8 +162,10 @@ def save_model(path, model_class, artifacts=None, parameters=None, conda_env=Non
                         }
 
                       In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute path via
-                      ``self.context.artifacts["my_file"]``.
+                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
+                      via ``self.context.artifacts["my_file"]``.
+
+                      If *None*, no artifacts will be added to the model.
     :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
                        may be any Python object that is serializable with CloudPickle.
                        ``model_class`` can reference these resolved entries as the ``parameters``
@@ -175,6 +178,8 @@ def save_model(path, model_class, artifacts=None, parameters=None, conda_env=Non
 
                        The ``model_class`` can refer to the Python list named ``"my_list"`` as
                        ``self.context.parameters["my_list"]``.
+
+                       If *None*, no Python object parameters will be added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -188,11 +193,12 @@ def save_model(path, model_class, artifacts=None, parameters=None, conda_env=Non
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.7.0',
-                                'cloudpickle=0.5.8'
+                                'cloudpickle==0.5.8'
                             ]
                         }
     :param code_paths: A list of paths to Python file dependencies that are required by
-                       instances of ``model_class``.
+                       instances of ``model_class``. If *None*, no additional file dependencies
+                       will be included.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
     return _save_model(path=path, model_class=model_class, artifacts=artifacts,
@@ -204,7 +210,8 @@ def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda
               code_paths=None):
     """
     :param path: The run-relative artifact path to which to log the Python model.
-    :param model_class: A ``type`` object referring to a subclass of :class:`~PythonModel`, or the
+    :param model_class: A ``type`` object referring to a subclass of
+                        :class:`PythonModel <mlflow.pyfunc.model.PythonModel>`, or the
                         fully-qualified name of such a subclass. ``model_class`` defines
                         how the model is loaded and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
@@ -218,8 +225,8 @@ def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda
                         }
 
                       In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute path via
-                      ``self.context.artifacts["my_file"]``.
+                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
+                      via ``self.context.artifacts["my_file"]``.
     :param parameters: A dictionary containing ``<name, python_object>`` entries. ``python_object``
                        may be any Python object that is serializable with CloudPickle.
                        ``model_class`` can reference these resolved entries as the ``parameters``
