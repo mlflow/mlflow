@@ -15,6 +15,7 @@ import tensorflow as tf
 
 import mlflow
 import mlflow.keras
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -122,14 +123,13 @@ def log_model(keras_model, artifact_path, image_dims, domain):
         keras_path = os.path.join(data_path, "keras_model")
         mlflow.keras.save_model(keras_model, path=keras_path)
         conda_env = tmp.path("conda_env.yaml")
-        _mlflow_conda_env(
-            path=conda_env,
-            additional_conda_deps=[
-                "keras=={}".format(keras.__version__),
-                "{tf}=={version}".format(tf=tf.__name__, version=tf.__version__)
-            ],
-            additional_pip_deps=["pillow=={}".format(PIL.__version__)],
-            additional_conda_channels=None)
+        with open(conda_env, "w") as f:
+            f.write(conda_env_template.format(python_version=PYTHON_VERSION,
+                                              keras_version=keras.__version__,
+                                              tf_name=tf.__name__,  # can have optional -gpu suffix
+                                              tf_version=tf.__version__,
+                                              pillow_version=PIL.__version__))
+
         mlflow.pyfunc.log_model(artifact_path=artifact_path,
                                 loader_module=__name__,
                                 code_path=[__file__],
@@ -154,3 +154,17 @@ def _load_pyfunc(path):
             keras.backend.set_session(sess)
             keras_model = mlflow.keras.load_model(keras_model_path)
     return KerasImageClassifierPyfunc(g, sess, keras_model, image_dims, domain=domain)
+
+
+conda_env_template = """        
+name: flower_classifier
+channels:
+  - defaults
+  - anaconda
+dependencies:
+  - python=={python_version}
+  - keras=={keras_version}  
+  - {tf_name}=={tf_version} 
+  - pip:    
+    - pillow=={pillow_version}
+"""
