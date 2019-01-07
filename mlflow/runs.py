@@ -10,6 +10,7 @@ from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 from tabulate import tabulate
 from mlflow.entities.experiment import Experiment
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import conv_longdate_to_str
 
 RUN_ID = click.option("--run-id", type=click.STRING, required=True)
@@ -37,8 +38,12 @@ def list_run(experiment_id, view):
     """
     store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    runs = store.list_run_infos(experiment_id, view_type)
-    table = [[conv_longdate_to_str(run.start_time), run.name, run.run_uuid] for run in runs]
+    runs = store.search_runs([experiment_id], [], view_type)
+    table = []
+    for run in runs:
+        tags = {t.key: t.value for t in run.data.tags}
+        run_name = tags.get(MLFLOW_RUN_NAME, "")
+        table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_uuid])
     print(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 
