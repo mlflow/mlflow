@@ -75,7 +75,7 @@ To train the model, run the example as a standard MLflow project:
 
 .. code:: bash
 
-    mlflow run -e train examples/flower_classifier
+    mlflow run examples/flower_classifier
 
 This will download the training dataset from ``tensorflow.org``, train a classifier using Keras and
 log results with Mlflow.
