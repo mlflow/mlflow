@@ -287,8 +287,6 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(path, conf[CODE])
         sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
-
-    print("SYS PATH", sys.path)
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
     return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 

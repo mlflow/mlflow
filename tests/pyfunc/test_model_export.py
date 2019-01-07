@@ -455,5 +455,3 @@ def test_save_model_specifying_model_dependency_with_same_cloudpickle_verison_do
         " range of versions of the CloudPickle library" in log_message
         for log_message in log_messages
     ])
-
-
