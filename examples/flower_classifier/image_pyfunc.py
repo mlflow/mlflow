@@ -92,16 +92,18 @@ class KerasImageClassifierPyfunc(object):
         res.index = input.index
         return res
 
+
     @staticmethod
-    def save_model(path, mlflow_model, keras_model, image_dims, domain):
+    def log_model(keras_model, artifact_path, image_dims, domain):
         """
-        Save a KerasImageClassifierPyfunc model to a path on the local file system.
-        :param path: Local path where the model is to be saved.
-        :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
+
         :param keras_model: Keras model to be saved.
+        :param artifact_path: Run-relative artifact path this model is to be saved to.
         :param image_dims: Image dimensions the Keras model expects.
         :param domain: Labels for the classes this model can predict.
         """
+
         with TempDir() as tmp:
             conf = {
                 "image_dims": "/".join(map(str, image_dims)),
@@ -121,29 +123,11 @@ class KerasImageClassifierPyfunc(object):
                 additional_pip_deps=["pillow"],
                 additional_conda_channels=None,
             )
-            mlflow.pyfunc.save_model(path,
-                                     __name__,
-                                     code_path=[__file__],
-                                     data_path=tmp.path("."),
-                                     model=mlflow_model,
-                                     conda_env=conda_env)
-
-    @classmethod
-    def log_model(cls, keras_model, artifact_path, image_dims, domain):
-        """
-        Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
-
-        :param keras_model: Keras model to be saved.
-        :param artifact_path: Run-relative artifact path this model is to be saved to.
-        :param image_dims: Image dimensions the Keras model expects.
-        :param domain: Labels for the classes this model can predict.
-        """
-        from mlflow.models import Model
-        Model.log(artifact_path=artifact_path,
-                  flavor=cls,
-                  keras_model=keras_model,
-                  image_dims=image_dims,
-                  domain=domain)
+            mlflow.pyfunc.log_model(artifact_path=artifact_path,
+                                    loader_module=__name__,
+                                    code_path=[__file__],
+                                    data_path=tmp.path("."),
+                                    conda_env=conda_env)
 
 
 def _load_pyfunc(path):
