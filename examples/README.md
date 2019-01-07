@@ -23,3 +23,5 @@ and stores (logs) them as MLflow artifacts.
 * `sklearn_logisic_regression` is a simple MLflow example with hooks to log training data to MLflow
 tracking server.
 * `tensorflow` is an end-to-end one run example from train to predict.
+* `docker` demonstrates how to create and run an MLflow project using docker (rather than conda)
+  to manage project dependencies

@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import logging
@@ -26,9 +27,11 @@ from mlflow.utils import process
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH_NAME
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
+from mlflow.utils import file_utils
 from mlflow.utils.logging_utils import eprint
 from mlflow.tracking.utils import _TRACKING_URI_ENV_VAR, _REMOTE_URI_PREFIX, _is_local_uri
 import docker
+from six import BytesIO
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -55,6 +58,7 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
                               git_username=git_username, git_password=git_password)
+    print("@SID got work dir %s" % work_dir)
     project = _project_spec.load_project(work_dir)
     _validate_execution_environments(project)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
@@ -612,6 +616,23 @@ def _validate_docker_env(docker_env):
                                  "or by setting the '%s' environment variable."
                                  % (_REMOTE_URI_PREFIX, _TRACKING_URI_ENV_VAR))
 
+def _create_docker_build_ctx(work_dir, dockerfile_contents):
+    """Creates build context tarfile containing Dockerfile and project code, returning path to tarfile"""
+    directory = tempfile.mkdtemp()
+    shutil.move(src=work_dir, dst=directory)
+    with open(os.path.join(directory, "Dockerfile"), "w") as handle:
+        handle.write(dockerfile_contents)
+    print(os.listdir(directory))
+    try:
+        _, result_path = tempfile.mkstemp()
+        file_utils.make_tarfile(
+            output_filename=result_path,
+            source_dir=directory, archive_name="build-context")
+    finally:
+        shutil.rmtree(directory)
+    print("Result: %s" % result_path)
+    return result_path
+
 
 def _build_docker_image(work_dir, project, active_run, project_mount_path="/mlflow/projects/code"):
     if not project.name:
@@ -621,21 +642,19 @@ def _build_docker_image(work_dir, project, active_run, project_mount_path="/mlfl
     built_image = "mlflow-{name}-{version}".format(
         name=(project.name if project.name else "built-image"),
         version=_get_git_commit(work_dir)[:7],)
-
-    dockerfile_template = (
+    dockerfile = (
         "FROM {imagename}\n"
         "LABEL Name={built_image}\n"
-        "COPY {work_dir} {project_mount_path}\n"
-        "WORKDIR {project_mount_path}\n"
+        "RUN 'pwd'\n"
+        "COPY . \"{project_mount_path}\"\n"
+        "WORKDIR \"{project_mount_path}\"\n"
     ).format(imagename=project.docker_env.get('image'), built_image=built_image,
-             work_dir=".", project_mount_path=project_mount_path)
-    dockerfile = os.path.abspath(os.path.join(work_dir, "Dockerfile"))
-    with open(dockerfile, "w") as f:
-        f.writelines(dockerfile_template)
+             work_dir=work_dir, project_mount_path=project_mount_path)
+    docker_build_ctx = _create_docker_build_ctx(work_dir, dockerfile)
+
     _logger.info("=== Building docker image %s ===", built_image)
     client = docker.from_env()
-    image = client.images.build(path=work_dir, tag=built_image,
-                                forcerm=True, dockerfile=dockerfile)
+    image = client.images.build(tag=built_image, forcerm=True, fileobj=docker_build_ctx, custom_encoding=True)
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     built_image)
