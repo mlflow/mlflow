@@ -6,7 +6,6 @@ from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobServic
 
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
-from mlflow.tracking.utils import _download_artifact_from_uri
 
 
 TEST_ROOT_PATH = "some/path"
