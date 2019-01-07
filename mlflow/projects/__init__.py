@@ -619,15 +619,16 @@ def _validate_docker_env(docker_env):
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
     """Creates build context tarfile containing Dockerfile and project code, returning path to tarfile"""
     directory = tempfile.mkdtemp()
-    shutil.move(src=work_dir, dst=directory)
-    with open(os.path.join(directory, "Dockerfile"), "w") as handle:
+    dst_path = os.path.join(directory, os.path.basename(work_dir))
+    shutil.copytree(src=work_dir, dst=dst_path)
+    with open(os.path.join(dst_path, "Dockerfile"), "w") as handle:
         handle.write(dockerfile_contents)
-    print(os.listdir(directory))
+    print(os.listdir(dst_path))
     try:
         _, result_path = tempfile.mkstemp()
         file_utils.make_tarfile(
             output_filename=result_path,
-            source_dir=directory, archive_name="build-context")
+            source_dir=dst_path, archive_name="build-context")
     finally:
         shutil.rmtree(directory)
     print("Result: %s" % result_path)
