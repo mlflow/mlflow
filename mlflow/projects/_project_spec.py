@@ -25,16 +25,18 @@ def load_project(directory):
     project_name = yaml_obj.get("name")
     if not project_name:
         project_name = None
+    conda_path = yaml_obj.get("conda_env")
     docker_env = yaml_obj.get("docker_env")
     if docker_env and not docker_env.get("image"):
         raise ExecutionException("Docker environment specified but no image "
                                  "attribute found.")
+    if conda_path and docker_env:
+        raise ExecutionException("Project cannot contain both a docker and conda environment.")
     entry_points = {}
     for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
         parameters = entry_point_yaml.get("parameters", {})
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
-    conda_path = yaml_obj.get("conda_env")
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
