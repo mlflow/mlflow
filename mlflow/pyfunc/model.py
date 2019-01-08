@@ -48,7 +48,7 @@ class PythonModel(object):
 
     def __init__(self, context):
         """
-        :param context: A :class:`~PythonModelContext`, instance containing *artifacts* and
+        :param context: A :class:`~PythonModelContext` instance containing *artifacts* and
                         *parameters* that the model can use to perform inference.
         """
         self.context = context
