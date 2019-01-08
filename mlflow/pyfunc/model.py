@@ -313,10 +313,10 @@ def _load_pyfunc(model_path):
         directory_managers.append(tmp_artifacts_dir_manager)
         tmp_artifacts_dir_path = tmp_artifacts_dir_manager.path
     else:
-        # Because `tempfile.TemporaryDirectory` does not exist in Python 2, create an unmanaged
-        # temporary directory. Depending on the system, this directory is likely to be created
-        # in "/var" or "/tmp" and will be removed on system reboot.
-        # TODO: If the longevity of the temporary directory in Python 2 becomes problematic,
+        # Because `tempfile.TemporaryDirectory` does not exist prior to Python 3.2, create an
+        # unmanaged temporary directory instead. Depending on the system, this directory is likely
+        # to be created in "/var" or "/tmp" and will be removed on system reboot.
+        # TODO: If the longevity of the temporary directory prior to Python 3.2 becomes problematic,
         # consider using a alternative solution.
         tmp_artifacts_dir_path = tempfile.mkdtemp(suffix="artifacts")
     artifacts = {}
