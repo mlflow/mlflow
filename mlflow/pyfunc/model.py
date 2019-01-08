@@ -299,7 +299,15 @@ def _validate_artifacts(artifacts):
     :param artifacts: A dictionary containing ``<name, artifact_path>`` entries, where
                       ``artifact_path`` is the absolute filesystem path to the artifact.
     """
-    from conda.resolve import MatchSpec
+    try:
+        from conda.resolve import MatchSpec
+    except ImportError:
+        raise MlflowException(
+            "Failed to import the `conda.resolve.MatchSpec` class. Please ensure that the `conda`"
+            " package (https://anaconda.org/anaconda/conda) is installed in your current"
+            " environment. Note that this package is not automatically included when creating a new"
+            " Conda environment via `conda create`; it must be explicitly specified or installed"
+            " after activation of the new environment via `conda install conda`.")
 
     curr_major_py_version = StrictVersion(mlflow.utils.PYTHON_VERSION).version[0]
     curr_cloudpickle_version_spec = MatchSpec("cloudpickle=={curr_cloudpickle_version}".format(
