@@ -245,7 +245,6 @@ def _validate_artifacts(artifacts):
                         curr_py_version=mlflow.utils.PYTHON_VERSION,
                         model_py_version=model_py_version))
 
-
         conda_env_subpath = pyfunc_conf.get(mlflow.pyfunc.ENV, None)
         if conda_env_subpath is not None:
             with open(os.path.join(model_path, conda_env_subpath), "r") as f:
@@ -253,7 +252,7 @@ def _validate_artifacts(artifacts):
 
             conda_deps = conda_env.get("dependencies", [])
             pip_deps = dict(enumerate(conda_deps)).get("pip", [])
-            cloudpickle_dep_specs = filter(lambda spec : spec.name == "cloudpickle",
+            cloudpickle_dep_specs = filter(lambda spec: spec.name == "cloudpickle",
                                            [MatchSpec(dep) for dep in conda_deps + pip_deps])
             for cloudpickle_dep_spec in cloudpickle_dep_specs:
                 if not curr_cloudpickle_version_spec.match(cloudpickle_dep_spec):
@@ -309,7 +308,7 @@ def _load_pyfunc(model_path):
             parameters[saved_parameter_name] = cloudpickle.load(f)
 
     directory_managers = []
-    if sys.version_info >= (3,2):
+    if sys.version_info >= (3, 2):
         # Create a managed temporary directory that will exist as long as the manager object
         # returned by `tempfile.TemporaryDirectory` is in scope. This directory will be removed
         # some time after the manager object goes out of scope.

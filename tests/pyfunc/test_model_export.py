@@ -66,9 +66,9 @@ def main_scoped_model_class():
     A custom Python model class defined in the ``__main__`` scope. This is intended to be used
     for testing model export where the specified model class is a ``type`` object; in these cases,
     CloudPickle is used to serialize the model class, and it requires that the class be defined
-    in ``__main__`` or be resolvable from a module on the system path. When running a scoring server,
-    MLflow's "tests" module is not available on the system path, so we opt for a class defined in
-    ``__main__``.
+    in ``__main__`` or be resolvable from a module on the system path. When running a scoring
+    server, MLflow's "tests" module is not available on the system path, so we opt for a class
+    defined in ``__main__``.
     """
     return get_model_class()
 
@@ -78,7 +78,7 @@ def iris_data():
     iris = sklearn.datasets.load_iris()
     x = iris.data[:, :2]
     y = iris.target
-    return x,y
+    return x, y
 
 
 @pytest.fixture(scope="module")
@@ -353,24 +353,25 @@ def test_save_model_specifying_model_dependency_with_different_major_python_veri
     sk_model_config = Model.load(sk_model_config_path)
     assert mlflow.pyfunc.FLAVOR_NAME in sk_model_config.flavors
     sk_model_config.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.PY_VERSION] = (
-        "2.7.0" if sys.version_info >= (3,0) else "3.6.0"
+        "2.7.0" if sys.version_info >= (3, 0) else "3.6.0"
     )
     sk_model_config.save(sk_model_config_path)
 
     log_messages = []
+
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
     with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
         warn_mock.side_effect = custom_warn
         mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
-                             artifacts={
-                                "sk_model": sklearn_model_path
-                             },
-                             parameters={
-                                "predict_fn": lambda sk_model, model_input: None
-                             },
-                             model_class=main_scoped_model_class)
+                                 artifacts={
+                                    "sk_model": sklearn_model_path
+                                 },
+                                 parameters={
+                                    "predict_fn": lambda sk_model, model_input: None
+                                 },
+                                 model_class=main_scoped_model_class)
 
     assert any([
         "MLflow model that was saved with a different major version of Python" in log_message
@@ -390,19 +391,20 @@ def test_save_model_specifying_model_dependency_with_same_major_python_version_d
     assert StrictVersion(sk_model_py_version).version[0] == sys.version_info.major
 
     log_messages = []
+
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
     with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
         warn_mock.side_effect = custom_warn
         mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
-                             artifacts={
-                                "sk_model": sklearn_model_path
-                             },
-                             parameters={
-                                "predict_fn": lambda sk_model, model_input: None
-                             },
-                             model_class=main_scoped_model_class)
+                                 artifacts={
+                                    "sk_model": sklearn_model_path
+                                 },
+                                 parameters={
+                                    "predict_fn": lambda sk_model, model_input: None
+                                 },
+                                 model_class=main_scoped_model_class)
 
     assert not any([
         "MLflow model that was saved with a different major version of Python" in log_message
@@ -421,6 +423,7 @@ def test_save_model_specifying_model_dependency_with_different_cloudpickle_veris
             serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
 
     log_messages = []
+
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
@@ -429,13 +432,13 @@ def test_save_model_specifying_model_dependency_with_different_cloudpickle_veris
         warn_mock.side_effect = custom_warn
         cloudpickle_version_mock.__str__ = lambda *args, **kwargs: "0.5.8"
         mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
-                             artifacts={
-                                "sk_model": sklearn_model_path
-                             },
-                             parameters={
-                                "predict_fn": lambda sk_model, model_input: None
-                             },
-                             model_class=main_scoped_model_class)
+                                 artifacts={
+                                    "sk_model": sklearn_model_path
+                                 },
+                                 parameters={
+                                    "predict_fn": lambda sk_model, model_input: None
+                                 },
+                                 model_class=main_scoped_model_class)
 
     assert any([
         "MLflow model that contains a dependency on either a different version or a"
@@ -448,23 +451,24 @@ def test_save_model_specifying_model_dependency_with_same_cloudpickle_verison_do
         sklearn_knn_model, main_scoped_model_class, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model,
-                          path=sklearn_model_path,
-                          serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+                              path=sklearn_model_path,
+                              serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
 
     log_messages = []
+
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
     with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
         warn_mock.side_effect = custom_warn
         mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
-                             artifacts={
-                                "sk_model": sklearn_model_path
-                             },
-                             parameters={
-                                "predict_fn": lambda sk_model, model_input: None
-                             },
-                             model_class=main_scoped_model_class)
+                                 artifacts={
+                                    "sk_model": sklearn_model_path
+                                 },
+                                 parameters={
+                                    "predict_fn": lambda sk_model, model_input: None
+                                 },
+                                 model_class=main_scoped_model_class)
 
     assert not any([
         "MLflow model that contains a dependency on either a different version or a"
@@ -477,8 +481,8 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
         sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model,
-                          path=sklearn_model_path,
-                          serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+                              path=sklearn_model_path,
+                              serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
     mlflow.pyfunc.save_model(path=pyfunc_model_path,
@@ -554,7 +558,6 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
                                 "predict_fn": lambda sk_model, model_input: None
                              },
                              model_class=main_scoped_model_class)
-
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
