@@ -81,12 +81,12 @@ following parameters:
 """
 
 import importlib
+import logging
 import numpy as np
 import os
 import pandas
 import shutil
 import sys
-import logging
 from copy import deepcopy
 
 import mlflow
