@@ -31,7 +31,6 @@ from mlflow.utils import databricks_utils, file_utils
 from mlflow.utils.logging_utils import eprint
 from mlflow.tracking.utils import _TRACKING_URI_ENV_VAR, _REMOTE_URI_PREFIX, _is_local_uri
 import docker
-from six import BytesIO
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -634,6 +633,7 @@ def _validate_docker_env(docker_env):
         raise ExecutionException("Project with docker environment must specify the docker image "
                                  "to use via an 'image' field under the 'docker_env' field")
 
+
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
@@ -663,12 +663,10 @@ def _build_docker_image(work_dir, project, active_run, project_mount_path="/mlfl
     dockerfile = (
         "FROM {imagename}\n"
         "LABEL Name={built_image}\n"
-        "RUN 'pwd'\n"
         "COPY {build_context_path}/* \"{project_mount_path}\"\n"
         "WORKDIR \"{project_mount_path}\"\n"
     ).format(imagename=project.docker_env.get('image'), built_image=built_image,
-             work_dir=work_dir, build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
-             project_mount_path=project_mount_path)
+             build_context_path=_PROJECT_TAR_ARCHIVE_NAME, project_mount_path=project_mount_path)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     try:
         with open(build_ctx_path, 'rb') as docker_build_ctx:
