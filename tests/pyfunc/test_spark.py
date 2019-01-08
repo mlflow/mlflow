@@ -5,17 +5,15 @@ import sys
 
 import numpy as np
 import pandas as pd
+import pytest
 import pyspark
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
-import pytest
-
 import mlflow
 import mlflow.pyfunc
-
+import mlflow.sklearn
 from mlflow.pyfunc import spark_udf
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-import mlflow.sklearn
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
 types = [np.int32, np.int, np.str, np.float32, np.double]
