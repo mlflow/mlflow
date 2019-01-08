@@ -205,11 +205,17 @@ def save_model(path, model_class, artifacts=None, parameters=None, conda_env=Non
 
     saved_model_class_config = {}
     if inspect.isclass(model_class):
+        # ``model_class`` is a Python class object. In this case, we pickle the class object
+        # to produce an on-disk representation. We then store the *path* to this pickled
+        # representation in the MLmodel configuration.
         saved_model_class_subpath = "model_class.pkl"
         with open(os.path.join(path, saved_model_class_subpath), "wb") as out:
             cloudpickle.dump(model_class, out)
         saved_model_class_config[CONFIG_KEY_MODEL_CLASS_PATH] = saved_model_class_subpath
     else:
+        # ``model_class`` is *not* a Python class object. In this case, we assume that it is the
+        # fully-qualified name of a Python class. We store this fully-qualified name in the
+        # MLmodel configuration.
         saved_model_class_config[CONFIG_KEY_MODEL_CLASS_NAME] = model_class
     custom_model_config_kwargs[CONFIG_KEY_MODEL_CLASS] = saved_model_class_config
 
@@ -231,6 +237,7 @@ def save_model(path, model_class, artifacts=None, parameters=None, conda_env=Non
     mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath,
                                env=conda_env_subpath, **custom_model_config_kwargs)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
+
 
 def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda_env=None,
               code_paths=None):
@@ -372,10 +379,14 @@ def _load_pyfunc(model_path):
                 " multiple entries were found. Model class configuration:"
                 " `{model_class_config}`".format(model_class_config=model_class_config)))
     if CONFIG_KEY_MODEL_CLASS_PATH in model_class_config:
+        # The ``model_class`` associated with this model is a serialized Python class object.
+        # Therefore, we proceed to load the serialized class object using CloudPickle.
         with open(os.path.join(
                 model_path, model_class_config[CONFIG_KEY_MODEL_CLASS_PATH]), "rb") as f:
             model_class = cloudpickle.load(f)
     elif CONFIG_KEY_MODEL_CLASS_NAME in model_class_config:
+        # The ``model_class`` associated with this model is the fully-qualified name of a Python
+        # class. Therefore, we proceed to find and instantiate the class that has this name.
         model_class_name = model_class_config[CONFIG_KEY_MODEL_CLASS_NAME]
         model_class = pydoc.locate(model_class_name)
         if model_class is None:
