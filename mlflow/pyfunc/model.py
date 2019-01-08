@@ -105,7 +105,7 @@ class PythonModelContext(object):
 
 
 def save_model(path, model_class, artifacts=None, parameters=None, conda_env=None, code_paths=None,
-                mlflow_model=Model()):
+               mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
     :param model_class: A ``type`` object referring to a subclass of
