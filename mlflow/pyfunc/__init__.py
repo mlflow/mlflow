@@ -22,6 +22,9 @@ configuration::
         <data>: data packaged with the model (specified in the MLmodel file)
         <env>: Conda environment definition (specified in the MLmodel file)
 
+* The directory structure may contain additional contents that can be referenced by the
+  ``MLmodel`` configuration.
+
 A Python model contains an ``MLmodel`` file in "python_function" format in its root with the
 following parameters:
 
@@ -47,6 +50,9 @@ following parameters:
 - env [optional]:
          Relative path to an exported Conda environment. If present this environment
          should be activated prior to running the model.
+
+- **Optionally, any additional parameters necessary for interpreting the serialized model in pyfunc
+  format.**
 
 .. rubric:: Example
 
@@ -81,12 +87,14 @@ import os
 import pandas
 import shutil
 import sys
+from copy import deepcopy
 
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -100,7 +108,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None):
+def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
     """
     Add a pyfunc spec to the model configuration.
 
@@ -117,9 +125,12 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
+    :param kwargs: Additional key-value pairs to include in the pyfunc flavor specification.
+                   Values must be YAML-serializable.
     :return: Updated model configuration.
     """
-    parms = {MAIN: loader_module}
+    parms = deepcopy(kwargs)
+    parms[MAIN] = loader_module
     parms[PY_VERSION] = PYTHON_VERSION
     if code:
         parms[CODE] = code
@@ -130,25 +141,15 @@ def add_to_model(model, loader_module, data=None, code=None, env=None):
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
-def _load_model_conf(path, run_id=None):
-    """Load a model configuration stored in Python function format."""
-    if run_id:
-        path = tracking.utils._get_model_log_dir(path, run_id)
-    conf_path = os.path.join(path, "MLmodel")
-    model = Model.load(conf_path)
-    if FLAVOR_NAME not in model.flavors:
-        raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
-                                                                            path=conf_path))
-    return model.flavors[FLAVOR_NAME]
-
-
 def _load_model_env(path, run_id=None):
     """
-        Get ENV file string from a model configuration stored in Python Function format.
-        Returned value is a model-relative path to a Conda Environment file,
-        or None if none was specified at model save time
+    Get ENV file string from a model configuration stored in Python Function format.
+    Returned value is a model-relative path to a Conda Environment file,
+    or None if none was specified at model save time
     """
-    return _load_model_conf(path, run_id).get(ENV, None)
+    if run_id is not None:
+        path = tracking.utils._get_model_log_dir(path, run_id)
+    return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
 def load_pyfunc(path, run_id=None, suppress_warnings=False):
@@ -161,9 +162,9 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
                               loading process will be suppressed. If False, these warning messages
                               will be emitted.
     """
-    if run_id:
+    if run_id is not None:
         path = tracking.utils._get_model_log_dir(path, run_id)
-    conf = _load_model_conf(path)
+    conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
@@ -174,7 +175,12 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
     return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 
 
-def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
+def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
+    """
+    Compares the version of Python that was used to save a given model with the version
+    of Python that is currently running. If a major or minor version difference is detected,
+    logs an appropriate warning.
+    """
     if model_py_version is None:
         _logger.warning(
             "The specified model does not have a specified Python version. It may be"
@@ -189,11 +195,18 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
 
 
 def _get_code_dirs(src_code_path, dst_code_path=None):
+    """
+    Obtains the names of the subdirectories contained under the specified source code
+    path and joins them with the specified destination code path.
+
+    :param src_code_path: The path of the source code directory for which to list subdirectories.
+    :param dst_code_path: The destination directory path to which subdirectory names should be
+                          joined.
+    """
     if not dst_code_path:
         dst_code_path = src_code_path
-    return [(os.path.join(dst_code_path, x))
-            for x in os.listdir(src_code_path) if not x.endswith(".py") and not
-            x.endswith(".pyc") and not x == "__pycache__"]
+    return [(os.path.join(dst_code_path, x)) for x in os.listdir(src_code_path)
+            if os.path.isdir(x) and not x == "__pycache__"]
 
 
 def spark_udf(spark, path, run_id=None, result_type="double"):
