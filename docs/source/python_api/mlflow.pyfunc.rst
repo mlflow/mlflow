@@ -7,8 +7,8 @@ mlflow.pyfunc
     :show-inheritance:
 
 .. Include ``PythonModelContext`` as a renamed class to avoid documenting constructor parameters.
-.. This class is meant to be constructed implicitly, and users should only be aware of its
-.. documented member properties.
+   This class is meant to be constructed implicitly, and users should only be aware of its
+   documented member properties.
 .. autoclass:: mlflow.pyfunc.model.PythonModelContext()
     :members:
     :undoc-members:
