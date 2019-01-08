@@ -68,7 +68,7 @@ class PythonModel(object):
 class PythonModelContext(object):
     """
     A collection of *artifacts* and *parameters* (Python objects) that a :class:`~PythonModel` can
-    use when performing inference. :class:`~PythonModelContext` objects are created implicitly by
+    use when performing inference. :class:`~PythonModelContext` objects are created *implicitly* by
     the :func:`save_model() <mlflow.pyfunc.save_model>` and
     :func:`log_model() <mlflow.pyfunc.log_model>` persistence methods, using the contents specified
     by the ``artifacts`` and ``parameters`` arguments of these methods.

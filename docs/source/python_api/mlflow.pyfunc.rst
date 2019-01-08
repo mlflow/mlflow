@@ -6,7 +6,12 @@ mlflow.pyfunc
     :undoc-members:
     :show-inheritance:
 
-
-.. automodule:: mlflow.pyfunc.model
+.. autoclass:: mlflow.pyfunc.model.PythonModelContext()
     :members:
     :undoc-members:
+
+.. autoclass:: mlflow.pyfunc.model.PythonModel
+    :members:
+    :undoc-members:
+
+    .. automethod:: __init__
