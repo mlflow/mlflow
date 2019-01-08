@@ -145,22 +145,19 @@ def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=No
             tmp_artifacts_config = {}
             saved_artifacts_dir_subpath = "artifacts"
             for artifact_name, artifact_uri in artifacts.items():
-                tmp_artifact_path = tmp_artifacts_dir.path(
-                    saved_artifacts_dir_subpath, artifact_name)
-                os.makedirs(tmp_artifact_path)
                 tmp_artifact_path = _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifact_path)
+                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path())
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
-                saved_artifact_subpath = os.path.relpath(
-                        path=tmp_artifact_path, start=tmp_artifacts_dir.path())
+                saved_artifact_subpath = os.path.join(
+                    saved_artifacts_dir_subpath,
+                    os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()))
                 saved_artifacts_config[artifact_name] = {
                     CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
             _validate_artifacts(tmp_artifacts_config)
-            shutil.move(tmp_artifacts_dir.path(saved_artifacts_dir_subpath),
-                        os.path.join(path, saved_artifacts_dir_subpath))
+            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if parameters is not None and len(parameters) > 0:
