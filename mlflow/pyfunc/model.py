@@ -276,8 +276,8 @@ def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
-                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda
+                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
+                      model. The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
