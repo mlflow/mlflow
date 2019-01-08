@@ -93,7 +93,8 @@ import mlflow
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
-from mlflow.pyfunc.model import _save_model, PythonModel, PythonModelContext
+from mlflow.pyfunc.model import save_model, log_model, PythonModel, PythonModelContext,\
+    DEFAULT_CONDA_ENV
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -141,127 +142,6 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     if env:
         parms[ENV] = env
     return model.add_flavor(FLAVOR_NAME, **parms)
-
-
-def save_model(path, model_class, artifacts=None, parameters=None, conda_env=None, code_paths=None,
-               mlflow_model=Model()):
-    """
-    :param path: The path to which to save the Python model.
-    :param model_class: A ``type`` object referring to a subclass of
-                        :class:`PythonModel <mlflow.pyfunc.model.PythonModel>`, or the
-                        fully-qualified name of such a subclass. ``model_class`` defines
-                        how the model is loaded and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
-                      will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      For example, consider the following ``artifacts`` dictionary::
-
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
-
-                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
-                      via ``self.context.artifacts["my_file"]``.
-
-                      If *None*, no artifacts will be added to the model.
-    :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
-                       may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved entries as the ``parameters``
-                       property of the ``context`` attribute. For example, consider the following
-                       ``parameters`` dictionary::
-
-                         {
-                             "my_list": range(10)
-                         }
-
-                       The ``model_class`` can refer to the Python list named ``"my_list"`` as
-                       ``self.context.parameters["my_list"]``.
-
-                       If *None*, no Python object parameters will be added to the model.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV`. If `None`, the
-                      default :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV` environment will be
-                      added to the model. The following is an *example* dictionary representation of
-                      a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
-    :param code_paths: A list of paths to Python file dependencies that are required by
-                       instances of ``model_class``. If *None*, no additional file dependencies
-                       will be included.
-    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
-    """
-    return _save_model(path=path, model_class=model_class, artifacts=artifacts,
-                       parameters=parameters, conda_env=conda_env, code_paths=code_paths,
-                       mlflow_model=mlflow_model)
-
-
-def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda_env=None,
-              code_paths=None):
-    """
-    :param path: The run-relative artifact path to which to log the Python model.
-    :param model_class: A ``type`` object referring to a subclass of
-                        :class:`PythonModel <mlflow.pyfunc.model.PythonModel>`, or the
-                        fully-qualified name of such a subclass. ``model_class`` defines
-                        how the model is loaded and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
-                      will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      For example, consider the following ``artifacts`` dictionary::
-
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
-
-                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
-                      via ``self.context.artifacts["my_file"]``.
-    :param parameters: A dictionary containing ``<name, python_object>`` entries. ``python_object``
-                       may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved entries as the ``parameters``
-                       property of the ``context`` attribute. For example, consider the following
-                       ``parameters`` dictionary::
-
-                         {
-                             "my_list": range(10)
-                         }
-
-                       The ``model_class`` can refer to the Python list named ``"my_list"`` as
-                       ``self.context.parameters["my_list"]``.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV`. If `None`, the
-                      default :data:`mlflow.pyfunc.model.DEFAULT_CONDA_ENV` environment will be
-                      added to the model. The following is an *example* dictionary representation of
-                      a Conda environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle=0.5.8'
-                            ]
-                        }
-    :param code_paths: A list of paths to Python file dependencies that are required by
-                       instances of ``model_class``.
-    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
-    """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc, artifacts=artifacts,
-                     parameters=parameters, model_class=model_class, conda_env=conda_env,
-                     code_paths=code_paths)
 
 
 def _load_model_env(path, run_id=None):
