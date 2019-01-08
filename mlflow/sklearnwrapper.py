@@ -10,13 +10,16 @@ This module exports scikit-learn models with the following flavors:
 
 from __future__ import absolute_import
 
+from collections import defaultdict
 import os
 import pickle
 import yaml
 import copy
 import pandas as pd
+import numpy as np
 
 import sklearn
+from sklearn.base import BaseEstimator, TransformerMixin
 
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -246,7 +249,7 @@ def load_model(path, run_id=None):
     sklearn_model_artifacts_path = os.path.join(path, flavor_conf['pickled_model'])
     return _load_model_from_local_file(path=sklearn_model_artifacts_path)
 
-class DtypeTransform():
+class DtypeTransform(BaseEstimator, TransformerMixin):
 
     def __init__(self, coltypes):
         """
@@ -263,10 +266,10 @@ class DtypeTransform():
         """
         self.coltypes = coltypes
 
-    def fit(self, X, y=None):
-        pass
+    def fit(self, X, y=None, **fit_params):
+        return self
 
-    def transform(self, X, y=None):
+    def transform(self, X, y=None, **transform_params):
         df = X.copy()
         for col in self.coltypes['cont_num_cols']:
             if col in df.columns:
@@ -281,16 +284,98 @@ class DtypeTransform():
                 df[col] = df[col].astype('object')
                 df[col] = df[col].fillna('UNKNOWN')
 
-        # Flatten columns
-        all_cols = [col for cols in self.coltypes.values() for col in cols]
-
-        # Remove columns without dtype specified
-        df = df[all_cols]
-
         return df
 
-    def fit_transform(self, X, y=None):
-        return self.transform(X, y)
+class BucketTransform(BaseEstimator, TransformerMixin):
+
+    def __init__(self, id_col, target_col, min_thresh, pctiles=np.linspace(0,90,10, dtype=int)):
+        self.id_col = id_col
+        self.target_col = target_col
+        self.min_thresh = min_thresh
+        self.pctiles = pctiles
+        self.bucket_lookup = defaultdict(lambda: '{}_NA'.format(self.id_col))
+
+    def fit(self, X, y, **fit_params):
+        X = X.copy()
+        y = y.copy()
+
+        if self.id_col not in X.columns:
+            print('WARNING: {} not in X'.format(self.id_col))
+            return self
+
+        df = X.join(y)
+        # Ensure percentiles are sorted in descending order
+        self.pctiles[::-1].sort() # sorts inplace
+        buckets = df.copy().groupby(self.id_col, as_index=False)[self.target_col].agg(['count','sum'])
+        buckets[self.target_col] = buckets['sum'] / buckets['count']
+        buckets[self.id_col] = buckets.index.values
+        lbl_prfx = '{}_'.format(self.id_col)
+        pctile_lbls = []
+        pctile_targets = []
+        for pctile in self.pctiles:
+            lbl = '{}{}'.format(lbl_prfx, pctile)
+            target = np.percentile(buckets[self.target_col], pctile)
+            pctile_lbls.append(lbl)
+            pctile_targets.append(target)
+        def get_bucket_lbl(row):
+            for lbl, target in zip(pctile_lbls, pctile_targets):
+                if (row['count'] > self.min_thresh) and (row[self.target_col] >= target):
+                    return lbl
+            return '{}NA'.format(lbl_prfx)
+        buckets['bucket'] = buckets.apply(get_bucket_lbl, axis=1)
+
+        # Build bucket lookup dict
+        for _id in buckets[self.id_col].unique():
+            bucket = buckets.loc[buckets[self.id_col] == _id]['bucket'].values[0]
+            self.bucket_lookup[str(_id)] = bucket
+
+        self.categories_ = np.unique(list(self.bucket_lookup.values()))
+        self.buckets_ = buckets
+
+        return self
+
+    def transform(self, X, y=None, **transform_params):
+        X = X.copy()
+
+        if self.id_col not in X.columns:
+            print('WARNING: {} not in X'.format(self.id_col))
+            return X
+
+        def get_bucket(row):
+            _id = row[self.id_col]
+            return self.bucket_lookup[str(_id)]
+
+        bucket_col = '{}_bucket'.format(self.id_col)
+        X[bucket_col] = X.apply(get_bucket, axis=1)
+        dummies = pd.get_dummies(X[bucket_col])
+
+        # Add missing columns (only needed for test/predict sets)
+        missing_cols = set(self.categories_) - set(dummies.columns)
+        for c in missing_cols:
+            dummies[c] = 0
+
+        # Join new columns back to original data
+        X = X.join(dummies)
+
+        # Drop original and intermediate cols (e.g. affiliate_id and affiliate_id_bucket)
+        X = X.drop(columns=[self.id_col, bucket_col])
+
+        # Need to sort columns since adding missing cols does not guarantee order
+        X = X.reindex(sorted(X.columns), axis=1)
+
+        return X
+
+
+class EmptyTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+    def transform(self, X, y=None, **transform_params):
+        return X
 
 
 class SKLearnPipelineWrapper:
@@ -344,4 +429,3 @@ class SKLearnPipelineWrapper:
     def _predict_proba(self, df):
         """Used during training for model evaluation."""
         return self.pipeline.predict_proba(df)[:,1]
-
