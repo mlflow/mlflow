@@ -306,8 +306,9 @@ def _validate_artifacts(artifacts):
             "Failed to import the `conda.resolve.MatchSpec` class. Please ensure that the `conda`"
             " package (https://anaconda.org/anaconda/conda) is installed in your current"
             " environment. Note that this package is not automatically included when creating a new"
-            " Conda environment via `conda create`; it must be explicitly specified or installed"
-            " after activation of the new environment via `conda install conda`.")
+            " Conda environment via `conda create`; it must be explicitly specified during"
+            " environment creation or installed after environment activation via"
+            " `conda install conda`.")
 
     curr_major_py_version = StrictVersion(mlflow.utils.PYTHON_VERSION).version[0]
     curr_cloudpickle_version_spec = MatchSpec("cloudpickle=={curr_cloudpickle_version}".format(
