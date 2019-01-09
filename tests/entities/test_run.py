@@ -35,9 +35,9 @@ class TestRun(TestRunInfo, TestRunData):
                             "lifecycle_stage": lifecycle_stage,
                             "artifact_uri": artifact_uri,
                             },
-                   "data": {"metrics": metrics,
-                            "params": params,
-                            "tags": tags}}
+                   "data": {"metrics": [dict(m) for m in metrics],
+                            "params": [dict(p) for p in params],
+                            "tags": [dict(t) for t in tags]}}
         self.assertEqual(run1.to_dictionary(), as_dict)
 
         proto = run1.to_proto()

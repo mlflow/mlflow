@@ -39,12 +39,18 @@ class RunData(_MLflowObject):
         return self._tags
 
     def _add_metric(self, metric):
+        if isinstance(metric, dict):
+            metric = Metric(metric['key'], metric['value'], metric['timestamp'])
         self._metrics.append(metric)
 
     def _add_param(self, param):
+        if isinstance(param, dict):
+            param = Param(param['key'], param['value'])
         self._params.append(param)
 
     def _add_tag(self, tag):
+        if isinstance(tag, dict):
+            tag = RunTag(tag['key'], tag['value'])
         self._tags.append(tag)
 
     def to_proto(self):
