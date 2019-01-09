@@ -9,7 +9,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -139,6 +138,7 @@ def _get_store(store_uri=None):
 
     # Pattern-match on the URI
     if _is_db_uri(store_uri):
+        from mlflow.store.sqlalchemy_store import SqlAlchemyStore
         return SqlAlchemyStore(store_uri)
     if _is_databricks_uri(store_uri):
         return _get_databricks_rest_store(store_uri)
