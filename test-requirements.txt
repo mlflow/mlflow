@@ -26,3 +26,4 @@ attrdict==2.0.0
 azureml-sdk; python_version >= "3.0"
 cloudpickle
 pytest-localserver
+sqlalchemy
