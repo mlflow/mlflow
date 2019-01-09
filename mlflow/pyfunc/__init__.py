@@ -197,7 +197,41 @@ def save_model(dst_path, loader_module=None, data_path=None, code_paths=None, co
 
 def _save_model(dst_path, loader_module, data_path=None, code_paths=None, conda_env=None,
                 mlflow_model=Model()):
-    pass
+    """
+    Export model as a generic Python function model.
+    :param dst_path: Path where the model is stored.
+    :param loader_module: The module to be used to load the model.
+    :param data_path: Path to a file or directory containing model data.
+    :param code_path: List of paths (file or dir) contains code dependencies not present in
+                      the environment. Every path in the ``code_path`` is added to the Python
+                      path before the model is loaded.
+    :param conda_env: Path to the Conda environment definition. This environment is activated
+                      prior to running model code.
+    :return: Model configuration containing model info.
+    """
+    if os.path.exists(dst_path):
+        raise Exception("Path '{}' already exists".format(dst_path))
+    os.makedirs(dst_path)
+    code = None
+    data = None
+    env = None
+
+    if data_path:
+        model_file = _copy_file_or_tree(src=data_path, dst=dst_path, dst_dir="data")
+        data = model_file
+
+    if code_path:
+        for path in code_path:
+            _copy_file_or_tree(src=path, dst=dst_path, dst_dir="code")
+        code = "code"
+
+    if conda_env:
+        shutil.copy(src=conda_env, dst=os.path.join(dst_path, "mlflow_env.yml"))
+        env = "mlflow_env.yml"
+
+    add_to_model(mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
+    mlflow_model.save(os.path.join(dst_path, 'MLmodel'))
+    return mlflow_model
 
 
 def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda_env=None,
