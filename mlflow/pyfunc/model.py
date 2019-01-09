@@ -33,8 +33,6 @@ CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PARAMETERS = "parameters"
 CONFIG_KEY_MODEL_CLASS = "model_class"
-CONFIG_KEY_MODEL_CLASS_PATH = "path"
-CONFIG_KEY_MODEL_CLASS_NAME = "name"
 
 
 class PythonModel(object):
@@ -104,8 +102,8 @@ class PythonModelContext(object):
         return self._parameters
 
 
-def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=None, code_paths=None,
-                mlflow_model=Model()):
+def _save_model_with_class_artifacts_params(path, model_class, artifacts=None, parameters=None,
+                                            conda_env=None, code_paths=None, mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
     :param model_class: A ``type`` object referring to a subclass of
@@ -169,6 +167,16 @@ def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=No
     os.makedirs(path)
 
     custom_model_config_kwargs = {}
+    if inspect.isclass(model_class):
+        saved_model_class_subpath = "model_class.pkl"
+        with open(os.path.join(path, saved_model_class_subpath), "wb") as out:
+            cloudpickle.dump(model_class, out)
+        custom_model_config_kwargs[CONFIG_KEY_MODEL_CLASS] = saved_model_class_subpath
+    else:
+        raise MlflowException(
+                message=("`model_class` must be a class object. Instead, found an object"
+                         " of type: {model_class_type}".format(model_class_type=type(model_class))),
+                error_code=INVALID_PARAMETER_VALUE)
 
     if artifacts is not None and len(artifacts) > 0:
         saved_artifacts_config = {}
@@ -203,22 +211,6 @@ def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=No
             saved_parameters_config[parameter_name] = saved_parameter_subpath
         custom_model_config_kwargs[CONFIG_KEY_PARAMETERS] = saved_parameters_config
 
-    saved_model_class_config = {}
-    if inspect.isclass(model_class):
-        # ``model_class`` is a Python class object. In this case, we pickle the class object
-        # to produce an on-disk representation. We then store the *path* to this pickled
-        # representation in the MLmodel configuration.
-        saved_model_class_subpath = "model_class.pkl"
-        with open(os.path.join(path, saved_model_class_subpath), "wb") as out:
-            cloudpickle.dump(model_class, out)
-        saved_model_class_config[CONFIG_KEY_MODEL_CLASS_PATH] = saved_model_class_subpath
-    else:
-        # ``model_class`` is *not* a Python class object. In this case, we assume that it is the
-        # fully-qualified name of a Python class. We store this fully-qualified name in the
-        # MLmodel configuration.
-        saved_model_class_config[CONFIG_KEY_MODEL_CLASS_NAME] = model_class
-    custom_model_config_kwargs[CONFIG_KEY_MODEL_CLASS] = saved_model_class_config
-
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
         conda_env = DEFAULT_CONDA_ENV
@@ -237,6 +229,50 @@ def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=No
     mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath,
                                env=conda_env_subpath, **custom_model_config_kwargs)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
+
+
+def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,
+                                                 code_paths=None, conda_env=None,
+                                                 mlflow_model=Model()):
+    """
+    Export model as a generic Python function model.
+    :param path: Path where the model is stored.
+    :param loader_module: The module to be used to load the model.
+    :param data_path: Path to a file or directory containing model data.
+    :param code_path: List of paths (file or dir) contains code dependencies not present in
+                      the environment. Every path in the ``code_path`` is added to the Python
+                      path before the model is loaded.
+    :param conda_env: Path to the Conda environment definition. This environment is activated
+                      prior to running model code.
+    :return: Model configuration containing model info.
+    """
+    if os.path.exists(path):
+        raise Exception("Path '{}' already exists".format(path))
+    os.makedirs(path)
+    code = None
+    data = None
+    env = None
+
+    if data_path:
+        model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
+        data = model_file
+
+    if code_paths:
+        for path in code_paths:
+            _copy_file_or_tree(src=path, dst=path, dst_dir="code")
+        code = "code"
+
+    if conda_env:
+        shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
+        env = "mlflow_env.yml"
+
+    mlflow.pyfunc.add_to_model(
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
+    mlflow_model.save(os.path.join(path, 'MLmodel'))
+    return mlflow_model
+
+
+
 
 
 def _validate_artifacts(artifacts):

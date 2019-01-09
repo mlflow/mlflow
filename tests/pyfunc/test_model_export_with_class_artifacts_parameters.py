@@ -22,6 +22,7 @@ import mlflow.pyfunc.cli
 import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracking.utils import get_artifact_uri as utils_get_artifact_uri
 from mlflow.tracking.utils import _get_model_log_dir
@@ -258,7 +259,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_qualifi
                              parameters={
                                 "predict_fn": test_predict
                              },
-                             model_class=".".join([__name__, ModuleScopedSklearnModel.__name__]),
+                             model_class=ModuleScopedSklearnModel,
                              code_paths=[os.path.dirname(tests.__file__)])
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
 
@@ -634,13 +635,13 @@ def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_o
         tmpdir):
     no_params_or_artifacts_model_path = os.path.join(str(tmpdir), "no_params_or_artifacts")
     mlflow.pyfunc.save_model(path=no_params_or_artifacts_model_path,
-                             model_class="a.sample.ClassName",
+                             model_class=ModuleScopedSklearnModel,
                              parameters=None,
                              artifacts=None)
 
     no_artifacts_model_path = os.path.join(str(tmpdir), "no_artifacts")
     mlflow.pyfunc.save_model(path=no_artifacts_model_path,
-                             model_class="a.sample.ClassName",
+                             model_class=ModuleScopedSklearnModel,
                              parameters={
                                 "sample_set": set(range(10)),
                              },
@@ -648,7 +649,7 @@ def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_o
 
     no_params_model_path = os.path.join(str(tmpdir), "no_params")
     mlflow.pyfunc.save_model(path=no_params_model_path,
-                             model_class="a.sample.ClassName",
+                             model_class=ModuleScopedSklearnModel,
                              parameters=None,
                              artifacts={
                                 "no_artifacts_model": no_artifacts_model_path,
@@ -683,6 +684,18 @@ def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_o
             expected_existence_result["artifacts_exists"]
         assert (mlflow.pyfunc.model.CONFIG_KEY_PARAMETERS in pyfunc_conf) ==\
             expected_existence_result["params_exists"]
+
+
+def test_save_model_with_model_class_parameter_of_invalid_type_raises_exeption(tmpdir):
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "model1"),
+                                 model_class="not the right type")
+    assert "`model_class` must be a class object" in str(exc_info)
+
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "model2"),
+                                 model_class="not the right type")
+    assert "`model_class` must be a class object" in str(exc_info)
 
 
 def test_sagemaker_docker_model_scoring_with_default_conda_env(
