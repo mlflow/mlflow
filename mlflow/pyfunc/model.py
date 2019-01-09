@@ -104,8 +104,8 @@ class PythonModelContext(object):
         return self._parameters
 
 
-def save_model(path, model_class, artifacts=None, parameters=None, conda_env=None, code_paths=None,
-               mlflow_model=Model()):
+def _save_model(path, model_class, artifacts=None, parameters=None, conda_env=None, code_paths=None,
+                mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
     :param model_class: A ``type`` object referring to a subclass of
@@ -237,64 +237,6 @@ def save_model(path, model_class, artifacts=None, parameters=None, conda_env=Non
     mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath,
                                env=conda_env_subpath, **custom_model_config_kwargs)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
-
-
-def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda_env=None,
-              code_paths=None):
-    """
-    :param path: The run-relative artifact path to which to log the Python model.
-    :param model_class: A ``type`` object referring to a subclass of
-                        :class:`~PythonModel`, or the fully-qualified name of such a subclass.
-                        ``model_class`` defines how the model is loaded and how it performs
-                        inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
-                      will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      For example, consider the following ``artifacts`` dictionary::
-
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
-
-                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
-                      via ``self.context.artifacts["my_file"]``.
-    :param parameters: A dictionary containing ``<name, python_object>`` entries. ``python_object``
-                       may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved entries as the ``parameters``
-                       property of the ``context`` attribute. For example, consider the following
-                       ``parameters`` dictionary::
-
-                         {
-                             "my_list": range(10)
-                         }
-
-                       The ``model_class`` can refer to the Python list named ``"my_list"`` as
-                       ``self.context.parameters["my_list"]``.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
-                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle=0.5.8'
-                            ]
-                        }
-    :param code_paths: A list of paths to Python file dependencies that are required by
-                       instances of ``model_class``.
-    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
-    """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc, artifacts=artifacts,
-                     parameters=parameters, model_class=model_class, conda_env=conda_env,
-                     code_paths=code_paths)
 
 
 def _validate_artifacts(artifacts):
