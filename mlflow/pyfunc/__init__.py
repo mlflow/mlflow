@@ -1,19 +1,29 @@
 # -*- coding: utf-8 -*-
 
 """
-The ``mlflow.pyfunc`` module defines a generic filesystem format for Python models and provides
+The ``mlflow.pyfunc`` module defines a generic `Filesystem format`_ for Python models and provides
 utilities for saving to and loading from this format. The format is self contained in the sense
 that it includes all necessary information for anyone to load it and use it. Dependencies
 are either stored directly with the model or referenced via a Conda environment.
 
-The convention for pyfunc models is to have a ``predict`` method or function with the following
-signature::
+Many of MLflow's model persistence modules, such as :mod:`mlflow.sklearn`, :mod:`mlflow.keras`,
+and :mod:`mlflow.pytorch`, produce models with the **python_function** (**pyfunc**) flavor. This
+means that they adhere to the ``mlflow.pyfunc`` filesystem format and can be interpreted as 
+generic Python classes that implement the specified `Inference API`_. Therefore, any tool 
+that operates on these **pyfunc** classes can operate on any MLflow model containing the **pyfunc** 
+flavor, regardless of which persistence module or framework was used to produce the model. 
+*This interoperability is very powerful because it allows any Python model to be productionized in 
+a variety of environments*.
 
-    predict(data: pandas.DataFrame) -> numpy.ndarray | pandas.Series | pandas.DataFrame
+Finally, the ``mlflow.pyfunc`` module also defines utilities for creating custom **pyfunc** models
+using frameworks and inference logic that may not be natively included in MLflow. See
+`Creating custom Pyfunc models`_.
 
-This convention is relied on by other MLflow components.
+*****************
+Filesystem format
+*****************
 
-Pyfunc model format is defined as a directory structure containing all required data, code, and
+The Pyfunc format is defined as a directory structure containing all required data, code, and
 configuration::
 
     ./dst-path/
@@ -25,7 +35,11 @@ configuration::
 * The directory structure may contain additional contents that can be referenced by the
   ``MLmodel`` configuration.
 
-A Python model contains an ``MLmodel`` file in "python_function" format in its root with the
+
+MLModel configuration
+#####################
+
+A Python model contains an ``MLmodel`` file in **python_function** format in its root with the
 following parameters:
 
 - loader_module [required]:
@@ -54,6 +68,7 @@ following parameters:
 - **Optionally, any additional parameters necessary for interpreting the serialized model in pyfunc
   format.**
 
+
 .. rubric:: Example
 
 >>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
@@ -78,6 +93,120 @@ following parameters:
     loader_module: mlflow.sklearn
     env: mlflow_env.yml
     main: sklearn_iris
+
+
+*************
+Inference API
+*************
+
+The convention for pyfunc models is to have a ``predict`` method or function with the following
+signature::
+
+    predict(data: pandas.DataFrame) -> numpy.ndarray | pandas.Series | pandas.DataFrame
+
+This convention is relied on by other MLflow components.
+
+
+******************************
+Creating custom Pyfunc models
+******************************
+
+MLflow's persistence modules provide convenience functions for creating models with the
+**pyfunc** flavor in a variety of machine learning frameworks (Scikit-learn, Keras, Pytorch, and 
+more); however, they do not cover every use case. For example, you may want to create an MLflow 
+model with the **pyfunc** flavor using a framework that MLflow does not natively support. 
+Alternatively, you may want to build an MLflow model that executes custom logic when evaluating 
+queries, such as preprocessing and postprocessing routines. Therefore, ``mlflow.pyfunc``
+provides utilities for creating **pyfunc** models from arbitrary code and model data.
+
+The :meth:`save_model()` and :meth:`log_model()` methods are designed to support multiple workflows
+for creating custom **pyfunc** models that incorporate custom inference logic and data dependencies.
+Data dependencies are **parameters** and **artifacts** that the inference logic may use to 
+evaluate queries. These components are defined as follows:
+
+1. **Parameters**: Python objects. For example, a numpy matrix containing precomputed feature 
+   values is a **parameter**.
+2. **Artifacts**: Files or directories, such as serialized Python models or CSVs. For example, a 
+   serialized Tensorflow graph is an **artifact**; an MLflow model directory is also an 
+   **artifact**.
+
+Workflows
+#########
+
+:meth:`save_model()` and :meth:`log_model()` support the following workflows:
+
+    1. Collecting **artifacts** and **parameters** to create an MLflow model
+
+       Given a set of **artifact** URIs and **parameters**, 
+       :meth:`save_model()` and :meth:`log_model()` can automatically download **artifacts** from 
+       their URIs and serialize **parameters** to create an MLflow model directory. **artifacts** 
+       and **parameters** are specified by the ``artifacts`` and ``parameters`` method arguments, 
+       respectively.
+
+       In this case, you must provide a Python class, called a **model class**, with two 
+       methods:
+
+           - ``__init__()``: This method loads and interprets **artifacts** from the MLflow 
+             model directory. 
+             
+             *Note:* **parameters** are *automatically* read from the MLflow model directory as 
+             Python objects.
+
+           - ``predict()``: This method leverages **artifacts** and **parameters** to evaluate 
+             queries. It must adhere to the `Inference API`_.
+
+       The **model_class** must inherit from :class:`~PythonModel`. It is specified via the 
+       ``model_class`` parameter and is automatically serialized and deserialized as a Python
+       class object.
+
+    2. Importing data as an MLflow model
+    
+       If you already have a collection of model data, :meth:`save_model()` and :meth:`log_model()`
+       can import the data as an MLflow model. Model data may consist of both **artifacts** and 
+       *serialized* **parameters**. The ``data_path`` argument specifies the local filesystem path 
+       to the directory containing model data. 
+    
+       In this case, you must provide a Python module, called a **loader module**. The 
+       **loader module** defines a ``_load_pyfunc()`` method that performs the following tasks:
+
+           - Load **artifacts** *and* serialized **parameters** from ``data_path``. For example, 
+             this process may include deserializing pickled Python objects or models or parsing 
+             CSV files.
+
+           - Construct and return a pyfunc-compatible model wrapper. As in the first
+             use case, this wrapper must define a ``predict()`` method that is used to evaluate
+             queries. ``predict()`` must adhere to the `Inference API`_.
+           
+       The ``loader_module`` parameter specifies the name of your **loader module**.  
+
+       For an example **loader module** implementation, please refer to the `loader module 
+       implementation in mlflow.keras <https://github.com/mlflow/mlflow/blob/
+       74d75109aaf2975f5026104d6125bb30f4e3f744/mlflow/keras.py#L157-L187>`_.
+
+
+Which workflow is right for my use case?
+########################################
+
+We consider the *first* workflow to be more user-friendly and generally recommend it for the 
+following reasons:
+
+    - It automatically resolves and collects specified model **artifacts** and **parameters**.
+
+    - It automatically serializes and deserializes **parameters**, reducing the amount of 
+      required user logic.
+
+    - Models can be creating using logic that is defined in the ``__main__`` scope. This allows 
+      custom models to be constructed in interactive environments, such as notebooks and the Python 
+      REPL.
+
+Some users may prefer the *second*, lower-level workflow for the following reasons:
+
+    - Inference logic is always persisted as code, rather than a Python object. This makes logic
+      easier to inspect and modify later.
+
+    - If the user has already collected all of their model data in a single location, the second
+      workflow allows it to be saved in MLflow format directly, without enumerating all
+      constituent **artifacts** and **parameters**.
 """
 
 import importlib
@@ -157,7 +286,100 @@ def _load_model_env(path, run_id=None):
 
 
 def save_model(path, loader_module=None, data_path=None, code_paths=None, conda_env=None,
-               mlflow_model=Model(), artifacts=None, parameters=None, model_class=None, **kwargs):
+               mlflow_model=Model(), model_class=None, artifacts=None, parameters=None, **kwargs):
+    """
+    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
+
+    For information about the workflows that this method supports, please see `"workflows for
+    creating custom pyfunc models" <#workflows>`_ and `"which workflow is right for my use case?"
+    <#which-workflow-is-right-for-my-use-case>`_. Note that the arguments for the first workflow:
+    ``loader_module``, ``data_path`` and the arguments for the second workflow: ``model_class``,
+    ``artifacts``, ``parameters``, cannot be specified together.
+
+    :param path: The path to which to save the Python model.
+    :param loader_module: The name of the Python module that will be used to load the model
+                          from ``data_path``. This module must define a method with the prototype
+                          ``_load_pyfunc(data_path)``. If not *None*, this module and its
+                          dependencies must be included in one of the following locations:
+                            
+                          - The MLflow library.
+                          - Package(s) listed in the model's Conda environment, specified by
+                            the ``conda_env`` parameter.
+                          - One or more of the files specified by the ``code_paths`` parameters.
+
+    :param data_path: Path to a file or directory containing model data.
+    :param code_paths: A list of local filesystem paths to Python file dependencies that are 
+                       required by either ``loader_module`` or ``model_class``. These files
+                       will be *prepended* to the system path before the model is loaded.
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
+                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
+                      model. The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'cloudpickle==0.5.8'
+                            ]
+                        }
+
+    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
+    :param model_class: A Python class object referring to a subclass of 
+                        :class:`~PythonModel`. This class will be serialized using the CloudPickle 
+                        library. Any dependencies of the class should be included in one of the 
+                        following locations:
+
+                            - The MLflow library.
+                            - Package(s) listed in the model's Conda environment, specified by
+                              the ``conda_env`` parameter.
+                            - One or more of the files specified by the ``code_paths`` parameters.
+
+                        Note: If the class is imported from another module, as opposed to being
+                        defined in the ``__main__`` scope, the defining module should also be 
+                        included in one of the listed locations.
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
+                      will be resolved to absolute filesystem paths, producing a dictionary of
+                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
+                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
+                      For example, consider the following ``artifacts`` dictionary::
+
+                        {
+                            "my_file": "s3://my-bucket/path/to/my/file"
+                        }
+
+                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
+                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
+                      via ``self.context.artifacts["my_file"]``.
+
+                      If *None*, no artifacts will be added to the model.
+    :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
+                       may be any Python object that is serializable with CloudPickle. Any 
+                       dependencies of the specified Python objects should be included in one of the
+                       following locations:
+
+                            - The MLflow library.
+                            - Package(s) listed in the model's Conda environment, specified by
+                              the ``conda_env`` parameter.
+                            - One or more of the files specified by the ``code_paths`` parameters.
+
+                       ``model_class`` can reference these resolved entries as the ``parameters``
+                       property of the ``context`` attribute. For example, consider the following
+                       ``parameters`` dictionary::
+
+                         {
+                             "my_list": range(10)
+                         }
+
+                       The ``model_class`` can refer to the Python list named ``"my_list"`` as
+                       ``self.context.parameters["my_list"]``.
+
+                       If *None*, no Python object parameters will be added to the model.
+    """
     deprecated_args_mapping = {
         "dst_path": "path",
         "code_path": "code_paths",
@@ -220,39 +442,32 @@ def save_model(path, loader_module=None, data_path=None, code_paths=None, conda_
             error_code=INVALID_PARAMETER_VALUE)
 
 
-def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda_env=None,
-              code_paths=None):
+def log_model(artifact_path, loader_module=None, data_path=None, code_paths=None, conda_env=None,
+              artifacts=None, parameters=None, model_class=None, **kwargs):
     """
-    :param path: The run-relative artifact path to which to log the Python model.
-    :param model_class: A ``type`` object referring to a subclass of
-                        :class:`~PythonModel`, or the fully-qualified name of such a subclass.
-                        ``model_class`` defines how the model is loaded and how it performs
-                        inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
-                      will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      For example, consider the following ``artifacts`` dictionary::
+    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
 
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
+    For information about the workflows that this method supports, please see `"workflows for
+    creating custom pyfunc models" <#workflows>`_ and `"which workflow is right for my use case?"
+    <#which-workflow-is-right-for-my-use-case>`_. Note that the arguments for the first workflow:
+    ``loader_module``, ``data_path`` and the arguments for the second workflow: ``model_class``,
+    ``artifacts``, ``parameters``, cannot be specified together.
 
-                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
-                      via ``self.context.artifacts["my_file"]``.
-    :param parameters: A dictionary containing ``<name, python_object>`` entries. ``python_object``
-                       may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved entries as the ``parameters``
-                       property of the ``context`` attribute. For example, consider the following
-                       ``parameters`` dictionary::
+    :param artifact_path: The run-relative artifact path to which to log the Python model.
+    :param loader_module: The name of the Python module that will be used to load the model
+                          from ``data_path``. This module must define a method with the prototype
+                          ``_load_pyfunc(data_path)``. If not *None*, this module and its
+                          dependencies must be included in one of the following locations:
+                            
+                          - The MLflow library.
+                          - Package(s) listed in the model's Conda environment, specified by
+                            the ``conda_env`` parameter.
+                          - One or more of the files specified by the ``code_paths`` parameters.
 
-                         {
-                             "my_list": range(10)
-                         }
-
-                       The ``model_class`` can refer to the Python list named ``"my_list"`` as
-                       ``self.context.parameters["my_list"]``.
+    :param data_path: Path to a file or directory containing model data.
+    :param code_paths: A list of local filesystem paths to Python file dependencies that are 
+                       required by either ``loader_module`` or ``model_class``. These files
+                       will be *prepended* to the system path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -266,16 +481,65 @@ def log_model(artifact_path, model_class, artifacts=None, parameters=None, conda
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.7.0',
-                                'cloudpickle=0.5.8'
+                                'cloudpickle==0.5.8'
                             ]
                         }
-    :param code_paths: A list of paths to Python file dependencies that are required by
-                       instances of ``model_class``.
+
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
+    :param model_class: A Python class object referring to a subclass of 
+                        :class:`~PythonModel`. This class will be serialized using the CloudPickle 
+                        library. Any dependencies of the class should be included in one of the 
+                        following locations:
+
+                            - The MLflow library.
+                            - Package(s) listed in the model's Conda environment, specified by
+                              the ``conda_env`` parameter.
+                            - One or more of the files specified by the ``code_paths`` parameters.
+
+                        Note: If the class is imported from another module, as opposed to being
+                        defined in the ``__main__`` scope, the defining module should also be 
+                        included in one of the listed locations.
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
+                      will be resolved to absolute filesystem paths, producing a dictionary of
+                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
+                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
+                      For example, consider the following ``artifacts`` dictionary::
+
+                        {
+                            "my_file": "s3://my-bucket/path/to/my/file"
+                        }
+
+                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
+                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
+                      via ``self.context.artifacts["my_file"]``.
+
+                      If *None*, no artifacts will be added to the model.
+    :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
+                       may be any Python object that is serializable with CloudPickle. Any 
+                       dependencies of the specified Python objects should be included in one of the
+                       following locations:
+
+                            - The MLflow library.
+                            - Package(s) listed in the model's Conda environment, specified by
+                              the ``conda_env`` parameter.
+                            - One or more of the files specified by the ``code_paths`` parameters.
+
+                       ``model_class`` can reference these resolved entries as the ``parameters``
+                       property of the ``context`` attribute. For example, consider the following
+                       ``parameters`` dictionary::
+
+                         {
+                             "my_list": range(10)
+                         }
+
+                       The ``model_class`` can refer to the Python list named ``"my_list"`` as
+                       ``self.context.parameters["my_list"]``.
+
+                       If *None*, no Python object parameters will be added to the model.
     """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc, artifacts=artifacts,
-                     parameters=parameters, model_class=model_class, conda_env=conda_env,
-                     code_paths=code_paths)
+    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc, loader_module=loader_module,
+                     data_path=data_path, code_paths=code_paths, conda_env=conda_env, 
+                     artifacts=artifacts, parameters=parameters, model_class=model_class, **kwargs)
 
 
 def load_pyfunc(path, run_id=None, suppress_warnings=False):

@@ -55,8 +55,7 @@ class PythonModel(object):
     def predict(self, model_input):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
-        For more information about the pyfunc input/output API, see the :mod:`pyfunc flavor
-        documentation <mlflow.pyfunc>`.
+        For more information about the pyfunc input/output API, see `Inference API`_. 
 
         :param model_input: A pyfunc-compatible input for the model to evaluate.
         """
@@ -349,37 +348,12 @@ def _load_pyfunc(model_path):
     pyfunc_config = _get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
 
-    model_class_config = pyfunc_config.get(CONFIG_KEY_MODEL_CLASS, {})
-    if len(model_class_config) != 1:
+    model_class_subpath = pyfunc_config.get(CONFIG_KEY_MODEL_CLASS, None)
+    if model_class_subpath is None:
         raise MlflowException(
-            message=(
-                "Expected model class configuration to contain a single entry, but"
-                " multiple entries were found. Model class configuration:"
-                " `{model_class_config}`".format(model_class_config=model_class_config)))
-    if CONFIG_KEY_MODEL_CLASS_PATH in model_class_config:
-        # The ``model_class`` associated with this model is a serialized Python class object.
-        # Therefore, we proceed to load the serialized class object using CloudPickle.
-        with open(os.path.join(
-                model_path, model_class_config[CONFIG_KEY_MODEL_CLASS_PATH]), "rb") as f:
-            model_class = cloudpickle.load(f)
-    elif CONFIG_KEY_MODEL_CLASS_NAME in model_class_config:
-        # The ``model_class`` associated with this model is the fully-qualified name of a Python
-        # class. Therefore, we proceed to find and instantiate the class that has this name.
-        model_class_name = model_class_config[CONFIG_KEY_MODEL_CLASS_NAME]
-        model_class = pydoc.locate(model_class_name)
-        if model_class is None:
-            raise MlflowException(
-                "Unable to locate the model class specified by the configuration with name:"
-                " `{model_class_name}`".format(model_class_name=model_class_name))
-    else:
-        raise MlflowException(
-                message=(
-                    "Expected model class configuration to contain either a"
-                    " `{model_class_path_key}` or `{model_class_name_key}` key, but neither"
-                    " was found. Model class configuration: `{model_class_config}`".format(
-                        model_class_path_key=CONFIG_KEY_MODEL_CLASS_PATH,
-                        model_class_name_key=CONFIG_KEY_MODEL_CLASS_NAME,
-                        model_class_config=model_class)))
+            "Model class path was not specified in the model configuration")
+    with open(os.path.join(model_path, model_class_subpath), "rb") as f:
+        model_class = cloudpickle.load(f)
 
     parameters = {}
     for saved_parameter_name, saved_parameter_path in\

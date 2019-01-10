@@ -112,7 +112,7 @@ def pyfunc_custom_env(tmpdir):
     return conda_env
 
 
-def test_save_model_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
+def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -135,7 +135,7 @@ def test_save_model_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
             test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
-def test_log_model_load(sklearn_knn_model, main_scoped_model_class, iris_data):
+def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)

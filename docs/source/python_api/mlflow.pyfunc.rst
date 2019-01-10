@@ -6,9 +6,6 @@ mlflow.pyfunc
     :undoc-members:
     :show-inheritance:
 
-    .. autofunction:: mlflow.pyfunc.save_model
-    .. autofunction:: mlflow.pyfunc.log_model
-
 .. Include ``PythonModelContext`` as a renamed class to avoid documenting constructor parameters.
    This class is meant to be constructed implicitly, and users should only be aware of its
    documented member properties.
