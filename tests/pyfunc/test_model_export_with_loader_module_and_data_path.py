@@ -63,7 +63,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
 
     reloaded_model_config = Model.load(os.path.join(model_path, "MLmodel"))
     assert model_config.__dict__ == reloaded_model_config.__dict__
-    assert mlflow.pyfunc.FLAVOR_NAME in reloaded_model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
+    assert mlflow.pyfunc.FLAVOR_NAME in reloaded_model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in reloaded_model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     reloaded_model = mlflow.pyfunc.load_pyfunc(model_path)
     np.testing.assert_array_equal(
@@ -85,7 +85,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
 
     pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     model_config = Model.load(os.path.join(model_path, "MLmodel"))
-    assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
+    assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
     np.testing.assert_array_equal(
