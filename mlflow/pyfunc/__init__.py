@@ -707,13 +707,16 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
 def get_module_loader_src(src_path, dst_path):
     """
     Generate Python source of the model loader.
+
     Model loader contains ``load_pyfunc`` method with no parameters. It hardcodes model
     loading of the given model into a Python source. This is done so that the exported model has no
     unnecessary dependencies on MLflow or any other configuration file format or parsing library.
+
     :param src_path: Current path to the model.
     :param dst_path: Relative or absolute path where the model will be stored in the deployment
                      environment.
     :return: Python source code of the model loader as string.
+
     """
     conf_path = os.path.join(src_path, "MLmodel")
     model = Model.load(conf_path)
@@ -734,9 +737,12 @@ def get_module_loader_src(src_path, dst_path):
 
 
 loader_template = """
+
 import importlib
 import os
 import sys
+
 def load_pyfunc():
     {update_path}return importlib.import_module('{main}')._load_pyfunc('{data_path}')
+
 """
