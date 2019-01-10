@@ -293,6 +293,174 @@ def _load_model_env(path, run_id=None):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
+def load_pyfunc(path, run_id=None, suppress_warnings=False):
+    """
+    Load a model stored in Python function format.
+
+    :param path: Path to the model.
+    :param run_id: MLflow run ID.
+    :param suppress_warnings: If True, non-fatal warning messages associated with the model
+                              loading process will be suppressed. If False, these warning messages
+                              will be emitted.
+    """
+    if run_id is not None:
+        path = tracking.utils._get_model_log_dir(path, run_id)
+    conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    model_py_version = conf.get(PY_VERSION)
+    if not suppress_warnings:
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
+    if CODE in conf and conf[CODE]:
+        code_path = os.path.join(path, conf[CODE])
+        sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
+    data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
+    return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+
+
+def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
+    """
+    Compares the version of Python that was used to save a given model with the version
+    of Python that is currently running. If a major or minor version difference is detected,
+    logs an appropriate warning.
+    """
+    if model_py_version is None:
+        _logger.warning(
+            "The specified model does not have a specified Python version. It may be"
+            " incompatible with the version of Python that is currently running: Python %s",
+            PYTHON_VERSION)
+    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
+        _logger.warning(
+            "The version of Python that the model was saved in, `Python %s`, differs"
+            " from the version of Python that is currently running, `Python %s`,"
+            " and may be incompatible",
+            model_py_version, PYTHON_VERSION)
+
+
+def _get_code_dirs(src_code_path, dst_code_path=None):
+    """
+    Obtains the names of the subdirectories contained under the specified source code
+    path and joins them with the specified destination code path.
+
+    :param src_code_path: The path of the source code directory for which to list subdirectories.
+    :param dst_code_path: The destination directory path to which subdirectory names should be
+                          joined.
+    """
+    if not dst_code_path:
+        dst_code_path = src_code_path
+    return [(os.path.join(dst_code_path, x)) for x in os.listdir(src_code_path)
+            if os.path.isdir(x) and not x == "__pycache__"]
+
+
+def spark_udf(spark, path, run_id=None, result_type="double"):
+    """
+    A Spark UDF that can be used to invoke the Python function formatted model.
+
+    Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
+    ordinals (0, 1, ...).
+
+    The predictions are filtered to contain only the columns that can be represented as the
+    ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
+    converted to string. If the result type is not an array type, the left most column with
+    matching type will be returned.
+
+    >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
+    >>> df.withColumn("prediction", predict("name", "age")).show()
+
+    :param spark: A SparkSession object.
+    :param path: A path containing a :py:mod:`mlflow.pyfunc` model.
+    :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
+                   retrieve the model logged with MLflow.
+    :param result_type: the return type of the user-defined function. The value can be either a
+                        :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
+                        Only a primitive type or an array (pyspark.sql.types.ArrayType) of primitive
+                        types are allowed. The following classes of result type are supported:
+                        - "int" or pyspark.sql.types.IntegerType: The leftmost integer that can fit
+                          in int32 result is returned or exception is raised if there is none.
+                        - "long" or pyspark.sql.types.LongType: The leftmost long integer that can
+                          fit in int64 result is returned or exception is raised if there is none.
+                        - ArrayType(IntegerType|LongType): Return all integer columns that can fit
+                          into the requested size.
+                        - "float" or pyspark.sql.types.FloatType: The leftmost numeric result cast
+                          to float32 is returned or exception is raised if there is none.
+                        - "double" or pyspark.sql.types.DoubleType: The leftmost numeric result cast
+                          to double is returned or exception is raised if there is none..
+                        - ArrayType(FloatType|DoubleType): Return all numeric columns cast to the
+                          requested type. Exception is raised if there are no numeric columns.
+                        - "string" or pyspark.sql.types.StringType: Result is the leftmost column
+                          converted to string.
+                        - ArrayType(StringType): Return all columns converted to string.
+
+    :return: Spark UDF which will apply model's prediction method to the data. Default double.
+    """
+
+    # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
+    # functionality.
+    from mlflow.pyfunc.spark_model_cache import SparkModelCache
+    from pyspark.sql.functions import pandas_udf
+    from pyspark.sql.types import _parse_datatype_string
+    from pyspark.sql.types import ArrayType, DataType
+    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+
+    if not isinstance(result_type, DataType):
+        result_type = _parse_datatype_string(result_type)
+
+    elem_type = result_type
+    if isinstance(elem_type, ArrayType):
+        elem_type = elem_type.elementType
+
+    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
+
+    if not any([isinstance(elem_type, x) for x in supported_types]):
+        raise MlflowException(
+            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
+                    "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            error_code=INVALID_PARAMETER_VALUE)
+
+    if run_id:
+        path = tracking.utils._get_model_log_dir(path, run_id)
+
+    archive_path = SparkModelCache.add_local_model(spark, path)
+
+    def predict(*args):
+        model = SparkModelCache.get_or_load(archive_path)
+        schema = {str(i): arg for i, arg in enumerate(args)}
+        # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
+        columns = [str(i) for i, _ in enumerate(args)]
+        pdf = pandas.DataFrame(schema, columns=columns)
+        result = model.predict(pdf)
+        if not isinstance(result, pandas.DataFrame):
+            result = pandas.DataFrame(data=result)
+
+        elif type(elem_type) == IntegerType:
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort,
+                                           np.int32]).astype(np.int32)
+
+        elif type(elem_type) == LongType:
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
+
+        elif type(elem_type) == FloatType:
+            result = result.select_dtypes(include=np.number).astype(np.float32)
+
+        elif type(elem_type) == DoubleType:
+            result = result.select_dtypes(include=np.number).astype(np.float64)
+
+        if len(result.columns) == 0:
+            raise MlflowException(
+                message="The the model did not produce any values compatible with the requested "
+                        "type '{}'. Consider requesting udf with StringType or "
+                        "Arraytype(StringType).".format(str(elem_type)),
+                error_code=INVALID_PARAMETER_VALUE)
+
+        if type(elem_type) == StringType:
+            result = result.applymap(str)
+
+        if type(result_type) == ArrayType:
+            return pandas.Series([row[1].values for row in result.iterrows()])
+        else:
+            return result[result.columns[0]]
+
+    return pandas_udf(predict, result_type)
+
+
 def save_model(dst_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
                model=Model(), model_class=None, artifacts=None, parameters=None):
     """
@@ -536,169 +704,39 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
         log_artifacts(local_path, artifact_path)
 
 
-def load_pyfunc(path, run_id=None, suppress_warnings=False):
+def get_module_loader_src(src_path, dst_path):
     """
-    Load a model stored in Python function format.
-
-    :param path: Path to the model.
-    :param run_id: MLflow run ID.
-    :param suppress_warnings: If True, non-fatal warning messages associated with the model
-                              loading process will be suppressed. If False, these warning messages
-                              will be emitted.
+    Generate Python source of the model loader.
+    Model loader contains ``load_pyfunc`` method with no parameters. It hardcodes model
+    loading of the given model into a Python source. This is done so that the exported model has no
+    unnecessary dependencies on MLflow or any other configuration file format or parsing library.
+    :param src_path: Current path to the model.
+    :param dst_path: Relative or absolute path where the model will be stored in the deployment
+                     environment.
+    :return: Python source code of the model loader as string.
     """
-    if run_id is not None:
-        path = tracking.utils._get_model_log_dir(path, run_id)
-    conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    model_py_version = conf.get(PY_VERSION)
-    if not suppress_warnings:
-        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
+    conf_path = os.path.join(src_path, "MLmodel")
+    model = Model.load(conf_path)
+    if FLAVOR_NAME not in model.flavors:
+        raise Exception("Format '{format}' not found not in {path}.".format(format=FLAVOR_NAME,
+                                                                            path=conf_path))
+    conf = model.flavors[FLAVOR_NAME]
+    update_path = ""
     if CODE in conf and conf[CODE]:
-        code_path = os.path.join(path, conf[CODE])
-        sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
-    data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
-    return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+        src_code_path = os.path.join(src_path, conf[CODE])
+        dst_code_path = os.path.join(dst_path, conf[CODE])
+        code_path = ["os.path.abspath('%s')" % x
+                     for x in [dst_code_path] + _get_code_dirs(src_code_path, dst_code_path)]
+        update_path = "sys.path = {} + sys.path; ".format("[%s]" % ",".join(code_path))
+
+    data_path = os.path.join(dst_path, conf[DATA]) if (DATA in conf) else dst_path
+    return loader_template.format(update_path=update_path, main=conf[MAIN], data_path=data_path)
 
 
-def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
-    """
-    Compares the version of Python that was used to save a given model with the version
-    of Python that is currently running. If a major or minor version difference is detected,
-    logs an appropriate warning.
-    """
-    if model_py_version is None:
-        _logger.warning(
-            "The specified model does not have a specified Python version. It may be"
-            " incompatible with the version of Python that is currently running: Python %s",
-            PYTHON_VERSION)
-    elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
-        _logger.warning(
-            "The version of Python that the model was saved in, `Python %s`, differs"
-            " from the version of Python that is currently running, `Python %s`,"
-            " and may be incompatible",
-            model_py_version, PYTHON_VERSION)
-
-
-def _get_code_dirs(src_code_path, dst_code_path=None):
-    """
-    Obtains the names of the subdirectories contained under the specified source code
-    path and joins them with the specified destination code path.
-
-    :param src_code_path: The path of the source code directory for which to list subdirectories.
-    :param dst_code_path: The destination directory path to which subdirectory names should be
-                          joined.
-    """
-    if not dst_code_path:
-        dst_code_path = src_code_path
-    return [(os.path.join(dst_code_path, x)) for x in os.listdir(src_code_path)
-            if os.path.isdir(x) and not x == "__pycache__"]
-
-
-def spark_udf(spark, path, run_id=None, result_type="double"):
-    """
-    A Spark UDF that can be used to invoke the Python function formatted model.
-
-    Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    ordinals (0, 1, ...).
-
-    The predictions are filtered to contain only the columns that can be represented as the
-    ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
-    converted to string. If the result type is not an array type, the left most column with
-    matching type will be returned.
-
-    >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-    >>> df.withColumn("prediction", predict("name", "age")).show()
-
-    :param spark: A SparkSession object.
-    :param path: A path containing a :py:mod:`mlflow.pyfunc` model.
-    :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
-                   retrieve the model logged with MLflow.
-    :param result_type: the return type of the user-defined function. The value can be either a
-                        :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
-                        Only a primitive type or an array (pyspark.sql.types.ArrayType) of primitive
-                        types are allowed. The following classes of result type are supported:
-                        - "int" or pyspark.sql.types.IntegerType: The leftmost integer that can fit
-                          in int32 result is returned or exception is raised if there is none.
-                        - "long" or pyspark.sql.types.LongType: The leftmost long integer that can
-                          fit in int64 result is returned or exception is raised if there is none.
-                        - ArrayType(IntegerType|LongType): Return all integer columns that can fit
-                          into the requested size.
-                        - "float" or pyspark.sql.types.FloatType: The leftmost numeric result cast
-                          to float32 is returned or exception is raised if there is none.
-                        - "double" or pyspark.sql.types.DoubleType: The leftmost numeric result cast
-                          to double is returned or exception is raised if there is none..
-                        - ArrayType(FloatType|DoubleType): Return all numeric columns cast to the
-                          requested type. Exception is raised if there are no numeric columns.
-                        - "string" or pyspark.sql.types.StringType: Result is the leftmost column
-                          converted to string.
-                        - ArrayType(StringType): Return all columns converted to string.
-
-    :return: Spark UDF which will apply model's prediction method to the data. Default double.
-    """
-
-    # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
-    # functionality.
-    from mlflow.pyfunc.spark_model_cache import SparkModelCache
-    from pyspark.sql.functions import pandas_udf
-    from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import ArrayType, DataType
-    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
-
-    if not isinstance(result_type, DataType):
-        result_type = _parse_datatype_string(result_type)
-
-    elem_type = result_type
-    if isinstance(elem_type, ArrayType):
-        elem_type = elem_type.elementType
-
-    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
-
-    if not any([isinstance(elem_type, x) for x in supported_types]):
-        raise MlflowException(
-            message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-                    "of the following types types: {}".format(str(elem_type), str(supported_types)),
-            error_code=INVALID_PARAMETER_VALUE)
-
-    if run_id:
-        path = tracking.utils._get_model_log_dir(path, run_id)
-
-    archive_path = SparkModelCache.add_local_model(spark, path)
-
-    def predict(*args):
-        model = SparkModelCache.get_or_load(archive_path)
-        schema = {str(i): arg for i, arg in enumerate(args)}
-        # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
-        columns = [str(i) for i, _ in enumerate(args)]
-        pdf = pandas.DataFrame(schema, columns=columns)
-        result = model.predict(pdf)
-        if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame(data=result)
-
-        elif type(elem_type) == IntegerType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort,
-                                           np.int32]).astype(np.int32)
-
-        elif type(elem_type) == LongType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
-
-        elif type(elem_type) == FloatType:
-            result = result.select_dtypes(include=np.number).astype(np.float32)
-
-        elif type(elem_type) == DoubleType:
-            result = result.select_dtypes(include=np.number).astype(np.float64)
-
-        if len(result.columns) == 0:
-            raise MlflowException(
-                message="The the model did not produce any values compatible with the requested "
-                        "type '{}'. Consider requesting udf with StringType or "
-                        "Arraytype(StringType).".format(str(elem_type)),
-                error_code=INVALID_PARAMETER_VALUE)
-
-        if type(elem_type) == StringType:
-            result = result.applymap(str)
-
-        if type(result_type) == ArrayType:
-            return pandas.Series([row[1].values for row in result.iterrows()])
-        else:
-            return result[result.columns[0]]
-
-    return pandas_udf(predict, result_type)
+loader_template = """
+import importlib
+import os
+import sys
+def load_pyfunc():
+    {update_path}return importlib.import_module('{main}')._load_pyfunc('{data_path}')
+"""
