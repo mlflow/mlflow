@@ -69,7 +69,6 @@ following parameters:
 - **Optionally, any additional parameters necessary for interpreting the serialized model in pyfunc
   format.**
 
-
 .. rubric:: Example
 
 >>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
