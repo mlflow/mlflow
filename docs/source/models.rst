@@ -127,7 +127,7 @@ signature:
 
 .. code:: python
 
-    predict(data: pandas.DataFrame) -> numpy.ndarray | pandas.Series | pandas.DataFrame
+    predict(data: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
 
 Other MLflow components expect ``python_function`` models to follow this convention.
 
