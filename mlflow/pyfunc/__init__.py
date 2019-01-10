@@ -19,6 +19,7 @@ Finally, the ``mlflow.pyfunc`` module also defines utilities for creating custom
 using frameworks and inference logic that may not be natively included in MLflow. See
 `Creating custom Pyfunc models`_.
 
+
 *****************
 Filesystem format
 *****************
@@ -129,6 +130,7 @@ evaluate queries. These components are defined as follows:
 2. **Artifacts**: Files or directories, such as serialized Python models or CSVs. For example, a
    serialized Tensorflow graph is an **artifact**; an MLflow model directory is also an
    **artifact**.
+
 
 Workflows
 #########
@@ -395,8 +397,8 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
         raise MlflowException(
             message=(
                 "The following sets of arguments cannot be specified together: {first_set_keys}"
-                " and {second_set_keys}. All arguments in one set must be `None`. Instead, found the"
-                " following values: {first_set_entries} and {second_set_entries}".format(
+                " and {second_set_keys}. All arguments in one set must be `None`. Instead, found"
+                " the following values: {first_set_entries} and {second_set_entries}".format(
                     first_set_keys=first_argument_set.keys(),
                     second_set_keys=second_argument_set.keys(),
                     first_set_entries=first_argument_set,
