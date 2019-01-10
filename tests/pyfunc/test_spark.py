@@ -30,15 +30,11 @@ def score_model_as_udf(model_path, run_id, pandas_df, result_type="double"):
     return [x['prediction'] for x in new_df.collect()]
 
 
-@pytest.fixture
-def main_scoped_model_class():
+def get_model_class():
     """
-    A custom Python model class defined in the ``__main__`` scope. This is intended to be used
-    for testing model export where the specified model class is a ``type`` object; in these cases,
-    CloudPickle is used to serialize the model class, and it requires that the class be defined
-    in ``__main__`` or be resolvable from a module on the system path. When evaluating a Spark UDF
-    MLflow's "tests" module may not be available on the system path, so we opt for a class defined
-    in ``__main__``.
+    Defines a custom Python model class that wraps a scikit-learn estimator.
+    This can be invoked within a pytest fixture to define the class in the ``__main__`` scope.
+    Alternatively, it can be invoked within a module to define the class in the module's scope.
     """
     class ConstantModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input):
@@ -50,6 +46,25 @@ def main_scoped_model_class():
             return prediction_df
 
     return ConstantModel
+
+
+class ModuleScopedConstantModel(get_model_class()):
+    """
+    A custom Python model class defined in the test module scope.
+    """
+    pass
+
+
+def _load_pyfunc(data_path):
+    return ModuleScopedConstantModel(context=None)
+
+
+@pytest.fixture
+def main_scoped_model_class():
+    """
+    A custom Python model class defined in the ``__main__`` scope.
+    """
+    return get_model_class()
 
 
 @pytest.fixture(autouse=True)
@@ -71,42 +86,52 @@ def model_path(tmpdir):
 
 
 @pytest.mark.large
-def test_spark_udf(spark, main_scoped_model_class, model_path):
-    mlflow.pyfunc.save_model(path=model_path, model_class=main_scoped_model_class)
-    reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+def test_spark_udf(spark, main_scoped_model_class, tmpdir):
+    class_model_path = os.path.join(str(tmpdir), "class_model")
+    mlflow.pyfunc.save_model(dst_path=class_model_path, model_class=main_scoped_model_class)
+    loader_module_model_path = os.path.join(str(tmpdir), "lm_model")
+    mlflow.pyfunc.save_model(
+        dst_path=loader_module_model_path,
+        loader_module=__name__,
+        code_path=[__file__],
+    )
 
-    pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
-    spark_df = spark.createDataFrame(pandas_df)
 
-    # Test all supported return types
-    type_map = {"float": (FloatType(), np.number),
-                "int": (IntegerType(), np.int32),
-                "double": (DoubleType(), np.number),
-                "long": (LongType(), np.int),
-                "string": (StringType(), None)}
+    for model_path in [class_model_path, loader_module_model_path]:
+        reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
 
-    for tname, tdef in type_map.items():
-        spark_type, np_type = tdef
-        prediction_df = reloaded_pyfunc_model.predict(pandas_df)
-        for is_array in [True, False]:
-            t = ArrayType(spark_type) if is_array else spark_type
-            if tname == "string":
-                expected = prediction_df.applymap(str)
-            else:
-                expected = prediction_df.select_dtypes(np_type)
-                if tname == "float":
-                    expected = expected.astype(np.float32)
+        pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
+        spark_df = spark.createDataFrame(pandas_df)
 
-            expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
-            pyfunc_udf = spark_udf(spark, model_path, result_type=t)
-            new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
-            actual = list(new_df.select("prediction").toPandas()['prediction'])
-            assert expected == actual
-            if not is_array:
-                pyfunc_udf = spark_udf(spark, model_path, result_type=tname)
+        # Test all supported return types
+        type_map = {"float": (FloatType(), np.number),
+                    "int": (IntegerType(), np.int32),
+                    "double": (DoubleType(), np.number),
+                    "long": (LongType(), np.int),
+                    "string": (StringType(), None)}
+
+        for tname, tdef in type_map.items():
+            spark_type, np_type = tdef
+            prediction_df = reloaded_pyfunc_model.predict(pandas_df)
+            for is_array in [True, False]:
+                t = ArrayType(spark_type) if is_array else spark_type
+                if tname == "string":
+                    expected = prediction_df.applymap(str)
+                else:
+                    expected = prediction_df.select_dtypes(np_type)
+                    if tname == "float":
+                        expected = expected.astype(np.float32)
+
+                expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
+                pyfunc_udf = spark_udf(spark, model_path, result_type=t)
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
                 actual = list(new_df.select("prediction").toPandas()['prediction'])
                 assert expected == actual
+                if not is_array:
+                    pyfunc_udf = spark_udf(spark, model_path, result_type=tname)
+                    new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
+                    actual = list(new_df.select("prediction").toPandas()['prediction'])
+                    assert expected == actual
 
 
 @pytest.mark.large

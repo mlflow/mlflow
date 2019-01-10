@@ -54,9 +54,7 @@ def get_model_class():
 
 class ModuleScopedSklearnModel(get_model_class()):
     """
-    A custom Python model class defined in the test module scope. This is intended to be used for
-    testing model export where the specified model class is a fully-qualified class name, as opposed
-    to a ``type`` object.
+    A custom Python model class defined in the test module scope.
     """
     pass
 
@@ -64,12 +62,7 @@ class ModuleScopedSklearnModel(get_model_class()):
 @pytest.fixture(scope="module")
 def main_scoped_model_class():
     """
-    A custom Python model class defined in the ``__main__`` scope. This is intended to be used
-    for testing model export where the specified model class is a ``type`` object; in these cases,
-    CloudPickle is used to serialize the model class, and it requires that the class be defined
-    in ``__main__`` or be resolvable from a module on the system path. When running a scoring
-    server, MLflow's "tests" module is not available on the system path, so we opt for a class
-    defined in ``__main__``.
+    A custom Python model class defined in the ``__main__`` scope.
     """
     return get_model_class()
 
