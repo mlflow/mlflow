@@ -245,7 +245,6 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    print("MODEL PATH", pyfunc_model_path)
     mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path

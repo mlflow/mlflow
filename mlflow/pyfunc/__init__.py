@@ -294,7 +294,7 @@ def _load_model_env(path, run_id=None):
 
 
 def save_model(dst_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               model=Model(), model_class=None, artifacts=None, parameters=None, **kwargs):
+               model=Model(), model_class=None, artifacts=None, parameters=None):
     """
     Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
 
@@ -432,7 +432,7 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-              artifacts=None, parameters=None, model_class=None, **kwargs):
+              artifacts=None, parameters=None, model_class=None):
     """
     Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
 
@@ -526,9 +526,14 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
 
                        If *None*, no Python object parameters will be added to the model.
     """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.pyfunc, loader_module=loader_module,
-                     data_path=data_path, code_path=code_path, conda_env=conda_env,
-                     artifacts=artifacts, parameters=parameters, model_class=model_class, **kwargs)
+    with TempDir() as tmp:
+        local_path = tmp.path(artifact_path)
+        run_id = active_run().info.run_uuid
+        save_model(dst_path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
+                   loader_module=loader_module, data_path=data_path, code_path=code_path,
+                   conda_env=conda_env, model_class=model_class, artifacts=artifacts,
+                   parameters=parameters)
+        log_artifacts(local_path, artifact_path)
 
 
 def load_pyfunc(path, run_id=None, suppress_warnings=False):
