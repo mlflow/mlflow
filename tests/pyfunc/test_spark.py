@@ -55,8 +55,7 @@ class ModuleScopedConstantModel(get_model_class()):
     pass
 
 
-def _load_pyfunc(data_path):
-    #pylint: disable=unused-argument
+def _load_pyfunc(_):
     return ModuleScopedConstantModel(context=None)
 
 
