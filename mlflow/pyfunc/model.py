@@ -55,7 +55,7 @@ class PythonModel(object):
     def predict(self, model_input):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
-        For more information about the pyfunc input/output API, see `Inference API`_. 
+        For more information about the pyfunc input/output API, see `Inference API`_.
 
         :param model_input: A pyfunc-compatible input for the model to evaluate.
         """
@@ -113,50 +113,21 @@ def _save_model_with_class_artifacts_params(path, model_class, artifacts=None, p
                       will be resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``model_class`` can reference these
                       resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      For example, consider the following ``artifacts`` dictionary::
-
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
-
-                      In this case, the ``"my_file"`` artifact will be downloaded from S3. The
-                      ``model_class`` can then refer to ``"my_file"`` as an absolute filesystem path
-                      via ``self.context.artifacts["my_file"]``.
-
                       If *None*, no artifacts will be added to the model.
     :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
                        may be any Python object that is serializable with CloudPickle.
                        ``model_class`` can reference these resolved entries as the ``parameters``
-                       property of the ``context`` attribute. For example, consider the following
-                       ``parameters`` dictionary::
-
-                         {
-                             "my_list": range(10)
-                         }
-
-                       The ``model_class`` can refer to the Python list named ``"my_list"`` as
-                       ``self.context.parameters["my_list"]``.
-
-                       If *None*, no Python object parameters will be added to the model.
+                       property of the ``context`` attribute. If *None*, no Python object parameters
+                       will be added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
                       :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'cloudpickle==0.5.8'
-                            ]
-                        }
-    :param code_paths: A list of paths to Python file dependencies that are required by
-                       instances of ``model_class``. If *None*, no additional file dependencies
-                       will be included.
+                      model.
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files will be *prepended* to the system
+                       path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
     if os.path.exists(path):
@@ -235,14 +206,20 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
                                                  mlflow_model=Model()):
     """
     Export model as a generic Python function model.
-    :param path: Path where the model is stored.
-    :param loader_module: The module to be used to load the model.
+    :param path: The path to which to save the Python model.
+    :param loader_module: The name of the Python module that will be used to load the model
+                          from ``data_path``. This module must define a method with the prototype
+                          ``_load_pyfunc(data_path)``.
     :param data_path: Path to a file or directory containing model data.
-    :param code_path: List of paths (file or dir) contains code dependencies not present in
-                      the environment. Every path in the ``code_path`` is added to the Python
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                      containing file dependencies). These files will be *prepended* to the system
                       path before the model is loaded.
-    :param conda_env: Path to the Conda environment definition. This environment is activated
-                      prior to running model code.
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
+                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
+                      model.
     :return: Model configuration containing model info.
     """
     if os.path.exists(path):
@@ -269,9 +246,6 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
         mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
     return mlflow_model
-
-
-
 
 
 def _validate_artifacts(artifacts):
