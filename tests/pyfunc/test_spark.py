@@ -56,6 +56,7 @@ class ModuleScopedConstantModel(get_model_class()):
 
 
 def _load_pyfunc(data_path):
+    #pylint: disable=unused-argument
     return ModuleScopedConstantModel(context=None)
 
 
@@ -92,10 +93,9 @@ def test_spark_udf(spark, main_scoped_model_class, tmpdir):
     loader_module_model_path = os.path.join(str(tmpdir), "lm_model")
     mlflow.pyfunc.save_model(
         dst_path=loader_module_model_path,
-        loader_module=__name__,
+        loader_module=__name__.split(".")[-1],
         code_path=[__file__],
     )
-
 
     for model_path in [class_model_path, loader_module_model_path]:
         reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
@@ -136,7 +136,7 @@ def test_spark_udf(spark, main_scoped_model_class, tmpdir):
 
 @pytest.mark.large
 def test_model_cache(spark, main_scoped_model_class, model_path):
-    mlflow.pyfunc.save_model(path=model_path, model_class=main_scoped_model_class)
+    mlflow.pyfunc.save_model(dst_path=model_path, model_class=main_scoped_model_class)
 
     archive_path = SparkModelCache.add_local_model(spark, model_path)
     assert archive_path != model_path

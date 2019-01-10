@@ -113,7 +113,7 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -175,7 +175,7 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
     assert all([item in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME] for item in custom_kwargs])
 
 
-def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_model_class_type_object(
+def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_scoped_class(
         sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
@@ -184,7 +184,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_model_c
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -206,7 +206,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_model_c
         loaded_pyfunc_model.predict(sample_input))
 
 
-def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_model_class_type_object(
+def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scoped_class(
         sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
@@ -215,7 +215,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_model_clas
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -236,7 +236,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_model_clas
         loaded_pyfunc_model.predict(sample_input))
 
 
-def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_qualified_model_class_name(
+def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_scoped_class(
         sklearn_knn_model, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
@@ -245,7 +245,8 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_qualifi
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    print("MODEL PATH", pyfunc_model_path)
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -253,7 +254,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_qualifi
                                 "predict_fn": test_predict
                              },
                              model_class=ModuleScopedSklearnModel,
-                             code_paths=[os.path.dirname(tests.__file__)])
+                             code_path=[os.path.dirname(tests.__file__)])
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
@@ -277,7 +278,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -313,7 +314,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -358,7 +359,7 @@ def test_save_model_specifying_model_dependency_with_different_major_python_veri
 
     with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
         warn_mock.side_effect = custom_warn
-        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
+        mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "pyfunc_model"),
                                  artifacts={
                                     "sk_model": sklearn_model_path
                                  },
@@ -391,7 +392,7 @@ def test_save_model_specifying_model_dependency_with_same_major_python_version_d
 
     with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
         warn_mock.side_effect = custom_warn
-        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
+        mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "pyfunc_model"),
                                  artifacts={
                                     "sk_model": sklearn_model_path
                                  },
@@ -425,7 +426,7 @@ def test_save_model_specifying_model_dependency_with_different_cloudpickle_veris
             mock.patch("cloudpickle.__version__") as cloudpickle_version_mock:
         warn_mock.side_effect = custom_warn
         cloudpickle_version_mock.__str__ = lambda *args, **kwargs: "0.5.8"
-        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
+        mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "pyfunc_model"),
                                  artifacts={
                                     "sk_model": sklearn_model_path
                                  },
@@ -455,7 +456,7 @@ def test_save_model_specifying_model_dependency_with_same_cloudpickle_verison_do
 
     with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
         warn_mock.side_effect = custom_warn
-        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "pyfunc_model"),
+        mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "pyfunc_model"),
                                  artifacts={
                                     "sk_model": sklearn_model_path
                                  },
@@ -479,7 +480,7 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
                               serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -544,7 +545,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
     mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },
@@ -614,7 +615,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
                 with open(expected_file_path, "r") as f:
                     return (f.read() == nested_file_text)
 
-    mlflow.pyfunc.save_model(path=model_path,
+    mlflow.pyfunc.save_model(dst_path=model_path,
                              artifacts={
                                  "testdir": directory_artifact_path
                              },
@@ -627,13 +628,13 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
 def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_or_parameters_dirs(
         tmpdir):
     no_params_or_artifacts_model_path = os.path.join(str(tmpdir), "no_params_or_artifacts")
-    mlflow.pyfunc.save_model(path=no_params_or_artifacts_model_path,
+    mlflow.pyfunc.save_model(dst_path=no_params_or_artifacts_model_path,
                              model_class=ModuleScopedSklearnModel,
                              parameters=None,
                              artifacts=None)
 
     no_artifacts_model_path = os.path.join(str(tmpdir), "no_artifacts")
-    mlflow.pyfunc.save_model(path=no_artifacts_model_path,
+    mlflow.pyfunc.save_model(dst_path=no_artifacts_model_path,
                              model_class=ModuleScopedSklearnModel,
                              parameters={
                                 "sample_set": set(range(10)),
@@ -641,7 +642,7 @@ def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_o
                              artifacts=None)
 
     no_params_model_path = os.path.join(str(tmpdir), "no_params")
-    mlflow.pyfunc.save_model(path=no_params_model_path,
+    mlflow.pyfunc.save_model(dst_path=no_params_model_path,
                              model_class=ModuleScopedSklearnModel,
                              parameters=None,
                              artifacts={
@@ -681,12 +682,12 @@ def test_save_model_with_no_artifacts_or_parameters_does_not_produce_artifacts_o
 
 def test_save_model_with_model_class_parameter_of_invalid_type_raises_exeption(tmpdir):
     with pytest.raises(MlflowException) as exc_info:
-        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "model1"),
+        mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "model1"),
                                  model_class="not the right type")
     assert "`model_class` must be a class object" in str(exc_info)
 
     with pytest.raises(MlflowException) as exc_info:
-        mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "model2"),
+        mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "model2"),
                                  model_class="not the right type")
     assert "`model_class` must be a class object" in str(exc_info)
 
@@ -700,7 +701,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
+    mlflow.pyfunc.save_model(dst_path=pyfunc_model_path,
                              artifacts={
                                 "sk_model": sklearn_model_path
                              },

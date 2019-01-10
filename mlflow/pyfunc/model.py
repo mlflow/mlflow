@@ -229,16 +229,16 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
     data = None
     env = None
 
-    if data_path:
+    if data_path is not None:
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
         data = model_file
 
-    if code_paths:
-        for path in code_paths:
-            _copy_file_or_tree(src=path, dst=path, dst_dir="code")
+    if code_paths is not None:
+        for code_path in code_paths:
+            _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
         code = "code"
 
-    if conda_env:
+    if conda_env is not None:
         shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
         env = "mlflow_env.yml"
 
