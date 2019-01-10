@@ -15,6 +15,8 @@ import mlflow.sklearn
 from mlflow.pyfunc import spark_udf
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 
+import tests
+
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
 types = [np.int32, np.int, np.str, np.float32, np.double]
 
@@ -92,8 +94,8 @@ def test_spark_udf(spark, main_scoped_model_class, tmpdir):
     loader_module_model_path = os.path.join(str(tmpdir), "lm_model")
     mlflow.pyfunc.save_model(
         dst_path=loader_module_model_path,
-        loader_module=__name__.split(".")[-1],
-        code_path=[__file__],
+        loader_module=__name__,
+        code_path=[os.path.dirname(tests.__file__)],
     )
 
     for model_path in [class_model_path, loader_module_model_path]:

@@ -691,6 +691,65 @@ def test_save_model_with_model_class_parameter_of_invalid_type_raises_exeption(t
     assert "`model_class` must be a class object" in str(exc_info)
 
 
+def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.save_model(dst_path=model_path,
+                                 parameters={
+                                    "param": range(10),
+                                 },
+                                 model_class=None)
+    assert "`model_class` argument was not provided" in str(exc_info)
+
+    model_class = ModuleScopedSklearnModel
+    loader_module = __name__
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.save_model(dst_path=model_path,
+                                 model_class=model_class,
+                                 loader_module=loader_module)
+    assert "The following sets of arguments cannot be specified together" in str(exc_info)
+    assert str(model_class) in str(exc_info)
+    assert str(loader_module) in str(exc_info)
+
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.save_model(dst_path=model_path,
+                                 model_class=model_class,
+                                 data_path="/path/to/data",
+                                 artifacts={
+                                    "artifact1": "/path/to/artifact",
+                                 })
+    assert "The following sets of arguments cannot be specified together" in str(exc_info)
+
+
+def test_log_model_with_unsupported_argument_combinations_throws_exception():
+    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
+                                parameters={
+                                    "param": range(10),
+                                },
+                                model_class=None)
+    assert "`model_class` argument was not provided" in str(exc_info)
+
+    model_class = ModuleScopedSklearnModel
+    loader_module = __name__
+    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
+                                model_class=model_class,
+                                loader_module=loader_module)
+    assert "The following sets of arguments cannot be specified together" in str(exc_info)
+    assert str(model_class) in str(exc_info)
+    assert str(loader_module) in str(exc_info)
+
+    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
+                                model_class=model_class,
+                                data_path="/path/to/data",
+                                artifacts={
+                                    "artifact1": "/path/to/artifact",
+                                })
+    assert "The following sets of arguments cannot be specified together" in str(exc_info)
+
+
+@pytest.mark.large
 def test_sagemaker_docker_model_scoring_with_default_conda_env(
         sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")

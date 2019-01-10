@@ -15,6 +15,7 @@ import mlflow.pyfunc
 import mlflow.pyfunc.cli
 import mlflow.pyfunc.model
 import mlflow.sklearn
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 
@@ -89,3 +90,17 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
+
+
+def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.save_model(dst_path=model_path,
+                                 data_path="/path/to/data")
+    assert "`loader_module` argument was not provided" in str(exc_info)
+
+
+def test_log_model_with_unsupported_argument_combinations_throws_exception():
+    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
+                                data_path="/path/to/data")
+    assert "`loader_module` argument was not provided" in str(exc_info)
