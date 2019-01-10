@@ -7,16 +7,7 @@ self contained in the sense that it includes all necessary information for anyon
 use it. Dependencies are either stored directly with the model or referenced via a Conda
 environment.
 
-Many of MLflow's model persistence modules, such as :mod:`mlflow.sklearn`, :mod:`mlflow.keras`,
-and :mod:`mlflow.pytorch`, produce models with the **python_function** (**pyfunc**) flavor. This
-means that they adhere to the ``mlflow.pyfunc`` filesystem format and can be interpreted as
-generic Python classes that implement the specified :ref:`inference API <pyfunc-inference-api>`.
-Therefore, any tool that operates on these **pyfunc** classes can operate on any MLflow model
-containing the **pyfunc** flavor, regardless of which persistence module or framework was used to
-produce the model. *This interoperability is very powerful because it allows any Python model to be
-productionized in a variety of environments*.
-
-Finally, the ``mlflow.pyfunc`` module also defines utilities for creating custom **pyfunc** models
+The ``mlflow.pyfunc`` module also defines utilities for creating custom **pyfunc** models
 using frameworks and inference logic that may not be natively included in MLflow. See
 :ref:`pyfunc-create-custom`.
 
