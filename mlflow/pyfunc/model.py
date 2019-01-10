@@ -342,7 +342,7 @@ def _load_pyfunc(model_path):
         # some time after the manager object goes out of scope.
         tmp_artifacts_dir_manager = tempfile.TemporaryDirectory(suffix="artifacts")
         directory_managers.append(tmp_artifacts_dir_manager)
-        tmp_artifacts_dir_path = tmp_artifacts_dir_manager.path
+        tmp_artifacts_dir_path = tmp_artifacts_dir_manager.name
     else:
         # Because `tempfile.TemporaryDirectory` does not exist prior to Python 3.2, create an
         # unmanaged temporary directory instead. Depending on the system, this directory is likely
