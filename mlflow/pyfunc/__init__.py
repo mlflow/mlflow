@@ -687,7 +687,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                    loader_module=loader_module, data_path=data_path, code_path=code_path,
                    conda_env=conda_env, model_class=model_class, artifacts=artifacts,
                    parameters=parameters)
-        # log_artifacts(local_path, artifact_path)
+        log_artifacts(local_path, artifact_path)
 
 
 def get_module_loader_src(src_path, dst_path):

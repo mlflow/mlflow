@@ -1,6 +1,5 @@
 import os
 import inspect
-import pydoc
 import tempfile
 import shutil
 import sys
