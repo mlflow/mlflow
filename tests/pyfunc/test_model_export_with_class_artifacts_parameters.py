@@ -356,7 +356,7 @@ def test_save_model_specifying_model_dependency_with_different_major_python_veri
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
-    with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
         warn_mock.side_effect = custom_warn
         mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "pyfunc_model"),
                                  artifacts={
@@ -389,7 +389,7 @@ def test_save_model_specifying_model_dependency_with_same_major_python_version_d
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
-    with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
         warn_mock.side_effect = custom_warn
         mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "pyfunc_model"),
                                  artifacts={
@@ -421,7 +421,7 @@ def test_save_model_specifying_model_dependency_with_different_cloudpickle_veris
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
-    with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock,\
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock,\
             mock.patch("cloudpickle.__version__") as cloudpickle_version_mock:
         warn_mock.side_effect = custom_warn
         cloudpickle_version_mock.__str__ = lambda *args, **kwargs: "0.5.8"
@@ -453,7 +453,7 @@ def test_save_model_specifying_model_dependency_with_same_cloudpickle_verison_do
     def custom_warn(message_text, *args, **kwargs):
         log_messages.append(message_text.format(*args, **kwargs))
 
-    with mock.patch("mlflow.pyfunc._logger.warn") as warn_mock:
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
         warn_mock.side_effect = custom_warn
         mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "pyfunc_model"),
                                  artifacts={
