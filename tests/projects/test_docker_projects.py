@@ -48,11 +48,11 @@ def test_docker_project_execution(
     assert len(run.data.metrics) == len(expected_metrics)
     for metric in run.data.metrics:
         assert metric.value == expected_metrics[metric.key]
-    exact_expected_tags = {
-        "mlflow.gitRepoURL": "https://github.com/mlflow/mlflow", "mlflow.docker": "true"}
+    exact_expected_tags = {"mlflow.docker": "true"}
     approx_expected_tags = {
         "mlflow.docker.image.name": "mlflow-docker-example",
         "mlflow.docker.image.id": "sha256:",
+        "mlflow.gitRepoURL": "https://github.com/mlflow/mlflow",
     }
     assert len(run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
     for tag in run.data.tags:
