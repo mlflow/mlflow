@@ -5,18 +5,18 @@ In this example we demonstrate how to train and deploy image classification mode
 We train a VGG16 deep learning model to classify flower species from photos using a `dataset
 <http://download.tensorflow.org/example_images/flower_photos.tgz>`_ available from `tensorflow.org
 <http://www.tensorflow.org>`_. Note that although we use Keras to train the model in this case,
-similar approach can be applied to other deep learning frameworks such as ``PyTorch``.
+a similar approach can be applied to other deep learning frameworks such as ``PyTorch``.
 
 The MLflow model produced by running this example can be deployed to any MLflow supported endpoints.
 All the necessary image preprocessing is packaged with the model. The model can therefore be applied
 to image data directly. All that is required in order to pass new data to the model is to encode the
 image binary data as base64 encoded string in pandas DataFrame (standard interface for MLflow python
-function models). You can check included python scripts showing how to score model deployed to a
-REST API endpoint and also of batch scoring in Spark.
+function models). The included Python scripts demonstrate how the model can be deployed to a REST
+API endpoint for realtime evaluation or to Spark for batch scoring..
 
-In order to include a custom image pre-processing logic with the model, we define the model as a
+In order to include custom image pre-processing logic with the model, we define the model as a
 custom python function model wrapping around the underlying Keras model. The wrapper provides
-necessary preprocessing to convert input data into a multidimensional arrays expected by the
+necessary preprocessing to convert input data into multidimensional arrays expected by the
 Keras model. The preprocessing logic is stored with the model as a code dependency. Here is an
 example of the output model directory layout:
 
@@ -47,7 +47,7 @@ The example contains the following files:
    Contains definition of this project. Contains only one entry point to train the model.
 
  * conda.yaml
-   Defines project dependencies. NOTE: You might want to change tensorflow package to tensroflow-gpu
+   Defines project dependencies. NOTE: You might want to change tensorflow package to tensorflow-gpu
    if you have gpu(s) available.
 
  * train.py
@@ -85,7 +85,7 @@ run_id ``101``.
 
 - To test REST api scoring do the following two steps:
 
-  1. Deploy it as a local REST endpoint by running mlflow pyfunc serve:
+  1. Deploy the model as a local REST endpoint by running mlflow pyfunc serve:
 
   .. code:: bash
 

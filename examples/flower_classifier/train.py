@@ -159,24 +159,24 @@ def train(image_files,
           test_ratio=0.2,
           seed=None):
     """
-        Train VGG16 model on provided image files. This will create a new MLflow run and log all
-        parameters, metrics and the resulting model with MLflow. The resulting model is an instance
-        of KerasImageClassifierPyfunc - a custom python function model that embeds all necessary
-        preprocessing together with the VGG16 Keras model. The resulting model can be applied
-        directly to image base64 encoded image data.
+    Train VGG16 model on provided image files. This will create a new MLflow run and log all
+    parameters, metrics and the resulting model with MLflow. The resulting model is an instance
+    of KerasImageClassifierPyfunc - a custom python function model that embeds all necessary
+    preprocessing together with the VGG16 Keras model. The resulting model can be applied
+    directly to image base64 encoded image data.
 
-        :param image_height: Height of the input image in pixels.
-        :param image_width: Width of the input image in pixels.
-        :param image_files: List of image files to be used for training.
-        :param labels: List of labels for the image files.
-        :param domain: Dictionary representing the domain of the reponse.
-                       Provides mapping label-name -> label-id.
-        :param epochs: Number of epochs to train the model for.
-        :param batch_size: Batch size used during training.
-        :param test_ratio: Fraction of dataset to be used for validation. This data will not be used
-                           during training.
-        :param seed: Random seed. Used e.g. when splitting the dataset into train / validation.
-        """
+    :param image_height: Height of the input image in pixels.
+    :param image_width: Width of the input image in pixels.
+    :param image_files: List of image files to be used for training.
+    :param labels: List of labels for the image files.
+    :param domain: Dictionary representing the domain of the reponse.
+                   Provides mapping label-name -> label-id.
+    :param epochs: Number of epochs to train the model for.
+    :param batch_size: Batch size used during training.
+    :param test_ratio: Fraction of dataset to be used for validation. This data will not be used
+                       during training.
+    :param seed: Random seed. Used e.g. when splitting the dataset into train / validation.
+    """
     assert len(set(labels)) == len(domain)
 
     input_shape = (image_width, image_height, 3)
