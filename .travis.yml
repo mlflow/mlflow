@@ -59,9 +59,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   # Useful for debugging any issues with conda
   - conda info -a
-  # Create the test environment with the `conda` package to include utilities in the Conda Python SDK
-  # such as `conda.resolve`; this package is not included in new environments automatically
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION conda
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
   - source activate test-environment
   - python --version
   - pip install --upgrade pip
