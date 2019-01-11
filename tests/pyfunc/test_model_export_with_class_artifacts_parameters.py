@@ -698,7 +698,7 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
                                     "param": range(10),
                                  },
                                  model_class=None)
-    assert "`model_class` argument was not provided" in str(exc_info)
+    assert "`model_class` must be specified" in str(exc_info)
 
     model_class = ModuleScopedSklearnModel
     loader_module = __name__
@@ -719,6 +719,12 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
                                  })
     assert "The following sets of arguments cannot be specified together" in str(exc_info)
 
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.save_model(dst_path=model_path,
+                                 model_class=None,
+                                 loader_module=None)
+    assert "Either `loader_module` or `model_class` must be specified" in str(exc_info)
+
 
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
@@ -727,7 +733,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
                                     "param": range(10),
                                 },
                                 model_class=None)
-    assert "`model_class` argument was not provided" in str(exc_info)
+    assert "`model_class` must be specified" in str(exc_info)
 
     model_class = ModuleScopedSklearnModel
     loader_module = __name__
@@ -747,6 +753,12 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
                                     "artifact1": "/path/to/artifact",
                                 })
     assert "The following sets of arguments cannot be specified together" in str(exc_info)
+
+    with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
+        mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
+                                model_class=None,
+                                loader_module=None)
+    assert "Either `loader_module` or `model_class` must be specified" in str(exc_info)
 
 
 @pytest.mark.large

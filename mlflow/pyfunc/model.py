@@ -14,7 +14,7 @@ import mlflow.pyfunc
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -130,10 +130,15 @@ def _save_model_with_class_artifacts_params(path, model_class, artifacts=None, p
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
+    if model_class is None:
+        raise MlflowException(
+            message=("`model_class` must be specified!"),
+            error_code=INVALID_PARAMETER_VALUE)
+
     if os.path.exists(path):
         raise MlflowException(
                 message="Path '{}' already exists".format(path),
-                error_code=INVALID_PARAMETER_VALUE)
+                error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
 
     custom_model_config_kwargs = {}
@@ -222,9 +227,17 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
                       model.
     :return: Model configuration containing model info.
     """
+    if loader_module is None:
+        raise MlflowException(
+            message=("`loader_module` must be specified!"),
+            error_code=INVALID_PARAMETER_VALUE)
+
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
+        raise MlflowException(
+                message="Path '{}' already exists".format(path),
+                error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
+
     code = None
     data = None
     env = None

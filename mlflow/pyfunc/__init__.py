@@ -570,24 +570,19 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
                     first_set_entries=first_argument_set,
                     second_set_entries=second_argument_set)),
             error_code=INVALID_PARAMETER_VALUE)
+    elif not (first_argument_set_specified or second_argument_set_specified):
+        raise MlflowException(
+            message="Either `loader_module` or `model_class` must be specified!",
+            error_code=INVALID_PARAMETER_VALUE)
 
-    if loader_module is not None:
+    if first_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_loader_module_and_data_path(
             path=dst_path, loader_module=loader_module, data_path=data_path,
             code_paths=code_path, conda_env=conda_env, mlflow_model=model)
-    elif model_class is not None:
+    elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=dst_path, model_class=model_class, artifacts=artifacts, parameters=parameters,
             conda_env=conda_env, code_paths=code_path, mlflow_model=model)
-    elif data_path is not None:
-        raise MlflowException(
-            message="`data_path` was specified, but the `loader_module` argument was not provided.",
-            error_code=INVALID_PARAMETER_VALUE)
-    elif artifacts is not None or parameters is not None:
-        raise MlflowException(
-            message=("`artifacts` or `parameters` was specified, but the `model_class` argument was"
-                     " not provided."),
-            error_code=INVALID_PARAMETER_VALUE)
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
@@ -692,7 +687,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                    loader_module=loader_module, data_path=data_path, code_path=code_path,
                    conda_env=conda_env, model_class=model_class, artifacts=artifacts,
                    parameters=parameters)
-        log_artifacts(local_path, artifact_path)
+        # log_artifacts(local_path, artifact_path)
 
 
 def get_module_loader_src(src_path, dst_path):
