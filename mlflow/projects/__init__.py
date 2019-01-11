@@ -653,38 +653,42 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-def _build_docker_image(work_dir, project, active_run, project_mount_path="/mlflow/projects/code/"):
+def _build_docker_image(work_dir, project, active_run):
+    """
+    Build a docker image containing the project in `work_dir`, using the base image and tagging the
+    built image with the project name specified by `project`.
+    """
     if not project.name:
         raise ExecutionException("Project name in MLProject must be specified when using docker "
                                  "for image tagging.")
-    built_image = "mlflow-{name}-{version}".format(
-        name=(project.name if project.name else "built-image"),
+    tag_name = "mlflow-{name}-{version}".format(
+        name=(project.name if project.name else "docker-project"),
         version=_get_git_commit(work_dir)[:7],)
     dockerfile = (
         "FROM {imagename}\n"
-        "LABEL Name={built_image}\n"
-        "COPY {build_context_path}/* \"{project_mount_path}\"\n"
-        "WORKDIR \"{project_mount_path}\"\n"
-    ).format(imagename=project.docker_env.get('image'), built_image=built_image,
-             build_context_path=_PROJECT_TAR_ARCHIVE_NAME, project_mount_path=project_mount_path)
+        "LABEL Name={tag_name}\n"
+        "COPY {build_context_path}/* /mlflow/projects/code/\n"
+        "WORKDIR /mlflow/projects/code/\n"
+    ).format(imagename=project.docker_env.get('image'), tag_name=tag_name,
+             build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     try:
         with open(build_ctx_path, 'rb') as docker_build_ctx:
-            _logger.info("=== Building docker image %s ===", built_image)
+            _logger.info("=== Building docker image %s ===", tag_name)
             client = docker.from_env()
             image = client.images.build(
-                tag=built_image, forcerm=True,
+                tag=tag_name, forcerm=True,
                 dockerfile=os.path.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
                 fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     finally:
         os.remove(build_ctx_path)
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                     MLFLOW_DOCKER_IMAGE_NAME,
-                                    built_image)
+                                    tag_name)
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image[0].short_id)
-    return built_image
+    return tag_name
 
 __all__ = [
     "run",

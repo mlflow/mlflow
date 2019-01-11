@@ -64,8 +64,10 @@ following conventions to determine its parameters:
   is specified in ``conda.yaml``, if present. If no ``conda.yaml`` file is present, MLflow
   will use a Conda environment containing only Python (specifically, the latest Python available to
   Conda) when running the project.
-* Docker environment for execution can be specified as an alternative for conda environments as described below.
-  The base image provided should have mlflow installed in addition to all the libraries needed in order to run the project.
+* Alternatively, you may provide a Docker environment for project execution, which allows for capturing
+  non-Python dependencies such as Java libraries.
+ `See here <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an
+  MLflow project with a Docker environment.
 * Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly
   declared. When you execute such a command with a set of parameters, MLflow will pass each
   parameter on the command line using ``--key value`` syntax.
@@ -80,7 +82,7 @@ YAML syntax. The MLproject file looks like this:
     conda_env: my_env.yaml
     # Can have a docker_env instead of a conda_env, e.g.
     # docker_env:
-    #    image:  mlflow-run-image-file
+    #    image:  mlflow-docker-example
 
     entry_points:
       main:
