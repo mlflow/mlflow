@@ -36,7 +36,6 @@ def test_docker_project_execution(
     run_uuid = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
     run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
-    print(run_infos)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
@@ -49,7 +48,6 @@ def test_docker_project_execution(
     assert len(run.data.metrics) == len(expected_metrics)
     for metric in run.data.metrics:
         assert metric.value == expected_metrics[metric.key]
-    print(run.data.tags)
     exact_expected_tags = {
         "mlflow.gitRepoURL": "https://github.com/mlflow/mlflow", "mlflow.docker": "true"}
     approx_expected_tags = {
