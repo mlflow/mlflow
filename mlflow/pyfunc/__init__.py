@@ -141,19 +141,8 @@ Workflows
        and **parameters** are specified by the ``artifacts`` and ``parameters`` method arguments,
        respectively.
 
-       In this case, you must provide a Python class, called a **model class**, with two
-       methods:
-
-           - ``__init__()``: This method loads and interprets **artifacts** from the MLflow
-             model directory.
-
-             *Note:* **parameters** are *automatically* read from the MLflow model directory as
-             Python objects.
-
-           - ``predict()``: This method leverages **artifacts** and **parameters** to evaluate
-             queries. It must adhere to the :ref:`pyfunc-inference-api`.
-
-       The **model_class** must inherit from :class:`~PythonModel`. It is specified via the
+       In this case, you must provide a Python class which inherits from :class:`~PythonModel`
+       and defines two methods: ``__init__()`` and ``predict()`. This class is specified via the
        ``model_class`` parameter and is automatically serialized and deserialized as a Python
        class object.
 
@@ -161,13 +150,13 @@ Workflows
 
        If you already have a collection of model data, :meth:`save_model()` and :meth:`log_model()`
        can import the data as an MLflow model. Model data may consist of both **artifacts** and
-       *serialized* **parameters**. The ``data_path`` argument specifies the local filesystem path
+       serialized **parameters**. The ``data_path`` argument specifies the local filesystem path
        to the directory containing model data.
 
        In this case, you must provide a Python module, called a **loader module**. The
        **loader module** defines a ``_load_pyfunc()`` method that performs the following tasks:
 
-           - Load **artifacts** *and* serialized **parameters** from ``data_path``. For example,
+           - Load **artifacts** and serialized **parameters** from ``data_path``. For example,
              this process may include deserializing pickled Python objects or models or parsing
              CSV files.
 
@@ -186,7 +175,7 @@ Workflows
 Which workflow is right for my use case?
 ########################################
 
-We consider the *first* workflow to be more user-friendly and generally recommend it for the
+We consider the first workflow to be more user-friendly and generally recommend it for the
 following reasons:
 
     - It automatically resolves and collects specified model **artifacts** and **parameters**.
@@ -198,7 +187,7 @@ following reasons:
       custom models to be constructed in interactive environments, such as notebooks and the Python
       REPL.
 
-Some users may prefer the *second*, lower-level workflow for the following reasons:
+Some users may prefer the second, lower-level workflow for the following reasons:
 
     - Inference logic is always persisted as code, rather than a Python object. This makes logic
       easier to inspect and modify later.
