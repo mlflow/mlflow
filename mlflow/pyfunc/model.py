@@ -300,7 +300,7 @@ def _validate_artifacts(artifacts):
             })
             model_py_major_version = StrictVersion(model_py_version).version[0]
             if model_py_major_version != curr_major_py_version:
-                mlflow.pyfunc._logger.warn(
+                mlflow.pyfunc._logger.warning(
                     "The artifact with name %s is an MLflow model that was saved with a different"
                     " major version of Python. As a result, your new model may not load or perform"
                     " correctly. Current python version: %s. Model python version: %s",
@@ -318,7 +318,7 @@ def _validate_artifacts(artifacts):
                                            [MatchSpec(dep) for dep in conda_deps + pip_deps])
             for cloudpickle_dep_spec in cloudpickle_dep_specs:
                 if not curr_cloudpickle_version_spec.match(cloudpickle_dep_spec):
-                    mlflow.pyfunc._logger.warn(
+                    mlflow.pyfunc._logger.warning(
                         "The artifact with name %s is an MLflow model that contains a dependency on"
                         " either a different version or a range of versions of the CloudPickle"
                         " library. MLflow model artifacts should depend on *exactly* the same"
