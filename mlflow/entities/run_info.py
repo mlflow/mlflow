@@ -179,10 +179,3 @@ class RunInfo(_MLflowObject):
                    status=proto.status, start_time=proto.start_time, end_time=end_time,
                    source_version=proto.source_version, lifecycle_stage=proto.lifecycle_stage,
                    artifact_uri=proto.artifact_uri)
-
-    @classmethod
-    def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["run_uuid", "experiment_id", "name", "source_type", "source_name",
-                "entry_point_name", "user_id", "status", "start_time", "end_time",
-                "source_version", "lifecycle_stage", "artifact_uri"]

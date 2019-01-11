@@ -53,8 +53,4 @@ class Run(_MLflowObject):
         return cls(the_info, the_data)
 
     def to_dictionary(self):
-        return {"info": dict(self.info), "data": dict(self.data)}
-
-    @classmethod
-    def _properties(cls):
-        return ["info", "data"]
+        return {"info": dict(self.info), "data": self.data.to_dictionary()}

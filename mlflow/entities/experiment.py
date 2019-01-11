@@ -51,8 +51,3 @@ class Experiment(_MLflowObject):
         proto.artifact_location = self.artifact_location
         proto.lifecycle_stage = self.lifecycle_stage
         return proto
-
-    @classmethod
-    def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["experiment_id", "name", "artifact_location", "lifecycle_stage"]

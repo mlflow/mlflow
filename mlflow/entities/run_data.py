@@ -39,12 +39,18 @@ class RunData(_MLflowObject):
         return self._tags
 
     def _add_metric(self, metric):
+        if isinstance(metric, dict):
+            metric = Metric(metric['key'], metric['value'], metric['timestamp'])
         self._metrics.append(metric)
 
     def _add_param(self, param):
+        if isinstance(param, dict):
+            param = Param(param['key'], param['value'])
         self._params.append(param)
 
     def _add_tag(self, tag):
+        if isinstance(tag, dict):
+            tag = RunTag(tag['key'], tag['value'])
         self._tags.append(tag)
 
     def to_proto(self):
@@ -53,6 +59,9 @@ class RunData(_MLflowObject):
         run_data.params.extend([p.to_proto() for p in self.params])
         run_data.tags.extend([t.to_proto() for t in self.tags])
         return run_data
+
+    def to_dictionary(self):
+        return {p: [dict(val) for val in getattr(self, p)] for p in RunData._properties()}
 
     @classmethod
     def from_proto(cls, proto):
@@ -77,8 +86,3 @@ class RunData(_MLflowObject):
         for t in the_dict.get("tags", []):
             run_data._add_tag(t)
         return run_data
-
-    @classmethod
-    def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["metrics", "params", "tags"]
