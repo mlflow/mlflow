@@ -31,6 +31,8 @@ The above example references a locally-stored image (mlflow-docker-example) by t
 Running `mlflow run examples/docker` builds a new docker image based on `mlflow-docker-example`
 but also containing our project code, then executes the default (main) project entry point
 within the container via `docker run`.
+This built image will be tagged as `mlflow-docker-example-<git-version>` where git-version is the git 
+commit ID.
 
 Environment variables such as MLFLOW_TRACKING_URI are
 propagated inside the container during project execution. When running against a local tracking URI,

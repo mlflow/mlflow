@@ -62,7 +62,6 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
                               git_username=git_username, git_password=git_password)
     project = _project_spec.load_project(work_dir)
-    _validate_execution_environments(project)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
@@ -575,12 +574,6 @@ def _get_conda_command(conda_env_name):
         return ["source %s %s" % (activate_path, conda_env_name)]
     else:
         return ["conda %s %s" % (activate_path, conda_env_name)]
-
-
-def _validate_execution_environments(project):
-    if project.conda_env_path and project.docker_env:
-        raise ExecutionException("Both conda and docker specification found. "
-                                 "Please specify just one execution environment in MLProject.")
 
 
 def _get_docker_command(image, active_run):
