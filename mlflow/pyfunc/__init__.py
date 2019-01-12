@@ -130,7 +130,7 @@ Workflows
 
 :meth:`save_model()` and :meth:`log_model()` support the following workflows:
 
-    1. Interactively defining an MLflow model's attributes and **artifacts**
+    1. Programmatically defining a new MLflow model, including its attributes and **artifacts**
 
        Given a set of **artifact** URIs, :meth:`save_model()` and :meth:`log_model()` can
        automatically download **artifacts** from their URIs and create an MLflow model directory.
