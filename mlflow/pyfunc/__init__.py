@@ -116,15 +116,12 @@ queries, such as preprocessing and postprocessing routines. Therefore, ``mlflow.
 provides utilities for creating **pyfunc** models from arbitrary code and model data.
 
 The :meth:`save_model()` and :meth:`log_model()` methods are designed to support multiple workflows
-for creating custom **pyfunc** models that incorporate custom inference logic and data dependencies.
-Data dependencies are **parameters** and **artifacts** that the inference logic may use to
-evaluate queries. These components are defined as follows:
+for creating custom **pyfunc** models that incorporate custom inference logic and **artifacts**
+that the logic may require.
 
-1. **Parameters**: Python objects. For example, a numpy matrix containing precomputed feature
-   values is a **parameter**.
-2. **Artifacts**: Files or directories, such as serialized Python models or CSVs. For example, a
-   serialized Tensorflow graph is an **artifact**; an MLflow model directory is also an
-   **artifact**.
+    - **artifacts** are files or directories, such as pickled models or CSVs. For example, a
+      serialized Tensorflow graph is an **artifact**; an MLflow model directory is also an
+      **artifact**.
 
 .. _pyfunc-create-custom-workflows:
 
@@ -133,38 +130,33 @@ Workflows
 
 :meth:`save_model()` and :meth:`log_model()` support the following workflows:
 
-    1. Collecting **artifacts** and **parameters** to create an MLflow model
+    1. Collecting **artifacts** to create an MLflow model
 
-       Given a set of **artifact** URIs and **parameters**,
-       :meth:`save_model()` and :meth:`log_model()` can automatically download **artifacts** from
-       their URIs and serialize **parameters** to create an MLflow model directory. **artifacts**
-       and **parameters** are specified by the ``artifacts`` and ``parameters`` method arguments,
-       respectively.
+       Given a set of **artifact** URIs, :meth:`save_model()` and :meth:`log_model()` can
+       automatically download **artifacts** from their URIs and create an MLflow model directory.
 
-       In this case, you must provide a Python class which inherits from :class:`~PythonModel`
-       and defines two methods: ``__init__()`` and ``predict()`. This class is specified via the
-       ``model_class`` parameter and is automatically serialized and deserialized as a Python
-       class object.
+       In this case, you must define a Python class which inherits from :class:`~PythonModel`,
+       defining `predict()` and, optionally, `load_context()`. An instance of this class is
+       specified via the ``python_model`` argument and is automatically serialized and deserialized
+       as a Python class, including all of its attributes.
 
     2. Importing data as an MLflow model
 
        If you already have a collection of model data, :meth:`save_model()` and :meth:`log_model()`
-       can import the data as an MLflow model. Model data may consist of both **artifacts** and
-       serialized **parameters**. The ``data_path`` argument specifies the local filesystem path
-       to the directory containing model data.
+       can import the data as an MLflow model. The ``data_path`` argument specifies the local
+       filesystem path to the directory containing model data.
 
        In this case, you must provide a Python module, called a **loader module**. The
        **loader module** defines a ``_load_pyfunc()`` method that performs the following tasks:
 
-           - Load **artifacts** and serialized **parameters** from ``data_path``. For example,
-             this process may include deserializing pickled Python objects or models or parsing
-             CSV files.
+           - Load data from the specified ``data_path``. For example, this process may include
+             deserializing pickled Python objects or models or parsing CSV files.
 
            - Construct and return a pyfunc-compatible model wrapper. As in the first
              use case, this wrapper must define a ``predict()`` method that is used to evaluate
              queries. ``predict()`` must adhere to the :ref:`pyfunc-inference-api`.
 
-       The ``loader_module`` parameter specifies the name of your **loader module**.
+       The ``loader_module`` argument specifies the name of your **loader module**.
 
        For an example **loader module** implementation, please refer to the `loader module
        implementation in mlflow.keras <https://github.com/mlflow/mlflow/blob/
@@ -178,10 +170,10 @@ Which workflow is right for my use case?
 We consider the first workflow to be more user-friendly and generally recommend it for the
 following reasons:
 
-    - It automatically resolves and collects specified model **artifacts** and **parameters**.
+    - It automatically resolves and collects specified model **artifacts**.
 
-    - It automatically serializes and deserializes **parameters**, reducing the amount of
-      required user logic.
+    - It automatically serializes and deserializes the ``python_model`` instance and all of
+      its attributes, reducing the amount of user logic that is required to load the model
 
     - Models can be creating using logic that is defined in the ``__main__`` scope. This allows
       custom models to be constructed in interactive environments, such as notebooks and the Python
@@ -194,7 +186,7 @@ Some users may prefer the second, lower-level workflow for the following reasons
 
     - If the user has already collected all of their model data in a single location, the second
       workflow allows it to be saved in MLflow format directly, without enumerating all
-      constituent **artifacts** and **parameters**.
+      constituent **artifacts**.
 """
 
 import importlib
@@ -461,8 +453,8 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
 
                           - The MLflow library.
                           - Package(s) listed in the model's Conda environment, specified by
-                            the ``conda_env`` parameter.
-                          - One or more of the files specified by the ``code_path`` parameter.
+                            the ``conda_env`` argument.
+                          - One or more of the files specified by the ``code_path`` argument.
 
     :param data_path: Path to a file or directory containing model data.
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
@@ -491,8 +483,8 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
 
                             - The MLflow library.
                             - Package(s) listed in the model's Conda environment, specified by
-                              the ``conda_env`` parameter.
-                            - One or more of the files specified by the ``code_path`` parameter.
+                              the ``conda_env`` argument.
+                            - One or more of the files specified by the ``code_path`` argument.
 
                         Note: If the class is imported from another module, as opposed to being
                         defined in the ``__main__`` scope, the defining module should also be
@@ -569,8 +561,8 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
 
                           - The MLflow library.
                           - Package(s) listed in the model's Conda environment, specified by
-                            the ``conda_env`` parameter.
-                          - One or more of the files specified by the ``code_path`` parameter.
+                            the ``conda_env`` argument.
+                          - One or more of the files specified by the ``code_path`` argument.
 
     :param data_path: Path to a file or directory containing model data.
     :param code_path: A list of local filesystem paths to Python file dependencies (or directories
@@ -599,8 +591,8 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
 
                             - The MLflow library.
                             - Package(s) listed in the model's Conda environment, specified by
-                              the ``conda_env`` parameter.
-                            - One or more of the files specified by the ``code_path`` parameter.
+                              the ``conda_env`` argument.
+                            - One or more of the files specified by the ``code_path`` argument.
 
                         Note: If the class is imported from another module, as opposed to being
                         defined in the ``__main__`` scope, the defining module should also be

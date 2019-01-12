@@ -65,7 +65,7 @@ class PythonModelContext(object):
     :class:`~PythonModelContext` objects are created *implicitly* by the
     :func:`save_model() <mlflow.pyfunc.save_model>` and
     :func:`log_model() <mlflow.pyfunc.log_model>` persistence methods, using the contents specified
-    by the ``artifacts`` parameter of these methods.
+    by the ``artifacts`` argument of these methods.
     """
 
     def __init__(self, artifacts, directory_managers=None):
