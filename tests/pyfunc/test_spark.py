@@ -58,7 +58,7 @@ class ModuleScopedConstantModel(get_model_class()):
 
 
 def _load_pyfunc(_):
-    return ModuleScopedConstantModel(context=None)
+    return ModuleScopedConstantModel()
 
 
 @pytest.fixture
