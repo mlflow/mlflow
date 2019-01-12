@@ -130,21 +130,21 @@ Workflows
 
 :meth:`save_model()` and :meth:`log_model()` support the following workflows:
 
-    1. Collecting **artifacts** to create an MLflow model
+    1. Interactively defining an MLflow model's attributes and **artifacts**
 
        Given a set of **artifact** URIs, :meth:`save_model()` and :meth:`log_model()` can
        automatically download **artifacts** from their URIs and create an MLflow model directory.
 
        In this case, you must define a Python class which inherits from :class:`~PythonModel`,
        defining `predict()` and, optionally, `load_context()`. An instance of this class is
-       specified via the ``python_model`` argument and is automatically serialized and deserialized
+       specified via the ``python_model`` argument; it is automatically serialized and deserialized
        as a Python class, including all of its attributes.
 
-    2. Importing data as an MLflow model
+    2. Interpreting pre-existing data as an MLflow model
 
-       If you already have a collection of model data, :meth:`save_model()` and :meth:`log_model()`
-       can import the data as an MLflow model. The ``data_path`` argument specifies the local
-       filesystem path to the directory containing model data.
+       If you already have a directory containing model data, :meth:`save_model()` and
+       :meth:`log_model()` can import the data as an MLflow model. The ``data_path`` argument
+       specifies the local filesystem path to the directory containing model data.
 
        In this case, you must provide a Python module, called a **loader module**. The
        **loader module** defines a ``_load_pyfunc()`` method that performs the following tasks:
@@ -185,8 +185,8 @@ Some users may prefer the second, lower-level workflow for the following reasons
       easier to inspect and modify later.
 
     - If the user has already collected all of their model data in a single location, the second
-      workflow allows it to be saved in MLflow format directly, without enumerating all
-      constituent **artifacts**.
+      workflow allows it to be saved in MLflow format directly, without enumerating constituent
+      **artifacts**.
 """
 
 import importlib
