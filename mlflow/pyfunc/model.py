@@ -43,6 +43,9 @@ class PythonModel(object):
 
     def load_context(self, context):
         """
+        Loads artifacts from the specified :class:`~PythonModelContext` that can be used by
+        ``predict()`` when evaluating inputs.
+
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         """
@@ -65,7 +68,7 @@ class PythonModelContext(object):
     :class:`~PythonModelContext` objects are created *implicitly* by the
     :func:`save_model() <mlflow.pyfunc.save_model>` and
     :func:`log_model() <mlflow.pyfunc.log_model>` persistence methods, using the contents specified
-    by the ``artifacts`` argument of these methods.
+    by the ``artifacts`` parameter of these methods.
     """
 
     def __init__(self, artifacts, directory_managers=None):
