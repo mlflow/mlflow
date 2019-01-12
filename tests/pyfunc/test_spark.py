@@ -89,8 +89,9 @@ def model_path(tmpdir):
 
 @pytest.mark.large
 def test_spark_udf(spark, main_scoped_model_class, tmpdir):
-    class_model_path = os.path.join(str(tmpdir), "class_model")
-    mlflow.pyfunc.save_model(dst_path=class_model_path, model_class=main_scoped_model_class)
+    class_instance_model_path = os.path.join(str(tmpdir), "class_model")
+    mlflow.pyfunc.save_model(
+        dst_path=class_instance_model_path, python_model=main_scoped_model_class())
     loader_module_model_path = os.path.join(str(tmpdir), "lm_model")
     mlflow.pyfunc.save_model(
         dst_path=loader_module_model_path,
@@ -98,7 +99,7 @@ def test_spark_udf(spark, main_scoped_model_class, tmpdir):
         code_path=[os.path.dirname(tests.__file__)],
     )
 
-    for model_path in [class_model_path, loader_module_model_path]:
+    for model_path in [class_instance_model_path, loader_module_model_path]:
         reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
 
         pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
@@ -137,7 +138,7 @@ def test_spark_udf(spark, main_scoped_model_class, tmpdir):
 
 @pytest.mark.large
 def test_model_cache(spark, main_scoped_model_class, model_path):
-    mlflow.pyfunc.save_model(dst_path=model_path, model_class=main_scoped_model_class)
+    mlflow.pyfunc.save_model(dst_path=model_path, python_model=main_scoped_model_class())
 
     archive_path = SparkModelCache.add_local_model(spark, model_path)
     assert archive_path != model_path

@@ -5,7 +5,6 @@ import shutil
 import sys
 import yaml
 from abc import ABCMeta, abstractmethod
-from distutils.version import StrictVersion
 
 import cloudpickle
 
@@ -30,23 +29,22 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
-CONFIG_KEY_PARAMETERS = "parameters"
-CONFIG_KEY_MODEL_CLASS = "model_class"
+CONFIG_KEY_PYTHON_MODEL = "python_model"
 
 
 class PythonModel(object):
     """
-    Represents a generic Python model that leverages a collection of *artifacts* and *parameters*
-    (Python objects) to evaluate inputs and produce API-compatible outputs. By subclassing
-    :class:`~PythonModel`, users can create customized MLflow models with the "python_function"
-    ("pyfunc") flavor, leveraging custom inference logic and dependencies.
+    Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
+    By subclassing :class:`~PythonModel`, users can create customized MLflow models with the
+    "python_function" ("pyfunc") flavor, leveraging custom inference logic and artifact
+    dependencies.
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, context):
+    def load_context(self, context):
         """
-        :param context: A :class:`~PythonModelContext` instance containing *artifacts* and
-                        *parameters* that the model can use to perform inference.
+        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                        can use to perform inference.
         """
         self.context = context
 
@@ -63,25 +61,23 @@ class PythonModel(object):
 
 class PythonModelContext(object):
     """
-    A collection of *artifacts* and *parameters* (Python objects) that a :class:`~PythonModel` can
-    use when performing inference. :class:`~PythonModelContext` objects are created *implicitly* by
-    the :func:`save_model() <mlflow.pyfunc.save_model>` and
+    A collection of artifacts that a :class:`~PythonModel` can use when performing inference.
+    :class:`~PythonModelContext` objects are created *implicitly* by the
+    :func:`save_model() <mlflow.pyfunc.save_model>` and
     :func:`log_model() <mlflow.pyfunc.log_model>` persistence methods, using the contents specified
-    by the ``artifacts`` and ``parameters`` arguments of these methods.
+    by the ``artifacts`` parameter of these methods.
     """
 
-    def __init__(self, artifacts, parameters, directory_managers=None):
+    def __init__(self, artifacts, directory_managers=None):
         """
         :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
                           is an absolute filesystem path to a given artifact.
-        :param parameters: A dictionary of ``<name, python object>`` entries.
         :param directories: A list of objects managing the lifecycle of directories that the
                             contain the specified artifacts. These objects will be stored
                             as a class attribute, ensuring that their associated directories
                             exist for as long as the :class:`~PythonModelContext` is in scope.
         """
         self._artifacts = artifacts
-        self._parameters = parameters
         self._directory_managers = directory_managers
 
     @property
@@ -92,32 +88,18 @@ class PythonModelContext(object):
         """
         return self._artifacts
 
-    @property
-    def parameters(self):
-        """
-        :return: A dictionary containing ``<name, python object>`` entries.
-        """
-        return self._parameters
 
-
-def _save_model_with_class_artifacts_params(path, model_class, artifacts=None, parameters=None,
-                                            conda_env=None, code_paths=None, mlflow_model=Model()):
+def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, conda_env=None,
+                                            code_paths=None, mlflow_model=Model()):
     """
     :param path: The path to which to save the Python model.
-    :param model_class: A ``type`` object referring to a subclass of
-                        :class:`~PythonModel`, or the fully-qualified name of such a subclass.
-                        ``model_class`` defines how the model is loaded and how it performs
-                        inference.
+    :param python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``
+                        defines how the model loads artifacts and how it performs inference.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``model_class`` can reference these
+                      ``<name, absolute_path>`` entries. ``python_model`` can reference these
                       resolved entries as the ``artifacts`` property of the ``context`` attribute.
                       If *None*, no artifacts will be added to the model.
-    :param parameters: A dictionary containing ``<name, python object>`` entries. ``python object``
-                       may be any Python object that is serializable with CloudPickle.
-                       ``model_class`` can reference these resolved entries as the ``parameters``
-                       property of the ``context`` attribute. If *None*, no Python object parameters
-                       will be added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -129,9 +111,9 @@ def _save_model_with_class_artifacts_params(path, model_class, artifacts=None, p
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
-    if model_class is None:
+    if python_model is None:
         raise MlflowException(
-            message=("`model_class` must be specified!"),
+            message=("`python_model` must be specified!"),
             error_code=INVALID_PARAMETER_VALUE)
 
     if os.path.exists(path):
@@ -141,15 +123,16 @@ def _save_model_with_class_artifacts_params(path, model_class, artifacts=None, p
     os.makedirs(path)
 
     custom_model_config_kwargs = {}
-    if inspect.isclass(model_class):
-        saved_model_class_subpath = "model_class.pkl"
-        with open(os.path.join(path, saved_model_class_subpath), "wb") as out:
-            cloudpickle.dump(model_class, out)
-        custom_model_config_kwargs[CONFIG_KEY_MODEL_CLASS] = saved_model_class_subpath
+    if isinstance(python_model, PythonModel):
+        saved_python_model_subpath = "python_model.pkl"
+        with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
+            cloudpickle.dump(python_model, out)
+        custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
     else:
         raise MlflowException(
-                message=("`model_class` must be a class object. Instead, found an object"
-                         " of type: {model_class_type}".format(model_class_type=type(model_class))),
+                message=("`python_model` must be a subclass of `PythonModel`. Instead, found an"
+                         " object of type: {python_model_type}".format(
+                             python_model_type=type(python_model))),
                 error_code=INVALID_PARAMETER_VALUE)
 
     if artifacts is not None and len(artifacts) > 0:
@@ -171,18 +154,6 @@ def _save_model_with_class_artifacts_params(path, model_class, artifacts=None, p
 
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
-
-    if parameters is not None and len(parameters) > 0:
-        saved_parameters_dir_subpath = "parameters"
-        os.makedirs(os.path.join(path, saved_parameters_dir_subpath))
-        saved_parameters_config = {}
-        for parameter_name, parameter_py_obj in parameters.items():
-            saved_parameter_subpath = os.path.join(
-                saved_parameters_dir_subpath, "{param_name}.pkl".format(param_name=parameter_name))
-            with open(os.path.join(path, saved_parameter_subpath), "wb") as out:
-                cloudpickle.dump(parameter_py_obj, out)
-            saved_parameters_config[parameter_name] = saved_parameter_subpath
-        custom_model_config_kwargs[CONFIG_KEY_PARAMETERS] = saved_parameters_config
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -262,19 +233,12 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
 def _load_pyfunc(model_path):
     pyfunc_config = _get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
-
-    model_class_subpath = pyfunc_config.get(CONFIG_KEY_MODEL_CLASS, None)
-    if model_class_subpath is None:
+    python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
+    if python_model_subpath is None:
         raise MlflowException(
-            "Model class path was not specified in the model configuration")
-    with open(os.path.join(model_path, model_class_subpath), "rb") as f:
-        model_class = cloudpickle.load(f)
-
-    parameters = {}
-    for saved_parameter_name, saved_parameter_path in\
-            pyfunc_config.get(CONFIG_KEY_PARAMETERS, {}).items():
-        with open(os.path.join(model_path, saved_parameter_path), "rb") as f:
-            parameters[saved_parameter_name] = cloudpickle.load(f)
+            "Python model path was not specified in the model configuration")
+    with open(os.path.join(model_path, python_model_subpath), "rb") as f:
+        python_model = cloudpickle.load(f)
 
     directory_managers = []
     if sys.version_info >= (3, 2):
@@ -303,6 +267,6 @@ def _load_pyfunc(model_path):
                     dst_dir=saved_artifact_name))
         artifacts[saved_artifact_name] = tmp_artifact_path
 
-    context = PythonModelContext(
-        artifacts=artifacts, parameters=parameters, directory_managers=directory_managers)
-    return model_class(context=context)
+    context = PythonModelContext(artifacts=artifacts, directory_managers=directory_managers)
+    python_model.load_context(context=context)
+    return python_model
