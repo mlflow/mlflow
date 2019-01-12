@@ -1,5 +1,4 @@
 import os
-import inspect
 import tempfile
 import shutil
 import sys
@@ -49,6 +48,7 @@ class PythonModel(object):
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         """
+        # pylint: disable=attribute-defined-outside-init
         self.context = context
 
     @abstractmethod
