@@ -136,9 +136,9 @@ Workflows
        automatically download **artifacts** from their URIs and create an MLflow model directory.
 
        In this case, you must define a Python class which inherits from :class:`~PythonModel`,
-       defining `predict()` and, optionally, `load_context()`. An instance of this class is
-       specified via the ``python_model`` parameter; it is automatically serialized and deserialized
-       as a Python class, including all of its attributes.
+       defining :func:`~PythonModel._predict` and, optionally, :func:`~PythonModel.load_context`. An
+       instance of this class is specified via the ``python_model`` parameter; it is automatically
+       serialized and deserialized as a Python class, including all of its attributes.
 
     2. Interpreting pre-existing data as an MLflow model
 
@@ -154,7 +154,7 @@ Workflows
 
            - Construct and return a pyfunc-compatible model wrapper. As in the first
              use case, this wrapper must define a ``predict()`` method that is used to evaluate
-             queries. ``predict()`` must adhere to the :ref:`pyfunc-inference-api`.
+             queries.
 
        The ``loader_module`` parameter specifies the name of your **loader module**.
 
@@ -495,7 +495,7 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
                       resolved entries as the ``artifacts`` property of the ``context`` parameter
                       in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
-                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
+                      and :func:`PythonModel._predict() <mlflow.pyfunc.PythonModel._predict>`.
                       For example, consider the following ``artifacts`` dictionary::
 
                         {
@@ -606,7 +606,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
                       resolved entries as the ``artifacts`` property of the ``context`` parameter
                       in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
-                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
+                      and :func:`PythonModel._predict() <mlflow.pyfunc.PythonModel._predict>`.
                       For example, consider the following ``artifacts`` dictionary::
 
                         {
