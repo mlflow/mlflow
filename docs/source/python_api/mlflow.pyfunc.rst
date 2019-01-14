@@ -13,10 +13,10 @@ mlflow.pyfunc
     :members:
     :undoc-members:
 
-.. Include ``PythonModel`` as a class to include documentation for the ``_predict`` method
-   without documenting internal methods for other classes in the same module.
+.. Include ``PythonModel`` as a class to include documentation for the ``__init__`` method
+   without documenting ``__init__`` for other classes in the same module.
 .. autoclass:: mlflow.pyfunc.PythonModel
     :members:
     :undoc-members:
 
-    .. automethod:: _predict
+    .. automethod:: __init__

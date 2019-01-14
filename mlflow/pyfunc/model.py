@@ -50,31 +50,30 @@ class PythonModel(object):
     def load_context(self, context):
         """
         Loads artifacts from the specified :class:`~PythonModelContext` that can be used by
-        :func:`~PythonModel._predict` when evaluating inputs. When loading an MLflow model with
-        :func:`~load_pyfunc`, this method will be called as soon as the :class:`~PythonModel` is
+        :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with 
+        :func:`~load_pyfunc`, this method will be called as soon as the :class:`~PythonModel` is 
         constructed.
 
-        The same :class:`~PythonModelContext` will also be available during calls to
-        :func:`~PythonModel._predict`, but it may be more efficient to override this method
+        The :class:`~PythonModelContext` will also be available during calls to
+        :func:`~PythonModel.predict`, but it may be more efficient to override this method
         and load artifacts from the context at model load time.
 
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         """
+        pass
 
     @abstractmethod
-    def _predict(self, context, model_input):
+    def predict(self, context, model_input):
         """
-        Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output. This function
-        is called by a ``predict()`` method that is defined on the :class:`~PythonModel` when
-        the MLflow model is loaded via :func:`~load_pyfunc`.
-
-        For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
+        Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
+        For more information about the pyfunc input/output API, see `Inference API`_.
 
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         :param model_input: A pyfunc-compatible input for the model to evaluate.
         """
+        pass
 
 
 class PythonModelContext(object):
@@ -210,6 +209,4 @@ def _load_pyfunc(model_path):
 
     context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)
-    python_model.predict = lambda model_input: python_model._predict(
-        context=context, model_input=model_input)
     return python_model

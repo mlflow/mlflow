@@ -43,10 +43,11 @@ def get_model_class():
             self.predict_fn = predict_fn
 
         def load_context(self, context):
+            super(CustomSklearnModel, self).load_context(context)
             # pylint: disable=attribute-defined-outside-init
             self.model = mlflow.sklearn.load_model(path=context.artifacts["sk_model"])
 
-        def _predict(self, context, model_input):
+        def predict(self, model_input):
             return self.predict_fn(self.model, model_input)
 
     return CustomSklearnModel
@@ -440,7 +441,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
         f.write(nested_file_text)
 
     class ArtifactValidationModel(mlflow.pyfunc.PythonModel):
-        def _predict(self, context, model_input):
+        def predict(self, model_input):
             expected_file_path = os.path.join(
                 self.context.artifacts["testdir"], nested_file_relative_path)
             if not os.path.exists(expected_file_path):

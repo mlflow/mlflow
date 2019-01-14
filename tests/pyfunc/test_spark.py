@@ -126,14 +126,14 @@ def test_model_cache(spark, model_path):
     assert isinstance(local_model, ConstantModel)
 
     # Define the model class name as a string so that each Spark executor can reference it
-    # without attempting to resolve ConstantModel, which is only available on the driver.
+    # without attempting to resolve ConstantModel, which is only available on the driver. 
     constant_model_name = ConstantModel.__name__
 
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
         model = SparkModelCache.get_or_load(archive_path)
         # NB: Can not use instanceof test as remote does not know about ConstantModel class.
-        assert type(model).__name__ == constant_model_name
+        assert type(model).__name__ == constant_model_name 
         return SparkModelCache._cache_hits
 
     # This will run 30 distinct tasks, and we expect most to reuse an already-loaded model.
