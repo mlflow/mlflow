@@ -128,6 +128,14 @@ def test_hadoop_filesystem(tmpdir):
     assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
 
 
+def test_hadoop_can_write_to_path():
+    from mlflow.spark import _HadoopFileSystem as FS
+    # On Databricks, this throws an error while looking up credentials
+    assert FS.can_write_to_path("s3://blah")
+    # Works on Databricks but fails locally, as expected
+    assert not FS.can_write_to_path("dbfs:/blah")
+
+
 def test_model_export(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_custom_env)
