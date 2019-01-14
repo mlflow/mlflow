@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 import logging
+import posixpath
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
@@ -672,16 +673,20 @@ def _build_docker_image(work_dir, project, active_run):
     ).format(imagename=project.docker_env.get('image'), tag_name=tag_name,
              build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
+    with open(build_ctx_path, 'rb') as docker_build_ctx:
+        _logger.info("=== Building docker image %s ===", tag_name)
+        client = docker.from_env()
+        image = client.images.build(
+            tag=tag_name, forcerm=True,
+            dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
+            fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
+    
     try:
-        with open(build_ctx_path, 'rb') as docker_build_ctx:
-            _logger.info("=== Building docker image %s ===", tag_name)
-            client = docker.from_env()
-            image = client.images.build(
-                tag=tag_name, forcerm=True,
-                dockerfile=os.path.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
-                fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
-    finally:
         os.remove(build_ctx_path)
+    except PermissionError:
+        # handle PermissionDenied in Windows OS
+        _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
+
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     tag_name)
