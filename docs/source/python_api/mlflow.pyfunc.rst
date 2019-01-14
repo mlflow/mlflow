@@ -13,10 +13,8 @@ mlflow.pyfunc
     :members:
     :undoc-members:
 
-.. Include ``PythonModel`` as a class to include documentation for the ``__init__`` method
-   without documenting ``__init__`` for other classes in the same module.
+.. Include ``PythonModelContext``, which is imported from `mlflow.pyfunc.model`, in the
+   `mlflow.pyfunc` namespace
 .. autoclass:: mlflow.pyfunc.PythonModel
     :members:
     :undoc-members:
-
-    .. automethod:: __init__

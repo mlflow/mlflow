@@ -97,7 +97,7 @@ Inference API
 The convention for pyfunc models is to have a ``predict`` method or function with the following
 signature::
 
-    predict(data: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
+    predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
 
 This convention is relied on by other MLflow components.
 

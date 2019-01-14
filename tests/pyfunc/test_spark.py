@@ -33,8 +33,9 @@ def score_model_as_udf(model_path, run_id, pandas_df, result_type="double"):
 
 
 
-class ConstantModel(mlflow.pyfunc.PythonModel):
-    def predict(self, model_input):
+class ConstantPyfuncWrapper(object):
+    @staticmethod
+    def predict(model_input):
         m, _ = model_input.shape
         prediction_df = pd.DataFrame(data={
             str(i): np.array([prediction[i] for j in range(m)],
@@ -44,7 +45,7 @@ class ConstantModel(mlflow.pyfunc.PythonModel):
 
 
 def _load_pyfunc(_):
-    return ConstantModel()
+    return ConstantPyfuncWrapper()
 
 
 @pytest.fixture(autouse=True)
@@ -123,17 +124,17 @@ def test_model_cache(spark, model_path):
 
     # Ensure we can use the model locally.
     local_model = SparkModelCache.get_or_load(archive_path)
-    assert isinstance(local_model, ConstantModel)
+    assert isinstance(local_model, ConstantPyfuncWrapper)
 
     # Define the model class name as a string so that each Spark executor can reference it
-    # without attempting to resolve ConstantModel, which is only available on the driver. 
-    constant_model_name = ConstantModel.__name__
+    # without attempting to resolve ConstantPyfuncWrapper, which is only available on the driver.
+    constant_model_name = ConstantPyfuncWrapper.__name__
 
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
         model = SparkModelCache.get_or_load(archive_path)
-        # NB: Can not use instanceof test as remote does not know about ConstantModel class.
-        assert type(model).__name__ == constant_model_name 
+        # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
+        assert type(model).__name__ == constant_model_name
         return SparkModelCache._cache_hits
 
     # This will run 30 distinct tasks, and we expect most to reuse an already-loaded model.

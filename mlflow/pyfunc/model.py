@@ -50,11 +50,11 @@ class PythonModel(object):
     def load_context(self, context):
         """
         Loads artifacts from the specified :class:`~PythonModelContext` that can be used by
-        :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with 
-        :func:`~load_pyfunc`, this method will be called as soon as the :class:`~PythonModel` is 
+        :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with
+        :func:`~load_pyfunc`, this method will be called as soon as the :class:`~PythonModel` is
         constructed.
 
-        The :class:`~PythonModelContext` will also be available during calls to
+        The same :class:`~PythonModelContext` will also be available during calls to
         :func:`~PythonModel.predict`, but it may be more efficient to override this method
         and load artifacts from the context at model load time.
 
@@ -67,7 +67,7 @@ class PythonModel(object):
     def predict(self, context, model_input):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
-        For more information about the pyfunc input/output API, see `Inference API`_.
+        For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
 
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
@@ -209,4 +209,19 @@ def _load_pyfunc(model_path):
 
     context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)
-    return python_model
+    return _PythonModelPyfuncWrapper(python_model=python_model, context=context)
+
+
+class _PythonModelPyfuncWrapper:
+
+    def __init__(self, python_model, context):
+        """
+        :param python_model: An instance of a subclass of :class:`~PythonModel`.
+        :param context: A :class:`~PythonModelContext` instance containing artifacts that
+                        ``python_model`` may use when performing inference.
+        """
+        self.python_model = python_model
+        self.context = context
+
+    def predict(self, model_input):
+        return self.python_model.predict(self.context, model_input)
