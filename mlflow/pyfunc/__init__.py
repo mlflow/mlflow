@@ -206,10 +206,10 @@ from mlflow.models import Model
 from mlflow.pyfunc.model import PythonModel, PythonModelContext,\
     DEFAULT_CONDA_ENV
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -461,9 +461,10 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
                       containing file dependencies). These files will be *prepended* to the system
                       path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
+                      Conda environment yaml file. This decribes the environment this model should
+                      be run in. If ``python_model`` is not *None*, the Conda environment must
+                      at least specify the dependencies contained in
+                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
                       :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
                       model. The following is an *example* dictionary representation of a Conda
                       environment::
@@ -486,13 +487,15 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
                               the ``conda_env`` parameter.
                             - One or more of the files specified by the ``code_path`` parameter.
 
-                        Note: If the class is imported from another module, as opposed to being
-                        defined in the ``__main__`` scope, the defining module should also be
-                        included in one of the listed locations.
+                         Note: If the class is imported from another module, as opposed to being
+                         defined in the ``__main__`` scope, the defining module should also be
+                         included in one of the listed locations.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
+                      resolved entries as the ``artifacts`` property of the ``context`` parameter
+                      in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
+                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
                       For example, consider the following ``artifacts`` dictionary::
 
                         {
@@ -501,7 +504,7 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
 
                       In this case, the ``"my_file"`` artifact will be downloaded from S3. The
                       ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
-                      path via ``self.context.artifacts["my_file"]``.
+                      path via ``context.artifacts["my_file"]``.
 
                       If *None*, no artifacts will be added to the model.
     """
@@ -526,15 +529,15 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
                     first_set_entries=first_argument_set,
                     second_set_entries=second_argument_set)),
             error_code=INVALID_PARAMETER_VALUE)
-    elif not (first_argument_set_specified or second_argument_set_specified):
+    elif (loader_module is None) and (python_model is None):
         raise MlflowException(
             message="Either `loader_module` or `python_model` must be specified!",
             error_code=INVALID_PARAMETER_VALUE)
 
     if first_argument_set_specified:
-        return mlflow.pyfunc.model._save_model_with_loader_module_and_data_path(
-            path=dst_path, loader_module=loader_module, data_path=data_path,
-            code_paths=code_path, conda_env=conda_env, mlflow_model=model)
+        return _save_model_with_loader_module_and_data_path(
+                path=dst_path, loader_module=loader_module, data_path=data_path,
+                code_paths=code_path, conda_env=conda_env, mlflow_model=model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=dst_path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
@@ -569,9 +572,10 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                       containing file dependencies). These files will be *prepended* to the system
                       path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
+                      Conda environment yaml file. This decribes the environment this model should
+                      be run in. If ``python_model`` is not *None*, the Conda environment must
+                      at least specify the dependencies contained in
+                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
                       :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
                       model. The following is an *example* dictionary representation of a Conda
                       environment::
@@ -594,13 +598,15 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                               the ``conda_env`` parameter.
                             - One or more of the files specified by the ``code_path`` parameter.
 
-                        Note: If the class is imported from another module, as opposed to being
-                        defined in the ``__main__`` scope, the defining module should also be
-                        included in one of the listed locations.
+                         Note: If the class is imported from another module, as opposed to being
+                         defined in the ``__main__`` scope, the defining module should also be
+                         included in one of the listed locations.
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       will be resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
+                      resolved entries as the ``artifacts`` property of the ``context`` parameter
+                      in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
+                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
                       For example, consider the following ``artifacts`` dictionary::
 
                         {
@@ -609,7 +615,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
 
                       In this case, the ``"my_file"`` artifact will be downloaded from S3. The
                       ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
-                      path via ``self.context.artifacts["my_file"]``.
+                      path via ``context.artifacts["my_file"]``.
 
                       If *None*, no artifacts will be added to the model.
     """
@@ -620,6 +626,53 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                    loader_module=loader_module, data_path=data_path, code_path=code_path,
                    conda_env=conda_env, python_model=python_model, artifacts=artifacts)
         log_artifacts(local_path, artifact_path)
+
+
+def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,
+                                                 code_paths=None, conda_env=None,
+                                                 mlflow_model=Model()):
+    """
+    Export model as a generic Python function model.
+    :param path: The path to which to save the Python model.
+    :param loader_module: The name of the Python module that will be used to load the model
+                          from ``data_path``. This module must define a method with the prototype
+                          ``_load_pyfunc(data_path)``.
+    :param data_path: Path to a file or directory containing model data.
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                      containing file dependencies). These files will be *prepended* to the system
+                      path before the model is loaded.
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decribes the environment
+                      this model should be run in.
+    :return: Model configuration containing model info.
+    """
+    if os.path.exists(path):
+        raise MlflowException(
+                message="Path '{}' already exists".format(path),
+                error_code=RESOURCE_ALREADY_EXISTS)
+    os.makedirs(path)
+
+    code = None
+    data = None
+    env = None
+
+    if data_path is not None:
+        model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
+        data = model_file
+
+    if code_paths is not None:
+        for code_path in code_paths:
+            _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
+        code = "code"
+
+    if conda_env is not None:
+        shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
+        env = "mlflow_env.yml"
+
+    mlflow.pyfunc.add_to_model(
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
+    mlflow_model.save(os.path.join(path, 'MLmodel'))
+    return mlflow_model
 
 
 def get_module_loader_src(src_path, dst_path):

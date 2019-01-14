@@ -1,7 +1,11 @@
+"""
+The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "python_function"
+models with a user-defined ``PythonModel`` subclass.
+"""
+
 import os
 import tempfile
 import shutil
-import sys
 import yaml
 from abc import ABCMeta, abstractmethod
 
@@ -17,6 +21,9 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
+# `DEFAULT_CONDA_ENV` defines the default Conda environment for models produced by calls to
+# `mlflow.pyfunc.save_model()` and `mlflow.pyfunc.log_model()` when a user-defined subclass of
+# ``PythonModel`` is provided.
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_conda_deps=[
         "cloudpickle=={}".format(cloudpickle.__version__),
@@ -43,20 +50,27 @@ class PythonModel(object):
     def load_context(self, context):
         """
         Loads artifacts from the specified :class:`~PythonModelContext` that can be used by
-        ``predict()`` when evaluating inputs.
+        :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with 
+        :func:`~load_pyfunc`, this method will be called as soon as the :class:`~PythonModel` is 
+        constructed.
+
+        The :class:`~PythonModelContext` will also be available during calls to
+        :func:`~PythonModel.predict`, but it may be more efficient to override this method
+        and load artifacts from the context at model load time.
 
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         """
-        # pylint: disable=attribute-defined-outside-init
-        self.context = context
+        pass
 
     @abstractmethod
-    def predict(self, model_input):
+    def predict(self, context, model_input):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see `Inference API`_.
 
+        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                        can use to perform inference.
         :param model_input: A pyfunc-compatible input for the model to evaluate.
         """
         pass
@@ -71,17 +85,12 @@ class PythonModelContext(object):
     by the ``artifacts`` parameter of these methods.
     """
 
-    def __init__(self, artifacts, directory_managers=None):
+    def __init__(self, artifacts):
         """
         :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
                           is an absolute filesystem path to a given artifact.
-        :param directories: A list of objects managing the lifecycle of directories that the
-                            contain the specified artifacts. These objects will be stored
-                            as a class attribute, ensuring that their associated directories
-                            exist for as long as the :class:`~PythonModelContext` is in scope.
         """
         self._artifacts = artifacts
-        self._directory_managers = directory_managers
 
     @property
     def artifacts(self):
@@ -114,11 +123,6 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
-    if python_model is None:
-        raise MlflowException(
-            message=("`python_model` must be specified!"),
-            error_code=INVALID_PARAMETER_VALUE)
-
     if os.path.exists(path):
         raise MlflowException(
                 message="Path '{}' already exists".format(path),
@@ -138,7 +142,7 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
                              python_model_type=type(python_model))),
                 error_code=INVALID_PARAMETER_VALUE)
 
-    if artifacts is not None and len(artifacts) > 0:
+    if artifacts:
         saved_artifacts_config = {}
         with TempDir() as tmp_artifacts_dir:
             tmp_artifacts_config = {}
@@ -178,61 +182,6 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
     mlflow_model.save(os.path.join(path, 'MLmodel'))
 
 
-def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,
-                                                 code_paths=None, conda_env=None,
-                                                 mlflow_model=Model()):
-    """
-    Export model as a generic Python function model.
-    :param path: The path to which to save the Python model.
-    :param loader_module: The name of the Python module that will be used to load the model
-                          from ``data_path``. This module must define a method with the prototype
-                          ``_load_pyfunc(data_path)``.
-    :param data_path: Path to a file or directory containing model data.
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                      containing file dependencies). These files will be *prepended* to the system
-                      path before the model is loaded.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
-                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
-                      model.
-    :return: Model configuration containing model info.
-    """
-    if loader_module is None:
-        raise MlflowException(
-            message=("`loader_module` must be specified!"),
-            error_code=INVALID_PARAMETER_VALUE)
-
-    if os.path.exists(path):
-        raise MlflowException(
-                message="Path '{}' already exists".format(path),
-                error_code=RESOURCE_ALREADY_EXISTS)
-    os.makedirs(path)
-
-    code = None
-    data = None
-    env = None
-
-    if data_path is not None:
-        model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
-        data = model_file
-
-    if code_paths is not None:
-        for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
-        code = "code"
-
-    if conda_env is not None:
-        shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
-        env = "mlflow_env.yml"
-
-    mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
-    mlflow_model.save(os.path.join(path, 'MLmodel'))
-    return mlflow_model
-
-
 def _load_pyfunc(model_path):
     pyfunc_config = _get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
@@ -243,21 +192,9 @@ def _load_pyfunc(model_path):
     with open(os.path.join(model_path, python_model_subpath), "rb") as f:
         python_model = cloudpickle.load(f)
 
-    directory_managers = []
-    if sys.version_info >= (3, 2):
-        # Create a managed temporary directory that will exist as long as the manager object
-        # returned by `tempfile.TemporaryDirectory` is in scope. This directory will be removed
-        # some time after the manager object goes out of scope.
-        tmp_artifacts_dir_manager = tempfile.TemporaryDirectory(suffix="artifacts")
-        directory_managers.append(tmp_artifacts_dir_manager)
-        tmp_artifacts_dir_path = tmp_artifacts_dir_manager.name
-    else:
-        # Because `tempfile.TemporaryDirectory` does not exist prior to Python 3.2, create an
-        # unmanaged temporary directory instead. Depending on the system, this directory is likely
-        # to be created in "/var" or "/tmp" and will be removed on system reboot.
-        # TODO: If the longevity of the temporary directory prior to Python 3.2 becomes problematic,
-        # consider using a alternative solution.
-        tmp_artifacts_dir_path = tempfile.mkdtemp(suffix="artifacts")
+    # TODO: If the longevity of the temporary directory prior becomes problematic, consider using
+    # an alternative solution.
+    tmp_artifacts_dir_path = tempfile.mkdtemp(suffix="artifacts")
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in\
             pyfunc_config.get(CONFIG_KEY_ARTIFACTS, {}).items():
@@ -270,6 +207,6 @@ def _load_pyfunc(model_path):
                     dst_dir=saved_artifact_name))
         artifacts[saved_artifact_name] = tmp_artifact_path
 
-    context = PythonModelContext(artifacts=artifacts, directory_managers=directory_managers)
+    context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)
     return python_model
