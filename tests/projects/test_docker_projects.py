@@ -8,6 +8,7 @@ from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow.entities import ViewType
+from mlflow.projects import ExecutionException
 from mlflow.store import file_store
 
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
@@ -87,3 +88,7 @@ def test_docker_project_tracking_uri_propagation(
             mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, experiment_id=0)
     finally:
         mlflow.set_tracking_uri(old_uri)
+
+def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unused-argument
+    with pytest.raises(ExecutionException):
+        mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, mode="databricks")
