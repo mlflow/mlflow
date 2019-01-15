@@ -133,7 +133,7 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
         except FileExistsError:
             pass
         _save_model_metadata(
-            tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env, jars)
+            tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
 
 
@@ -164,7 +164,6 @@ class _HadoopFileSystem:
     @classmethod
     def _fs(cls):
         if not cls._filesystem:
-            sc = SparkContext.getOrCreate()
             cls._filesystem = cls._jvm().org.apache.hadoop.fs.FileSystem.get(cls._conf())
         return cls._filesystem
 
@@ -214,7 +213,7 @@ class _HadoopFileSystem:
         cls._fs().delete(cls._remote_path(path), True)
 
 
-def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda_env, jars):
+def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda_env):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
     model can be loaded from a relative path to the metadata file (currently hard-coded to
@@ -306,7 +305,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     _save_model_metadata(
         dst_dir=path, spark_model=spark_model, mlflow_model=mlflow_model,
-        sample_input=sample_input, conda_env=conda_env, jars=jars)
+        sample_input=sample_input, conda_env=conda_env)
 
 
 def _load_model(model_path, dfs_tmpdir=None):
