@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import logging
 import posixpath
+import six
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
@@ -682,16 +683,17 @@ def _build_docker_image(work_dir, project, active_run):
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     try:
         os.remove(build_ctx_path)
-    except:
+    except (WindowsError if six.PY2 and os.name == "nt" else PermissionError):
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
-
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
+
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     tag_name)
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image[0].short_id)
     return tag_name
+
 
 __all__ = [
     "run",
