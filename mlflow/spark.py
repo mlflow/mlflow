@@ -106,23 +106,27 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     >>> model = pipeline.fit(training)
     >>> mlflow.spark.log_model(model, "spark-model")
     """
+    _validate_model(spark_model, jars)
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_uuid
     run_root_artifact_uri = mlflow.get_artifact_uri()
     # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
     # model
-    if not _HadoopFileSystem.can_write_to_path(run_root_artifact_uri):
+    model_dir = os.path.join(run_root_artifact_uri, artifact_path)
+    try:
+        spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
+    except Py4JJavaError:
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                          jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
                          sample_input=sample_input)
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    _validate_model(spark_model, jars)
-    model_dir = os.path.join(run_root_artifact_uri, artifact_path)
-    spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
-
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path("model")
+        try:
+            os.mkdir(tmp_model_metadata_dir)
+        except FileExistsError:
+            pass
         _save_model_metadata(
             tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env, jars)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
@@ -183,18 +187,6 @@ class _HadoopFileSystem:
     @classmethod
     def qualified_local_path(cls, path):
         return cls._fs().makeQualified(cls._local_path(path)).toString()
-
-    @classmethod
-    def can_write_to_path(cls, path):
-        """Returns True if Spark is configured to write to the provided path (string)"""
-        path = cls._remote_path(path)
-        try:
-            # Try to resolve the provided path using the default HadoopConfiguration - if
-            # successful, we assume we can write to the path directly
-            path.getFileSystem(cls._conf())
-            return True
-        except Py4JJavaError:
-            return False
 
     @classmethod
     def maybe_copy_from_local_file(cls, src, dst):
