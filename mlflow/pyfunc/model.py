@@ -210,7 +210,11 @@ def _load_pyfunc(model_path):
     return _PythonModelPyfuncWrapper(python_model=python_model, context=context)
 
 
-class _PythonModelPyfuncWrapper:
+class _PythonModelPyfuncWrapper(object):
+    """
+    Wrapper class that creates a predict function such that
+    predict(model_input: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
+    """
 
     def __init__(self, python_model, context):
         """
