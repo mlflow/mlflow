@@ -133,7 +133,7 @@ MLflow supports four parameter types, some of which it treats specially (for exa
 data to local files). Any undeclared parameters are treated as ``string``. The parameter types are:
 
 string
-    Any text string.
+    A text string.
 
 float
     A real number. MLflow validates that the parameter is a number.
@@ -145,8 +145,8 @@ path
     for programs that can only read local files.
 
 uri
-    A URI for data either in a local or distributed storage system. MLflow will convert
-    any relative paths to absolute paths, as in the ``path`` type. Use this type for programs
+    A URI for data either in a local or distributed storage system. MLflow converts
+    relative paths to absolute paths, as in the ``path`` type. Use this type for programs
     that know how to read from distributed storage (for example using Spark).
 
 Running Projects
@@ -156,17 +156,17 @@ MLflow provides two simple ways to run projects: the ``mlflow run`` :ref:`comman
 the :py:func:`mlflow.projects.run` Python API. Both tools take the following parameters:
 
 Project URI
-    Can be either a directory on the local file system or a Git repository path,
+    A directory on the local file system or a Git repository path,
     specified as a URI of the form ``https://<repo>`` (to use HTTPS) or ``user@host:path``
     (to use Git over SSH). To run against an MLproject file located in a subdirectory of the project, 
     add a '#' to the end of the URI argument, followed by the relative path from the project's root directory
     to the subdirectory containing the desired project.
 
 Project Version
-    Either the commit hash or branch name in the Git repository to run, for Git-based projects.
+    For Git-based projects, the commit hash or branch name in the Git repository.
 
 Entry Point
-    The name of the entry point to use, which defaults to ``main``. You can use any
+    The name of the entry point, which defaults to ``main``. You can use any
     entry point named in the ``MLproject`` file, or any ``.py`` or ``.sh`` file in the project,
     given as a path from the project root (for example, ``src/test.py``).
 
@@ -181,7 +181,7 @@ Deployment Mode
     any other computing infrastructure of your choice using the local version of the ``mlflow run``
     command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
 
-For example, the tutorial creates and publishes a MLproject that trains a linear model. The
+For example, the tutorial creates and publishes an MLflow project that trains a linear model. The
 project is also published on GitHub at https://github.com/mlflow/mlflow-example. To execute
 this project, run:
 
@@ -197,25 +197,26 @@ useful if you quickly want to test a project in your existing shell environment.
 Remote Execution on Databricks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Support for running projects remotely on Databricks is in beta preview and requires a Databricks account. 
-To receive future updates about the feature please `sign up here <http://databricks.com/mlflow>`_.
+To receive future updates about the feature, `sign up here <http://databricks.com/mlflow>`_.
 
 
 Launching a Remote Execution on Databricks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 To use this feature, you need to have a Databricks account (Community Edition is not yet supported)
-and you must have set up the `Databricks Command Line utility <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_. Find more detailed instructions in the Databricks docs (`here for Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `here for Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
+and you must have set up the `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions in the Databricks docs (`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
 
 First, create a JSON file containing the 
 `cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. Then, run your project via
+for your run. Then, run your project using the command
 
 .. code:: bash
 
   mlflow run <uri> -m databricks --cluster-spec <json-cluster-spec>
 
-``<uri>`` must be a Git repository URI. You can also pass Git credentials via the
-``git-username`` and ``git-password`` arguments (or via the ``MLFLOW_GIT_USERNAME`` and
-``MLFLOW_GIT_PASSWORD`` environment variables).
+where ``<uri>`` is a Git repository URI or a folder. You can pass Git credentials with the
+``git-username`` and ``git-password`` arguments or using the ``MLFLOW_GIT_USERNAME`` and
+``MLFLOW_GIT_PASSWORD`` environment variables.
 
 
 Iterating Quickly
