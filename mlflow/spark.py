@@ -296,10 +296,6 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     >>> mlflow.spark.save_model(model, "spark-model")
     """
     _validate_model(spark_model, jars)
-
-    if sample_input is not None:
-        mleap.add_to_model(mlflow_model, path, spark_model, sample_input)
-
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
