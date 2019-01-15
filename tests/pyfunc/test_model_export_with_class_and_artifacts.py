@@ -57,7 +57,6 @@ class ModuleScopedSklearnModel(get_model_class()):
     """
     A custom Python model class defined in the test module scope.
     """
-    pass
 
 
 @pytest.fixture(scope="module")

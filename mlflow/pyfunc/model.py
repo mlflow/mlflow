@@ -61,7 +61,6 @@ class PythonModel(object):
         :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
                         can use to perform inference.
         """
-        pass
 
     @abstractmethod
     def predict(self, context, model_input):
@@ -73,7 +72,6 @@ class PythonModel(object):
                         can use to perform inference.
         :param model_input: A pyfunc-compatible input for the model to evaluate.
         """
-        pass
 
 
 class PythonModelContext(object):

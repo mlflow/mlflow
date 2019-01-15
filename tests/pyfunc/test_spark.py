@@ -32,7 +32,6 @@ def score_model_as_udf(model_path, run_id, pandas_df, result_type="double"):
     return [x['prediction'] for x in new_df.collect()]
 
 
-
 class ConstantPyfuncWrapper(object):
     @staticmethod
     def predict(model_input):
@@ -117,10 +116,8 @@ def test_model_cache(spark, model_path):
         code_path=[os.path.dirname(tests.__file__)],
     )
 
-
     archive_path = SparkModelCache.add_local_model(spark, model_path)
     assert archive_path != model_path
-
 
     # Ensure we can use the model locally.
     local_model = SparkModelCache.get_or_load(archive_path)
