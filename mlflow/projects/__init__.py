@@ -680,7 +680,6 @@ def _build_docker_image(work_dir, project, active_run):
             tag=tag_name, forcerm=True,
             dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
-    
     try:
         os.remove(build_ctx_path)
     except PermissionError:
