@@ -113,80 +113,28 @@ for saving and loading models to and from this format. The format is self-contai
 that it includes all the information necessary to load and use a model. Dependencies
 are stored either directly with the model or referenced via Conda environment.
 
+Many MLflow model persistence modules, such as :mod:`mlflow.sklearn`, :mod:`mlflow.keras`,
+and :mod:`mlflow.pytorch`, produce models with the ``python_function`` (``pyfunc``) flavor. This
+means that they adhere to the ``mlflow.pyfunc`` filesystem format and can be interpreted as
+generic Python classes that implement the specified :ref:`inference API <pyfunc-inference-api>`.
+Therefore, any tool that operates on these ``pyfunc`` classes can operate on any MLflow model
+containing the ``pyfunc`` flavor, regardless of which persistence module or framework was used to
+produce the model. This interoperability is very powerful because it allows any Python model to be
+productionized in a variety of environments.
+
 The convention for ``python_function`` models is to have a ``predict`` method or function with the following
 signature:
 
 .. code:: python
 
-    predict(data: pandas.DataFrame) -> [pandas.DataFrame | numpy.array]
+    predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
 
 Other MLflow components expect ``python_function`` models to follow this convention.
 
-The ``python_function`` model format is defined as a directory structure containing all required data, code, and
-configuration:
+The ``python_function`` :ref:`model format <pyfunc-filesystem-format>` is defined as a directory
+structure containing all required data, code, and configuration.
 
-.. code:: bash
-
-  ./dst-path/
-          ./MLmodel: configuration
-          <code>: code packaged with the model (specified in the MLmodel file)
-          <data>: data packaged with the model (specified in the MLmodel file)
-          <env>: Conda environment definition (specified in the MLmodel file)
-
-A ``python_function`` model directory must contain an ``MLmodel`` file in its root with "python_function" format and the following parameters:
-
-- loader_module [required]:
-     Python module that can load the model. Expected to be a module identifier
-     (for example, ``mlflow.sklearn``) importable via ``importlib.import_module``.
-     The imported module must contain a function with the following signature:
-
-          _load_pyfunc(path: string) -> <pyfunc model>
-
-     The path argument is specified by the ``data`` parameter and may refer to a file or directory.
-
-- code [optional]:
-     A relative path to a directory containing the code packaged with this model.
-     All files and directories inside this directory are added to the Python path
-     prior to importing the model loader.
-
-- data [optional]:
-     A relative path to a file or directory containing model data.
-     The path is passed to the model loader.
-
-- env [optional]:
-     A relative path to an exported Conda environment. If present this environment
-     is activated prior to running the model.
-
-.. rubric:: Example
-
-.. code:: bash
-
-   tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
-
-::
-
-   ├── MLmodel
-   ├── code
-   │   ├── sklearn_iris.py
-   │  
-   ├── data
-   │   └── model.pkl
-   └── mlflow_env.yml
-
-.. code:: bash
-
-   cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
-
-::
-
-   python_function:
-     code: code
-     data: data/model.pkl
-     loader_module: mlflow.sklearn
-     env: mlflow_env.yml
-     main: sklearn_iris
-
-For more information, see :py:mod:`mlflow.pyfunc`.
+For more information, see the :mod:`mlflow.pyfunc` documentation.
 
 H\ :sub:`2`\ O (``h2o``)
 ^^^^^^^^^^^^^^^^^^^^^^^^
