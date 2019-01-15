@@ -89,6 +89,7 @@ def test_docker_project_tracking_uri_propagation(
     finally:
         mlflow.set_tracking_uri(old_uri)
 
+
 def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unused-argument
     with pytest.raises(ExecutionException):
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, mode="databricks")
