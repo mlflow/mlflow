@@ -192,45 +192,36 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
             decimal=4)
 
 
-@pytest.mark.parametrize(
-    "should_start_run,use_hdfs_tracking_uri",
-    [(True, True), (True, False), (False, True), (False, False)]
-)
-def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_hdfs_tracking_uri):
+def test_sparkml_model_log(tmpdir, spark_model_iris):
     # Print the coefficients and intercept for multinomial logistic regression
     old_tracking_uri = mlflow.get_tracking_uri()
     cnt = 0
     # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
-        print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
-        try:
-            tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
-            if use_hdfs_tracking_uri:
+    for should_start_run in [False, True]:
+        for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
+            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
+            try:
+                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
                 mlflow.set_tracking_uri("file://%s" % tracking_dir)
-            else:
-                mlflow.set_tracking_uri(tracking_dir)
-            if should_start_run:
-                mlflow.start_run()
-            artifact_path = "model%d" % cnt
-            cnt += 1
-            sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
-                             dfs_tmpdir=dfs_tmp_dir)
-            run_id = active_run().info.run_uuid
-            # test reloaded model
-            reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
-                                               dfs_tmpdir=dfs_tmp_dir)
-            preds_df = reloaded_model.transform(spark_model_iris.spark_df)
-            preds = [x.prediction for x in preds_df.select("prediction").collect()]
-            assert spark_model_iris.predictions == preds
-        finally:
-            mlflow.end_run()
-            mlflow.set_tracking_uri(old_tracking_uri)
-            x = dfs_tmp_dir or sparkm.DFS_TMP
-            if use_hdfs_tracking_uri:
+                if should_start_run:
+                    mlflow.start_run()
+                artifact_path = "model%d" % cnt
+                cnt += 1
+                sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
+                                 dfs_tmpdir=dfs_tmp_dir)
+                run_id = active_run().info.run_uuid
+                # test reloaded model
+                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
+                                                   dfs_tmpdir=dfs_tmp_dir)
+                preds_df = reloaded_model.transform(spark_model_iris.spark_df)
+                preds = [x.prediction for x in preds_df.select("prediction").collect()]
+                assert spark_model_iris.predictions == preds
+            finally:
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_tracking_uri)
+                x = dfs_tmp_dir or sparkm.DFS_TMP
                 shutil.rmtree(x)
                 shutil.rmtree(tracking_dir)
-            else:
-                assert not os.path.exists(dfs_tmp_dir)
 
 
 def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directory(

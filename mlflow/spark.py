@@ -109,6 +109,11 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     _validate_model(spark_model, jars)
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_uuid
     run_root_artifact_uri = mlflow.get_artifact_uri()
+    # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model
+    if mlflow.tracking.utils._is_local_uri(run_root_artifact_uri):
+        return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
+                         jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
+                         sample_input=sample_input)
     # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
     # model
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
@@ -208,6 +213,7 @@ class _HadoopFileSystem:
     def delete(cls, path):
         cls._fs().delete(cls._remote_path(path), True)
 
+
 def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda_env, jars):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
@@ -305,6 +311,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=Non
     _save_model_metadata(
         dst_dir=path, spark_model=spark_model, mlflow_model=mlflow_model,
         sample_input=sample_input, conda_env=conda_env, jars=jars)
+
 
 def _load_model(model_path, dfs_tmpdir=None):
     if dfs_tmpdir is None:
