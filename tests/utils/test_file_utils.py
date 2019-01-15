@@ -10,7 +10,7 @@ import six
 import tarfile
 
 from mlflow.utils import file_utils
-from mlflow.utils.file_utils import get_parent_dir
+from mlflow.utils.file_utils import get_parent_dir, _copy_file_or_tree, TempDir
 from tests.projects.utils import TEST_PROJECT_DIR
 
 from tests.helper_functions import random_int, random_file
@@ -78,3 +78,35 @@ def test_make_tarfile(tmpdir):
 def test_get_parent_dir(tmpdir):
     child_dir = tmpdir.join('dir').mkdir()
     assert str(tmpdir) == get_parent_dir(str(child_dir))
+
+
+def test_file_copy():
+    with TempDir() as tmp:
+        file_path = tmp.path("test_file.txt")
+        copy_path = tmp.path("test_dir1/")
+        os.mkdir(copy_path)
+        with open(file_path, 'a') as f:
+            f.write("testing")
+        _copy_file_or_tree(file_path, copy_path, "")
+        assert filecmp.cmp(file_path, os.path.join(copy_path, "test_file.txt"))
+
+
+def test_dir_create():
+    with TempDir() as tmp:
+        file_path = tmp.path("test_file.txt")
+        create_dir = tmp.path("test_dir2/")
+        with open(file_path, 'a') as f:
+            f.write("testing")
+        name = _copy_file_or_tree(file_path, file_path, create_dir)
+        assert filecmp.cmp(file_path, name)
+
+
+def test_dir_copy():
+    with TempDir() as tmp:
+        dir_path = tmp.path("test_dir1/")
+        copy_path = tmp.path("test_dir2")
+        os.mkdir(dir_path)
+        with open(os.path.join(dir_path, "test_file.txt"), 'a') as f:
+            f.write("testing")
+        _copy_file_or_tree(dir_path, copy_path, "")
+        assert filecmp.dircmp(dir_path, copy_path)
