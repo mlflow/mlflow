@@ -682,8 +682,7 @@ def _build_docker_image(work_dir, project, active_run):
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     try:
         os.remove(build_ctx_path)
-    except PermissionError:
-        # handle PermissionDenied in Windows OS
+    except:
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
 
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
