@@ -683,7 +683,7 @@ def _build_docker_image(work_dir, project, active_run):
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     try:
         os.remove(build_ctx_path)
-    except (WindowsError if six.PY2 and os.name == "nt" else PermissionError):
+    except (WindowsError if six.PY2 and os.name == "nt" else PermissionError): # pylint: disable=W06E0602
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
 
