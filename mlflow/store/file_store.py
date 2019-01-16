@@ -167,10 +167,11 @@ class FileStore(AbstractStore):
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
             if experiment.lifecycle_stage == Experiment.DELETED_LIFECYCLE:
-                raise MlflowException("Experiment '%s' already exists in deleted state." % experiment.name +
-                                      " You can restore the experiment, or permanently delete the experiment from" +
-                                      " the .trash folder to create a new one.",
-                                      databricks_pb2.RESOURCE_ALREADY_EXISTS)
+                raise MlflowException(
+                    "Experiment '%s' already exists in deleted state. "
+                    "You can restore the experiment, or permanently delete the experiment "
+                    "from the .trash folder to create a new one." % experiment.name,
+                    databricks_pb2.RESOURCE_ALREADY_EXISTS)
             else:
                 raise MlflowException("Experiment '%s' already exists." % experiment.name,
                                       databricks_pb2.RESOURCE_ALREADY_EXISTS)

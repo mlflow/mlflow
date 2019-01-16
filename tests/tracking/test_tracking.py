@@ -84,7 +84,9 @@ def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
 
 def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
     reset_mock(MlflowClient, "get_experiment_by_name",
-               mock.Mock(return_value=attrdict.AttrDict(experiment_id=0, lifecycle_stage=Experiment.ACTIVE_LIFECYCLE)))
+               mock.Mock(return_value=attrdict.AttrDict(
+                   experiment_id=0,
+                   lifecycle_stage=Experiment.ACTIVE_LIFECYCLE)))
     reset_mock(MlflowClient, "create_experiment", mock.Mock())
 
     mlflow.set_experiment("my_exp")
