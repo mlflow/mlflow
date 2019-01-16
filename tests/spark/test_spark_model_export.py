@@ -242,6 +242,7 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == spark_custom_env_parsed
 
+
 def test_sparkml_model_log_invalid_args(spark_model_iris, model_path):
     with pytest.raises(MlflowException) as e:
         sparkm.log_model(
