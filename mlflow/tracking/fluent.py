@@ -52,7 +52,7 @@ def set_experiment(experiment_name):
         raise MlflowException(
             "Cannot set a deleted experiment '%s' as the active experiment."
             " You can restore the experiment, or permanently delete the "
-            " experiment from the .trash folder to create a new one." % experiment.name)
+            " experiment to create a new one." % experiment.name)
     global _active_experiment_id
     _active_experiment_id = exp_id
 
