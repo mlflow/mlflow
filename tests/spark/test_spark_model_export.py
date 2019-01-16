@@ -23,6 +23,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
@@ -240,6 +241,19 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == spark_custom_env_parsed
+
+def test_sparkml_model_log_invalid_args(spark_model_iris, model_path):
+    with pytest.raises(MlflowException) as e:
+        sparkm.log_model(
+            spark_model=spark_model_iris.model.stages[0],
+            artifact_path="model0")
+        assert e.message.contains("SparkML can only save PipelineModels")
+    with pytest.raises(MlflowException) as e:
+        sparkm.log_model(
+            spark_model=spark_model_iris.model,
+            artifact_path="model1",
+            jars=["something.jar"])
+        assert e.message.contains("JAR dependencies are not implemented")
 
 
 def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_path):

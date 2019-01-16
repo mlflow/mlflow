@@ -33,7 +33,9 @@ from pyspark.ml.pipeline import PipelineModel
 
 import mlflow
 from mlflow import pyfunc, mleap
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir
@@ -110,7 +112,11 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     _validate_model(spark_model, jars)
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_uuid
     run_root_artifact_uri = mlflow.get_artifact_uri()
-    # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model
+    # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
+    # since Spark may not be able to write directly to the driver's filesystem. For example,
+    # writing to `file:/uri` will write to the local filesystem from each executor, which will
+    # be incorrect on multi-node clusters - to avoid such issues we just use the Model.log() path
+    # here.
     if mlflow.tracking.utils._is_local_uri(run_root_artifact_uri):
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                          jars=jars, conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
@@ -128,12 +134,7 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     with TempDir() as tmp:
-        tmp_model_metadata_dir = tmp.path("model")
-        try:
-            os.mkdir(tmp_model_metadata_dir)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+        tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
             tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
@@ -244,9 +245,10 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
 
 def _validate_model(spark_model, jars):
     if not isinstance(spark_model, PipelineModel):
-        raise Exception("Not a PipelineModel. SparkML can only save PipelineModels.")
+        raise MlflowException("Not a PipelineModel. SparkML can only save PipelineModels.",
+                              INVALID_PARAMETER_VALUE)
     if jars:
-        raise Exception("jar dependencies are not implemented")
+        raise MlflowException("JAR dependencies are not implemented", INVALID_PARAMETER_VALUE)
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None, jars=None,
