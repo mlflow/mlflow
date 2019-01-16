@@ -32,11 +32,15 @@ def test_create_experiment(tracking_uri_mock):
     assert exp_id is not None
 
 
-def test_create_experiment_with_deleted_name(tracking_uri_mock):
-    name = "to_be_deleted"
+def test_create_experiment_with_duplicate_name(tracking_uri_mock):
+    name = "popular_name"
     exp_id = mlflow.create_experiment(name)
+
+    with pytest.raises(MlflowException):
+        mlflow.create_experiment(name)
+
     tracking.MlflowClient().delete_experiment(exp_id)
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException):
         mlflow.create_experiment(name)
 
 
@@ -74,7 +78,7 @@ def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
 
     tracking.MlflowClient().delete_experiment(exp_id)
 
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException):
         mlflow.set_experiment(name)
 
 
