@@ -21,6 +21,7 @@ Spark MLlib (native) format
 
 from __future__ import absolute_import
 
+import errno
 import os
 import yaml
 import logging
@@ -130,8 +131,9 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
         tmp_model_metadata_dir = tmp.path("model")
         try:
             os.mkdir(tmp_model_metadata_dir)
-        except FileExistsError:
-            pass
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
         _save_model_metadata(
             tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
