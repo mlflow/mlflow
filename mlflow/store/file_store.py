@@ -170,7 +170,8 @@ class FileStore(AbstractStore):
                 raise MlflowException(
                     "Experiment '%s' already exists in deleted state. "
                     "You can restore the experiment, or permanently delete the experiment "
-                    "from the .trash folder to create a new one." % experiment.name,
+                    "from the .trash folder (under tracking server's root folder) before "
+                    "creating a new one with the same name." % experiment.name,
                     databricks_pb2.RESOURCE_ALREADY_EXISTS)
             else:
                 raise MlflowException("Experiment '%s' already exists." % experiment.name,
