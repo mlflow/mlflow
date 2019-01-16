@@ -166,8 +166,14 @@ class FileStore(AbstractStore):
                                   databricks_pb2.INVALID_PARAMETER_VALUE)
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
-            raise MlflowException("Experiment '%s' already exists." % experiment.name,
-                                  databricks_pb2.RESOURCE_ALREADY_EXISTS)
+            if experiment.lifecycle_stage == Experiment.DELETED_LIFECYCLE:
+                raise MlflowException("Experiment '%s' already exists in deleted state." % experiment.name +
+                                      " You can restore the experiment, or permanently delete the experiment from" +
+                                      " the .trash folder to create a new one.",
+                                      databricks_pb2.RESOURCE_ALREADY_EXISTS)
+            else:
+                raise MlflowException("Experiment '%s' already exists." % experiment.name,
+                                      databricks_pb2.RESOURCE_ALREADY_EXISTS)
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [e.experiment_id for e in self.list_experiments(ViewType.ALL)]

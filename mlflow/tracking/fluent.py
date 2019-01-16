@@ -48,6 +48,10 @@ def set_experiment(experiment_name):
     if exp_id is None:  # id can be 0
         print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
         exp_id = client.create_experiment(experiment_name)
+    elif experiment.lifecycle_stage == Experiment.DELETED_LIFECYCLE:
+        raise MlflowException("Cannot set a deleted experiment '%s'." % experiment.name +
+                              " You can restore the experiment, or permanently delete the experiment from" +
+                              " the .trash folder to create a new one.")
     global _active_experiment_id
     _active_experiment_id = exp_id
 
