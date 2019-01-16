@@ -195,6 +195,20 @@ public class MlflowClient {
   }
 
   /**
+   * TODO
+   * Creates or append to a metric group for the given run. Parameters are specified as a list
+   * of MetricGroupParams.
+   * */
+  public void createMetricGroup(String runUuid, String key, List<String> params, List<String> metrics) {
+    sendPost("runs/create-metric-group", mapper.makeCreateMetricGroup(runUuid, key, params, metrics));
+  }
+
+  public void logMetricGroupEntry(String runUuid, String key, List<String> params, List<Double> values) {
+    sendPost("runs/log-metric-group-entry", mapper.makeLogMetricGroupEntry(runUuid, key, params, values,
+            System.currentTimeMillis()));
+  }
+
+  /**
    * Logs a new tag against the given run, as a key-value pair.
    */
   public void setTag(String runUuid, String key, String value) {

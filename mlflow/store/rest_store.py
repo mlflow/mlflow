@@ -11,7 +11,7 @@ from mlflow.utils.rest_utils import http_request_safe
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun, DeleteExperiment, \
-    RestoreExperiment, UpdateExperiment
+    RestoreExperiment, UpdateExperiment, CreateMetricGroup, LogMetricGroupEntry
 
 from mlflow.protos import databricks_pb2
 
@@ -162,6 +162,31 @@ class RestStore(AbstractStore):
         req_body = message_to_json(LogMetric(
             run_uuid=run_uuid, key=metric.key, value=metric.value, timestamp=metric.timestamp))
         self._call_endpoint(LogMetric, req_body)
+
+    def log_metric_group_entry(self, run_uuid, key, entry):
+        """
+        Log an entry for the specified metric group.
+        :param run_uuid: String id for the run
+        :param key: Key for the metric group
+        :param entry: MetricGroupEntry to log
+        """
+        req_body = message_to_json(LogMetricGroupEntry(
+            run_uuid=run_uuid, key=key, params=entry.params,
+            values=entry.values, timestamp=entry.timestamp
+        ))
+        self._call_endpoint(LogMetricGroupEntry, req_body)
+
+    def create_metric_group(self, run_uuid, metric_group):
+        """
+        Create a new metric group for the specified run.
+        :param run_uuid: String id for the run
+        :param metric_group: MetricGroup instance to log
+        """
+        req_body = message_to_json(CreateMetricGroup(
+            run_uuid=run_uuid, key=metric_group.key, params=metric_group.params,
+            metrics=metric_group.metrics
+        ))
+        self._call_endpoint(CreateMetricGroup, req_body)
 
     def log_param(self, run_uuid, param):
         """

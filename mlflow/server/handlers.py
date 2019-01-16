@@ -8,13 +8,15 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities import Metric, MetricGroup, MetricGroupEntry, \
+    Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, \
+    CreateMetricGroup, LogMetricGroupEntry
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -240,6 +242,31 @@ def _log_param():
 
 
 @catch_mlflow_exception
+def _log_metric_group_entry():
+    request_message = _get_request_message(LogMetricGroupEntry())
+    metric_group_entry = MetricGroupEntry(
+        request_message.params, request_message.values, request_message.timestamp)
+    _get_store().log_metric_group_entry(request_message.run_uuid, request_message.key,
+                                        metric_group_entry)
+    response_message = LogMetricGroupEntry.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _create_metric_group():
+    request_message = _get_request_message(CreateMetricGroup())
+    metric_group = MetricGroup(
+        request_message.key, request_message.params, request_message.metrics, [])
+    _get_store().create_metric_group(request_message.run_uuid, metric_group)
+    response_message = CreateMetricGroup.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _set_tag():
     request_message = _get_request_message(SetTag())
     tag = RunTag(request_message.key, request_message.value)
@@ -395,4 +422,6 @@ HANDLERS = {
     ListExperiments: _list_experiments,
     GetParam: _get_param,
     GetMetric: _get_metric,
+    CreateMetricGroup: _create_metric_group,
+    LogMetricGroupEntry: _log_metric_group_entry,
 }

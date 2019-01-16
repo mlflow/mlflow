@@ -38,6 +38,14 @@ def _validate_metric_name(name):
         raise Exception("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)))
 
 
+def _validate_metric_group_name(name):
+    """Check that `name` is a valid metric group name and raise an exception if it isn't."""
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+        raise Exception("Invalid metric group name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+    if path_not_unique(name):
+        raise Exception("Invalid metric group name: '%s'. %s" % (name, bad_path_message(name)))
+
+
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):

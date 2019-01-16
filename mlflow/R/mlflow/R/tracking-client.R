@@ -217,6 +217,45 @@ mlflow_client_log_metric <- function(client, run_id, key, value, timestamp = NUL
   ))
 }
 
+#' Log Metric Group Entry
+#'
+#' Log an entry to an existing metric group for a run.
+#'
+#' @param key Name of the metric group.
+#' @param params List of String param values for the metric group entry.
+#' @param values List of float values for the metrics in the metric group entry.
+#' @param timestamp Unix timestamp in milliseconds at the time metric group entry was logged.
+#' @template roxlate-run-id
+#' @template roxlate-client
+mlflow_client_log_metric_group_entry <- function(client, run_id, key, params, values, timestamp = NULL) {
+  timestamp <- timestamp %||% current_time()
+  mlflow_rest("runs", "log-metric-group-entry", client = client, verb = "POST", data = list(
+    run_uuid = run_id,
+    key = key,
+    params = params,
+    values = values,
+    timestamp = timestamp
+  ))
+}
+
+#' Create Metric Group
+#'
+#' Create a metric group for a run.
+#'
+#' @param key Name of the metric group.
+#' @param params List of String param names for the metric group.
+#' @param metrics List of String metric names for the metrics in the metric group.
+#' @template roxlate-run-id
+#' @template roxlate-client
+mlflow_client_log_metric_group_entry <- function(client, run_id, key, params, metrics) {
+  mlflow_rest("runs", "create-metric-group", client = client, verb = "POST", data = list(
+    run_uuid = run_id,
+    key = key,
+    params = params,
+    metrics = metrics
+  ))
+}
+
 #' Log Parameter
 #'
 #' Logs a parameter for a run. Examples are params and hyperparams

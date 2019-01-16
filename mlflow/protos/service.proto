@@ -180,6 +180,43 @@ service MlflowService {
     };
   }
 
+
+  // Log a metric for a run. A metric is a key-value pair (string key, float value) with an
+  // associated timestamp. Examples include the various metrics that represent ML model accuracy.
+  // A metric can be logged multiple times.
+  //
+  rpc logMetricGroupEntry(LogMetricGroupEntry) returns (LogMetricGroupEntry.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/log-metric-group-entry"
+        since { major: 2, minor: 1 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Metric Group Entry",
+    };
+}
+
+
+// Log a metric for a run. A metric is a key-value pair (string key, float value) with an
+// associated timestamp. Examples include the various metrics that represent ML model accuracy.
+// A metric can be logged multiple times.
+//
+rpc createMetricGroup(CreateMetricGroup) returns (CreateMetricGroup.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/create-metric-group"
+        since { major: 2, minor: 1 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Create Metric Group",
+    };
+  }
+
+
   // Log a param used for a run. A param is a key-value pair (string key,
   // string value). Examples include hyperparameters used for ML model training and
   // constant dates and values used in an ETL pipeline. A param can be logged only once for a run.
@@ -395,6 +432,9 @@ message RunData {
 
   // Additional metadata key-value pairs.
   repeated RunTag tags = 3;
+
+  // Run metric groups.
+  repeated MetricGroup metricGroups = 4;
 }
 
 // Tag for a run.
@@ -403,6 +443,33 @@ message RunTag {
   optional string key = 1;
   // The tag value.
   optional string value = 2;
+}
+
+// Entry for a metric group
+message MetricGroupEntry {
+  // List of parameter values for the entry, one per parameter.
+  repeated string params = 1;
+
+  // List of metric values for the entry, one per metric
+  repeated double values = 2;
+
+  // Unix timestamp in milliseconds at the time metric was logged.
+  optional int64 timestamp = 3;
+}
+
+// Metric group for a run
+message MetricGroup {
+  // The key for the metric group.
+  optional string key = 1;
+
+  // List of names of parameters for the metric group.
+  repeated string params = 2;
+
+  // List of names of metrics for the metric group.
+  repeated string metrics = 3;
+
+  // List of entries for the metric group.
+  repeated MetricGroupEntry entries = 4;
 }
 
 // Metadata of a single run.
@@ -638,6 +705,47 @@ message LogMetric {
 
   // Unix timestamp in milliseconds at the time metric was logged.
   optional int64 timestamp = 4 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message LogMetricGroupEntry {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which the metric group is logged.
+  optional string run_uuid = 1 [(validate_required) = true];
+
+  // Name of the metric group.
+  optional string key = 2 [(validate_required) = true];
+
+  // List of parameter values for the entry.
+  repeated string params = 3 [(validate_required) = true];
+
+  // List of metric values for the entry.
+  repeated double values = 4 [(validate_required) = true];
+
+  // Unix timestamp in milliseconds at the time the entry was logged.
+  optional int64 timestamp = 5 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message CreateMetricGroup {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which to log the metric group.
+  optional string run_uuid = 1 [(validate_required) = true];
+
+  // Name of the metric group.
+  optional string key = 2 [(validate_required) = true];
+
+  // List of parameters for the metric group.
+  repeated string params = 3 [(validate_required) = true];
+
+  // List of metric names for the metric group.
+  repeated string metrics = 4 [(validate_required) = true];
 
   message Response {
   }

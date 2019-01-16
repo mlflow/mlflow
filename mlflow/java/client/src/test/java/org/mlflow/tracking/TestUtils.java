@@ -28,6 +28,19 @@ public class TestUtils {
     Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
   }
 
+  public static void assertMetricGroup(List<MetricGroup> metricGroups, String key, List<String> params, List<String> metrics) {
+    Assert.assertTrue(
+            metricGroups.stream().anyMatch(mg -> mg.getKey().equals(key) && mg.getParamsList().equals(params) && mg.getMetricsList().equals(metrics))
+    );
+  }
+
+  public static void assertMetricGroupEntry(List<MetricGroupEntry> entries, List<String> params, List<Double> values) {
+    Assert.assertTrue(
+            entries.stream().anyMatch(e -> e.getParamsList().equals(params) && e.getValuesList().equals(values))
+    );
+  }
+
+
   public static void assertTag(List<RunTag> tags, String key, String value) {
     Assert.assertTrue(tags.stream().filter(e -> e.getKey().equals(key) && e.getValue().equals(value)).findFirst().isPresent());
   }

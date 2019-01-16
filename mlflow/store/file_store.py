@@ -1,22 +1,26 @@
 import logging
 import os
+import struct
 
 import uuid
 import six
 
-from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
+from mlflow.entities import Experiment, Metric, MetricGroup, MetricGroupEntry, \
+                            Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException, ExecutionException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.store.abstract_store import AbstractStore
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
+from mlflow.utils.validation import _validate_metric_group_name, _validate_metric_name, \
+                                    _validate_param_name, _validate_run_id, \
                                     _validate_tag_name, _validate_experiment_id
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file, build_path,
-                                     write_to, append_to, make_containing_dirs, mv, get_parent_dir,
+                                     write_to, append_to, append_to_b,
+                                     make_containing_dirs, mv, get_parent_dir,
                                      list_all)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.search_utils import does_run_match_clause
@@ -49,6 +53,7 @@ class FileStore(AbstractStore):
     METRICS_FOLDER_NAME = "metrics"
     PARAMS_FOLDER_NAME = "params"
     TAGS_FOLDER_NAME = "tags"
+    METRIC_GROUPS_FOLDER_NAME = "metric_groups"
     META_DATA_FILE_NAME = "meta.yaml"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
@@ -123,6 +128,12 @@ class FileStore(AbstractStore):
                                    run_uuid,
                                    FileStore.ARTIFACTS_FOLDER_NAME)
         return artifacts_dir
+
+    def _get_metric_group_dir(self, experiment_id, run_uuid, metric_group_key):
+        _validate_run_id(run_uuid)
+        _validate_metric_group_name(metric_group_key)
+        return build_path(self._get_run_dir(experiment_id, run_uuid),
+                          FileStore.METRIC_GROUPS_FOLDER_NAME, metric_group_key)
 
     def _get_active_experiments(self, full_path=False):
         exp_list = list_subdirs(self.root_directory, full_path)
@@ -354,7 +365,8 @@ class FileStore(AbstractStore):
         metrics = self.get_all_metrics(run_uuid)
         params = self.get_all_params(run_uuid)
         tags = self.get_all_tags(run_uuid)
-        return Run(run_info, RunData(metrics, params, tags))
+        metric_groups = self.get_all_metric_groups(run_uuid)
+        return Run(run_info, RunData(metrics, params, tags, metric_groups))
 
     def _get_run_info(self, run_uuid):
         """
@@ -440,6 +452,56 @@ class FileStore(AbstractStore):
             ts, val = pair.strip().split(" ")
             rsl.append(Metric(metric_key, float(val), int(ts)))
         return rsl
+
+    def get_all_metric_groups(self, run_uuid):
+        _validate_run_id(run_uuid)
+        run_info = self._get_run_info(run_uuid)
+        if run_info is None:
+            raise MlflowException("Run '%s' metadata is in invalid state." % run_uuid,
+                                  databricks_pb2.INVALID_STATE)
+        _, run_dir = self._find_run_root(run_uuid)
+        source_dirs = find(run_dir, FileStore.METRIC_GROUPS_FOLDER_NAME, full_path=True)
+        if len(source_dirs) == 0:
+            return []
+        dir_names = []
+        for root, dirs, _ in os.walk(source_dirs[0]):
+            for name in dirs:
+                abspath = os.path.join(root, name)
+                dir_names.append(os.path.relpath(abspath, source_dirs[0]))
+        parent_path = source_dirs[0]
+
+        metric_groups = []
+        for metric_group_dir in dir_names:
+            metric_groups.append(self._get_metric_group_from_dir(parent_path, metric_group_dir))
+        return metric_groups
+
+    @staticmethod
+    def _get_metric_group_from_dir(parent_path, metric_group_name):
+        _validate_metric_group_name(metric_group_name)
+
+        metadata = read_yaml(parent_path + '/' + metric_group_name, FileStore.META_DATA_FILE_NAME)
+        params = metadata['params']
+        metrics = metadata['metrics']
+        metrics_struct_fmt = 'd' * len(metrics) + 'Q'
+        metrics_struct_fmt_size = struct.calcsize(metrics_struct_fmt)
+
+        metric_group_folder = parent_path + '/' + metric_group_name
+        metric_group_entries = []
+        metrics_data_file = metric_group_folder + '/metric_values'
+        if exists(metrics_data_file):
+            params_data = read_file_lines(metric_group_folder, 'param_values')
+            with open(metrics_data_file, 'rb') as f:
+                for i, line in enumerate(params_data):
+                    entry_params = line.rstrip().split("\t")
+                    *entry_values, timestamp = struct.unpack(metrics_struct_fmt,
+                                                             f.read(metrics_struct_fmt_size))
+                    if len(entry_params) != len(params):
+                        raise MlflowException(
+                            "Expected {} elements in schema, but found only {} (line {})"
+                            .format(len(params), len(entry_params), i+1))
+                    entry = MetricGroupEntry(entry_params, entry_values, timestamp)
+                    metric_group_entries.append(entry)
+        return MetricGroup(metric_group_name, params, metrics, metric_group_entries)
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
@@ -533,6 +595,48 @@ class FileStore(AbstractStore):
         metric_path = self._get_metric_path(run.info.experiment_id, run_uuid, metric.key)
         make_containing_dirs(metric_path)
         append_to(metric_path, "%s %s\n" % (metric.timestamp, metric.value))
+
+    def _create_metric_group(self, experiment_id, run_uuid, metric_group: MetricGroup):
+        metric_group_dir = self._get_metric_group_dir(experiment_id, run_uuid, metric_group.key)
+        if exists(metric_group_dir):
+            raise MlflowException("Metric group with name {} already exists for run {}"
+                                  .format(metric_group.key, run_uuid))
+        else:
+            mkdir(metric_group_dir)
+            # Convert list from proto list
+            payload = {'params': [p for p in metric_group.params],
+                       'metrics': [m for m in metric_group.metrics]}
+            write_yaml(metric_group_dir, self.META_DATA_FILE_NAME, payload)
+
+    def log_metric_group_entry(self, run_uuid, key, entry: MetricGroupEntry):
+        _validate_run_id(run_uuid)
+        _validate_metric_group_name(key)
+        run = self.get_run(run_uuid)
+        check_run_is_active(run.info)
+        metric_group_dir = self._get_metric_group_dir(run.info.experiment_id, run_uuid, key)
+
+        if not exists(metric_group_dir):
+            raise MlflowException(
+                "No metric group with name {} for run {}".format(key, run_uuid))
+        metadata = read_yaml(metric_group_dir, self.META_DATA_FILE_NAME)
+        param_names = metadata['params']
+        metric_names = metadata['metrics']
+        if len(metadata['params']) != len(entry.params):
+            raise MlflowException("Expected {} params ({}), but found {}"
+                                  .format(len(param_names), param_names, len(entry.params)))
+        if len(metadata['metrics']) != len(entry.values):
+            raise MlflowException("Expected {} metrics ({}), but found {}"
+                                  .format(len(metric_names), metric_names, len(entry.values)))
+        append_to(metric_group_dir + '/param_values', '\t'.join(entry.params))
+        lineb = struct.pack('d' * len(metric_names) + 'Q', *entry.values, entry.timestamp)
+        append_to_b(metric_group_dir + '/metric_values', lineb)
+
+    def create_metric_group(self, run_uuid, metric_group: MetricGroup):
+        _validate_run_id(run_uuid)
+        _validate_metric_group_name(metric_group.key)
+        run = self.get_run(run_uuid)
+        check_run_is_active(run.info)
+        self._create_metric_group(run.info.experiment_id, run_uuid, metric_group)
 
     def _writeable_value(self, tag_value):
         if tag_value is None:

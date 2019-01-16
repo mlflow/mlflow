@@ -4,13 +4,18 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import itertools
 import os
 import time
 from six import iteritems
 
+import numpy as np
+import pandas as pd
+
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
                                     _validate_tag_name, _validate_run_id
-from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
+from mlflow.entities import Param, Metric, MetricGroup, MetricGroupEntry, \
+                            RunStatus, RunTag, ViewType, SourceType
 from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
@@ -134,6 +139,56 @@ class MlflowClient(object):
         timestamp = timestamp if timestamp is not None else int(time.time())
         metric = Metric(key, value, timestamp)
         self.store.log_metric(run_id, metric)
+
+    def create_metric_group(self, run_id, key, params, metrics):
+        """
+        Create a new metric group for the given run ID.
+        :param run_id: String id for the given run.
+        :param key: String key to identify the metric group. Must be unique per run.
+        :param params: List of string names for the parameters of the metric group.
+        :param metrics: List of metric names for the metrics of the metric group.
+        """
+        metric_group = MetricGroup(key, params, metrics, [])
+        self.store.create_metric_group(run_id, metric_group)
+
+    def log_metric_group_entry(self, run_id, key, params, metrics, timestamp=None):
+        """
+        Log a metric group entry for a metric group with the given key.
+        :param run_id: String id for the given run.
+        :param key: String key for the given metric group.
+        :param params: List of string values for the parameters in the entry. Must have
+                       one per parameter in the metric group.
+        :param metrics: List of double metric values for the metrics in the entry. Must have one
+                        per metric in the metric group.
+        :param timestamp: Unix timestamp when the entry was recorded. Defaults to current time.
+        """
+        timestamp = timestamp if timestamp is not None else int(time.time())
+        metric_group_entry = MetricGroupEntry(params, metrics, timestamp)
+        self.store.log_metric_group_entry(run_id, key, metric_group_entry)
+
+    def log_metric_group_from_df(self, run_id, key, df: pd.DataFrame,
+                                 param_cols=None, metric_cols=None, timestamp=None):
+        if param_cols is not None:
+            df = df.set_index(param_cols)
+        if metric_cols is not None:
+            df = df.loc[:, metric_cols]
+
+        timestamp = timestamp if timestamp is not None else int(time.time())
+        metric_group = MetricGroup(key, list(df.index.names), list(df), [])
+        self.store.create_metric_group(run_id, metric_group)
+
+        index_values = df.index.values.astype('str')
+        # Account for scalar index
+        if len(index_values.shape) == 1:
+            index_values = index_values[:, np.newaxis]
+
+        for index, values in zip(index_values, df.values):
+            entry = MetricGroupEntry(
+                params=index.tolist(),
+                values=values.tolist(),
+                timestamp=timestamp
+            )
+            self.store.log_metric_group_entry(run_id, key, entry)
 
     def log_param(self, run_id, key, value):
         """

@@ -1,5 +1,6 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.metric import Metric
+from mlflow.entities.metric_group import MetricGroup
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 from mlflow.protos.service_pb2 import RunData as ProtoRunData
@@ -9,10 +10,11 @@ class RunData(_MLflowObject):
     """
     Run data (metrics and parameters).
     """
-    def __init__(self, metrics=None, params=None, tags=None):
+    def __init__(self, metrics=None, params=None, tags=None, metric_groups=None):
         self._metrics = []
         self._params = []
         self._tags = []
+        self._metric_groups = []
         if metrics is not None:
             for m in metrics:
                 self._add_metric(m)
@@ -22,6 +24,9 @@ class RunData(_MLflowObject):
         if tags is not None:
             for t in tags:
                 self._add_tag(t)
+        if metric_groups is not None:
+            for g in metric_groups:
+                self._add_metric_group(g)
 
     @property
     def metrics(self):
@@ -38,6 +43,11 @@ class RunData(_MLflowObject):
         """List of :py:class:`mlflow.entities.RunTag` for the current run."""
         return self._tags
 
+    @property
+    def metric_groups(self):
+        """List of :py:class:`mlflow.entities.MetricGroup` for the current run."""
+        return self._metric_groups
+
     def _add_metric(self, metric):
         self._metrics.append(metric)
 
@@ -47,24 +57,29 @@ class RunData(_MLflowObject):
     def _add_tag(self, tag):
         self._tags.append(tag)
 
+    def _add_metric_group(self, metric_group):
+        self._metric_groups.append(metric_group)
+
     def to_proto(self):
         run_data = ProtoRunData()
         run_data.metrics.extend([m.to_proto() for m in self.metrics])
         run_data.params.extend([p.to_proto() for p in self.params])
         run_data.tags.extend([t.to_proto() for t in self.tags])
+        run_data.metricGroups.extend([g.to_proto() for g in self.metric_groups])
         return run_data
 
     @classmethod
     def from_proto(cls, proto):
         run_data = cls()
-        # iterate proto and add metrics, params, and tags
+        # iterate proto and add metrics, params, tags, and metric groups
         for proto_metric in proto.metrics:
             run_data._add_metric(Metric.from_proto(proto_metric))
         for proto_param in proto.params:
             run_data._add_param(Param.from_proto(proto_param))
         for proto_tag in proto.tags:
             run_data._add_tag(RunTag.from_proto(proto_tag))
-
+        for proto_metric_group in proto.metricGroups:
+            run_data._add_metric_group(MetricGroup.from_proto(proto_metric_group))
         return run_data
 
     @classmethod
@@ -76,9 +91,11 @@ class RunData(_MLflowObject):
             run_data._add_param(p)
         for t in the_dict.get("tags", []):
             run_data._add_tag(t)
+        for g in the_dict.get("metric_groups", []):
+            run_data._add_metric_group(g)
         return run_data
 
     @classmethod
     def _properties(cls):
         # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["metrics", "params", "tags"]
+        return ["metrics", "params", "tags", "metric_groups"]

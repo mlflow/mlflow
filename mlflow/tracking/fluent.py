@@ -14,7 +14,8 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, SourceType, RunInfo, RunStatus
+from mlflow.entities import Experiment, MetricGroup, MetricGroupEntry, \
+                            Run, SourceType, RunInfo, RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
@@ -226,6 +227,36 @@ def log_artifacts(local_dir, artifact_path=None):
     """
     run_id = _get_or_start_run().info.run_uuid
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
+
+
+def create_metric_group(key, params, metrics):
+    """
+    Create a new metric group for the current run.
+    :param key: String key to identify the metric group. Must be unique per run.
+    :param params: List of string names for the parameters of the metric group.
+    :param metrics: List of metric names for the metrics of the metric group.
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    MlflowClient().create_metric_group(run_id, key, params, metrics)
+
+
+def log_metric_group_entry(key, params, metrics, timestamp=None):
+    """
+    Log a metric group entry for a metric group with the given key.
+    :param key: String key for the given metric group.
+    :param params: List of string values for the parameters in the entry. Must have
+                   one per parameter in the metric group.
+    :param metrics: List of double metric values for the metrics in the entry. Must have one
+                    per metric in the metric group.
+    :param timestamp: Unix timestamp when the entry was recorded. Defaults to current time.
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    MlflowClient().log_metric_group_entry(run_id, key, params, metrics, timestamp)
+
+
+def log_metric_group_from_df(key, df, param_cols=None, metric_cols=None):
+    run_id = _get_or_start_run().info.run_uuid
+    MlflowClient().log_metric_group_from_df(run_id, key, df, param_cols, metric_cols)
 
 
 def create_experiment(name, artifact_location=None):

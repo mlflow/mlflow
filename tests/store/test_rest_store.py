@@ -5,9 +5,9 @@ import mock
 import six
 
 from mlflow.exceptions import MlflowException
-from mlflow.entities import Param, Metric, RunTag
+from mlflow.entities import Param, Metric, MetricGroup, MetricGroupEntry, RunTag
 from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
-    SetTag, DeleteRun, RestoreRun
+    SetTag, DeleteRun, RestoreRun, LogMetricGroupEntry, CreateMetricGroup
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 
@@ -103,6 +103,19 @@ class TestRestStore(unittest.TestCase):
             body = message_to_json(LogMetric(run_uuid="u2", key="m1", value=0.87, timestamp=12345))
             self._verify_requests(mock_http, creds,
                                   "runs/log-metric", "POST", body)
+
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
+            store.create_metric_group("u2", MetricGroup("m1", ["foo"], ["bar"], []))
+            body = message_to_json(CreateMetricGroup(run_uuid="u2", key="m1",
+                                                     params=["foo"], metrics=["bar"]))
+            self._verify_requests(mock_http, creds, "runs/create-metric-group", "POST", body)
+
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
+            store.log_metric_group_entry("u2", "m1", MetricGroupEntry(["foo"], [1.0], 12345))
+            body = message_to_json(LogMetricGroupEntry(run_uuid="u2", key="m1",
+                                                       params=["foo"], values=[1.0],
+                                                       timestamp=12345))
+            self._verify_requests(mock_http, creds, "runs/log-metric-group-entry", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.delete_run("u25")

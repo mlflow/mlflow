@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -131,6 +132,14 @@ public class MlflowClientTest {
     client.logMetric(runId, "accuracy_score", ACCURACY_SCORE);
     client.logMetric(runId, "zero_one_loss", ZERO_ONE_LOSS);
 
+    // Log metric groups
+    List<String> metricGroupParams = Arrays.asList("foo", "bar");
+    List<String> metricGroupMetrics = Arrays.asList("baz", "qux");
+    List<String> metricGroupParamValues = Arrays.asList("fooval", "barval");
+    List<Double> metricGroupMetricValues = Arrays.asList(0.0, 1.0);
+    client.createMetricGroup(runId, "accuracy_score", metricGroupParams, metricGroupMetrics);
+    client.logMetricGroupEntry(runId, "accuracy_score", metricGroupParamValues, metricGroupMetricValues);
+
     // Log tag
     client.setTag(runId, "user_email", USER_EMAIL);
 
@@ -150,6 +159,8 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
+    assertMetricGroup(run.getData().getMetricGroupsList(), "accuracy_score", metricGroupParams, metricGroupMetrics);
+    assertMetricGroupEntry(run.getData().getMetricGroupsList().get(0).getEntriesList(), metricGroupParamValues, metricGroupMetricValues);
 
     // Assert parent run ID is not set.
     Assert.assertTrue(run.getData().getTagsList().stream().noneMatch(

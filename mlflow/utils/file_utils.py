@@ -264,6 +264,11 @@ def append_to(filename, data):
         handle.write(data)
 
 
+def append_to_b(filename, data):
+    with open(filename, "ba") as handle:
+        handle.write(data)
+
+
 def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
     # Helper for filtering out modification timestamps
     def _filter_timestamps(tar_info):
