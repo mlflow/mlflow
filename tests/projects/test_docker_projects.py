@@ -12,6 +12,7 @@ from mlflow.projects import ExecutionException
 from mlflow.store import file_store
 
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
+from tests.projects.utils import build_docker_example_base_image
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
@@ -29,6 +30,7 @@ def _get_version_local_git_repo(local_git_repo):
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_docker_project_execution(
         use_start_run, tmpdir, tracking_uri_mock):  # pylint: disable=unused-argument
+    build_docker_example_base_image()
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR, experiment_id=0, parameters=expected_params,
@@ -72,6 +74,7 @@ def test_docker_project_execution(
 def test_docker_project_tracking_uri_propagation(
         ProfileConfigProvider, tmpdir, tracking_uri,
         expected_command_segment):  # pylint: disable=unused-argument
+    build_docker_example_base_image()
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=True)
@@ -92,4 +95,5 @@ def test_docker_project_tracking_uri_propagation(
 
 def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unused-argument
     with pytest.raises(ExecutionException):
+        build_docker_example_base_image()
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, mode="databricks")
