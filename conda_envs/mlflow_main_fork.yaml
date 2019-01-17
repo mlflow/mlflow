@@ -1,0 +1,7 @@
+name: mlflow-main-fork
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip:
+    - mlflow
