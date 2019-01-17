@@ -9,7 +9,7 @@ import pytest
 
 import mlflow
 from mlflow import tracking
-from mlflow.entities import RunStatus
+from mlflow.entities import Experiment, RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
@@ -30,6 +30,18 @@ def test_create_experiment(tracking_uri_mock):
     exp_id = mlflow.create_experiment(
         "Some random experiment name %d" % random.randint(1, 1e6))
     assert exp_id is not None
+
+
+def test_create_experiment_with_duplicate_name(tracking_uri_mock):
+    name = "popular_name"
+    exp_id = mlflow.create_experiment(name)
+
+    with pytest.raises(MlflowException):
+        mlflow.create_experiment(name)
+
+    tracking.MlflowClient().delete_experiment(exp_id)
+    with pytest.raises(MlflowException):
+        mlflow.create_experiment(name)
 
 
 def test_set_experiment(tracking_uri_mock, reset_active_experiment):
@@ -57,9 +69,24 @@ def test_set_experiment(tracking_uri_mock, reset_active_experiment):
     end_run()
 
 
+def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
+    name = "dead_exp"
+    mlflow.set_experiment(name)
+    run = start_run()
+    end_run()
+    exp_id = run.info.experiment_id
+
+    tracking.MlflowClient().delete_experiment(exp_id)
+
+    with pytest.raises(MlflowException):
+        mlflow.set_experiment(name)
+
+
 def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
     reset_mock(MlflowClient, "get_experiment_by_name",
-               mock.Mock(return_value=attrdict.AttrDict(experiment_id=0)))
+               mock.Mock(return_value=attrdict.AttrDict(
+                   experiment_id=0,
+                   lifecycle_stage=Experiment.ACTIVE_LIFECYCLE)))
     reset_mock(MlflowClient, "create_experiment", mock.Mock())
 
     mlflow.set_experiment("my_exp")
