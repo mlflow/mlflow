@@ -81,7 +81,6 @@ def get_databricks_host_creds(profile=None):
         config = provider.ProfileConfigProvider(profile).get_config()
     else:
         config = provider.get_config()
-
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 

@@ -22,29 +22,43 @@ def load_project(directory):
             yaml_obj = yaml.safe_load(mlproject_file.read())
     else:
         yaml_obj = {}
+    project_name = yaml_obj.get("name")
+    if not project_name:
+        project_name = None
+    conda_path = yaml_obj.get("conda_env")
+    docker_env = yaml_obj.get("docker_env")
+    if docker_env and not docker_env.get("image"):
+        raise ExecutionException("Docker environment specified but no image "
+                                 "attribute found.")
+    if conda_path and docker_env:
+        raise ExecutionException("Project cannot contain both a docker and conda environment.")
     entry_points = {}
     for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
         parameters = entry_point_yaml.get("parameters", {})
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
-    conda_path = yaml_obj.get("conda_env")
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
             raise ExecutionException("Project specified conda environment file %s, but no such "
                                      "file was found." % conda_env_path)
-        return Project(conda_env_path=conda_env_path, entry_points=entry_points)
+        return Project(conda_env_path=conda_env_path, entry_points=entry_points,
+                       docker_env=docker_env, name=project_name)
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
-        return Project(conda_env_path=default_conda_path, entry_points=entry_points)
-    return Project(conda_env_path=None, entry_points=entry_points)
+        return Project(conda_env_path=default_conda_path, entry_points=entry_points,
+                       docker_env=docker_env, name=project_name)
+    return Project(conda_env_path=None, entry_points=entry_points,
+                   docker_env=docker_env, name=project_name)
 
 
 class Project(object):
     """A project specification loaded from an MLproject file in the passed-in directory."""
-    def __init__(self, conda_env_path, entry_points):
+    def __init__(self, conda_env_path, entry_points, docker_env, name):
         self.conda_env_path = conda_env_path
         self._entry_points = entry_points
+        self.docker_env = docker_env
+        self.name = name
 
     def get_entry_point(self, entry_point):
         if entry_point in self._entry_points:

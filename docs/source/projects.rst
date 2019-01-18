@@ -26,12 +26,12 @@ Name
     A human-readable name for the project.
 
 Dependencies
-    Libraries needed to run the project. MLflow currently uses the
-    `Conda <https://conda.io/docs>`_ package manager, which supports both Python packages and native
-    libraries (for example, CuDNN or Intel MKL), to specify dependencies. MLflow will use the
-    Conda installation given by the ``MLFLOW_CONDA_HOME`` environment variable if specified
-    (e.g. running Conda commands by invoking ``$MLFLOW_CONDA_HOME/bin/conda``), and default to
-    running ``conda`` otherwise.
+    Libraries needed to run the project. MLflow supports using `Docker <https://docs.docker.com/>`_ 
+    to run projects inside a container or `Conda <https://conda.io/docs>`_ package manager, 
+    which supports both Python packages and native libraries (for example, CuDNN or Intel MKL), to 
+    specify dependencies. MLflow will use the Conda installation given by the ``MLFLOW_CONDA_HOME`` 
+    environment variable if specified (e.g. running Conda commands by invoking ``$MLFLOW_CONDA_HOME/bin/conda``), 
+    and default to running ``conda`` otherwise.
 
 Entry Points
     Commands that can be executed within the project, and information about their
@@ -64,6 +64,10 @@ following conventions to determine its parameters:
   is specified in ``conda.yaml``, if present. If no ``conda.yaml`` file is present, MLflow
   will use a Conda environment containing only Python (specifically, the latest Python available to
   Conda) when running the project.
+* Alternatively, you may provide a Docker environment for project execution, which allows for capturing
+  non-Python dependencies such as Java libraries.
+ `See here <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an
+  MLflow project with a Docker environment.
 * Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly
   declared. When you execute such a command with a set of parameters, MLflow will pass each
   parameter on the command line using ``--key value`` syntax.
@@ -76,6 +80,9 @@ YAML syntax. The MLproject file looks like this:
     name: My Project
 
     conda_env: my_env.yaml
+    # Can have a docker_env instead of a conda_env, e.g.
+    # docker_env:
+    #    image:  mlflow-docker-example
 
     entry_points:
       main:
@@ -88,7 +95,7 @@ YAML syntax. The MLproject file looks like this:
           data_file: path
         command: "python validate.py {data_file}"
 
-As you can see, the file can specify a name and a different environment file, as well as more
+As you can see, the file can specify a name and a conda or docker environment, as well as more
 detailed information about each entry point. Specifically, each entry point has a *command* to
 run and *parameters* (including data types). We describe these two pieces next.
 
@@ -218,6 +225,17 @@ where ``<uri>`` is a Git repository URI or a folder. You can pass Git credential
 ``git-username`` and ``git-password`` arguments or using the ``MLFLOW_GIT_USERNAME`` and
 ``MLFLOW_GIT_PASSWORD`` environment variables.
 
+
+Execution on Docker containers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+You can run projects inside Docker container instead of conda environments. In order to do that 
+you need to specify the ``docker_env`` and ``dockerimage`` atributes in MLProject as described bellow. 
+It simply mounts the local directory of the project as a volume inside container in ``/mlflow/projects/code`` path.
+
+.. code::
+
+    docker_env:
+        dockerimage: mlflow-run-image
 
 Iterating Quickly
 -----------------
