@@ -229,13 +229,14 @@ where ``<uri>`` is a Git repository URI or a folder. You can pass Git credential
 Execution on Docker containers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 You can run projects inside Docker container instead of conda environments. In order to do that 
-you need to specify the ``docker_env`` and ``dockerimage`` atributes in MLProject as described bellow. 
-It simply mounts the local directory of the project as a volume inside container in ``/mlflow/projects/code`` path.
+you need to specify the ``docker_env`` along with ``image`` attributes in MLProject as described
+below. It simply mounts the local directory of the project as a volume inside container in
+``/mlflow/projects/code`` path.
 
 .. code::
 
     docker_env:
-        dockerimage: mlflow-run-image
+        image: mlflow-run-image
 
 Iterating Quickly
 -----------------
