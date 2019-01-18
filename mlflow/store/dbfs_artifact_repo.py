@@ -75,9 +75,16 @@ class DbfsArtifactRepository(ArtifactRepository):
         else:
             http_endpoint = self._get_dbfs_endpoint(
                 self.get_path_module().basename(local_file))
-        with open(local_file, 'rb') as f:
+        if os.stat(local_file).st_size == 0:
+            # The API frontend doesn't like it when we post empty files to it using
+            # `requests.request`, potentially due to the bug described in
+            # https://github.com/requests/requests/issues/4215
             self._databricks_api_request(
-                endpoint=http_endpoint, method='POST', data=f, allow_redirects=False)
+                endpoint=http_endpoint, method='POST', data="", allow_redirects=False)
+        else:
+            with open(local_file, 'rb') as f:
+                self._databricks_api_request(
+                    endpoint=http_endpoint, method='POST', data=f, allow_redirects=False)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         if artifact_path:
