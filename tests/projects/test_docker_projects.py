@@ -51,19 +51,16 @@ def test_docker_project_execution(
     assert len(run.data.metrics) == len(expected_metrics)
     for metric in run.data.metrics:
         assert metric.value == expected_metrics[metric.key]
-    exact_expected_tags = {"mlflow.docker": "true"}
+    exact_expected_tags = {"mlflow.project.env": "docker"}
     approx_expected_tags = {
         "mlflow.docker.image.name": "mlflow-docker-example",
         "mlflow.docker.image.id": "sha256:",
-        "mlflow.gitRepoURL": "https://github.com/mlflow/mlflow",
     }
-    assert len(run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
-    for tag in run.data.tags:
-        if tag.key in exact_expected_tags:
-            assert tag.value == exact_expected_tags[tag.key]
-        else:
-            assert tag.value.startswith(approx_expected_tags[tag.key])
-
+    run_tags = {tag.key : tag.value for tag in run.data.tags}
+    for k, v in exact_expected_tags.items():
+        assert run_tags[k] == v
+    for k, v in approx_expected_tags.items():
+        assert run_tags[k].startswith(v)
 
 @pytest.mark.parametrize("tracking_uri, expected_command_segment", [
     (None, "-e MLFLOW_TRACKING_URI=/mlflow/tmp/mlruns"),
