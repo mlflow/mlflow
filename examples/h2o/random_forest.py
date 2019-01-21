@@ -12,7 +12,7 @@ train = wine[r < 0.7]
 test = wine[0.3 <= r]
 
 
-def trainRandomForest(ntrees):
+def train_random_forest(ntrees):
     with mlflow.start_run():
         rf = H2ORandomForestEstimator(ntrees=ntrees)
         train_cols = [n for n in wine.col_names if n != "quality"]
@@ -29,4 +29,4 @@ def trainRandomForest(ntrees):
 
 if __name__ == "__main__":
     for ntrees in [10, 20, 50, 100, 200]:
-        trainRandomForest(ntrees)
+        train_random_forest(ntrees)
