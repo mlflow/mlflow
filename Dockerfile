@@ -4,7 +4,8 @@ WORKDIR /app
 
 ADD . /app
 
-RUN pip install -r dev-requirements.txt && \
+RUN apt-get update && apt-get install -y build-essential && \
+    pip install -r dev-requirements.txt && \
     pip install -r test-requirements.txt && \
     pip install -e . && \
     apt-get update && apt-get install -y gnupg && \
