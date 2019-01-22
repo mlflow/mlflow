@@ -2,7 +2,7 @@
 
 Java client for [MLflow](https://mlflow.org) REST API.
 See also the MLflow [Python API](https://mlflow.org/docs/latest/python_api/index.html)
-and [REST API](https://mlflow.org/docs/latest/rest_api.html).
+and [REST API](https://mlflow.org/docs/latest/rest-api.html).
 
 ## Requirements
 
