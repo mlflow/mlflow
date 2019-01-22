@@ -38,10 +38,11 @@ class WineClassifier(mlflow.pyfunc.PythonModel):
             lambda wine_quality : "good" if wine_quality >= quality_threshold else "bad")
         
     def load_context(self, context):
-        self.model = mlflow.sklearn.load_model(path=context.artifacts["sk_model"])
+        self.sk_elasticnet = mlflow.sklearn.load_model(
+            path=context.artifacts["sk_elasticnet"])
 
     def predict(self, context, model_input):
-        wine_scores = self.model.predict(model_input)
+        wine_scores = self.sk_elasticnet.predict(model_input)
         return np.vstack([wine_scores, self.classification_mapper(wine_scores)])
 
 
@@ -73,18 +74,20 @@ if __name__ == "__main__":
     test_x = test.drop(["quality"], axis=1).sample(frac=1)
     train_y = train[["quality"]]
 
-    print("Training ElasticNet regression model on the wine dataset...\n")
+    print("Training ElasticNet regression model on the wine dataset with alpha={alpha},"
+          " l1_ratio={l1_ratio}, and quality_threshold={quality_threshold}\n".format(
+              alpha=args.alpha, l1_ratio=args.l1_ratio, quality_threshold=args.quality_threshold))
 
     # Train an ElasticNet regression model on the wine dataset
     # in Scikit-learn
-    lr_model = ElasticNet(alpha=args.alpha, l1_ratio=args.l1_ratio, random_state=42)
-    lr_model.fit(train_x, train_y)
+    sk_elasticnet = ElasticNet(alpha=args.alpha, l1_ratio=args.l1_ratio, random_state=42)
+    sk_elasticnet.fit(train_x, train_y)
 
     # Log the ElasticNet regressor as an MLflow model in a new run
-    sklearn_artifact_path = "sk_model_artifact"
+    sk_elasticnet_artifact_path = "sk_elasticnet"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=lr_model, artifact_path=sklearn_artifact_path)
-        sk_model_artifact_uri = mlflow.get_artifact_uri(sklearn_artifact_path)
+        mlflow.sklearn.log_model(sk_model=sk_elasticnet, artifact_path=sk_elasticnet_artifact_path)
+        sk_elasticnet_artifact_uri = mlflow.get_artifact_uri(sk_elasticnet_artifact_path)
 
     # Construct a WineClassifier object, which extends `mlflow.pyfunc.PythonModel`, that will
     # interpret the wine rating output by the ElasticNet model to classify the wine as either
@@ -93,13 +96,13 @@ if __name__ == "__main__":
 
     print("Logging custom pyfunc model for classifying wines...\n")
 
-    # Save the WineClassifier and the ElasticNet model on which it depends as a new MLflow
+    # Save the WineClassifier and the ElasticNet model that it depends on as a new MLflow
     # model with the pyfunc flavor
     pyfunc_artifact_path = "pyfunc_model_artifact"
     with mlflow.start_run():
         mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
                                 artifacts={
-                                    "sk_model": sk_model_artifact_uri
+                                    "sk_elasticnet": sk_elasticnet_artifact_uri, 
                                 },
                                 python_model=my_model)
         pyfunc_run_id = mlflow.active_run().info.run_uuid
