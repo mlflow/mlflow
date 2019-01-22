@@ -189,7 +189,7 @@ def _load_pyfunc(model_path):
 
     python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
     if python_model_cloudpickle_version is None:
-        raise MlflowException(
+        mlflow.pyfunc._logger.warning(
             "The version of CloudPickle used to save the model could not be found in the MLmodel"
             " configuration")
     elif python_model_cloudpickle_version != cloudpickle.__version__:
