@@ -588,6 +588,35 @@ def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs
     ])
 
 
+def test_load_model_with_missing_cloudpickle_version_logs_warning(
+        model_path):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.pyfunc.save_model(dst_path=model_path, python_model=TestModel())
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config = Model.load(model_config_path)
+    del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME][
+        mlflow.pyfunc.model.CONFIG_KEY_CLOUDPICKLE_VERSION]
+    model_config.save(model_config_path)
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
+        warn_mock.side_effect = custom_warn
+        mlflow.pyfunc.load_pyfunc(path=model_path)
+
+    assert any([
+        ("The version of CloudPickle used to save the model could not be found in the MLmodel"
+         " configuration") in log_message
+        for log_message in log_messages
+    ])
+
+
 @pytest.mark.large
 def test_sagemaker_docker_model_scoring_with_default_conda_env(
         sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir):
