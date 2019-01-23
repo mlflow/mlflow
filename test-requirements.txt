@@ -20,7 +20,6 @@ scipy
 tensorflow
 torch
 torchvision
-tensorboardX
 pysftp
 keras
 attrdict==2.0.0
