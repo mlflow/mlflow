@@ -1,10 +1,24 @@
-name: tutorial
+name: pytorch_tutorial
 
 conda_env: conda.yaml
 
 entry_points:
   main:
     parameters:
-      alpha: float
-      l1_ratio: {type: float, default: 0.1}
-    command: "python train.py {alpha} {l1_ratio}"
+      batch-size: {type: int, default: 64}
+      test-batch-size: {type: int, default: 1000}
+      epochs: {type: int, default: 10}
+      lr: {type: float, default: 0.01}
+      momentum: {type: float, default: 0.5}
+      no-cuda: {type: string, default: 'False'}
+      seed: {type: int, default: 5}
+      log-interval: {type: int, default: 100}
+    command: |
+          python mnist_tensorboard_artifact.py \
+            --batch-size {batch-size} \
+            --test-batch-size {test-batch-size} \
+            --epochs {epochs} \
+            --lr {lr} \
+            --momentum {momentum} \
+            --seed {seed} \
+            --log-interval {log-interval}
