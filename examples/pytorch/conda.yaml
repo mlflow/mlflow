@@ -1,10 +1,11 @@
-name: tutorial
+name: pytorch_example
 channels:
   - defaults
+  - pytorch
 dependencies:
   - python=3.6
-  - numpy=1.14.3
-  - pandas=0.22.0
-  - scikit-learn=0.19.1
+  - pytorch
+  - torchvision
   - pip:
     - mlflow
+    - tensorboardX
