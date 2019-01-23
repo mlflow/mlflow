@@ -10,7 +10,6 @@ entry_points:
       epochs: {type: int, default: 10}
       lr: {type: float, default: 0.01}
       momentum: {type: float, default: 0.5}
-      no-cuda: {type: string, default: 'False'}
       seed: {type: int, default: 5}
       log-interval: {type: int, default: 100}
     command: |
