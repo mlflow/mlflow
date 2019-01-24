@@ -14,7 +14,7 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, SourceType, RunInfo, RunStatus
+from mlflow.entities import Experiment, Run, SourceType, RunStatus
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient

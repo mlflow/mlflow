@@ -8,7 +8,7 @@ class LifecycleStage(object):
     _VALID_STAGES = set([ACTIVE, DELETED])
 
     @classmethod
-    def matching_view_type(cls, view_type=ViewType.ALL):
+    def view_type_to_stages(cls, view_type=ViewType.ALL):
         stages = []
         if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
             stages.append(cls.ACTIVE)

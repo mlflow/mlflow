@@ -8,7 +8,7 @@ from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, Ru
                             ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
-from mlflow.exceptions import MlflowException, MissingConfigException, ExecutionException
+from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \

@@ -61,7 +61,7 @@ class SqlExperiment(Base):
 
     __table_args__ = (
         CheckConstraint(
-            lifecycle_stage.in_(LifecycleStage.matching_view_type(ViewType.ALL)),
+            lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
             name='lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
@@ -94,7 +94,7 @@ class SqlRun(Base):
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(LifecycleStage.matching_view_type(ViewType.ALL)),
+        CheckConstraint(lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
                         name='lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )

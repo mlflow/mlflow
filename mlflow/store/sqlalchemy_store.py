@@ -3,7 +3,7 @@ import uuid
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
-from mlflow.entities import Experiment, RunInfo, RunStatus, SourceType
+from mlflow.entities import RunStatus, SourceType
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -67,7 +67,7 @@ class SqlAlchemyStore(AbstractStore):
         return experiment.to_mlflow_entity()
 
     def _list_experiments(self, experiments, view_type=ViewType.ACTIVE_ONLY):
-        stages = LifecycleStage.matching_view_type(view_type)
+        stages = LifecycleStage.view_type_to_stages(view_type)
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
 
         if len(experiments) > 0:
@@ -137,7 +137,7 @@ class SqlAlchemyStore(AbstractStore):
         return run.to_mlflow_entity()
 
     def _get_run(self, run_uuid, view_type):
-        stages = LifecycleStage.matching_view_type(view_type)
+        stages = LifecycleStage.view_type_to_stages(view_type)
         runs = self.session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid,
                                                  SqlRun.lifecycle_stage.in_(stages)).all()
 
