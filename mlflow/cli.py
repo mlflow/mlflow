@@ -85,7 +85,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     """
     Run an MLflow project from the given URI.
 
-    For local runs, the run will block until it completes. 
+    For local runs, the run will block until it completes.
     Otherwise, the project will run asynchronously.
 
     If running locally (the default), the URI can be either a Git repository URI or a local path.
