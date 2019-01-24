@@ -9,7 +9,7 @@ import pytest
 
 import mlflow
 from mlflow import tracking
-from mlflow.entities import Experiment, RunStatus, LifecycleStage
+from mlflow.entities import RunStatus, LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run

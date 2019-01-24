@@ -1,5 +1,5 @@
 from mlflow.entities.view_type import ViewType
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import MlflowException
 
 
 class LifecycleStage(object):
@@ -23,7 +23,7 @@ class LifecycleStage(object):
     @classmethod
     def matches_view_type(cls, view_type, lifecycle_stage):
         if not cls.is_valid(lifecycle_stage):
-            raise ExecutionException("Invalid lifecycle stage '%s'" % str(lifecycle_stage))
+            raise MlflowException("Invalid lifecycle stage '%s'" % str(lifecycle_stage))
 
         if view_type == ViewType.ALL:
             return True
@@ -32,4 +32,4 @@ class LifecycleStage(object):
         elif view_type == ViewType.DELETED_ONLY:
             return lifecycle_stage == LifecycleStage.DELETED
         else:
-            raise ExecutionException("Invalid view type '%s'" % str(view_type))
+            raise MlflowException("Invalid view type '%s'" % str(view_type))
