@@ -18,7 +18,9 @@ import pandas as pd
 import torch
 import torchvision
 
+import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
@@ -240,14 +242,22 @@ def load_model(path, run_id=None, **kwargs):
     if run_id is not None:
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
 
-    if torch.__version__ != flavor_conf["pytorch_version"]:
+    try:
+        pyfunc_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+    except MlflowException:
+        pyfunc_conf = {}
+    code_subpath = pyfunc_conf.get(pyfunc.CODE)
+    if code_subpath is not None:
+        pyfunc_utils._add_code_to_system_path(code_path=os.path.join(path, code_subpath))
+
+    pytorch_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    if torch.__version__ != pytorch_conf["pytorch_version"]:
         raise ValueError("Stored model version '{}' does not match "
                          "installed PyTorch version '{}'"
-                         .format(flavor_conf["pytorch_version"], torch.__version__))
+                         .format(pytorch_conf["pytorch_version"], torch.__version__))
 
-    torch_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
+    torch_model_artifacts_path = os.path.join(path, pytorch_conf['model_data'])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
