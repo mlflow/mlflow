@@ -9,7 +9,7 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo, LifecycleStage
+from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, LifecycleStage
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
