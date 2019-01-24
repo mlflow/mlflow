@@ -269,7 +269,7 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 .. important::
 
   If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment
-  (for example, ``mlflow experiments create --artifact-root s3://<my-bucket>``), the artifact root
+  (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server will probably be referring to different physical locations (that is, the same path on different disks).
 
