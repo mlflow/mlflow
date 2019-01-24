@@ -9,7 +9,7 @@ import pytest
 
 import mlflow
 from mlflow import tracking
-from mlflow.entities import Experiment, RunStatus
+from mlflow.entities import Experiment, RunStatus, LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
@@ -86,7 +86,7 @@ def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
     reset_mock(MlflowClient, "get_experiment_by_name",
                mock.Mock(return_value=attrdict.AttrDict(
                    experiment_id=0,
-                   lifecycle_stage=Experiment.ACTIVE_LIFECYCLE)))
+                   lifecycle_stage=LifecycleStage.ACTIVE)))
     reset_mock(MlflowClient, "create_experiment", mock.Mock())
 
     mlflow.set_experiment("my_exp")

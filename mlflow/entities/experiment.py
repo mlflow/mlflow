@@ -1,4 +1,5 @@
 from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 
 
@@ -7,14 +8,13 @@ class Experiment(_MLflowObject):
     Experiment object.
     """
     DEFAULT_EXPERIMENT_ID = 0
-    ACTIVE_LIFECYCLE = 'active'
-    DELETED_LIFECYCLE = 'deleted'
 
     def __init__(self, experiment_id, name, artifact_location, lifecycle_stage):
         super(Experiment, self).__init__()
         self._experiment_id = experiment_id
         self._name = name
         self._artifact_location = artifact_location
+        assert(LifecycleStage.is_valid(lifecycle_stage))
         self._lifecycle_stage = lifecycle_stage
 
     @property

@@ -9,7 +9,7 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo
+from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, RunInfo, LifecycleStage
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
@@ -200,8 +200,7 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
-        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
-                         Experiment.DELETED_LIFECYCLE)
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
 
         # restore it
         fs.restore_experiment(exp_id)
@@ -214,8 +213,7 @@ class TestFileStore(unittest.TestCase):
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
         self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
         self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
-        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage,
-                         Experiment.ACTIVE_LIFECYCLE)
+        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.ACTIVE)
 
     def test_rename_experiment(self):
         fs = FileStore(self.test_root)
@@ -270,7 +268,7 @@ class TestFileStore(unittest.TestCase):
                 run_info.pop("metrics")
                 run_info.pop("params")
                 run_info.pop("tags")
-                run_info['lifecycle_stage'] = RunInfo.ACTIVE_LIFECYCLE
+                run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(run_info, dict(run.info))
 
     def test_list_run_infos(self):
@@ -283,7 +281,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("metrics")
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
-                dict_run_info['lifecycle_stage'] = RunInfo.ACTIVE_LIFECYCLE
+                dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_get_metric(self):
@@ -441,7 +439,7 @@ class TestFileStore(unittest.TestCase):
         run_id = self.exp_data[exp_id]['runs'][0]
         fs.delete_run(run_id)
 
-        assert fs.get_run(run_id).info.lifecycle_stage == RunInfo.DELETED_LIFECYCLE
+        assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
         with pytest.raises(MlflowException):
             fs.set_tag(run_id, RunTag('a', 'b'))
         with pytest.raises(MlflowException):
@@ -461,7 +459,7 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         fs.delete_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
         fs = FileStore(self.test_root)
-        assert fs.get_experiment(0).lifecycle_stage == Experiment.DELETED_LIFECYCLE
+        assert fs.get_experiment(0).lifecycle_stage == LifecycleStage.DELETED
 
     def test_malformed_experiment(self):
         fs = FileStore(self.test_root)

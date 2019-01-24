@@ -1,17 +1,18 @@
 from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 
 
 def check_run_is_active(run_info):
-    if run_info.lifecycle_stage != RunInfo.ACTIVE_LIFECYCLE:
+    if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException('The run {} must be in an active lifecycle_stage.'
                               .format(run_info.run_uuid))
 
 
 def check_run_is_deleted(run_info):
-    if run_info.lifecycle_stage != RunInfo.DELETED_LIFECYCLE:
+    if run_info.lifecycle_stage != LifecycleStage.DELETED:
         raise MlflowException('The run {} must be in an deleted lifecycle_stage.'
                               .format(run_info.run_uuid))
 
@@ -20,8 +21,6 @@ class RunInfo(_MLflowObject):
     """
     Metadata about a run.
     """
-    ACTIVE_LIFECYCLE = "active"
-    DELETED_LIFECYCLE = "deleted"
 
     def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
                  user_id, status, start_time, end_time, source_version, lifecycle_stage,
@@ -53,6 +52,7 @@ class RunInfo(_MLflowObject):
         self._start_time = start_time
         self._end_time = end_time
         self._source_version = source_version
+        assert(LifecycleStage.is_valid(lifecycle_stage))
         self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
 

@@ -15,6 +15,7 @@ import logging
 
 import mlflow.tracking.utils
 from mlflow.entities import Experiment, Run, SourceType, RunInfo, RunStatus
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import env
@@ -48,7 +49,7 @@ def set_experiment(experiment_name):
     if exp_id is None:  # id can be 0
         print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
         exp_id = client.create_experiment(experiment_name)
-    elif experiment.lifecycle_stage == Experiment.DELETED_LIFECYCLE:
+    elif experiment.lifecycle_stage == LifecycleStage.DELETED:
         raise MlflowException(
             "Cannot set a deleted experiment '%s' as the active experiment."
             " You can restore the experiment, or permanently delete the "
@@ -113,7 +114,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
     if existing_run_uuid:
         _validate_run_id(existing_run_uuid)
         active_run_obj = MlflowClient().get_run(existing_run_uuid)
-        if active_run_obj.info.lifecycle_stage == RunInfo.DELETED_LIFECYCLE:
+        if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException("Cannot start run with ID {} because it is in the "
                                   "deleted state.".format(existing_run_uuid))
     else:
