@@ -10,7 +10,7 @@ entry_points:
       epochs: {type: int, default: 10}
       lr: {type: float, default: 0.01}
       momentum: {type: float, default: 0.5}
-      no-cuda: {type: string, default: 'False'}
+      enable-cuda: {type: string, default: 'True'}
       seed: {type: int, default: 5}
       log-interval: {type: int, default: 100}
     command: |
@@ -20,6 +20,6 @@ entry_points:
             --epochs {epochs} \
             --lr {lr} \
             --momentum {momentum} \
-            --no-cuda {no-cuda} \
+            --enable-cuda {enable-cuda} \
             --seed {seed} \
             --log-interval {log-interval}
