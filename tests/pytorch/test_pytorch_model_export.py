@@ -88,7 +88,7 @@ class SubclassedModel(torch.nn.Module):
 
     def __init__(self):
         super(SubclassedModel, self).__init__()
-        self.linear = torch.nn.Linear(4, 1) 
+        self.linear = torch.nn.Linear(4, 1)
 
     def forward(self, x):
         y_pred = self.linear(x)
@@ -290,8 +290,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 def test_pyfunc_model_serving_with_subclassed_nn_model_and_default_conda_env(
         subclassed_model, model_path, data, subclassed_predicted):
     mlflow.pytorch.save_model(
-        path=model_path, 
-        pytorch_model=subclassed_model, 
+        path=model_path,
+        pytorch_model=subclassed_model,
         conda_env=None,
         code_paths=[__file__])
 
