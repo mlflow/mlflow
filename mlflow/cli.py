@@ -52,8 +52,8 @@ def cli():
                    Experiment.DEFAULT_EXPERIMENT_ID)
 # TODO: Add tracking server argument once we have it working.
 @click.option("--mode", "-m", metavar="MODE",
-              help="Execution mode to use for run. Supported values: 'local' (runs project"
-                   "locally) and 'databricks' (runs project on a Databricks cluster)."
+              help="Execution mode to use for run. Supported values: 'local' (runs project "
+                   "locally) and 'databricks' (runs project on a Databricks cluster). "
                    "Defaults to 'local'. If running against Databricks, will run against a "
                    "Databricks workspace determined as follows: if a Databricks tracking URI "
                    "of the form 'databricks://profile' has been set (e.g. by setting "
@@ -63,7 +63,7 @@ def cli():
                    "https://github.com/databricks/databricks-cli for more info on configuring a "
                    "Databricks CLI profile.")
 @click.option("--cluster-spec", "-c", metavar="FILE",
-              help="Path to JSON file (must end in '.json') or JSON string describing the cluster"
+              help="Path to JSON file (must end in '.json') or JSON string describing the cluster "
                    "to use when launching a run on Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
