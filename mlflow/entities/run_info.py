@@ -52,7 +52,6 @@ class RunInfo(_MLflowObject):
         self._start_time = start_time
         self._end_time = end_time
         self._source_version = source_version
-        assert(LifecycleStage.is_valid(lifecycle_stage))
         self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
 

@@ -14,7 +14,6 @@ class Experiment(_MLflowObject):
         self._experiment_id = experiment_id
         self._name = name
         self._artifact_location = artifact_location
-        assert(LifecycleStage.is_valid(lifecycle_stage))
         self._lifecycle_stage = lifecycle_stage
 
     @property
