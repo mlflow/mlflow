@@ -22,6 +22,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "pytorch"
@@ -38,12 +39,19 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
 )
 
 
-def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
+def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor.
+                          input and produce a single output tensor. Any code dependencies of the
+                          model's class, including the class definition itself, should be
+                          included in one of the following locations:
+
+                          - The package(s) listed in the model's Conda environment, specified
+                            by the ``conda_env`` parameter.
+                          - One or more of the files specified by the ``code_paths`` parameter.
+
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -62,6 +70,10 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
                             ]
                         }
 
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files will be *prepended* to the system
+                       path when the model is as a generic python function via
+                       :func:`mlflow.pyfunc.load_pyfunc`.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -105,16 +117,24 @@ def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
     >>>   mlflow.log_param("epochs", 500)
     >>>   mlflow.pytorch.log_model(pytorch_model, "models")
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch,
-              pytorch_model=pytorch_model, conda_env=conda_env, **kwargs)
+    Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
+              conda_env=conda_env, code_paths=code_paths, **kwargs)
 
 
-def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwargs):
+def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,
+               **kwargs):
     """
     Save a PyTorch model to a path on the local file system.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor.
+                          input and produce a single output tensor. Any code dependencies of the
+                          model's class, including the class definition itself, should be
+                          included in one of the following locations:
+
+                          - The package(s) listed in the model's Conda environment, specified
+                            by the ``conda_env`` parameter.
+                          - One or more of the files specified by the ``code_paths`` parameter.
+
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
@@ -135,6 +155,10 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
                         }
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files will be *prepended* to the system
+                       path when the model is as a generic python function via
+                       :func:`mlflow.pyfunc.load_pyfunc`.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -174,9 +198,16 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), **kwar
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
+    if code_paths is not None:
+        code_dir_subpath = "code"
+        for code_path in code_paths:
+            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+    else:
+        code_dir_subpath = None
+
     mlflow_model.add_flavor(FLAVOR_NAME, model_data=model_file, pytorch_version=torch.__version__)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch",
-                        data=model_file, env=conda_env_subpath)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch", data=model_file,
+                        code=code_dir_subpath, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
