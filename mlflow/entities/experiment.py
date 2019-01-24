@@ -1,5 +1,4 @@
 from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 
 
