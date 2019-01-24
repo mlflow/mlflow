@@ -303,7 +303,12 @@ def test_pyfunc_model_serving_with_subclassed_nn_model_and_default_conda_env(
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
 
-    print("SCORING RESPONSE", scoring_response, type(scoring_response))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    np.testing.assert_array_almost_equal(
+        deployed_model_preds.values[:, 0],
+        subclassed_predicted,
+        decimal=4)
+
 
 
 @pytest.mark.release
