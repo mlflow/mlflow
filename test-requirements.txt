@@ -3,7 +3,6 @@ azure-storage
 google-cloud-storage
 h2o
 boto3
-matplotlib
 mock==2.0.0
 moto
 prospector[with_pyroma]==0.12.7
