@@ -52,6 +52,7 @@ def get_dataset(data):
                for xi, yi in zip(x.values, y.values)]
     return dataset
 
+
 def train_model(model, data):
     dataset = get_dataset(data)
     criterion = nn.MSELoss()
