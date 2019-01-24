@@ -1,7 +1,7 @@
 import unittest
 import uuid
 
-from mlflow.entities import RunInfo
+from mlflow.entities import RunInfo, LifecycleStage
 from tests.helper_functions import random_str, random_int
 
 
@@ -37,7 +37,7 @@ class TestRunInfo(unittest.TestCase):
         start_time = random_int(1, 10)
         end_time = start_time + random_int(1, 10)
         source_version = random_str(random_int(10, 40))
-        lifecycle_stage = RunInfo.ACTIVE_LIFECYCLE
+        lifecycle_stage = LifecycleStage.ACTIVE
         artifact_uri = random_str(random_int(10, 40))
         ri = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id, name=name,
                      source_type=source_type, source_name=source_name,

@@ -54,7 +54,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         actual = self.session.query(models.SqlExperiment).get(exp.experiment_id)
         self.assertEqual(len(self.store.list_experiments()), len(experiments) - 1)
 
-        self.assertEqual(actual.lifecycle_stage, entities.Experiment.DELETED_LIFECYCLE)
+        self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
     def test_get_experiment(self):
         name = 'goku'
@@ -166,14 +166,14 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'name': 'test run',
             'user_id': 'Anderson',
             'run_uuid': 'test',
-            'status': entities.RunInfo.ACTIVE_LIFECYCLE,
+            'status': entities.LifecycleStage.ACTIVE,
             'source_type': entities.SourceType.LOCAL,
             'source_name': 'Python application',
             'entry_point_name': 'main.py',
             'start_time': int(time.time()),
             'end_time': int(time.time()),
             'source_version': mlflow.__version__,
-            'lifecycle_stage': entities.RunInfo.ACTIVE_LIFECYCLE,
+            'lifecycle_stage': entities.LifecycleStage.ACTIVE,
             'artifact_uri': '//'
         }
         run = models.SqlRun(**config).to_mlflow_entity()
@@ -203,7 +203,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'start_time': int(time.time()),
             'end_time': int(time.time()),
             'source_version': mlflow.__version__,
-            'lifecycle_stage': entities.RunInfo.ACTIVE_LIFECYCLE,
+            'lifecycle_stage': entities.LifecycleStage.ACTIVE,
             'artifact_uri': '//'
         }
 
@@ -294,7 +294,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run_uuid = run.run_uuid
         self.store.delete_run(run_uuid)
         actual = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
-        self.assertEqual(actual.lifecycle_stage, entities.RunInfo.DELETED_LIFECYCLE)
+        self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         deleted_run = self.store.get_run(run_uuid)
         self.assertEqual(actual.run_uuid, deleted_run.info.run_uuid)
@@ -469,32 +469,32 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_restore_experiment(self):
         exp = self._experiment_factory('helloexp')
-        self.assertEqual(exp.lifecycle_stage, entities.Experiment.ACTIVE_LIFECYCLE)
+        self.assertEqual(exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         experiment_id = exp.experiment_id
         self.store.delete_experiment(experiment_id)
 
         deleted = self.store.get_experiment(experiment_id)
         self.assertEqual(deleted.experiment_id, experiment_id)
-        self.assertEqual(deleted.lifecycle_stage, entities.Experiment.DELETED_LIFECYCLE)
+        self.assertEqual(deleted.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.store.restore_experiment(exp.experiment_id)
         restored = self.store.get_experiment(exp.experiment_id)
         self.assertEqual(restored.experiment_id, experiment_id)
-        self.assertEqual(restored.lifecycle_stage, entities.Experiment.ACTIVE_LIFECYCLE)
+        self.assertEqual(restored.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
     def test_restore_run(self):
         run = self._run_factory()
-        self.assertEqual(run.lifecycle_stage, entities.RunInfo.ACTIVE_LIFECYCLE)
+        self.assertEqual(run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         run_uuid = run.run_uuid
         self.store.delete_run(run_uuid)
 
         deleted = self.store.get_run(run_uuid)
         self.assertEqual(deleted.info.run_uuid, run_uuid)
-        self.assertEqual(deleted.info.lifecycle_stage, entities.RunInfo.DELETED_LIFECYCLE)
+        self.assertEqual(deleted.info.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.store.restore_run(run_uuid)
         restored = self.store.get_run(run_uuid)
         self.assertEqual(restored.info.run_uuid, run_uuid)
-        self.assertEqual(restored.info.lifecycle_stage, entities.RunInfo.ACTIVE_LIFECYCLE)
+        self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)

@@ -1,4 +1,4 @@
-from mlflow.entities import Run, Metric, RunData, SourceType, RunStatus, RunInfo
+from mlflow.entities import Run, Metric, RunData, SourceType, RunStatus, RunInfo, LifecycleStage
 from tests.entities.test_run_data import TestRunData
 from tests.entities.test_run_info import TestRunInfo
 
@@ -52,7 +52,7 @@ class TestRun(TestRunInfo, TestRunData):
             run_uuid="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
             source_name="source-name", entry_point_name="entry-point-name",
             user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
-            source_version="version", lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
+            source_version="version", lifecycle_stage=LifecycleStage.ACTIVE)
         metrics = [Metric("key", i, 0) for i in range(5)]
         run_data = RunData(metrics=metrics, params=[], tags=[])
         run1 = Run(run_info, run_data)

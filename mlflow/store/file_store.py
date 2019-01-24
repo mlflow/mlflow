@@ -6,8 +6,9 @@ import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
-from mlflow.exceptions import MlflowException, MissingConfigException, ExecutionException
+from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
@@ -39,7 +40,7 @@ def _make_persisted_run_info_dict(run_info):
 def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
-        dict_copy['lifecycle_stage'] = RunInfo.ACTIVE_LIFECYCLE
+        dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
     return RunInfo.from_dictionary(dict_copy)
 
 
@@ -155,7 +156,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
-        experiment = Experiment(experiment_id, name, artifact_uri, Experiment.ACTIVE_LIFECYCLE)
+        experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
@@ -166,7 +167,7 @@ class FileStore(AbstractStore):
                                   databricks_pb2.INVALID_PARAMETER_VALUE)
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
-            if experiment.lifecycle_stage == Experiment.DELETED_LIFECYCLE:
+            if experiment.lifecycle_stage == LifecycleStage.DELETED:
                 raise MlflowException(
                     "Experiment '%s' already exists in deleted state. "
                     "You can restore the experiment, or permanently delete the experiment "
@@ -194,9 +195,9 @@ class FileStore(AbstractStore):
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         meta = read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
         if experiment_dir.startswith(self.trash_folder):
-            meta['lifecycle_stage'] = Experiment.DELETED_LIFECYCLE
+            meta['lifecycle_stage'] = LifecycleStage.DELETED
         else:
-            meta['lifecycle_stage'] = Experiment.ACTIVE_LIFECYCLE
+            meta['lifecycle_stage'] = LifecycleStage.ACTIVE
         experiment = Experiment.from_dictionary(meta)
         if int(experiment_id) != experiment.experiment_id:
             logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
@@ -253,7 +254,7 @@ class FileStore(AbstractStore):
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         experiment._set_name(new_name)
-        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception("Cannot rename experiment in non-active lifecycle stage."
                             " Current stage: %s" % experiment.lifecycle_stage)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment), overwrite=True)
@@ -264,7 +265,7 @@ class FileStore(AbstractStore):
             raise MlflowException("Run '%s' metadata is in invalid state." % run_id,
                                   databricks_pb2.INVALID_STATE)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(lifecycle_stage=RunInfo.DELETED_LIFECYCLE)
+        new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info)
 
     def restore_run(self, run_id):
@@ -273,7 +274,7 @@ class FileStore(AbstractStore):
             raise MlflowException("Run '%s' metadata is in invalid state." % run_id,
                                   databricks_pb2.INVALID_STATE)
         check_run_is_deleted(run_info)
-        new_info = run_info._copy_with_overrides(lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
+        new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
         self._overwrite_run_info(new_info)
 
     def _find_experiment_folder(self, run_path):
@@ -315,7 +316,7 @@ class FileStore(AbstractStore):
                     "Could not create run under experiment with ID %s - no such experiment "
                     "exists." % experiment_id,
                     databricks_pb2.RESOURCE_DOES_NOT_EXIST)
-        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
                     "Could not create run under non-active experiment with ID "
                     "%s." % experiment_id,
@@ -328,7 +329,7 @@ class FileStore(AbstractStore):
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
                            status=RunStatus.RUNNING, start_time=start_time, end_time=None,
-                           source_version=source_version, lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
+                           source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
@@ -489,16 +490,6 @@ class FileStore(AbstractStore):
             tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
 
-    def _lifecycle_stage_valid_for_view_type(self, view_type, lifecycle_stage):
-        if view_type == ViewType.ALL:
-            return True
-        elif view_type == ViewType.ACTIVE_ONLY:
-            return lifecycle_stage == RunInfo.ACTIVE_LIFECYCLE
-        elif view_type == ViewType.DELETED_ONLY:
-            return lifecycle_stage == RunInfo.DELETED_LIFECYCLE
-        else:
-            raise ExecutionException("Invalid view type '%s'" % str(view_type))
-
     def _list_run_infos(self, experiment_id, view_type):
         self._check_root_dir()
         if not self._has_experiment(experiment_id):
@@ -512,7 +503,7 @@ class FileStore(AbstractStore):
                 run_info = self._get_run_info(r_id)
                 if run_info is None:
                     continue
-                if self._lifecycle_stage_valid_for_view_type(view_type, run_info.lifecycle_stage):
+                if LifecycleStage.matches_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
             except MissingConfigException as rnfe:
                 # trap malformed run exception and log warning
