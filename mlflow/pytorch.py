@@ -74,8 +74,7 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None, **k
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files will be *prepended* to the system
-                       path when the model is as a generic python function via
-                       :func:`mlflow.pyfunc.load_pyfunc`.
+                       path when the model is loaded.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -159,8 +158,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files will be *prepended* to the system
-                       path when the model is as a generic python function via
-                       :func:`mlflow.pyfunc.load_pyfunc`.
+                       path when the model is loaded.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch

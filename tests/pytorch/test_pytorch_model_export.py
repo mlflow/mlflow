@@ -310,6 +310,57 @@ def test_pyfunc_model_serving_with_subclassed_nn_model_and_default_conda_env(
         decimal=4)
 
 
+def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
+        subclassed_model, model_path, data, subclassed_predicted):
+    # Save a PyTorch model whose class is defined in the current test suite. Because the
+    # `tests` module is not available when the model is deployed for local scoring, we include
+    # the test suite file as a code dependency
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=subclassed_model,
+        conda_env=None,
+        code_paths=[__file__])
+
+
+    # Define a custom pyfunc model that loads a PyTorch model artifact using
+    # `mlflow.pytorch.load_model`
+    class TorchValidatorModel(pyfunc.PythonModel):
+        def load_context(self, context):
+            self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
+
+        def predict(self, context, model_input):
+            with torch.no_grad():
+                input_tensor = torch.from_numpy(model_input.values.astype(np.float32))
+                output_tensor = self.pytorch_model(input_tensor)
+                return pd.DataFrame(output_tensor.numpy())
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                         python_model=TorchValidatorModel(),
+                         artifacts={
+                            "pytorch_model": model_path,
+                         })
+        pyfunc_run_id = mlflow.active_run().info.run_uuid
+
+    pyfunc_model_path = tracking.utils._get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
+
+    # Deploy the custom pyfunc model and ensure that it is able to successfully load its
+    # constituent PyTorch model via `mlflow.pytorch.load_model`
+    scoring_response = pyfunc_serve_and_score_model(
+            model_path=pyfunc_model_path,
+            data=data[0],
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            extra_args=["--no-conda"])
+    assert scoring_response.status_code == 200
+
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    np.testing.assert_array_almost_equal(
+        deployed_model_preds.values[:, 0],
+        subclassed_predicted,
+        decimal=4)
+
+
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
         model, model_path, data, sequential_predicted):
