@@ -310,7 +310,6 @@ def test_pyfunc_model_serving_with_subclassed_nn_model_and_default_conda_env(
         decimal=4)
 
 
-
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
         model, model_path, data, sequential_predicted):
