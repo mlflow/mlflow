@@ -321,10 +321,10 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         conda_env=None,
         code_paths=[__file__])
 
-
     # Define a custom pyfunc model that loads a PyTorch model artifact using
     # `mlflow.pytorch.load_model`
     class TorchValidatorModel(pyfunc.PythonModel):
+
         def load_context(self, context):
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
