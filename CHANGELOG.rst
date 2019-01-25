@@ -4,7 +4,7 @@ Changelog
 0.8.2 (2019-01-28)
 ------------------
 
-MLflow 0.8.2 is a patch release on top of 0.8.2 containing only bug fixes and no breaking changes or features.
+MLflow 0.8.2 is a patch release on top of 0.8.1 containing only bug fixes and no breaking changes or features.
 
 Bug fixes:
 
