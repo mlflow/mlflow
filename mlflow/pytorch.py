@@ -10,6 +10,7 @@ PyTorch (native) format
 
 from __future__ import absolute_import
 
+import logging
 import os
 import yaml
 
@@ -36,6 +37,8 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
         "pytorch",
     ],
 )
+
+_logger = logging.getLogger(__name__)
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, **kwargs):
@@ -212,10 +215,9 @@ def load_model(path, run_id=None, **kwargs):
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
 
     if torch.__version__ != flavor_conf["pytorch_version"]:
-        raise ValueError("Stored model version '{}' does not match "
-                         "installed PyTorch version '{}'"
-                         .format(flavor_conf["pytorch_version"], torch.__version__))
-
+        _logger.warning(
+            "Stored model version '%s' does not match installed PyTorch version '%s'",
+            flavor_conf["pytorch_version"], torch.__version__)
     torch_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 

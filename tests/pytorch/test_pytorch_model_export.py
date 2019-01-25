@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import json
+import mock
 
 import pytest
 import numpy as np
@@ -18,6 +19,7 @@ import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -251,6 +253,35 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
+
+
+def test_load_model_with_differing_pytorch_version_logs_warning(
+        model, model_path):
+    mlflow.pytorch.save_model(pytorch_model=model, path=model_path)
+    saver_pytorch_version = "1.0"
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config = Model.load(model_config_path)
+    model_config.flavors[mlflow.pytorch.FLAVOR_NAME]["pytorch_version"] = saver_pytorch_version
+    model_config.save(model_config_path)
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    loader_pytorch_version = "0.8.2"
+    with mock.patch("mlflow.pytorch._logger.warning") as warn_mock,\
+            mock.patch("torch.__version__") as torch_version_mock:
+        torch_version_mock.__str__ = lambda *args, **kwargs: loader_pytorch_version
+        warn_mock.side_effect = custom_warn
+        mlflow.pytorch.load_model(path=model_path)
+
+    assert any([
+        "does not match installed PyTorch version" in log_message and
+        saver_pytorch_version in log_message and
+        loader_pytorch_version in log_message
+        for log_message in log_messages
+    ])
 
 
 @pytest.mark.release
