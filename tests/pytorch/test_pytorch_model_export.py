@@ -1,6 +1,8 @@
 from __future__ import print_function
 
 import os
+import logging
+import mock
 import json
 
 import pytest
@@ -18,11 +20,22 @@ import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+_logger = logging.getLogger(__name__)
+
+# This test suite is included as a code dependency when testing PyTorch model scoring in new
+# processes and docker containers. In these environments, the `tests` module is not available.
+# Therefore, we attempt to import from `tests` and gracefully emit a warning if it's unavailable.
+try:
+    from tests.helper_functions import pyfunc_serve_and_score_model
+    from tests.helper_functions import score_model_in_sagemaker_docker_container
+except ImportError:
+    _logger.warning(
+        "Failed to import test helper functions. Tests depending on these functions may fail!")
 
 
 @pytest.fixture(scope='module')
@@ -42,25 +55,17 @@ def get_dataset(data):
     return dataset
 
 
-@pytest.fixture(scope='module')
-def model(data):
+def train_model(model, data):
     dataset = get_dataset(data)
-    model = nn.Sequential(
-        nn.Linear(4, 3),
-        nn.ReLU(),
-        nn.Linear(3, 1),
-    )
-
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-
     batch_size = 16
     num_workers = 4
     dataloader = DataLoader(dataset, batch_size=batch_size,
                             num_workers=num_workers, shuffle=True, drop_last=False)
 
     model.train()
-    for epoch in range(5):
+    for _ in range(5):
         for batch in dataloader:
             optimizer.zero_grad()
             batch_size = batch[0].shape[0]
@@ -69,6 +74,34 @@ def model(data):
             loss.backward()
             optimizer.step()
 
+
+@pytest.fixture(scope='module')
+def sequential_model(data):
+    model = nn.Sequential(
+        nn.Linear(4, 3),
+        nn.ReLU(),
+        nn.Linear(3, 1),
+    )
+
+    train_model(model=model, data=data)
+    return model
+
+
+class SubclassedModel(torch.nn.Module):
+
+    def __init__(self):
+        super(SubclassedModel, self).__init__()
+        self.linear = torch.nn.Linear(4, 1)
+
+    def forward(self, x):
+        y_pred = self.linear(x)
+        return y_pred
+
+
+@pytest.fixture(scope='module')
+def subclassed_model(data):
+    model = SubclassedModel()
+    train_model(model=model, data=data)
     return model
 
 
@@ -103,11 +136,16 @@ def _predict(model, data):
 
 
 @pytest.fixture(scope='module')
-def predicted(model, data):
-    return _predict(model, data)
+def sequential_predicted(sequential_model, data):
+    return _predict(sequential_model, data)
 
 
-def test_log_model(model, data, predicted):
+@pytest.fixture(scope='module')
+def subclassed_predicted(subclassed_model, data):
+    return _predict(subclassed_model, data)
+
+
+def test_log_model(sequential_model, data, sequential_predicted):
     old_uri = tracking.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
@@ -117,20 +155,20 @@ def test_log_model(model, data, predicted):
                 if should_start_run:
                     mlflow.start_run()
 
-                mlflow.pytorch.log_model(model, artifact_path="pytorch")
+                mlflow.pytorch.log_model(sequential_model, artifact_path="pytorch")
 
                 # Load model
                 run_id = mlflow.active_run().info.run_uuid
-                model_loaded = mlflow.pytorch.load_model("pytorch", run_id=run_id)
+                sequential_model_loaded = mlflow.pytorch.load_model("pytorch", run_id=run_id)
 
-                test_predictions = _predict(model_loaded, data)
-                np.testing.assert_array_equal(test_predictions, predicted)
+                test_predictions = _predict(sequential_model_loaded, data)
+                np.testing.assert_array_equal(test_predictions, sequential_predicted)
             finally:
                 mlflow.end_run()
                 tracking.set_tracking_uri(old_uri)
 
 
-def test_raise_exception(model):
+def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
         with pytest.raises(MlflowException):
@@ -139,9 +177,9 @@ def test_raise_exception(model):
         with pytest.raises(TypeError):
             mlflow.pytorch.save_model([1, 2, 3], path)
 
-        mlflow.pytorch.save_model(model, path)
+        mlflow.pytorch.save_model(sequential_model, path)
         with pytest.raises(RuntimeError):
-            mlflow.pytorch.save_model(model, path)
+            mlflow.pytorch.save_model(sequential_model, path)
 
         from mlflow import sklearn
         import sklearn.neighbors as knn
@@ -156,24 +194,23 @@ def test_raise_exception(model):
             mlflow.pytorch.load_model(path)
 
 
-def test_save_and_load_model(model, model_path, data, predicted):
-    x, y = data
-    mlflow.pytorch.save_model(model, model_path)
+def test_save_and_load_model(sequential_model, model_path, data, sequential_predicted):
+    mlflow.pytorch.save_model(sequential_model, model_path)
 
     # Loading pytorch model
-    model_loaded = mlflow.pytorch.load_model(model_path)
-    np.testing.assert_array_equal(_predict(model_loaded, data), predicted)
+    sequential_model_loaded = mlflow.pytorch.load_model(model_path)
+    np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     np.testing.assert_array_almost_equal(
-            pyfunc_loaded.predict(x).values[:, 0], predicted, decimal=4)
+        pyfunc_loaded.predict(data[0]).values[:, 0], sequential_predicted, decimal=4)
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-        model, model_path, pytorch_custom_env):
+        sequential_model, model_path, pytorch_custom_env):
     mlflow.pytorch.save_model(
-            pytorch_model=model, path=model_path, conda_env=pytorch_custom_env)
+            pytorch_model=sequential_model, path=model_path, conda_env=pytorch_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -187,10 +224,10 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
-def test_model_save_accepts_conda_env_as_dict(model, model_path):
+def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     conda_env = dict(mlflow.pytorch.DEFAULT_CONDA_ENV)
     conda_env["dependencies"].append("pytest")
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=conda_env)
+    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -202,10 +239,10 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
 
 
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
-        model, pytorch_custom_env):
+        sequential_model, pytorch_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(pytorch_model=model,
+        mlflow.pytorch.log_model(pytorch_model=sequential_model,
                                  artifact_path=artifact_path,
                                  conda_env=pytorch_custom_env)
         run_id = mlflow.active_run().info.run_uuid
@@ -224,8 +261,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        model, model_path):
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
+        sequential_model, model_path):
+    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -236,10 +273,10 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        model):
+        sequential_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(pytorch_model=model,
+        mlflow.pytorch.log_model(pytorch_model=sequential_model,
                                  artifact_path=artifact_path,
                                  conda_env=None)
         run_id = mlflow.active_run().info.run_uuid
@@ -253,8 +290,58 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
 
 
+def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
+    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
+    saver_pytorch_version = "1.0"
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config = Model.load(model_config_path)
+    model_config.flavors[mlflow.pytorch.FLAVOR_NAME]["pytorch_version"] = saver_pytorch_version
+    model_config.save(model_config_path)
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    loader_pytorch_version = "0.8.2"
+    with mock.patch("mlflow.pytorch._logger.warning") as warn_mock,\
+            mock.patch("torch.__version__") as torch_version_mock:
+        torch_version_mock.__str__ = lambda *args, **kwargs: loader_pytorch_version
+        warn_mock.side_effect = custom_warn
+        mlflow.pytorch.load_model(path=model_path)
+
+    assert any([
+        "does not match installed PyTorch version" in log_message and
+        saver_pytorch_version in log_message and
+        loader_pytorch_version in log_message
+        for log_message in log_messages
+    ])
+
+
+def test_pyfunc_model_serving_with_subclassed_nn_model(
+        subclassed_model, model_path, data, subclassed_predicted):
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=subclassed_model,
+        conda_env=None,
+        code_paths=[__file__])
+
+    scoring_response = pyfunc_serve_and_score_model(
+            model_path=model_path,
+            data=data[0],
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    assert scoring_response.status_code == 200
+
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    np.testing.assert_array_almost_equal(
+        deployed_model_preds.values[:, 0],
+        subclassed_predicted,
+        decimal=4)
+
+
 @pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path, data, predicted):
+def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
+        model, model_path, data, sequential_predicted):
     mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
@@ -267,5 +354,5 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
 
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
-        predicted,
+        sequential_predicted,
         decimal=4)

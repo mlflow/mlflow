@@ -82,6 +82,8 @@ import pandas
 import shutil
 import sys
 
+import mlflow
+import mlflow.pyfunc.utils
 from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow import tracking
 from mlflow.models import Model
@@ -169,7 +171,7 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
         code_path = os.path.join(path, conf[CODE])
-        sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
+        mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
     data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
     return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 
@@ -186,14 +188,6 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version):
             " from the version of Python that is currently running, `Python %s`,"
             " and may be incompatible",
             model_py_version, PYTHON_VERSION)
-
-
-def _get_code_dirs(src_code_path, dst_code_path=None):
-    if not dst_code_path:
-        dst_code_path = src_code_path
-    return [(os.path.join(dst_code_path, x))
-            for x in os.listdir(src_code_path) if not x.endswith(".py") and not
-            x.endswith(".pyc") and not x == "__pycache__"]
 
 
 def spark_udf(spark, path, run_id=None, result_type="double"):
@@ -390,8 +384,8 @@ def get_module_loader_src(src_path, dst_path):
     if CODE in conf and conf[CODE]:
         src_code_path = os.path.join(src_path, conf[CODE])
         dst_code_path = os.path.join(dst_path, conf[CODE])
-        code_path = ["os.path.abspath('%s')" % x
-                     for x in [dst_code_path] + _get_code_dirs(src_code_path, dst_code_path)]
+        code_path = ["os.path.abspath('%s')" % x for x in [dst_code_path] +
+                     mlflow.pyfunc.utils._get_code_dirs(src_code_path, dst_code_path)]
         update_path = "sys.path = {} + sys.path; ".format("[%s]" % ",".join(code_path))
 
     data_path = os.path.join(dst_path, conf[DATA]) if (DATA in conf) else dst_path
