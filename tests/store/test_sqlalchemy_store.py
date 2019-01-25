@@ -7,7 +7,7 @@ import mlflow
 import uuid
 
 from mlflow.entities import ViewType
-from mlflow.protos.service_pb2 import SearchExpression, ParameterSearchExpression, StringClause
+from mlflow.protos.service_pb2 import SearchExpression
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -509,12 +509,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
     # Tests for Search API
-    def _search(self, experiment_id, metrics_expressions=[], param_expressions=[],
+    def _search(self, experiment_id, metrics_expressions=None, param_expressions=None,
                 run_view_type=ViewType.ALL):
+        conditions = (metrics_expressions or []) + (param_expressions or [])
         return [r.info.run_uuid
-                for r in self.store.search_runs([experiment_id],
-                                                metrics_expressions + param_expressions,
-                                                run_view_type)]
+                for r in self.store.search_runs([experiment_id], conditions, run_view_type)]
 
     def _param_expression(self, key, comparator, val):
         expr = SearchExpression()
