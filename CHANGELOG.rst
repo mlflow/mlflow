@@ -1,6 +1,18 @@
 Changelog
 =========
 
+0.8.2 (2019-01-28)
+------------------
+
+MLflow 0.8.2 is a patch release on top of 0.8.2 containing only bug fixes and no breaking changes or features.
+
+Bug fixes:
+
+- [Python API] CloudPickle has been added to the set of MLflow library dependencies, fixing missing import errors when attempting to save models (#777, @tmielika)
+- [Python API] Fixed a malformed logging call that prevented ``mlflow.sagemaker.push_image_to_ecr()`` invocations from succeeding (#784, @jackblandin)
+- [Models] PyTorch models can now be saved with code dependencies, allowing model classes to be loaded successfully in new environments (#842, #836, @dbczumar)
+
+
 0.8.1 (2018-12-21)
 ------------------
 
