@@ -290,8 +290,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
 
 
-def test_load_model_with_differing_pytorch_version_logs_warning(model, model_path):
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path)
+def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
+    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
     saver_pytorch_version = "1.0"
     model_config_path = os.path.join(model_path, "MLmodel")
     model_config = Model.load(model_config_path)
