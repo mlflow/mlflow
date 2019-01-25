@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import json
+import mock
 from subprocess import Popen, STDOUT
 
 import numpy as np
@@ -551,6 +552,69 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
                                 python_model=None,
                                 loader_module=None)
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+
+
+def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs_warning(
+        model_path):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.pyfunc.save_model(dst_path=model_path, python_model=TestModel())
+    saver_cloudpickle_version = "0.5.8"
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config = Model.load(model_config_path)
+    model_config.flavors[mlflow.pyfunc.FLAVOR_NAME][
+        mlflow.pyfunc.model.CONFIG_KEY_CLOUDPICKLE_VERSION] = saver_cloudpickle_version
+    model_config.save(model_config_path)
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    loader_cloudpickle_version = "0.5.7"
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock,\
+            mock.patch("cloudpickle.__version__") as cloudpickle_version_mock:
+        cloudpickle_version_mock.__str__ = lambda *args, **kwargs: loader_cloudpickle_version
+        warn_mock.side_effect = custom_warn
+        mlflow.pyfunc.load_pyfunc(path=model_path)
+
+    assert any([
+        "differs from the version of CloudPickle that is currently running" in log_message and
+        saver_cloudpickle_version in log_message and
+        loader_cloudpickle_version in log_message
+        for log_message in log_messages
+    ])
+
+
+def test_load_model_with_missing_cloudpickle_version_logs_warning(
+        model_path):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.pyfunc.save_model(dst_path=model_path, python_model=TestModel())
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config = Model.load(model_config_path)
+    del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME][
+        mlflow.pyfunc.model.CONFIG_KEY_CLOUDPICKLE_VERSION]
+    model_config.save(model_config_path)
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
+        warn_mock.side_effect = custom_warn
+        mlflow.pyfunc.load_pyfunc(path=model_path)
+
+    assert any([
+        ("The version of CloudPickle used to save the model could not be found in the MLmodel"
+         " configuration") in log_message
+        for log_message in log_messages
+    ])
 
 
 @pytest.mark.large
