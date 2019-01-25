@@ -244,7 +244,6 @@ def load_model(path, run_id=None, **kwargs):
         path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
 
-<<<<<<< HEAD
     try:
         pyfunc_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
     except MlflowException:
@@ -255,18 +254,10 @@ def load_model(path, run_id=None, **kwargs):
 
     pytorch_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     if torch.__version__ != pytorch_conf["pytorch_version"]:
-        raise ValueError("Stored model version '{}' does not match "
-                         "installed PyTorch version '{}'"
-                         .format(pytorch_conf["pytorch_version"], torch.__version__))
-
-    torch_model_artifacts_path = os.path.join(path, pytorch_conf['model_data'])
-=======
-    if torch.__version__ != flavor_conf["pytorch_version"]:
         _logger.warning(
             "Stored model version '%s' does not match installed PyTorch version '%s'",
-            flavor_conf["pytorch_version"], torch.__version__)
-    torch_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
->>>>>>> origin/master
+            pytorch_conf["pytorch_version"], torch.__version__)
+    torch_model_artifacts_path = os.path.join(path, pytorch_conf['model_data'])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
