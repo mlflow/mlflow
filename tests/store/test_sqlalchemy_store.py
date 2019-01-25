@@ -321,10 +321,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         run = self.store.get_run(run.run_uuid)
 
+        # SQL store _get_run method returns full history of recorded metrics.
+        # Should return duplicates as well
+        # MLflow RunData contains only the last reported values for metrics.
         sql_run_metrics = self.store._get_run(run.info.run_uuid, ViewType.ALL).metrics
         self.assertEqual(4, len(sql_run_metrics))
-
         self.assertEqual(3, len(run.data.metrics))
+
         found = False
         for m in run.data.metrics:
             if m.key == tkey and m.value == tval:
@@ -440,22 +443,25 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         actual = self.store.get_metric_history(run.run_uuid, key)
 
-        self.assertEqual(len(expected), len(actual))
+        self.assertSequenceEqual([m.value for m in expected], actual)
 
     def test_list_run_infos(self):
         exp1 = self._experiment_factory('test_exp')
-        r1 = self._run_factory('t1', exp1.experiment_id)
-        self._run_factory('t2', exp1.experiment_id)
+        r1 = self._run_factory('t1', exp1.experiment_id).run_uuid
+        r2 = self._run_factory('t2', exp1.experiment_id).run_uuid
+
+        def _runs(experiment_id, view_type):
+            return [r.run_uuid for r in self.store.list_run_infos(experiment_id, view_type)]
 
         exp_id = exp1.experiment_id
-        self.assertEqual(2, len(self.store.list_run_infos(exp_id, ViewType.ALL)))
-        self.assertEqual(2, len(self.store.list_run_infos(exp_id, ViewType.ACTIVE_ONLY)))
-        self.assertEqual(0, len(self.store.list_run_infos(exp_id, ViewType.DELETED_ONLY)))
+        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ALL))
+        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ACTIVE_ONLY))
+        self.assertEqual(0, len(_runs(exp_id, ViewType.DELETED_ONLY)))
 
-        self.store.delete_run(r1.run_uuid)
-        self.assertEqual(2, len(self.store.list_run_infos(exp_id, ViewType.ALL)))
-        self.assertEqual(1, len(self.store.list_run_infos(exp_id, ViewType.ACTIVE_ONLY)))
-        self.assertEqual(1, len(self.store.list_run_infos(exp_id, ViewType.DELETED_ONLY)))
+        self.store.delete_run(r1)
+        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ALL))
+        self.assertSequenceEqual([r2], _runs(exp_id, ViewType.ACTIVE_ONLY))
+        self.assertSequenceEqual([r1], _runs(exp_id, ViewType.DELETED_ONLY))
 
     def test_rename_experiment(self):
         new_name = 'new name'
@@ -557,11 +563,21 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
         self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
 
+        self.store.log_param(r1, entities.Param('generic_2', 'some value'))
+        self.store.log_param(r2, entities.Param('generic_2', 'another value'))
+
         self.store.log_param(r1, entities.Param('p_a', 'abc'))
         self.store.log_param(r2, entities.Param('p_b', 'ABC'))
 
+        # test search returns both runs
         expr = self._param_expression("generic_param", "=", "p_val")
         self.assertSequenceEqual([r1, r2], self._search(experiment_id, param_expressions=[expr]))
+
+        # test search returns appropriate run (same key different values per run)
+        expr = self._param_expression("generic_2", "=", "some value")
+        self.assertSequenceEqual([r1], self._search(experiment_id, param_expressions=[expr]))
+        expr = self._param_expression("generic_2", "=", "another value")
+        self.assertSequenceEqual([r2], self._search(experiment_id, param_expressions=[expr]))
 
         expr = self._param_expression("generic_param", "=", "wrong_val")
         self.assertSequenceEqual([], self._search(experiment_id, param_expressions=[expr]))
@@ -570,6 +586,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([], self._search(experiment_id, param_expressions=[expr]))
 
         expr = self._param_expression("generic_param", "!=", "wrong_val")
+        self.assertSequenceEqual([r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        expr = self._param_expression("generic_2", "!=", "wrong_val")
         self.assertSequenceEqual([r1, r2], self._search(experiment_id, param_expressions=[expr]))
 
         expr = self._param_expression("p_a", "=", "abc")
@@ -585,6 +603,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.store.log_metric(r1, entities.Metric("common", 1.0, 1))
         self.store.log_metric(r2, entities.Metric("common", 1.0, 1))
+
+        self.store.log_metric(r1, entities.Metric("measure_a", 1.0, 1))
+        self.store.log_metric(r2, entities.Metric("measure_a", 200.0, 2))
+        self.store.log_metric(r2, entities.Metric("measure_a", 400.0, 3))
 
         self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2))
         self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2))
@@ -615,6 +637,29 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         expr = self._metric_expression("common", "<=", 0.75)
         self.assertSequenceEqual([], self._search(experiment_id, param_expressions=[expr]))
 
+        # tests for same metric name across runs with different values and timestamps
+        expr = self._metric_expression("measure_a", ">", 0.0)
+        self.assertSequenceEqual([r1, r2], self._search(experiment_id, param_expressions=[expr]))
+
+        expr = self._metric_expression("measure_a", "<", 50.0)
+        self.assertSequenceEqual([r1], self._search(experiment_id, param_expressions=[expr]))
+
+        expr = self._metric_expression("measure_a", "<", 1000.0)
+        self.assertSequenceEqual([r1, r2], self._search(experiment_id, param_expressions=[expr]))
+
+        expr = self._metric_expression("measure_a", "!=", -12.0)
+        self.assertSequenceEqual([r1, r2], self._search(experiment_id, param_expressions=[expr]))
+
+        expr = self._metric_expression("measure_a", ">", 50.0)
+        self.assertSequenceEqual([r2], self._search(experiment_id, param_expressions=[expr]))
+
+        expr = self._metric_expression("measure_a", "=", 1.0)
+        self.assertSequenceEqual([r1], self._search(experiment_id, param_expressions=[expr]))
+
+        expr = self._metric_expression("measure_a", "=", 400.0)
+        self.assertSequenceEqual([r2], self._search(experiment_id, param_expressions=[expr]))
+
+        # test search with unique metric keys
         expr = self._metric_expression("m_a", ">", 1.0)
         self.assertSequenceEqual([r1], self._search(experiment_id, param_expressions=[expr]))
 
