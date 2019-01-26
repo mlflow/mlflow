@@ -2,7 +2,9 @@
 azure-storage
 google-cloud-storage
 h2o
-boto3
+boto==2.48.0
+botocore==1.10.84
+boto3<=1.7.84
 mock==2.0.0
 moto
 prospector[with_pyroma]==0.12.7
