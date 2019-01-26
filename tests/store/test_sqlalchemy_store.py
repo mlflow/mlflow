@@ -506,12 +506,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run_uuid)
-        self.assertIn("must be in an deleted lifecycle_stage", e.exception.message)
+        self.assertIn("must be in 'deleted' lifecycle_stage", e.exception.message)
 
         self.store.delete_run(run_uuid)
         with self.assertRaises(MlflowException) as e:
             self.store.delete_run(run_uuid)
-        self.assertIn("must be in an active lifecycle_stage", e.exception.message)
+        self.assertIn("must be in 'active' lifecycle_stage", e.exception.message)
 
         deleted = self.store.get_run(run_uuid)
         self.assertEqual(deleted.info.run_uuid, run_uuid)
@@ -520,7 +520,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.restore_run(run_uuid)
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run_uuid)
-            self.assertIn("must be in an deleted lifecycle_stage", e.exception.message)
+            self.assertIn("must be in 'deleted' lifecycle_stage", e.exception.message)
         restored = self.store.get_run(run_uuid)
         self.assertEqual(restored.info.run_uuid, run_uuid)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
@@ -534,15 +534,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                          entities.LifecycleStage.DELETED)
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run_uuid, entities.Param("p1345", "v1"))
-        self.assertIn("must be in an active lifecycle_stage", e.exception.message)
+        self.assertIn("must be in 'active' lifecycle_stage", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.log_metric(run_uuid, entities.Metric("m1345", 1.0, 123))
-        self.assertIn("must be in an active lifecycle_stage", e.exception.message)
+        self.assertIn("must be in 'active' lifecycle_stage", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv1"))
-        self.assertIn("must be in an active lifecycle_stage", e.exception.message)
+        self.assertIn("must be in 'active' lifecycle_stage", e.exception.message)
 
         # restore this run and try again
         self.store.restore_run(run_uuid)
