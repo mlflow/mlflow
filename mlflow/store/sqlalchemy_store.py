@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy.sql.expression import func, label, and_
 import uuid
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -184,40 +185,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException('Metric={} must be unique'.format(metric),
                                   INVALID_PARAMETER_VALUE)
 
-    def log_param(self, run_uuid, param):
-        # if we try to update the value of an existing param this will fail
-        # because it will try to create it with same run_uuid, param key
-        try:
-            self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key,
-                                value=param.value)
-        except sqlalchemy.exc.IntegrityError:
-            raise MlflowException('changing parameter {} value is not allowed'.format((run_uuid,
-                                                                                      param)),
-                                  INVALID_PARAMETER_VALUE)
-
-    def set_tag(self, run_uuid, tag):
-        new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
-        self._save_to_db(new_tag)
-
-    def get_param(self, run_uuid, param_name):
-        param = self.session.query(SqlParam).get((param_name, run_uuid))
-
-        if param is None:
-            raise MlflowException('Param={} does not exist'.format(param_name),
-                                  RESOURCE_DOES_NOT_EXIST)
-
-        return param.value
-
-    def get_metric_history(self, run_uuid, metric_key):
-        metrics = self.session.query(SqlMetric.value).filter_by(run_uuid=run_uuid, key=metric_key)
-        values = []
-        for metric in metrics:
-            values.append(metric.value)
-
-        return values
-
     def get_metric(self, run_uuid, metric_key):
-        metric = self.session.query(SqlMetric.value).filter_by(
+        metric = self.session.query(SqlMetric).filter_by(
             run_uuid=run_uuid, key=metric_key
         ).order_by(sqlalchemy.desc(SqlMetric.timestamp)).first()
 
@@ -225,7 +194,59 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException('Metric={} does not exist'.format(metric_key),
                                   RESOURCE_DOES_NOT_EXIST)
 
-        return metric.value
+        return metric.to_mlflow_entity()
+
+    def get_metric_history(self, run_uuid, metric_key):
+        metrics = self.session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
+        return [metric.to_mlflow_entity() for metric in metrics]
+
+    def get_all_metrics(self, run_uuid):
+        max_ts = label("timestamp", func.max(SqlMetric.timestamp))
+        subq = self.session.query(SqlMetric.key, max_ts)\
+            .filter_by(run_uuid=run_uuid)\
+            .group_by(SqlMetric.key)\
+            .subquery()
+        metrics = self.session.query(SqlMetric)\
+            .filter_by(run_uuid=run_uuid)\
+            .join(subq, and_(SqlMetric.key == subq.c.key,
+                             SqlMetric.timestamp == subq.c.timestamp)).all()
+        return [metric.to_mlflow_entity() for metric in metrics]
+
+    def log_param(self, run_uuid, param):
+        # if we try to update the value of an existing param this will fail
+        # because it will try to create it with same run_uuid, param key
+        try:
+            self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key,
+                                value=param.value)
+        except sqlalchemy.exc.IntegrityError:
+            raise MlflowException('Changing param value is not allowed'.format((run_uuid, param)),
+                                  INVALID_PARAMETER_VALUE)
+
+    def get_param(self, run_uuid, param_name):
+        param = self.session.query(SqlParam).filter_by(run_uuid=run_uuid, key=param_name).first()
+        if param is None:
+            raise MlflowException('Param={} does not exist'.format(param_name),
+                                  RESOURCE_DOES_NOT_EXIST)
+        return param.to_mlflow_entity()
+
+    def get_all_params(self, run_uuid):
+        params = self.session.query(SqlParam).filter_by(run_uuid=run_uuid).all()
+        return [param.to_mlflow_entity() for param in params]
+
+    def set_tag(self, run_uuid, tag):
+        new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
+        self._save_to_db(new_tag)
+
+    def get_tag(self, run_uuid, tag_name):
+        tag = self.session.query(SqlTag).filter_by(run_uuid=run_uuid, key=tag_name).first()
+        if tag is None:
+            raise MlflowException('Tag={} does not exist'.format(tag_name),
+                                  RESOURCE_DOES_NOT_EXIST)
+        return tag.to_mlflow_entity()
+
+    def get_all_tags(self, run_uuid):
+        tags = self.session.query(SqlTag).filter_by(run_uuid=run_uuid).all()
+        return [tag.to_mlflow_entity() for tag in tags]
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         runs = [run.to_mlflow_entity()

@@ -186,11 +186,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(v, getattr(run.info, k))
 
     def _run_factory(self, name='test', experiment_id=None, config=None):
-        m1 = models.SqlMetric(key='accuracy', value=0.89)
-        m2 = models.SqlMetric(key='recal', value=0.89)
-        p1 = models.SqlParam(key='loss', value='test param')
-        p2 = models.SqlParam(key='blue', value='test param')
-
         if not experiment_id:
             experiment = self._experiment_factory('test exp')
             experiment_id = experiment.experiment_id
@@ -212,11 +207,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         }
 
         run = models.SqlRun(**config)
-
-        run.params.append(p1)
-        run.params.append(p2)
-        run.metrics.append(m1)
-        run.metrics.append(m2)
         self.session.add(run)
 
         return run
@@ -325,8 +315,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Should return duplicates as well
         # MLflow RunData contains only the last reported values for metrics.
         sql_run_metrics = self.store._get_run(run.info.run_uuid, ViewType.ALL).metrics
-        self.assertEqual(4, len(sql_run_metrics))
-        self.assertEqual(3, len(run.data.metrics))
+        self.assertEqual(2, len(sql_run_metrics))
+        self.assertEqual(1, len(run.data.metrics))
 
         found = False
         for m in run.data.metrics:
@@ -365,7 +355,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertIsNotNone(actual)
 
         run = self.store.get_run(run.run_uuid)
-        self.assertEqual(4, len(run.data.params))
+        self.assertEqual(2, len(run.data.params))
 
         found = False
         for m in run.data.params:
@@ -416,18 +406,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.session.commit()
 
         for expected in run.metrics:
-            actual = self.store.get_metric(run.run_uuid,
-                                           expected.key)
-            self.assertEqual(expected.value, actual)
-
-    def test_get_param(self):
-        run = self._run_factory('test')
-        self.session.commit()
-
-        for expected in run.params:
-            actual = self.store.get_param(run.run_uuid,
-                                          expected.key)
-            self.assertEqual(expected.value, actual)
+            actual = self.store.get_metric(run.run_uuid, expected.key)
+            self.assertEqual(expected.key, actual.key)
+            self.assertEqual(expected.value, actual.value)
+            self.assertEqual(expected.timestamp, actual.timestamp)
 
     def test_get_metric_history(self):
         run = self._run_factory('test')
@@ -443,7 +425,83 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         actual = self.store.get_metric_history(run.run_uuid, key)
 
-        self.assertSequenceEqual([m.value for m in expected], actual)
+        self.assertSequenceEqual([(m.key, m.value, m.timestamp) for m in expected],
+                                 [(m.key, m.value, m.timestamp) for m in actual])
+
+    def test_get_all_metrics(self):
+        exp1 = self._experiment_factory('test_all_metrics')
+        run_uuid = self._run_factory(experiment_id=exp1.experiment_id).run_uuid
+
+        # log some unique metrics
+        unique_metrics = [
+            entities.Metric("m1", 1.0, 1),
+            entities.Metric("m2", 22.0, 1),
+            entities.Metric("m3", 300.0, 30)
+        ]
+        for m in unique_metrics:
+            self.store.log_metric(run_uuid, m)
+        # log some duplicates
+        self.store.log_metric(run_uuid, entities.Metric("m4", 44.0, 100))
+        last_ts = entities.Metric("m4", 45.0, 2000)
+        self.store.log_metric(run_uuid, last_ts)
+        self.store.log_metric(run_uuid, entities.Metric("m4", 46.0, 82))
+
+        expected = unique_metrics + [last_ts]
+        actual = self.store.get_all_metrics(run_uuid)
+        self.assertSequenceEqual([(m.key, m.value, m.timestamp) for m in expected],
+                                 [(m.key, m.value, m.timestamp) for m in actual])
+
+    def test_get_param(self):
+        run = self._run_factory('test')
+        self.session.commit()
+
+        for expected in run.params:
+            actual = self.store.get_param(run.run_uuid, expected.key)
+            self.assertEqual(expected.key, actual.key)
+            self.assertEqual(expected.value, actual.value)
+
+    def test_get_all_params(self):
+        exp1 = self._experiment_factory('test_all_params')
+        run_uuid = self._run_factory(experiment_id=exp1.experiment_id).run_uuid
+
+        # log some unique metrics
+        params = [
+            entities.Param("p1", "val"),
+            entities.Param("p2", "other"),
+            entities.Param("p3", "val")
+        ]
+        for p in params:
+            self.store.log_param(run_uuid, p)
+
+        actual = self.store.get_all_params(run_uuid)
+        self.assertSequenceEqual([(p.key, p.value) for p in params],
+                                 [(p.key, p.value) for p in actual])
+
+    def test_get_tag(self):
+        run = self._run_factory('test')
+        self.session.commit()
+
+        for expected in run.tags:
+            actual = self.store.get_tag(run.run_uuid, expected.key)
+            self.assertEqual(expected.key, actual.key)
+            self.assertEqual(expected.value, actual.value)
+
+    def test_get_all_tags(self):
+        exp1 = self._experiment_factory('test_all_tags')
+        run_uuid = self._run_factory(experiment_id=exp1.experiment_id).run_uuid
+
+        # log some unique metrics
+        tags = [
+            entities.RunTag("t1", "val"*2),
+            entities.RunTag("t2", "other"*100),
+            entities.RunTag("t3", "val"*20)
+        ]
+        for t in tags:
+            self.store.set_tag(run_uuid, t)
+
+        actual = self.store.get_all_tags(run_uuid)
+        self.assertSequenceEqual([(t.key, t.value) for t in tags],
+                                 [(t.key, t.value) for t in actual])
 
     def test_list_run_infos(self):
         exp1 = self._experiment_factory('test_exp')
