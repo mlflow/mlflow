@@ -2,9 +2,11 @@
 azure-storage
 google-cloud-storage
 h2o
-boto3
+botocore<=1.12.84
+boto3<=1.9.84
 mock==2.0.0
 moto
+pandas<=0.23.4
 prospector[with_pyroma]==0.12.7
 pep8==1.7.1
 pyarrow
