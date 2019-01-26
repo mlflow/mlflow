@@ -30,7 +30,7 @@ RunStatusTypes = [
 
 def _create_entity(base, model):
 
-    # create dict of kwargs properties for entity and return the intialized entity
+    # create dict of kwargs properties for entity and return the initialized entity
     config = {}
     for k in base._properties():
         # check if its mlflow entity and build it
@@ -39,7 +39,12 @@ def _create_entity(base, model):
         # Run data contains list for metrics, params and tags
         # so obj will be a list so we need to convert those items
         if k == 'metrics':
-            obj = [Metric(o.key, o.value, o.timestamp) for o in obj]
+            # only get latest recorded metrics per key
+            metrics = {}
+            for o in obj:
+                if o.key not in metrics or o.timestamp > metrics.get(o.key).timestamp:
+                    metrics[o.key] = Metric(o.key, o.value, o.timestamp)
+            obj = metrics.values()
 
         if k == 'params':
             obj = [Param(o.key, o.value) for o in obj]
@@ -139,7 +144,7 @@ class SqlMetric(Base):
     )
 
     def __repr__(self):
-        return '<SqlMetric({}, {})>'.format(self.key, self.value)
+        return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
 
     def to_mlflow_entity(self):
         return _create_entity(Metric, self)
