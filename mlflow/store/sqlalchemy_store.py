@@ -152,12 +152,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException('The run {} must be in an active lifecycle_stage.'
+            raise MlflowException("The run {} must be in 'active' lifecycle_stage."
                                   .format(run.run_uuid))
 
     def _check_run_is_deleted(self, run):
         if run.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException('The run {} must be in an deleted lifecycle_stage.'
+            raise MlflowException("The run {} must be in 'deleted' lifecycle_stage."
                                   .format(run.run_uuid))
 
     def update_run_info(self, run_uuid, run_status, end_time):

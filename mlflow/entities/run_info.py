@@ -7,13 +7,13 @@ from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 
 def check_run_is_active(run_info):
     if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
-        raise MlflowException('The run {} must be in an active lifecycle_stage.'
+        raise MlflowException("The run {} must be in 'active' lifecycle_stage."
                               .format(run_info.run_uuid))
 
 
 def check_run_is_deleted(run_info):
     if run_info.lifecycle_stage != LifecycleStage.DELETED:
-        raise MlflowException('The run {} must be in an deleted lifecycle_stage.'
+        raise MlflowException("The run {} must be in 'deleted' lifecycle_stage."
                               .format(run_info.run_uuid))
 
 
