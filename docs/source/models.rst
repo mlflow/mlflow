@@ -504,6 +504,7 @@ The resulting UDF is based Spark's Pandas UDF and is currently limited to produc
 value or an array of values of the same type per observation. By default, we return the first
 numeric column as a double. You can control what result is returned by supplying ``result_type``
 argument. The following values are supported:
+
     * ``'int'`` or IntegerType_: The leftmost integer that can fit in
       ``int32`` result is returned or exception is raised if there is none.
     * ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
@@ -529,10 +530,8 @@ argument. The following values are supported:
 .. rubric:: Example
 
 .. code:: python
+
     from pyspark.sql.types import ArrayType, FloatType
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
-
-
-

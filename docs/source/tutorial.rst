@@ -57,57 +57,8 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
   .. container:: python
 
     The code is located at ``examples/sklearn_elasticnet_wine/train.py`` and is reproduced below.
-
-    .. code:: python
-
-        import os
-        import sys
-
-        import pandas as pd
-        import numpy as np
-        from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-        from sklearn.model_selection import train_test_split
-        from sklearn.linear_model import ElasticNet
-
-        import mlflow
-        import mlflow.sklearn
-        # Run from the root of MLflow
-        # Read the wine-quality csv file
-        wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
-        data = pd.read_csv(wine_path)
-
-        # Split the data into training and test sets. (0.75, 0.25) split.
-        train, test = train_test_split(data)
-
-        # The predicted column is "quality" which is a scalar from [3, 9]
-        train_x = train.drop(["quality"], axis=1)
-        test_x = test.drop(["quality"], axis=1)
-        train_y = train[["quality"]]
-        test_y = test[["quality"]]
-
-        alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.5
-        l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
-
-        with mlflow.start_run():
-            lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
-            lr.fit(train_x, train_y)
-
-            predicted_qualities = lr.predict(test_x)
-
-            (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
-
-            print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
-            print("  RMSE: %s" % rmse)
-            print("  MAE: %s" % mae)
-            print("  R2: %s" % r2)
-
-            mlflow.log_param("alpha", alpha)
-            mlflow.log_param("l1_ratio", l1_ratio)
-            mlflow.log_metric("rmse", rmse)
-            mlflow.log_metric("r2", r2)
-            mlflow.log_metric("mae", mae)
-
-            mlflow.sklearn.log_model(lr, "model")
+    
+    .. literalinclude:: ../../examples/sklearn_elasticnet_wine/train.py
 
     This example uses the familiar pandas, numpy, and sklearn APIs to create a simple machine learning
     model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
@@ -136,52 +87,9 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     The code is located at ``examples/r_wine/train.R`` and is reproduced below.
 
-    .. code:: R
+    .. literalinclude:: ../../examples/r_wine/train.R
 
-      library(mlflow)
-      library(glmnet)
-
-      # Read the wine-quality csv file
-      data <- read.csv("../wine-quality.csv")
-
-      # Split the data into training and test sets. (0.75, 0.25) split.
-      sampled <- sample(1:nrow(data), 0.75 * nrow(data))
-      train <- data[sampled, ]
-      test <- data[-sampled, ]
-
-      # The predicted column is "quality" which is a scalar from [3, 9]
-      train_x <- as.matrix(train[, !(names(train) == "quality")])
-      test_x <- as.matrix(test[, !(names(train) == "quality")])
-      train_y <- train[, "quality"]
-      test_y <- test[, "quality"]
-
-      alpha <- mlflow_param("alpha", 0.5, "numeric")
-      lambda <- mlflow_param("lambda", 0.5, "numeric")
-
-      with(mlflow_start_run(), {
-        model <- glmnet(train_x, train_y, alpha = alpha, lambda = lambda, family = "gaussian")
-        predictor <- crate(~ glmnet::predict.glmnet(model, as.matrix(.x)), model)
-        predicted <- predictor(test_x)
-
-        rmse <- sqrt(mean((predicted - test_y) ^ 2))
-        mae <- mean(abs(predicted - test_y))
-        r2 <- as.numeric(cor(predicted, test_y) ^ 2)
-
-        message("Elasticnet model (alpha=", alpha, ", lambda=", lambda, "):")
-        message("  RMSE: ", rmse)
-        message("  MAE: ", mae)
-        message("  R2: ", r2)
-
-        mlflow_log_param("alpha", alpha)
-        mlflow_log_param("lambda", lambda)
-        mlflow_log_metric("rmse", rmse)
-        mlflow_log_metric("r2", r2)
-        mlflow_log_metric("mae", mae)
-
-        mlflow_log_model(predictor, "model")
-      })
-
-    This example uses the familiar `glmnet` package to create a simple machine learning
+    This example uses the familiar ``glmnet`` package to create a simple machine learning
     model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
     training run, like the hyperparameters ``alpha`` and ``lambda``, used to train the model and metrics, like
     the root mean square error, used to evaluate the model. The example also serializes the
