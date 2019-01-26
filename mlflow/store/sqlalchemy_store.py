@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.search_utils import does_run_match_clause
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -227,11 +228,17 @@ class SqlAlchemyStore(AbstractStore):
         return metric.value
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
-        raise NotImplementedError()
+        runs = [run.to_mlflow_entity()
+                for exp in experiment_ids
+                for run in self._list_runs(exp, run_view_type)]
+        if len(search_expressions) == 0:
+            return runs
+        return [r for r in runs if all([does_run_match_clause(r, s) for s in search_expressions])]
 
-    def list_run_infos(self, experiment_id, _=None):
-        exp = self.session.query(SqlExperiment).get(experiment_id)
-        infos = []
-        for run in exp.runs:
-            infos.append(run.to_mlflow_entity().info)
-        return infos
+    def _list_runs(self, experiment_id, run_view_type):
+        exp = self._list_experiments(experiments=[experiment_id], view_type=ViewType.ALL).first()
+        stages = set(LifecycleStage.view_type_to_stages(run_view_type))
+        return [run for run in exp.runs if run.lifecycle_stage in stages]
+
+    def list_run_infos(self, experiment_id, run_view_type):
+        return [r.to_mlflow_entity().info for r in self._list_runs(experiment_id, run_view_type)]
