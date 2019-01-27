@@ -219,7 +219,7 @@ class SqlAlchemyStore(AbstractStore):
             self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key,
                                 value=param.value)
         except sqlalchemy.exc.IntegrityError:
-            raise MlflowException('Changing param value is not allowed'.format((run_uuid, param)),
+            raise MlflowException('Changing param value is not allowed. Run={}'.format(run_uuid),
                                   INVALID_PARAMETER_VALUE)
 
     def get_param(self, run_uuid, param_name):
