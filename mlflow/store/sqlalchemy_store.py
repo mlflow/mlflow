@@ -119,12 +119,13 @@ class SqlAlchemyStore(AbstractStore):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                   INVALID_STATE)
-        status = RunStatus.to_string(RunStatus.RUNNING)
+
         run_uuid = uuid.uuid4().hex
         run = SqlRun(name=run_name or "", artifact_uri=None, run_uuid=run_uuid,
                      experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                      source_name=source_name, entry_point_name=entry_point_name,
-                     user_id=user_id, status=status, start_time=start_time, end_time=None,
+                     user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
+                     start_time=start_time, end_time=None,
                      source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
 
         for tag in tags:
