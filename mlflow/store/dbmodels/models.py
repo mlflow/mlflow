@@ -6,15 +6,11 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
-    SourceType, RunStatus, Run)
+    SourceType, RunStatus, Run, ViewType)
+from mlflow.entities.lifecycle_stage import LifecycleStage
 
 Base = declarative_base()
 
-
-ExperimentLifecycleStageTypes = [
-    Experiment.ACTIVE_LIFECYCLE,
-    Experiment.DELETED_LIFECYCLE
-]
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -31,15 +27,10 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.RUNNING)
 ]
 
-RunLifecycleStageTypes = [
-    RunInfo.ACTIVE_LIFECYCLE,
-    RunInfo.DELETED_LIFECYCLE
-]
-
 
 def _create_entity(base, model):
 
-    # create dict of kwargs properties for entity and return the intialized entity
+    # create dict of kwargs properties for entity and return the initialized entity
     config = {}
     for k in base._properties():
         # check if its mlflow entity and build it
@@ -48,7 +39,12 @@ def _create_entity(base, model):
         # Run data contains list for metrics, params and tags
         # so obj will be a list so we need to convert those items
         if k == 'metrics':
-            obj = [Metric(o.key, o.value, o.timestamp) for o in obj]
+            # only get latest recorded metrics per key
+            metrics = {}
+            for o in obj:
+                if o.key not in metrics or o.timestamp > metrics.get(o.key).timestamp:
+                    metrics[o.key] = Metric(o.key, o.value, o.timestamp)
+            obj = metrics.values()
 
         if k == 'params':
             obj = [Param(o.key, o.value) for o in obj]
@@ -66,11 +62,12 @@ class SqlExperiment(Base):
     experiment_id = Column(Integer, autoincrement=True)
     name = Column(String(256), unique=True, nullable=False)
     artifact_location = Column(String(256), nullable=True)
-    lifecycle_stage = Column(String(32), default=Experiment.ACTIVE_LIFECYCLE)
+    lifecycle_stage = Column(String(32), default=LifecycleStage.ACTIVE)
 
     __table_args__ = (
         CheckConstraint(
-            lifecycle_stage.in_(ExperimentLifecycleStageTypes), name='lifecycle_stage'),
+            lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+            name='lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
@@ -94,7 +91,7 @@ class SqlRun(Base):
     start_time = Column(BigInteger, default=int(time.time()))
     end_time = Column(BigInteger, nullable=True, default=None)
     source_version = Column(String(50))
-    lifecycle_stage = Column(String(20), default=RunInfo.ACTIVE_LIFECYCLE)
+    lifecycle_stage = Column(String(20), default=LifecycleStage.ACTIVE)
     artifact_uri = Column(String(20), default=None)
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
     experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all'))
@@ -102,7 +99,8 @@ class SqlRun(Base):
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(RunLifecycleStageTypes), name='lifecycle_stage'),
+        CheckConstraint(lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+                        name='lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
@@ -146,7 +144,7 @@ class SqlMetric(Base):
     )
 
     def __repr__(self):
-        return '<SqlMetric({}, {})>'.format(self.key, self.value)
+        return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
 
     def to_mlflow_entity(self):
         return _create_entity(Metric, self)
