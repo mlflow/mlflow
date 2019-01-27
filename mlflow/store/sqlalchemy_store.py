@@ -1,13 +1,16 @@
 import sqlalchemy
 import uuid
+
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
-from mlflow.entities import Experiment, RunInfo, RunStatus, SourceType
+from mlflow.entities import RunStatus, SourceType
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.search_utils import does_run_match_clause
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -51,7 +54,7 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException('Invalid experiment name', INVALID_PARAMETER_VALUE)
         try:
             experiment = SqlExperiment(
-                name=name, lifecycle_stage=Experiment.ACTIVE_LIFECYCLE,
+                name=name, lifecycle_stage=LifecycleStage.ACTIVE,
                 artifact_location=artifact_location
             )
             self.session.add(experiment)
@@ -65,12 +68,7 @@ class SqlAlchemyStore(AbstractStore):
         return experiment.to_mlflow_entity()
 
     def _list_experiments(self, experiments, view_type=ViewType.ACTIVE_ONLY):
-        stages = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
-            stages.append(Experiment.ACTIVE_LIFECYCLE)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
-            stages.append(Experiment.DELETED_LIFECYCLE)
-
+        stages = LifecycleStage.view_type_to_stages(view_type)
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
 
         if len(experiments) > 0:
@@ -97,17 +95,17 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_experiment(self, experiment_id):
         experiment = self._get_experiment(experiment_id, ViewType.ACTIVE_ONLY)
-        experiment.lifecycle_stage = Experiment.DELETED_LIFECYCLE
+        experiment.lifecycle_stage = LifecycleStage.DELETED
         self._save_to_db(experiment)
 
     def restore_experiment(self, experiment_id):
         experiment = self._get_experiment(experiment_id, ViewType.DELETED_ONLY)
-        experiment.lifecycle_stage = Experiment.ACTIVE_LIFECYCLE
+        experiment.lifecycle_stage = LifecycleStage.ACTIVE
         self._save_to_db(experiment)
 
     def rename_experiment(self, experiment_id, new_name):
         experiment = self._get_experiment(experiment_id, ViewType.ALL)
-        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException('Cannot rename a non-active experiment.', INVALID_STATE)
 
         experiment.name = new_name
@@ -117,7 +115,7 @@ class SqlAlchemyStore(AbstractStore):
                    entry_point_name, start_time, source_version, tags, parent_run_id):
         experiment = self.get_experiment(experiment_id)
 
-        if experiment.lifecycle_stage != Experiment.ACTIVE_LIFECYCLE:
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                   INVALID_STATE)
         status = RunStatus.to_string(RunStatus.RUNNING)
@@ -126,7 +124,7 @@ class SqlAlchemyStore(AbstractStore):
                      experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                      source_name=source_name, entry_point_name=entry_point_name,
                      user_id=user_id, status=status, start_time=start_time, end_time=None,
-                     source_version=source_version, lifecycle_stage=RunInfo.ACTIVE_LIFECYCLE)
+                     source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
 
         for tag in tags:
             run.tags.append(SqlTag(key=tag.key, value=tag.value))
@@ -140,12 +138,7 @@ class SqlAlchemyStore(AbstractStore):
         return run.to_mlflow_entity()
 
     def _get_run(self, run_uuid, view_type):
-        stages = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
-            stages.append(RunInfo.ACTIVE_LIFECYCLE)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
-            stages.append(RunInfo.DELETED_LIFECYCLE)
-
+        stages = LifecycleStage.view_type_to_stages(view_type)
         runs = self.session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid,
                                                  SqlRun.lifecycle_stage.in_(stages)).all()
 
@@ -175,12 +168,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def restore_run(self, run_id):
         run = self._get_run(run_id, ViewType.DELETED_ONLY)
-        run.lifecycle_stage = RunInfo.ACTIVE_LIFECYCLE
+        run.lifecycle_stage = LifecycleStage.ACTIVE
         self._save_to_db(run)
 
     def delete_run(self, run_id):
         run = self._get_run(run_id, ViewType.ACTIVE_ONLY)
-        run.lifecycle_stage = RunInfo.DELETED_LIFECYCLE
+        run.lifecycle_stage = LifecycleStage.DELETED
         self._save_to_db(run)
 
     def log_metric(self, run_uuid, metric):
@@ -235,11 +228,17 @@ class SqlAlchemyStore(AbstractStore):
         return metric.value
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
-        raise NotImplementedError()
+        runs = [run.to_mlflow_entity()
+                for exp in experiment_ids
+                for run in self._list_runs(exp, run_view_type)]
+        if len(search_expressions) == 0:
+            return runs
+        return [r for r in runs if all([does_run_match_clause(r, s) for s in search_expressions])]
 
-    def list_run_infos(self, experiment_id, _=None):
-        exp = self.session.query(SqlExperiment).get(experiment_id)
-        infos = []
-        for run in exp.runs:
-            infos.append(run.to_mlflow_entity().info)
-        return infos
+    def _list_runs(self, experiment_id, run_view_type):
+        exp = self._list_experiments(experiments=[experiment_id], view_type=ViewType.ALL).first()
+        stages = set(LifecycleStage.view_type_to_stages(run_view_type))
+        return [run for run in exp.runs if run.lifecycle_stage in stages]
+
+    def list_run_infos(self, experiment_id, run_view_type):
+        return [r.to_mlflow_entity().info for r in self._list_runs(experiment_id, run_view_type)]
