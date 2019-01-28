@@ -437,30 +437,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([(m.key, m.value, m.timestamp) for m in expected],
                                  [(m.key, m.value, m.timestamp) for m in actual])
 
-    def test_get_all_metrics(self):
-        exp1 = self._experiment_factory('test_all_metrics')
-        config = self._get_run_configs(experiment_id=exp1.experiment_id)
-        run_uuid = self._run_factory(config).run_uuid
-
-        # log some unique metrics
-        unique_metrics = [
-            entities.Metric("m1", 1.0, 1),
-            entities.Metric("m2", 22.0, 1),
-            entities.Metric("m3", 300.0, 30)
-        ]
-        for m in unique_metrics:
-            self.store.log_metric(run_uuid, m)
-        # log some duplicates
-        self.store.log_metric(run_uuid, entities.Metric("m4", 44.0, 100))
-        last_ts = entities.Metric("m4", 45.0, 2000)
-        self.store.log_metric(run_uuid, last_ts)
-        self.store.log_metric(run_uuid, entities.Metric("m4", 46.0, 82))
-
-        expected = unique_metrics + [last_ts]
-        actual = self.store.get_all_metrics(run_uuid)
-        self.assertSequenceEqual([(m.key, m.value, m.timestamp) for m in expected],
-                                 [(m.key, m.value, m.timestamp) for m in actual])
-
     def test_get_param(self):
         run = self._run_factory()
         self.session.commit()
@@ -470,23 +446,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(expected.key, actual.key)
             self.assertEqual(expected.value, actual.value)
 
-    def test_get_all_params(self):
-        exp1 = self._experiment_factory('test_all_params')
-        run = self._run_factory(self._get_run_configs(experiment_id=exp1.experiment_id)).run_uuid
-
-        # log some unique metrics
-        params = [
-            entities.Param("p1", "val"),
-            entities.Param("p2", "other"),
-            entities.Param("p3", "val")
-        ]
-        for p in params:
-            self.store.log_param(run, p)
-
-        actual = self.store.get_all_params(run)
-        self.assertSequenceEqual([(p.key, p.value) for p in params],
-                                 [(p.key, p.value) for p in actual])
-
     def test_get_tag(self):
         run = self._run_factory()
         self.session.commit()
@@ -495,23 +454,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             actual = self.store.get_tag(run.run_uuid, expected.key)
             self.assertEqual(expected.key, actual.key)
             self.assertEqual(expected.value, actual.value)
-
-    def test_get_all_tags(self):
-        exp1 = self._experiment_factory('test_all_tags')
-        run = self._run_factory(self._get_run_configs(experiment_id=exp1.experiment_id)).run_uuid
-
-        # log some unique metrics
-        tags = [
-            entities.RunTag("t1", "val"*2),
-            entities.RunTag("t2", "other"*100),
-            entities.RunTag("t3", "val"*20)
-        ]
-        for t in tags:
-            self.store.set_tag(run, t)
-
-        actual = self.store.get_all_tags(run)
-        self.assertSequenceEqual([(t.key, t.value) for t in tags],
-                                 [(t.key, t.value) for t in actual])
 
     def test_list_run_infos(self):
         exp1 = self._experiment_factory('test_exp')

@@ -201,18 +201,6 @@ class SqlAlchemyStore(AbstractStore):
         metrics = self.session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
         return [metric.to_mlflow_entity() for metric in metrics]
 
-    def get_all_metrics(self, run_uuid):
-        max_ts = label("timestamp", func.max(SqlMetric.timestamp))
-        subq = self.session.query(SqlMetric.key, max_ts)\
-            .filter_by(run_uuid=run_uuid)\
-            .group_by(SqlMetric.key)\
-            .subquery()
-        metrics = self.session.query(SqlMetric)\
-            .filter_by(run_uuid=run_uuid)\
-            .join(subq, and_(SqlMetric.key == subq.c.key,
-                             SqlMetric.timestamp == subq.c.timestamp)).all()
-        return [metric.to_mlflow_entity() for metric in metrics]
-
     def log_param(self, run_uuid, param):
         # if we try to update the value of an existing param this will fail
         # because it will try to create it with same run_uuid, param key
@@ -230,10 +218,6 @@ class SqlAlchemyStore(AbstractStore):
                                   RESOURCE_DOES_NOT_EXIST)
         return param.to_mlflow_entity()
 
-    def get_all_params(self, run_uuid):
-        params = self.session.query(SqlParam).filter_by(run_uuid=run_uuid).all()
-        return [param.to_mlflow_entity() for param in params]
-
     def set_tag(self, run_uuid, tag):
         new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
         self._save_to_db(new_tag)
@@ -244,10 +228,6 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException('Tag={} does not exist'.format(tag_name),
                                   RESOURCE_DOES_NOT_EXIST)
         return tag.to_mlflow_entity()
-
-    def get_all_tags(self, run_uuid):
-        tags = self.session.query(SqlTag).filter_by(run_uuid=run_uuid).all()
-        return [tag.to_mlflow_entity() for tag in tags]
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         runs = [run.to_mlflow_entity()
