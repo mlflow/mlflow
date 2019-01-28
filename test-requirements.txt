@@ -26,5 +26,5 @@ pysftp
 keras
 attrdict==2.0.0
 azureml-sdk; python_version >= "3.0"
-cloudpickle
+cloudpickle==0.6.1
 pytest-localserver
