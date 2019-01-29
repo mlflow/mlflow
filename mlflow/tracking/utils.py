@@ -5,6 +5,8 @@ import sys
 
 from six.moves import urllib
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
@@ -22,6 +24,13 @@ _TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
 _TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
 _TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
 _TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
+
+_DBENGINES = [
+    'postgresql',
+    'mysql',
+    'sqlite',
+    'mssql',
+]
 
 
 _tracking_uri = None
@@ -69,12 +78,68 @@ def get_tracking_uri():
         return os.path.abspath("./mlruns")
 
 
+def get_artifact_uri(run_id, artifact_path=None):
+    """
+    Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,
+    the artifact root URI of the specified run will be returned; calls to ``log_artifact``
+    and ``log_artifacts`` write artifact(s) to subdirectories of the artifact root URI.
+
+    :param run_id: The ID of the run for which to obtain an absolute artifact URI.
+    :param artifact_path: The run-relative artifact path. For example,
+                          ``path/to/artifact``. If unspecified, the artifact root URI for the
+                          specified run will be returned.
+    :return: An *absolute* URI referring to the specified artifact or the specified run's artifact
+             root. For example, if an artifact path is provided and the specified run uses an
+             S3-backed  store, this may be a uri of the form
+             ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
+             is not provided and the specified run uses an S3-backed store, this may be a URI of
+             the form ``s3://<bucket_name>/path/to/artifact/root``.
+    """
+    if not run_id:
+        raise MlflowException(
+                message="A run_id must be specified in order to obtain an artifact uri!",
+                error_code=INVALID_PARAMETER_VALUE)
+
+    store = _get_store()
+    run = store.get_run(run_id)
+    if artifact_path is None:
+        return run.info.artifact_uri
+    else:
+        # Path separators may not be consistent across all artifact repositories. Therefore, when
+        # joining the run's artifact root directory with the artifact's relative path, we use the
+        # path module defined by the appropriate artifact repository
+        artifact_path_module =\
+            ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store).get_path_module()
+        return artifact_path_module.join(run.info.artifact_uri, artifact_path)
+
+
+def _download_artifact_from_uri(artifact_uri, output_path=None):
+    """
+    :param artifact_uri: The *absolute* URI of the artifact to download.
+    :param output_path: The local filesystem path to which to download the artifact. If unspecified,
+                        a local output path will be created.
+    """
+    store = _get_store()
+    artifact_path_module =\
+        ArtifactRepository.from_artifact_uri(artifact_uri, store).get_path_module()
+    artifact_src_dir = artifact_path_module.dirname(artifact_uri)
+    artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
+    artifact_repo = ArtifactRepository.from_artifact_uri(
+            artifact_uri=artifact_src_dir, store=store)
+    return artifact_repo.download_artifacts(
+            artifact_path=artifact_src_relative_path, dst_path=output_path)
+
+
 def _get_store(store_uri=None):
     store_uri = store_uri if store_uri else get_tracking_uri()
     # Default: if URI hasn't been set, return a FileStore
     if store_uri is None:
         return FileStore()
+
     # Pattern-match on the URI
+    if _is_db_uri(store_uri):
+        from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+        return SqlAlchemyStore(store_uri)
     if _is_databricks_uri(store_uri):
         return _get_databricks_rest_store(store_uri)
     if _is_local_uri(store_uri):
@@ -106,6 +171,12 @@ def _is_databricks_uri(uri):
 def _get_file_store(store_uri):
     path = urllib.parse.urlparse(store_uri).path
     return FileStore(path)
+
+
+def _is_db_uri(uri):
+    if uri.split(':')[0] not in _DBENGINES:
+        return False
+    return True
 
 
 def _get_rest_store(store_uri):

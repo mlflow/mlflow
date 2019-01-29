@@ -1,6 +1,6 @@
 import unittest
 
-from mlflow.entities import Experiment
+from mlflow.entities import Experiment, LifecycleStage
 from tests.helper_functions import random_int, random_file
 
 
@@ -15,7 +15,7 @@ class TestExperiment(unittest.TestCase):
     def test_creation_and_hydration(self):
         exp_id = random_int()
         name = "exp_%d_%d" % (random_int(), random_int())
-        lifecycle_stage = Experiment.ACTIVE_LIFECYCLE
+        lifecycle_stage = LifecycleStage.ACTIVE
         location = random_file(".json")
 
         exp = Experiment(exp_id, name, location, lifecycle_stage)
@@ -34,6 +34,6 @@ class TestExperiment(unittest.TestCase):
 
     def test_string_repr(self):
         exp = Experiment(experiment_id=0, name="myname", artifact_location="hi",
-                         lifecycle_stage=Experiment.ACTIVE_LIFECYCLE)
-        assert str(exp) == "<Experiment: experiment_id=0, name='myname', artifact_location='hi', " \
-                           "lifecycle_stage='active'>"
+                         lifecycle_stage=LifecycleStage.ACTIVE)
+        assert str(exp) == "<Experiment: artifact_location='hi', experiment_id=0, " \
+                           "lifecycle_stage='active', name='myname'>"

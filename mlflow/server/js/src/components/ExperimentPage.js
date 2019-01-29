@@ -113,7 +113,7 @@ class ExperimentPage extends Component {
 
   render() {
     return (
-      <div className="ExperimentPage">
+      <div className="ExperimentPage runs-table-flex-container" style={{height: "100%"}}>
         <RequestStateWrapper
           requestIds={this.getRequestIds()}
           errorRenderFunc={(requests) => {

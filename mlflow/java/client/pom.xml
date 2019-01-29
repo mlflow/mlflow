@@ -5,13 +5,13 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>0.8.1</version>
+    <version>0.8.2</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>mlflow-client</artifactId>
   <packaging>jar</packaging>
-  <version>0.8.1</version>
+  <version>0.8.2</version>
   <name>MLflow Tracking API</name>
   <url>http://mlflow.org</url>
   <properties>
@@ -137,6 +137,15 @@
               <shadedPattern>${mlflow.shade.packageName}.ini4j</shadedPattern>
             </relocation>
           </relocations>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
+              <resources>
+                <resource>public-suffix-list.txt</resource>
+                <resource>log4j.properties</resource>
+                <resource>.proto</resource>
+              </resources>
+            </transformer>
+          </transformers>
         </configuration>
         <executions>
           <execution>

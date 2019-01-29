@@ -6,7 +6,7 @@ import {
   LIST_ARTIFACTS_API,
   LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
 } from '../Actions';
-import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
+import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
 
@@ -106,19 +106,28 @@ export const getParams = (runUuid, state) => {
 };
 
 const paramsByRunUuid = (state = {}, action) => {
+  const paramArrToObject = (params) => {
+    const paramObj = {};
+    params.forEach((p) => paramObj[p.key] = Param.fromJs(p));
+    return paramObj;
+  };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
-      const runInfo = RunInfo.fromJs(action.payload.run.info);
-      return amendParamsByRunUuid(state, action.payload.run.data.params, runInfo.getRunUuid());
+      const run = action.payload.run;
+      const runUuid = run.info.run_uuid;
+      const params = run.data.params || [];
+      const newState = { ...state };
+      newState[runUuid] = paramArrToObject(params);
+      return newState;
     }
     case fulfilled(SEARCH_RUNS_API): {
       const runs = action.payload.runs;
-      let newState = { ...state };
+      const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          newState = amendParamsByRunUuid(
-              newState, rJson.data.params, run.getInfo().getRunUuid());
+          const runUuid = rJson.info.run_uuid;
+          const params = rJson.data.params || [];
+          newState[runUuid] = paramArrToObject(params);
         });
       }
       return newState;
@@ -128,23 +137,6 @@ const paramsByRunUuid = (state = {}, action) => {
   }
 };
 
-const amendParamsByRunUuid = (state, params, runUuid) => {
-  let newState = { ...state };
-  if (params) {
-    params.forEach((pJson) => {
-      const param = Param.fromJs(pJson);
-      const oldParams = newState[runUuid] ? newState[runUuid] : {};
-      newState = {
-        ...newState,
-        [runUuid]: {
-          ...oldParams,
-          [param.getKey()]: param,
-        }
-      };
-    });
-  }
-  return newState;
-};
 
 export const getRunTags = (runUuid, state) => {
   const tags = state.entities.tagsByRunUuid[runUuid];
@@ -156,19 +148,28 @@ export const getRunTags = (runUuid, state) => {
 };
 
 const tagsByRunUuid = (state = {}, action) => {
+  const tagArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => tagObj[tag.key] = RunTag.fromJs(tag));
+    return tagObj;
+  };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
-      return amendTagsByRunUuid(state, action.payload.run.data.tags, runInfo.getRunUuid());
+      const tags = action.payload.run.data.tags || [];
+      const runUuid = runInfo.getRunUuid();
+      const newState = {...state};
+      newState[runUuid] = tagArrToObject(tags);
+      return newState;
     }
     case fulfilled(SEARCH_RUNS_API): {
       const runs = action.payload.runs;
-      let newState = { ...state };
+      const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          newState = amendTagsByRunUuid(
-              newState, rJson.data.tags, run.getInfo().getRunUuid());
+          const runUuid = rJson.info.run_uuid;
+          const tags = rJson.data.tags || [];
+          newState[runUuid] = tagArrToObject(tags);
         });
       }
       return newState;

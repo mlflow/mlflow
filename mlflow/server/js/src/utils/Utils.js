@@ -125,13 +125,13 @@ class Utils {
   static renderSource(run, tags) {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
-      const GitHubMatch = run.source_name.match(Utils.getGitHubRegex());
-      if (GitHubMatch) {
-        let url = "https://github.com/" + GitHubMatch[1] + "/" + GitHubMatch[2].replace(/.git/, '');
-        if (GitHubMatch[3]) {
-          url = url + "/tree/master/" + GitHubMatch[3];
+      const gitHubMatch = run.source_name.match(Utils.getGitHubRegex());
+      if (gitHubMatch) {
+        let url = "https://github.com/" + gitHubMatch[1] + "/" + gitHubMatch[2].replace(/.git/, '');
+        if (gitHubMatch[3]) {
+          url = url + "/tree/master/" + gitHubMatch[3];
         }
-        res = <a href={url}>{res}</a>;
+        res = <a href={url} target='_top'>{res}</a>;
       }
       return res;
     } else if (run.source_type === "NOTEBOOK") {
@@ -146,7 +146,7 @@ class Utils {
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }
-        res = (<a title={run.source_name} href={url}>
+        res = (<a title={run.source_name} href={url} target='_top'>
           {Utils.baseName(run.source_name)}
         </a>);
       }
@@ -212,16 +212,21 @@ class Utils {
     if (run.source_version) {
       const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
       if (run.source_type === "PROJECT") {
-        const GitHubMatch = run.source_name.match(Utils.getGitHubRegex());
-        const BitBucketMatch = run.source_name.match(Utils.getBitBucketRegex());
-        if (GitHubMatch) {
-          const url = ("https://github.com/" + GitHubMatch[1] + "/" + GitHubMatch[2].replace(/.git/, '') +
-                     "/tree/" + run.source_version) + "/" + GitHubMatch[3];
+        const gitHubMatch = run.source_name.match(Utils.getGitHubRegex());
+        const bitBucketMatch = run.source_name.match(Utils.getBitBucketRegex());
+        if (gitHubMatch) {
+          const url = ("https://github.com/" + gitHubMatch[1] + "/" + gitHubMatch[2].replace(/.git/, '') +
+                     "/tree/" + run.source_version) + "/" + gitHubMatch[3];
           return <a href={url}>{versionString}</a>;
-        } else if (BitBucketMatch) {
-          const url = ("https://bitbucket.org/" + BitBucketMatch[1] + "/" +
-                     BitBucketMatch[2].replace(/.git/, '') + "/commits/" + run.source_version) + "/" + BitBucketMatch[3];
+        } else if (bitBucketMatch) {
+          const url = ("https://bitbucket.org/" + bitBucketMatch[1] + "/" +
+                     bitBucketMatch[2].replace(/.git/, '') + "/commits/" + run.source_version) + "/" + bitBucketMatch[3];
           return <a href={url}>{versionString}</a>;
+        const match = run.source_name.match(Utils.getGitHubRegex());
+        if (match) {
+          const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
+                     "/tree/" + run.source_version) + "/" + match[3];
+          return <a href={url} target='_top'>{versionString}</a>;
         }
         return versionString;
       } else {

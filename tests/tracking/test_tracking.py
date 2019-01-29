@@ -9,7 +9,7 @@ import pytest
 
 import mlflow
 from mlflow import tracking
-from mlflow.entities import RunStatus
+from mlflow.entities import RunStatus, LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
@@ -30,6 +30,18 @@ def test_create_experiment(tracking_uri_mock):
     exp_id = mlflow.create_experiment(
         "Some random experiment name %d" % random.randint(1, 1e6))
     assert exp_id is not None
+
+
+def test_create_experiment_with_duplicate_name(tracking_uri_mock):
+    name = "popular_name"
+    exp_id = mlflow.create_experiment(name)
+
+    with pytest.raises(MlflowException):
+        mlflow.create_experiment(name)
+
+    tracking.MlflowClient().delete_experiment(exp_id)
+    with pytest.raises(MlflowException):
+        mlflow.create_experiment(name)
 
 
 def test_set_experiment(tracking_uri_mock, reset_active_experiment):
@@ -57,9 +69,24 @@ def test_set_experiment(tracking_uri_mock, reset_active_experiment):
     end_run()
 
 
+def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
+    name = "dead_exp"
+    mlflow.set_experiment(name)
+    run = start_run()
+    end_run()
+    exp_id = run.info.experiment_id
+
+    tracking.MlflowClient().delete_experiment(exp_id)
+
+    with pytest.raises(MlflowException):
+        mlflow.set_experiment(name)
+
+
 def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
     reset_mock(MlflowClient, "get_experiment_by_name",
-               mock.Mock(return_value=attrdict.AttrDict(experiment_id=0)))
+               mock.Mock(return_value=attrdict.AttrDict(
+                   experiment_id=0,
+                   lifecycle_stage=LifecycleStage.ACTIVE)))
     reset_mock(MlflowClient, "create_experiment", mock.Mock())
 
     mlflow.set_experiment("my_exp")
@@ -246,3 +273,28 @@ def test_start_deleted_run():
         with mlflow.start_run(run_uuid=run_id):
             pass
     assert mlflow.active_run() is None
+
+
+def test_start_run_exp_id_0(tracking_uri_mock, reset_active_experiment):
+    mlflow.set_experiment("some-experiment")
+    # Create a run and verify that the current active experiment is the one we just set
+    with mlflow.start_run() as active_run:
+        exp_id = active_run.info.experiment_id
+        assert exp_id != 0
+        assert MlflowClient().get_experiment(exp_id).name == "some-experiment"
+    # Set experiment ID to 0 when creating a run, verify that the specified experiment ID is honored
+    with mlflow.start_run(experiment_id=0) as active_run:
+        assert active_run.info.experiment_id == 0
+
+
+def test_get_artifact_uri_with_artifact_path_unspecified_returns_artifact_root_dir():
+    with mlflow.start_run() as active_run:
+        assert mlflow.get_artifact_uri(artifact_path=None) == active_run.info.artifact_uri
+
+
+def test_get_artifact_uri_uses_currently_active_run_id():
+    artifact_path = "artifact"
+    with mlflow.start_run() as active_run:
+        assert mlflow.get_artifact_uri(artifact_path=artifact_path) ==\
+            tracking.utils.get_artifact_uri(
+                run_id=active_run.info.run_uuid, artifact_path=artifact_path)

@@ -47,7 +47,7 @@ def score_model_in_sagemaker_docker_container(
 
 
 def pyfunc_serve_and_score_model(
-        model_path, data, content_type, activity_polling_timeout_seconds=500):
+        model_path, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
     """
     :param model_path: Path to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
@@ -56,12 +56,17 @@ def pyfunc_serve_and_score_model(
                          one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
+    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
+                       example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
+                       flag to the scoring server to ensure that conda environment activation
+                       is skipped.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    proc = _start_scoring_proc(
-            cmd=['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"],
-            env=env)
+    scoring_cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"]
+    if extra_args is not None:
+        scoring_cmd += extra_args
+    proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
     for x in iter(proc.stdout.readline, ""):
         print(x)
         m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)

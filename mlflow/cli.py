@@ -15,6 +15,7 @@ import mlflow.experiments
 import mlflow.pyfunc.cli
 import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
+import mlflow.runs
 
 from mlflow.entities.experiment import Experiment
 from mlflow.utils.process import ShellCommandException
@@ -51,8 +52,8 @@ def cli():
                    Experiment.DEFAULT_EXPERIMENT_ID)
 # TODO: Add tracking server argument once we have it working.
 @click.option("--mode", "-m", metavar="MODE",
-              help="Execution mode to use for run. Supported values: 'local' (runs project"
-                   "locally) and 'databricks' (runs project on a Databricks cluster)."
+              help="Execution mode to use for run. Supported values: 'local' (runs project "
+                   "locally) and 'databricks' (runs project on a Databricks cluster). "
                    "Defaults to 'local'. If running against Databricks, will run against a "
                    "Databricks workspace determined as follows: if a Databricks tracking URI "
                    "of the form 'databricks://profile' has been set (e.g. by setting "
@@ -62,7 +63,7 @@ def cli():
                    "https://github.com/databricks/databricks-cli for more info on configuring a "
                    "Databricks CLI profile.")
 @click.option("--cluster-spec", "-c", metavar="FILE",
-              help="Path to JSON file (must end in '.json') or JSON string describing the cluster"
+              help="Path to JSON file (must end in '.json') or JSON string describing the cluster "
                    "to use when launching a run on Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
                    "more info. Note that MLflow runs are currently launched against a new cluster.")
@@ -84,7 +85,8 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     """
     Run an MLflow project from the given URI.
 
-    For local runs, blocks the run completes. Otherwise, runs the project asynchronously.
+    For local runs, the run will block until it completes.
+    Otherwise, the project will run asynchronously.
 
     If running locally (the default), the URI can be either a Git repository URI or a local path.
     If running on Databricks, the URI must be a Git repository.
@@ -217,6 +219,7 @@ cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
+cli.add_command(mlflow.runs.commands)
 
 if __name__ == '__main__':
     cli()

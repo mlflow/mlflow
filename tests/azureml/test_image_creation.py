@@ -6,16 +6,21 @@ import json
 import pytest
 import yaml
 import mock
+import numpy as np
 from mock import Mock
 
 import pandas as pd
+import pandas.testing
 import sklearn.datasets as datasets
 import sklearn.linear_model as glm
+from keras.models import Sequential
+from keras.layers import Dense
 from click.testing import CliRunner
 
 import mlflow
 import mlflow.azureml
 import mlflow.azureml.cli
+import mlflow.keras
 import mlflow.sklearn
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -59,14 +64,41 @@ def get_azure_workspace():
     return Workspace.get("test_workspace")
 
 
-@pytest.fixture(scope="session")
-def sklearn_model():
+@pytest.fixture(scope="module")
+def sklearn_data():
     iris = datasets.load_iris()
-    X = iris.data[:, :2]  # we only take the first two features.
+    x = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
+    return x, y
+
+
+@pytest.fixture(scope="module")
+def sklearn_model(sklearn_data):
+    x, y = sklearn_data
     linear_lr = glm.LogisticRegression()
-    linear_lr.fit(X, y)
+    linear_lr.fit(x, y)
     return linear_lr
+
+
+@pytest.fixture(scope="module")
+def keras_data():
+    iris = datasets.load_iris()
+    data = pd.DataFrame(data=np.c_[iris['data'], iris['target']],
+                        columns=iris['feature_names'] + ['target'])
+    y = data['target']
+    x = data.drop('target', axis=1)
+    return x, y
+
+
+@pytest.fixture(scope="module")
+def keras_model(keras_data):
+    x, y = keras_data
+    model = Sequential()
+    model.add(Dense(3, input_dim=4))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.fit(x, y)
+    return model
 
 
 @pytest.fixture
@@ -375,7 +407,13 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
 
     # Define the `init` and `score` methods contained in the execution script
     # pylint: disable=exec-used
-    exec(execution_script, globals())
+    # Define an empty globals dictionary to ensure that the initialize of the execution
+    # script does not depend on the current state of the test environment
+    globs = {}
+    exec(execution_script, globs)
+    # Update the set of global variables available to the test environment to include
+    # functions defined during the evaluation of the execution script
+    globals().update(globs)
     with AzureMLMocks() as aml_mocks:
         aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script.
@@ -390,9 +428,13 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         assert get_model_path_call_kwargs["version"] == model_version
 
 
-def test_execution_script_run_method_scores_pandas_dataframes_successfully(
-        sklearn_model, model_path):
+def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_numpy_arrays(
+        sklearn_model, sklearn_data, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+
+    pyfunc_model = mlflow.pyfunc.load_pyfunc(path=model_path)
+    pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
+    assert isinstance(pyfunc_outputs, np.ndarray)
 
     model_mock = Mock()
     model_mock.name = "model_name"
@@ -408,7 +450,13 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
 
     # Define the `init` and `score` methods contained in the execution script
     # pylint: disable=exec-used
-    exec(execution_script, globals())
+    # Define an empty globals dictionary to ensure that the initialize of the execution
+    # script does not depend on the current state of the test environment
+    globs = {}
+    exec(execution_script, globs)
+    # Update the set of global variables available to the test environment to include
+    # functions defined during the evaluation of the execution script
+    globals().update(globs)
     with AzureMLMocks() as aml_mocks:
         aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
         # Execute the `init` method of the execution script and load the sklearn model from the
@@ -418,10 +466,56 @@ def test_execution_script_run_method_scores_pandas_dataframes_successfully(
 
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
-        input_data = datasets.load_iris().data[:, :2]
         # pylint: disable=undefined-variable
-        output_data = run(pd.DataFrame(data=input_data).to_json(orient="split"))
-        assert len(output_data) == len(input_data)
+        output_data = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
+        np.testing.assert_array_equal(output_data, pyfunc_outputs)
+
+
+def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
+        keras_model, keras_data, model_path):
+    mlflow.keras.save_model(keras_model=keras_model, path=model_path)
+    pyfunc_model = mlflow.pyfunc.load_pyfunc(path=model_path)
+    pyfunc_outputs = pyfunc_model.predict(keras_data[0])
+    assert isinstance(pyfunc_outputs, pd.DataFrame)
+
+    model_mock = Mock()
+    model_mock.name = "model_name"
+    model_mock.version = 1
+
+    with TempDir() as tmp:
+        execution_script_path = tmp.path("dest")
+        mlflow.azureml._create_execution_script(
+                output_path=execution_script_path, azure_model=model_mock)
+
+        with open(execution_script_path, "r") as f:
+            execution_script = f.read()
+
+    # Define the `init` and `score` methods contained in the execution script
+    # pylint: disable=exec-used
+    # Define an empty globals dictionary to ensure that the initialize of the execution
+    # script does not depend on the current state of the test environment
+    globs = {}
+    exec(execution_script, globs)
+    # Update the set of global variables available to the test environment to include
+    # functions defined during the evaluation of the execution script
+    globals().update(globs)
+    with AzureMLMocks() as aml_mocks:
+        aml_mocks["get_model_path"].side_effect = lambda *args, **kwargs: model_path
+        # Execute the `init` method of the execution script and load the sklearn model from the
+        # mocked path
+        # pylint: disable=undefined-variable
+        init()
+
+        # Invoke the `run` method of the execution script with sample input data and verify that
+        # reasonable output data is produced
+        # pylint: disable=undefined-variable
+        output_raw = run(pd.DataFrame(data=keras_data[0]).to_json(orient="split"))
+        output_df = pd.DataFrame(output_raw)
+        pandas.testing.assert_frame_equal(
+            output_df,
+            pyfunc_outputs,
+            check_dtype=False,
+            check_less_precise=False)
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")

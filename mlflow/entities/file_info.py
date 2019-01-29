@@ -37,8 +37,3 @@ class FileInfo(_MLflowObject):
     @classmethod
     def from_proto(cls, proto):
         return cls(proto.path, proto.is_dir, proto.file_size)
-
-    @classmethod
-    def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["path", "is_dir", "file_size"]

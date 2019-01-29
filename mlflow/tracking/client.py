@@ -8,10 +8,10 @@ import os
 import time
 from six import iteritems
 
+from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
                                     _validate_tag_name, _validate_run_id
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
-from mlflow.tracking.utils import _get_store
 from mlflow.store.artifact_repo import ArtifactRepository
 
 _DEFAULT_USER_ID = "unknown"
@@ -29,7 +29,7 @@ class MlflowClient(object):
                              for more info.
         """
         self.tracking_uri = tracking_uri
-        self.store = _get_store(tracking_uri)
+        self.store = utils._get_store(tracking_uri)
 
     def get_run(self, run_id):
         """:return: :py:class:`mlflow.entities.Run` associated with the run ID."""
@@ -208,7 +208,7 @@ class MlflowClient(object):
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else int(time.time() * 1000)
-        status = status if status else "FINISHED"
+        status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
                                    end_time=end_time)
 

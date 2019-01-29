@@ -9,17 +9,17 @@
 }
 
 .ExperimentView td, .ExperimentView th {
-  border-top: 1px solid #e2e2e2;
-  border-bottom: 1px solid #e2e2e2;
+   border-top: 1px solid #e2e2e2;
+   border-bottom: 1px solid #e2e2e2;
 }
 
-.ExperimentView th.top-row {
+.ExperimentView .top-row {
   text-align: center;
   border-bottom: none;
   border-top: none;
 }
 
-.ExperimentView th.bottom-row {
+.ExperimentView .bottom-row {
   text-align: left;
   border-top: none;
 }
@@ -152,7 +152,7 @@ span.error-message {
   position: relative;
 }
 
-.ExperimentView th.sortable {
+.ExperimentView .sortable {
   white-space: nowrap;
   cursor: pointer;
 
@@ -194,8 +194,8 @@ span.error-message {
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: top;
+  height: 100%;
 }
-
 
 .ExperimentView .metric-param-container-cell {
   min-width: 280px;
@@ -204,13 +204,51 @@ span.error-message {
 .ExperimentView .metric-param-cell {
   display: inline-block;
   width: 250px;
-  padding: 2px;
+  padding: 4px;
 }
 
 .ExperimentView .metric-param-content {
-  padding: 4px;
+  padding-top: 0px;
 }
 
 .ExperimentView-expander:hover {
   cursor: pointer;
+}
+
+.ExperimentView .ReactVirtualized__Table__headerRow {
+  overflow: visible;
+  text-transform: inherit;
+  font-weight: inherit;
+}
+
+/* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
+.ExperimentView .ReactVirtualized__Table__rowColumn {
+  overflow: visible !important;
+}
+
+.ExperimentView .ReactVirtualized__Table__headerColumn {
+  color: rgb(136, 136, 136);
+}
+
+.ExperimentView .ReactVirtualized__Table .run-table-container {
+  padding: 8px;
+}
+
+.ExperimentView .ReactVirtualized__Table  .BaggedCell .run-table-container {
+  padding: 4px;
+}
+
+/**
+ * Style for ancestor elements of the runs table. Arranges its children along a vertical axis
+ * via (flex-direction: column). If the parent element has 'display: flex' set, will fill up
+ * 100% of the available vertical space (via 'flex: 1 1 auto')
+ */
+.runs-table-flex-container {
+  flex: 1 1 auto;
+  flex-direction: column;
+  display: flex;
+}
+
+.ExperimentView .ReactVirtualized__Table__row:hover {
+  background-color: #f5f5f5;
 }

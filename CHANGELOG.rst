@@ -1,6 +1,52 @@
 Changelog
 =========
 
+0.8.2 (2019-01-28)
+------------------
+
+MLflow 0.8.2 is a patch release on top of 0.8.1 containing only bug fixes and no breaking changes or features.
+
+Bug fixes:
+
+- [Python API] CloudPickle has been added to the set of MLflow library dependencies, fixing missing import errors when attempting to save models (#777, @tmielika)
+- [Python API] Fixed a malformed logging call that prevented ``mlflow.sagemaker.push_image_to_ecr()`` invocations from succeeding (#784, @jackblandin)
+- [Models] PyTorch models can now be saved with code dependencies, allowing model classes to be loaded successfully in new environments (#842, #836, @dbczumar)
+- [Artifacts] Fixed a timeout when logging zero-length files to DBFS artifact stores (#818, @smurching)
+
+
+0.8.1 (2018-12-21)
+------------------
+
+MLflow 0.8.1 introduces several significant improvements:
+
+- Improved UI responsiveness and load time, especially when displaying experiments containing hundreds to thousands of runs.
+- Improved visualizations, including interactive scatter plots for MLflow run comparisons
+- Expanded support for scoring Python models as Spark UDFs. For more information, see the `updated documentation for this feature <https://mlflow.org/docs/latest/models.html#export-a-python-function-model-as-an-apache-spark-udf>`_.
+- By default, saved models will now include a Conda environment specifying all of the dependencies necessary for loading them in a new environment.
+
+Features:
+
+- [API/CLI] Support for running MLflow projects from ZIP files (#759, @jmorefieldexpe)
+- [Python API] Support for passing model conda environments as dictionaries to ``save_model`` and ``log_model`` functions (#748, @dbczumar)
+- [Models] Default Anaconda environments have been added to many Python model flavors. By default, models produced by `save_model` and `log_model` functions will include an environment that specifies all of the versioned dependencies necessary to load and serve the models. Previously, users had to specify these environments manually. (#705, #707, #708, #749, @dbczumar)
+- [Scoring] Support for synchronous deployment of models to SageMaker (#717, @dbczumar)
+- [Tracking] Include the Git repository URL as a tag when tracking an MLflow run within a Git repository (#741, @whiletruelearn, @mateiz)
+- [UI] Improved runs UI performance by using a react-virtualized table to optimize row rendering (#765, #762, #745, @smurching)
+- [UI] Significant performance improvements for rendering run metrics, tags, and parameter information (#764, #747, @smurching)
+- [UI] Scatter plots, including run comparsion plots, are now interactive (#737, @mateiz)
+- [UI] Extended CSRF support by allowing the MLflow UI server to specify a set of expected headers that clients should set when making AJAX requests (#733, @aarondav)
+
+Bug fixes and documentation updates:
+
+- [Python/Scoring] MLflow Python models that produce Pandas DataFrames can now be evaluated as Spark UDFs correctly. Spark UDF outputs containing multiple columns of primitive types are now supported (#719, @tomasatdatabricks)
+- [Scoring] Fixed a serialization error that prevented models served with Azure ML from returning Pandas DataFrames (#754, @dbczumar)
+- [Docs] New example demonstrating how the MLflow REST API can be used to create experiments and log run information (#750, kjahan)
+- [Docs] R documentation has been updated for clarity and style consistency (#683, @stbof)
+- [Docs] Added clarification about user setup requirements for executing remote MLflow runs on Databricks (#736, @andyk)
+
+Small bug fixes and doc updates (#768, #715, @smurching; #728, dodysw; #730, mshr-h; #725, @kryptec; #769, #721, @dbczumar; #714, @stbof)
+
+
 0.8.0 (2018-11-08)
 -----------------
 
