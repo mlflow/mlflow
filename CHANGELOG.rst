@@ -13,7 +13,7 @@ Bug fixes:
 - [Models] PyTorch models can now be saved with code dependencies, allowing model classes to be loaded successfully in new environments (#842, #836, @dbczumar)
 - [Artifacts] Fixed a timeout when logging zero-length files to DBFS artifact stores (#818, @smurching)
 
-Small bug fixes and docs updates (#845, @stbof; #840, @grahamhealy20; #839, @wilderrodrigues)
+Small docs updates (#845, @stbof; #840, @grahamhealy20; #839, @wilderrodrigues)
 
 
 0.8.1 (2018-12-21)
