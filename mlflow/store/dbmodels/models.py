@@ -36,21 +36,26 @@ def _create_entity(base, model):
         # check if its mlflow entity and build it
         obj = getattr(model, k)
 
-        # Run data contains list for metrics, params and tags
-        # so obj will be a list so we need to convert those items
-        if k == 'metrics':
-            # only get latest recorded metrics per key
-            metrics = {}
-            for o in obj:
-                if o.key not in metrics or o.timestamp > metrics.get(o.key).timestamp:
-                    metrics[o.key] = Metric(o.key, o.value, o.timestamp)
-            obj = metrics.values()
-
-        if k == 'params':
-            obj = [Param(o.key, o.value) for o in obj]
-
-        if k == 'tags':
-            obj = [RunTag(o.key, o.value) for o in obj]
+        if isinstance(model, SqlRun):
+            if base is RunData:
+                # Run data contains list for metrics, params and tags
+                # so obj will be a list so we need to convert those items
+                if k == 'metrics':
+                    # only get latest recorded metrics per key
+                    metrics = {}
+                    for o in obj:
+                        if o.key not in metrics or o.timestamp > metrics.get(o.key).timestamp:
+                            metrics[o.key] = Metric(o.key, o.value, o.timestamp)
+                    obj = metrics.values()
+                elif k == 'params':
+                    obj = [Param(o.key, o.value) for o in obj]
+                elif k == 'tags':
+                    obj = [RunTag(o.key, o.value) for o in obj]
+            elif base is RunInfo:
+                if k == 'source_type':
+                    obj = SourceType.from_string(obj)
+                elif k == "status":
+                    obj = RunStatus.from_string(obj)
 
         config[k] = obj
     return base(**config)

@@ -6,7 +6,7 @@ import time
 import mlflow
 import uuid
 
-from mlflow.entities import ViewType
+from mlflow.entities import ViewType, RunTag, SourceType, RunStatus
 from mlflow.protos.service_pb2 import SearchExpression
 from mlflow.store.dbmodels import models
 from mlflow import entities
@@ -33,12 +33,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def _experiment_factory(self, names):
         if type(names) is list:
-            experiments = []
-            for name in names:
-                exp = self.store.create_experiment(name=name)
-                experiments.append(exp)
-
-            return experiments
+            return [self.store.create_experiment(name=name) for name in names]
 
         return self.store.create_experiment(name=names)
 
@@ -53,46 +48,50 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_delete_experiment(self):
         experiments = self._experiment_factory(['morty', 'rick', 'rick and morty'])
         exp = experiments[0]
-        self.store.delete_experiment(exp.experiment_id)
+        self.store.delete_experiment(exp)
 
-        actual = self.session.query(models.SqlExperiment).get(exp.experiment_id)
+        actual = self.session.query(models.SqlExperiment).get(exp)
         self.assertEqual(len(self.store.list_experiments()), len(experiments) - 1)
 
         self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
     def test_get_experiment(self):
         name = 'goku'
-        run_data = self._experiment_factory(name)
-        actual = self.store.get_experiment(run_data.experiment_id)
-        self.assertEqual(actual.name, run_data.name)
-        self.assertEqual(actual.experiment_id, run_data.experiment_id)
+        experiment_id = self._experiment_factory(name)
+        actual = self.store.get_experiment(experiment_id)
+        self.assertEqual(actual.name, name)
+        self.assertEqual(actual.experiment_id, experiment_id)
 
     def test_list_experiments(self):
         testnames = ['blue', 'red', 'green']
 
-        run_data = self._experiment_factory(testnames)
+        experiments = self._experiment_factory(testnames)
         actual = self.store.list_experiments()
 
-        self.assertEqual(len(run_data), len(actual))
+        self.assertEqual(len(experiments), len(actual))
 
-        for exp in run_data:
+        for experiment_id in experiments:
             res = self.session.query(models.SqlExperiment).filter_by(
-                experiment_id=exp.experiment_id).first()
-            self.assertEqual(res.name, exp.name)
-            self.assertEqual(res.experiment_id, exp.experiment_id)
+                experiment_id=experiment_id).first()
+            self.assertIn(res.name, testnames)
+            self.assertEqual(res.experiment_id, experiment_id)
 
     def test_create_experiments(self):
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 0)
 
-        run_data = self.store.create_experiment(name='test experiment')
+        experiment_id = self.store.create_experiment(name='test experiment')
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 1)
 
         actual = result[0]
 
-        self.assertEqual(actual.experiment_id, run_data.experiment_id)
-        self.assertEqual(actual.name, run_data.name)
+        self.assertEqual(actual.experiment_id, experiment_id)
+        self.assertEqual(actual.name, 'test experiment')
+
+        actual = self.store.get_experiment(experiment_id)
+        self.assertEqual(actual.experiment_id, experiment_id)
+        self.assertEqual(actual.name, 'test experiment')
 
     def test_run_tag_model(self):
         run_data = models.SqlTag(run_uuid='tuuid', key='test', value='val')
@@ -164,14 +163,14 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(len(actual.metrics), 2)
 
     def test_run_info(self):
-        experiment = self._experiment_factory('test exp')
+        experiment_id = self._experiment_factory('test exp')
         config = {
-            'experiment_id': experiment.experiment_id,
+            'experiment_id': experiment_id,
             'name': 'test run',
             'user_id': 'Anderson',
             'run_uuid': 'test',
-            'status': entities.LifecycleStage.ACTIVE,
-            'source_type': entities.SourceType.LOCAL,
+            'status': RunStatus.to_string(RunStatus.SCHEDULED),
+            'source_type': SourceType.to_string(SourceType.LOCAL),
             'source_name': 'Python application',
             'entry_point_name': 'main.py',
             'start_time': int(time.time()),
@@ -183,25 +182,22 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run = models.SqlRun(**config).to_mlflow_entity()
 
         for k, v in config.items():
-            self.assertEqual(v, getattr(run.info, k))
+            v2 = getattr(run.info, k)
+            if k == 'source_type':
+                self.assertEqual(v, SourceType.to_string(v2))
+            elif k == 'status':
+                self.assertEqual(v, RunStatus.to_string(v2))
+            else:
+                self.assertEqual(v, v2)
 
-    def _run_factory(self, name='test', experiment_id=None, config=None):
-        m1 = models.SqlMetric(key='accuracy', value=0.89)
-        m2 = models.SqlMetric(key='recal', value=0.89)
-        p1 = models.SqlParam(key='loss', value='test param')
-        p2 = models.SqlParam(key='blue', value='test param')
-
-        if not experiment_id:
-            experiment = self._experiment_factory('test exp')
-            experiment_id = experiment.experiment_id
-
-        config = {
+    def _get_run_configs(self, name='test', experiment_id=None):
+        return {
             'experiment_id': experiment_id,
             'name': name,
             'user_id': 'Anderson',
             'run_uuid': uuid.uuid4().hex,
-            'status': entities.RunStatus.to_string(entities.RunStatus.SCHEDULED),
-            'source_type': entities.SourceType.to_string(entities.SourceType.NOTEBOOK),
+            'status': RunStatus.to_string(RunStatus.SCHEDULED),
+            'source_type': SourceType.to_string(SourceType.NOTEBOOK),
             'source_name': 'Python application',
             'entry_point_name': 'main.py',
             'start_time': int(time.time()),
@@ -211,66 +207,68 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'artifact_uri': '//'
         }
 
-        run = models.SqlRun(**config)
+    def _run_factory(self, config=None):
+        if not config:
+            config = self._get_run_configs()
 
-        run.params.append(p1)
-        run.params.append(p2)
-        run.metrics.append(m1)
-        run.metrics.append(m2)
+        experiment_id = config.get("experiment_id", None)
+        if not experiment_id:
+            experiment_id = self._experiment_factory('test exp')
+            config["experiment_id"] = experiment_id
+
+        run = models.SqlRun(**config)
         self.session.add(run)
 
         return run
 
     def test_create_run(self):
-        expected = self._run_factory()
-        name = 'booyya'
-        expected.tags.append(models.SqlTag(key='3', value='4'))
-        expected.tags.append(models.SqlTag(key='1', value='2'))
+        experiment_id = self._experiment_factory('test_create_run')
+        expected = self._get_run_configs('booyya', experiment_id=experiment_id)
 
-        tags = [t.to_mlflow_entity() for t in expected.tags]
-        actual = self.store.create_run(expected.experiment_id, expected.user_id, name,
-                                       entities.SourceType.from_string(expected.source_type),
-                                       expected.source_name,
-                                       expected.entry_point_name, expected.start_time,
-                                       expected.source_version, tags, None)
+        tags = [RunTag('3', '4'), RunTag('1', '2')]
+        actual = self.store.create_run(expected["experiment_id"], expected["user_id"],
+                                       expected["name"],
+                                       SourceType.from_string(expected["source_type"]),
+                                       expected["source_name"], expected["entry_point_name"],
+                                       expected["start_time"], expected["source_version"],
+                                       tags, None)
 
-        self.assertEqual(actual.info.experiment_id, expected.experiment_id)
-        self.assertEqual(actual.info.user_id, expected.user_id)
-        self.assertEqual(actual.info.name, name)
-        self.assertEqual(actual.info.source_type, expected.source_type)
-        self.assertEqual(actual.info.source_name, expected.source_name)
-        self.assertEqual(actual.info.source_version, expected.source_version)
-        self.assertEqual(actual.info.entry_point_name, expected.entry_point_name)
-        self.assertEqual(actual.info.start_time, expected.start_time)
+        self.assertEqual(actual.info.experiment_id, expected["experiment_id"])
+        self.assertEqual(actual.info.user_id, expected["user_id"])
+        self.assertEqual(actual.info.name, 'booyya')
+        self.assertEqual(actual.info.source_type, SourceType.from_string(expected["source_type"]))
+        self.assertEqual(actual.info.source_name, expected["source_name"])
+        self.assertEqual(actual.info.source_version, expected["source_version"])
+        self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
+        self.assertEqual(actual.info.start_time, expected["start_time"])
         self.assertEqual(len(actual.data.tags), 3)
 
-        name_tag = models.SqlTag(key='mlflow.runName', value=name).to_mlflow_entity()
+        name_tag = models.SqlTag(key='mlflow.runName', value='booyya').to_mlflow_entity()
         self.assertListEqual(actual.data.tags, tags + [name_tag])
 
     def test_create_run_with_parent_id(self):
-        expected = self._run_factory()
-        name = 'booyya'
-        expected.tags.append(models.SqlTag(key='3', value='4'))
-        expected.tags.append(models.SqlTag(key='1', value='2'))
+        exp = self._experiment_factory('test_create_run_with_parent_id')
+        expected = self._get_run_configs('booyya', experiment_id=exp)
 
-        tags = [t.to_mlflow_entity() for t in expected.tags]
-        actual = self.store.create_run(expected.experiment_id, expected.user_id, name,
-                                       entities.SourceType.from_string(expected.source_type),
-                                       expected.source_name,
-                                       expected.entry_point_name, expected.start_time,
-                                       expected.source_version, tags, "parent_uuid_5")
+        tags = [RunTag('3', '4'), RunTag('1', '2')]
+        actual = self.store.create_run(expected["experiment_id"], expected["user_id"],
+                                       expected["name"],
+                                       SourceType.from_string(expected["source_type"]),
+                                       expected["source_name"], expected["entry_point_name"],
+                                       expected["start_time"], expected["source_version"],
+                                       tags, "parent_uuid_5")
 
-        self.assertEqual(actual.info.experiment_id, expected.experiment_id)
-        self.assertEqual(actual.info.user_id, expected.user_id)
-        self.assertEqual(actual.info.name, name)
-        self.assertEqual(actual.info.source_type, expected.source_type)
-        self.assertEqual(actual.info.source_name, expected.source_name)
-        self.assertEqual(actual.info.source_version, expected.source_version)
-        self.assertEqual(actual.info.entry_point_name, expected.entry_point_name)
-        self.assertEqual(actual.info.start_time, expected.start_time)
+        self.assertEqual(actual.info.experiment_id, expected["experiment_id"])
+        self.assertEqual(actual.info.user_id, expected["user_id"])
+        self.assertEqual(actual.info.name, 'booyya')
+        self.assertEqual(actual.info.source_type, SourceType.from_string(expected["source_type"]))
+        self.assertEqual(actual.info.source_name, expected["source_name"])
+        self.assertEqual(actual.info.source_version, expected["source_version"])
+        self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
+        self.assertEqual(actual.info.start_time, expected["start_time"])
         self.assertEqual(len(actual.data.tags), 4)
 
-        name_tag = models.SqlTag(key='mlflow.runName', value=name).to_mlflow_entity()
+        name_tag = models.SqlTag(key='mlflow.runName', value='booyya').to_mlflow_entity()
         parent_id_tag = models.SqlTag(key='mlflow.parentRunId',
                                       value='parent_uuid_5').to_mlflow_entity()
         self.assertListEqual(actual.data.tags, tags + [parent_id_tag, name_tag])
@@ -325,8 +323,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Should return duplicates as well
         # MLflow RunData contains only the last reported values for metrics.
         sql_run_metrics = self.store._get_run(run.info.run_uuid).metrics
-        self.assertEqual(4, len(sql_run_metrics))
-        self.assertEqual(3, len(run.data.metrics))
+        self.assertEqual(2, len(sql_run_metrics))
+        self.assertEqual(1, len(run.data.metrics))
 
         found = False
         for m in run.data.metrics:
@@ -346,11 +344,26 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         metric2 = entities.Metric(tkey, 1.02, int(time.time()))
         self.store.log_metric(run.run_uuid, metric)
 
-        with self.assertRaises(MlflowException):
+        with self.assertRaises(MlflowException) as e:
             self.store.log_metric(run.run_uuid, metric2)
+        self.assertIn("must be unique. Metric already logged value", e.exception.message)
+
+    def test_log_null_metric(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = None
+        metric = entities.Metric(tkey, tval, int(time.time()))
+
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_metric(run.run_uuid, metric)
+        self.assertIn("Log metric request failed for run ID=", e.exception.message)
+        self.assertIn("IntegrityError", e.exception.message)
 
     def test_log_param(self):
-        run = self._run_factory('test')
+        run = self._run_factory()
 
         self.session.commit()
 
@@ -365,7 +378,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertIsNotNone(actual)
 
         run = self.store.get_run(run.run_uuid)
-        self.assertEqual(4, len(run.data.params))
+        self.assertEqual(2, len(run.data.params))
 
         found = False
         for m in run.data.params:
@@ -375,7 +388,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertTrue(found)
 
     def test_log_param_uniqueness(self):
-        run = self._run_factory('test')
+        run = self._run_factory()
 
         self.session.commit()
 
@@ -385,11 +398,26 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         param2 = entities.Param(tkey, 'newval')
         self.store.log_param(run.run_uuid, param)
 
-        with self.assertRaises(MlflowException):
+        with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.run_uuid, param2)
+        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+
+    def test_log_null_param(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = None
+        param = entities.Param(tkey, tval)
+
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_param(run.run_uuid, param)
+        self.assertIn("Log param request failed for run ID=", e.exception.message)
+        self.assertIn("IntegrityError", e.exception.message)
 
     def test_set_tag(self):
-        run = self._run_factory('test')
+        run = self._run_factory()
 
         self.session.commit()
 
@@ -412,25 +440,17 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertTrue(found)
 
     def test_get_metric(self):
-        run = self._run_factory('test')
+        run = self._run_factory()
         self.session.commit()
 
         for expected in run.metrics:
-            actual = self.store.get_metric(run.run_uuid,
-                                           expected.key)
-            self.assertEqual(expected.value, actual)
-
-    def test_get_param(self):
-        run = self._run_factory('test')
-        self.session.commit()
-
-        for expected in run.params:
-            actual = self.store.get_param(run.run_uuid,
-                                          expected.key)
-            self.assertEqual(expected.value, actual)
+            actual = self.store.get_metric(run.run_uuid, expected.key)
+            self.assertEqual(expected.key, actual.key)
+            self.assertEqual(expected.value, actual.value)
+            self.assertEqual(expected.timestamp, actual.timestamp)
 
     def test_get_metric_history(self):
-        run = self._run_factory('test')
+        run = self._run_factory()
         self.session.commit()
         key = 'test'
         expected = [
@@ -443,32 +463,41 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         actual = self.store.get_metric_history(run.run_uuid, key)
 
-        self.assertSequenceEqual([m.value for m in expected], actual)
+        self.assertSequenceEqual([(m.key, m.value, m.timestamp) for m in expected],
+                                 [(m.key, m.value, m.timestamp) for m in actual])
+
+    def test_get_param(self):
+        run = self._run_factory()
+        self.session.commit()
+
+        for expected in run.params:
+            actual = self.store.get_param(run.run_uuid, expected.key)
+            self.assertEqual(expected.key, actual.key)
+            self.assertEqual(expected.value, actual.value)
 
     def test_list_run_infos(self):
-        exp1 = self._experiment_factory('test_exp')
-        r1 = self._run_factory('t1', exp1.experiment_id).run_uuid
-        r2 = self._run_factory('t2', exp1.experiment_id).run_uuid
+        experiment_id = self._experiment_factory('test_exp')
+        r1 = self._run_factory(self._get_run_configs('t1', experiment_id)).run_uuid
+        r2 = self._run_factory(self._get_run_configs('t2', experiment_id)).run_uuid
 
         def _runs(experiment_id, view_type):
             return [r.run_uuid for r in self.store.list_run_infos(experiment_id, view_type)]
 
-        exp_id = exp1.experiment_id
-        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ALL))
-        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ACTIVE_ONLY))
-        self.assertEqual(0, len(_runs(exp_id, ViewType.DELETED_ONLY)))
+        self.assertSequenceEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertSequenceEqual([r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertEqual(0, len(_runs(experiment_id, ViewType.DELETED_ONLY)))
 
         self.store.delete_run(r1)
-        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ALL))
-        self.assertSequenceEqual([r2], _runs(exp_id, ViewType.ACTIVE_ONLY))
-        self.assertSequenceEqual([r1], _runs(exp_id, ViewType.DELETED_ONLY))
+        self.assertSequenceEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertSequenceEqual([r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertSequenceEqual([r1], _runs(experiment_id, ViewType.DELETED_ONLY))
 
     def test_rename_experiment(self):
         new_name = 'new name'
-        experiment = self._experiment_factory('test name')
-        self.store.rename_experiment(experiment.experiment_id, new_name)
+        experiment_id = self._experiment_factory('test name')
+        self.store.rename_experiment(experiment_id, new_name)
 
-        renamed_experiment = self.store.get_experiment(experiment.experiment_id)
+        renamed_experiment = self.store.get_experiment(experiment_id)
 
         self.assertEqual(renamed_experiment.name, new_name)
 
@@ -479,11 +508,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         actual = self.store.update_run_info(run.run_uuid, new_status, endtime)
 
-        self.assertEqual(actual.status, entities.RunStatus.to_string(new_status))
+        self.assertEqual(actual.status, new_status)
         self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
-        exp = self._experiment_factory('helloexp')
+        experiment_id = self._experiment_factory('helloexp')
+        exp = self.store.get_experiment(experiment_id)
         self.assertEqual(exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         experiment_id = exp.experiment_id
@@ -526,8 +556,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
     def test_error_logging_to_deleted_run(self):
-        exp = self._experiment_factory('error_logging').experiment_id
-        run_uuid = self._run_factory(experiment_id=exp).run_uuid
+        exp = self._experiment_factory('error_logging')
+        run_uuid = self._run_factory(self._get_run_configs(experiment_id=exp)).run_uuid
 
         self.store.delete_run(run_uuid)
         self.assertEqual(self.store.get_run(run_uuid).info.lifecycle_stage,
@@ -552,8 +582,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_metric(run_uuid, entities.Metric("m1345", 34.0, 85))  # earlier timestamp
         self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv44"))
 
-        self.assertEqual(self.store.get_param(run_uuid, "p1345"), "v22")
-        self.assertEqual(self.store.get_metric(run_uuid, "m1345"), 34.0)
+        p = self.store.get_param(run_uuid, "p1345")
+        self.assertEqual(p.key, "p1345")
+        self.assertEqual(p.value, "v22")
+        m = self.store.get_metric(run_uuid, "m1345")
+        self.assertEqual(m.key, "m1345")
+        self.assertEqual(m.value, 34.0)
         run = self.store.get_run(run_uuid)
         self.assertEqual([("p1345", "v22")],
                          [(p.key, p.value) for p in run.data.params if p.key == "p1345"])
@@ -563,7 +597,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual([("t1345", "tv44")],
                          [(t.key, t.value) for t in run.data.tags if t.key == "t1345"])
 
-# Tests for Search API
+    # Tests for Search API
     def _search(self, experiment_id, metrics_expressions=None, param_expressions=None,
                 run_view_type=ViewType.ALL):
         conditions = (metrics_expressions or []) + (param_expressions or [])
@@ -585,8 +619,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         return expr
 
     def test_search_vanilla(self):
-        exp = self._experiment_factory('search_vanilla').experiment_id
-        runs = [self._run_factory('r_%d' % r, exp).run_uuid for r in range(3)]
+        exp = self._experiment_factory('search_vanilla')
+        runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp)).run_uuid
+                for r in range(3)]
 
         self.assertSequenceEqual(runs, self._search(exp, run_view_type=ViewType.ALL))
         self.assertSequenceEqual(runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
@@ -605,9 +640,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
     def test_search_params(self):
-        experiment_id = self._experiment_factory('search_params').experiment_id
-        r1 = self._run_factory('r1', experiment_id).to_mlflow_entity().info.run_uuid
-        r2 = self._run_factory('r2', experiment_id).to_mlflow_entity().info.run_uuid
+        experiment_id = self._experiment_factory('search_params')
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).run_uuid
 
         self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
         self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
@@ -646,9 +681,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([r2], self._search(experiment_id, param_expressions=[expr]))
 
     def test_search_metrics(self):
-        experiment_id = self._experiment_factory('search_params').experiment_id
-        r1 = self._run_factory('r1', experiment_id).to_mlflow_entity().info.run_uuid
-        r2 = self._run_factory('r2', experiment_id).to_mlflow_entity().info.run_uuid
+        experiment_id = self._experiment_factory('search_params')
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).run_uuid
 
         self.store.log_metric(r1, entities.Metric("common", 1.0, 1))
         self.store.log_metric(r2, entities.Metric("common", 1.0, 1))
@@ -724,9 +759,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([r2], self._search(experiment_id, param_expressions=[expr]))
 
     def test_search_full(self):
-        experiment_id = self._experiment_factory('search_params').experiment_id
-        r1 = self._run_factory('r1', experiment_id).to_mlflow_entity().info.run_uuid
-        r2 = self._run_factory('r2', experiment_id).to_mlflow_entity().info.run_uuid
+        experiment_id = self._experiment_factory('search_params')
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).run_uuid
 
         self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
         self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
