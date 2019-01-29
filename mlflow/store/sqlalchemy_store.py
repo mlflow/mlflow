@@ -191,11 +191,26 @@ class SqlAlchemyStore(AbstractStore):
         run = self._get_run(run_uuid)
         self._check_run_is_active(run)
         try:
+            # This will check for various integrity checks for metrics table.
+            # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
             self._get_or_create(SqlMetric, run_uuid=run_uuid, key=metric.key,
                                 value=metric.value, timestamp=metric.timestamp)
-        except sqlalchemy.exc.IntegrityError:
-            raise MlflowException('Metric={} must be unique'.format(metric),
-                                  INVALID_PARAMETER_VALUE)
+        except sqlalchemy.exc.IntegrityError as ie:
+            # Querying metrics from run entails pushing the query down to DB layer.
+            # Hence the rollback.
+            self.session.rollback()
+            existing_metric = [m for m in run.metrics
+                               if m.key == metric.key and m.timestamp == metric.timestamp]
+            if len(existing_metric) == 0:
+                raise MlflowException("Log metric request failed for run ID={}. Attempted to log"
+                                      " metric={}. Error={}".format(run_uuid,
+                                                                    (metric.key, metric.value),
+                                                                    str(ie)))
+            else:
+                m = existing_metric[0]
+                raise MlflowException('Metric={} must be unique. Metric already logged value {} '
+                                      'at {}'.format(metric, m.value, m.timestamp),
+                                      INVALID_PARAMETER_VALUE)
 
     def get_metric(self, run_uuid, metric_key):
         metric = self.session.query(SqlMetric).filter_by(
@@ -218,16 +233,27 @@ class SqlAlchemyStore(AbstractStore):
         # if we try to update the value of an existing param this will fail
         # because it will try to create it with same run_uuid, param key
         try:
+            # This will check for various integrity checks for params table.
+            # ToDo: Consider prior checks for null, type, param name validations, ... etc.
             self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key,
                                 value=param.value)
-        except sqlalchemy.exc.IntegrityError:
+        except sqlalchemy.exc.IntegrityError as ie:
+            # Querying metrics from run entails pushing the query down to DB layer.
+            # Hence the rollback.
             self.session.rollback()
-            old_param, _ = self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key)
-            raise MlflowException("Changing param value is not allowed. Param with key='{}' was"
-                                  " already logged with value='{}' for run ID='{}. Attempted "
-                                  " logging new value '{}'.".format(param.key, old_param.value,
-                                                                    run_uuid, param.value),
-                                  INVALID_PARAMETER_VALUE)
+            existing_params = [p.value for p in run.params if p.key == param.key]
+            if len(existing_params) == 0:
+                raise MlflowException("Log param request failed for run ID={}. Attempted to log"
+                                      " param={}. Error={}".format(run_uuid,
+                                                                   (param.key, param.value),
+                                                                   str(ie)))
+            else:
+                old_value = existing_params[0]
+                raise MlflowException("Changing param value is not allowed. Param with key='{}' was"
+                                      " already logged with value='{}' for run ID='{}. Attempted "
+                                      " logging new value '{}'.".format(param.key, old_value,
+                                                                        run_uuid, param.value),
+                                      INVALID_PARAMETER_VALUE)
 
     def get_param(self, run_uuid, param_name):
         param = self.session.query(SqlParam).filter_by(run_uuid=run_uuid, key=param_name).first()
@@ -241,13 +267,6 @@ class SqlAlchemyStore(AbstractStore):
         self._check_run_is_active(run)
         new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
         self._save_to_db(new_tag)
-
-    def get_tag(self, run_uuid, tag_name):
-        tag = self.session.query(SqlTag).filter_by(run_uuid=run_uuid, key=tag_name).first()
-        if tag is None:
-            raise MlflowException('Tag={} does not exist'.format(tag_name),
-                                  RESOURCE_DOES_NOT_EXIST)
-        return tag.to_mlflow_entity()
 
     def search_runs(self, experiment_ids, search_expressions, run_view_type):
         runs = [run.to_mlflow_entity()

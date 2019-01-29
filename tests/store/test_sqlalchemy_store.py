@@ -344,8 +344,23 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         metric2 = entities.Metric(tkey, 1.02, int(time.time()))
         self.store.log_metric(run.run_uuid, metric)
 
-        with self.assertRaises(MlflowException):
+        with self.assertRaises(MlflowException) as e:
             self.store.log_metric(run.run_uuid, metric2)
+        self.assertIn("must be unique. Metric already logged value", e.exception.message)
+
+    def test_log_null_metric(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = None
+        metric = entities.Metric(tkey, tval, int(time.time()))
+
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_metric(run.run_uuid, metric)
+        self.assertIn("Log metric request failed for run ID=", e.exception.message)
+        self.assertIn("IntegrityError", e.exception.message)
 
     def test_log_param(self):
         run = self._run_factory()
@@ -386,6 +401,20 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.run_uuid, param2)
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+
+    def test_log_null_param(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = None
+        param = entities.Param(tkey, tval)
+
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_param(run.run_uuid, param)
+        self.assertIn("Log param request failed for run ID=", e.exception.message)
+        self.assertIn("IntegrityError", e.exception.message)
 
     def test_set_tag(self):
         run = self._run_factory()
@@ -443,15 +472,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         for expected in run.params:
             actual = self.store.get_param(run.run_uuid, expected.key)
-            self.assertEqual(expected.key, actual.key)
-            self.assertEqual(expected.value, actual.value)
-
-    def test_get_tag(self):
-        run = self._run_factory()
-        self.session.commit()
-
-        for expected in run.tags:
-            actual = self.store.get_tag(run.run_uuid, expected.key)
             self.assertEqual(expected.key, actual.key)
             self.assertEqual(expected.value, actual.value)
 
