@@ -229,12 +229,6 @@ class SqlAlchemyStore(AbstractStore):
                                                                     run_uuid, param.value),
                                   INVALID_PARAMETER_VALUE)
 
-    def set_tag(self, run_uuid, tag):
-        run = self._get_run(run_uuid)
-        self._check_run_is_active(run)
-        new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
-        self._save_to_db(new_tag)
-
     def get_param(self, run_uuid, param_name):
         param = self.session.query(SqlParam).filter_by(run_uuid=run_uuid, key=param_name).first()
         if param is None:
