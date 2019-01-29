@@ -222,13 +222,6 @@ class Utils {
           const url = ("https://bitbucket.org/" + bitBucketMatch[1] + "/" +
                      bitBucketMatch[2].replace(/.git/, '') + "/commits/" + run.source_version) + "/" + bitBucketMatch[3];
           return <a href={url}>{versionString}</a>;
-        const match = run.source_name.match(Utils.getGitHubRegex());
-        if (match) {
-          const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
-                     "/tree/" + run.source_version) + "/" + match[3];
-          return <a href={url} target='_top'>{versionString}</a>;
-        }
-        return versionString;
       } else {
         return versionString;
       }
