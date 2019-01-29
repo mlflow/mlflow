@@ -1,5 +1,4 @@
 import sqlalchemy
-from sqlalchemy.sql.expression import func, label, and_
 import uuid
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -62,9 +61,8 @@ class SqlAlchemyStore(AbstractStore):
             self.session.commit()
         except sqlalchemy.exc.IntegrityError as e:
             self.session.rollback()
-            print(e)
-            raise MlflowException('Experiment(name={}) already exists'.format(name),
-                                  RESOURCE_ALREADY_EXISTS, exc_info=e)
+            raise MlflowException('Experiment(name={}) already exists. '
+                                  'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
 
         return experiment.experiment_id
 
@@ -208,7 +206,12 @@ class SqlAlchemyStore(AbstractStore):
             self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key,
                                 value=param.value)
         except sqlalchemy.exc.IntegrityError:
-            raise MlflowException('Changing param value is not allowed. Run={}'.format(run_uuid),
+            self.session.rollback()
+            old_param, _ = self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key)
+            raise MlflowException("Changing param value is not allowed. Param with key='{}' was"
+                                  " already logged with value='{}' for run ID='{}. Attempted "
+                                  " logging new value '{}'.".format(param.key, old_param.value,
+                                                                    run_uuid, param.value),
                                   INVALID_PARAMETER_VALUE)
 
     def get_param(self, run_uuid, param_name):
