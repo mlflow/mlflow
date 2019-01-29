@@ -33,12 +33,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def _experiment_factory(self, names):
         if type(names) is list:
-            experiments = []
-            for name in names:
-                exp = self.store.create_experiment(name=name)
-                experiments.append(exp)
-
-            return experiments
+            return [self.store.create_experiment(name=name) for name in names]
 
         return self.store.create_experiment(name=names)
 
@@ -53,46 +48,50 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_delete_experiment(self):
         experiments = self._experiment_factory(['morty', 'rick', 'rick and morty'])
         exp = experiments[0]
-        self.store.delete_experiment(exp.experiment_id)
+        self.store.delete_experiment(exp)
 
-        actual = self.session.query(models.SqlExperiment).get(exp.experiment_id)
+        actual = self.session.query(models.SqlExperiment).get(exp)
         self.assertEqual(len(self.store.list_experiments()), len(experiments) - 1)
 
         self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
     def test_get_experiment(self):
         name = 'goku'
-        run_data = self._experiment_factory(name)
-        actual = self.store.get_experiment(run_data.experiment_id)
-        self.assertEqual(actual.name, run_data.name)
-        self.assertEqual(actual.experiment_id, run_data.experiment_id)
+        experiment_id = self._experiment_factory(name)
+        actual = self.store.get_experiment(experiment_id)
+        self.assertEqual(actual.name, name)
+        self.assertEqual(actual.experiment_id, experiment_id)
 
     def test_list_experiments(self):
         testnames = ['blue', 'red', 'green']
 
-        run_data = self._experiment_factory(testnames)
+        experiments = self._experiment_factory(testnames)
         actual = self.store.list_experiments()
 
-        self.assertEqual(len(run_data), len(actual))
+        self.assertEqual(len(experiments), len(actual))
 
-        for exp in run_data:
+        for experiment_id in experiments:
             res = self.session.query(models.SqlExperiment).filter_by(
-                experiment_id=exp.experiment_id).first()
-            self.assertEqual(res.name, exp.name)
-            self.assertEqual(res.experiment_id, exp.experiment_id)
+                experiment_id=experiment_id).first()
+            self.assertIn(res.name, testnames)
+            self.assertEqual(res.experiment_id, experiment_id)
 
     def test_create_experiments(self):
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 0)
 
-        run_data = self.store.create_experiment(name='test experiment')
+        experiment_id = self.store.create_experiment(name='test experiment')
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 1)
 
         actual = result[0]
 
-        self.assertEqual(actual.experiment_id, run_data.experiment_id)
-        self.assertEqual(actual.name, run_data.name)
+        self.assertEqual(actual.experiment_id, experiment_id)
+        self.assertEqual(actual.name, 'test experiment')
+
+        actual = self.store.get_experiment(experiment_id)
+        self.assertEqual(actual.experiment_id, experiment_id)
+        self.assertEqual(actual.name, 'test experiment')
 
     def test_run_tag_model(self):
         run_data = models.SqlTag(run_uuid='tuuid', key='test', value='val')
@@ -164,9 +163,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(len(actual.metrics), 2)
 
     def test_run_info(self):
-        experiment = self._experiment_factory('test exp')
+        experiment_id = self._experiment_factory('test exp')
         config = {
-            'experiment_id': experiment.experiment_id,
+            'experiment_id': experiment_id,
             'name': 'test run',
             'user_id': 'Anderson',
             'run_uuid': 'test',
@@ -214,8 +213,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         experiment_id = config.get("experiment_id", None)
         if not experiment_id:
-            experiment = self._experiment_factory('test exp')
-            config["experiment_id"] = experiment.experiment_id
+            experiment_id = self._experiment_factory('test exp')
+            config["experiment_id"] = experiment_id
 
         run = models.SqlRun(**config)
         self.session.add(run)
@@ -223,8 +222,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         return run
 
     def test_create_run(self):
-        exp1 = self._experiment_factory('test_create_run')
-        expected = self._get_run_configs('booyya', experiment_id=exp1.experiment_id)
+        experiment_id = self._experiment_factory('test_create_run')
+        expected = self._get_run_configs('booyya', experiment_id=experiment_id)
 
         tags = [RunTag('3', '4'), RunTag('1', '2')]
         actual = self.store.create_run(expected["experiment_id"], expected["user_id"],
@@ -249,7 +248,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_create_run_with_parent_id(self):
         exp = self._experiment_factory('test_create_run_with_parent_id')
-        expected = self._get_run_configs('booyya', experiment_id=exp.experiment_id)
+        expected = self._get_run_configs('booyya', experiment_id=exp)
 
         tags = [RunTag('3', '4'), RunTag('1', '2')]
         actual = self.store.create_run(expected["experiment_id"], expected["user_id"],
@@ -456,29 +455,28 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(expected.value, actual.value)
 
     def test_list_run_infos(self):
-        exp1 = self._experiment_factory('test_exp')
-        r1 = self._run_factory(self._get_run_configs('t1', exp1.experiment_id)).run_uuid
-        r2 = self._run_factory(self._get_run_configs('t2', exp1.experiment_id)).run_uuid
+        experiment_id = self._experiment_factory('test_exp')
+        r1 = self._run_factory(self._get_run_configs('t1', experiment_id)).run_uuid
+        r2 = self._run_factory(self._get_run_configs('t2', experiment_id)).run_uuid
 
         def _runs(experiment_id, view_type):
             return [r.run_uuid for r in self.store.list_run_infos(experiment_id, view_type)]
 
-        exp_id = exp1.experiment_id
-        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ALL))
-        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ACTIVE_ONLY))
-        self.assertEqual(0, len(_runs(exp_id, ViewType.DELETED_ONLY)))
+        self.assertSequenceEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertSequenceEqual([r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertEqual(0, len(_runs(experiment_id, ViewType.DELETED_ONLY)))
 
         self.store.delete_run(r1)
-        self.assertSequenceEqual([r1, r2], _runs(exp_id, ViewType.ALL))
-        self.assertSequenceEqual([r2], _runs(exp_id, ViewType.ACTIVE_ONLY))
-        self.assertSequenceEqual([r1], _runs(exp_id, ViewType.DELETED_ONLY))
+        self.assertSequenceEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertSequenceEqual([r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertSequenceEqual([r1], _runs(experiment_id, ViewType.DELETED_ONLY))
 
     def test_rename_experiment(self):
         new_name = 'new name'
-        experiment = self._experiment_factory('test name')
-        self.store.rename_experiment(experiment.experiment_id, new_name)
+        experiment_id = self._experiment_factory('test name')
+        self.store.rename_experiment(experiment_id, new_name)
 
-        renamed_experiment = self.store.get_experiment(experiment.experiment_id)
+        renamed_experiment = self.store.get_experiment(experiment_id)
 
         self.assertEqual(renamed_experiment.name, new_name)
 
@@ -493,7 +491,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
-        exp = self._experiment_factory('helloexp')
+        experiment_id = self._experiment_factory('helloexp')
+        exp = self.store.get_experiment(experiment_id)
         self.assertEqual(exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         experiment_id = exp.experiment_id
@@ -546,7 +545,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         return expr
 
     def test_search_vanilla(self):
-        exp = self._experiment_factory('search_vanilla').experiment_id
+        exp = self._experiment_factory('search_vanilla')
         runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp)).run_uuid
                 for r in range(3)]
 
@@ -567,7 +566,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
     def test_search_params(self):
-        experiment_id = self._experiment_factory('search_params').experiment_id
+        experiment_id = self._experiment_factory('search_params')
         r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
         r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).run_uuid
 
@@ -608,7 +607,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([r2], self._search(experiment_id, param_expressions=[expr]))
 
     def test_search_metrics(self):
-        experiment_id = self._experiment_factory('search_params').experiment_id
+        experiment_id = self._experiment_factory('search_params')
         r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
         r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).run_uuid
 
@@ -686,7 +685,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertSequenceEqual([r2], self._search(experiment_id, param_expressions=[expr]))
 
     def test_search_full(self):
-        experiment_id = self._experiment_factory('search_params').experiment_id
+        experiment_id = self._experiment_factory('search_params')
         r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
         r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).run_uuid
 
