@@ -217,7 +217,7 @@ class Utils {
         if (gitHubMatch) {
           const url = ("https://github.com/" + gitHubMatch[1] + "/" + gitHubMatch[2].replace(/.git/, '') +
                      "/tree/" + run.source_version) + "/" + gitHubMatch[3];
-          return <a href={url}>{versionString}</a>;
+          return <a href={url} target='_top'>{versionString}</a>;
         } else if (bitBucketMatch) {
           const url = ("https://bitbucket.org/" + bitBucketMatch[1] + "/" +
                      bitBucketMatch[2].replace(/.git/, '') + "/commits/" + run.source_version) + "/" + bitBucketMatch[3];
