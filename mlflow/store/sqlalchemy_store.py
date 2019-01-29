@@ -137,13 +137,11 @@ class SqlAlchemyStore(AbstractStore):
 
         return run.to_mlflow_entity()
 
-    def _get_run(self, run_uuid, view_type):
-        stages = LifecycleStage.view_type_to_stages(view_type)
-        runs = self.session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid,
-                                                 SqlRun.lifecycle_stage.in_(stages)).all()
+    def _get_run(self, run_uuid):
+        runs = self.session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid).all()
 
         if len(runs) == 0:
-            raise MlflowException('No runs with id={} exists'.format(run_uuid),
+            raise MlflowException('Run with id={} not found'.format(run_uuid),
                                   RESOURCE_DOES_NOT_EXIST)
         if len(runs) > 1:
             raise MlflowException('Expected only 1 run with id={}. Found {}.'.format(run_uuid,
@@ -152,8 +150,19 @@ class SqlAlchemyStore(AbstractStore):
 
         return runs[0]
 
+    def _check_run_is_active(self, run):
+        if run.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException("The run {} must be in 'active' state. Current state is {}."
+                                  .format(run.run_uuid, run.lifecycle_stage))
+
+    def _check_run_is_deleted(self, run):
+        if run.lifecycle_stage != LifecycleStage.DELETED:
+            raise MlflowException("The run {} must be in 'deleted' state. Current state is {}."
+                                  .format(run.run_uuid, run.lifecycle_stage))
+
     def update_run_info(self, run_uuid, run_status, end_time):
-        run = self._get_run(run_uuid, ViewType.ACTIVE_ONLY)
+        run = self._get_run(run_uuid)
+        self._check_run_is_active(run)
         run.status = RunStatus.to_string(run_status)
         run.end_time = end_time
 
@@ -163,20 +172,24 @@ class SqlAlchemyStore(AbstractStore):
         return run.info
 
     def get_run(self, run_uuid):
-        run = self._get_run(run_uuid, ViewType.ALL)
+        run = self._get_run(run_uuid)
         return run.to_mlflow_entity()
 
     def restore_run(self, run_id):
-        run = self._get_run(run_id, ViewType.DELETED_ONLY)
+        run = self._get_run(run_id)
+        self._check_run_is_deleted(run)
         run.lifecycle_stage = LifecycleStage.ACTIVE
         self._save_to_db(run)
 
     def delete_run(self, run_id):
-        run = self._get_run(run_id, ViewType.ACTIVE_ONLY)
+        run = self._get_run(run_id)
+        self._check_run_is_active(run)
         run.lifecycle_stage = LifecycleStage.DELETED
         self._save_to_db(run)
 
     def log_metric(self, run_uuid, metric):
+        run = self._get_run(run_uuid)
+        self._check_run_is_active(run)
         try:
             self._get_or_create(SqlMetric, run_uuid=run_uuid, key=metric.key,
                                 value=metric.value, timestamp=metric.timestamp)
@@ -200,6 +213,8 @@ class SqlAlchemyStore(AbstractStore):
         return [metric.to_mlflow_entity() for metric in metrics]
 
     def log_param(self, run_uuid, param):
+        run = self._get_run(run_uuid)
+        self._check_run_is_active(run)
         # if we try to update the value of an existing param this will fail
         # because it will try to create it with same run_uuid, param key
         try:
@@ -213,6 +228,12 @@ class SqlAlchemyStore(AbstractStore):
                                   " logging new value '{}'.".format(param.key, old_param.value,
                                                                     run_uuid, param.value),
                                   INVALID_PARAMETER_VALUE)
+
+    def set_tag(self, run_uuid, tag):
+        run = self._get_run(run_uuid)
+        self._check_run_is_active(run)
+        new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
+        self._save_to_db(new_tag)
 
     def get_param(self, run_uuid, param_name):
         param = self.session.query(SqlParam).filter_by(run_uuid=run_uuid, key=param_name).first()
