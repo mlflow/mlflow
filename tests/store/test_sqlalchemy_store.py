@@ -322,7 +322,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
         # MLflow RunData contains only the last reported values for metrics.
-        sql_run_metrics = self.store._get_run(run.info.run_uuid, ViewType.ALL).metrics
+        sql_run_metrics = self.store._get_run(run.info.run_uuid).metrics
         self.assertEqual(2, len(sql_run_metrics))
         self.assertEqual(1, len(run.data.metrics))
 
@@ -508,21 +508,74 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(restored.experiment_id, experiment_id)
         self.assertEqual(restored.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-    def test_restore_run(self):
+    def test_delete_restore_run(self):
         run = self._run_factory()
         self.assertEqual(run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         run_uuid = run.run_uuid
+
+        with self.assertRaises(MlflowException) as e:
+            self.store.restore_run(run_uuid)
+        self.assertIn("must be in 'deleted' state", e.exception.message)
+
         self.store.delete_run(run_uuid)
+        with self.assertRaises(MlflowException) as e:
+            self.store.delete_run(run_uuid)
+        self.assertIn("must be in 'active' state", e.exception.message)
 
         deleted = self.store.get_run(run_uuid)
         self.assertEqual(deleted.info.run_uuid, run_uuid)
         self.assertEqual(deleted.info.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.store.restore_run(run_uuid)
+        with self.assertRaises(MlflowException) as e:
+            self.store.restore_run(run_uuid)
+            self.assertIn("must be in 'deleted' state", e.exception.message)
         restored = self.store.get_run(run_uuid)
         self.assertEqual(restored.info.run_uuid, run_uuid)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+
+    def test_error_logging_to_deleted_run(self):
+        exp = self._experiment_factory('error_logging')
+        run_uuid = self._run_factory(self._get_run_configs(experiment_id=exp)).run_uuid
+
+        self.store.delete_run(run_uuid)
+        self.assertEqual(self.store.get_run(run_uuid).info.lifecycle_stage,
+                         entities.LifecycleStage.DELETED)
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_param(run_uuid, entities.Param("p1345", "v1"))
+        self.assertIn("must be in 'active' state", e.exception.message)
+
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_metric(run_uuid, entities.Metric("m1345", 1.0, 123))
+        self.assertIn("must be in 'active' state", e.exception.message)
+
+        with self.assertRaises(MlflowException) as e:
+            self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv1"))
+        self.assertIn("must be in 'active' state", e.exception.message)
+
+        # restore this run and try again
+        self.store.restore_run(run_uuid)
+        self.assertEqual(self.store.get_run(run_uuid).info.lifecycle_stage,
+                         entities.LifecycleStage.ACTIVE)
+        self.store.log_param(run_uuid, entities.Param("p1345", "v22"))
+        self.store.log_metric(run_uuid, entities.Metric("m1345", 34.0, 85))  # earlier timestamp
+        self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv44"))
+
+        p = self.store.get_param(run_uuid, "p1345")
+        self.assertEqual(p.key, "p1345")
+        self.assertEqual(p.value, "v22")
+        m = self.store.get_metric(run_uuid, "m1345")
+        self.assertEqual(m.key, "m1345")
+        self.assertEqual(m.value, 34.0)
+        run = self.store.get_run(run_uuid)
+        self.assertEqual([("p1345", "v22")],
+                         [(p.key, p.value) for p in run.data.params if p.key == "p1345"])
+        self.assertEqual([("m1345", 34.0, 85)],
+                         [(m.key, m.value, m.timestamp)
+                          for m in run.data.metrics if m.key == "m1345"])
+        self.assertEqual([("t1345", "tv44")],
+                         [(t.key, t.value) for t in run.data.tags if t.key == "t1345"])
 
     # Tests for Search API
     def _search(self, experiment_id, metrics_expressions=None, param_expressions=None,
