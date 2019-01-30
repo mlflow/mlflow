@@ -15,6 +15,8 @@ compatible pickling APIs.
 
 # Import all contents of the CloudPickle module in an attempt to include all functions required
 # by ``torch.save``.
+# pylint: disable=wildcard-import
+# pylint: disable=unused-wildcard-import
 from cloudpickle import *
 # PyTorch uses the ``Pickler`` class of the specified ``pickle_module``
 # (https://github.com/pytorch/pytorch/blob/692898fe379c9092f5e380797c32305145cd06e1/torch/
