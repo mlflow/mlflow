@@ -18,7 +18,6 @@
   </distributionManagement>
 
   <artifactId>mlflow-scoring</artifactId>
-  <version>0.8.3</version>
   <packaging>jar</packaging>
   <name>MLflow scoring server</name>
   <url>http://mlflow.org</url>
