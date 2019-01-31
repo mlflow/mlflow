@@ -200,7 +200,7 @@ Bug fixes and documentation updates:
 - [Python] ``log_artifact`` in FileStore now requires a relative path as the artifact path (#439, @mparkhe)
 - [Python] Fixed string representation of Python entities, so they now display both their type and serialized fields (#371, @smurching)
 - [UI] Entry point name is now shown in MLflow UI (#345, @aarondav)
-- [Models] Keras model export now includes Tensorflow graph explicitly to ensure the model can always be loaded at deployment time (#440, @tomasatdatabricks)
+- [Models] Keras model export now includes TensorFlow graph explicitly to ensure the model can always be loaded at deployment time (#440, @tomasatdatabricks)
 - [Python] Fixed issue where FileStore ignored provided Run Name (#358, @adrian555)
 - [Python] Fixed an issue where any ``mlflow run`` failing printed an extraneous exception (#365, @smurching)
 - [Python] uuid dependency removed (#351, @antonpaquin)
@@ -398,7 +398,7 @@ This is a patch release fixing some smaller issues after the 0.2.0 release.
   - ``--artifact-root`` to allow storing artifacts at a remote location, S3 only right now (#78, @mateiz)
   - Server now runs behind gunicorn to allow concurrent requests to be made (#61, @mateiz)
 
-- Tensorflow integration: we now support logging Tensorflow Models directly in the log_model API, model format, and serving APIs (#28, @juntai-zheng)
+- TensorFlow integration: we now support logging TensorFlow Models directly in the log_model API, model format, and serving APIs (#28, @juntai-zheng)
 - Added ``experiments.list_experiments`` as part of experiments API (#37, @mparkhe)
 - Improved support for unicode strings (#79, @smurching)
 - Diabetes progression example dataset and training code (#56, @dennyglee)

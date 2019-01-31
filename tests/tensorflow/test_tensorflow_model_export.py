@@ -44,7 +44,7 @@ def saved_tf_iris_model(tmpdir):
         trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
     tf_feat_cols = []
     feature_names = iris.feature_names[:2]
-    # Create Tensorflow-specific numeric columns for input.
+    # Create TensorFlow-specific numeric columns for input.
     for col in iris.feature_names[:2]:
         tf_feat_cols.append(tf.feature_column.numeric_column(col))
     # Create a training function for the estimator
@@ -281,7 +281,7 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path)
 
-    # Verify that the MLflow model can be loaded even after deleting the Tensorflow `SavedModel`
+    # Verify that the MLflow model can be loaded even after deleting the TensorFlow `SavedModel`
     # directory that was used to create it, implying that the artifacts were copied to and are
     # loaded from the specified MLflow model path
     shutil.rmtree(saved_tf_iris_model.path)

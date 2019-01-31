@@ -120,7 +120,7 @@ for creating custom **pyfunc** models that incorporate custom inference logic an
 that the logic may require.
 
     * An **artifact** is a file or directory, such as a serialized model or a CSV. For example, a
-      serialized Tensorflow graph is an **artifact**. An MLflow model directory is also an
+      serialized TensorFlow graph is an **artifact**. An MLflow model directory is also an
       **artifact**.
 
 .. _pyfunc-create-custom-workflows:

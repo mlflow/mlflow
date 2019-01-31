@@ -1,13 +1,11 @@
 """
-The ``mlflow.tensorflow`` module provides an API for logging and loading TensorFlow models
-as :py:mod:`mlflow.pyfunc` models.
+The ``mlflow.tensorflow`` module provides an API for logging and loading TensorFlow models.
+This module exports TensorFlow models with the following flavors:
 
-You must save your own ``saved_model`` and pass its
-path to ``log_saved_model(saved_model_dir)``. To load the model to predict on it, you call
-``model = pyfunc.load_pyfunc(saved_model_dir)`` followed by
-``prediction = model.predict(pandas DataFrame)`` to obtain a prediction in a pandas DataFrame.
-
-The loaded :py:mod:`mlflow.pyfunc` model *does not* expose any APIs for model training.
+TensorFlow (native) format
+    This is the main flavor that can be loaded back into TensorFlow.
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
 from __future__ import absolute_import
@@ -47,29 +45,28 @@ _logger = logging.getLogger(__name__)
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
               conda_env=None):
     """
-    Log a *serialized* collection of Tensorflow graphs and variables as an MLflow model
-    for the current run. This method operates on Tensorflow variables and graphs that have been
-    serialized in Tensorflow's `SavedModel` format. For more information about the `SavedModel`,
-    see the following Tensorflow documentation: https://www.tensorflow.org/guide/saved_model#
-    save_and_restore_models.
+    Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
+    for the current run. This method operates on TensorFlow variables and graphs that have been
+    serialized in TensorFlow's ``SavedModel`` format. For more information about ``SavedModel``
+    format, see the TensorFlow documentation:
+    https://www.tensorflow.org/guide/saved_model#save_and_restore_models.
 
-    :param tf_saved_model_dir: Path to the directory containing serialized Tensorflow variables and
-                               graphs in `SavedModel` format.
+    :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
+                               graphs in ``SavedModel`` format.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
-                               serialized `SavedModel` object. For more information, see the `tags`
-                               parameter of the `tf.saved_model.builder.SavedModelBuilder` method:
-                               https://www.tensorflow.org/api_docs/python/tf/saved_model/builder/
-                               SavedModelBuilder#add_meta_graph
+                               serialized ``SavedModel`` object. For more information, see the
+                               ``tags`` parameter of the
+                               ``tf.saved_model.builder.SavedModelBuilder`` method.
     :param tf_signature_def_key: A string identifying the input/output signature associated with the
-                                 model. This is a key within the serialized `SavedModel`'s signature
+                                 model. This is a key within the serialized ``SavedModel`` signature
                                  definition mapping. For more information, see the
-                                 `signature_def_map` parameter of the
-                                 `tf.saved_model.builder.SavedModelBuilder` method.
+                                 ``signature_def_map`` parameter of the
+                                 ``tf.saved_model.builder.SavedModelBuilder`` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
+                      contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If ``None``, the default
                       ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
                       model. The following is an *example* dictionary representation of a Conda
                       environment::
@@ -92,30 +89,29 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
 def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, path,
                mlflow_model=Model(), conda_env=None):
     """
-    Save a *serialized* collection of Tensorflow graphs and variables as an MLflow model
-    to a local path. This method operates on Tensorflow variables and graphs that have been
-    serialized in Tensorflow's `SavedModel` format. For more information about the `SavedModel`,
-    see the following Tensorflow documentation: https://www.tensorflow.org/guide/saved_model#
-    save_and_restore_models.
+    Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
+    to a local path. This method operates on TensorFlow variables and graphs that have been
+    serialized in TensorFlow's ``SavedModel`` format. For more information about ``SavedModel``
+    format, see the TensorFlow documentation:
+    https://www.tensorflow.org/guide/saved_model#save_and_restore_models.
 
-    :param tf_saved_model_dir: Path to the directory containing serialized Tensorflow variables and
-                               graphs in `SavedModel` format.
+    :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
+                               graphs in ``SavedModel`` format.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
-                               serialized `savedmodel` object. for more information, see the `tags`
-                               parameter of the `tf.saved_model.builder.savedmodelbuilder` method:
-                               https://www.tensorflow.org/api_docs/python/tf/saved_model/builder/
-                               savedmodelbuilder#add_meta_graph
+                               serialized ``SavedModel`` object. For more information, see the
+                               ``tags`` parameter of the
+                               ``tf.saved_model.builder.savedmodelbuilder`` method.
     :param tf_signature_def_key: A string identifying the input/output signature associated with the
-                                 model. this is a key within the serialized `savedmodel`'s signature
-                                 definition mapping. for more information, see the
-                                 `signature_def_map` parameter of the
-                                 `tf.saved_model.builder.savedmodelbuilder` method.
+                                 model. This is a key within the serialized ``savedmodel``
+                                 signature definition mapping. For more information, see the
+                                 ``signature_def_map`` parameter of the
+                                 ``tf.saved_model.builder.savedmodelbuilder`` method.
     :param path: Local path where the MLflow model is to be saved.
     :param mlflow_model: MLflow model configuration to which this flavor will be added.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If `None`, the default
+                      contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If ``None``, the default
                       ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
                       model. The following is an *example* dictionary representation of a Conda
                       environment::
@@ -131,7 +127,7 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
 
     """
     _logger.info(
-        "Validating the specified Tensorflow model by attempting to load it in a new Tensorflow"
+        "Validating the specified TensorFlow model by attempting to load it in a new TensorFlow"
         " graph...")
     _validate_saved_model(tf_saved_model_dir=tf_saved_model_dir,
                           tf_meta_graph_tags=tf_meta_graph_tags,
@@ -163,8 +159,8 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
 
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
     """
-    Validate the Tensorflow SavedModel by attempting to load it in a new Tensorflow graph.
-    If the loading process fails, any exceptions thrown by Tensorflow will be propagated.
+    Validate the TensorFlow SavedModel by attempting to load it in a new TensorFlow graph.
+    If the loading process fails, any exceptions thrown by TensorFlow will be propagated.
     """
     validation_tf_graph = tf.Graph()
     validation_tf_sess = tf.Session(graph=validation_tf_graph)
@@ -177,14 +173,14 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
 
 def load_model(path, tf_sess, run_id=None):
     """
-    Load an MLflow model that contains the Tensorflow flavor from the specified path.
+    Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
-    **This method must be called within a Tensorflow graph context!**
+    **This method must be called within a TensorFlow graph context.**
 
     :param path: The local filesystem path or run-relative artifact path to the model.
-    :param tf_sess: The Tensorflow session in which to the load the model.
-    :return: A Tensorflow signature definition of type:
-             `tensorflow.core.protobuf.meta_graph_pb2.SignatureDef`. This defines the input and
+    :param tf_sess: The TensorFlow session in which to the load the model.
+    :return: A TensorFlow signature definition of type:
+             ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines the input and
              output tensors for model inference.
 
     >>> import mlflow.tensorflow
@@ -210,11 +206,11 @@ def load_model(path, tf_sess, run_id=None):
 
 def _load_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags, tf_signature_def_key):
     """
-    Load a specified Tensorflow model consisting of a Tensorflow meta graph and signature definition
-    from a serialized Tensorflow `SavedModel` collection.
+    Load a specified TensorFlow model consisting of a TensorFlow meta graph and signature definition
+    from a serialized TensorFlow ``SavedModel`` collection.
 
     :param tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
-    :param tf_sess: The Tensorflow session in which to the load the metagraph.
+    :param tf_sess: The TensorFlow session in which to the load the metagraph.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
                                serialized `SavedModel` object. For more information, see the `tags`
                                parameter of the `tf.saved_model.builder.SavedModelBuilder` method:
@@ -225,8 +221,8 @@ def _load_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags, tf_signature_de
                                  definition mapping. For more information, see the
                                  `signature_def_map` parameter of the
                                  `tf.saved_model.builder.SavedModelBuilder` method.
-    :return: A Tensorflow signature definition of type:
-             `tensorflow.core.protobuf.meta_graph_pb2.SignatureDef`. This defines input and
+    :return: A TensorFlow signature definition of type:
+             ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines input and
              output tensors within the specified metagraph for inference.
     """
     meta_graph_def = tf.saved_model.loader.load(
@@ -241,7 +237,7 @@ def _load_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags, tf_signature_de
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``. This function loads an MLflow
-    model with the Tensorflow flavor into a new Tensorflow graph and exposes it behind the
+    model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the
     `pyfunc.predict` interface.
     """
     tf_graph = tf.Graph()
@@ -254,14 +250,14 @@ def _load_pyfunc(path):
 
 class _TFWrapper(object):
     """
-    Wrapper class that exposes a Tensorflow model for inference via a `predict` function such that
+    Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
     predict(data: pandas.DataFrame) -> pandas.DataFrame.
     """
     def __init__(self, tf_sess, tf_graph, signature_def):
         """
-        :param tf_sess: The Tensorflow session used to evaluate the model.
-        :param tf_graph: The Tensorflow graph containing the model.
-        :param signature_def: The Tensorflow signature definition used to transform input dataframes
+        :param tf_sess: The TensorFlow session used to evaluate the model.
+        :param tf_graph: The TensorFlow graph containing the model.
+        :param signature_def: The TensorFlow signature definition used to transform input dataframes
                               into tensors and output vectors into dataframes.
         """
         self.tf_sess = tf_sess
