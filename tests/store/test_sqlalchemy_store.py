@@ -89,18 +89,18 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 1)
 
-        experiment_id = self.store.create_experiment(name='test experiment')
+        experiment_id = self.store.create_experiment(name='test exp')
         result = self.session.query(models.SqlExperiment).all()
         self.assertEqual(len(result), 2)
 
-        actual = filter(lambda e: e.name == 'test experiment', result)[0]
+        test_exp = self.session.query(models.SqlExperiment).filter_by(name='test exp').first()
 
-        self.assertEqual(actual.experiment_id, experiment_id)
-        self.assertEqual(actual.name, 'test experiment')
+        self.assertEqual(test_exp.experiment_id, experiment_id)
+        self.assertEqual(test_exp.name, 'test exp')
 
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
-        self.assertEqual(actual.name, 'test experiment')
+        self.assertEqual(actual.name, 'test exp')
 
     def test_run_tag_model(self):
         run_data = models.SqlTag(run_uuid='tuuid', key='test', value='val')
