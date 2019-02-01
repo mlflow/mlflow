@@ -87,7 +87,7 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None, **k
     >>> x_data = torch.Tensor([[1.0], [2.0], [3.0]])
     >>> y_data = torch.Tensor([[2.0], [4.0], [6.0]])
     >>> # Define PyTorch model
-    >>> # (Partial Model example modified from Sung Kim
+    >>> # (Model structure modified from Sung Kim
     >>> # https://github.com/hunkim/PyTorchZeroToAll)
     >>> class MyPyTorchModel(torch.nn.Module):
     >>>     def __init__(self):
