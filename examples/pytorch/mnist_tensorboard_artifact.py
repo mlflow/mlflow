@@ -13,6 +13,7 @@ from __future__ import print_function
 import argparse
 import os
 import mlflow
+import mlflow.pytorch
 import tempfile
 import torch
 import torch.nn as nn
@@ -165,5 +166,9 @@ with mlflow.start_run():
     # Upload the TensorBoard event logs as a run artifact
     print("Uploading TensorBoard events as a run artifact...")
     mlflow.log_artifacts(output_dir, artifact_path="events")
-    print("\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s" %
-        os.path.join(mlflow.get_artifact_uri(), "events"))
+    print("You can view the logged Tensorboard events by running: `tensorboard --logdir=%s`\n" %
+          os.path.join(mlflow.get_artifact_uri(), "events"))
+
+    # Log the PyTorch model as a run artifact
+    print("Logging PyTorch model as a run artifact...")
+    mlflow.pytorch.log_model(pytorch_model=model, artifact_path="pytorch_model")
