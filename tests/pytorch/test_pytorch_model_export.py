@@ -453,8 +453,9 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
     assert os.path.exists(model_data_path)
-    assert mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
-    with open(os.path.join(model_data_path, mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
+    assert mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
+    with open(
+            os.path.join(model_data_path, mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
         f.write(custom_pickle_module_name)
 
     import_module = importlib.import_module
@@ -492,8 +493,9 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
     assert os.path.exists(model_data_path)
-    assert mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
-    with open(os.path.join(model_data_path, mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
+    assert mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
+    with open(
+            os.path.join(model_data_path, mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
         f.write(custom_pickle_module_name)
 
     def validate_pickle_module_import(module_name):
@@ -530,9 +532,9 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     assert pyfunc_conf is not None
     model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
     assert os.path.exists(model_data_path)
-    assert mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
+    assert mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
     pyfunc_conf[pyfunc.DATA] = os.path.join(
-        model_data_path, mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME)
+        model_data_path, mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME)
     model_conf.save(model_conf_path)
 
     loaded_pyfunc = pyfunc.load_pyfunc(model_path)
@@ -566,9 +568,9 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     assert pyfunc_conf is not None
     model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
     assert os.path.exists(model_data_path)
-    assert mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
+    assert mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
     pyfunc_conf[pyfunc.DATA] = os.path.join(
-        model_data_path, mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME)
+        model_data_path, mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME)
     model_conf.save(model_conf_path)
 
     loaded_pyfunc = pyfunc.load_pyfunc(model_path)
@@ -624,8 +626,9 @@ def test_load_model_logs_error_when_pickle_module_cannot_be_imported(
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
     assert os.path.exists(model_data_path)
-    assert mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
-    with open(os.path.join(model_data_path, mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
+    assert mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
+    with open(
+            os.path.join(model_data_path, mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
         f.write("not.a.real.module")
 
     log_messages = []

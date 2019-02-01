@@ -49,8 +49,8 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
     ],
 )
 
-SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
-PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
+_SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
+_PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 
 _logger = logging.getLogger(__name__)
 
@@ -217,11 +217,11 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     #
     # TODO: Stop persisting this information to the filesystem once we have a mechanism for
     # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
-    pickle_module_path = os.path.join(model_data_path, PICKLE_MODULE_INFO_FILE_NAME)
+    pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
     with open(pickle_module_path, "w") as f:
         f.write(pickle_module.__name__)
     # Save pytorch model
-    model_path = os.path.join(model_data_path, SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
     torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
     conda_env_subpath = "conda.yaml"
@@ -258,7 +258,7 @@ def _load_model(path, **kwargs):
         # information about the pickle module that should be used by PyTorch to load it
         model_path = os.path.join(path, "model.pth")
         if "pickle_module" not in kwargs:
-            pickle_module_path = os.path.join(path, PICKLE_MODULE_INFO_FILE_NAME)
+            pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
             with open(pickle_module_path, "r") as f:
                 pickle_module_name = f.read()
             try:
