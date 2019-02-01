@@ -218,8 +218,17 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :param app_name: Name of the deployed application.
     :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``
                  is specified.
-    :param execution_role_arn: Amazon execution role with SageMaker rights.
-                               Defaults to the currently-assumed role.
+    :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
+                               access the specified Docker image and S3 bucket. If unspecified,
+                               the currently-assumed role will be used. This execution role is
+                               passed to the SageMaker service when creating a SageMaker model from
+                               the specified MLflow model. It is passed as the ``ExecutionRoleArn``
+                               parameter of the `SageMaker CreateModel API call
+                               <https://docs.aws.amazon.com/sagemaker/latest/dg/
+                               API_CreateModel.html>`_. This role is *not* assumed for any other
+                               call. For more information about SageMaker execution roles for model
+                               creation, see
+                               https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
     :param run_id: MLflow run ID.
