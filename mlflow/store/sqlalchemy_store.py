@@ -2,6 +2,7 @@ import sqlalchemy
 import uuid
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.store.dbmodels.db_types import DB_ENGINES, MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
 from mlflow.entities import RunStatus, SourceType
 from mlflow.store.abstract_store import AbstractStore
@@ -9,19 +10,83 @@ from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.file_utils import build_path, exists, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.search_utils import does_run_match_clause
 
 
-class SqlAlchemyStore(AbstractStore):
+DEFAULT_ARTIFACT_ROOT = "artifact_root"
 
-    def __init__(self, db_uri):
+
+class DbHelper:
+    def __init__(self, db_type, session):
+        if db_type not in DB_ENGINES:
+            raise MlflowException("Unsupported DB engine '{}'. "
+                                  "Valid types are: {}'".format(db_type, DB_ENGINES))
+        self.db_type = db_type
+        self.session = session
+
+    def __enter__(self):
+        if self.db_type == MYSQL:
+            self.session.execute("SELECT @@GLOBAL.sql_mode;")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.db_type == MYSQL:
+            self.session.execute("SELECT @@GLOBAL.sql_mode='';")
+
+
+class SqlAlchemyStore(AbstractStore):
+    ARTIFACTS_FOLDER_NAME = "artifacts"
+
+    def __init__(self, db_uri, default_artifact_root=None):
+
         super(SqlAlchemyStore, self).__init__()
+        self.db_uri = db_uri
+        self.artifact_root_uri = default_artifact_root or DEFAULT_ARTIFACT_ROOT
         self.engine = sqlalchemy.create_engine(db_uri)
         Base.metadata.create_all(self.engine)
         Base.metadata.bind = self.engine
         db_session = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.session = db_session()
+
+        if self.artifact_root_uri == DEFAULT_ARTIFACT_ROOT and not exists(DEFAULT_ARTIFACT_ROOT):
+            mkdir(DEFAULT_ARTIFACT_ROOT)
+
+        if len(self.list_experiments()) == 0:
+            self._create_default_experiment(db_uri.split(':')[0])
+
+    def _create_default_experiment(self, db_type):
+        """
+        MLflow UI and client code expects a default experiment with ID 0.
+        This method uses SQL insert statement to create the default experiment as a hack, since
+        experiment table uses 'experiment_id' column is a PK and is also set to auto increment.
+        MySQL and other implementation do not allow value '0' for such cases.
+
+        ToDo: Identify a less hack mechanism to create default experiment 0
+        """
+        table = SqlExperiment.__tablename__
+        default_experiment = {
+            SqlExperiment.experiment_id.name: 0,
+            SqlExperiment.name.name: 'Default',
+            SqlExperiment.artifact_location.name: self._get_artifact_location(0),
+            SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE
+        }
+
+        def decorate(s):
+            if isinstance(s, str):
+                return "'{}'".format(s)
+            else:
+                return "{}".format(s)
+
+        # Get a list of keys to ensure we have a deterministic ordering
+        columns = list(default_experiment.keys())
+        values = ", ".join([decorate(default_experiment.get(c)) for c in columns])
+
+        with DbHelper(db_type, self.session):
+            self.session.execute("INSERT INTO {} ({}) VALUES ({});".format(table,
+                                                                           ", ".join(columns),
+                                                                           values))
+        self.session.commit()
 
     def _save_to_db(self, objs):
         """
@@ -49,6 +114,9 @@ class SqlAlchemyStore(AbstractStore):
 
         return instance, created
 
+    def _get_artifact_location(self, experiment_id):
+        return build_path(self.artifact_root_uri, str(experiment_id))
+
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
             raise MlflowException('Invalid experiment name', INVALID_PARAMETER_VALUE)
@@ -57,8 +125,11 @@ class SqlAlchemyStore(AbstractStore):
                 name=name, lifecycle_stage=LifecycleStage.ACTIVE,
                 artifact_location=artifact_location
             )
-            self.session.add(experiment)
-            self.session.commit()
+            self._save_to_db(experiment)
+            if not artifact_location:
+                # this requires a double write. The first one to generate an autoincrement-ed ID
+                experiment.artifact_location = self._get_artifact_location(experiment.experiment_id)
+                self._save_to_db(experiment)
         except sqlalchemy.exc.IntegrityError as e:
             self.session.rollback()
             raise MlflowException('Experiment(name={}) already exists. '
@@ -119,7 +190,9 @@ class SqlAlchemyStore(AbstractStore):
                                   INVALID_STATE)
 
         run_uuid = uuid.uuid4().hex
-        run = SqlRun(name=run_name or "", artifact_uri=None, run_uuid=run_uuid,
+        artifact_location = build_path(experiment.artifact_location, run_uuid,
+                                       SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
+        run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_uuid,
                      experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                      source_name=source_name, entry_point_name=entry_point_name,
                      user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),

@@ -17,8 +17,8 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.file_store import FileStore
+from mlflow.tracking.utils import _is_db_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-
 
 _store = None
 
@@ -28,8 +28,12 @@ def _get_store():
     global _store
     if _store is None:
         store_dir = os.environ.get(FILE_STORE_ENV_VAR, os.path.abspath("mlruns"))
-        artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, store_dir)
-        _store = FileStore(store_dir, artifact_root)
+        artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
+        if _is_db_uri(store_dir):
+            from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+            return SqlAlchemyStore(store_dir, artifact_root)
+        else:
+            _store = FileStore(store_dir, artifact_root)
     return _store
 
 
@@ -343,12 +347,6 @@ def _get_artifact_repo(run):
     store = _get_store()
     if run.info.artifact_uri:
         return ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
-
-    # TODO(aaron) Remove this once everyone locally only has runs from after
-    # the introduction of "artifact_uri".
-    uri = os.path.join(store.root_directory, str(run.info.experiment_id),
-                       run.info.run_uuid, "artifacts")
-    return ArtifactRepository.from_artifact_uri(uri, store)
 
 
 def _get_paths(base_path):

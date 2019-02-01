@@ -154,7 +154,7 @@ def ui(file_store, host, port, gunicorn_opts):
     """
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(file_store, file_store, host, port, 1, None, gunicorn_opts)
+        _run_server(file_store, None, host, port, 1, None, gunicorn_opts)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)

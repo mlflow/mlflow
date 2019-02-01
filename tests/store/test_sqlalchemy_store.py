@@ -15,18 +15,15 @@ from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
 DB_URI = 'sqlite://'
+ARTIFACT_URI = 'file://fake file'
 
 
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        self.store = SqlAlchemyStore(DB_URI)
-        self.engine = sqlalchemy.create_engine(DB_URI)
-        Session = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.session = Session()
-        self.store.session = self.session
-        self.store.engine = self.engine
-        models.Base.metadata.create_all(self.engine)
+        self.store = SqlAlchemyStore(DB_URI, ARTIFACT_URI)
+        self.engine = self.store.engine
+        self.session = self.store.session
 
     def tearDown(self):
         models.Base.metadata.drop_all(self.engine)
@@ -36,6 +33,14 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             return [self.store.create_experiment(name=name) for name in names]
 
         return self.store.create_experiment(name=names)
+
+    def test_default_experiment(self):
+        experiments = self.store.list_experiments()
+        self.assertEqual(len(experiments), 1)
+
+        first = experiments[0]
+        self.assertEqual(first.experiment_id, 0)
+        self.assertEqual(first.name, "Default")
 
     def test_raise_duplicate_experiments(self):
         with self.assertRaises(Exception):
@@ -47,11 +52,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_delete_experiment(self):
         experiments = self._experiment_factory(['morty', 'rick', 'rick and morty'])
+
+        all_experiments = self.store.list_experiments()
+        self.assertEqual(len(all_experiments), len(experiments) + 1)  # default
+
         exp = experiments[0]
         self.store.delete_experiment(exp)
 
         actual = self.session.query(models.SqlExperiment).get(exp)
-        self.assertEqual(len(self.store.list_experiments()), len(experiments) - 1)
+        self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
 
         self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
@@ -68,7 +77,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         experiments = self._experiment_factory(testnames)
         actual = self.store.list_experiments()
 
-        self.assertEqual(len(experiments), len(actual))
+        self.assertEqual(len(experiments) + 1, len(actual))  # default
 
         for experiment_id in experiments:
             res = self.session.query(models.SqlExperiment).filter_by(
@@ -78,13 +87,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_create_experiments(self):
         result = self.session.query(models.SqlExperiment).all()
-        self.assertEqual(len(result), 0)
+        self.assertEqual(len(result), 1)
 
         experiment_id = self.store.create_experiment(name='test experiment')
         result = self.session.query(models.SqlExperiment).all()
-        self.assertEqual(len(result), 1)
+        self.assertEqual(len(result), 2)
 
-        actual = result[0]
+        actual = filter(lambda e: e.name == 'test experiment', result)[0]
 
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, 'test experiment')

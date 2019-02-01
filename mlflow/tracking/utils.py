@@ -7,6 +7,7 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.dbmodels.db_types import DB_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
@@ -24,14 +25,6 @@ _TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
 _TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
 _TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
 _TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
-
-_DBENGINES = [
-    'postgresql',
-    'mysql',
-    'sqlite',
-    'mssql',
-]
-
 
 _tracking_uri = None
 
@@ -134,7 +127,7 @@ def _get_store(store_uri=None):
     store_uri = store_uri if store_uri else get_tracking_uri()
     # Default: if URI hasn't been set, return a FileStore
     if store_uri is None:
-        return FileStore()
+        return _get_file_store(None)
 
     # Pattern-match on the URI
     if _is_db_uri(store_uri):
@@ -169,12 +162,12 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri):
-    path = urllib.parse.urlparse(store_uri).path
+    path = urllib.parse.urlparse(store_uri).path if store_uri else None
     return FileStore(path)
 
 
 def _is_db_uri(uri):
-    if uri.split(':')[0] not in _DBENGINES:
+    if uri.split(':')[0] not in DB_ENGINES:
         return False
     return True
 
