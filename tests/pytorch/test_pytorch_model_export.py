@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import importlib
 import os
 import logging
 import json
@@ -438,6 +439,144 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         _predict(model=module_scoped_subclassed_model, data=data),
         decimal=4)
 
+
+def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_time(
+        module_scoped_subclassed_model, model_path):
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        conda_env=None)
+
+    custom_pickle_module_name = "test pickle module"
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
+    with open(os.path.join(model_data_path, mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
+        f.write(custom_pickle_module_name)
+
+    import_module = importlib.import_module
+    def validate_pickle_module_import(module_name):
+        if module_name == mlflow.pytorch.__name__:
+            return import_module(module_name)
+        else:
+            assert module_name == custom_pickle_module_name
+            return module_name
+
+    def validate_torch_load(*args, **kwargs):
+        # pylint: disable=unused-argument
+        assert kwargs["pickle_module"] == custom_pickle_module_name
+
+    with mock.patch("importlib.import_module") as import_mock,\
+            mock.patch("torch.load") as torch_load_mock:
+        import_mock.side_effect = validate_pickle_module_import
+        torch_load_mock.side_effect = validate_torch_load 
+        pyfunc.load_pyfunc(model_path)
+
+
+def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time(
+        module_scoped_subclassed_model):
+    artifact_path = "pytorch_model"
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            artifact_path=artifact_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid 
+    model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
+
+    custom_pickle_module_name = "test pickle module"
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
+    with open(os.path.join(model_data_path, mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
+        f.write(custom_pickle_module_name)
+
+    def validate_pickle_module_import(module_name):
+        assert module_name == custom_pickle_module_name
+        return module_name
+
+    def validate_torch_load(*args, **kwargs):
+        # pylint: disable=unused-argument
+        assert kwargs["pickle_module"] == custom_pickle_module_name
+
+    with mock.patch("importlib.import_module") as import_mock,\
+            mock.patch("torch.load") as torch_load_mock:
+        import_mock.side_effect = validate_pickle_module_import
+        torch_load_mock.side_effect = validate_torch_load 
+        mlflow.pytorch.load_model(model_path)
+
+
+def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
+        module_scoped_subclassed_model, model_path, data):
+    """
+    This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
+    by `mlflow.pytorch.load_model`. The `data` path associated with these older models is serialized
+    PyTorch model file, as opposed to the current format: a directory containing a serialized
+    model file and pickle module information
+    """
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        conda_env=None)
+
+    model_conf_path = os.path.join(model_path, "MLmodel") 
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    assert pyfunc_conf is not None
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
+    pyfunc_conf[pyfunc.DATA] = os.path.join(
+        model_data_path, mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_conf.save(model_conf_path)
+
+    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
+    
+    np.testing.assert_array_almost_equal(
+        loaded_pyfunc.predict(data[0]),
+        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
+        decimal=4)
+
+
+def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
+        module_scoped_subclassed_model, model_path, data):
+    """
+    This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
+    by `mlflow.pytorch.load_model`. The `data` path associated with these older models is serialized
+    PyTorch model file, as opposed to the current format: a directory containing a serialized
+    model file and pickle module information
+    """
+    artifact_path = "pytorch_model"
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            artifact_path=artifact_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
+
+    model_conf_path = os.path.join(model_path, "MLmodel") 
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    assert pyfunc_conf is not None
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
+    pyfunc_conf[pyfunc.DATA] = os.path.join(
+        model_data_path, mlflow.pytorch.SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_conf.save(model_conf_path)
+
+    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
+    
+    np.testing.assert_array_almost_equal(
+        loaded_pyfunc.predict(data[0]),
+        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
+        decimal=4)
+    
 
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
