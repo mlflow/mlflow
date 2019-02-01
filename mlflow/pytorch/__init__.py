@@ -83,43 +83,50 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None, **k
     >>> import torch
     >>> import mlflow
     >>> import mlflow.pytorch
-    >>> # X data
+    >>> # Load training data: x (training samples) and y (training labels)
     >>> x_data = torch.Tensor([[1.0], [2.0], [3.0]])
-    >>> # Y data with its expected value: labels
     >>> y_data = torch.Tensor([[2.0], [4.0], [6.0]])
-    >>> # Partial Model example modified from Sung Kim
-    >>> # https://github.com/hunkim/PyTorchZeroToAll
-    >>> class Model(torch.nn.Module):
-    >>>    def __init__(self):
-    >>>       super(Model, self).__init__()
-    >>>       self.linear = torch.nn.Linear(1, 1)  # One in and one out
-    >>>    def forward(self, x):
-    >>>        y_pred = self.linear(x)
-    >>>        return y_pred
-    >>> # our model
-    >>> model = Model()
+    >>> # Define PyTorch model
+    >>> # (Partial Model example modified from Sung Kim
+    >>> # https://github.com/hunkim/PyTorchZeroToAll)
+    >>> class MyPyTorchModel(torch.nn.Module):
+    >>>     def __init__(self):
+    >>>         super(MyPyTorchModel, self).__init__()
+    >>>         self.linear = torch.nn.Linear(1, 1)  # One in and one out
+    >>>
+    >>>     def forward(self, x):
+    >>>         y_pred = self.linear(x)
+    >>>         return y_pred
+    >>> pytorch_model = MyPyTorchModel()
     >>> criterion = torch.nn.MSELoss(size_average=False)
-    >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-    >>> # Training loop
-    >>> for epoch in range(500):
-    >>>    # Forward pass: Compute predicted y by passing x to the model
-    >>>    y_pred = model(x_data)
-    >>>    # Compute and print loss
-    >>>    loss = criterion(y_pred, y_data)
-    >>>    print(epoch, loss.data[0])
-    >>>   #Zero gradients, perform a backward pass, and update the weights.
-    >>>   optimizer.zero_grad()
-    >>>   loss.backward()
-    >>>   optimizer.step()
-    >>> # After training
+    >>> optimizer = torch.optim.SGD(pytorch_model.parameters(), lr=0.01)
+    >>> # Train the model
+    >>> print("Training model...")
+    >>> for epoch in range(501):
+    >>>     # Forward pass: Compute predicted y by passing x to the model
+    >>>     y_pred = pytorch_model(x_data)
+    >>>     # Compute and print loss
+    >>>     loss = criterion(y_pred, y_data)
+    >>>     if epoch % 50 == 0:
+    >>>         print("Epoch: {}, Loss: {}".format(epoch, loss.item()))
+    >>>     # Zero gradients, perform a backward pass, and update the weights
+    >>>     optimizer.zero_grad()
+    >>>     loss.backward()
+    >>>     optimizer.step()
+    >>> # Evaluate the model on test data
+    >>> print("Evaluating model on sample data...")
     >>> for hv in [4.0, 5.0, 6.0]:
     >>>     hour_var = torch.Tensor([[hv]])
-    >>>     y_pred = model(hour_var)
-    >>>     print("predict (after training)",  hv, model(hour_var).data[0][0])
-    >>> # log the model
+    >>>     y_pred = pytorch_model(hour_var)
+    >>>     print("Input: {}, Output: {}".format(hv, y_pred.data[0][0]))
+    >>> # Log the model
+    >>> print("Logging model...")
+    >>> artifact_path = "pytorch_model"
     >>> with mlflow.start_run() as run:
-    >>>   mlflow.log_param("epochs", 500)
-    >>>   mlflow.pytorch.log_model(pytorch_model, "models")
+    >>>     mlflow.log_param("epochs", 501)
+    >>>     mlflow.pytorch.log_model(pytorch_model, artifact_path, code_paths=[__file__])
+    >>>     print("Artifact path: {}".format(artifact_path))
+    >>>     print("Run ID: {}".format(mlflow.active_run().info.run_uuid))
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
               conda_env=conda_env, code_paths=code_paths, **kwargs)
