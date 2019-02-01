@@ -5,7 +5,7 @@ This module imports contents from CloudPickle in a way that is compatible with t
 serialization.py#L192). It is included as a distinct module from :mod:`mlflow.pytorch` to avoid
 polluting the namespace with wildcard imports.
 
-Calling ``torch.save(..., pickle_module=mlflow.pytorch.pickle)`` will persist PyTorch model
+Calling ``torch.save(..., pickle_module=mlflow.pytorch.pickle_module)`` will persist PyTorch model
 definitions using CloudPickle, leveraging improved pickling functionality such as the ability
 to capture class definitions in the "__main__" scope.
 
