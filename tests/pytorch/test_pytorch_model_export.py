@@ -472,7 +472,7 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
     with mock.patch("importlib.import_module") as import_mock,\
             mock.patch("torch.load") as torch_load_mock:
         import_mock.side_effect = validate_pickle_module_import
-        torch_load_mock.side_effect = validate_torch_load 
+        torch_load_mock.side_effect = validate_torch_load
         pyfunc.load_pyfunc(model_path)
 
 
@@ -484,7 +484,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
             artifact_path=artifact_path,
             pytorch_model=module_scoped_subclassed_model,
             conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid 
+        run_id = mlflow.active_run().info.run_uuid
     model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
 
     custom_pickle_module_name = "test pickle module"
@@ -507,7 +507,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
     with mock.patch("importlib.import_module") as import_mock,\
             mock.patch("torch.load") as torch_load_mock:
         import_mock.side_effect = validate_pickle_module_import
-        torch_load_mock.side_effect = validate_torch_load 
+        torch_load_mock.side_effect = validate_torch_load
         mlflow.pytorch.load_model(model_path)
 
 
@@ -524,7 +524,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
         pytorch_model=module_scoped_subclassed_model,
         conda_env=None)
 
-    model_conf_path = os.path.join(model_path, "MLmodel") 
+    model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
     assert pyfunc_conf is not None
@@ -536,7 +536,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     model_conf.save(model_conf_path)
 
     loaded_pyfunc = pyfunc.load_pyfunc(model_path)
-    
+
     np.testing.assert_array_almost_equal(
         loaded_pyfunc.predict(data[0]),
         pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
@@ -560,7 +560,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
         run_id = mlflow.active_run().info.run_uuid
     model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
 
-    model_conf_path = os.path.join(model_path, "MLmodel") 
+    model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
     assert pyfunc_conf is not None
@@ -572,12 +572,47 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     model_conf.save(model_conf_path)
 
     loaded_pyfunc = pyfunc.load_pyfunc(model_path)
-    
+
     np.testing.assert_array_almost_equal(
         loaded_pyfunc.predict(data[0]),
         pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
         decimal=4)
-    
+
+
+def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
+        module_scoped_subclassed_model, model_path):
+    pickle_call_results = {
+        "pickle_dump_called": False,
+        "mlflow_torch_pickle_load_called": False,
+    }
+
+    import pickle
+    pickle_dump = pickle.dump
+
+    def validate_pickle_dump_called(*args, **kwargs):
+        pickle_call_results["pickle_dump_called"] = True
+        return pickle_dump(*args, **kwargs)
+
+    with mock.patch("pickle.dump") as pickle_dump_mock:
+        pickle_dump_mock.side_effect = validate_pickle_dump_called
+        mlflow.pytorch.save_model(
+            path=model_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None,
+            pickle_module=pickle)
+
+    mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.load
+
+    def validate_mlflow_torch_pickle_load_called(*args, **kwargs):
+        pickle_call_results["mlflow_torch_pickle_load_called"] = True
+        return mlflow_torch_pickle_load(*args, **kwargs)
+
+    with mock.patch("mlflow.pytorch.pickle_module.load") as mlflow_torch_pickle_load_mock:
+        mlflow_torch_pickle_load_mock.side_effect = validate_mlflow_torch_pickle_load_called
+        mlflow.pytorch.load_model(path=model_path, pickle_module=mlflow_pytorch_pickle_module)
+
+    assert all(pickle_call_results.values())
+
 
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(

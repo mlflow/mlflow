@@ -55,7 +55,7 @@ PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _logger = logging.getLogger(__name__)
 
 
-def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None, 
+def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
               pickle_module=mlflow_pytorch_pickle_module, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
@@ -90,6 +90,10 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files will be *prepended* to the system
                        path when the model is loaded.
+    :param pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
+                          ``pytorch_model``. This will be passed as the ``pickle_module`` parameter
+                          to ``torch.save()``. By default, this module will also be used to
+                          deserialize ("unpickle") the PyTorch model at load time.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -174,6 +178,10 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files will be *prepended* to the system
                        path when the model is loaded.
+    :param pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
+                          ``pytorch_model``. This will be passed as the ``pickle_module`` parameter
+                          to ``torch.save()``. By default, this module will also be used to
+                          deserialize ("unpickle") the PyTorch model at load time.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -235,7 +243,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     mlflow_model.add_flavor(
         FLAVOR_NAME, model_data=model_data_subpath, pytorch_version=torch.__version__)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch", data=model_data_subpath,
-                        pickle_module_name=pickle_module.__name__, code=code_dir_subpath, 
+                        pickle_module_name=pickle_module.__name__, code=code_dir_subpath,
                         env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
@@ -253,7 +261,7 @@ def _load_model(path, **kwargs):
             pickle_module_path = os.path.join(path, PICKLE_MODULE_INFO_FILE_NAME)
             with open(pickle_module_path, "r") as f:
                 pickle_module_name = f.read()
-            kwargs["pickle_module"] = importlib.import_module(pickle_module_name) 
+            kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
     else:
         model_path = path
 
