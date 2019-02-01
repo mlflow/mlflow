@@ -261,7 +261,13 @@ def _load_model(path, **kwargs):
             pickle_module_path = os.path.join(path, PICKLE_MODULE_INFO_FILE_NAME)
             with open(pickle_module_path, "r") as f:
                 pickle_module_name = f.read()
-            kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
+            try:
+                kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
+            except ImportError:
+                _logger.error(
+                    "Failed to import the pickle module that was used to save the PyTorch model."
+                    " An attempt will be made to load the model using the default PyTorch pickle"
+                    " module; however, this may not succeed.")
     else:
         model_path = path
 

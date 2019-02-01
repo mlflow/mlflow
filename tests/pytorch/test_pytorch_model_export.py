@@ -614,6 +614,35 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     assert all(pickle_call_results.values())
 
 
+def test_load_model_logs_error_when_pickle_module_cannot_be_imported(
+        main_scoped_subclassed_model, model_path):
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=main_scoped_subclassed_model,
+        conda_env=None)
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
+    with open(os.path.join(model_data_path, mlflow.pytorch.PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
+        f.write("not.a.real.module")
+
+    log_messages = []
+
+    def custom_log_error(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    with mock.patch("mlflow.pytorch._logger.error") as log_error_mock:
+        log_error_mock.side_effect = custom_log_error
+        mlflow.pytorch.load_model(model_path)
+
+    assert any([
+        "Failed to import the pickle module that was used to save the PyTorch model" in log_message
+        for log_message in log_messages
+    ])
+
+
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
         model, model_path, data, sequential_predicted):
