@@ -22,6 +22,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -373,7 +374,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
         path=model_path,
         pytorch_model=main_scoped_subclassed_model,
         conda_env=None,
-        pickle_module=mlflow.pytorch.pickle_module)
+        pickle_module=mlflow_pytorch_pickle_module)
 
     scoring_response = pyfunc_serve_and_score_model(
             model_path=model_path,

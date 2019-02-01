@@ -29,9 +29,9 @@ FLAVOR_NAME = "keras"
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
     additional_conda_deps=[
         "keras={}".format(keras.__version__),
-        # The Keras pyfunc representation requires the Tensorflow
+        # The Keras pyfunc representation requires the TensorFlow
         # backend for Keras. Therefore, the conda environment must
-        # include Tensorflow
+        # include TensorFlow
         "tensorflow=={}".format(tf.__version__),
     ],
     additional_pip_deps=None,
