@@ -25,6 +25,7 @@ import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 import mlflow.tracking
 from mlflow.utils.environment import _mlflow_conda_env
@@ -257,17 +258,26 @@ def _load_model(path, **kwargs):
         # `path` is a directory containing a serialized PyTorch model and a text file containing
         # information about the pickle module that should be used by PyTorch to load it
         model_path = os.path.join(path, "model.pth")
-        if "pickle_module" not in kwargs:
-            pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
-            with open(pickle_module_path, "r") as f:
-                pickle_module_name = f.read()
+        pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
+        with open(pickle_module_path, "r") as f:
+            pickle_module_name = f.read()
+        if "pickle_module" in kwargs and kwargs["pickle_module"].__name__ != pickle_module_name:
+            _logger.warning(
+                "Attempting to load the PyTorch model with a pickle module, '%s', that does not"
+                " match the pickle module that was used to save the model: '%s'.",
+                kwargs["pickle_module"].__name__,
+                pickle_module_name)
+        else:
             try:
                 kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
             except ImportError:
-                _logger.error(
-                    "Failed to import the pickle module that was used to save the PyTorch model."
-                    " An attempt will be made to load the model using the default PyTorch pickle"
-                    " module; however, this may not succeed.")
+                raise MlflowException(
+                    message=(
+                        "Failed to import the pickle module that was used to save the PyTorch"
+                        " model. Pickle module name: `{pickle_module_name}`".format(
+                        pickle_module_name=pickle_module_name)),
+                    error_code=RESOURCE_DOES_NOT_EXIST)
+
     else:
         model_path = path
 
