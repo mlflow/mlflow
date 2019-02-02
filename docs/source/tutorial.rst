@@ -68,13 +68,13 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     You can run the example with default hyperparameters as follows:
 
-    .. code:: bash
+    .. code-block:: py
 
         python examples/sklearn_elasticnet_wine/train.py
 
     Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
-    .. code:: bash
+    .. code-block:: py
 
         python examples/sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
 
@@ -97,13 +97,13 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     You can run the example with default hyperparameters as follows:
 
-    .. code:: R
+    .. code-block:: R
 
         mlflow_run(uri = "tutorial", entry_point = "train.R")
 
     Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
-    .. code:: R
+    .. code-block:: R
 
         mlflow_run(uri = "", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
 
@@ -120,7 +120,7 @@ Next, use the MLflow UI to compare the models that you have produced. In the sam
 as the one that contains the ``mlruns`` run:
 
 .. code-section::
-    .. code-block:: bash
+    .. code-block:: python
 
         mlflow ui
     .. code-block:: R
@@ -158,7 +158,7 @@ Now that you have your training code, you can package it so that other data scie
       You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-      .. code:: yaml
+      .. code-block:: yaml
 
           # sklearn_elasticnet_wine/MLproject
 
@@ -176,7 +176,7 @@ Now that you have your training code, you can package it so that other data scie
 
       The Conda file lists the dependencies:
 
-      .. code:: yaml
+      .. code-block:: yaml
 
           # sklearn_elasticnet_wine/conda.yaml
 
@@ -191,7 +191,7 @@ Now that you have your training code, you can package it so that other data scie
               - mlflow
 
       To run this project, invoke ``mlflow run tutorial -P alpha=0.42``. After running
-      this command, MLflow will run your training code in a new Conda environment with the dependencies
+      this command, MLflow runs your training code in a new Conda environment with the dependencies
       specified in ``conda.yaml``.
 
       If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
@@ -203,7 +203,7 @@ Now that you have your training code, you can package it so that other data scie
 
       The R dependencies file lists the dependencies:
 
-      .. code::
+      .. code-block:: r
 
           # examples/r_wine/r-dependencies.txt
 
@@ -227,22 +227,22 @@ Now that you have your training code, you can package it so that other data scie
 
       To run this project, invoke:
 
-      .. code:: R
+      .. code-block:: r
 
         mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
 
-      After running this command, MLflow will run your training code in a new R session.
+      After running this command, MLflow runs your training code in a new R session.
 
       To restore the dependencies specified in ``r-dependencies.txt``, you can run instead:
 
-      .. code:: R
+      .. code-block:: r
 
         mlflow_restore_snapshot()
         mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
-      .. code:: R
+      .. code-block:: r
 
         mlflow_run(
           "train.R",
@@ -265,7 +265,7 @@ in MLflow saved the model as an artifact within the run.
 
     .. container:: python
 
-      .. code::
+      .. code-block:: py
 
           mlflow.sklearn.log_model(lr, "model")
 
@@ -283,7 +283,7 @@ in MLflow saved the model as an artifact within the run.
 
       To deploy the server, run (replace the path with your model's actual path):
 
-      .. code::
+      .. code-block:: bash
 
           mlflow pyfunc serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
@@ -300,7 +300,7 @@ in MLflow saved the model as an artifact within the run.
       formats accepted by the pyfunc model server, see the
       :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 
-      .. code::
+      .. code-block:: bash
 
           curl -X POST -H "Content-Type:application/json; format=pandas-split" --data '{"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
 
@@ -310,7 +310,7 @@ in MLflow saved the model as an artifact within the run.
 
     .. container:: R
 
-      .. code:: R
+      .. code-block:: r
 
           mlflow_log_model(predictor, "model")
 
@@ -328,7 +328,7 @@ in MLflow saved the model as an artifact within the run.
 
       To deploy the server, run:
 
-      .. code:: R
+      .. code-block:: r
 
           mlflow_rfunc_serve(model_path = "model", run_uuid = "1bf3cca7f3814d8fac7be7874de1046d")
 
@@ -345,7 +345,7 @@ in MLflow saved the model as an artifact within the run.
 
       To serve a prediction, run:
 
-      .. code::
+      .. code-block:: bash
 
           curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"fixed acidity\": 6.2, \"volatile acidity\": 0.66, \"citric acid\": 0.48, \"residual sugar\": 1.2, \"chlorides\": 0.029, \"free sulfur dioxide\": 29, \"total sulfur dioxide\": 75, \"density\": 0.98, \"pH\": 3.33, \"sulphates\": 0.39, \"alcohol\": 12.8}"
 

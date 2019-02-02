@@ -58,7 +58,7 @@ is simply a directory with code or a Git repository, and uses a descriptor file 
 convention to specify its dependencies and how to run the code. For example, projects can contain
 a ``conda.yaml`` file for specifying a Python `Conda <https://conda.io/docs/>`_ environment.
 When you use the MLflow Tracking API in a Project, MLflow automatically remembers the project
-version executed (for example, Git commit) and any parameters. You can easily run existing MLflow
+version (for example, Git commit) and any parameters. You can easily run existing MLflow
 Projects from GitHub or your own Git repository, and chain them into multi-step workflows.
 
 **MLflow Models** offer a convention for packaging machine learning models in multiple flavors, and
@@ -68,8 +68,8 @@ TensorFlow model can be loaded as a TensorFlow DAG, or as a Python function to a
 MLflow provides tools to deploy many common model types to diverse platforms: for example, any model
 supporting the "Python function" flavor can be deployed to a Docker-based REST server, to cloud
 platforms such as Azure ML and AWS SageMaker, and as a user-defined function in Apache Spark for
-batch and streaming inference. If you output MLflow Models using the Tracking API, MLflow will also
-automatically remember which Project and run they came from.
+batch and streaming inference. If you output MLflow Models using the Tracking API, MLflow also
+automatically remembers which Project and run they came from.
 
 ..
     TODO: example app and data
