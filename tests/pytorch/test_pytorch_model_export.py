@@ -458,16 +458,12 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         imported_modules.append(module_name)
         return import_module_fn(module_name)
 
-    def validate_torch_load(*args, **kwargs):
-        # pylint: disable=unused-argument
-        assert kwargs["pickle_module"].__name__ == custom_pickle_module.__name__
-
     with mock.patch("importlib.import_module") as import_mock,\
             mock.patch("torch.load") as torch_load_mock:
         import_mock.side_effect = track_module_imports
-        torch_load_mock.side_effect = validate_torch_load
         pyfunc.load_pyfunc(model_path)
 
+    torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
     assert custom_pickle_module.__name__ in imported_modules
 
 
@@ -491,16 +487,12 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         imported_modules.append(module_name)
         return import_module_fn(module_name)
 
-    def validate_torch_load(*args, **kwargs):
-        # pylint: disable=unused-argument
-        assert kwargs["pickle_module"].__name__ == custom_pickle_module.__name__
-
     with mock.patch("importlib.import_module") as import_mock,\
             mock.patch("torch.load") as torch_load_mock:
         import_mock.side_effect = track_module_imports
-        torch_load_mock.side_effect = validate_torch_load
         pyfunc.load_pyfunc(artifact_path, run_id)
 
+    torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
     assert custom_pickle_module.__name__ in imported_modules
 
 
@@ -574,10 +566,6 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 
 def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         module_scoped_subclassed_model, model_path):
-    pickle_call_results = {
-        "mlflow_torch_pickle_load_called": False,
-    }
-
     mlflow.pytorch.save_model(
         path=model_path,
         pytorch_model=module_scoped_subclassed_model,
@@ -585,6 +573,9 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         pickle_module=pickle)
 
     mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.load
+    pickle_call_results = {
+        "mlflow_torch_pickle_load_called": False,
+    }
 
     def validate_mlflow_torch_pickle_load_called(*args, **kwargs):
         pickle_call_results["mlflow_torch_pickle_load_called"] = True
