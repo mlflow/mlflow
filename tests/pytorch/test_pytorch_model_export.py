@@ -453,6 +453,7 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
 
     import_module_fn = importlib.import_module
     imported_modules = []
+
     def track_module_imports(module_name):
         imported_modules.append(module_name)
         return import_module_fn(module_name)
@@ -485,6 +486,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
 
     import_module_fn = importlib.import_module
     imported_modules = []
+
     def track_module_imports(module_name):
         imported_modules.append(module_name)
         return import_module_fn(module_name)
