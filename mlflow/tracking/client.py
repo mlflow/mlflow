@@ -28,8 +28,8 @@ class MlflowClient(object):
                              `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_
                              for more info.
         """
-        self.tracking_uri = tracking_uri
-        self.store = utils._get_store(tracking_uri)
+        self.tracking_uri = tracking_uri or utils.get_tracking_uri()
+        self.store = utils._get_store(self.tracking_uri)
 
     def get_run(self, run_id):
         """:return: :py:class:`mlflow.entities.Run` associated with the run ID."""

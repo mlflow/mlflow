@@ -1,3 +1,4 @@
+import os
 import unittest
 import warnings
 
@@ -12,21 +13,27 @@ from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-
+from mlflow.utils.file_utils import TempDir
 
 DB_URI = 'sqlite://'
 ARTIFACT_URI = 'file://fake file'
 
 
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
-    def setUp(self):
-        self.maxDiff = None  # print all differences on assert failures
-        self.store = SqlAlchemyStore(DB_URI, ARTIFACT_URI)
+    def _setup_database(self, filename=''):
+        # use a static file name to initialize sqllite to test retention.
+        self.store = SqlAlchemyStore(DB_URI + filename, ARTIFACT_URI)
         self.engine = self.store.engine
         self.session = self.store.session
 
+    def setUp(self):
+        self.maxDiff = None  # print all differences on assert failures
+        # self._tmp_file = "/tmp_file_name"
+        self._setup_database()
+
     def tearDown(self):
-        models.Base.metadata.drop_all(self.engine)
+        if self.store:
+            models.Base.metadata.drop_all(self.engine)
 
     def _experiment_factory(self, names):
         if type(names) is list:
@@ -41,6 +48,49 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         first = experiments[0]
         self.assertEqual(first.experiment_id, 0)
         self.assertEqual(first.name, "Default")
+
+    def test_default_experiment_lifecycle(self):
+        with TempDir() as tmp:
+            tmp_file_name = "sqllite_file_to_lifecycle_test_{}".format(int(time.time()))
+            self._setup_database("/" + tmp.path(tmp_file_name))
+            default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
+            self.assertEqual(default.experiment_id, 0)
+            self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+
+            self._experiment_factory('aNothEr')
+            all_experiments = [e.name for e in self.store.list_experiments()]
+
+            self.assertItemsEqual(['aNothEr', 'Default'], all_experiments)
+
+            self.store.delete_experiment(0)
+
+            self.assertSequenceEqual(['aNothEr'], [e.name for e in self.store.list_experiments()])
+            another = self.store.get_experiment(1)
+            self.assertEqual('aNothEr', another.name)
+
+            default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
+            self.assertEqual(default.experiment_id, 0)
+            self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+            # destroy SqlStore and make a new one
+            del self.store
+            self._setup_database("/" + tmp.path(tmp_file_name))
+
+            # test that default experiment is not reactivated
+            default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
+            self.assertEqual(default.experiment_id, 0)
+            self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+            self.assertSequenceEqual(['aNothEr'], [e.name for e in self.store.list_experiments()])
+            self.assertItemsEqual(['aNothEr', 'Default'],
+                                  [e.name for e in self.store.list_experiments(ViewType.ALL)])
+
+            # ensure that experiment ID dor active experiment is unchanged
+            another = self.store.get_experiment(1)
+            self.assertEqual('aNothEr', another.name)
+
+            self.session.close()
+            self.store = None
 
     def test_raise_duplicate_experiments(self):
         with self.assertRaises(Exception):

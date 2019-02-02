@@ -16,8 +16,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.store.file_store import FileStore
-from mlflow.tracking.utils import _is_db_uri
+from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
 _store = None
@@ -27,13 +26,17 @@ def _get_store():
     from mlflow.server import FILE_STORE_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
     global _store
     if _store is None:
-        store_dir = os.environ.get(FILE_STORE_ENV_VAR, os.path.abspath("mlruns"))
+        store_dir = os.environ.get(FILE_STORE_ENV_VAR, None)
         artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
-        if _is_db_uri(store_dir):
+        if _is_database_uri(store_dir):
             from mlflow.store.sqlalchemy_store import SqlAlchemyStore
             return SqlAlchemyStore(store_dir, artifact_root)
-        else:
+        elif _is_local_uri(store_dir):
+            from mlflow.store.file_store import FileStore
             _store = FileStore(store_dir, artifact_root)
+        else:
+            raise MlflowException("Unexpected URI type '{}' for backend store. "
+                                  "Expext local file or database type.".format(store_dir))
     return _store
 
 
@@ -345,8 +348,7 @@ def _list_experiments():
 @catch_mlflow_exception
 def _get_artifact_repo(run):
     store = _get_store()
-    if run.info.artifact_uri:
-        return ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
+    return ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
 
 
 def _get_paths(base_path):

@@ -18,9 +18,11 @@ import mlflow.sagemaker.cli
 import mlflow.runs
 
 from mlflow.entities.experiment import Experiment
+from mlflow.tracking.utils import _is_database_uri
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
+from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow import tracking
 import mlflow.store.cli
 
@@ -135,9 +137,15 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
 
 
 @cli.command()
-@click.option("--file-store", metavar="PATH", default=None,
-              help="The root of the backing file store for experiment and run data "
-                   "(default: ./mlruns).")
+@click.option("--backend-store-uri", "--file-store", metavar="PATH",
+              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+              help="URI or path for backend store implementation. Acceptable backend store "
+                   "are SQLAlchemy compatible implementation or local storage. By default file "
+                   " based backed store will be used. (default: ./mlruns).")
+@click.option("--default-artifact-root", metavar="URI", default=None,
+              help="Path to local directory to store artifacts, for new experiments. "
+                   "Note that this flag does not impact already-created experiments. "
+                   "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 @click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
               help="The network address to listen on (default: 127.0.0.1). "
                    "Use 0.0.0.0 to bind to all addresses if you want to access the UI from "
@@ -146,15 +154,25 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
               help="The port to listen on (default: 5000).")
 @click.option("--gunicorn-opts", default=None,
               help="Additional command line options forwarded to gunicorn processes.")
-def ui(file_store, host, port, gunicorn_opts):
+def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
     """
     Launch the MLflow tracking UI.
 
     The UI will be visible at http://localhost:5000 by default.
     """
+    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
+    if not backend_store_uri:
+        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+
+    if not default_artifact_root:
+        if _is_database_uri(backend_store_uri):
+            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        else:
+            default_artifact_root = backend_store_uri
+
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(file_store, None, host, port, 1, None, gunicorn_opts)
+        _run_server(backend_store_uri, default_artifact_root, host, port, 1, None, gunicorn_opts)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
               file=sys.stderr)
@@ -176,13 +194,15 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 
 
 @cli.command()
-@click.option("--file-store", metavar="PATH", default=None,
-              help="The root of the backing file store for experiment and run data "
-                   "(default: ./mlruns).")
+@click.option("--backend-store-uri", "--file-store", metavar="PATH",
+              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+              help="URI or path for backend store implementation. Acceptable backend store "
+                   "are SQLAlchemy compatible implementation or local storage. By default file "
+                   " based backed store will be used. (default: ./mlruns).")
 @click.option("--default-artifact-root", metavar="URI", default=None,
-              help="Local or S3 URI to store artifacts in, for newly created experiments. "
+              help="Local or S3 URI to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
-                   "Default: inside file store.")
+                   "Default: Within file store")
 @click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
               help="The network address to listen on (default: 127.0.0.1). "
                    "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
@@ -195,7 +215,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="A prefix which will be prepended to the path of all static paths.")
 @click.option("--gunicorn-opts", default=None,
               help="Additional command line options forwarded to gunicorn processes.")
-def server(file_store, default_artifact_root, host, port, workers, static_prefix, gunicorn_opts):
+def server(backend_store_uri, default_artifact_root, host, port,
+           workers, static_prefix, gunicorn_opts):
     """
     Run the MLflow tracking server.
 
@@ -203,8 +224,21 @@ def server(file_store, default_artifact_root, host, port, workers, static_prefix
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
+
+    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
+    if not backend_store_uri:
+        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+
+    if not default_artifact_root:
+        if _is_database_uri(backend_store_uri):
+            print("When using database based backend store, 'default-artifact-root' is required.",
+                  file=sys.stderr)
+            sys.exit(1)
+        else:
+            default_artifact_root = backend_store_uri
+
     try:
-        _run_server(file_store, default_artifact_root, host, port, workers, static_prefix,
+        _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
                     gunicorn_opts)
     except ShellCommandException:
         print("Running the mlflow server failed. Please see the logs above for details.",
