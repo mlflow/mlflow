@@ -21,6 +21,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -87,20 +88,51 @@ def sequential_model(data):
     return model
 
 
-class SubclassedModel(torch.nn.Module):
+def get_subclassed_model_definition():
+    """
+    Defines a PyTorch model class that inherits from ``torch.nn.Module``. This method can be invoked
+    within a pytest fixture to define the model class in the ``__main__`` scope. Alternatively, it
+    can be invoked within a module to define the class in the module's scope.
+    """
+    class SubclassedModel(torch.nn.Module):
 
-    def __init__(self):
-        super(SubclassedModel, self).__init__()
-        self.linear = torch.nn.Linear(4, 1)
+        def __init__(self):
+            super(SubclassedModel, self).__init__()
+            self.linear = torch.nn.Linear(4, 1)
 
-    def forward(self, x):
-        y_pred = self.linear(x)
-        return y_pred
+        def forward(self, x):
+            y_pred = self.linear(x)
+            return y_pred
+
+    return SubclassedModel
 
 
 @pytest.fixture(scope='module')
-def subclassed_model(data):
-    model = SubclassedModel()
+def main_scoped_subclassed_model(data):
+    """
+    A custom PyTorch model inheriting from ``torch.nn.Module`` whose class is defined in the
+    "__main__" scope.
+    """
+    model_class = get_subclassed_model_definition()
+    model = model_class()
+    train_model(model=model, data=data)
+    return model
+
+
+class ModuleScopedSubclassedModel(get_subclassed_model_definition()):
+    """
+    A custom PyTorch model class defined in the test module scope. This is a subclass of
+    ``torch.nn.Module``.
+    """
+
+
+@pytest.fixture(scope='module')
+def module_scoped_subclassed_model(data):
+    """
+    A custom PyTorch model inheriting from ``torch.nn.Module`` whose class is defined in the test
+    module scope.
+    """
+    model = ModuleScopedSubclassedModel()
     train_model(model=model, data=data)
     return model
 
@@ -138,11 +170,6 @@ def _predict(model, data):
 @pytest.fixture(scope='module')
 def sequential_predicted(sequential_model, data):
     return _predict(sequential_model, data)
-
-
-@pytest.fixture(scope='module')
-def subclassed_predicted(subclassed_model, data):
-    return _predict(subclassed_model, data)
 
 
 def test_log_model(sequential_model, data, sequential_predicted):
@@ -318,11 +345,11 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
     ])
 
 
-def test_pyfunc_model_serving_with_subclassed_nn_model_and_default_conda_env(
-        subclassed_model, model_path, data, subclassed_predicted):
+def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_conda_env(
+        module_scoped_subclassed_model, model_path, data):
     mlflow.pytorch.save_model(
         path=model_path,
-        pytorch_model=subclassed_model,
+        pytorch_model=module_scoped_subclassed_model,
         conda_env=None,
         code_paths=[__file__])
 
@@ -336,18 +363,40 @@ def test_pyfunc_model_serving_with_subclassed_nn_model_and_default_conda_env(
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
-        subclassed_predicted,
+        _predict(model=module_scoped_subclassed_model, data=data),
+        decimal=4)
+
+
+def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
+        main_scoped_subclassed_model, model_path, data):
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=main_scoped_subclassed_model,
+        conda_env=None,
+        pickle_module=mlflow_pytorch_pickle_module)
+
+    scoring_response = pyfunc_serve_and_score_model(
+            model_path=model_path,
+            data=data[0],
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            extra_args=["--no-conda"])
+    assert scoring_response.status_code == 200
+
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    np.testing.assert_array_almost_equal(
+        deployed_model_preds.values[:, 0],
+        _predict(model=main_scoped_subclassed_model, data=data),
         decimal=4)
 
 
 def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
-        subclassed_model, model_path, data, subclassed_predicted):
+        module_scoped_subclassed_model, model_path, data):
     # Save a PyTorch model whose class is defined in the current test suite. Because the
     # `tests` module is not available when the model is deployed for local scoring, we include
     # the test suite file as a code dependency
     mlflow.pytorch.save_model(
         path=model_path,
-        pytorch_model=subclassed_model,
+        pytorch_model=module_scoped_subclassed_model,
         conda_env=None,
         code_paths=[__file__])
 
@@ -387,7 +436,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
-        subclassed_predicted,
+        _predict(model=module_scoped_subclassed_model, data=data),
         decimal=4)
 
 
