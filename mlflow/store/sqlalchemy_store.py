@@ -40,8 +40,8 @@ class SqlAlchemyStore(AbstractStore):
 
     # DB helper methods to allow zero values for columns with auto increments
     def _set_no_auto_for_zero_values(self):
-            if self.db_type == MYSQL:
-                self.session.execute("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+        if self.db_type == MYSQL:
+            self.session.execute("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
 
     def _unset_no_auto_for_zero_values(self):
         if self.db_type == MYSQL:
@@ -125,8 +125,8 @@ class SqlAlchemyStore(AbstractStore):
             new_session.add(experiment)
             if not artifact_location:
                 # this requires a double write. The first one to generate an autoincrement-ed ID
-                id = new_session.query(SqlExperiment).filter_by(name=name).first().experiment_id
-                experiment.artifact_location = self._get_artifact_location(id)
+                eid = new_session.query(SqlExperiment).filter_by(name=name).first().experiment_id
+                experiment.artifact_location = self._get_artifact_location(eid)
             new_session.commit()
         except sqlalchemy.exc.IntegrityError as e:
             new_session.rollback()

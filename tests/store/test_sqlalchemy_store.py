@@ -1,4 +1,3 @@
-import os
 import unittest
 import warnings
 
@@ -23,17 +22,17 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def _setup_database(self, filename=''):
         # use a static file name to initialize sqllite to test retention.
         self.store = SqlAlchemyStore(DB_URI + filename, ARTIFACT_URI)
-        self.engine = self.store.engine
         self.session = self.store.session
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        # self._tmp_file = "/tmp_file_name"
+        self.store = None
+        self.session = None
         self._setup_database()
 
     def tearDown(self):
         if self.store:
-            models.Base.metadata.drop_all(self.engine)
+            models.Base.metadata.drop_all(self.store.engine)
 
     def _experiment_factory(self, names):
         if type(names) is list:
