@@ -57,7 +57,7 @@ API.
 Where Runs Are Recorded
 =======================
 
-MLflow runs are recorded either locally in files, or SQLAlchemy compatible database, or remotely
+MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
 to a tracking server.
 By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs. 
@@ -85,7 +85,7 @@ Basic Logging Functions
 
 :py:func:`mlflow.set_tracking_uri` connects to a tracking URI. You can also set the
 ``MLFLOW_TRACKING_URI`` environment variable to have MLflow find a URI from there. In both cases,
-the URI can either be a HTTP/HTTPS URI for a remote server, or, database connection string, or a
+the URI can either be a HTTP/HTTPS URI for a remote server, a database connection string, or a
 local path to log data to a directory. The URI defaults to ``mlruns``.
 
 :py:func:`mlflow.tracking.get_tracking_uri` returns the current tracking URI.
