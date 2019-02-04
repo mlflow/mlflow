@@ -10,6 +10,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
+from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name, _validate_experiment_id
@@ -26,7 +27,7 @@ _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
 
 def _default_root_dir():
-    return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath("mlruns")
+    return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
 def _make_persisted_run_info_dict(run_info):
