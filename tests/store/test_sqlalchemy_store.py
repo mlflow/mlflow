@@ -49,7 +49,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(first.name, "Default")
 
     def test_default_experiment_lifecycle(self):
-        with TempDir() as tmp:
+        with TempDir(chdr=True) as tmp:
             tmp_file_name = "sqlite_file_to_lifecycle_test_{}.db".format(int(time.time()))
             self._setup_database("/" + tmp.path(tmp_file_name))
             default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
@@ -59,7 +59,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self._experiment_factory('aNothEr')
             all_experiments = [e.name for e in self.store.list_experiments()]
 
-            self.assertItemsEqual(['aNothEr', 'Default'], all_experiments)
+            self.assertSequenceEqual(set(['aNothEr', 'Default']), set(all_experiments))
 
             self.store.delete_experiment(0)
 
@@ -81,8 +81,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.DELETED)
 
             self.assertSequenceEqual(['aNothEr'], [e.name for e in self.store.list_experiments()])
-            self.assertItemsEqual(['aNothEr', 'Default'],
-                                  [e.name for e in self.store.list_experiments(ViewType.ALL)])
+            all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
+            self.assertSequenceEqual(set(['aNothEr', 'Default']), set(all_experiments))
 
             # ensure that experiment ID dor active experiment is unchanged
             another = self.store.get_experiment(1)
