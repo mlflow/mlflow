@@ -1,9 +1,11 @@
 from __future__ import print_function
 
+import importlib
 import os
-import logging
 import json
+import logging
 import mock
+import pickle
 
 import pytest
 import numpy as np
@@ -210,7 +212,6 @@ def test_raise_exception(sequential_model):
 
         from mlflow import sklearn
         import sklearn.neighbors as knn
-        import pickle
         path = tmp.path("knn.pkl")
         knn = knn.KNeighborsClassifier()
         with open(path, "wb") as f:
@@ -438,6 +439,190 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),
         decimal=4)
+
+
+def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_time(
+        module_scoped_subclassed_model, model_path):
+    custom_pickle_module = pickle
+
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        conda_env=None,
+        pickle_module=custom_pickle_module)
+
+    import_module_fn = importlib.import_module
+    imported_modules = []
+
+    def track_module_imports(module_name):
+        imported_modules.append(module_name)
+        return import_module_fn(module_name)
+
+    with mock.patch("importlib.import_module") as import_mock,\
+            mock.patch("torch.load") as torch_load_mock:
+        import_mock.side_effect = track_module_imports
+        pyfunc.load_pyfunc(model_path)
+
+    torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
+    assert custom_pickle_module.__name__ in imported_modules
+
+
+def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time(
+        module_scoped_subclassed_model):
+    custom_pickle_module = pickle
+
+    artifact_path = "pytorch_model"
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            artifact_path=artifact_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None,
+            pickle_module=custom_pickle_module)
+        run_id = mlflow.active_run().info.run_uuid
+
+    import_module_fn = importlib.import_module
+    imported_modules = []
+
+    def track_module_imports(module_name):
+        imported_modules.append(module_name)
+        return import_module_fn(module_name)
+
+    with mock.patch("importlib.import_module") as import_mock,\
+            mock.patch("torch.load") as torch_load_mock:
+        import_mock.side_effect = track_module_imports
+        pyfunc.load_pyfunc(artifact_path, run_id)
+
+    torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
+    assert custom_pickle_module.__name__ in imported_modules
+
+
+def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
+        module_scoped_subclassed_model, model_path, data):
+    """
+    This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
+    by `mlflow.pytorch.load_model`. The `data` path associated with these older models is serialized
+    PyTorch model file, as opposed to the current format: a directory containing a serialized
+    model file and pickle module information
+    """
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        conda_env=None)
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    assert pyfunc_conf is not None
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
+    pyfunc_conf[pyfunc.DATA] = os.path.join(
+        model_data_path, mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_conf.save(model_conf_path)
+
+    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
+
+    np.testing.assert_array_almost_equal(
+        loaded_pyfunc.predict(data[0]),
+        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
+        decimal=4)
+
+
+def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
+        module_scoped_subclassed_model, model_path, data):
+    """
+    This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
+    by `mlflow.pytorch.load_model`. The `data` path associated with these older models is serialized
+    PyTorch model file, as opposed to the current format: a directory containing a serialized
+    model file and pickle module information
+    """
+    artifact_path = "pytorch_model"
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            artifact_path=artifact_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None)
+        run_id = mlflow.active_run().info.run_uuid
+    model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    assert pyfunc_conf is not None
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
+    pyfunc_conf[pyfunc.DATA] = os.path.join(
+        model_data_path, mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_conf.save(model_conf_path)
+
+    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
+
+    np.testing.assert_array_almost_equal(
+        loaded_pyfunc.predict(data[0]),
+        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
+        decimal=4)
+
+
+def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
+        module_scoped_subclassed_model, model_path):
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        conda_env=None,
+        pickle_module=pickle)
+
+    mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.load
+    pickle_call_results = {
+        "mlflow_torch_pickle_load_called": False,
+    }
+
+    def validate_mlflow_torch_pickle_load_called(*args, **kwargs):
+        pickle_call_results["mlflow_torch_pickle_load_called"] = True
+        return mlflow_torch_pickle_load(*args, **kwargs)
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    with mock.patch("mlflow.pytorch.pickle_module.load") as mlflow_torch_pickle_load_mock,\
+            mock.patch("mlflow.pytorch._logger.warning") as warn_mock:
+        mlflow_torch_pickle_load_mock.side_effect = validate_mlflow_torch_pickle_load_called
+        warn_mock.side_effect = custom_warn
+        mlflow.pytorch.load_model(path=model_path, pickle_module=mlflow_pytorch_pickle_module)
+
+    assert all(pickle_call_results.values())
+    assert any([
+        "does not match the pickle module that was used to save the model" in log_message and
+        pickle.__name__ in log_message and
+        mlflow_pytorch_pickle_module.__name__ in log_message
+        for log_message in log_messages
+    ])
+
+
+def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
+        main_scoped_subclassed_model, model_path):
+    mlflow.pytorch.save_model(
+        path=model_path,
+        pytorch_model=main_scoped_subclassed_model,
+        conda_env=None)
+
+    bad_pickle_module_name = "not.a.real.module"
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
+    assert os.path.exists(model_data_path)
+    assert mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
+    with open(
+            os.path.join(model_data_path, mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
+        f.write(bad_pickle_module_name)
+
+    with pytest.raises(MlflowException) as exc_info:
+        mlflow.pytorch.load_model(model_path)
+
+    assert "Failed to import the pickle module" in str(exc_info)
+    assert bad_pickle_module_name in str(exc_info)
 
 
 @pytest.mark.release
