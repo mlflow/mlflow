@@ -23,10 +23,10 @@ _store = None
 
 
 def _get_store():
-    from mlflow.server import FILE_STORE_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
     global _store
     if _store is None:
-        store_dir = os.environ.get(FILE_STORE_ENV_VAR, None)
+        store_dir = os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
         if _is_database_uri(store_dir):
             from mlflow.store.sqlalchemy_store import SqlAlchemyStore

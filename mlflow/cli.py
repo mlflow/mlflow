@@ -18,7 +18,7 @@ import mlflow.sagemaker.cli
 import mlflow.runs
 
 from mlflow.entities.experiment import Experiment
-from mlflow.tracking.utils import _is_database_uri
+from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
@@ -140,8 +140,9 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
 @click.option("--backend-store-uri", "--file-store", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
               help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. By default file "
-                   " based backed store will be used. (default: ./mlruns).")
+                   "are SQLAlchemy compatible implementation or local storage. "
+                   "Example 'sqlite:///path/to/file.db'. "
+                   "By default file backed store will be used. (default: ./mlruns).")
 @click.option("--default-artifact-root", metavar="URI", default=None,
               help="Path to local directory to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
@@ -165,10 +166,10 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_database_uri(backend_store_uri):
-            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-        else:
+        if _is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
+        else:
+            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
@@ -197,8 +198,11 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option("--backend-store-uri", "--file-store", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
               help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. By default file "
-                   " based backed store will be used. (default: ./mlruns).")
+                   "are SQLAlchemy compatible implementation or local storage. Supports "
+                   "various SQLAlchemy compatible database like SQLite, MySQL, PostgreSQL. As an "
+                   "example MySQL backed store can be configured using connection string. "
+                   "'mysql://<user_name>:<password>@<host>:<port>/<database_name>' "
+                   "By default file based backed store will be used. (default: ./mlruns).")
 @click.option("--default-artifact-root", metavar="URI", default=None,
               help="Local or S3 URI to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
@@ -230,12 +234,12 @@ def server(backend_store_uri, default_artifact_root, host, port,
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_database_uri(backend_store_uri):
-            print("When using database based backend store, 'default-artifact-root' is required.",
-                  file=sys.stderr)
-            sys.exit(1)
-        else:
+        if _is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
+        else:
+            print("Option 'default-artifact-root' is required, when backend store is not "
+                  "local file based.", file=sys.stderr)
+            sys.exit(1)
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,

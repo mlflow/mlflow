@@ -50,7 +50,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_default_experiment_lifecycle(self):
         with TempDir() as tmp:
-            tmp_file_name = "sqllite_file_to_lifecycle_test_{}".format(int(time.time()))
+            tmp_file_name = "sqlite_file_to_lifecycle_test_{}.db".format(int(time.time()))
             self._setup_database("/" + tmp.path(tmp_file_name))
             default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
             self.assertEqual(default.experiment_id, 0)
