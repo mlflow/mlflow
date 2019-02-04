@@ -254,8 +254,9 @@ An MLflow tracking server has two properties related to how data is stored: file
 
 The *backend store* (exposed as ``--backend-store-uri``) is where the *server* stores run and
 experiment metadata. For backward compatibility, ``--file-store`` option is an alias to this
-option. This can be a local path **file store** or a SQL connection string for a *Database backed
- store*. For the latter, argument is expected to be a SQL connection string specified as
+option. This can be a local path **file store** specified as ``./path_to_store`` or
+``file://path_to_store``, or a SQL connection string for a *Database backed store*. For the
+latter, argument is expected to be a SQL connection string specified as
 ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported database types are
 ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 It defaults to the local ``./mlruns`` directory (the same as when running ``mlflow run`` locally), but when
