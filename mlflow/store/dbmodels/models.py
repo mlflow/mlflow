@@ -97,7 +97,7 @@ class SqlRun(Base):
     end_time = Column(BigInteger, nullable=True, default=None)
     source_version = Column(String(50))
     lifecycle_stage = Column(String(20), default=LifecycleStage.ACTIVE)
-    artifact_uri = Column(String(20), default=None)
+    artifact_uri = Column(String(200), default=None)
     experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
     experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all'))
 

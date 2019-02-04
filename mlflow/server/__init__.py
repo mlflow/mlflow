@@ -7,7 +7,7 @@ from mlflow.server import handlers
 from mlflow.server.handlers import get_artifact_handler
 from mlflow.utils.process import exec_cmd
 
-FILE_STORE_ENV_VAR = "MLFLOW_SERVER_FILE_STORE"
+BACKEND_STORE_URI_ENV_VAR = "MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "MLFLOW_SERVER_ARTIFACT_ROOT"
 STATIC_PREFIX_ENV_VAR = "MLFLOW_STATIC_PREFIX"
 
@@ -55,7 +55,7 @@ def _run_server(file_store_path, default_artifact_root, host, port, workers, sta
     """
     env_map = {}
     if file_store_path:
-        env_map[FILE_STORE_ENV_VAR] = file_store_path
+        env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
     if default_artifact_root:
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     if static_prefix:
