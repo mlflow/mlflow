@@ -7,6 +7,8 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.artifact_repo import ArtifactRepository
@@ -24,14 +26,6 @@ _TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
 _TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
 _TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
 _TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
-
-_DBENGINES = [
-    'postgresql',
-    'mysql',
-    'sqlite',
-    'mssql',
-]
-
 
 _tracking_uri = None
 
@@ -75,7 +69,7 @@ def get_tracking_uri():
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
-        return os.path.abspath("./mlruns")
+        return os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
 def get_artifact_uri(run_id, artifact_path=None):
@@ -119,7 +113,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
-    store = _get_store()
+    store = _get_store(artifact_uri=artifact_uri)
     artifact_path_module =\
         ArtifactRepository.from_artifact_uri(artifact_uri, store).get_path_module()
     artifact_src_dir = artifact_path_module.dirname(artifact_uri)
@@ -130,16 +124,18 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
             artifact_path=artifact_src_relative_path, dst_path=output_path)
 
 
-def _get_store(store_uri=None):
+def _get_store(store_uri=None, artifact_uri=None):
     store_uri = store_uri if store_uri else get_tracking_uri()
     # Default: if URI hasn't been set, return a FileStore
     if store_uri is None:
-        return FileStore()
+        return _get_file_store(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
     # Pattern-match on the URI
-    if _is_db_uri(store_uri):
+    if _is_database_uri(store_uri):
         from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-        return SqlAlchemyStore(store_uri)
+        if not artifact_uri:
+            artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        return SqlAlchemyStore(store_uri, artifact_uri)
     if _is_databricks_uri(store_uri):
         return _get_databricks_rest_store(store_uri)
     if _is_local_uri(store_uri):
@@ -169,12 +165,12 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri):
-    path = urllib.parse.urlparse(store_uri).path
-    return FileStore(path)
+    path = urllib.parse.urlparse(store_uri).path if store_uri else None
+    return FileStore(path, path)
 
 
-def _is_db_uri(uri):
-    if uri.split(':')[0] not in _DBENGINES:
+def _is_database_uri(uri):
+    if urllib.parse.urlparse(uri).scheme not in DATABASE_ENGINES:
         return False
     return True
 

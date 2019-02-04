@@ -16,7 +16,7 @@ from click.testing import CliRunner
 import mlflow.experiments
 from mlflow.entities import RunStatus
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-from mlflow.server import app, FILE_STORE_ENV_VAR
+from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
@@ -74,7 +74,7 @@ def init_and_tear_down_server(request):
     global SERVER_PORT
     SERVER_PORT = _get_safe_port()
     file_store_path = tempfile.mkdtemp("test_rest_tracking_file_store")
-    env = {FILE_STORE_ENV_VAR: file_store_path}
+    env = {BACKEND_STORE_URI_ENV_VAR: file_store_path}
     with mock.patch.dict(os.environ, env):
         process = Process(target=lambda: app.run(LOCALHOST, SERVER_PORT))
         process.start()
