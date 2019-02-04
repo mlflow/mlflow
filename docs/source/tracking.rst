@@ -57,7 +57,8 @@ API.
 Where Runs Are Recorded
 =======================
 
-MLflow runs are recorded either locally in files or remotely to a tracking server.
+MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
+to a tracking server.
 By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs. 
 
@@ -67,6 +68,7 @@ call :py:func:`mlflow.set_tracking_uri`.
 There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
+- Database encoded as a connection string (specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``)
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_. This works only in workspaces for which the Databricks MLflow Tracking Server is enabled; contact Databricks if interested.
 
@@ -83,8 +85,8 @@ Basic Logging Functions
 
 :py:func:`mlflow.set_tracking_uri` connects to a tracking URI. You can also set the
 ``MLFLOW_TRACKING_URI`` environment variable to have MLflow find a URI from there. In both cases,
-the URI can either be a HTTP/HTTPS URI for a remote server, or a local path to log data to a
-directory. The URI defaults to ``mlruns``.
+the URI can either be a HTTP/HTTPS URI for a remote server, a database connection string, or a
+local path to log data to a directory. The URI defaults to ``mlruns``.
 
 :py:func:`mlflow.tracking.get_tracking_uri` returns the current tracking URI.
 
@@ -241,7 +243,7 @@ You run an MLflow tracking server using ``mlflow server``.  An example configura
 .. code:: bash
 
     mlflow server \
-        --file-store /mnt/persistent-disk \
+        --backend-store-uri /mnt/persistent-disk \
         --default-artifact-root s3://my-mlflow-bucket/ \
         --host 0.0.0.0
 
@@ -250,7 +252,13 @@ Storage
 
 An MLflow tracking server has two properties related to how data is stored: file store and artifact store.
 
-The *file store* (exposed as ``--file-store``) is where the *server* stores run and experiment metadata.
+The *backend store* (exposed as ``--backend-store-uri``) is where the *server* stores run and
+experiment metadata. For backward compatibility, ``--file-store`` option is an alias to this
+option. This can be a local path **file store** specified as ``./path_to_store`` or
+``file://path_to_store``, or a SQL connection string for a *Database backed store*. For the
+latter, argument is expected to be a SQL connection string specified as
+``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported database types are
+``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 It defaults to the local ``./mlruns`` directory (the same as when running ``mlflow run`` locally), but when
 running a server, make sure that this points to a persistent (that is, non-ephemeral) file system location.
 
@@ -259,6 +267,7 @@ and is where *clients* log their artifact output (for example, models). The arti
 of an experiment, but the ``--default-artifact-root`` flag sets the artifact root URI for
 newly-created experiments that do not specify one.
 Once you create an experiment, ``--default-artifact-root`` is no longer relevant to it.
+It defaults to the local ``./mlruns`` directory.
 
 To allow the server and clients to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
@@ -344,8 +353,8 @@ Networking
 The ``--host`` option exposes the service on all interfaces. If running a server in production, we
 would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
 and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
-Additionally, you should ensure that the ``--file-store`` (which defaults to the ``./mlruns`` directory)
-points to a persistent (non-ephemeral) disk.
+Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
+``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
 
 Logging to a Tracking Server
 ----------------------------
