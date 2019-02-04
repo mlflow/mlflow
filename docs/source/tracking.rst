@@ -57,7 +57,7 @@ API.
 Where Runs Are Recorded
 =======================
 
-MLflow runs are recorded either locally in files, or SQLAlchemy compatible database, or remotely
+MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
 to a tracking server.
 By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs. 
