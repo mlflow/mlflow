@@ -684,8 +684,8 @@ class ExperimentView extends Component {
       const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
       const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
 
-      /* add run name to export row */
-      row[1] = Utils.getRunName(tagsList[index]);
+      //add run name to export row
+      Utils.getRunName(tagsList[index]);
 
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
