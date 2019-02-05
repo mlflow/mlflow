@@ -22,6 +22,8 @@ import RestoreRunModal from './modals/RestoreRunModal';
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 
+import Utils from '../utils/Utils';
+
 export const DEFAULT_EXPANDED_VALUE = false;
 
 
@@ -594,7 +596,8 @@ class ExperimentView extends Component {
       this.props.paramKeyFilter.apply(this.props.paramKeyList),
       this.props.metricKeyFilter.apply(this.props.metricKeyList),
       this.props.paramsList,
-      this.props.metricsList);
+      this.props.metricsList,
+      this.props.tagsList);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, "runs.csv");
   }
@@ -652,7 +655,8 @@ class ExperimentView extends Component {
     paramKeyList,
     metricKeyList,
     paramsList,
-    metricsList) {
+    metricsList,
+    tagsList) {
     const columns = [
       "Run ID",
       "Name",
@@ -671,14 +675,16 @@ class ExperimentView extends Component {
     const data = runInfos.map((runInfo, index) => {
       const row = [
         runInfo.run_uuid,
-        runInfo.name,
+        Utils.getRunName(tagsList[index]), // add run name to csv export row
         runInfo.source_type,
         runInfo.source_name,
         runInfo.user_id,
         runInfo.status,
       ];
+
       const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
       const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
           row.push(paramsMap[paramKey].getValue());
