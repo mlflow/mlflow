@@ -359,7 +359,7 @@ export default class ExperimentViewUtil {
       }
     });
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
-      if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
+      if (!treeNodes[idx].isCycle() && !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
       let hasExpander = false;
       let childrenIds = undefined;
@@ -405,7 +405,8 @@ export default class ExperimentViewUtil {
   static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
       { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded });
-    return mergedRows.map((rowMetadata) => getRow(rowMetadata));
+    const sortedRunIds = mergedRows.map(mergedRow => mergedRow.runId);
+    return mergedRows.map((rowMetadata) => getRow({...rowMetadata, sortedRunIds}));
   }
 
   static renderRows(rows) {

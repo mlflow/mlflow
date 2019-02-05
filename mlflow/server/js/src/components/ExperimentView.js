@@ -22,6 +22,8 @@ import RestoreRunModal from './modals/RestoreRunModal';
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 
+import _ from "lodash";
+
 export const DEFAULT_EXPANDED_VALUE = false;
 
 
@@ -106,6 +108,8 @@ class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
+      // Last index of a clicked checkbox
+      lastCheckboxIndex: undefined,
     };
   }
 
@@ -474,25 +478,39 @@ class ExperimentView extends Component {
   }
 
   // Checkbox handler. Will optionally select all things between startIdx and endIdx
-  onCheckbox(runUuid, childrenIds) {
-    const newState = Object.assign({}, this.state);
-    const childrenIdList = childrenIds || [];
-    // TODO better check for non-null/undefined values (0 is allowed)
-    if (this.state.runsSelected[runUuid]) {
-      childrenIdList.forEach(childRunUuid => delete newState.runsSelected[childRunUuid]);
-      delete newState.runsSelected[runUuid];
-      this.setState(newState);
-    } else {
-      const childRunsSelected = {};
-      childrenIdList.forEach(childRunUuid => childRunsSelected[childRunUuid] = true);
-      this.setState({
-        runsSelected: {
-          ...this.state.runsSelected,
-          [runUuid]: true,
-          ...childRunsSelected,
+  onCheckbox(event, runUuid, childrenIds, index, sortedRunIds) {
+    // Handle shift-clicks
+    const minCheckboxIndex = this.state.lastCheckboxIndex !== undefined ? Math.min(this.state.lastCheckboxIndex, index) : index;
+    const maxCheckboxIndex = this.state.lastCheckboxIndex !== undefined ? Math.max(this.state.lastCheckboxIndex, index) + 1 : index + 1;
+    console.log("Min checkbox: " + minCheckboxIndex + ", max checkbox: " + maxCheckboxIndex);
+    // Update state in between old and current start index if shift key is pressed
+    const runsSelectedState = Object.assign({}, this.state.runsSelected);
+    if (event.shiftKey) {
+      console.log("Between. Min checkbox: " + minCheckboxIndex + ", max checkbox: " + maxCheckboxIndex + ", new state of all runs: " + !this.state.runsSelected[runUuid]);
+      _.range(minCheckboxIndex, maxCheckboxIndex).forEach((index) => {
+        if (this.state.runsSelected[runUuid]) {
+          delete runsSelectedState[sortedRunIds[index]];
+        } else {
+          console.log("Checking run id : " + sortedRunIds[index]);
+          debugger;
+          runsSelectedState[sortedRunIds[index]] = true;
         }
       });
+      console.log("runsSelectedState: " + JSON.stringify(runsSelectedState));
     }
+    const childrenIdList = childrenIds || [];
+    if (this.state.runsSelected[runUuid]) {
+      // Unselect children
+      childrenIdList.forEach(childRunUuid => delete runsSelectedState[childRunUuid]);
+      delete runsSelectedState[runUuid];
+    } else {
+      childrenIdList.forEach(childRunUuid => runsSelectedState[childRunUuid] = true);
+      runsSelectedState[runUuid] = true;
+    }
+    this.setState({
+      runsSelected: runsSelectedState,
+      lastCheckboxIndex: index,
+    });
   }
 
   isAllChecked() {

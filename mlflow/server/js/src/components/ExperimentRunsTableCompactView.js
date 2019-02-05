@@ -10,6 +10,8 @@ import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 
+import _ from "lodash";
+
 const NUM_RUN_METADATA_COLS = 7;
 const TABLE_HEADER_HEIGHT = 48;
 const UNBAGGED_COL_WIDTH = 125;
@@ -100,7 +102,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
 
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
-  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
+  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds }) {
     const {
       runInfos,
       paramsList,
@@ -124,7 +126,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        () => onCheckbox(runInfo.run_uuid, childrenIds), "div"),
+        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, idx, sortedRunIds), "div"),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
@@ -359,7 +361,14 @@ class ExperimentRunsTableCompactView extends PureComponent {
       metricsList,
       paramsList,
       runsExpanded});
-
+    const sortedRunIds = rows.flatMap(row => {
+      // const childIds = row.childrenIds || [];
+      // console.log("Row children IDs: " + childIds + ", length: " + childIds.length);
+      return _.concat([row.runId], row.childrenIds || []);
+    });
+    // console.log("Sorted run IDs length " + sortedRunIds.length);
+    // const allRunIds = runInfos.map((i) => i.run_uuid)
+    // console.log("Differing run ids: " + _.difference(allRunIds, sortedRunIds));
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "div"),
       // placeholder for expander header cell,
@@ -426,7 +435,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                   borderBottom: BORDER_STYLE,
                   borderRight: BORDER_STYLE,
                 }}
-                rowGetter={({index}) => this.getRow(rows[index])}
+                rowGetter={({index}) => this.getRow({...rows[index], sortedRunIds})}
                 rowStyle={({index}) => {
                   const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
                     overflow: "visible"};
