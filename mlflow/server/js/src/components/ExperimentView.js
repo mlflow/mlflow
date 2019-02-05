@@ -473,8 +473,20 @@ class ExperimentView extends Component {
       });
   }
 
-  onCheckbox(runUuid) {
+  // Checkbox handler. Will optionally select all things between startIdx and endIdx
+  onCheckbox(runUuid, startIdx, endIdx) {
     const newState = Object.assign({}, this.state);
+    // TODO better check for non-null/undefined values (0 is allowed)
+    if (startIdx !== undefined && endIdx !== undefined) {
+
+      this.setState({
+        runsSelected: {
+          ...this.state.runsSelected,
+          [runUuid]: true,
+        }
+      });
+    }
+
     if (this.state.runsSelected[runUuid]) {
       delete newState.runsSelected[runUuid];
       this.setState(newState);

@@ -349,6 +349,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
       unbaggedParams,
     } = this.props;
 
+    // If we can pull this info up (sorted rows contain a runId attribute) then we can probably
+    // use it to implement nicer checkbox behavior
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       sortState,
