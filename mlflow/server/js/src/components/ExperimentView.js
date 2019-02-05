@@ -675,17 +675,15 @@ class ExperimentView extends Component {
     const data = runInfos.map((runInfo, index) => {
       const row = [
         runInfo.run_uuid,
-        runInfo.name,
+        Utils.getRunName(tagsList[index]), // add run name to csv export row
         runInfo.source_type,
         runInfo.source_name,
         runInfo.user_id,
         runInfo.status,
       ];
+
       const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
       const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
-
-      //add run name to export row
-      Utils.getRunName(tagsList[index]);
 
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
