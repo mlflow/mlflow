@@ -17,8 +17,22 @@ def test_get_store_file_store(tmp_wkdir):
         assert isinstance(store, FileStore)
         assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
 
-        # Make sure we look at the parameter...
+
+def test_get_store_file_store_from_arg(tmp_wkdir):
+    env = {}
+    with mock.patch.dict(os.environ, env):
         store = _get_store("other/path")
+        assert isinstance(store, FileStore)
+        assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
+
+
+@pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
+def test_get_store_file_store_from_env(tmp_wkdir, uri):
+    env = {
+        _TRACKING_URI_ENV_VAR: uri
+    }
+    with mock.patch.dict(os.environ, env):
+        store = _get_store()
         assert isinstance(store, FileStore)
         assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
