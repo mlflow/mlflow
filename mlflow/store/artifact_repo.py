@@ -1,5 +1,6 @@
 import os
 import tempfile
+import pickle
 from abc import abstractmethod, ABCMeta
 
 from mlflow.exceptions import MlflowException
@@ -152,3 +153,10 @@ class ArtifactRepository:
         else:
             from mlflow.store.local_artifact_repo import LocalArtifactRepository
             return LocalArtifactRepository(artifact_uri)
+
+    def log_pickable(self, obj, filename):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_path = os.path.join(tmpdir, filename)
+            with open(target_path, "wb") as f:
+                pickle.dump(obj, f)
+                self.log_artifact(target_path)
