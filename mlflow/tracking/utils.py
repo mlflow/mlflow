@@ -125,65 +125,6 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
             artifact_path=artifact_src_relative_path, dst_path=output_path)
 
 
-class TrackingStoreRegistry(object):
-
-    def ___init__(self):
-        self.registry = {}
-
-    def register(self, scheme, store_builder):
-        self.registry[scheme] = store_builder
-
-    def register_entrypoints(self):
-        """Load handlers provided by other packages."""
-        for entrypoint in entrypoints.get_group_all("mlflow.tracking_store"):
-            self.register(entrypoint.name, entrypoint.load())
-
-    def get_store(self, uri):
-        if uri in self.registry:
-            store_builder = self.registry[uri]
-        else:
-            scheme = urllib.parse.urlparse(uri).scheme
-            try:
-                store_builder = self.registry[scheme]
-            except KeyError:
-                raise ValueError("Unsupported scheme: {}".format(scheme))
-        return store_builder(uri)
-
-
-tracking_store_registry = TrackingStoreRegistry()
-tracking_store_registry.register('', _get_file_store)
-tracking_store_registry.register('file', _get_file_store)
-# tracking_store_registry.register('databricks', _get_databricks_rest_store)
-# for scheme in _DBENGINES:
-#     tracking_store_registry.register(scheme, _get_sqlalchemy_store)
-#
-# tracking_store_registry.register_entrypoints()
-
-
-def _get_store(store_uri=None, artifact_uri=None):
-    store_uri = store_uri if store_uri else get_tracking_uri()
-    # Default: if URI hasn't been set, return a FileStore
-    if store_uri is None:
-        return _get_file_store(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-
-    # Pattern-match on the URI
-    if _is_database_uri(store_uri):
-        from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-        if not artifact_uri:
-            artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-        return SqlAlchemyStore(store_uri, artifact_uri)
-    if _is_databricks_uri(store_uri):
-        return _get_databricks_rest_store(store_uri)
-    if _is_local_uri(store_uri):
-        return _get_file_store(store_uri)
-    if _is_http_uri(store_uri):
-        return _get_rest_store(store_uri)
-
-    raise Exception("Tracking URI must be a local filesystem URI of the form '%s...' or a "
-                    "remote URI of the form '%s...'. Update the tracking URI via "
-                    "mlflow.set_tracking_uri" % (_LOCAL_FS_URI_PREFIX, _REMOTE_URI_PREFIX))
-
-
 def _is_local_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return uri != 'databricks' and (scheme == '' or scheme == 'file')
@@ -200,7 +141,7 @@ def _is_databricks_uri(uri):
     return scheme == 'databricks' or uri == 'databricks'
 
 
-def _get_file_store(store_uri):
+def _get_file_store(store_uri, artifact_uri):  # pylint: disable=W0613
     path = urllib.parse.urlparse(store_uri).path if store_uri else None
     return FileStore(path, path)
 
@@ -211,7 +152,14 @@ def _is_database_uri(uri):
     return True
 
 
-def _get_rest_store(store_uri):
+def _get_sqlalchemy_store(store_uri, artifact_uri):
+    from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+    if artifact_uri is None:
+        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    return SqlAlchemyStore(store_uri, artifact_uri)
+
+
+def _get_rest_store(store_uri, artifact_uri):  # pylint: disable=W0613
     def get_default_host_creds():
         return rest_utils.MlflowHostCreds(
             host=store_uri,
@@ -234,9 +182,52 @@ def get_db_profile_from_uri(uri):
     return None
 
 
-def _get_databricks_rest_store(store_uri):
+def _get_databricks_rest_store(store_uri, artifact_uri):  # pylint: disable=W0613
     profile = get_db_profile_from_uri(store_uri)
     return RestStore(lambda: get_databricks_host_creds(profile))
+
+
+class TrackingStoreRegistry:
+
+    def __init__(self):
+        self.registry = {}
+
+    def register(self, scheme, store_builder):
+        self.registry[scheme] = store_builder
+
+    def register_entrypoints(self):
+        # Load handlers provided by other packages
+        for entrypoint in entrypoints.get_group_all("mlflow.tracking_store"):
+            self.register(entrypoint.name, entrypoint.load())
+
+    def get_store(self, store_uri=None, artifact_uri=None):
+        store_uri = store_uri if store_uri is not None else get_tracking_uri()
+
+        if store_uri in self.registry:
+            store_builder = self.registry[store_uri]
+        else:
+            scheme = urllib.parse.urlparse(store_uri).scheme
+            try:
+                store_builder = self.registry[scheme]
+            except KeyError:
+                raise ValueError("Unsupported scheme: {}".format(scheme))
+        return store_builder(store_uri, artifact_uri)
+
+
+tracking_store_registry = TrackingStoreRegistry()
+tracking_store_registry.register('', _get_file_store)
+tracking_store_registry.register('file', _get_file_store)
+tracking_store_registry.register('http', _get_rest_store)
+tracking_store_registry.register('https', _get_rest_store)
+tracking_store_registry.register('databricks', _get_databricks_rest_store)
+for scheme in DATABASE_ENGINES:
+    tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+
+tracking_store_registry.register_entrypoints()
+
+
+def _get_store(store_uri=None, artifact_uri=None):
+    return tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
 def _get_model_log_dir(model_name, run_id):
