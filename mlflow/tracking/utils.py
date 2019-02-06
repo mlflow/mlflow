@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 
+import entrypoints
 from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
@@ -122,6 +123,41 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
             artifact_uri=artifact_src_dir, store=store)
     return artifact_repo.download_artifacts(
             artifact_path=artifact_src_relative_path, dst_path=output_path)
+
+
+class TrackingStoreRegistry(object):
+
+    def ___init__(self):
+        self.registry = {}
+
+    def register(self, scheme, store_builder):
+        self.registry[scheme] = store_builder
+
+    def register_entrypoints(self):
+        """Load handlers provided by other packages."""
+        for entrypoint in entrypoints.get_group_all("mlflow.tracking_store"):
+            self.register(entrypoint.name, entrypoint.load())
+
+    def get_store(self, uri):
+        if uri in self.registry:
+            store_builder = self.registry[uri]
+        else:
+            scheme = urllib.parse.urlparse(uri).scheme
+            try:
+                store_builder = self.registry[scheme]
+            except KeyError:
+                raise ValueError("Unsupported scheme: {}".format(scheme))
+        return store_builder(uri)
+
+
+tracking_store_registry = TrackingStoreRegistry()
+tracking_store_registry.register('', _get_file_store)
+tracking_store_registry.register('file', _get_file_store)
+# tracking_store_registry.register('databricks', _get_databricks_rest_store)
+# for scheme in _DBENGINES:
+#     tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+#
+# tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
