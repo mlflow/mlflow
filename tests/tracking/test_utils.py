@@ -10,20 +10,20 @@ from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_U
     get_db_profile_from_uri, _download_artifact_from_uri
 
 
-def test_get_store_file_store(tmpdir):
+def test_get_store_file_store(tmp_wkdir):
     env = {}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
         assert isinstance(store, FileStore)
-        assert store.root_directory == os.path.abspath("mlruns")
+        assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
 
         # Make sure we look at the parameter...
-        store = _get_store(tmpdir.strpath)
+        store = _get_store("other/path")
         assert isinstance(store, FileStore)
-        assert store.root_directory == tmpdir
+        assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
 
-def test_get_store_basic_rest_store(tmpdir):
+def test_get_store_basic_rest_store():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"
     }
@@ -34,7 +34,7 @@ def test_get_store_basic_rest_store(tmpdir):
         assert store.get_host_creds().token is None
 
 
-def test_get_store_rest_store_with_password(tmpdir):
+def test_get_store_rest_store_with_password():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_USERNAME_ENV_VAR: "Bob",
@@ -48,7 +48,7 @@ def test_get_store_rest_store_with_password(tmpdir):
         assert store.get_host_creds().password == "Ross"
 
 
-def test_get_store_rest_store_with_token(tmpdir):
+def test_get_store_rest_store_with_token():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_TOKEN_ENV_VAR: "my-token",
@@ -59,7 +59,7 @@ def test_get_store_rest_store_with_token(tmpdir):
         assert store.get_host_creds().token == "my-token"
 
 
-def test_get_store_rest_store_with_insecure(tmpdir):
+def test_get_store_rest_store_with_insecure():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_INSECURE_TLS_ENV_VAR: "true",
@@ -70,7 +70,7 @@ def test_get_store_rest_store_with_insecure(tmpdir):
         assert store.get_host_creds().ignore_tls_verification
 
 
-def test_get_store_rest_store_with_no_insecure(tmpdir):
+def test_get_store_rest_store_with_no_insecure():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_INSECURE_TLS_ENV_VAR: "false",
@@ -90,7 +90,7 @@ def test_get_store_rest_store_with_no_insecure(tmpdir):
         assert not store.get_host_creds().ignore_tls_verification
 
 
-def test_get_store_databricks(tmpdir):
+def test_get_store_databricks():
     env = {
         _TRACKING_URI_ENV_VAR: "databricks",
         'DATABRICKS_HOST': "https://my-tracking-server",
@@ -103,7 +103,7 @@ def test_get_store_databricks(tmpdir):
         assert store.get_host_creds().token == "abcdef"
 
 
-def test_get_store_databricks_profile(tmpdir):
+def test_get_store_databricks_profile():
     env = {
         _TRACKING_URI_ENV_VAR: "databricks://mycoolprofile",
     }
