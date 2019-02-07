@@ -31,7 +31,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_ENV, MLFLOW_CONDA, MLFLOW_DOCKER
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils import databricks_utils, file_utils
 from mlflow.utils.logging_utils import eprint
-from mlflow.tracking.utils import _TRACKING_URI_ENV_VAR, _REMOTE_URI_PREFIX, _is_local_uri
 import docker
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -594,14 +593,14 @@ def _get_docker_command(image, active_run):
     tracking_uri = tracking.get_tracking_uri()
     if tracking.utils._is_local_uri(tracking_uri):
         cmd += ["-v", "%s:%s" % (tracking_uri, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
-        env_vars[_TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
         # We set these via environment variables so that only the current profile is exposed, rather
         # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
         # part of ~/.databrickscfg into the container
-        env_vars[_TRACKING_URI_ENV_VAR] = 'databricks'
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
         env_vars['DATABRICKS_HOST'] = config.host
         if config.username:
             env_vars['DATABRICKS_USERNAME'] = config.username
