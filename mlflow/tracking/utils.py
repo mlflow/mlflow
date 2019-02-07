@@ -216,9 +216,11 @@ class TrackingStoreRegistry:
 _tracking_store_registry = TrackingStoreRegistry()
 _tracking_store_registry.register('', _get_file_store)
 _tracking_store_registry.register('file', _get_file_store)
-_tracking_store_registry.register('http', _get_rest_store)
-_tracking_store_registry.register('https', _get_rest_store)
 _tracking_store_registry.register('databricks', _get_databricks_rest_store)
+
+for scheme in ['http', 'https']:
+    _tracking_store_registry.register(scheme, _get_rest_store)
+
 for scheme in DATABASE_ENGINES:
     _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
 
