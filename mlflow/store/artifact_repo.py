@@ -118,15 +118,3 @@ class ArtifactRepository:
         :param local_path: The path to which to save the downloaded file.
         """
         pass
-
-    @staticmethod
-    def from_artifact_uri(artifact_uri, store):
-        """
-        Given an artifact URI for an Experiment Run (e.g., /local/file/path or s3://my/bucket),
-        returns an ArtifactReposistory instance capable of logging and downloading artifacts
-        on behalf of this URI.
-        :param store: An instance of AbstractStore which the artifacts are registered in.
-        """
-        from mlflow.store.artifact_repository_registry import _artifact_repository_registry
-        
-        return _artifact_repository_registry.get_artifact_repository(artifact_uri, store)

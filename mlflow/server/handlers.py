@@ -15,7 +15,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
@@ -348,7 +348,7 @@ def _list_experiments():
 @catch_mlflow_exception
 def _get_artifact_repo(run):
     store = _get_store()
-    return ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
+    return get_artifact_repository(run.info.artifact_uri, store)
 
 
 def _get_paths(base_path):

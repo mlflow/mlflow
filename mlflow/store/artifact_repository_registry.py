@@ -47,3 +47,6 @@ _artifact_repository_registry.register('sftp', SFTPArtifactRepository)
 _artifact_repository_registry.register('dbfs', DbfsArtifactRepository)
 
 _artifact_repository_registry.register_entrypoints()
+
+def get_artifact_repository(artifact_uri, store=None):
+    return _artifact_repository_registry.get_artifact_repository(artifact_uri, store)
