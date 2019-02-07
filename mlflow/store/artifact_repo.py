@@ -7,7 +7,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.file_utils import build_path
 
-
 class ArtifactRepository:
     """
     Defines how to upload (log) and download potentially large artifacts from different
@@ -128,27 +127,6 @@ class ArtifactRepository:
         on behalf of this URI.
         :param store: An instance of AbstractStore which the artifacts are registered in.
         """
-        if artifact_uri.startswith("s3:/"):
-            # Import these locally to avoid creating a circular import loop
-            from mlflow.store.s3_artifact_repo import S3ArtifactRepository
-            return S3ArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("gs:/"):
-            from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
-            return GCSArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("wasbs:/"):
-            from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
-            return AzureBlobArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("ftp:/"):
-            from mlflow.store.ftp_artifact_repo import FTPArtifactRepository
-            return FTPArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("sftp:/"):
-            from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
-            return SFTPArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("dbfs:/"):
-            from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
-            if not isinstance(store, RestStore):
-                raise MlflowException('`store` must be an instance of RestStore.')
-            return DbfsArtifactRepository(artifact_uri, store.get_host_creds)
-        else:
-            from mlflow.store.local_artifact_repo import LocalArtifactRepository
-            return LocalArtifactRepository(artifact_uri)
+        from mlflow.store.artifact_repository_registry import artifact_repository_registry
+        
+        return artifact_repository_registry.get_artifact_repository(artifact_uri, store)
