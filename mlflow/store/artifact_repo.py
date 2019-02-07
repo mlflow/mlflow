@@ -4,8 +4,8 @@ from abc import abstractmethod, ABCMeta
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.rest_store import RestStore
 from mlflow.utils.file_utils import build_path
+
 
 class ArtifactRepository:
     """

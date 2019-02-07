@@ -1,9 +1,9 @@
-import pytest
 import mock
 from six.moves import reload_module as reload
 
 import mlflow
 from mlflow.store.artifact_repository_registry import ArtifactRepositoryRegistry
+
 
 def test_standard_artifact_registry():
     mock_entrypoint = mock.Mock()
@@ -39,9 +39,10 @@ def test_plugin_registration():
     mock_plugin = mock.Mock()
     artifact_repository_registry.register("mock-scheme", mock_plugin)
     assert "mock-scheme" in artifact_repository_registry._registry
-    assert (artifact_repository_registry.get_artifact_repository(artifact_uri="mock-scheme://fake-host/fake-path")
-            == mock_plugin.return_value
-        )
+    repository_instance = artifact_repository_registry.get_artifact_repository(
+        artifact_uri="mock-scheme://fake-host/fake-path"
+    )
+    assert repository_instance == mock_plugin.return_value
 
 
 def test_plugin_registration_via_entrypoints():
@@ -63,4 +64,3 @@ def test_plugin_registration_via_entrypoints():
 
     mock_plugin_function.assert_called_once_with("mock-scheme://fake-host/fake-path")
     mock_get_group_all.assert_called_once_with("mlflow.artifact_repository")
-

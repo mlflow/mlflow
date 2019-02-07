@@ -11,6 +11,7 @@ from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.rest_store import RestStore
 
+
 class ArtifactRepositoryRegistry:
 
     def __init__(self):
@@ -36,6 +37,7 @@ class ArtifactRepositoryRegistry:
         else:
             raise Exception("Artifact URI must be....")
 
+
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
 _artifact_repository_registry.register('', LocalArtifactRepository)
@@ -47,6 +49,7 @@ _artifact_repository_registry.register('sftp', SFTPArtifactRepository)
 _artifact_repository_registry.register('dbfs', DbfsArtifactRepository)
 
 _artifact_repository_registry.register_entrypoints()
+
 
 def get_artifact_repository(artifact_uri, store=None):
     return _artifact_repository_registry.get_artifact_repository(artifact_uri, store)
