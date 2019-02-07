@@ -196,7 +196,7 @@ class TrackingStoreRegistry:
         self._registry[scheme] = store_builder
 
     def register_entrypoints(self):
-        # Load handlers provided by other packages
+        # Register tracking stores provided by other packages
         for entrypoint in entrypoints.get_group_all("mlflow.tracking_store"):
             self.register(entrypoint.name, entrypoint.load())
 

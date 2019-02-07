@@ -190,15 +190,15 @@ def test_plugin_registration():
     tracking_store = TrackingStoreRegistry()
 
     mock_plugin = mock.Mock()
-    tracking_store.register("mock_plugin", mock_plugin)
-    assert "mock_plugin" in tracking_store._registry
-    assert tracking_store.get_store("mock_plugin://fake-host/fake-path") == mock_plugin.return_value
+    tracking_store.register("mock-scheme", mock_plugin)
+    assert "mock-scheme" in tracking_store._registry
+    assert tracking_store.get_store("mock-scheme://fake-host/fake-path") == mock_plugin.return_value
 
 
 def test_plugin_registration_via_entrypoints():
     mock_plugin_function = mock.Mock()
-    mock_entrypoint = mock.Mock(load=mock_plugin_function)
-    mock_entrypoint.name = "mock-plugin"
+    mock_entrypoint = mock.Mock(load=mock.Mock(return_value=mock_plugin_function))
+    mock_entrypoint.name = "mock-scheme"
 
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
@@ -207,11 +207,10 @@ def test_plugin_registration_via_entrypoints():
         tracking_store = TrackingStoreRegistry()
         tracking_store.register_entrypoints()
 
-        assert (tracking_store.get_store("mock-plugin://") ==
-                mock_plugin_function.return_value.return_value)
+    assert tracking_store.get_store("mock-scheme://") == mock_plugin_function.return_value
 
-        mock_plugin_function.assert_called_once_with("mock-plugin://", None)
-        mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
+    mock_plugin_function.assert_called_once_with(store_uri="mock-scheme://", artifact_uri=None)
+    mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
 
 
 def test_get_db_profile_from_uri_casing():
