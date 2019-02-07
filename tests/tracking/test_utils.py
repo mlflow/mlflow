@@ -1,6 +1,7 @@
 import mock
 import os
 import pytest
+from six.moves import reload_module as reload
 
 import mlflow
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
@@ -9,8 +10,7 @@ from mlflow.store.rest_store import RestStore
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
-    get_db_profile_from_uri, _download_artifact_from_uri, _tracking_store_registry, \
-    TrackingStoreRegistry
+    get_db_profile_from_uri, _download_artifact_from_uri, TrackingStoreRegistry
 
 
 def test_get_store_file_store(tmp_wkdir):
@@ -170,20 +170,32 @@ def test_get_store_databricks_profile():
 
 
 def test_standard_store_registry():
-    expected_standard_registry = {
-        '',
-        'file',
-        'http',
-        'https',
-        'postgresql',
-        'mysql',
-        'sqlite',
-        'mssql',
-        'databricks'
-    }
-    assert expected_standard_registry.issubset(
-        _tracking_store_registry._registry.keys()
-    )
+    mock_entrypoint = mock.Mock()
+    mock_entrypoint.name = "mock-scheme"
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ):
+        # Entrypoints are registered at import time, so we need to reload the
+        # module to register the entrypoint given by the mocked
+        # extrypoints.get_group_all
+        reload(mlflow.tracking.utils)
+
+        expected_standard_registry = {
+            '',
+            'file',
+            'http',
+            'https',
+            'postgresql',
+            'mysql',
+            'sqlite',
+            'mssql',
+            'databricks',
+            'mock-scheme'
+        }
+        assert expected_standard_registry.issubset(
+            mlflow.tracking.utils._tracking_store_registry._registry.keys()
+        )
 
 
 def test_plugin_registration():
