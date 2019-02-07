@@ -190,10 +190,10 @@ def _get_databricks_rest_store(store_uri, artifact_uri):  # pylint: disable=W061
 class TrackingStoreRegistry:
 
     def __init__(self):
-        self.registry = {}
+        self._registry = {}
 
     def register(self, scheme, store_builder):
-        self.registry[scheme] = store_builder
+        self._registry[scheme] = store_builder
 
     def register_entrypoints(self):
         # Load handlers provided by other packages
@@ -205,7 +205,7 @@ class TrackingStoreRegistry:
 
         scheme = urllib.parse.urlparse(store_uri).scheme
         try:
-            store_builder = self.registry[scheme]
+            store_builder = self._registry[scheme]
         except KeyError:
             raise MlflowException(
                 "Could not find a registered tracking store for: {}".format(store_uri)

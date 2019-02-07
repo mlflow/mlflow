@@ -9,7 +9,8 @@ from mlflow.store.rest_store import RestStore
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
-    get_db_profile_from_uri, _download_artifact_from_uri
+    get_db_profile_from_uri, _download_artifact_from_uri, _tracking_store_registry, \
+    TrackingStoreRegistry
 
 
 def test_get_store_file_store(tmp_wkdir):
@@ -166,6 +167,51 @@ def test_get_store_databricks_profile():
         with pytest.raises(Exception) as e_info:
             store.get_host_creds()
         assert 'mycoolprofile' in str(e_info.value)
+
+
+def test_standard_store_registry():
+    expected_standard_registry = {
+        '',
+        'file',
+        'http',
+        'https',
+        'postgresql',
+        'mysql',
+        'sqlite',
+        'mssql',
+        'databricks'
+    }
+    assert expected_standard_registry.issubset(
+        _tracking_store_registry._registry.keys()
+    )
+
+
+def test_plugin_registration():
+    tracking_store = TrackingStoreRegistry()
+
+    mock_plugin = mock.Mock()
+    tracking_store.register("mock_plugin", mock_plugin)
+    assert "mock_plugin" in tracking_store._registry
+    assert tracking_store.get_store("mock_plugin://fake-host/fake-path") == mock_plugin.return_value
+
+
+def test_plugin_registration_via_entrypoints():
+    mock_plugin_function = mock.Mock()
+    mock_entrypoint = mock.Mock(load=mock_plugin_function)
+    mock_entrypoint.name = "mock-plugin"
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+
+        tracking_store = TrackingStoreRegistry()
+        tracking_store.register_entrypoints()
+
+        assert (tracking_store.get_store("mock-plugin://") ==
+                mock_plugin_function.return_value.return_value)
+
+        mock_plugin_function.assert_called_once_with("mock-plugin://", None)
+        mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
 
 
 def test_get_db_profile_from_uri_casing():
