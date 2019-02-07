@@ -14,10 +14,10 @@ from mlflow.store.rest_store import RestStore
 class ArtifactRepositoryRegistry:
 
     def __init__(self):
-        self.registry = {}
+        self._registry = {}
 
     def register(self, scheme, repository):
-        self.registry[scheme] = repository
+        self._registry[scheme] = repository
 
     def register_entrypoints(self):
         # Register artifact repositories provided by other packages
@@ -26,7 +26,7 @@ class ArtifactRepositoryRegistry:
 
     def get_artifact_repository(self, artifact_uri, store=None):
         scheme = urllib.parse.urlparse(artifact_uri).scheme
-        repository = self.registry.get(scheme)
+        repository = self._registry.get(scheme)
         if scheme == "dbfs" and repository is not None:
             if not isinstance(store, RestStore):
                 raise MlflowException('`store` must be an instance of RestStore.')
@@ -36,13 +36,14 @@ class ArtifactRepositoryRegistry:
         else:
             raise Exception("Artifact URI must be....")
 
-artifact_repository_registry = ArtifactRepositoryRegistry()
-artifact_repository_registry.register('', LocalArtifactRepository)
-artifact_repository_registry.register('s3', S3ArtifactRepository)
-artifact_repository_registry.register('gs', GCSArtifactRepository)
-artifact_repository_registry.register('wasbs', AzureBlobArtifactRepository)
-artifact_repository_registry.register('ftp', FTPArtifactRepository)
-artifact_repository_registry.register('sftp', SFTPArtifactRepository)
-artifact_repository_registry.register('dbfs', DbfsArtifactRepository)
+_artifact_repository_registry = ArtifactRepositoryRegistry()
 
-artifact_repository_registry.register_entrypoints()
+_artifact_repository_registry.register('', LocalArtifactRepository)
+_artifact_repository_registry.register('s3', S3ArtifactRepository)
+_artifact_repository_registry.register('gs', GCSArtifactRepository)
+_artifact_repository_registry.register('wasbs', AzureBlobArtifactRepository)
+_artifact_repository_registry.register('ftp', FTPArtifactRepository)
+_artifact_repository_registry.register('sftp', SFTPArtifactRepository)
+_artifact_repository_registry.register('dbfs', DbfsArtifactRepository)
+
+_artifact_repository_registry.register_entrypoints()

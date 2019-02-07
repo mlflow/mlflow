@@ -127,6 +127,6 @@ class ArtifactRepository:
         on behalf of this URI.
         :param store: An instance of AbstractStore which the artifacts are registered in.
         """
-        from mlflow.store.artifact_repository_registry import artifact_repository_registry
+        from mlflow.store.artifact_repository_registry import _artifact_repository_registry
         
-        return artifact_repository_registry.get_artifact_repository(artifact_uri, store)
+        return _artifact_repository_registry.get_artifact_repository(artifact_uri, store)
