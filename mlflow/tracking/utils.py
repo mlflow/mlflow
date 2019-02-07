@@ -214,20 +214,20 @@ class TrackingStoreRegistry:
         return store_builder(store_uri, artifact_uri)
 
 
-tracking_store_registry = TrackingStoreRegistry()
-tracking_store_registry.register('', _get_file_store)
-tracking_store_registry.register('file', _get_file_store)
-tracking_store_registry.register('http', _get_rest_store)
-tracking_store_registry.register('https', _get_rest_store)
-tracking_store_registry.register('databricks', _get_databricks_rest_store)
+_tracking_store_registry = TrackingStoreRegistry()
+_tracking_store_registry.register('', _get_file_store)
+_tracking_store_registry.register('file', _get_file_store)
+_tracking_store_registry.register('http', _get_rest_store)
+_tracking_store_registry.register('https', _get_rest_store)
+_tracking_store_registry.register('databricks', _get_databricks_rest_store)
 for scheme in DATABASE_ENGINES:
-    tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+    _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
 
-tracking_store_registry.register_entrypoints()
+_tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
-    return tracking_store_registry.get_store(store_uri, artifact_uri)
+    return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
 def _get_model_log_dir(model_name, run_id):
