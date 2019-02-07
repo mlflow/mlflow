@@ -3,6 +3,7 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
+import _ from "lodash";
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -359,11 +360,15 @@ export default class ExperimentViewUtil {
       }
     });
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
-      if (!treeNodes[idx].isCycle() && !treeNodes[idx].isRoot()) return [];
+      if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
+      // if (!treeNodes[idx].isCycle() && !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
+      if (runId === "847b4f584ac14808a4150d8d4e6719c8") {
+        debugger;
+      }
       let hasExpander = false;
       let childrenIds = undefined;
-      if (parentIdToChildren[runId]) {
+      if (parentIdToChildren[runId] && !treeNodes[idx].isCycle()) {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
@@ -382,17 +387,30 @@ export default class ExperimentViewUtil {
     });
     ExperimentViewUtil.sortRows(parentRows, sortState);
     const mergedRows = [];
+    const runIds = [];
+    const addRunId = (runIdValue) => {
+      if (_.find(runIds, (elem) => elem === runIdValue)) {
+        debugger;
+      }
+      // console.log(runIdValue);
+      runIds.push(runIdValue);
+    };
+    // console.log("Got " + parentRows.length + " parent rows");
     parentRows.forEach((r) => {
       const runId = r.runId;
       mergedRows.push(r);
+      addRunId(runId);
       const childrenIdxs = parentIdToChildren[runId];
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
           const childrenRows = childrenIdxs.map((idx) => {
+            const childRunInfo = runInfos[idx];
             const sortValue = ExperimentViewUtil.computeSortValue(sortState,
               ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-              ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
-            return { idx, isParent: false, hasExpander: false, sortValue };
+              ExperimentViewUtil.toParamsMap(paramsList[idx]), childRunInfo, tagsList[idx]);
+            addRunId(childRunInfo.run_uuid);
+            return { idx, isParent: false, hasExpander: false, sortValue,
+              runId: childRunInfo.run_uuid };
           });
           ExperimentViewUtil.sortRows(childrenRows, sortState);
           mergedRows.push(...childrenRows);

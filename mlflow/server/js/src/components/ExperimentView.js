@@ -482,7 +482,8 @@ class ExperimentView extends Component {
     // Handle shift-clicks
     const minCheckboxIndex = this.state.lastCheckboxIndex !== undefined ? Math.min(this.state.lastCheckboxIndex, index) : index;
     const maxCheckboxIndex = this.state.lastCheckboxIndex !== undefined ? Math.max(this.state.lastCheckboxIndex, index) + 1 : index + 1;
-    console.log("Min checkbox: " + minCheckboxIndex + ", max checkbox: " + maxCheckboxIndex);
+    console.log("Sorted run IDs: " + sortedRunIds);
+    console.log("Current index: " + index + ", Last checkbox: " + this.state.lastCheckboxIndex + ", Min checkbox: " + minCheckboxIndex + ", max checkbox: " + maxCheckboxIndex);
     // Update state in between old and current start index if shift key is pressed
     const runsSelectedState = Object.assign({}, this.state.runsSelected);
     if (event.shiftKey) {

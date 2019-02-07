@@ -126,7 +126,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, idx, sortedRunIds), "div"),
+        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, _.findIndex(sortedRunIds, (elem) => elem === runInfo.run_uuid), sortedRunIds), "div"),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
@@ -361,12 +361,14 @@ class ExperimentRunsTableCompactView extends PureComponent {
       metricsList,
       paramsList,
       runsExpanded});
+    console.log("Got " + rows.length + " rows");
     const sortedRunIds = rows.flatMap(row => {
-      // const childIds = row.childrenIds || [];
-      // console.log("Row children IDs: " + childIds + ", length: " + childIds.length);
+      if (!row.isParent) {
+        return [];
+      }
       return _.concat([row.runId], row.childrenIds || []);
     });
-    // console.log("Sorted run IDs length " + sortedRunIds.length);
+    console.log("Sorted run IDs length " + sortedRunIds.length);
     // const allRunIds = runInfos.map((i) => i.run_uuid)
     // console.log("Differing run ids: " + _.difference(allRunIds, sortedRunIds));
     const headerCells = [
