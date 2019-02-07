@@ -203,6 +203,10 @@ class TrackingStoreRegistry:
     def get_store(self, store_uri=None, artifact_uri=None):
         store_uri = store_uri if store_uri is not None else get_tracking_uri()
 
+        if store_uri == 'databricks':
+            # Add colon so databricks is parsed as scheme
+            store_uri += ':'
+
         scheme = urllib.parse.urlparse(store_uri).scheme
         try:
             store_builder = self._registry[scheme]
@@ -228,9 +232,6 @@ _tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
-
-    if store_uri == 'databricks':
-        store_uri = 'databricks://'
 
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
