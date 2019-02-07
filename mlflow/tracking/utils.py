@@ -203,15 +203,14 @@ class TrackingStoreRegistry:
     def get_store(self, store_uri=None, artifact_uri=None):
         store_uri = store_uri if store_uri is not None else get_tracking_uri()
 
-        if store_uri in self.registry:
-            store_builder = self.registry[store_uri]
-        else:
-            scheme = urllib.parse.urlparse(store_uri).scheme
-            try:
-                store_builder = self.registry[scheme]
-            except KeyError:
-                raise ValueError("Unsupported scheme: {}".format(scheme))
-        return store_builder(store_uri, artifact_uri)
+        scheme = urllib.parse.urlparse(store_uri).scheme
+        try:
+            store_builder = self.registry[scheme]
+        except KeyError:
+            raise MlflowException(
+                "Could not find a registered tracking store for: {}".format(store_uri)
+            )
+        return store_builder(store_uri=store_uri, artifact_uri=artifact_uri)
 
 
 _tracking_store_registry = TrackingStoreRegistry()
@@ -227,6 +226,10 @@ _tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
+
+    if store_uri == 'databricks':
+        store_uri = 'databricks://'
+
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
