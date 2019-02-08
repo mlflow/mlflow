@@ -102,7 +102,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
 
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
-  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds }) {
+  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
     const {
       runInfos,
       paramsList,
@@ -126,7 +126,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, _.findIndex(sortedRunIds, (elem) => elem === runInfo.run_uuid), sortedRunIds), "div"),
+        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, displayIndex, sortedRunIds),  "div"),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
@@ -423,6 +423,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
               } else {
                 cellMeasurerProps.rowHeight = 32;
               }
+              const runIdToSortedIndex = new Map(sortedRunIds.map((val, index) => [val, index]));
               return (<Table
                 {...cellMeasurerProps}
                 width={
@@ -437,7 +438,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                   borderBottom: BORDER_STYLE,
                   borderRight: BORDER_STYLE,
                 }}
-                rowGetter={({index}) => this.getRow({...rows[index], sortedRunIds})}
+                rowGetter={({index}) => this.getRow({...rows[index], sortedRunIds, displayIndex: runIdToSortedIndex.get(rows[index].runId)})}
                 rowStyle={({index}) => {
                   const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
                     overflow: "visible"};

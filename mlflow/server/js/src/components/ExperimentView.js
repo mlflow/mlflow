@@ -480,24 +480,23 @@ class ExperimentView extends Component {
   // Checkbox handler. Will optionally select all things between startIdx and endIdx
   onCheckbox(event, runUuid, childrenIds, index, sortedRunIds) {
     // Handle shift-clicks
-    const minCheckboxIndex = this.state.lastCheckboxIndex !== undefined ? Math.min(this.state.lastCheckboxIndex, index) : index;
-    const maxCheckboxIndex = this.state.lastCheckboxIndex !== undefined ? Math.max(this.state.lastCheckboxIndex, index) + 1 : index + 1;
-    console.log("Sorted run IDs: " + sortedRunIds);
-    console.log("Current index: " + index + ", Last checkbox: " + this.state.lastCheckboxIndex + ", Min checkbox: " + minCheckboxIndex + ", max checkbox: " + maxCheckboxIndex);
+    console.log("Got display index " + index +", sorted run IDs: " + sortedRunIds);
+    const minCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
+      Math.min(this.state.lastCheckboxIndex, index) : index;
+    const maxCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
+      Math.max(this.state.lastCheckboxIndex, index) + 1 : index + 1;
+    console.log("got min and max checkbox indices " + minCheckboxIndex + ", max: " + maxCheckboxIndex + ", current: " + index + ", last one: " + this.state.lastCheckboxIndex);
     // Update state in between old and current start index if shift key is pressed
     const runsSelectedState = Object.assign({}, this.state.runsSelected);
     if (event.shiftKey) {
-      console.log("Between. Min checkbox: " + minCheckboxIndex + ", max checkbox: " + maxCheckboxIndex + ", new state of all runs: " + !this.state.runsSelected[runUuid]);
       _.range(minCheckboxIndex, maxCheckboxIndex).forEach((index) => {
+        console.log("Updaing select state for run with display index " + index);
         if (this.state.runsSelected[runUuid]) {
           delete runsSelectedState[sortedRunIds[index]];
         } else {
-          console.log("Checking run id : " + sortedRunIds[index]);
-          debugger;
           runsSelectedState[sortedRunIds[index]] = true;
         }
       });
-      console.log("runsSelectedState: " + JSON.stringify(runsSelectedState));
     }
     const childrenIdList = childrenIds || [];
     if (this.state.runsSelected[runUuid]) {

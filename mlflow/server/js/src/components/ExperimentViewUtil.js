@@ -360,12 +360,9 @@ export default class ExperimentViewUtil {
       }
     });
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
-      if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
-      // if (!treeNodes[idx].isCycle() && !treeNodes[idx].isRoot()) return [];
+      // if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
+      if (!treeNodes[idx].isCycle() && !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
-      if (runId === "847b4f584ac14808a4150d8d4e6719c8") {
-        debugger;
-      }
       let hasExpander = false;
       let childrenIds = undefined;
       if (parentIdToChildren[runId] && !treeNodes[idx].isCycle()) {
