@@ -35,7 +35,7 @@ class TestLocalArtifactRepo(unittest.TestCase):
             # Create and pickle an object
             artifact = {"foo": 10, "bar": 11}
             repo.log_pickable(artifact, "foo_bar.pkl")
-            loaded_artifact = open(os.path.join(test_root.path(), "foo_bar.pkl"), "rb").read()
+            loaded_artifact = open(repo.download_artifacts("foo_bar.pkl"), "rb").read()
             self.assertEqual(loaded_artifact, artifact)
 
             # log artifact in subdir
