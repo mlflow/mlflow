@@ -40,17 +40,6 @@ if __name__ == '__main__':
         action="store_true")
     args = parser.parse_args()
     client = MlflowClient()
-
-    mlflow.set_experiment("test-shift-click")
-    for i in range(2):
-        with mlflow.start_run():
-            pass
-    # # Grandchildren
-    with mlflow.start_run(source_name='parent'):
-        with mlflow.start_run(source_name='child', nested=True):
-            with mlflow.start_run(source_name='grandchild', nested=True):
-                pass
-
     # Simple run
     for l1, alpha in itertools.product([0, 0.25, 0.5, 0.75, 1], [0, 0.5, 1]):
         with mlflow.start_run(source_name='ipython', source_version=SOURCE_VERSIONS[0]):

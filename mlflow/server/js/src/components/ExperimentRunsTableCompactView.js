@@ -126,7 +126,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, displayIndex, sortedRunIds),  "div"),
+        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, displayIndex, sortedRunIds),
+        "div"),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
@@ -352,8 +353,6 @@ class ExperimentRunsTableCompactView extends PureComponent {
       unbaggedParams,
     } = this.props;
 
-    // If we can pull this info up (sorted rows contain a runId attribute) then we can probably
-    // use it to implement nicer checkbox behavior
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       sortState,
@@ -361,16 +360,13 @@ class ExperimentRunsTableCompactView extends PureComponent {
       metricsList,
       paramsList,
       runsExpanded});
-    console.log("Got " + rows.length + " rows");
+
     const sortedRunIds = rows.flatMap(row => {
       if (!row.isParent) {
         return [];
       }
       return _.concat([row.runId], row.childrenIds || []);
     });
-    console.log("Sorted run IDs length " + sortedRunIds.length);
-    // const allRunIds = runInfos.map((i) => i.run_uuid)
-    // console.log("Differing run ids: " + _.difference(allRunIds, sortedRunIds));
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "div"),
       // placeholder for expander header cell,
@@ -438,7 +434,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
                   borderBottom: BORDER_STYLE,
                   borderRight: BORDER_STYLE,
                 }}
-                rowGetter={({index}) => this.getRow({...rows[index], sortedRunIds, displayIndex: runIdToSortedIndex.get(rows[index].runId)})}
+                rowGetter={({index}) => this.getRow({...rows[index], sortedRunIds,
+                  displayIndex: runIdToSortedIndex.get(rows[index].runId)})}
                 rowStyle={({index}) => {
                   const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
                     overflow: "visible"};

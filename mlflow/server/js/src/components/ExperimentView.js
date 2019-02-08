@@ -477,24 +477,30 @@ class ExperimentView extends Component {
       });
   }
 
-  // Checkbox handler. Will optionally select all things between startIdx and endIdx
-  onCheckbox(event, runUuid, childrenIds, index, sortedRunIds) {
+  /**
+   * Handler for a click event on a checkbox in the runs table. Handles both clicking individual
+   * runs and shift-clicking to select or deselect multiple contiguous runs.
+   * @param event Click event
+   * @param childrenIds Child run UUIDs of the current run
+   * @param index Index of the current run within sortedRunIds.
+   * @param sortedRunIds List of run UUIDs (both visible and collapsed) sorted by the current
+   *                     display order.
+   */
+  onCheckbox(event, childrenIds, index, sortedRunIds) {
+    const runUuid = sortedRunIds[index];
     // Handle shift-clicks
-    console.log("Got display index " + index +", sorted run IDs: " + sortedRunIds);
     const minCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
       Math.min(this.state.lastCheckboxIndex, index) : index;
     const maxCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
       Math.max(this.state.lastCheckboxIndex, index) + 1 : index + 1;
-    console.log("got min and max checkbox indices " + minCheckboxIndex + ", max: " + maxCheckboxIndex + ", current: " + index + ", last one: " + this.state.lastCheckboxIndex);
     // Update state in between old and current start index if shift key is pressed
     const runsSelectedState = Object.assign({}, this.state.runsSelected);
     if (event.shiftKey) {
-      _.range(minCheckboxIndex, maxCheckboxIndex).forEach((index) => {
-        console.log("Updaing select state for run with display index " + index);
+      _.range(minCheckboxIndex, maxCheckboxIndex).forEach(i => {
         if (this.state.runsSelected[runUuid]) {
-          delete runsSelectedState[sortedRunIds[index]];
+          delete runsSelectedState[sortedRunIds[i]];
         } else {
-          runsSelectedState[sortedRunIds[index]] = true;
+          runsSelectedState[sortedRunIds[i]] = true;
         }
       });
     }

@@ -5,6 +5,7 @@ import { Table } from 'react-bootstrap';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import classNames from 'classnames';
 import { RunInfo } from '../sdk/MlflowMessages';
+import _ from "lodash";
 
 /**
  * Table view for displaying runs associated with an experiment. Renders each metric and param
@@ -38,7 +39,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     metricRanges: PropTypes.object.isRequired,
   };
 
-  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
+  getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
     const {
       runInfos,
       paramsList,
@@ -59,7 +60,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        () => onCheckbox(runInfo.run_uuid, childrenIds), "td", idx),
+        (event) => onCheckbox(event, childrenIds, displayIndex, sortedRunIds), "td", idx),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid,
         "td"),
@@ -147,15 +148,23 @@ class ExperimentRunsTableMultiColumnView extends Component {
       paramsList,
       metricsList
     } = this.props;
-    const rows = ExperimentViewUtil.getRows({
+    const rowMetadatas = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       sortState,
-      paramsList,
-      metricsList,
       tagsList,
-      runsExpanded,
-      getRow: this.getRow
+      metricsList,
+      paramsList,
+      runsExpanded});
+
+    const sortedRunIds = rowMetadatas.flatMap(row => {
+      if (!row.isParent) {
+        return [];
+      }
+      return _.concat([row.runId], row.childrenIds || []);
     });
+    const runIdToSortedIndex = new Map(sortedRunIds.map((val, index) => [val, index]));
+    const rows = rowMetadatas.map((row, index) => this.getRow({...row, sortedRunIds,
+      displayIndex: runIdToSortedIndex.get(rowMetadatas[index].runId)}));
     const columns = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "th"),
       ExperimentViewUtil.getExpanderHeader("th"),
