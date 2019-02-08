@@ -3,27 +3,43 @@ import os
 import pytest
 
 import mlflow
+from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
+from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
     get_db_profile_from_uri, _download_artifact_from_uri
 
 
-def test_get_store_file_store(tmpdir):
+def test_get_store_file_store(tmp_wkdir):
     env = {}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
         assert isinstance(store, FileStore)
-        assert store.root_directory == os.path.abspath("mlruns")
+        assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
 
-        # Make sure we look at the parameter...
-        store = _get_store(tmpdir.strpath)
+
+def test_get_store_file_store_from_arg(tmp_wkdir):
+    env = {}
+    with mock.patch.dict(os.environ, env):
+        store = _get_store("other/path")
         assert isinstance(store, FileStore)
-        assert store.root_directory == tmpdir
+        assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
 
-def test_get_store_basic_rest_store(tmpdir):
+@pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
+def test_get_store_file_store_from_env(tmp_wkdir, uri):
+    env = {
+        _TRACKING_URI_ENV_VAR: uri
+    }
+    with mock.patch.dict(os.environ, env):
+        store = _get_store()
+        assert isinstance(store, FileStore)
+        assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
+
+
+def test_get_store_basic_rest_store():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"
     }
@@ -34,7 +50,7 @@ def test_get_store_basic_rest_store(tmpdir):
         assert store.get_host_creds().token is None
 
 
-def test_get_store_rest_store_with_password(tmpdir):
+def test_get_store_rest_store_with_password():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_USERNAME_ENV_VAR: "Bob",
@@ -48,7 +64,7 @@ def test_get_store_rest_store_with_password(tmpdir):
         assert store.get_host_creds().password == "Ross"
 
 
-def test_get_store_rest_store_with_token(tmpdir):
+def test_get_store_rest_store_with_token():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_TOKEN_ENV_VAR: "my-token",
@@ -59,7 +75,7 @@ def test_get_store_rest_store_with_token(tmpdir):
         assert store.get_host_creds().token == "my-token"
 
 
-def test_get_store_rest_store_with_insecure(tmpdir):
+def test_get_store_rest_store_with_insecure():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_INSECURE_TLS_ENV_VAR: "true",
@@ -70,7 +86,7 @@ def test_get_store_rest_store_with_insecure(tmpdir):
         assert store.get_host_creds().ignore_tls_verification
 
 
-def test_get_store_rest_store_with_no_insecure(tmpdir):
+def test_get_store_rest_store_with_no_insecure():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
         _TRACKING_INSECURE_TLS_ENV_VAR: "false",
@@ -90,7 +106,42 @@ def test_get_store_rest_store_with_no_insecure(tmpdir):
         assert not store.get_host_creds().ignore_tls_verification
 
 
-def test_get_store_databricks(tmpdir):
+@pytest.mark.parametrize("db_type", DATABASE_ENGINES)
+def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
+    patch_create_engine = mock.patch("sqlalchemy.create_engine")
+
+    uri = "{}://hostname/database".format(db_type)
+    env = {
+        _TRACKING_URI_ENV_VAR: uri
+    }
+    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine:
+        store = _get_store()
+        assert isinstance(store, SqlAlchemyStore)
+        assert store.db_uri == uri
+        assert store.artifact_root_uri == "./mlruns"
+
+    mock_create_engine.assert_called_once_with(uri)
+
+
+@pytest.mark.parametrize("db_type", DATABASE_ENGINES)
+def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
+    patch_create_engine = mock.patch("sqlalchemy.create_engine")
+    uri = "{}://hostname/database".format(db_type)
+    env = {
+        _TRACKING_URI_ENV_VAR: uri
+    }
+    artifact_uri = "file:artifact/path"
+
+    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine:
+        store = _get_store(artifact_uri=artifact_uri)
+        assert isinstance(store, SqlAlchemyStore)
+        assert store.db_uri == uri
+        assert store.artifact_root_uri == artifact_uri
+
+    mock_create_engine.assert_called_once_with(uri)
+
+
+def test_get_store_databricks():
     env = {
         _TRACKING_URI_ENV_VAR: "databricks",
         'DATABRICKS_HOST': "https://my-tracking-server",
@@ -103,7 +154,7 @@ def test_get_store_databricks(tmpdir):
         assert store.get_host_creds().token == "abcdef"
 
 
-def test_get_store_databricks_profile(tmpdir):
+def test_get_store_databricks_profile():
     env = {
         _TRACKING_URI_ENV_VAR: "databricks://mycoolprofile",
     }

@@ -126,8 +126,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected,
-        (event) => onCheckbox(event, runInfo.run_uuid, childrenIds, displayIndex, sortedRunIds),
-        "div"),
+        (event) => onCheckbox(event, childrenIds, displayIndex, sortedRunIds), "div"),
       ExperimentViewUtil.getExpander(
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
