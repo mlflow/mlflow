@@ -37,8 +37,7 @@ def run_kubernetes_job(image, namespace):
     config.load_kube_config()
     api_instance = kubernetes.client.BatchV1Api()
     api_response = api_instance.create_namespaced_job(job_definition['metadata']['namespace'],
-                                                    job_definition,
-                                                    pretty=True)
+                                                      job_definition, pretty=True)
     pprint(api_response)
 
 registry = 'docker-registry.default.svc:5000'
@@ -46,4 +45,5 @@ image = 'mlflow-docker-example-5e74a5a'
 namespace = 'dremio-brk'
 auth_config = {'username':'"oc whoami"', 'password':'"oc whoami -t"', 'reauth':True, 'registry':registry}
 
-push_image_to_kubernetes(image=image, registry=registry, namespace=namespace, auth_config=auth_config)
+# push_image_to_kubernetes(image=image, registry=registry, namespace=namespace, auth_config=auth_config)
+run_kubernetes_job(image='mlflow-docker-example-5e74a5a', namespace='default')
