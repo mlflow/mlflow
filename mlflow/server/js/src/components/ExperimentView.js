@@ -109,7 +109,7 @@ class ExperimentView extends Component {
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
-      // Last index of a clicked checkbox
+      // Last index of a clicked run checkbox, within a list of runs sorted by display order
       lastCheckboxIndex: undefined,
     };
   }
@@ -489,12 +489,12 @@ class ExperimentView extends Component {
    */
   onCheckbox(event, childrenIds, index, sortedRunIds) {
     const runUuid = sortedRunIds[index];
-    // Handle shift-clicks
     const minCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
       Math.min(this.state.lastCheckboxIndex, index) : index;
     const maxCheckboxIndex = this.state.lastCheckboxIndex !== undefined ?
       Math.max(this.state.lastCheckboxIndex, index) + 1 : index + 1;
-    // Update state in between old and current start index if shift key is pressed
+    // Handle shift-clicks: Update selected state of all runs between the previously clicked and
+    // currently clicked run
     const runsSelectedState = Object.assign({}, this.state.runsSelected);
     if (event.shiftKey) {
       _.range(minCheckboxIndex, maxCheckboxIndex).forEach(i => {
@@ -505,9 +505,9 @@ class ExperimentView extends Component {
         }
       });
     }
+    // If parent run is selected/unselected, select/unselect all child runs
     const childrenIdList = childrenIds || [];
     if (this.state.runsSelected[runUuid]) {
-      // Unselect children
       childrenIdList.forEach(childRunUuid => delete runsSelectedState[childRunUuid]);
       delete runsSelectedState[runUuid];
     } else {

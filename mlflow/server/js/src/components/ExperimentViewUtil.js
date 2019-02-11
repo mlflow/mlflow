@@ -3,6 +3,7 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
+import _ from "lodash";
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -10,7 +11,7 @@ export default class ExperimentViewUtil {
     const CellComponent = `${cellType}`;
     return <CellComponent key="meta-check" className="run-table-container">
       <div>
-        <input type="checkbox" checked={selected} onClick={checkboxHandler}/>
+        <input type="checkbox" checked={selected} onClick={checkboxHandler} readOnly/>
       </div>
     </CellComponent>;
   }
@@ -402,6 +403,19 @@ export default class ExperimentViewUtil {
       }
     });
     return mergedRows;
+  }
+
+  /**
+   * Given an array of row metadata returned by getRowRenderMetadata, returns an array of run IDs
+   * sorted by display order.
+   */
+  static getRunIdsSortedByDisplayOrder(rowMetadatas) {
+    return rowMetadatas.flatMap(rowMetadata => {
+      if (!rowMetadata.isParent) {
+        return [];
+      }
+      return _.concat([rowMetadata.runId], rowMetadata.childrenIds || []);
+    });
   }
 
   static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {

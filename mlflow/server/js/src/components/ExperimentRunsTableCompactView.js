@@ -10,8 +10,6 @@ import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 
-import _ from "lodash";
-
 const NUM_RUN_METADATA_COLS = 7;
 const TABLE_HEADER_HEIGHT = 48;
 const UNBAGGED_COL_WIDTH = 125;
@@ -360,12 +358,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
       paramsList,
       runsExpanded});
 
-    const sortedRunIds = rows.flatMap(row => {
-      if (!row.isParent) {
-        return [];
-      }
-      return _.concat([row.runId], row.childrenIds || []);
-    });
+    const sortedRunIds = ExperimentViewUtil.getRunIdsSortedByDisplayOrder(rows);
     const headerCells = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "div"),
       // placeholder for expander header cell,

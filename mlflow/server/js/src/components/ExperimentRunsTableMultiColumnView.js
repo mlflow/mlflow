@@ -5,7 +5,6 @@ import { Table } from 'react-bootstrap';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import classNames from 'classnames';
 import { RunInfo } from '../sdk/MlflowMessages';
-import _ from "lodash";
 
 /**
  * Table view for displaying runs associated with an experiment. Renders each metric and param
@@ -156,12 +155,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
       paramsList,
       runsExpanded});
 
-    const sortedRunIds = rowMetadatas.flatMap(row => {
-      if (!row.isParent) {
-        return [];
-      }
-      return _.concat([row.runId], row.childrenIds || []);
-    });
+    const sortedRunIds = ExperimentViewUtil.getRunIdsSortedByDisplayOrder(rowMetadatas);
     const runIdToSortedIndex = new Map(sortedRunIds.map((val, index) => [val, index]));
     const rows = rowMetadatas.map((row, index) => this.getRow({...row, sortedRunIds,
       displayIndex: runIdToSortedIndex.get(rowMetadatas[index].runId)}));
