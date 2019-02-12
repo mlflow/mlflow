@@ -220,10 +220,10 @@ class FileStore(AbstractStore):
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         return experiment
 
-    def get_experiment_by_name(self, name):
+    def get_experiment_by_name(self, experiment_name):
         self._check_root_dir()
         for experiment in self.list_experiments(ViewType.ALL):
-            if experiment.name == name:
+            if experiment.name == experiment_name:
                 return experiment
         return None
 
