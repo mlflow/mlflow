@@ -51,6 +51,16 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def get_experiment_by_name(self, experiment_name):
+        """
+        Fetches the experiment by name from backend store.
+        Throws an exception if experiment is not found or permanently deleted.
+
+        :param experiment_name: Name of experiment
+        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        """
+
+    @abstractmethod
     def delete_experiment(self, experiment_id):
         """
         Deletes the experiment from the backend store. Deleted experiments can be restored until

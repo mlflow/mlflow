@@ -49,6 +49,9 @@ def cli():
               help="A parameter for the run, of the form -P name=value. Provided parameters that "
                    "are not in the list of parameters for an entry point will be passed to the "
                    "corresponding entry point as command-line arguments in the form `--name value`")
+@click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
+              help="Name of the experiment under which to launch the run. If not "
+                   "specified, 'experiment-id' option will be used to launch run.")
 @click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.INT,
               help="ID of the experiment under which to launch the run. Defaults to %s" %
                    Experiment.DEFAULT_EXPERIMENT_ID)
@@ -82,8 +85,8 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec, git_username,
-        git_password, no_conda, storage_dir, run_id):
+def run(uri, entry_point, version, param_list, experiment_name, experiment_id, mode, cluster_spec,
+        git_username, git_password, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -96,6 +99,10 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
     By default, Git projects run in a new working directory with the given parameters, while
     local projects run from the project's root directory.
     """
+    if experiment_id and experiment_name:
+        print("Specify only one of 'experiment-name' or 'experiment-id' options.", file=sys.stderr)
+        sys.exit(1)
+
     param_dict = {}
     for s in param_list:
         index = s.find("=")
@@ -120,6 +127,7 @@ def run(uri, entry_point, version, param_list, experiment_id, mode, cluster_spec
             uri,
             entry_point,
             version,
+            experiment_name=experiment_name,
             experiment_id=experiment_id,
             parameters=param_dict,
             mode=mode,
