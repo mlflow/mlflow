@@ -137,7 +137,7 @@ class Utils {
       const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
       if (notebookId) {
-        let url = `#notebook/${notebookId}`;
+        let url = `../#notebook/${notebookId}`;
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }
