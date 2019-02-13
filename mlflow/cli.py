@@ -19,6 +19,7 @@ import mlflow.runs
 
 from mlflow.entities.experiment import Experiment
 from mlflow.tracking.utils import _is_local_uri
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
@@ -100,19 +101,19 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
     local projects run from the project's root directory.
     """
     if experiment_id and experiment_name:
-        print("Specify only one of 'experiment-name' or 'experiment-id' options.", file=sys.stderr)
+        eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
         sys.exit(1)
 
     param_dict = {}
     for s in param_list:
         index = s.find("=")
         if index == -1:
-            print("Invalid format for -P parameter: '%s'. Use -P name=value." % s, file=sys.stderr)
+            eprint("Invalid format for -P parameter: '%s'. Use -P name=value." % s)
             sys.exit(1)
         name = s[:index]
         value = s[index + 1:]
         if name in param_dict:
-            print("Repeated parameter: '%s'" % name, file=sys.stderr)
+            eprint("Repeated parameter: '%s'" % name)
             sys.exit(1)
         param_dict[name] = value
     cluster_spec_arg = cluster_spec
@@ -120,7 +121,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
         try:
             cluster_spec_arg = json.loads(cluster_spec)
         except ValueError as e:
-            print("Invalid cluster spec JSON. Parse error: %s" % e)
+            eprint("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
     try:
         projects.run(
@@ -183,8 +184,7 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, 1, None, gunicorn_opts)
     except ShellCommandException:
-        print("Running the mlflow server failed. Please see the logs above for details.",
-              file=sys.stderr)
+        eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
 
 
@@ -245,16 +245,15 @@ def server(backend_store_uri, default_artifact_root, host, port,
         if _is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
-            print("Option 'default-artifact-root' is required, when backend store is not "
-                  "local file based.", file=sys.stderr)
+            eprint("Option 'default-artifact-root' is required, when backend store is not "
+                   "local file based.")
             sys.exit(1)
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
                     gunicorn_opts)
     except ShellCommandException:
-        print("Running the mlflow server failed. Please see the logs above for details.",
-              file=sys.stderr)
+        eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
 
 

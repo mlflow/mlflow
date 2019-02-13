@@ -43,10 +43,9 @@ class AbstractStore:
     def get_experiment(self, experiment_id):
         """
         Fetches the experiment by ID from the backend store.
-        Throws an exception if experiment is not found or permanently deleted.
 
         :param experiment_id: Integer id for the experiment
-        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        :return: A single Experiment object if it exists, otherwise None.
         """
         pass
 
