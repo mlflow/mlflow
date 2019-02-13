@@ -100,7 +100,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
     By default, Git projects run in a new working directory with the given parameters, while
     local projects run from the project's root directory.
     """
-    if experiment_id and experiment_name:
+    if experiment_id is not None and experiment_name is not None:
         eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
         sys.exit(1)
 
