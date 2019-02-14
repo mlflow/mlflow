@@ -98,9 +98,14 @@ class DbfsArtifactRepository(ArtifactRepository):
                 dir_http_endpoint = self.get_path_module().join(root_http_endpoint, rel_path)
             for name in filenames:
                 endpoint = self.get_path_module().join(dir_http_endpoint, name)
-                with open(self.get_path_module().join(dirpath, name), 'rb') as f:
+                file_abspath = self.get_path_module().join(dirpath, name)
+                if os.stat(file_abspath).st_size == 0:
                     self._databricks_api_request(
-                        endpoint=endpoint, method='POST', data=f, allow_redirects=False)
+                        endpoint=endpoint, method='POST', data="", allow_redirects=False)
+                else:
+                    with open(file_abspath, 'rb') as f:
+                        self._databricks_api_request(
+                            endpoint=endpoint, method='POST', data=f, allow_redirects=False)
 
     def list_artifacts(self, path=None):
         if path:
