@@ -141,7 +141,7 @@ def _is_databricks_uri(uri):
     return scheme == 'databricks' or uri == 'databricks'
 
 
-def _get_file_store(store_uri, artifact_uri):  # pylint: disable=W0613
+def _get_file_store(store_uri, **_):
     path = urllib.parse.urlparse(store_uri).path if store_uri else None
     return FileStore(path, path)
 
@@ -159,7 +159,7 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 
-def _get_rest_store(store_uri, artifact_uri):  # pylint: disable=W0613
+def _get_rest_store(store_uri, **_):
     def get_default_host_creds():
         return rest_utils.MlflowHostCreds(
             host=store_uri,
@@ -182,7 +182,7 @@ def get_db_profile_from_uri(uri):
     return None
 
 
-def _get_databricks_rest_store(store_uri, artifact_uri):  # pylint: disable=W0613
+def _get_databricks_rest_store(store_uri, **_):
     profile = get_db_profile_from_uri(store_uri)
     return RestStore(lambda: get_databricks_host_creds(profile))
 
