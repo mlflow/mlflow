@@ -211,8 +211,10 @@ class TrackingStoreRegistry:
         try:
             store_builder = self._registry[scheme]
         except KeyError:
+            registered_schemes_string = "[{}]".format(", ".join(self._registry.keys()))
             raise MlflowException(
-                "Could not find a registered tracking store for: {}".format(store_uri)
+                "Could not find a registered tracking store for: {}. "
+                "Currently registered schemes are: {}".format(store_uri, registered_schemes_string)
             )
         return store_builder(store_uri=store_uri, artifact_uri=artifact_uri)
 
