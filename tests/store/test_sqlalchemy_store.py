@@ -120,6 +120,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.name, name)
         self.assertEqual(actual.experiment_id, experiment_id)
 
+        actual_by_name = self.store.get_experiment_by_name(name)
+        self.assertEqual(actual_by_name.name, name)
+        self.assertEqual(actual_by_name.experiment_id, experiment_id)
+
     def test_list_experiments(self):
         testnames = ['blue', 'red', 'green']
 
