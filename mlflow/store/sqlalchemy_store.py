@@ -165,9 +165,13 @@ class SqlAlchemyStore(AbstractStore):
         return self._get_experiment(experiment_id, ViewType.ALL).to_mlflow_entity()
 
     def get_experiment_by_name(self, experiment_name):
+        """
+        Specialized implementation for SQL backed store.
+        """
         experiments = self._list_experiments(names=[experiment_name], view_type=ViewType.ALL).all()
         if len(experiments) == 0:
             return None
+
         if len(experiments) > 1:
             raise MlflowException('Expected only 1 experiment with name={}. Found {}.'.format(
                 experiment_name, len(experiments)), INVALID_STATE)

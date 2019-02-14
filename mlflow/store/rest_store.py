@@ -93,17 +93,12 @@ class RestStore(AbstractStore):
         Fetches the experiment from the backend store.
 
         :param experiment_id: Integer id for the experiment
-        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
+        otherwise raises an Exception.
         """
         req_body = message_to_json(GetExperiment(experiment_id=experiment_id))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
-
-    def get_experiment_by_name(self, experiment_name):
-        for experiment in self.list_experiments(ViewType.ALL):
-            if experiment.name == experiment_name:
-                return experiment
-        return None
 
     def delete_experiment(self, experiment_id):
         req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))

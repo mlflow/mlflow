@@ -45,19 +45,24 @@ class AbstractStore:
         Fetches the experiment by ID from the backend store.
 
         :param experiment_id: Integer id for the experiment
-        :return: A single Experiment object if it exists, otherwise None.
+        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
+        otherwise raises an exception.
         """
         pass
 
-    @abstractmethod
     def get_experiment_by_name(self, experiment_name):
         """
         Fetches the experiment by name from the backend store.
-        Throws an exception if experiment is not found or permanently deleted.
+        This is a base implementation using ``list_experiments``, derived classes may have
+        some specialized implementations.
 
         :param experiment_name: Name of experiment
-        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists.
         """
+        for experiment in self.list_experiments(ViewType.ALL):
+            if experiment.name == experiment_name:
+                return experiment
+        return None
 
     @abstractmethod
     def delete_experiment(self, experiment_id):
@@ -93,14 +98,15 @@ class AbstractStore:
         Fetches the run from backend store
 
         :param run_uuid: Unique identifier for the run
-        :return: A single Run object if it exists, otherwise raises an Exception
+        :return: A single :py:class:`mlflow.entities.Run` object if it exists,
+        otherwise raises an exception
         """
         pass
 
     def update_run_info(self, run_uuid, run_status, end_time):
         """
         Updates the metadata of the specified run.
-        :return: RunInfo describing the updated run.
+        :return: :py:class:`mlflow.entities.RunInfo` describing the updated run.
         """
         pass
 
@@ -137,7 +143,7 @@ class AbstractStore:
         """
         Logs a metric for the specified run
         :param run_uuid: String id for the run
-        :param metric: Metric instance to log
+        :param metric: :py:class:`mlflow.entities.Metric` instance to log
         """
         pass
 
@@ -145,7 +151,7 @@ class AbstractStore:
         """
         Logs a param for the specified run
         :param run_uuid: String id for the run
-        :param param: Param instance to log
+        :param param: :py:class:`mlflow.entities.Param` instance to log
         """
         pass
 
@@ -153,7 +159,7 @@ class AbstractStore:
         """
         Sets a tag for the specified run
         :param run_uuid: String id for the run
-        :param tag: RunTag instance to set
+        :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
         pass
 
@@ -202,7 +208,8 @@ class AbstractStore:
         :param experiment_ids: List of experiment ids to scope the search
         :param search_expression: list of search expressions
 
-        :return: A list of Run objects that satisfy the search expressions
+        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
+        expressions
         """
         pass
 
@@ -213,6 +220,7 @@ class AbstractStore:
 
         :param experiment_id: The experiment id which to search.
 
-        :return: A list of RunInfo objects that satisfy the search expressions
+        :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
+        search expressions
         """
         pass
