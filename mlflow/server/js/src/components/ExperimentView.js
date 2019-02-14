@@ -277,7 +277,7 @@ class ExperimentView extends Component {
           onClose={this.onCloseRestoreRunModal}
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
-        <h1>{name}</h1>
+        <h1 style={{marginTop: 24, marginBottom: 8, fontSize: 18}}>{name}</h1>
         <div className="metadata">
           <span className="metadata">
             <span className="metadata-header">Experiment ID:</span>
@@ -302,7 +302,7 @@ class ExperimentView extends Component {
                      onClick={this.onSearch}
                      value="Search"
               />
-              <Button className="clear-button" onClick={this.onClear}>Clear</Button>
+              <Button className="clear-button" onClick={this.onClear} style={{marginBottom: 0}}>Clear</Button>
             </div>
             <div className="ExperimentView-search-inputs">
               <div className="ExperimentView-search">
@@ -757,10 +757,10 @@ const mapStateToProps = (state, ownProps) => {
 
 const styles = {
   lifecycleButtonLabel: {
-    width: '60px'
+    width: '32px'
   },
   lifecycleButtonFilterWrapper: {
-    marginLeft: '60px',
+    marginLeft: '48px',
   },
   tableToggleButtonGroup: {
     marginLeft: '16px',

@@ -27,15 +27,15 @@
 
 .run-info {
   min-width: 450px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   margin-right: 12px;
 }
 .metadata-header {
-  font-size: 16px;
+  font-size: 14px;
   color: #888;
 }
 .metadata-info {
-  font-size: 16px;
+  font-size: 13px;
   color: #333;
 }
 
@@ -44,6 +44,7 @@
 /* BEGIN table styling stuff */
 .table-name {
   padding-top: 6px;
+  margin-top: 16px;
   width: 112px;
   cursor: pointer;
 }

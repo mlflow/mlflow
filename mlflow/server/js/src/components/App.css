@@ -131,18 +131,18 @@ label {
 }
 
 div.metadata {
-  margin-top: 32px;
+  margin-top: 16px;
 }
 
 span.metadata {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: normal;
   white-space: nowrap;
   margin-right: 100px;
 }
 
 span.metadata-header {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: normal;
   color: #888;
   margin-right: 4px;

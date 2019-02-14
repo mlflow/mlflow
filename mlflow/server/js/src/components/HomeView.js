@@ -68,6 +68,7 @@ class HomeView extends Component {
           <div className="collapsed-expander-container">
             <i onClick={this.onClickListExperiments}
                title="Show experiment list"
+               style={{marginTop: 24}}
                className="expander fa fa-chevron-right login-icon"/>
           </div>
           <div className="experiment-page-container">
