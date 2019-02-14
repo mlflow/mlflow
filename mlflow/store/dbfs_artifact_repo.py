@@ -71,8 +71,7 @@ class DbfsArtifactRepository(ArtifactRepository):
             http_endpoint = self._get_dbfs_endpoint(
                 self.get_path_module().join(artifact_path, basename))
         else:
-            http_endpoint = self._get_dbfs_endpoint(
-                self.get_path_module().basename(local_file))
+            http_endpoint = self._get_dbfs_endpoint(basename)
         if os.stat(local_file).st_size == 0:
             # The API frontend doesn't like it when we post empty files to it using
             # `requests.request`, potentially due to the bug described in
