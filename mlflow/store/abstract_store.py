@@ -5,7 +5,7 @@ from mlflow.entities import ViewType
 
 class AbstractStore:
     """
-    Abstract class for Backend Storage
+    Abstract class for Backend Storage.
     This class will define API interface for front ends to connect with various types of backends
     """
 
@@ -23,6 +23,7 @@ class AbstractStore:
         """
 
         :param view_type: Qualify requested type of experiments.
+
         :return: a list of Experiment objects stored in store for requested view.
         """
         pass
@@ -35,6 +36,7 @@ class AbstractStore:
 
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
+
         :return: experiment_id (integer) for the newly created experiment if successful, else None
         """
         pass
@@ -45,8 +47,10 @@ class AbstractStore:
         Fetches the experiment by ID from the backend store.
 
         :param experiment_id: Integer id for the experiment
+
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
-        otherwise raises an exception.
+            otherwise raises an exception.
+
         """
         pass
 
@@ -57,6 +61,7 @@ class AbstractStore:
         some specialized implementations.
 
         :param experiment_name: Name of experiment
+
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists.
         """
         for experiment in self.list_experiments(ViewType.ALL):
@@ -98,14 +103,16 @@ class AbstractStore:
         Fetches the run from backend store
 
         :param run_uuid: Unique identifier for the run
+
         :return: A single :py:class:`mlflow.entities.Run` object if it exists,
-        otherwise raises an exception
+            otherwise raises an exception
         """
         pass
 
     def update_run_info(self, run_uuid, run_status, end_time):
         """
         Updates the metadata of the specified run.
+
         :return: :py:class:`mlflow.entities.RunInfo` describing the updated run.
         """
         pass
@@ -119,6 +126,7 @@ class AbstractStore:
         :param experiment_id: ID of the experiment for this run
         :param user_id: ID of the user launching this run
         :param source_type: Enum (integer) describing the source of the run
+
         :return: The created Run object
         """
         pass
@@ -209,7 +217,7 @@ class AbstractStore:
         :param search_expression: list of search expressions
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-        expressions
+            expressions
         """
         pass
 
@@ -221,6 +229,6 @@ class AbstractStore:
         :param experiment_id: The experiment id which to search.
 
         :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
-        search expressions
+            search expressions
         """
         pass
