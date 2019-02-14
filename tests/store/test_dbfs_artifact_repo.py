@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import os
 
 import pytest
 import mock
@@ -36,6 +37,8 @@ def test_dir(tmpdir):
         f.write(TEST_FILE_2_CONTENT)
     with open(tmpdir.join('test.txt').strpath, 'wb') as f:
         f.write(bytes(TEST_FILE_3_CONTENT))
+    with open(tmpdir.join('empty-file').strpath, 'w'):
+        pass
     return tmpdir
 
 
@@ -85,6 +88,15 @@ class TestDbfsArtifactRepository(object):
             assert endpoints == [expected_endpoint]
             assert data == [TEST_FILE_1_CONTENT]
 
+    def test_log_artifact_empty_file(self, dbfs_artifact_repo, test_dir):
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
+                assert kwargs['endpoint'] == "/dbfs/test/empty-file"
+                assert kwargs['data'] == ""
+                return Mock(status_code=200)
+            http_request_mock.side_effect = my_http_request
+            dbfs_artifact_repo.log_artifact(os.path.join(test_dir, "empty-file"))
+
     def test_log_artifact_empty(self, dbfs_artifact_repo, test_file):
         with pytest.raises(IllegalArtifactPathError):
             dbfs_artifact_repo.log_artifact(test_file.strpath, '')
@@ -107,17 +119,22 @@ class TestDbfsArtifactRepository(object):
 
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
-                data.append(kwargs['data'].read())
+                if kwargs['endpoint'] == "/dbfs/test/empty-file":
+                    data.append(kwargs['data'])
+                else:
+                    data.append(kwargs['data'].read())
                 return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             assert set(endpoints) == {
                 '/dbfs/test/subdir/test.txt',
-                '/dbfs/test/test.txt'
+                '/dbfs/test/test.txt',
+                '/dbfs/test/empty-file',
             }
             assert set(data) == {
                 TEST_FILE_2_CONTENT,
                 TEST_FILE_3_CONTENT,
+                "",
             }
 
     def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
@@ -127,9 +144,10 @@ class TestDbfsArtifactRepository(object):
                 dbfs_artifact_repo.log_artifacts(test_dir.strpath)
 
     @pytest.mark.parametrize("artifact_path,expected_endpoints", [
-        ('a', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt'}),
-        ('a/', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt'}),
-        ('/', {'/dbfs/test/subdir/test.txt', '/dbfs/test/test.txt'}),
+        ('a', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt', '/dbfs/test/a/empty-file'}),
+        ('a/', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt',
+                '/dbfs/test/a/empty-file'}),
+        ('/', {'/dbfs/test/subdir/test.txt', '/dbfs/test/test.txt', '/dbfs/test/empty-file'}),
     ])
     def test_log_artifacts_with_artifact_path(self, dbfs_artifact_repo, test_dir, artifact_path,
                                               expected_endpoints):
