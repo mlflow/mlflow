@@ -6,7 +6,7 @@ import pytest
 import mock
 from mock import Mock
 
-from mlflow.exceptions import IllegalArtifactPathError, MlflowException
+from mlflow.exceptions import MlflowException
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
 from mlflow.utils.rest_utils import MlflowHostCreds
 
@@ -95,10 +95,15 @@ class TestDbfsArtifactRepository(object):
                 assert kwargs['data'] == ""
                 return Mock(status_code=200)
             http_request_mock.side_effect = my_http_request
-            dbfs_artifact_repo.log_artifact(os.path.join(test_dir, "empty-file"))
+            dbfs_artifact_repo.log_artifact(os.path.join(test_dir.strpath, "empty-file"))
 
-    def test_log_artifact_empty(self, dbfs_artifact_repo, test_file):
-        with pytest.raises(IllegalArtifactPathError):
+    def test_log_artifact_empty_artifact_path(self, dbfs_artifact_repo, test_file):
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+            def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
+                assert kwargs['endpoint'] == "/dbfs/test/test.txt"
+                assert kwargs['data'].read() == TEST_FILE_1_CONTENT
+                return Mock(status_code=200)
+            http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, '')
 
     def test_log_artifact_error(self, dbfs_artifact_repo, test_file):
