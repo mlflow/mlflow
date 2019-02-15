@@ -182,8 +182,135 @@ TensorFlow (``tensorflow``)
 
 The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and loading them back as ``Python Function`` models for inference on pandas DataFrames. Given a directory containing a saved model, you can log the model to MLflow via ``log_saved_model`` and then load the saved model for inference using ``mlflow.pyfunc.load_pyfunc``. For more information, see :py:mod:`mlflow.tensorflow`.
 
+Model Customization
+-------------------
+
+While MLflow's built-in model persistence utilities are convenient for packaging models from various popular ML libraries in MLflow model format, they do not cover every use case.
+For example, you may want to use a model from an ML library that is not explicitly supported by MLflow's built-in flavors. Alternatively, you may want to package
+arbitrary inference code and data to create an MLflow model. Fortunately, MLflow provides two solutions that can be used to accomplish these tasks: Custom Python Models and
+Custom Flavors.
+
+Custom Python Models
+^^^^^^^^^^^^^^^^^^^^
+The :py:mod:`mlflow.pyfunc` module provides :meth:`save_model() <mlflow.pyfunc.save_model>` and :meth:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow models with the
+``python_function`` flavor that contain arbitrary user-specified code and *artifact* (file) dependencies. These artifact dependencies may include serialized models produced by any
+Python ML library. The following examples demonstrate how these functions can be used to create custom Python models. For additional information about model customization
+with MLflow's ``python_function`` utilities, see the :ref:`python_function custom models documentation <pyfunc-create-custom>`.
+
+Example: Creating a custom "add n" model
+****************************************
+In this example, we first define a class for a custom model that adds a specified numeric value, `n`, to all columns of a Pandas DataFrame input. Then, we leverage
+the :py:mod:`mlflow.pyfunc` APIs to save an instance of this model with `n=5` in MLflow model format. Finally, we load the model in ``python_function`` format and
+use it to evaluate a sample input
+
+.. code:: python
+
+    import mlflow.pyfunc
+
+    # Define the model class
+    class AddN(mlflow.pyfunc.PythonModel):
+
+        def __init__(self, n):
+            self.n = n
+
+        def predict(self, context, model_input):
+            return model_input.apply(lambda column: column + self.n)
+
+    # Construct and save the model
+    model_path = "add_n_model"
+    add5_model = AddN(n=5)
+    mlflow.pyfunc.save_model(dst_path=model_path, python_model=add5_model)
+
+    # Load the model in `python_function` format
+    loaded_model = mlflow.pyfunc.load_pyfunc(model_path)
+
+    # Evaluate the model
+    import pandas as pd
+    model_input = pd.DataFrame([range(10)])
+    model_output = loaded_model.predict(model_input)
+    assert model_output.equals(pd.DataFrame([range(5, 15)]))
+
+
+Example: Saving an XGBoost model in MLflow format
+*************************************************
+In this example, we begin by training and saving a gradient boosted tree model using the XGBoost
+library. Next, we define a wrapper class around the XGBoost model that conforms to MLflow's
+``python_function`` :ref:`inference API <pyfunc-inference-api>`. Then, using the wrapper class and
+the saved XGBoost model, we construct an MLflow model that performs inference using the gradient
+boosted tree. Finally, we load the MLflow model in ``python_function`` format and use it to evaluate
+test data.
+
+.. code:: python
+
+    # Load training and test datasets
+    import xgboost as xgb
+    from sklearn import datasets
+    from sklearn.model_selection import train_test_split
+
+    iris = datasets.load_iris()
+    x = iris.data[:, 2:]
+    y = iris.target
+    x_train, x_test, y_train, _ = train_test_split(x, y, test_size=0.2, random_state=42)
+    dtrain = xgb.DMatrix(x_train, label=y_train)
+
+    # Train and save an XGBoost model
+    xgb_model = xgb.train(params={'max_depth': 10}, dtrain=dtrain, num_boost_round=10)
+    xgb_model_path = "xgb_model.pth"
+    xgb_model.save_model(xgb_model_path)
+
+    # Create an `artifacts` dictionary that assigns a unique name to the saved XGBoost model file.
+    # This dictionary will be passed to `mlflow.pyfunc.save_model`, which will copy the model file
+    # into the new MLflow model's directory.
+    artifacts = {
+        "xgb_model": xgb_model_path
+    }
+
+    # Define the model class
+    import mlflow.pyfunc
+    class XGBWrapper(mlflow.pyfunc.PythonModel):
+
+        def load_context(self, context):
+            import xgboost as xgb
+            self.xgb_model = xgb.Booster()
+            self.xgb_model.load_model(context.artifacts["xgb_model"])
+
+        def predict(self, context, model_input):
+            input_matrix = xgb.DMatrix(model_input.values)
+            return self.xgb_model.predict(input_matrix)
+
+    # Create a Conda environment for the new MLflow model that contains the XGBoost library
+    # as a dependency, as well as the required CloudPicke library
+    import cloudpickle
+    conda_env = {
+        'channels': ['defaults'],
+        'dependencies': [
+          'xgboost={}'.format(xgb.__version__)
+          'cloudpickle={}'.format(cloudpickle.__version__)
+        ],
+        'name': 'xgb_env'
+    }
+
+    # Save the MLflow model
+    mlflow_pyfunc_model_path = "xgb_mlflow_pyfunc"
+    mlflow.pyfunc.save_model(
+            dst_path=mlflow_pyfunc_model_path, python_model=XGBWrapper(), artifacts=artifacts,
+            conda_env=conda_env)
+
+    # Load the model in `python_function` format
+    loaded_model = mlflow.pyfunc.load_pyfunc(mlflow_pyfunc_model_path)
+
+    # Evaluate the model
+    import pandas as pd
+    test_predictions = loaded_model.predict(pd.DataFrame(x_test))
+    print(test_predictions)
+
+
 Custom Flavors
---------------
+^^^^^^^^^^^^^^
+You can also create custom MLflow models by writing a custom flavor.
+
+Another method for producing customized MLflow models is the creation of custom flavor
+
 You can add a flavor in MLmodel files, either by writing it directly or
 building it with the :py:class:`mlflow.models.Model` class. Choose an arbitrary string name
 for your flavor. MLflow tools ignore flavors in the MLmodel file that they do not understand.
