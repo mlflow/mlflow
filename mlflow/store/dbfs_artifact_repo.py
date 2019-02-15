@@ -2,7 +2,7 @@ import os
 import json
 
 from mlflow.entities import FileInfo
-from mlflow.exceptions import IllegalArtifactPathError, MlflowException
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
@@ -67,14 +67,11 @@ class DbfsArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         basename = self.get_path_module().basename(local_file)
-        if artifact_path == '':
-            raise IllegalArtifactPathError('artifact_path cannot be the empty string.')
         if artifact_path:
             http_endpoint = self._get_dbfs_endpoint(
                 self.get_path_module().join(artifact_path, basename))
         else:
-            http_endpoint = self._get_dbfs_endpoint(
-                self.get_path_module().basename(local_file))
+            http_endpoint = self._get_dbfs_endpoint(basename)
         if os.stat(local_file).st_size == 0:
             # The API frontend doesn't like it when we post empty files to it using
             # `requests.request`, potentially due to the bug described in
@@ -87,20 +84,15 @@ class DbfsArtifactRepository(ArtifactRepository):
                     endpoint=http_endpoint, method='POST', data=f, allow_redirects=False)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        if artifact_path:
-            root_http_endpoint = self._get_dbfs_endpoint(artifact_path)
-        else:
-            root_http_endpoint = self._get_dbfs_endpoint('')
+        artifact_path = artifact_path or ''
         for (dirpath, _, filenames) in os.walk(local_dir):
-            dir_http_endpoint = root_http_endpoint
+            artifact_subdir = artifact_path
             if dirpath != local_dir:
                 rel_path = self.get_path_module().relpath(dirpath, local_dir)
-                dir_http_endpoint = self.get_path_module().join(root_http_endpoint, rel_path)
+                artifact_subdir = self.get_path_module().join(artifact_path, rel_path)
             for name in filenames:
-                endpoint = self.get_path_module().join(dir_http_endpoint, name)
-                with open(self.get_path_module().join(dirpath, name), 'rb') as f:
-                    self._databricks_api_request(
-                        endpoint=endpoint, method='POST', data=f, allow_redirects=False)
+                file_path = self.get_path_module().join(dirpath, name)
+                self.log_artifact(file_path, artifact_subdir)
 
     def list_artifacts(self, path=None):
         if path:
