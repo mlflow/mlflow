@@ -169,7 +169,7 @@ def test_get_store_databricks_profile():
         assert 'mycoolprofile' in str(e_info.value)
 
 
-def test_standard_store_registry():
+def test_standard_store_registry_with_mocked_entrypoint():
     mock_entrypoint = mock.Mock()
     mock_entrypoint.name = "mock-scheme"
 
@@ -198,6 +198,12 @@ def test_standard_store_registry():
         )
 
 
+@pytest.mark.large
+def test_standard_store_registry_with_installed_plugin():
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    assert "file-plugin" in mlflow.tracking.utils._tracking_store_registry._registry.keys()
+
+
 def test_plugin_registration():
     tracking_store = TrackingStoreRegistry()
 
@@ -222,6 +228,27 @@ def test_plugin_registration_via_entrypoints():
     assert tracking_store.get_store("mock-scheme://") == mock_plugin_function.return_value
 
     mock_plugin_function.assert_called_once_with(store_uri="mock-scheme://", artifact_uri=None)
+    mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
+
+
+@pytest.mark.parametrize("exception",
+                         [AttributeError("test exception"),
+                          ImportError("test exception")])
+def test_handle_plugin_registration_failure_via_entrypoints(exception):
+    mock_entrypoint = mock.Mock(load=mock.Mock(side_effect=exception))
+    mock_entrypoint.name = "mock-scheme"
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+
+        tracking_store = TrackingStoreRegistry()
+
+        # Check that the raised warning contains the message from the original exception
+        with pytest.warns(UserWarning, match="test exception"):
+            tracking_store.register_entrypoints()
+
+    mock_entrypoint.load.assert_called_once()
     mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
 
 

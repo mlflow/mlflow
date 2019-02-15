@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import sys
+import warnings
 
 import entrypoints
 from six.moves import urllib
@@ -198,7 +199,15 @@ class TrackingStoreRegistry:
     def register_entrypoints(self):
         # Register tracking stores provided by other packages
         for entrypoint in entrypoints.get_group_all("mlflow.tracking_store"):
-            self.register(entrypoint.name, entrypoint.load())
+            try:
+                self.register(entrypoint.name, entrypoint.load())
+            except (AttributeError, ImportError) as exc:
+                warnings.warn(
+                    'Failure attempting to register tracking store for scheme "{}": {}'.format(
+                        entrypoint.name, str(exc)
+                    ),
+                    stacklevel=2
+                )
 
     def get_store(self, store_uri=None, artifact_uri=None):
         store_uri = store_uri if store_uri is not None else get_tracking_uri()
@@ -211,10 +220,11 @@ class TrackingStoreRegistry:
         try:
             store_builder = self._registry[scheme]
         except KeyError:
-            registered_schemes_string = "[{}]".format(", ".join(self._registry.keys()))
             raise MlflowException(
                 "Could not find a registered tracking store for: {}. "
-                "Currently registered schemes are: {}".format(store_uri, registered_schemes_string)
+                "Currently registered schemes are: {}".format(
+                    store_uri, list(self._registry.keys())
+                )
             )
         return store_builder(store_uri=store_uri, artifact_uri=artifact_uri)
 
