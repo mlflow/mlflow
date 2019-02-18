@@ -8,7 +8,7 @@ setup(
     packages=find_packages(),
     install_requires=["mlflow"],
     entry_points={
-        "mlflow.tracking_store": "file-plugin=mlflow_test_plugin:get_file_store",
+        "mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore",
         "mlflow.artifact_repository":
             "file-plugin=mlflow_test_plugin:PluginLocalArtifactRepository",
     },
