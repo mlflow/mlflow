@@ -67,7 +67,12 @@ class ArtifactRepositoryRegistry:
         elif repository is not None:
             return repository(artifact_uri)
         else:
-            raise Exception("Artifact URI must be....")
+            raise MlflowException(
+                "Could not find a registered artifact repository for: {}. "
+                "Currently registered schemes are: {}".format(
+                    artifact_uri, list(self._registry.keys())
+                )
+            )
 
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
