@@ -220,10 +220,14 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
 def test_plugin_registration():
     tracking_store = TrackingStoreRegistry()
 
+    test_uri = "mock-scheme://fake-host/fake-path"
+    test_scheme = "mock-scheme"
+
     mock_plugin = mock.Mock()
-    tracking_store.register("mock-scheme", mock_plugin)
-    assert "mock-scheme" in tracking_store._registry
-    assert tracking_store.get_store("mock-scheme://fake-host/fake-path") == mock_plugin.return_value
+    tracking_store.register(test_scheme, mock_plugin)
+    assert test_scheme in tracking_store._registry
+    assert tracking_store.get_store(test_uri) == mock_plugin.return_value
+    mock_plugin.assert_called_once_with(store_uri=test_uri, artifact_uri=None)
 
 
 def test_plugin_registration_via_entrypoints():
