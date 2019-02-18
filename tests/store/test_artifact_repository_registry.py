@@ -1,4 +1,5 @@
 import mock
+import pytest
 from six.moves import reload_module as reload
 
 import mlflow
@@ -84,4 +85,25 @@ def test_plugin_registration_via_entrypoints():
     )
 
     mock_plugin_function.assert_called_once_with("mock-scheme://fake-host/fake-path")
+    mock_get_group_all.assert_called_once_with("mlflow.artifact_repository")
+
+
+@pytest.mark.parametrize("exception",
+                         [AttributeError("test exception"),
+                          ImportError("test exception")])
+def test_plugin_registration_failure_via_entrypoints(exception):
+    mock_entrypoint = mock.Mock(load=mock.Mock(side_effect=exception))
+    mock_entrypoint.name = "mock-scheme"
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+
+        repo_registry = ArtifactRepositoryRegistry()
+
+        # Check that the raised warning contains the message from the original exception
+        with pytest.warns(UserWarning, match="test exception"):
+            repo_registry.register_entrypoints()
+
+    mock_entrypoint.load.assert_called_once()
     mock_get_group_all.assert_called_once_with("mlflow.artifact_repository")

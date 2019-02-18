@@ -1,4 +1,5 @@
 import entrypoints
+import warnings
 from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
@@ -23,7 +24,15 @@ class ArtifactRepositoryRegistry:
     def register_entrypoints(self):
         # Register artifact repositories provided by other packages
         for entrypoint in entrypoints.get_group_all("mlflow.artifact_repository"):
-            self.register(entrypoint.name, entrypoint.load())
+            try:
+                self.register(entrypoint.name, entrypoint.load())
+            except (AttributeError, ImportError) as exc:
+                warnings.warn(
+                    'Failure attempting to register artifact repository for scheme "{}": {}'.format(
+                        entrypoint.name, str(exc)
+                    ),
+                    stacklevel=2
+                )
 
     def get_artifact_repository(self, artifact_uri, store=None):
         scheme = urllib.parse.urlparse(artifact_uri).scheme
