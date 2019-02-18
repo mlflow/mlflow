@@ -194,46 +194,6 @@ export class MlflowService {
   }
 
   /**
-   * @param {GetMetric} data: Immutable Record
-   * @param {function} success
-   * @param {function} error
-   * @return {Promise}
-   */
-  static getMetric({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/metrics/get', {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
-      },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
-  }
-
-  /**
-   * @param {GetParam} data: Immutable Record
-   * @param {function} success
-   * @param {function} error
-   * @return {Promise}
-   */
-  static getParam({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/params/get', {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
-      },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
-  }
-
-  /**
    * @param {SearchRuns} data: Immutable Record
    * @param {function} success
    * @param {function} error
