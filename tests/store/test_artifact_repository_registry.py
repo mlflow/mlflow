@@ -33,6 +33,27 @@ def test_standard_artifact_registry():
     )
 
 
+@pytest.mark.large
+def test_plugin_registration_via_installed_package():
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+
+    reload(mlflow.store.artifact_repository_registry)
+
+    assert (
+        "file-plugin" in
+        mlflow.store.artifact_repository_registry._artifact_repository_registry._registry
+    )
+
+    from mlflow_test_plugin import PluginLocalArtifactRepository
+
+    test_uri = "file-plugin:test-path"
+
+    plugin_repo = mlflow.store.artifact_repository_registry.get_artifact_repository(test_uri)
+
+    assert isinstance(plugin_repo, PluginLocalArtifactRepository)
+    assert plugin_repo.artifact_uri == test_uri
+
+
 def test_plugin_registration():
     artifact_repository_registry = ArtifactRepositoryRegistry()
 
