@@ -199,9 +199,22 @@ def test_standard_store_registry_with_mocked_entrypoint():
 
 
 @pytest.mark.large
-def test_standard_store_registry_with_installed_plugin():
+def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+
+    reload(mlflow.tracking.utils)
     assert "file-plugin" in mlflow.tracking.utils._tracking_store_registry._registry.keys()
+
+    from mlflow_test_plugin import PluginFileStore
+
+    env = {
+        _TRACKING_URI_ENV_VAR: "file-plugin:test-path",
+    }
+    with mock.patch.dict(os.environ, env):
+        plugin_file_store = mlflow.tracking.utils._get_store()
+        assert isinstance(plugin_file_store, PluginFileStore)
+        assert os.path.abspath(plugin_file_store.root_directory) == os.path.abspath("test-path")
+        assert os.path.abspath(plugin_file_store.artifact_root_uri) == os.path.abspath("test-path")
 
 
 def test_plugin_registration():
