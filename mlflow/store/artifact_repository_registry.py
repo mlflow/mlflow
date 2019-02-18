@@ -14,11 +14,23 @@ from mlflow.store.rest_store import RestStore
 
 
 class ArtifactRepositoryRegistry:
+    """Scheme-based registry for artifact repository implementations
+
+    This class allows the registration of a function or class to provide an implementation for a
+    given scheme of `artifact_uri` through the `register` method. Implementations declared though
+    the entrypoints `mlflow.artifact_repository` group can be automatically registered through the
+    `register_entrypoints` method.
+
+    When instantiating an artifact repository through the `get_artifact_repository` method, the
+    scheme of the artifact URI provided will be used to select which implementation to instantiate,
+    which will be called with same arguments passed to the `get_artifact_repository` method.
+    """
 
     def __init__(self):
         self._registry = {}
 
     def register(self, scheme, repository):
+        """Register artifact repositories provided by other packages"""
         self._registry[scheme] = repository
 
     def register_entrypoints(self):
@@ -35,6 +47,17 @@ class ArtifactRepositoryRegistry:
                 )
 
     def get_artifact_repository(self, artifact_uri, store=None):
+        """Get an artifact repository from the registry based on the scheme of artifact_uri
+
+        :param store_uri: The store URI. This URI is used to select which artifact repository
+                          implementation to instantiate and is passed to the
+                          constructor of the implementation.
+        :param store: Instance of `AbstractStore`. This is currently only used to get the host
+                      credentials when instantiating a DBFS-backed artifact repository.
+
+        :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
+                 requirements.
+        """
         scheme = urllib.parse.urlparse(artifact_uri).scheme
         repository = self._registry.get(scheme)
         if scheme == "dbfs" and repository is not None:
@@ -61,4 +84,15 @@ _artifact_repository_registry.register_entrypoints()
 
 
 def get_artifact_repository(artifact_uri, store=None):
+    """Get an artifact repository from the registry based on the scheme of artifact_uri
+
+    :param store_uri: The store URI. This URI is used to select which artifact repository
+                      implementation to instantiate and is passed to the
+                      constructor of the implementation.
+    :param store: Instance of `AbstractStore`. This is currently only used to get the host
+                  credentials when instantiating a DBFS-backed artifact repository.
+
+    :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
+             requirements.
+    """
     return _artifact_repository_registry.get_artifact_repository(artifact_uri, store)
