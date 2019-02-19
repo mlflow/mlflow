@@ -269,6 +269,15 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
 
 
+def test_get_store_for_unregistered_scheme():
+
+    tracking_store = TrackingStoreRegistry()
+
+    with pytest.raises(mlflow.exceptions.MlflowException,
+                       match="Could not find a registered tracking store"):
+        tracking_store.get_store("unknown-scheme://")
+
+
 def test_get_db_profile_from_uri_casing():
     assert get_db_profile_from_uri('databricks://aAbB') == 'aAbB'
 
