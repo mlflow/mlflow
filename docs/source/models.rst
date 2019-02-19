@@ -329,9 +329,9 @@ In order to create a new flavor to support a custom model, you simply need to de
 of flavor-specific attributes that should be included in the ``MLmodel`` file, as well as the
 code that can interpret the contents of the model directory and the flavor's attributes.
 
-For example, examine the :py:mod:`mlflow.pytorch` module corresponding to MLflow's ``pytorch``
-flavor. In the :py:func:`mlflow.pytorch.save_model()` method, a PyTorch model is saved to a
-specified output directory. Additionally, :py:func:`mlflow.pytorch.save_model()` leverages the 
+As an example, let's examine the :py:mod:`mlflow.pytorch` module corresponding to MLflow's 
+``pytorch`` flavor. In the :py:func:`mlflow.pytorch.save_model()` method, a PyTorch model is saved 
+to a specified output directory. Additionally, :py:func:`mlflow.pytorch.save_model()` leverages the 
 :py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` functions to 
 produce an ``MLmodel`` configuration containing the ``pytorch`` flavor. The resulting configuration 
 has several flavor-specific attributes, such as ``pytorch_version``, which denotes the version of the 
