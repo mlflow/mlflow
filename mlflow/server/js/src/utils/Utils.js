@@ -172,7 +172,7 @@ class Utils {
     if (run.source_type === "PROJECT") {
       const url = Utils.getGitRepoUrl(run.source_name);
       if (url) {
-        res = <a target="_blank" href={url}>{res}</a>;
+        res = <a target="_top" href={url}>{res}</a>;
       }
       return res;
     } else if (run.source_type === "NOTEBOOK") {
@@ -255,7 +255,7 @@ class Utils {
       if (run.source_type === "PROJECT") {
         const url = Utils.getGitCommitUrl(run.source_name, run.source_version);
         if (url) {
-          return <a href={url} target='_blank'>{versionString}</a>;
+          return <a href={url} target='_top'>{versionString}</a>;
         }
         return versionString;
       } else {
