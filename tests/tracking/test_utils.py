@@ -213,8 +213,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     with mock.patch.dict(os.environ, env):
         plugin_file_store = mlflow.tracking.utils._get_store()
         assert isinstance(plugin_file_store, PluginFileStore)
-        assert os.path.abspath(plugin_file_store.root_directory) == os.path.abspath("test-path")
-        assert os.path.abspath(plugin_file_store.artifact_root_uri) == os.path.abspath("test-path")
+        assert plugin_file_store.is_plugin
 
 
 def test_plugin_registration():
