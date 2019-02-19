@@ -44,6 +44,25 @@ def test_create_experiment_with_duplicate_name(tracking_uri_mock):
         mlflow.create_experiment(name)
 
 
+def test_create_experiments_with_bad_names():
+    # None for name
+    with pytest.raises(MlflowException) as e:
+        mlflow.create_experiment(None)
+        assert e.message.contains("Invalid experiment name: 'None'")
+
+    # empty string name
+    with pytest.raises(MlflowException) as e:
+        mlflow.create_experiment("")
+        assert e.message.contains("Invalid experiment name: ''")
+
+
+@pytest.mark.parametrize("name", [123, 0, -1.2, [], ["A"], {1: 2}])
+def test_create_experiments_with_bad_name_types(name):
+    with pytest.raises(MlflowException) as e:
+        mlflow.create_experiment(name)
+        assert e.message.contains("Invalid experiment name: %s. Expects a string." % name)
+
+
 def test_set_experiment(tracking_uri_mock, reset_active_experiment):
     with pytest.raises(TypeError):
         mlflow.set_experiment()
