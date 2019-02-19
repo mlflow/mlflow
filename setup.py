@@ -26,7 +26,7 @@ setup(
     packages=find_packages(exclude=['tests', 'tests.*']),
     package_data={"mlflow": js_files + sagmaker_server_files},
     install_requires=[
-        'click>=6.7',
+        'click>=7.0',
         'cloudpickle==0.6.1',
         'databricks-cli>=0.8.0',
         'requests>=2.17.3',

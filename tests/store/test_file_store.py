@@ -284,21 +284,6 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
-    def test_get_metric(self):
-        fs = FileStore(self.test_root)
-        for exp_id in self.experiments:
-            runs = self.exp_data[exp_id]["runs"]
-            for run_uuid in runs:
-                run_info = self.run_data[run_uuid]
-                metrics_dict = run_info.pop("metrics")
-                for metric_name, values in metrics_dict.items():
-                    # just the last recorded value
-                    timestamp, metric_value = values[-1]
-                    metric = fs.get_metric(run_uuid, metric_name)
-                    self.assertEqual(metric.timestamp, timestamp)
-                    self.assertEqual(metric.key, metric_name)
-                    self.assertEqual(metric.value, metric_value)
-
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
@@ -329,18 +314,6 @@ class TestFileStore(unittest.TestCase):
                         self.assertEqual(metric.key, metric_name)
                         self.assertEqual(metric.value, metric_value)
 
-    def test_get_param(self):
-        fs = FileStore(self.test_root)
-        for exp_id in self.experiments:
-            runs = self.exp_data[exp_id]["runs"]
-            for run_uuid in runs:
-                run_info = self.run_data[run_uuid]
-                params_dict = run_info.pop("params")
-                for param_name, param_value in params_dict.items():
-                    param = fs.get_param(run_uuid, param_name)
-                    self.assertEqual(param.key, param_name)
-                    self.assertEqual(param.value, param_value)
-
     def test_search_runs(self):
         # replace with test with code is implemented
         fs = FileStore(self.test_root)
@@ -357,7 +330,10 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_param(run_uuid, Param(WEIRD_PARAM_NAME, "Value"))
-        param = fs.get_param(run_uuid, WEIRD_PARAM_NAME)
+        run = fs.get_run(run_uuid)
+        my_params = [p for p in run.data.params if p.key == WEIRD_PARAM_NAME]
+        assert len(my_params) == 1
+        param = my_params[0]
         assert param.key == WEIRD_PARAM_NAME
         assert param.value == "Value"
 
@@ -366,7 +342,10 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234))
-        metric = fs.get_metric(run_uuid, WEIRD_METRIC_NAME)
+        run = fs.get_run(run_uuid)
+        my_metrics = [m for m in run.data.metrics if m.key == WEIRD_METRIC_NAME]
+        assert len(my_metrics) == 1
+        metric = my_metrics[0]
         assert metric.key == WEIRD_METRIC_NAME
         assert metric.value == 10
         assert metric.timestamp == 1234
@@ -425,10 +404,7 @@ class TestFileStore(unittest.TestCase):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run_id = self.exp_data[exp_id]['runs'][0]
         fs.delete_run(run_id)
-
-        run = fs.get_run(run_id)
-        assert fs.get_metric(run_id, run.data.metrics[0].key).value == run.data.metrics[0].value
-        assert fs.get_param(run_id, run.data.params[0].key).value == run.data.params[0].value
+        assert fs.get_run(run_id)
 
     def test_set_deleted_run(self):
         """

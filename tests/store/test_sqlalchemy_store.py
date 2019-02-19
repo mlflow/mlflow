@@ -120,6 +120,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.name, name)
         self.assertEqual(actual.experiment_id, experiment_id)
 
+        actual_by_name = self.store.get_experiment_by_name(name)
+        self.assertEqual(actual_by_name.name, name)
+        self.assertEqual(actual_by_name.experiment_id, experiment_id)
+
     def test_list_experiments(self):
         testnames = ['blue', 'red', 'green']
 
@@ -497,16 +501,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertTrue(found)
 
-    def test_get_metric(self):
-        run = self._run_factory()
-        self.session.commit()
-
-        for expected in run.metrics:
-            actual = self.store.get_metric(run.run_uuid, expected.key)
-            self.assertEqual(expected.key, actual.key)
-            self.assertEqual(expected.value, actual.value)
-            self.assertEqual(expected.timestamp, actual.timestamp)
-
     def test_get_metric_history(self):
         run = self._run_factory()
         self.session.commit()
@@ -523,15 +517,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertSequenceEqual([(m.key, m.value, m.timestamp) for m in expected],
                                  [(m.key, m.value, m.timestamp) for m in actual])
-
-    def test_get_param(self):
-        run = self._run_factory()
-        self.session.commit()
-
-        for expected in run.params:
-            actual = self.store.get_param(run.run_uuid, expected.key)
-            self.assertEqual(expected.key, actual.key)
-            self.assertEqual(expected.value, actual.value)
 
     def test_list_run_infos(self):
         experiment_id = self._experiment_factory('test_exp')
@@ -640,10 +625,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_metric(run_uuid, entities.Metric("m1345", 34.0, 85))  # earlier timestamp
         self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv44"))
 
-        p = self.store.get_param(run_uuid, "p1345")
+        run = self.store.get_run(run_uuid)
+        assert len(run.data.params) == 1
+        p = run.data.params[0]
         self.assertEqual(p.key, "p1345")
         self.assertEqual(p.value, "v22")
-        m = self.store.get_metric(run_uuid, "m1345")
+        assert len(run.data.metrics) == 1
+        m = run.data.metrics[0]
         self.assertEqual(m.key, "m1345")
         self.assertEqual(m.value, 34.0)
         run = self.store.get_run(run_uuid)
