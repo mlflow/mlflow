@@ -411,10 +411,14 @@ export default class ExperimentViewUtil {
    */
   static getRunIdsSortedByDisplayOrder(rowMetadatas) {
     return rowMetadatas.flatMap(rowMetadata => {
-      if (!rowMetadata.isParent) {
-        return [];
+      // If run is a parent and is collapsed, return its run ID concatenated with the run IDs
+      // of its children.
+      if (rowMetadata.isParent && !rowMetadata.expanderOpen) {
+        return _.concat([rowMetadata.runId], rowMetadata.childrenIds || []);
       }
-      return _.concat([rowMetadata.runId], rowMetadata.childrenIds || []);
+      // Otherwise, just return the run ID - if the run is an expanded parent run, its children will
+      // be included in rowMetadatas, with the correct sort order
+      return [rowMetadata.runId];
     });
   }
 

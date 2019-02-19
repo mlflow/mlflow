@@ -476,6 +476,7 @@ class ExperimentView extends Component {
           sort: newSortState,
         }).toJSON(),
       });
+    this.clearLastCheckboxIndex();
   }
 
   /**
@@ -505,8 +506,9 @@ class ExperimentView extends Component {
         }
       });
     }
-    // If parent run is selected/unselected, select/unselect all child runs
-    const childrenIdList = childrenIds || [];
+    // If parent run is selected/unselected and we're ctrl or cmd-clicking, also select/deselect
+    // all child runs
+    const childrenIdList = (event.ctrlKey || event.metaKey) ? childrenIds || [] : [];
     if (this.state.runsSelected[runUuid]) {
       childrenIdList.forEach(childRunUuid => delete runsSelectedState[childRunUuid]);
       delete runsSelectedState[runUuid];
@@ -524,6 +526,10 @@ class ExperimentView extends Component {
     return Object.keys(this.state.runsSelected).length === this.props.runInfos.length;
   }
 
+  clearLastCheckboxIndex() {
+    this.setState({lastCheckboxIndex: undefined});
+  }
+
   onCheckAll() {
     if (this.isAllChecked()) {
       this.setState({runsSelected: {}});
@@ -534,6 +540,7 @@ class ExperimentView extends Component {
       });
       this.setState({runsSelected: runsSelected});
     }
+    this.clearLastCheckboxIndex();
   }
 
   onExpand(runId, childrenIds) {
