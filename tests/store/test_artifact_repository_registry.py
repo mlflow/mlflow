@@ -103,6 +103,14 @@ def test_incorrect_dbfs_instantiation():
     mock_dbfs_constructor.assert_not_called()
 
 
+def test_get_unknown_scheme():
+    artifact_repository_registry = ArtifactRepositoryRegistry()
+
+    with pytest.raises(mlflow.exceptions.MlflowException,
+                       match="Could not find a registered artifact repository"):
+        artifact_repository_registry.get_artifact_repository("unknown-scheme://")
+
+
 def test_plugin_registration_via_entrypoints():
     mock_plugin_function = mock.Mock()
     mock_entrypoint = mock.Mock(load=mock.Mock(return_value=mock_plugin_function))
