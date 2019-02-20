@@ -14,6 +14,7 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.search_utils import SearchFilter
 from tests.helper_functions import random_int, random_str
 
 
@@ -345,12 +346,10 @@ class TestFileStore(unittest.TestCase):
         # replace with test with code is implemented
         fs = FileStore(self.test_root)
         # Expect 2 runs for each experiment
-        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ACTIVE_ONLY)) \
-            == 2
-        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ALL)) \
-            == 2
-        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.DELETED_ONLY)) \
-            == 0
+        sf = SearchFilter()
+        assert len(fs.search_runs([self.experiments[0]], sf, ViewType.ACTIVE_ONLY)) == 2
+        assert len(fs.search_runs([self.experiments[0]], sf, ViewType.ALL)) == 2
+        assert len(fs.search_runs([self.experiments[0]], sf, ViewType.DELETED_ONLY)) == 0
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
@@ -480,7 +479,7 @@ class TestFileStore(unittest.TestCase):
     def test_malformed_run(self):
         fs = FileStore(self.test_root)
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        all_runs = fs.search_runs([exp_0.experiment_id], SearchFilter(), ViewType.ALL)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
         assert len(all_runs) == len(all_run_ids)
@@ -493,7 +492,7 @@ class TestFileStore(unittest.TestCase):
             fs.get_run(bad_run_id)
             assert e.message.contains("does not exist")
 
-        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        valid_runs = fs.search_runs([exp_0.experiment_id], SearchFilter(), ViewType.ALL)
         assert len(valid_runs) == len(all_runs) - 1
 
         for rid in all_run_ids:
@@ -525,7 +524,7 @@ class TestFileStore(unittest.TestCase):
     def test_bad_experiment_id_recorded_for_run(self):
         fs = FileStore(self.test_root)
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        all_runs = fs.search_runs([exp_0.experiment_id], SearchFilter(), ViewType.ALL)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
         assert len(all_runs) == len(all_run_ids)
@@ -541,7 +540,7 @@ class TestFileStore(unittest.TestCase):
             fs.get_run(bad_run_id)
             assert e.message.contains("not found")
 
-        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        valid_runs = fs.search_runs([exp_0.experiment_id], SearchFilter(), ViewType.ALL)
         assert len(valid_runs) == len(all_runs) - 1
 
         for rid in all_run_ids:
