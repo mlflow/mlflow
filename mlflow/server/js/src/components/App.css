@@ -96,13 +96,14 @@ div.header-links {
   display: inline-block;
   float: right;
   padding-top: 21px;
-  padding-right: 10%;
+  margin-right: 64px;
   font-size: 16px;
 }
 
 h1 {
-  margin-top: 32px;
-  font-size: 24px;
+  margin-top: 24px;
+  font-size: 18px;
+  margin-bottom: 8px;
   font-weight: bold;
   color: #333;
 }
@@ -135,7 +136,7 @@ div.metadata {
 }
 
 span.metadata {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: normal;
   white-space: nowrap;
   margin-right: 100px;

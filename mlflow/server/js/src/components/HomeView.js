@@ -59,7 +59,6 @@ class HomeView extends Component {
              <NoExperimentView/>
             }
           </div>
-          <div className="experiment-view-right"/>
         </div>
       );
     } else {

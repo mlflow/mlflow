@@ -302,7 +302,7 @@ class ExperimentView extends Component {
                      onClick={this.onSearch}
                      value="Search"
               />
-              <Button className="clear-button" onClick={this.onClear} style={{marginBottom: 0}}>Clear</Button>
+              <Button className="clear-button" onClick={this.onClear} style={{marginBottom: 0, height: 32}}>Clear</Button>
             </div>
             <div className="ExperimentView-search-inputs">
               <div className="ExperimentView-search">
