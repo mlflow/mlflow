@@ -24,11 +24,10 @@
 }
 
 .experiments-header {
-  font-size: 18px;
   font-weight: normal;
   display: inline-block;
   padding-bottom: 6px;
-  margin-top: 24px;
+  margin-bottom: 8px;
 }
 
 .collapser-container {

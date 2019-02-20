@@ -277,7 +277,7 @@ class ExperimentView extends Component {
           onClose={this.onCloseRestoreRunModal}
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
-        <h1 style={{marginTop: 24, marginBottom: 8, fontSize: 18}}>{name}</h1>
+        <h1>{name}</h1>
         <div className="metadata">
           <span className="metadata">
             <span className="metadata-header">Experiment ID:</span>

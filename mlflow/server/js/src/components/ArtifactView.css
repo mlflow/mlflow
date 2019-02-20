@@ -32,6 +32,7 @@ div.artifact-view {
 }
 
 .empty-artifact-outer-container {
+  width: calc(100% - 128px);
   height: 558px;
   display: flex;
   justify-content: center;
