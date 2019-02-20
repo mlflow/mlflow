@@ -229,37 +229,6 @@ service MlflowService {
     };
   }
 
-  // Get the value for a metric logged during a run. If the metric is logged more
-  // than once, returns the last logged value.
-  //
-  rpc getMetric (GetMetric) returns (GetMetric.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/preview/mlflow/metrics/get"
-        since { major: 2, minor: 0 },
-      }],
-
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Metric",
-    };
-  }
-
-  // Get a param value.
-  //
-  rpc getParam (GetParam) returns (GetParam.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/preview/mlflow/params/get"
-        since { major: 2, minor: 0 },
-      }],
-
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Param",
-    };
-  }
-
   // Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and
   // :ref:`mlflowParam` keys.
   //
@@ -684,36 +653,6 @@ message GetRun {
   message Response {
     // Run metadata (name, start time, etc) and data (metrics, params, etc).
     optional Run run = 1;
-  }
-}
-
-message GetMetric {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the run from which to retrieve the metric value.
-  optional string run_uuid = 1 [(validate_required) = true];
-
-  // Name of the metric.
-  optional string metric_key = 2 [(validate_required) = true];
-
-  message Response {
-    // Latest reported value of the specified metric.
-    optional Metric metric = 1;
-  }
-}
-
-message GetParam {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the run from which to retrieve the param value.
-  optional string run_uuid = 1 [(validate_required) = true];
-
-  // Name of the param.
-  optional string param_name = 2 [(validate_required) = true];
-
-  message Response {
-    // Param key-value pair.
-    optional Param parameter = 1;
   }
 }
 

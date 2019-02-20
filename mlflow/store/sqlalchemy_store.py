@@ -299,17 +299,6 @@ class SqlAlchemyStore(AbstractStore):
                                       'at {}'.format(metric, m.value, m.timestamp),
                                       INVALID_PARAMETER_VALUE)
 
-    def get_metric(self, run_uuid, metric_key):
-        metric = self.session.query(SqlMetric).filter_by(
-            run_uuid=run_uuid, key=metric_key
-        ).order_by(sqlalchemy.desc(SqlMetric.timestamp)).first()
-
-        if metric is None:
-            raise MlflowException('Metric={} does not exist'.format(metric_key),
-                                  RESOURCE_DOES_NOT_EXIST)
-
-        return metric.to_mlflow_entity()
-
     def get_metric_history(self, run_uuid, metric_key):
         metrics = self.session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
         return [metric.to_mlflow_entity() for metric in metrics]
@@ -342,13 +331,6 @@ class SqlAlchemyStore(AbstractStore):
                                                                         run_uuid, param.value),
                                       INVALID_PARAMETER_VALUE)
 
-    def get_param(self, run_uuid, param_name):
-        param = self.session.query(SqlParam).filter_by(run_uuid=run_uuid, key=param_name).first()
-        if param is None:
-            raise MlflowException('Param={} does not exist'.format(param_name),
-                                  RESOURCE_DOES_NOT_EXIST)
-        return param.to_mlflow_entity()
-
     def set_tag(self, run_uuid, tag):
         run = self._get_run(run_uuid)
         self._check_run_is_active(run)
@@ -365,6 +347,3 @@ class SqlAlchemyStore(AbstractStore):
         exp = self._list_experiments(ids=[experiment_id], view_type=ViewType.ALL).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
-
-    def list_run_infos(self, experiment_id, run_view_type):
-        return [r.to_mlflow_entity().info for r in self._list_runs(experiment_id, run_view_type)]

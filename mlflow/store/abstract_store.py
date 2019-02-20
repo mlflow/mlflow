@@ -172,30 +172,6 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def get_metric(self, run_uuid, metric_key):
-        """
-        Returns the last logged value for a given metric.
-
-        :param run_uuid: Unique identifier for run
-        :param metric_key: Metric name within the run
-
-        :return: A single float value for the given metric if logged, else None
-        """
-        pass
-
-    @abstractmethod
-    def get_param(self, run_uuid, param_name):
-        """
-        Returns the value of the specified parameter.
-
-        :param run_uuid: Unique identifier for run
-        :param param_name: Parameter name within the run
-
-        :return: Value of the given parameter if logged, else None
-        """
-        pass
-
-    @abstractmethod
     def get_metric_history(self, run_uuid, metric_key):
         """
         Returns all logged value for a given metric.
@@ -223,7 +199,6 @@ class AbstractStore:
         """
         pass
 
-    @abstractmethod
     def list_run_infos(self, experiment_id, run_view_type):
         """
         Returns run information for runs which belong to the experiment_id
@@ -233,4 +208,5 @@ class AbstractStore:
         :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
             search expressions
         """
-        pass
+        runs = self.search_runs([experiment_id], [], run_view_type)
+        return [run.info for run in runs]
