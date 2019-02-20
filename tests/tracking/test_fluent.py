@@ -199,7 +199,7 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     databricks_notebook_patch = mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=True
+        "mlflow.tracking.context.is_in_databricks_notebook", return_value=True
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
@@ -207,15 +207,15 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_id", return_value=mock_notebook_id
+        "mlflow.tracking.context.get_notebook_id", return_value=mock_notebook_id
     )
     mock_notebook_path = mock.Mock()
     notebook_path_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_path", return_value=mock_notebook_path
+        "mlflow.tracking.context.get_notebook_path", return_value=mock_notebook_path
     )
     mock_webapp_url = mock.Mock()
     webapp_url_patch = mock.patch(
-        "mlflow.tracking.fluent.get_webapp_url", return_value=mock_webapp_url
+        "mlflow.tracking.context.get_webapp_url", return_value=mock_webapp_url
     )
 
     expected_tags = {
@@ -289,19 +289,19 @@ def test_start_run_overrides(empty_active_run_stack):
 def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
 
     databricks_notebook_patch = mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=True
+        "mlflow.tracking.context.is_in_databricks_notebook", return_value=True
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_id", return_value=mock_notebook_id
+        "mlflow.tracking.context.get_notebook_id", return_value=mock_notebook_id
     )
     mock_notebook_path = mock.Mock()
     notebook_path_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_path", return_value=mock_notebook_path
+        "mlflow.tracking.context.get_notebook_path", return_value=mock_notebook_path
     )
     mock_webapp_url = mock.Mock()
     webapp_url_patch = mock.patch(
-        "mlflow.tracking.fluent.get_webapp_url", return_value=mock_webapp_url
+        "mlflow.tracking.context.get_webapp_url", return_value=mock_webapp_url
     )
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
