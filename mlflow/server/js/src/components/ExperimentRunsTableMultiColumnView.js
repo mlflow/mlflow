@@ -38,6 +38,21 @@ class ExperimentRunsTableMultiColumnView extends Component {
     metricRanges: PropTypes.object.isRequired,
   };
 
+  /**
+   * Returns a single row of the runs table as an object with keys:
+   *   - key: React key (string) to use to uniquely identify the row amongst its sibling rows
+   *   - contents: DOM node(s) representing the row
+   *   - isChild: Boolean, whether the row is a child row
+   * @param idx Index of the run associated with the row within the unsorted API response
+   * @param isParent Boolean, whether the row is a parent row (as opposed to a child)
+   * @param hasExpander Boolean, whether the run associated with the row has an expander that
+   *                    can be toggled to display one or more child rows.
+   * @param expanderOpen
+   * @param childrenIds
+   * @param sortedRunIds
+   * @param displayIndex
+   * @returns {{key: (*[]|number[]), contents: *[], isChild: boolean}}
+   */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
     const {
       runInfos,
