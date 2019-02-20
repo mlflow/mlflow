@@ -208,5 +208,5 @@ class AbstractStore:
         :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
             search expressions
         """
-        runs = self.search_runs([experiment_id], [], run_view_type)
+        runs = self.search_runs([experiment_id], None, run_view_type)
         return [run.info for run in runs]

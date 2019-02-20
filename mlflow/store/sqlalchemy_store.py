@@ -341,7 +341,7 @@ class SqlAlchemyStore(AbstractStore):
         runs = [run.to_mlflow_entity()
                 for exp in experiment_ids
                 for run in self._list_runs(exp, run_view_type)]
-        return [run for run in runs if search_filter.filter(run)]
+        return [run for run in runs if not search_filter or search_filter.filter(run)]
 
     def _list_runs(self, experiment_id, run_view_type):
         exp = self._list_experiments(ids=[experiment_id], view_type=ViewType.ALL).first()

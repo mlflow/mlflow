@@ -491,7 +491,7 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_uuid) for r in run_infos)
-        return [run for run in runs if search_filter.filter(run)]
+        return [run for run in runs if not search_filter or search_filter.filter(run)]
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)
