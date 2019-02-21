@@ -57,7 +57,7 @@ or a Git URI::
 
     mlflow run examples/sklearn_elasticnet_wine -P alpha=0.4
 
-    mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.4
+    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=0.4
 
 See ``examples/sklearn_elasticnet_wine`` for a sample project with an MLproject file.
 
