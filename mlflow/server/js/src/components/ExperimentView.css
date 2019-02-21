@@ -126,6 +126,11 @@
   margin-right: 30px;
 }
 
+.clear-button {
+  marginBottom: 0;
+  height: 32px;
+}
+
 div.error-message {
   margin-left: 100px;
   /*width: auto;*/

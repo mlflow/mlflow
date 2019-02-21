@@ -9,7 +9,7 @@ import './BreadcrumbTitle.css';
  * A title component that creates a <h1> with breadcrumbs pointing to an experiment and optionally
  * a run or a run comparison page.
  */
-export default class  BreadcrumbTitle extends Component {
+export default class BreadcrumbTitle extends Component {
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     runUuids: PropTypes.arrayOf(String), // Optional because not all pages are nested under runs
