@@ -203,19 +203,26 @@ tasks: :ref:`custom-python-models` and :ref:`custom-flavors`.
 
 Custom Python Models
 ^^^^^^^^^^^^^^^^^^^^
-The :py:mod:`mlflow.pyfunc` module provides :meth:`save_model() <mlflow.pyfunc.save_model>` and 
-:meth:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow models with the
+The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and 
+:py:func:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow models with the
 ``python_function`` flavor that contain arbitrary user-specified code and *artifact* (file) 
 dependencies. These artifact dependencies may include serialized models produced by any Python ML 
-library. The following examples demonstrate how these functions can be used to create custom Python 
-models. For additional information about model customization with MLflow's ``python_function`` 
-utilities, see the :ref:`python_function custom models documentation <pyfunc-create-custom>`.
+library.
+
+Because these custom models contain the ``python_function`` flavor, they can be deployed
+to any of MLflow's supported production environments, such as SageMaker, AzureML, or local
+REST endpoints.
+
+The following examples demonstrate how the :py:mod:`mlflow.pyfunc` module can be used to create 
+custom Python models. For additional information about model customization with MLflow's 
+``python_function`` utilities, see the 
+:ref:`python_function custom models documentation <pyfunc-create-custom>`.
 
 Example: Creating a custom "add n" model
 ****************************************
 In this example, we first define a class for a custom model that adds a specified numeric value, 
 `n`, to all columns of a Pandas DataFrame input. Then, we leverage the :py:mod:`mlflow.pyfunc` APIs 
-to save an instance of this model with `n=5` in MLflow model format. Finally, we load the model in 
+to save an instance of this model with `n = 5` in MLflow model format. Finally, we load the model in 
 ``python_function`` format and use it to evaluate a sample input
 
 .. code:: python
