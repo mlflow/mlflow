@@ -86,6 +86,10 @@ textarea.run-command {
   color: #ffffff;
 }
 
+.mlflow-menu.dropdown-menu {
+  margin-top: -22px;
+}
+
 .mlflow-dropdown {
   margin-top: 18px;
 }

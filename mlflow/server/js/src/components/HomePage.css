@@ -2,11 +2,10 @@
   display: flex;
 }
 .HomePage-experiment-list-container {
-  width: 10%;
-  min-width: 312px;
+  flex: 0 0 312px;
 }
 .experiment-view-container {
-  width: 100%;
+  flex: 1 1;
   margin: 0 64px 0 32px;
 }
 
