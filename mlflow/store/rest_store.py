@@ -207,10 +207,11 @@ class RestStore(AbstractStore):
 
         :return: A list of Run objects that satisfy the search expressions
         """
-        search_expressions_protos = [expr.to_proto() for expr in search_filter.search_expressions]
-        req_body = message_to_json(SearchRuns(experiment_ids=experiment_ids,
-                                              anded_expressions=search_expressions_protos,
-                                              run_view_type=ViewType.to_proto(run_view_type)))
+        sr = SearchRuns(experiment_ids=experiment_ids,
+                        anded_expressions=search_filter.search_expressions if search_filter else [],
+                        filter=search_filter.filter_string if search_filter else None,
+                        run_view_type=ViewType.to_proto(run_view_type))
+        req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 
@@ -222,8 +223,7 @@ class RestStore(AbstractStore):
 
         :return: A list of RunInfo objects that satisfy the search expressions
         """
-        runs = self.search_runs(experiment_ids=[experiment_id], search_expressions=[],
-                                run_view_type=run_view_type)
+        runs = self.search_runs([experiment_id], None, run_view_type)
         return [run.info for run in runs]
 
     def delete_run(self, run_id):
