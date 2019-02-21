@@ -100,7 +100,11 @@ class ExperimentRunsTableCompactView extends PureComponent {
 
 
   /**
-   * Returns a row of table content (i.e. a non-header row) corresponding to a single run.
+   * Returns a row of table content (i.e. a non-header row) corresponding to a single run, with
+   * keys:
+   *   - key: React key (string) to use to uniquely identify the row amongst its sibling rows
+   *   - contents: DOM node(s) representing the row
+   *   - isChild: Boolean, whether the row is a child row   *
    * @param idx Index of run within the unsorted API response (this.props.runInfos)
    * @param isParent If run is a parent run (has nested child runs)
    * @param hasExpander True if run should have an expander for displaying nested child runs

@@ -39,19 +39,18 @@ class ExperimentRunsTableMultiColumnView extends Component {
   };
 
   /**
-   * Returns a single row of the runs table as an object with keys:
+   * Returns a row of table content (i.e. a non-header row) corresponding to a single run, with
+   * keys:
    *   - key: React key (string) to use to uniquely identify the row amongst its sibling rows
    *   - contents: DOM node(s) representing the row
    *   - isChild: Boolean, whether the row is a child row
-   * @param idx Index of the run associated with the row within the unsorted API response
-   * @param isParent Boolean, whether the row is a parent row (as opposed to a child)
-   * @param hasExpander Boolean, whether the run associated with the row has an expander that
-   *                    can be toggled to display one or more child rows.
-   * @param expanderOpen
-   * @param childrenIds
-   * @param sortedRunIds
-   * @param displayIndex
-   * @returns {{key: (*[]|number[]), contents: *[], isChild: boolean}}
+   * @param idx Index of run within the unsorted API response (this.props.runInfos)
+   * @param isParent If run is a parent run (has nested child runs)
+   * @param hasExpander True if run should have an expander for displaying nested child runs
+   * @param expanderOpen True if run expander is open
+   * @param childrenIds List of child run IDs for the current run
+   * @param sortedRunIds List of all run IDs sorted by the current sort settings
+   * @param displayIndex Index of run within sortedRunIds
    */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds, sortedRunIds, displayIndex }) {
     const {
