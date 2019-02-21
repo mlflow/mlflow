@@ -134,10 +134,7 @@ Other MLflow components expect ``python_function`` models to follow this convent
 The ``python_function`` :ref:`model format <pyfunc-filesystem-format>` is defined as a directory
 structure containing all required data, code, and configuration.
 
-The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLflows with the
-``python_function`` flavor. This module also includes utilities for creating custom Python models.
-For more information, see the :ref:`custom Python models documentation <custom-python-models>`
-and the :mod:`mlflow.pyfunc` documentation.
+For more information, see the :mod:`mlflow.pyfunc` documentation.
 
 H\ :sub:`2`\ O (``h2o``)
 ^^^^^^^^^^^^^^^^^^^^^^^^
