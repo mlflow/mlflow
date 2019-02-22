@@ -143,17 +143,16 @@ The ``h2o`` model flavor enables logging and loading H2O models.
 
 The :py:mod:`mlflow.h2o` module defines :py:func:`save_model() <mlflow.h2o.save_model>` and 
 :py:func:`log_model() <mlflow.h2o.log_model>` methods for saving H2O models in MLflow model format.
-These methods produce MLflow models with the ``python_function`` flavor, allowing them to be loaded 
-as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. When MLflow 
-models with the ``h2o`` flavor are loaded via :py:func:`load_pyfunc() <mlflow.pyfunc.load_pyfunc>`, 
+These methods produce MLflow models with the ``python_function`` flavor, allowing you to load them 
+as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. When you load
+MLflow models with the ``h2o`` flavor using :py:func:`load_pyfunc() <mlflow.pyfunc.load_pyfunc>`, 
 the `h2o.init() <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init>`_ method is 
 called. Therefore, the correct version of ``h2o(-py)`` must be installed in the loader's 
-environment. The arguments given to 
-`h2o.init() <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init>`_ can be 
-customized by modifying the ``init`` entry of the persisted H2O model's YAML configuration file: 
-``model.h2o/h2o.yaml``.
+environment. You can customize the arguments given to 
+`h2o.init() <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init>`_ by modifying the 
+``init`` entry of the persisted H2O model's YAML configuration file: ``model.h2o/h2o.yaml``.
 
-Finally, the :py:func:`mlflow.h2o.load_model()` method can be used to load MLflow models with the
+Finally, you can use the :py:func:`mlflow.h2o.load_model()` method to load MLflow models with the
 ``h2o`` flavor as H2O model objects.
 
 For more information, see :py:mod:`mlflow.h2o`.
@@ -163,13 +162,13 @@ Keras (``keras``)
 
 The ``keras`` model flavor enables logging and loading Keras models. The :py:mod:`mlflow.keras`
 module defines :py:func:`save_model() <mlflow.keras.save_model>` and 
-:py:func:`log_model() <mlflow.keras.log_model>` functions that can be used to save Keras models
+:py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models 
 in MLflow model format. These functions serialize Keras models as HDF5 files using the Keras
 library's built-in model persistence functions. MLflow models produced by these functions
 also contain the ``python_function`` flavor, allowing them to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, the
-:py:func:`mlflow.keras.load_model` function can be used to load MLflow models with the
-``keras`` flavors as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
+Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you can use
+the :py:func:`mlflow.keras.load_model()` function to load MLflow models with the
+``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 For more information, see :py:mod:`mlflow.keras`.
 
@@ -182,15 +181,15 @@ format and execution engine for Spark models that does not depend on
 `SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
 to evaluate inputs.
 
-Spark models can be saved with in MLflow format with MLeap by specifying the ``sample_input`` 
-argument of the :py:func:`mlflow.spark.save_model()` or :py:func:`mlflow.spark.log_model()` method 
-(recommended). The :py:mod:`mlflow.mleap` module also defines 
-:py:func:`save_model() <mlflow.mleap.save_model>` and 
+You can save Spark models in MLflow format with the ``mleap`` flavor by specifying the 
+``sample_input`` argument of the :py:func:`mlflow.spark.save_model()` or 
+:py:func:`mlflow.spark.log_model()` method (recommended). The :py:mod:`mlflow.mleap` module also 
+defines :py:func:`save_model() <mlflow.mleap.save_model>` and 
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format, 
 but these methods do not include the ``python_function`` flavor in the models they produce.
 
-A companion module for loading MLflow models with the MLeap flavor format is available 
-in the ``mlflow/java`` package. 
+A companion module for loading MLflow models with the MLeap flavor is available in the 
+``mlflow/java`` package. 
 
 For more information, see :py:mod:`mlflow.spark`, :py:mod:`mlflow.mleap`, and the
 `MLeap documentation <http://mleap-docs.combust.ml/>`_.
@@ -201,18 +200,16 @@ PyTorch (``pytorch``)
 The ``pytorch`` model flavor enables logging and loading PyTorch models.
 
 The :py:mod:`mlflow.pytorch` module defines utilities for saving and loading MLflow models with the
-``pytorch`` flavor. The :py:func:`mlflow.pytorch.save_model()` and
-:py:func:`mlflow.pytorch.log_model()` methods can be used to save PyTorch models in MLflow format;
-both of these functions use the
-`torch.save() <https://pytorch.org/docs/stable/torch.html#torch.save>`_ method to serialize PyTorch
-models. Additionally, the :py:func:`mlflow.pytorch.load_model()` method can be used to load MLflow
-models with the ``pytorch`` flavor as PyTorch model objects. Finally, models produced by
-:py:func:`mlflow.pytorch.save_model()` and :py:func:`mlflow.pytorch.log_model()` contain the
-``python_function`` flavor, allowing them to be loaded as generic Python functions for inference
+``pytorch`` flavor. You can use the :py:func:`mlflow.pytorch.save_model()` and
+:py:func:`mlflow.pytorch.log_model()` methods to save PyTorch models in MLflow format; both of these 
+functions use the `torch.save() <https://pytorch.org/docs/stable/torch.html#torch.save>`_ method to 
+serialize PyTorch models. Additionally, you can use the :py:func:`mlflow.pytorch.load_model()` 
+method to load MLflow models with the ``pytorch`` flavor as PyTorch model objects. Finally, models 
+produced by :py:func:`mlflow.pytorch.save_model()` and :py:func:`mlflow.pytorch.log_model()` contain 
+the ``python_function`` flavor, allowing you to load them as generic Python functions for inference
 via :py:func:`mlflow.pyfunc.load_pyfunc()`.
 
 For more information, see :py:mod:`mlflow.pytorch`.
-
 
 Scikit-learn (``sklearn``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -224,11 +221,10 @@ models. The :py:mod:`mlflow.sklearn` module defines
 MLflow format, using either Python's pickle module (Pickle) or CloudPickle for model serialization.
 These functions produce MLflow models with the ``python_function`` flavor, allowing them to
 be loaded as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`.
-Finally, the :py:func:`mlflow.sklearn.load_model()` method can be used to load MLflow models with 
+Finally, you can use the :py:func:`mlflow.sklearn.load_model()` method to load MLflow models with 
 the ``sklearn`` flavor as scikit-learn model objects.
 
 For more information, see :py:mod:`mlflow.sklearn`.
-
 
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -238,7 +234,7 @@ The ``spark`` model flavor enables exporting Spark MLlib models as MLflow models
 The :py:mod:`mlflow.spark` module defines :py:func:`save_model() <mlflow.spark.save_model>` and 
 :py:func:`log_model() <mlflow.spark.log_model>` methods that save Spark MLlib pipelines in MLflow
 model format. MLflow models produced by these functions contain the ``python_function`` flavor,
-allowing them to be loaded as generic Python functions via :py:func:`mlflow.pyfunc.load_pyfunc()`.
+allowing you to load them as generic Python functions via :py:func:`mlflow.pyfunc.load_pyfunc()`.
 When a model with the ``spark`` flavor is loaded as a Python function via 
 :py:func:`load_pyfunc() <mlflow.spark.load_pyfunc>`, a new 
 `SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
@@ -262,9 +258,9 @@ The ``tensorflow`` model flavor allows serialized TensorFlow models in
 to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and 
 :py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
 flavor to the MLflow models that they produce, allowing the models to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, the
-:py:func:`mlflow.tensorflow.load_model()` method can be used to load MLflow models with the
-``tensorflow`` flavors as TensorFlow graphs.
+Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you can use the
+:py:func:`mlflow.tensorflow.load_model()` method to load MLflow models with the ``tensorflow`` 
+flavor as TensorFlow graphs.
 
 For more information, see :py:mod:`mlflow.tensorflow`.
 
