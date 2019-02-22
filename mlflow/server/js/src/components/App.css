@@ -65,7 +65,7 @@ a:hover, a:focus {
 }
 
 .App-content {
-  width: 100%;
+  width: calc(100% - 128px);
   margin: 0 64px 0 64px;
 }
 

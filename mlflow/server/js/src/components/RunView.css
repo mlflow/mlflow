@@ -71,7 +71,7 @@ i.expander {
 }
 
 textarea.run-command {
-  width: calc(100% - 108px);
+  width: 100%;
   font-family: Menlo, Consolas, monospace;
 }
 

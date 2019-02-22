@@ -26,7 +26,7 @@ div.btn-toolbar .btn+.btn {
 }
 
 div.note-view-text-area {
-  width: calc(100% - 108px);
+  width: 100%;
   height: 90%;
 }
 

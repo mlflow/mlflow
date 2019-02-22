@@ -15,6 +15,6 @@
 }
 
 .responsive-table-container {
-  width: calc(100% - 128px);
+  width: 100%;
   overflow-x: auto;
 }
