@@ -263,6 +263,49 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
+def test_start_run_with_parent():
+
+    parent_run = mock.Mock()
+    active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
+
+    databricks_notebook_patch = mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
+    )
+
+    create_run_patch = mock.patch.object(MlflowClient, "create_run")
+
+    mock_experiment_id = mock.Mock()
+    mock_source_name = mock.Mock()
+    mock_source_type = mock.Mock()
+    mock_source_version = mock.Mock()
+    mock_entry_point_name = mock.Mock()
+    mock_run_name = mock.Mock()
+
+    with databricks_notebook_patch, create_run_patch, active_run_stack_patch:
+        active_run = start_run(
+            experiment_id=mock_experiment_id, source_name=mock_source_name,
+            source_version=mock_source_version, entry_point_name=mock_entry_point_name,
+            source_type=mock_source_type, run_name=mock_run_name, nested=True
+        )
+        MlflowClient.create_run.assert_called_once_with(
+            experiment_id=mock_experiment_id,
+            run_name=mock_run_name,
+            source_name=mock_source_name,
+            source_version=mock_source_version,
+            entry_point_name=mock_entry_point_name,
+            source_type=mock_source_type,
+            tags={},
+            parent_run_id=parent_run.info.run_uuid
+        )
+        assert is_from_run(active_run, MlflowClient.create_run.return_value)
+
+
+def test_start_run_with_parent_non_nested():
+    with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
+        with pytest.raises(Exception):
+            start_run()
+
+
 def test_start_run_existing_run(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
