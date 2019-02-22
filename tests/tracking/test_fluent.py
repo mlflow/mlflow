@@ -1,10 +1,15 @@
 import os
 import random
+import uuid
+
+import pytest
+import mock
 
 import mlflow
-from mlflow.entities import Experiment
-from mlflow.tracking.fluent import _get_experiment_id, _get_experiment_id_from_env, \
-    _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR
+from mlflow.entities import Experiment, LifecycleStage
+from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
+    _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
 from mlflow.utils.file_utils import TempDir
 
 
@@ -69,3 +74,40 @@ def test_get_experiment_id():
         assert exp_id is not None
         mlflow.set_experiment(name)
         assert _get_experiment_id() == exp_id
+
+
+@pytest.fixture
+def empty_active_run_stack():
+    with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
+        yield
+
+
+def is_from_run(active_run, run):
+    return active_run.info == run.info and active_run.data == run.data
+
+
+def test_start_run_existing_run(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+
+    run_id = uuid.uuid4().hex
+
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        active_run = start_run(run_id)
+
+        assert is_from_run(active_run, mock_run)
+        MlflowClient.get_run.assert_called_once_with(run_id)
+
+
+def test_start_run_existing_run_from_environment(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+
+    run_id = uuid.uuid4().hex
+    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
+
+    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        active_run = start_run()
+
+        assert is_from_run(active_run, mock_run)
+        MlflowClient.get_run.assert_called_once_with(run_id)
