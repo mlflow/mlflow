@@ -20,7 +20,7 @@ import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.entities import RunStatus, SourceType, Param
 from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
@@ -31,7 +31,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_ENV, MLFLOW_CONDA, MLFLOW_DOCKER
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils import databricks_utils, file_utils
 from mlflow.utils.logging_utils import eprint
-from mlflow.tracking.utils import _TRACKING_URI_ENV_VAR, _REMOTE_URI_PREFIX, _is_local_uri
 import docker
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -49,7 +48,8 @@ _MLFLOW_DOCKER_TRACKING_DIR_PATH = "/mlflow/tmp/mlruns"
 _logger = logging.getLogger(__name__)
 
 
-def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
+def _run(uri, entry_point="main", version=None, parameters=None,
+         experiment_name=None, experiment_id=None,
          mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
          storage_dir=None, block=True, run_id=None):
     """
@@ -59,7 +59,10 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
     if mode == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
 
-    exp_id = experiment_id or _get_experiment_id()
+    if experiment_name:
+        exp_id = tracking.MlflowClient().get_experiment_by_name(experiment_name)
+    else:
+        exp_id = experiment_id or _get_experiment_id()
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
                               git_username=git_username, git_password=git_password)
@@ -129,7 +132,8 @@ def _run(uri, entry_point="main", version=None, parameters=None, experiment_id=N
                              "values: %s" % (mode, supported_modes))
 
 
-def run(uri, entry_point="main", version=None, parameters=None, experiment_id=None,
+def run(uri, entry_point="main", version=None, parameters=None,
+        experiment_name=None, experiment_id=None,
         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
         storage_dir=None, block=True, run_id=None):
     """
@@ -150,6 +154,7 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                         using "python" to run ``.py`` files and the default shell (specified by
                         environment variable ``$SHELL``) to run ``.sh`` files.
     :param version: For Git-based projects, either a commit hash or a branch name.
+    :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
     :param mode: Execution mode of the run: "local" or "databricks". If running against Databricks,
                  will run against a Databricks workspace determined as follows: if a Databricks
@@ -181,6 +186,9 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
+    if experiment_name and experiment_id:
+        raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
+
     cluster_spec_dict = cluster_spec
     if (cluster_spec and type(cluster_spec) != dict
             and os.path.splitext(cluster_spec)[-1] == ".json"):
@@ -194,7 +202,8 @@ def run(uri, entry_point="main", version=None, parameters=None, experiment_id=No
                 raise
     submitted_run_obj = _run(
         uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-        experiment_id=experiment_id, mode=mode, cluster_spec=cluster_spec_dict,
+        experiment_name=experiment_name, experiment_id=experiment_id,
+        mode=mode, cluster_spec=cluster_spec_dict,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
         storage_dir=storage_dir, block=block, run_id=run_id)
     if block:
@@ -594,14 +603,14 @@ def _get_docker_command(image, active_run):
     tracking_uri = tracking.get_tracking_uri()
     if tracking.utils._is_local_uri(tracking_uri):
         cmd += ["-v", "%s:%s" % (tracking_uri, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
-        env_vars[_TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
         # We set these via environment variables so that only the current profile is exposed, rather
         # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
         # part of ~/.databrickscfg into the container
-        env_vars[_TRACKING_URI_ENV_VAR] = 'databricks'
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
         env_vars['DATABRICKS_HOST'] = config.host
         if config.username:
             env_vars['DATABRICKS_USERNAME'] = config.username

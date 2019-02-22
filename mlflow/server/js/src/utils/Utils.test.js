@@ -116,6 +116,24 @@ test("formatSource & renderSource", () => {
   expect(Utils.renderSource(github_url)).toEqual(
     <a href="https://github.com/mlflow/mlflow-apps" target="_top">mlflow-apps:entry</a>);
 
+  const gitlab_url = RunInfo.fromJs({
+    "source_name": "git@gitlab.com:mlflow/mlflow-apps.git",
+    "entry_point_name": "entry",
+    "source_type": "PROJECT",
+  });
+  expect(Utils.formatSource(gitlab_url)).toEqual("mlflow-apps:entry");
+  expect(Utils.renderSource(gitlab_url)).toEqual(
+    <a href="https://gitlab.com/mlflow/mlflow-apps" target="_top">mlflow-apps:entry</a>);
+
+  const bitbucket_url = RunInfo.fromJs({
+    "source_name": "git@bitbucket.org:mlflow/mlflow-apps.git",
+    "entry_point_name": "entry",
+    "source_type": "PROJECT",
+  });
+  expect(Utils.formatSource(bitbucket_url)).toEqual("mlflow-apps:entry");
+  expect(Utils.renderSource(bitbucket_url)).toEqual(
+    <a href="https://bitbucket.org/mlflow/mlflow-apps" target="_top">mlflow-apps:entry</a>);
+
   const databricksRun = RunInfo.fromJs({
     "source_name": "/Users/admin/test",
     "source_type": "NOTEBOOK"

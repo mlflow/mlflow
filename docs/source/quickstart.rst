@@ -117,7 +117,7 @@ either a local directory or a GitHub URI:
 
     mlflow run sklearn_elasticnet_wine -P alpha=0.5
 
-    mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
+    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
 specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,

@@ -68,3 +68,13 @@ def _validate_experiment_id(exp_id):
     except ValueError:
         raise MlflowException("Invalid experiment ID: '%s'" % exp_id,
                               error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_experiment_name(experiment_name):
+    """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
+    if experiment_name == "" or experiment_name is None:
+        raise MlflowException("Invalid experiment name: '%s'" % experiment_name,
+                              error_code=INVALID_PARAMETER_VALUE)
+    if not isinstance(experiment_name, str):
+        raise MlflowException("Invalid experiment name: %s. Expects a string." % experiment_name,
+                              error_code=INVALID_PARAMETER_VALUE)

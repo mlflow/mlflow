@@ -529,48 +529,6 @@ GetRun.fromJs = function fromJs(pojo) {
   return new extended_GetRun(pojoWithNestedImmutables);
 };
 
-export const GetMetric = Immutable.Record({
-  // required STRING
-  run_uuid: undefined,
-
-  // required STRING
-  metric_key: undefined,
-}, 'GetMetric');
-
-/**
- * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
- * This reviver allow us to keep the Immutable.Record type when serializing JSON message
- * into nested Immutable Record class.
- */
-GetMetric.fromJsReviver = function fromJsReviver(key, value) {
-  switch (key) {
-    default:
-      return Immutable.fromJS(value);
-  }
-};
-
-const extended_GetMetric = ModelBuilder.extend(GetMetric, {
-
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
-  },
-  getMetricKey() {
-    return this.metric_key !== undefined ? this.metric_key : '';
-  },
-});
-
-/**
- * This is a customized fromJs function used to translate plain old Javascript
- * objects into this Immutable Record.  Example usage:
- *
- *   // The pojo is your javascript object
- *   const record = GetMetric.fromJs(pojo);
- */
-GetMetric.fromJs = function fromJs(pojo) {
-  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, GetMetric.fromJsReviver);
-  return new extended_GetMetric(pojoWithNestedImmutables);
-};
-
 export const MetricSearchExpression = Immutable.Record({
   // optional STRING
   key: undefined,

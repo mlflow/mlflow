@@ -45,10 +45,6 @@ class RestException(MlflowException):
         self.json = json
 
 
-class IllegalArtifactPathError(MlflowException):
-    """The artifact_path parameter was invalid."""
-
-
 class ExecutionException(MlflowException):
     """Exception thrown when executing a project fails."""
     pass

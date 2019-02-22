@@ -29,3 +29,5 @@ azureml-sdk; python_version >= "3.0"
 cloudpickle
 pytest-localserver
 sqlalchemy
+# test plugin
+tests/resources/mlflow-test-plugin/

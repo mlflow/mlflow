@@ -64,7 +64,7 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
-            self._create_experiment_with_id(name="Default",
+            self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
                                             experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
         # Create trash folder if needed
@@ -219,13 +219,6 @@ class FileStore(AbstractStore):
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         return experiment
-
-    def get_experiment_by_name(self, name):
-        self._check_root_dir()
-        for experiment in self.list_experiments(ViewType.ALL):
-            if experiment.name == name:
-                return experiment
-        return None
 
     def delete_experiment(self, experiment_id):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
@@ -420,15 +413,6 @@ class FileStore(AbstractStore):
         timestamp, val = last_line.strip().split(" ")
         return Metric(metric_name, float(val), int(timestamp))
 
-    def get_metric(self, run_uuid, metric_key):
-        _validate_run_id(run_uuid)
-        _validate_metric_name(metric_key)
-        parent_path, metric_files = self._get_run_files(run_uuid, "metric")
-        if metric_key not in metric_files:
-            raise MlflowException("Metric '%s' not found under run '%s'" % (metric_key, run_uuid),
-                                  databricks_pb2.RESOURCE_DOES_NOT_EXIST)
-        return self._get_metric_from_file(parent_path, metric_key)
-
     def get_all_metrics(self, run_uuid):
         _validate_run_id(run_uuid)
         parent_path, metric_files = self._get_run_files(run_uuid, "metric")
@@ -467,15 +451,6 @@ class FileStore(AbstractStore):
         _validate_tag_name(tag_name)
         tag_data = read_file(parent_path, tag_name)
         return RunTag(tag_name, tag_data)
-
-    def get_param(self, run_uuid, param_name):
-        _validate_run_id(run_uuid)
-        _validate_param_name(param_name)
-        parent_path, param_files = self._get_run_files(run_uuid, "param")
-        if param_name not in param_files:
-            raise MlflowException("Param '%s' not found under run '%s'" % (param_name, run_uuid),
-                                  databricks_pb2.RESOURCE_DOES_NOT_EXIST)
-        return self._get_param_from_file(parent_path, param_name)
 
     def get_all_params(self, run_uuid):
         parent_path, param_files = self._get_run_files(run_uuid, "param")
@@ -521,9 +496,6 @@ class FileStore(AbstractStore):
             return runs
         return [run for run in runs if
                 all([does_run_match_clause(run, s) for s in search_expressions])]
-
-    def list_run_infos(self, experiment_id, run_view_type):
-        return self._list_run_infos(experiment_id, run_view_type)
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)
