@@ -122,7 +122,6 @@ def test_start_run_defaults(empty_active_run_stack):
             source_version=mock_source_version,
             entry_point_name=None,
             source_type=mock_source_type,
-            tags={},
             parent_run_id=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
@@ -206,7 +205,6 @@ def test_start_run_overrides(empty_active_run_stack):
             source_version=mock_source_version,
             entry_point_name=mock_entry_point_name,
             source_type=mock_source_type,
-            tags={},
             parent_run_id=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
@@ -294,7 +292,6 @@ def test_start_run_with_parent():
             source_version=mock_source_version,
             entry_point_name=mock_entry_point_name,
             source_type=mock_source_type,
-            tags={},
             parent_run_id=parent_run.info.run_uuid
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
