@@ -732,7 +732,7 @@ message MetricSearchExpression {
   optional string key = 1;
 
   oneof clause {
-    // [Deprecated in 0.7.0, to be removed in future version] 
+    // [Deprecated in 0.7.0, to be removed in future version]
     // Float clause for comparison. Use 'double' instead.
     FloatClause float = 2;
 

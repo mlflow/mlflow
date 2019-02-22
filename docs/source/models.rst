@@ -119,11 +119,11 @@ are stored either directly with the model or referenced via Conda environment.
 
 Many MLflow model persistence modules, such as :mod:`mlflow.sklearn`, :mod:`mlflow.keras`,
 and :mod:`mlflow.pytorch`, produce models with the ``python_function`` (``pyfunc``) flavor. This
-means that they adhere to the :ref:`python_function filesystem format <pyfunc-filesystem-format>` 
-and can be interpreted as generic Python classes that implement the specified 
-:ref:`inference API <pyfunc-inference-api>`. Therefore, any tool that operates on these ``pyfunc`` 
-classes can operate on any MLflow model containing the ``pyfunc`` flavor, regardless of which 
-persistence module or framework was used to produce the model. This interoperability is very 
+means that they adhere to the :ref:`python_function filesystem format <pyfunc-filesystem-format>`
+and can be interpreted as generic Python classes that implement the specified
+:ref:`inference API <pyfunc-inference-api>`. Therefore, any tool that operates on these ``pyfunc``
+classes can operate on any MLflow model containing the ``pyfunc`` flavor, regardless of which
+persistence module or framework was used to produce the model. This interoperability is very
 powerful because it allows any Python model to be productionized in a variety of environments.
 
 The convention for ``python_function`` models is to have a ``predict`` method or function with the following
@@ -138,9 +138,9 @@ Other MLflow components expect ``python_function`` models to follow this convent
 The ``python_function`` :ref:`model format <pyfunc-filesystem-format>` is defined as a directory
 structure containing all required data, code, and configuration.
 
-The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLflows with the 
+The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLflows with the
 ``python_function`` flavor. This module also includes utilities for creating custom Python models.
-For more information, see the :ref:`custom Python models documentation <custom-python-models>` 
+For more information, see the :ref:`custom Python models documentation <custom-python-models>`
 and the :mod:`mlflow.pyfunc` documentation.
 
 H\ :sub:`2`\ O (``h2o``)
@@ -192,38 +192,38 @@ The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and 
 Model Customization
 -------------------
 
-While MLflow's built-in model persistence utilities are convenient for packaging models from various 
-popular ML libraries in MLflow model format, they do not cover every use case. For example, you may 
-want to use a model from an ML library that is not explicitly supported by MLflow's built-in 
-flavors. Alternatively, you may want to package arbitrary inference code and data to create an 
-MLflow model. Fortunately, MLflow provides two solutions that can be used to accomplish these 
+While MLflow's built-in model persistence utilities are convenient for packaging models from various
+popular ML libraries in MLflow model format, they do not cover every use case. For example, you may
+want to use a model from an ML library that is not explicitly supported by MLflow's built-in
+flavors. Alternatively, you may want to package arbitrary inference code and data to create an
+MLflow model. Fortunately, MLflow provides two solutions that can be used to accomplish these
 tasks: :ref:`custom-python-models` and :ref:`custom-flavors`.
 
 .. _custom-python-models:
 
 Custom Python Models
 ^^^^^^^^^^^^^^^^^^^^
-The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and 
+The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and
 :py:func:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow models with the
-``python_function`` flavor that contain arbitrary user-specified code and *artifact* (file) 
-dependencies. These artifact dependencies may include serialized models produced by any Python ML 
+``python_function`` flavor that contain arbitrary user-specified code and *artifact* (file)
+dependencies. These artifact dependencies may include serialized models produced by any Python ML
 library.
 
 Because these custom models contain the ``python_function`` flavor, they can be deployed
 to any of MLflow's supported production environments, such as SageMaker, AzureML, or local
 REST endpoints.
 
-The following examples demonstrate how the :py:mod:`mlflow.pyfunc` module can be used to create 
-custom Python models. For additional information about model customization with MLflow's 
-``python_function`` utilities, see the 
+The following examples demonstrate how you can use the :py:mod:`mlflow.pyfunc` module to create
+custom Python models. For additional information about model customization with MLflow's
+``python_function`` utilities, see the
 :ref:`python_function custom models documentation <pyfunc-create-custom>`.
 
 Example: Creating a custom "add n" model
 ****************************************
-In this example, we first define a class for a custom model that adds a specified numeric value, 
-`n`, to all columns of a Pandas DataFrame input. Then, we leverage the :py:mod:`mlflow.pyfunc` APIs 
-to save an instance of this model with `n = 5` in MLflow model format. Finally, we load the model in 
-``python_function`` format and use it to evaluate a sample input
+This examples defines a class for a custom model that adds a specified numeric value, `n`, to all
+columns of a Pandas DataFrame input. Then, it uses the :py:mod:`mlflow.pyfunc` APIs to save an
+instance of this model with `n = 5` in MLflow model format. Finally, it loads the model in
+``python_function`` format and uses it to evaluate a sample input.
 
 .. code:: python
 
@@ -255,12 +255,12 @@ to save an instance of this model with `n = 5` in MLflow model format. Finally, 
 
 Example: Saving an XGBoost model in MLflow format
 *************************************************
-In this example, we begin by training and saving a gradient boosted tree model using the XGBoost
-library. Next, we define a wrapper class around the XGBoost model that conforms to MLflow's
+This example begins by training and saving a gradient boosted tree model using the XGBoost
+library. Next, it defines a wrapper class around the XGBoost model that conforms to MLflow's
 ``python_function`` :ref:`inference API <pyfunc-inference-api>`. Then, using the wrapper class and
 the saved XGBoost model, we construct an MLflow model that performs inference using the gradient
-boosted tree. Finally, we load the MLflow model in ``python_function`` format and use it to evaluate
-test data.
+boosted tree. Finally, it loads the MLflow model in ``python_function`` format and uses it to
+evaluate test data.
 
 .. code:: python
 
@@ -334,23 +334,23 @@ You can also create custom MLflow models by writing a custom *flavor*.
 
 As discussed in the :ref:`model-api` and :ref:`model-storage-format` sections, an MLflow model
 is defined by a directory of files that contains an ``MLmodel`` configuration file. This ``MLmodel``
-file describes various model attributes, including the flavors in which the model can be 
+file describes various model attributes, including the flavors in which the model can be
 interpreted. The ``MLmodel`` file contains an entry for each flavor name; each entry is
 a YAML-formatted collection of flavor-specific attributes.
 
-In order to create a new flavor to support a custom model, you simply need to define the set
-of flavor-specific attributes to include in the ``MLmodel`` configuration file, as well as the
-code that can interpret the contents of the model directory and the flavor's attributes.
+To create a new flavor to support a custom model, you define the set of flavor-specific attributes
+to include in the ``MLmodel`` configuration file, as well as the code that can interpret the
+contents of the model directory and the flavor's attributes.
 
-As an example, let's examine the :py:mod:`mlflow.pytorch` module corresponding to MLflow's 
-``pytorch`` flavor. In the :py:func:`mlflow.pytorch.save_model()` method, a PyTorch model is saved 
-to a specified output directory. Additionally, :py:func:`mlflow.pytorch.save_model()` leverages the 
-:py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` functions to 
-produce an ``MLmodel`` configuration containing the ``pytorch`` flavor. The resulting configuration 
-has several flavor-specific attributes, such as ``pytorch_version``, which denotes the version of the 
-PyTorch library that was used to train the model. In order to interpret model directories
-produced by :py:func:`save_model() <mlflow.pytorch.save_model>`, the :py:mod:`mlflow.pytorch`
-module also defines a :py:mod:`load_model() <mlflow.pytorch.load_model>` method.
+As an example, let's examine the :py:mod:`mlflow.pytorch` module corresponding to MLflow's
+``pytorch`` flavor. In the :py:func:`mlflow.pytorch.save_model()` method, a PyTorch model is saved
+to a specified output directory. Additionally, :py:func:`mlflow.pytorch.save_model()` leverages the
+:py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` functions to
+produce an ``MLmodel`` configuration containing the ``pytorch`` flavor. The resulting configuration
+has several flavor-specific attributes, such as ``pytorch_version``, which denotes the version of the
+PyTorch library that was used to train the model. To interpret model directories produced by
+:py:func:`save_model() <mlflow.pytorch.save_model>`, the :py:mod:`mlflow.pytorch` module also
+defines a :py:mod:`load_model() <mlflow.pytorch.load_model>` method.
 :py:mod:`mlflow.pytorch.load_model()` reads the ``MLmodel`` configuration from a specified
 model directory and uses the configuration attributes of the ``pytorch`` flavor to load
 and return a PyTorch model from its serialized representation.

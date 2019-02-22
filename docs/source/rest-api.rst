@@ -416,8 +416,8 @@ Log Metric
 | ``2.0/preview/mlflow/runs/log-metric`` | ``POST``    |
 +----------------------------------------+-------------+
 
-Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
-associated timestamp. Examples include the various metrics that represent ML model accuracy. 
+Log a metric for a run. A metric is a key-value pair (string key, float value) with an
+associated timestamp. Examples include the various metrics that represent ML model accuracy.
 A metric can be logged multiple times.
 
 
