@@ -252,7 +252,6 @@ instance of this model with `n = 5` in MLflow model format. Finally, it loads th
     model_output = loaded_model.predict(model_input)
     assert model_output.equals(pd.DataFrame([range(5, 15)]))
 
-
 Example: Saving an XGBoost model in MLflow format
 *************************************************
 This example begins by training and saving a gradient boosted tree model using the XGBoost
