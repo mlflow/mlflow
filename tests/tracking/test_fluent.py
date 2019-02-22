@@ -7,6 +7,7 @@ import mock
 
 import mlflow
 from mlflow.entities import Experiment, LifecycleStage, SourceType
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
     _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
@@ -287,3 +288,14 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
 
         assert is_from_run(active_run, mock_run)
         MlflowClient.get_run.assert_called_once_with(run_id)
+
+
+def test_start_run_existing_run_deleted(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.DELETED
+
+    run_id = uuid.uuid4().hex
+
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        with pytest.raises(MlflowException):
+            start_run(run_id)
