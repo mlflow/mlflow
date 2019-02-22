@@ -256,8 +256,8 @@ Example: Saving an XGBoost model in MLflow format
 *************************************************
 This example begins by training and saving a gradient boosted tree model using the XGBoost
 library. Next, it defines a wrapper class around the XGBoost model that conforms to MLflow's
-``python_function`` :ref:`inference API <pyfunc-inference-api>`. Then, using the wrapper class and
-the saved XGBoost model, we construct an MLflow model that performs inference using the gradient
+``python_function`` :ref:`inference API <pyfunc-inference-api>`. Then, it uses the wrapper class and
+the saved XGBoost model to construct an MLflow model that performs inference using the gradient
 boosted tree. Finally, it loads the MLflow model in ``python_function`` format and uses it to
 evaluate test data.
 
