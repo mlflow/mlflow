@@ -416,8 +416,8 @@ Log Metric
 | ``2.0/preview/mlflow/runs/log-metric`` | ``POST``    |
 +----------------------------------------+-------------+
 
-Log a metric for a run. A metric is a key-value pair (string key, float value) with an
-associated timestamp. Examples include the various metrics that represent ML model accuracy.
+Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
+associated timestamp. Examples include the various metrics that represent ML model accuracy. 
 A metric can be logged multiple times.
 
 
@@ -549,125 +549,6 @@ Request Structure
 |            |            | This field is required.                                            |
 |            |            |                                                                    |
 +------------+------------+--------------------------------------------------------------------+
-
-===========================
-
-
-
-.. _mlflowMlflowServicegetParam:
-
-Get Param
-=========
-
-
-+-----------------------------------+-------------+
-|             Endpoint              | HTTP Method |
-+===================================+=============+
-| ``2.0/preview/mlflow/params/get`` | ``GET``     |
-+-----------------------------------+-------------+
-
-Get a param value.
-
-
-
-
-.. _mlflowGetParam:
-
-Request Structure
------------------
-
-
-
-
-
-
-+------------+------------+-------------------------------------------------------+
-| Field Name |    Type    |                      Description                      |
-+============+============+=======================================================+
-| run_uuid   | ``STRING`` | ID of the run from which to retrieve the param value. |
-|            |            | This field is required.                               |
-|            |            |                                                       |
-+------------+------------+-------------------------------------------------------+
-| param_name | ``STRING`` | Name of the param.                                    |
-|            |            | This field is required.                               |
-|            |            |                                                       |
-+------------+------------+-------------------------------------------------------+
-
-.. _mlflowGetParamResponse:
-
-Response Structure
-------------------
-
-
-
-
-
-
-+------------+--------------------+-----------------------+
-| Field Name |        Type        |      Description      |
-+============+====================+=======================+
-| parameter  | :ref:`mlflowparam` | Param key-value pair. |
-+------------+--------------------+-----------------------+
-
-===========================
-
-
-
-.. _mlflowMlflowServicegetMetric:
-
-Get Metric
-==========
-
-
-+------------------------------------+-------------+
-|              Endpoint              | HTTP Method |
-+====================================+=============+
-| ``2.0/preview/mlflow/metrics/get`` | ``GET``     |
-+------------------------------------+-------------+
-
-Get the value for a metric logged during a run. If the metric is logged more
-than once, returns the last logged value.
-
-
-
-
-.. _mlflowGetMetric:
-
-Request Structure
------------------
-
-
-
-
-
-
-+------------+------------+--------------------------------------------------------+
-| Field Name |    Type    |                      Description                       |
-+============+============+========================================================+
-| run_uuid   | ``STRING`` | ID of the run from which to retrieve the metric value. |
-|            |            | This field is required.                                |
-|            |            |                                                        |
-+------------+------------+--------------------------------------------------------+
-| metric_key | ``STRING`` | Name of the metric.                                    |
-|            |            | This field is required.                                |
-|            |            |                                                        |
-+------------+------------+--------------------------------------------------------+
-
-.. _mlflowGetMetricResponse:
-
-Response Structure
-------------------
-
-
-
-
-
-
-+------------+---------------------+------------------------------------------------+
-| Field Name |        Type         |                  Description                   |
-+============+=====================+================================================+
-| metric     | :ref:`mlflowmetric` | Latest reported value of the specified metric. |
-+------------+---------------------+------------------------------------------------+
 
 ===========================
 
