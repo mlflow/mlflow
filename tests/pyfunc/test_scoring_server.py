@@ -12,7 +12,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -156,3 +156,25 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
             data=pandas_split_content,
             content_type="not_a_supported_content_type")
     assert response.status_code == 415
+
+
+def test_parse_json_input_records_oriented():
+    size = 20
+    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
+            "col_z": [random_str(4) for _ in range(size)],
+            "col_a": [random_int() for _ in range(size)]}
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="records"), orient="records")
+    # "records" orient may shuffle column ordering. Hence comparing each column Series
+    for col in data.keys():
+        assert all(p1[col] == p2[col])
+
+
+def test_parse_json_input_split_oriented():
+    size = 200
+    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
+            "col_z": [random_str(4) for _ in range(size)],
+            "col_a": [random_int() for _ in range(size)]}
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="split"), orient="split")
+    assert all(p1 == p2)

@@ -57,7 +57,7 @@ def parse_json_input(json_input, orient="split"):
     """
     # pylint: disable=broad-except
     try:
-        return pd.read_json(json_input, orient=orient)
+        return pd.read_json(json_input, orient=orient, dtype=False)
     except Exception:
         _handle_serving_error(
                 error_message=(
