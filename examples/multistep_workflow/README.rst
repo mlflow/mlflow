@@ -46,19 +46,19 @@ execute ``mlflow run`` from this directory. So, in order to find out if
 the Keras model does in fact improve upon the ALS model, you can simply
 run:
 
-.. code::
+.. code-block:: bash
 
     cd examples/multistep_workflow
     mlflow run .
 
 
-This will download and transform the MovieLens dataset, train an ALS 
-model, and then train a Keras model -- you can compare the results by 
-using ``mlflow ui``!
+This downloads and transforms the MovieLens dataset, trains an ALS 
+model, and then trains a Keras model -- you can compare the results by 
+using ``mlflow ui``.
 
 You can also try changing the number of ALS iterations or Keras hidden
 units:
 
-.. code::
+.. code-block:: bash
 
     mlflow run . -P als_max_iter=20 -P keras_hidden_units=50

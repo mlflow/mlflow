@@ -35,35 +35,35 @@ Running this Example
 
 You can run any of the targets as a standard MLflow run.
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow experiments create individual_runs
 
 Creates experiment for individual runs and return its experiment ID.
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow experiments create hyper_param_runs
 
 Creates an experiment for hyperparam runs and return its experiment ID.
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow run -e train --experiment-id <individual_runs_experiment_id> examples/hyperparam
 
 Runs the Keras deep learning training with default parameters and log it in experiment 1.
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow run -e random --experiment-id <hyperparam_experiment_id>  -P \
         training_experiment_id=<individual_runs_experiment_id> examples/hyperparam
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow run -e gpyopt --experiment-id <hyperparam_experiment_id>  -P \
         training_experiment_id=<individual_runs_experiment_id> examples/hyperparam
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow run -e hyperopt --experiment-id <hyperparam_experiment_id> -P \
         training_experiment_id=<individual_runs_experiment_id> examples/hyperparam
