@@ -42,7 +42,7 @@ format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
 
 And its ``MLmodel`` file describes two flavors:
 
-.. code:: yaml
+.. code-block:: yaml
 
     time_created: 2018-05-25T17:28:53.35
 
@@ -57,14 +57,14 @@ This model can then be used with any tool that supports *either* the ``sklearn``
 ``python_function`` model flavor. For example, the ``mlflow sklearn`` command can serve a
 model with the ``sklearn`` flavor:
 
-.. code::
+.. code-block::
 
     mlflow sklearn serve my_model
 
 In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow sagemaker deploy -m my_model [other options]
 
@@ -125,7 +125,7 @@ productionized in a variety of environments.
 The convention for ``python_function`` models is to have a ``predict`` method or function with the following
 signature:
 
-.. code:: python
+.. code-block:: py
 
     predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
 
@@ -139,14 +139,14 @@ For more information, see the :mod:`mlflow.pyfunc` documentation.
 H\ :sub:`2`\ O (``h2o``)
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The H2O model flavor enables logging and loading H2O models. These models will be saved by using the :py:mod:`mlflow.h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` will also enable a valid ``Python Function`` flavor.
+The H2O model flavor enables logging and loading H2O models. You save these models by using :py:mod:`mlflow.h2o.save_model`. Using :py:mod:`mlflow.h2o.log_model` also enables a valid ``Python Function`` flavor.
 
-When loading a H2O model as a PyFunc model, :py:mod:`h2o.init(...)` will be called. Therefore, the right version of h2o(-py) has to be in the environment. The arguments given to :py:mod:`h2o.init(...)` can be customized in ``model.h2o/h2o.yaml`` under the key ``init``. For more information, see :py:mod:`mlflow.h2o`.
+When loading a H2O model as a PyFunc model, :py:mod:`h2o.init(...)` is called. Therefore, the right version of h2o(-py) has to be in the environment. The arguments given to :py:mod:`h2o.init(...)` can be customized in ``model.h2o/h2o.yaml`` under the key ``init``. For more information, see :py:mod:`mlflow.h2o`.
 
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
-The ``keras`` model flavor enables logging and loading Keras models. This model will be saved in a HDF5 file format, via the model_save functionality provided by Keras. Additionally, model can be loaded back as ``Python Function``. For more information, see :py:mod:`mlflow.keras`.
+The ``keras`` model flavor enables logging and loading Keras models. This model is saved in a HDF5 file format, via the model_save functionality provided by Keras. Additionally, model can be loaded back as ``Python Function``. For more information, see :py:mod:`mlflow.keras`.
 
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
@@ -184,6 +184,7 @@ The ``tensorflow`` model flavor enables logging TensorFlow ``Saved Models`` and 
 
 Custom Flavors
 --------------
+
 You can add a flavor in MLmodel files, either by writing it directly or
 building it with the :py:class:`mlflow.models.Model` class. Choose an arbitrary string name
 for your flavor. MLflow tools ignore flavors in the MLmodel file that they do not understand.
@@ -209,21 +210,21 @@ This functionality is a convenient way of testing models before deploying to a r
 You deploy the Python Function flavor locally using the CLI interface to the :py:mod:`mlflow.pyfunc` module.
 The local REST API server accepts the following data formats as inputs:
 
-  * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
-    ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
-    request header value of ``application/json; format=pandas-split``. Starting in MLflow 0.9.0,
-    this will be the default format if ``Content-Type`` is ``application/json`` (i.e, with no format
-    specification).
+* JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
+  ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
+  request header value of ``application/json; format=pandas-split``. Starting in MLflow 0.9.0,
+  this will be the default format if ``Content-Type`` is ``application/json`` (i.e, with no format
+  specification).
 
-  * JSON-serialized pandas DataFrames in the ``records`` orientation. *We do not recommend using
-    this format because it is not guaranteed to preserve column ordering.* Currently, this format is
-    specified using a ``Content-Type`` request header value of  ``application/json; format=pandas-records``
-    or ``application/json``. Starting in MLflow 0.9.0, ``application/json`` will refer to the
-    ``split`` format instead. For forwards compatibility, we recommend using the ``split`` format
-    or specifying the ``application/json; format=pandas-records`` content type.
+* JSON-serialized pandas DataFrames in the ``records`` orientation. *We do not recommend using
+  this format because it is not guaranteed to preserve column ordering.* Currently, this format is
+  specified using a ``Content-Type`` request header value of  ``application/json; format=pandas-records``
+  or ``application/json``. Starting in MLflow 0.9.0, ``application/json`` will refer to the
+  ``split`` format instead. For forwards compatibility, we recommend using the ``split`` format
+  or specifying the ``application/json; format=pandas-records`` content type.
 
-  * CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
-    specified using a ``Content-Type`` request header value of ``text/csv``.
+* CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
+  specified using a ``Content-Type`` request header value of ``text/csv``.
 
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
@@ -237,7 +238,7 @@ Commands
 
 For more info, see:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow pyfunc --help
     mlflow pyfunc serve --help
@@ -253,15 +254,15 @@ These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Con
 platform for real-time serving. The resulting Azure ML ContainerImage contains a web server that
 accepts the following data formats as input:
 
-  * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
+* JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-  * :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
+* :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
 
   .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
 
 .. rubric:: Example workflow using the Python API
 
-.. code:: python
+.. code-block:: py
 
     import mlflow.azureml
 
@@ -332,7 +333,7 @@ accepts the following data formats as input:
 
 .. rubric:: Example workflow using the MLflow CLI
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
 
@@ -373,7 +374,7 @@ accepts the following data formats as input:
 
 For more info, see:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow azureml --help
     mlflow azureml build-image --help
@@ -392,14 +393,14 @@ MLflow includes the utility function ``build_and_push_container`` to perform thi
 container for all MLflow models. Model webservers deployed using the :py:mod:`mlflow.sagemaker`
 module accept the following data formats as input, depending on the deployment flavor:
 
-  * ``python_function``: For this deployment flavor, the endpoint accepts the same formats
-    as the pyfunc server. These formats are described in the
-    :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
+* ``python_function``: For this deployment flavor, the endpoint accepts the same formats
+  as the pyfunc server. These formats are described in the
+  :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
 
-  * ``mleap``: For this deployment flavor, the endpoint accepts `only`
-    JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
-    ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
-    request header value of ``application/json``.
+* ``mleap``: For this deployment flavor, the endpoint accepts `only`
+  JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
+  ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
+  request header value of ``application/json``.
 
 Commands
 ~~~~~~~~
@@ -418,7 +419,7 @@ Commands
 
 .. rubric:: Example workflow using the MLflow CLI
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow sagemaker build-and-push-container  - build the container (only needs to be called once)
     mlflow sagemaker run-local -m <path-to-model>  - test the model locally
@@ -427,7 +428,7 @@ Commands
 
 For more info, see:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow sagemaker --help
     mlflow sagemaker build-and-push-container --help
@@ -443,7 +444,7 @@ Spark cluster and used to score the model.
 
 .. rubric:: Example
 
-.. code:: python
+.. code-block:: py
 
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
@@ -453,20 +454,20 @@ value or an array of values of the same type per observation. By default, we ret
 numeric column as a double. You can control what result is returned by supplying ``result_type``
 argument. The following values are supported:
 
-    * ``'int'`` or IntegerType_: The leftmost integer that can fit in
-      ``int32`` result is returned or exception is raised if there is none.
-    * ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
-      result is returned or exception is raised if there is none.
-    * ArrayType_ (IntegerType_ | LongType_): Return all integer columns that can fit
-      into the requested size.
-    * ``'float'`` or FloatType_: The leftmost numeric result cast to
-      ``float32`` is returned or exception is raised if there is no numeric column.
-    * ``'double'`` or DoubleType_: The leftmost numeric result cast to
-      ``double`` is returned or exception is raised if there is no numeric column.
-    * ArrayType_ ( FloatType_ | DoubleType_ ): Return all numeric columns cast to the
-      requested. type. Exception is raised if there are numeric columns.
-    * ``'string'`` or StringType_: Result is the leftmost column converted to string.
-    * ArrayType_ ( StringType_ ): Return all columns converted to string.
+* ``'int'`` or IntegerType_: The leftmost integer that can fit in
+  ``int32`` result is returned or exception is raised if there is none.
+* ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
+  result is returned or exception is raised if there is none.
+* ArrayType_ (IntegerType_ | LongType_): Return all integer columns that can fit
+  into the requested size.
+* ``'float'`` or FloatType_: The leftmost numeric result cast to
+  ``float32`` is returned or exception is raised if there is no numeric column.
+* ``'double'`` or DoubleType_: The leftmost numeric result cast to
+  ``double`` is returned or exception is raised if there is no numeric column.
+* ArrayType_ ( FloatType_ | DoubleType_ ): Return all numeric columns cast to the
+  requested. type. Exception is raised if there are numeric columns.
+* ``'string'`` or StringType_: Result is the leftmost column converted to string.
+* ArrayType_ ( StringType_ ): Return all columns converted to string.
 
 .. _IntegerType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.IntegerType
 .. _LongType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.LongType
@@ -477,7 +478,7 @@ argument. The following values are supported:
 
 .. rubric:: Example
 
-.. code:: python
+.. code-block:: py
 
     from pyspark.sql.types import ArrayType, FloatType
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
