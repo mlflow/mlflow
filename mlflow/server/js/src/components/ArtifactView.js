@@ -10,7 +10,7 @@ import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUt
 import { decorators, Treebeard } from 'react-treebeard';
 import bytes from 'bytes';
 import './ArtifactView.css';
-import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
+import ShowArtifactPage, {getSrc} from './artifact-view-components/ShowArtifactPage';
 import spinner from '../static/mlflow-spinner.png';
 
 class ArtifactView extends Component {
@@ -53,11 +53,22 @@ class ArtifactView extends Component {
               <div className="artifact-info">
                 {this.state.activeNodeId ?
                   (<div>
-                    <div>
+                    <div className="artifact-info-link">
+                      <a href={getSrc(this.state.activeNodeId, this.props.runUuid)}
+                         target="_blank"
+                         title="Open in New Tab">
+                        <i className="fas fa-external-link-alt"/>
+                      </a>
+                    </div>
+                    <div className="artifact-info-path">
                       <label>Full Path:</label> {this.getRealPath()}
                     </div>
-                    <div className="artifact-info-size"><label>Size:</label> {this.getSize()}</div>
-                  </div>) :
+                    <div className="artifact-info-size">
+                      <label>Size:</label> {this.getSize()}
+                    </div>
+                  </div>
+                  )
+                  :
                   null
                 }
               </div>
