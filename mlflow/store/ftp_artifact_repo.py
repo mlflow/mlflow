@@ -46,13 +46,15 @@ class FTPArtifactRepository(ArtifactRepository):
         return result
 
     def _mkdir(self, artifact_dir):
+        """ Make the directories while "walking" into them """
+        dest_dirname = artifact_dir.split('/')
         with self.get_ftp_client() as ftp:
-            try:
-                ftp.mkd(artifact_dir)
-            except ftplib.error_perm:
-                head, _ = self.get_path_module().split(artifact_dir)
-                self._mkdir(head)
-                self._mkdir(artifact_dir)
+            for subdir in dest_dirname:
+                try:
+                    ftp.cwd(subdir)
+                except ftplib.error_perm:
+                    ftp.mkd(subdir)
+                    ftp.cwd(subdir)
 
     def _size(self, full_file_path):
         with self.get_ftp_client() as ftp:
@@ -117,7 +119,7 @@ class FTPArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         remote_full_path = self.get_path_module().join(self.path, remote_file_path) \
-                if remote_file_path else self.path
+            if remote_file_path else self.path
         with self.get_ftp_client() as ftp:
             with open(local_path, 'wb') as f:
-                ftp.retrbinary('RETR ' + remote_full_path, f)
+                ftp.retrbinary('RETR ' + remote_full_path, f.write)
