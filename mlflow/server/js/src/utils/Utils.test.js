@@ -144,7 +144,7 @@ test("formatSource & renderSource", () => {
   };
   const wrapper = shallow(Utils.renderSource(databricksRun, databricksRunTags));
   expect(wrapper.is("a")).toEqual(true);
-  expect(wrapper.props().href).toEqual("https://databricks.com/#notebook/13");
+  expect(wrapper.props().href).toEqual("../#notebook/13");
 
   const databricksRunRevisionTags = {
     "mlflow.databricks.notebookRevisionID": { value: "42" },
@@ -153,7 +153,7 @@ test("formatSource & renderSource", () => {
   };
   const wrapper2 = shallow(Utils.renderSource(databricksRun, databricksRunRevisionTags));
   expect(wrapper2.is("a")).toEqual(true);
-  expect(wrapper2.props().href).toEqual("https://databricks.com/#notebook/13/revision/42");
+  expect(wrapper2.props().href).toEqual("../#notebook/13/revision/42");
 });
 
 test("dropExtension", () => {
