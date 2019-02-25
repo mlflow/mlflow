@@ -20,7 +20,7 @@ necessary preprocessing to convert input data into multidimensional arrays expec
 Keras model. The preprocessing logic is stored with the model as a code dependency. Here is an
 example of the output model directory layout:
 
-.. code:: bash
+.. code-block:: bash
 
    tree model
 
@@ -73,7 +73,7 @@ Running this Example
 To train the model, run the example as a standard MLflow project:
 
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow run examples/flower_classifier
 
@@ -87,7 +87,7 @@ run_id ``101``.
 
   1. Deploy the model as a local REST endpoint by running mlflow pyfunc serve:
 
-  .. code:: bash
+  .. code-block:: bash
 
       # deploy the model to local REST api endpoint
       mlflow pyfunc serve -p 54321 -r 101 -m model
@@ -95,7 +95,7 @@ run_id ``101``.
 
   2. Apply the model to new data using the provided score_images_rest.py script:
 
-  .. code:: bash
+  .. code-block:: bash
 
       # score the deployed model
       python score_images_rest.py --port 54321 http://127.0.0.1 ./my_images_to_score
@@ -103,7 +103,7 @@ run_id ``101``.
 
 - To test batch scoring in Spark, run score_images_spark.py to score the model in Spark like this:
 
-.. code:: bash
+.. code-block:: bash
 
    python score_images_spark.py ./my_images_to_score model --run-id 101
 

@@ -11,7 +11,7 @@ import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react
 import 'react-virtualized/styles.css';
 
 const NUM_RUN_METADATA_COLS = 7;
-const TABLE_HEADER_HEIGHT = 48;
+const TABLE_HEADER_HEIGHT = 40;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
 const BORDER_STYLE = "1px solid #e2e2e2";
@@ -414,7 +414,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 width={
                   Math.max(width, tableMinWidth)
                 }
-                height={Math.max(height - TABLE_HEADER_HEIGHT, 200)}
+                height={Math.max(height - TABLE_HEADER_HEIGHT, 200) + 20}
                 headerHeight={TABLE_HEADER_HEIGHT}
                 overscanRowCount={2}
                 rowCount={rows.length}
