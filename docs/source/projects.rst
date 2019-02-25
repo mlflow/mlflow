@@ -17,7 +17,7 @@ Overview
 At the core, MLflow Projects are just a convention for organizing and describing your code to let
 other data scientists (or automated tools) run it. Each project is simply a directory of files, or
 a Git repository, containing your code. MLflow can run some projects based on a convention for
-placing files in this directory (for example, a ``conda.yaml`` file will be treated as a
+placing files in this directory (for example, a ``conda.yaml`` file is treated as a
 `Conda <https://conda.io/docs>`_ environment), but you can describe your project in more detail by
 adding a ``MLproject`` file, which is a `YAML <https://learnxinyminutes.com/docs/yaml/>`_ formatted
 text file. Each project can specify several properties:
@@ -29,13 +29,13 @@ Dependencies
     Libraries needed to run the project. MLflow supports using `Docker <https://docs.docker.com/>`_ 
     to run projects inside a container or `Conda <https://conda.io/docs>`_ package manager, 
     which supports both Python packages and native libraries (for example, CuDNN or Intel MKL), to 
-    specify dependencies. MLflow will use the Conda installation given by the ``MLFLOW_CONDA_HOME`` 
+    specify dependencies. MLflow uses the Conda installation given by the ``MLFLOW_CONDA_HOME`` 
     environment variable if specified (e.g. running Conda commands by invoking ``$MLFLOW_CONDA_HOME/bin/conda``), 
     and default to running ``conda`` otherwise.
 
 Entry Points
-    Commands that can be executed within the project, and information about their
-    parameters. Most projects will contain at least one entry point that you want other users to
+    Commands that can be run within the project, and information about their
+    parameters. Most projects contain at least one entry point that you want other users to
     call. Some projects can also contain more than one entry point: for example, you might have a
     single Git repository containing multiple featurization algorithms. You can also call
     any ``.py`` or ``.sh`` file in the project as an entry point. If you list your entry points in
@@ -46,12 +46,12 @@ You can run any project from a Git URI or from a local directory using the ``mlf
 command-line tool, or the :py:func:`mlflow.projects.run` Python API. These APIs also allow submitting the
 project for remote execution on `Databricks <https://databricks.com>`_.
 
-.. caution::
+.. important::
 
-    By default, MLflow will use a new, temporary working directory for Git projects.
+    By default, MLflow uses a new, temporary working directory for Git projects.
     This means that you should generally pass any file arguments to MLflow
     project using absolute, not relative, paths. If your project declares its parameters, MLflow
-    will automatically make paths absolute for parameters of type ``path``.
+    automatically makes paths absolute for parameters of type ``path``.
 
 Specifying Projects
 -------------------
@@ -62,20 +62,20 @@ following conventions to determine its parameters:
 * The project's name is the name of the directory.
 * The `Conda environment <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
   is specified in ``conda.yaml``, if present. If no ``conda.yaml`` file is present, MLflow
-  will use a Conda environment containing only Python (specifically, the latest Python available to
+  uses a Conda environment containing only Python (specifically, the latest Python available to
   Conda) when running the project.
 * Alternatively, you may provide a Docker environment for project execution, which allows for capturing
   non-Python dependencies such as Java libraries.
  `See here <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an
   MLflow project with a Docker environment.
 * Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly
-  declared. When you execute such a command with a set of parameters, MLflow will pass each
+  declared. When you execute such a command with a set of parameters, MLflow passes each
   parameter on the command line using ``--key value`` syntax.
 
 You can get more control over a project by adding a ``MLproject``, which is simply a text file in
 YAML syntax. The MLproject file looks like this:
 
-.. code:: yaml
+.. code-block:: yaml
 
     name: My Project
 
@@ -95,7 +95,7 @@ YAML syntax. The MLproject file looks like this:
           data_file: path
         command: "python validate.py {data_file}"
 
-As you can see, the file can specify a name and a conda or docker environment, as well as more
+As you can see, the file can specify a name and a Conda or docker environment, as well as more
 detailed information about each entry point. Specifically, each entry point has a *command* to
 run and *parameters* (including data types). We describe these two pieces next.
 
@@ -109,7 +109,7 @@ string for substitution. If you call the project with additional parameters *not
 ``parameters`` field, MLflow passes them using ``--key value`` syntax, so you can use the
 ``MLproject`` file to declare types and defaults for just a subset of your parameters.
 
-Before substituting parameters in the command, MLflow escapes them using Python's
+Before substituting parameters in the command, MLflow escapes them using the Python
 `shlex.quote <https://docs.python.org/3/library/shlex.html#shlex.quote>`_ function, so you don't need
 to worry about adding quotes inside your command field.
 
@@ -121,14 +121,14 @@ Specifying Parameters
 MLflow allows specifying a data type and default value for each parameter. You can specify just the
 data type by writing:
 
-.. code:: yaml
+.. code-block:: yaml
 
     parameter_name: data_type
 
 in your YAML file, or add a default value as well using one of the following syntaxes (which are
 equivalent in YAML):
 
-.. code:: yaml
+.. code-block:: yaml
 
     parameter_name: {type: data_type, default: value}  # Short syntax
 
@@ -146,8 +146,8 @@ float
     A real number. MLflow validates that the parameter is a number.
 
 path
-    A path on the local file system. MLflow will convert any relative paths passed for
-    parameters of this type to absolute paths, and will also download any paths passed
+    A path on the local file system. MLflow converts any relative paths passed for
+    parameters of this type to absolute paths, and also downloads any paths passed
     as distributed storage URIs (``s3://`` and ``dbfs://``) to local files. Use this type
     for programs that can only read local files.
 
@@ -179,7 +179,7 @@ Entry Point
 
 Parameters
     Key-value parameters. Any parameters with
-    :ref:`declared types <project_parameters>` will be validated and transformed if needed.
+    :ref:`declared types <project_parameters>` are validated and transformed if needed.
 
 Deployment Mode
     Both the command-line and API let you :ref:`launch projects remotely <databricks_execution>` on
@@ -189,10 +189,10 @@ Deployment Mode
     command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
 
 For example, the tutorial creates and publishes an MLflow project that trains a linear model. The
-project is also published on GitHub at https://github.com/mlflow/mlflow-example. To execute
-this project, run:
+project is also published on GitHub at https://github.com/mlflow/mlflow-example. To run
+this project:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.5
 
@@ -203,6 +203,7 @@ useful if you quickly want to test a project in your existing shell environment.
 
 Remote Execution on Databricks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Support for running projects remotely on Databricks is in beta preview and requires a Databricks account. 
 To receive future updates about the feature, `sign up here <http://databricks.com/mlflow>`_.
 
@@ -217,7 +218,7 @@ First, create a JSON file containing the
 `cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
 for your run. Then, run your project using the command
 
-.. code:: bash
+.. code-block:: bash
 
   mlflow run <uri> -m databricks --cluster-spec <json-cluster-spec>
 
@@ -228,12 +229,12 @@ where ``<uri>`` is a Git repository URI or a folder. You can pass Git credential
 
 Execution on Docker containers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-You can run projects inside Docker container instead of conda environments. In order to do that 
-you need to specify the ``docker_env`` along with ``image`` attributes in MLProject as described
-below. It simply mounts the local directory of the project as a volume inside container in
-``/mlflow/projects/code`` path.
 
-.. code::
+You can run also projects inside a Docker container. To do that, specify the ``docker_env`` 
+along with the ``image`` attribute in the MLproject as illustrated below.
+The container simply mounts the local directory of the project as a volume in the ``/mlflow/projects/code`` path.
+
+.. code-block:: yaml
 
     docker_env:
         image: mlflow-run-image

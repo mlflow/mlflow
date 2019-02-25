@@ -69,7 +69,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     >>> # Build, compile, and train your model
     >>> keras_model = ...
     >>> keras_model_path = ...
-    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics["accuracy"])
+    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
     >>> results = keras_model.fit(
     ...     x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
     ... # Save the model as an MLflow Model
@@ -127,7 +127,7 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
     >>> import mlflow
     >>> # Build, compile, and train your model
     >>> keras_model = ...
-    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics["accuracy"])
+    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
     >>> results = keras_model.fit(
     ...     x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
     >>> # Log metrics and log the model
