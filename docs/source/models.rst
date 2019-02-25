@@ -138,7 +138,7 @@ Other MLflow components expect ``python_function`` models to follow this convent
 The ``python_function`` :ref:`model format <pyfunc-filesystem-format>` is defined as a directory
 structure containing all required data, code, and configuration.
 
-The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLflows with the
+The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLflow models with the
 ``python_function`` flavor. This module also includes utilities for creating custom Python models.
 For more information, see the :ref:`custom Python models documentation <custom-python-models>`
 and the :mod:`mlflow.pyfunc` documentation.
@@ -206,7 +206,7 @@ Custom Python Models
 The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and
 :py:func:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow models with the
 ``python_function`` flavor that contain  user-specified code and *artifact* (file) dependencies.
-These artifact dependencies may include serialized models produced by any Python MLlibrary.
+These artifact dependencies may include serialized models produced by any Python ML library.
 
 Because these custom models contain the ``python_function`` flavor, they can be deployed
 to any of MLflow's supported production environments, such as SageMaker, AzureML, or local
