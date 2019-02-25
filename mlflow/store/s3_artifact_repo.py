@@ -3,7 +3,6 @@ import os
 import boto3
 from six.moves import urllib
 
-from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
 
@@ -31,7 +30,7 @@ class S3ArtifactRepository(ArtifactRepository):
         return posixpath
 
     def log_artifact(self, local_file, artifact_path=None):
-        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = self.get_path_module().join(dest_path, artifact_path)
         dest_path = self.get_path_module().join(
@@ -40,7 +39,7 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.upload_file(local_file, bucket, dest_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = self.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = self.get_path_module().join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
@@ -57,7 +56,7 @@ class S3ArtifactRepository(ArtifactRepository):
                         self.get_path_module().join(upload_path, f))
 
     def list_artifacts(self, path=None):
-        (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, artifact_path) = self.parse_s3_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
             dest_path = self.get_path_module().join(dest_path, path)
@@ -81,7 +80,7 @@ class S3ArtifactRepository(ArtifactRepository):
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, s3_root_path) = self.parse_s3_uri(self.artifact_uri)
         s3_full_path = self.get_path_module().join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
         s3_client.download_file(bucket, s3_full_path, local_path)
