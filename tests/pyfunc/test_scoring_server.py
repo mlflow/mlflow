@@ -178,3 +178,22 @@ def test_parse_json_input_split_oriented():
     p1 = pd.DataFrame.from_dict(data)
     p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="split"), orient="split")
     assert all(p1 == p2)
+
+
+def test_records_oriented_json_to_df():
+    # test that datatype for "zip" column is not converted to "int64"
+    jstr = '[{"zip":"95120","cost":10.45},{"zip":"95128","cost":23.0},{"zip":"95128","cost":12.1}]'
+    df = pyfunc_scoring_server.parse_json_input(jstr, orient="records")
+
+    assert set(df.columns) == {'zip', 'cost'}
+    assert set(str(dt) for dt in df.dtypes) == {'object', 'float64'}
+
+
+def test_split_oriented_json_to_df():
+    # test that datatype for "zip" column is not converted to "int64"
+    jstr = '{"columns":["zip","cost"],"index":[0,1,2],' \
+           '"data":[["95120",10.45],["95128",23.0],["95128",12.1]]}'
+    df = pyfunc_scoring_server.parse_json_input(jstr, orient="split")
+
+    assert set(df.columns) == {'zip', 'cost'}
+    assert set(str(dt) for dt in df.dtypes) == {'object', 'float64'}
