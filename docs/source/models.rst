@@ -195,7 +195,7 @@ Model Customization
 While MLflow's built-in model persistence utilities are convenient for packaging models from various
 popular ML libraries in MLflow model format, they do not cover every use case. For example, you may
 want to use a model from an ML library that is not explicitly supported by MLflow's built-in
-flavors. Alternatively, you may want to package arbitrary inference code and data to create an
+flavors. Alternatively, you may want to package custom inference code and data to create an
 MLflow model. Fortunately, MLflow provides two solutions that can be used to accomplish these
 tasks: :ref:`custom-python-models` and :ref:`custom-flavors`.
 
@@ -205,9 +205,8 @@ Custom Python Models
 ^^^^^^^^^^^^^^^^^^^^
 The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and
 :py:func:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow models with the
-``python_function`` flavor that contain arbitrary user-specified code and *artifact* (file)
-dependencies. These artifact dependencies may include serialized models produced by any Python ML
-library.
+``python_function`` flavor that contain  user-specified code and *artifact* (file) dependencies.
+These artifact dependencies may include serialized models produced by any Python MLlibrary.
 
 Because these custom models contain the ``python_function`` flavor, they can be deployed
 to any of MLflow's supported production environments, such as SageMaker, AzureML, or local
@@ -305,8 +304,8 @@ evaluate test data.
     conda_env = {
         'channels': ['defaults'],
         'dependencies': [
-          'xgboost={}'.format(xgb.__version__)
-          'cloudpickle={}'.format(cloudpickle.__version__)
+          'xgboost={}'.format(xgb.__version__),
+          'cloudpickle={}'.format(cloudpickle.__version__),
         ],
         'name': 'xgb_env'
     }
