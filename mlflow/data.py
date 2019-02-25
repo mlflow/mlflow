@@ -23,7 +23,9 @@ def download_uri(uri, output_path):
 def download(uri, output_path):
     """
     Download the artifact at the specified URI into the specified local output path, or
-    the current directory if no output path is specified.
+    the current directory if no output path is specified. The artifact will be downloaded
+    using the :py:class:`ArtifactRepository <mlflow.store.ArtifactRepository>` associated with the
+    specified URI.
     """
     if output_path is None:
         output_path = os.path.basename(uri)

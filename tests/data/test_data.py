@@ -6,20 +6,11 @@ import tempfile
 import mock
 import pytest
 
-from mlflow.data import is_uri, download_uri, DownloadException
+from mlflow.data import is_uri, download_uri
 from mlflow.projects import _project_spec
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
-
-
-@contextmanager
-def temp_directory():
-    name = tempfile.mkdtemp()
-    try:
-        yield name
-    finally:
-        shutil.rmtree(name)
 
 
 def load_project():
@@ -33,17 +24,17 @@ def test_is_uri():
     assert not is_uri("/tmp/some/local/path")
 
 
-def test_download_uri():
-    # Verify downloading from DBFS & S3 urls calls the corresponding helper functions
-    prefix_to_mock = {"dbfs:/": "mlflow.data._fetch_dbfs", "s3://": "mlflow.data._fetch_s3"}
-    for prefix, fn_name in prefix_to_mock.items():
-        with mock.patch(fn_name) as mocked_fn, temp_directory() as dst_dir:
-            download_uri(uri=os.path.join(prefix, "some/path"),
-                         output_path=os.path.join(dst_dir, "tmp-file"))
-            assert mocked_fn.call_count == 1
-    # Verify exceptions are thrown when downloading from unsupported/invalid URIs
-    invalid_prefixes = ["file://", "/tmp"]
-    for prefix in invalid_prefixes:
-        with temp_directory() as dst_dir, pytest.raises(DownloadException):
-            download_uri(uri=os.path.join(prefix, "some/path"),
-                         output_path=os.path.join(dst_dir, "tmp-file"))
+def test_download_uri_uses_artifact_repo_to_download_artifacts(tmpdir):
+    uri_artifact_repo_map = {
+        "/path/to/file": "mlflow.store.local_artifact_repo.LocalArtifactRepository",
+        "s3://path/to/file": "mlflow.store.s3_artifact_repo.S3ArtifactRepository",
+        "gs://path/to/file": "mlflow.store.gcs_artifact_repo.GCSArtifactRepository",
+        "dbfs://path/to/file": "mlflow.store.dbfs_artifact_repo.DbfsArtifactRepository",
+    }
+
+    for uri, artifact_repo_module in uri_artifact_repo_map.items():
+        with mock.patch("{artifact_repo_module}.download_artifacts".format(
+                artifact_repo_module=artifact_repo_module)) as artifact_repo_download_mock:
+            download_uri(uri=uri, output_path=str(tmpdir))
+            artifact_repo_download_mock.assert_called_once()
+            # assert artifact_repo_download_mock.call_args.artifact_path in uri
