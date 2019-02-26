@@ -2,7 +2,7 @@ import json
 
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -10,8 +10,8 @@ from mlflow.utils.rest_utils import http_request_safe
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun, DeleteExperiment, \
-    RestoreExperiment, UpdateExperiment
+    UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
+    UpdateExperiment
 
 from mlflow.protos import databricks_pb2
 
@@ -93,17 +93,12 @@ class RestStore(AbstractStore):
         Fetches the experiment from the backend store.
 
         :param experiment_id: Integer id for the experiment
-        :return: A single Experiment object if it exists, otherwise raises an Exception.
+        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
+        otherwise raises an Exception.
         """
         req_body = message_to_json(GetExperiment(experiment_id=experiment_id))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
-
-    def get_experiment_by_name(self, name):
-        for experiment in self.list_experiments(ViewType.ALL):
-            if experiment.name == name:
-                return experiment
-        return None
 
     def delete_experiment(self, experiment_id):
         req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
@@ -186,32 +181,6 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(SetTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
-
-    def get_metric(self, run_uuid, metric_key):
-        """
-        Returns the last logged value for a given metric.
-
-        :param run_uuid: Unique identifier for run
-        :param metric_key: Metric name within the run
-
-        :return: A single float value for the give metric if logged, else None
-        """
-        req_body = message_to_json(GetMetric(run_uuid=run_uuid, metric_key=metric_key))
-        response_proto = self._call_endpoint(GetMetric, req_body)
-        return Metric.from_proto(response_proto.metric)
-
-    def get_param(self, run_uuid, param_name):
-        """
-        Returns the value of the specified parameter.
-
-        :param run_uuid: Unique identifier for run
-        :param param_name: Parameter name within the run
-
-        :return: Value of the given parameter if logged, else None
-        """
-        req_body = message_to_json(GetParam(run_uuid=run_uuid, param_name=param_name))
-        response_proto = self._call_endpoint(GetParam, req_body)
-        return Param.from_proto(response_proto.parameter)
 
     def get_metric_history(self, run_uuid, metric_key):
         """

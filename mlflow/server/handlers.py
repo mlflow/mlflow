@@ -13,7 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
-    UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, GetMetric, GetParam, \
+    UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
@@ -313,28 +313,6 @@ def _get_metric_history():
 
 
 @catch_mlflow_exception
-def _get_metric():
-    request_message = _get_request_message(GetMetric())
-    response_message = GetMetric.Response()
-    metric = _get_store().get_metric(request_message.run_uuid, request_message.metric_key)
-    response_message.metric.MergeFrom(metric.to_proto())
-    response = Response(mimetype='application/json')
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
-def _get_param():
-    request_message = _get_request_message(GetParam())
-    response_message = GetParam.Response()
-    parameter = _get_store().get_param(request_message.run_uuid, request_message.param_name)
-    response_message.parameter.MergeFrom(parameter.to_proto())
-    response = Response(mimetype='application/json')
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
 def _list_experiments():
     request_message = _get_request_message(ListExperiments())
     experiment_entities = _get_store().list_experiments(request_message.view_type)
@@ -393,6 +371,4 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
-    GetParam: _get_param,
-    GetMetric: _get_metric,
 }

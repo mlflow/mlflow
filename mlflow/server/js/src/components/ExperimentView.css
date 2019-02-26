@@ -54,11 +54,11 @@
 }
 
 .ExperimentView-search-controls {
-  margin-top: 30px;
+  margin-top: 16px;
 }
 
 .ExperimentView-run-buttons{
-  margin-top: 30px;
+  margin-top: 16px;
   margin-bottom: 16px;
 }
 
@@ -66,7 +66,7 @@
   display: inline-block;
   width: 50%;
   min-width: 210px;
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .ExperimentView-search {
@@ -82,6 +82,7 @@
 .ExperimentView-lifecycle-input {
   display: table-cell;
   width: 100px;
+  padding-right: 8px;
 }
 
 .ExperimentView-lifecycle-button {
@@ -89,7 +90,7 @@
 }
 
 .ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
-  padding-right: 16px;
+  padding-right: 8px;
 }
 
 .ExperimentView-search-buttons {
@@ -100,7 +101,7 @@
 .ExperimentView-search-buttons .btn {
   display: block;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .ExperimentView-search-inputs {
@@ -108,13 +109,13 @@
 }
 
 .ExperimentView-search-controls .filter-label {
-  width: 110px;
+  width: 92px;
   float: left;
   margin-top: 6px;
 }
 
 .ExperimentView-search-controls .filter-wrapper {
-  margin-left: 110px;
+  margin-left: 92px;
 }
 
 .ExperimentView-search-controls input {
@@ -123,6 +124,11 @@
 
 .search-button {
   margin-right: 30px;
+}
+
+.clear-button {
+  margin-bottom: 0;
+  height: 32px;
 }
 
 div.error-message {

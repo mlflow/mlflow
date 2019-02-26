@@ -6,7 +6,7 @@ from six.moves import urllib
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
-from mlflow.entities import RunStatus, SourceType
+from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -38,11 +38,11 @@ class SqlAlchemyStore(AbstractStore):
         if len(self.list_experiments()) == 0:
             self._create_default_experiment()
 
-    # DB helper methods to allow zero values for columns with auto increments
     def _set_no_auto_for_zero_values(self):
         if self.db_type == MYSQL:
             self.session.execute("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
 
+    # DB helper methods to allow zero values for columns with auto increments
     def _unset_no_auto_for_zero_values(self):
         if self.db_type == MYSQL:
             self.session.execute("SET @@SESSION.sql_mode='';")
@@ -58,8 +58,8 @@ class SqlAlchemyStore(AbstractStore):
         """
         table = SqlExperiment.__tablename__
         default_experiment = {
-            SqlExperiment.experiment_id.name: 0,
-            SqlExperiment.name.name: 'Default',
+            SqlExperiment.experiment_id.name: Experiment.DEFAULT_EXPERIMENT_ID,
+            SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: self._get_artifact_location(0),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE
         }
@@ -135,20 +135,23 @@ class SqlAlchemyStore(AbstractStore):
 
         return experiment.experiment_id
 
-    def _list_experiments(self, experiments, view_type=ViewType.ACTIVE_ONLY):
+    def _list_experiments(self, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY):
         stages = LifecycleStage.view_type_to_stages(view_type)
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
 
-        if len(experiments) > 0:
-            conditions.append(SqlExperiment.experiment_id.in_(experiments))
+        if ids and len(ids) > 0:
+            conditions.append(SqlExperiment.experiment_id.in_(ids))
+
+        if names and len(names) > 0:
+            conditions.append(SqlExperiment.name.in_(names))
 
         return self.session.query(SqlExperiment).filter(*conditions)
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
-        return [exp.to_mlflow_entity() for exp in self._list_experiments([], view_type)]
+        return [exp.to_mlflow_entity() for exp in self._list_experiments(view_type=view_type)]
 
     def _get_experiment(self, experiment_id, view_type):
-        experiments = self._list_experiments([experiment_id], view_type).all()
+        experiments = self._list_experiments(ids=[experiment_id], view_type=view_type).all()
         if len(experiments) == 0:
             raise MlflowException('No Experiment with id={} exists'.format(experiment_id),
                                   RESOURCE_DOES_NOT_EXIST)
@@ -160,6 +163,20 @@ class SqlAlchemyStore(AbstractStore):
 
     def get_experiment(self, experiment_id):
         return self._get_experiment(experiment_id, ViewType.ALL).to_mlflow_entity()
+
+    def get_experiment_by_name(self, experiment_name):
+        """
+        Specialized implementation for SQL backed store.
+        """
+        experiments = self._list_experiments(names=[experiment_name], view_type=ViewType.ALL).all()
+        if len(experiments) == 0:
+            return None
+
+        if len(experiments) > 1:
+            raise MlflowException('Expected only 1 experiment with name={}. Found {}.'.format(
+                experiment_name, len(experiments)), INVALID_STATE)
+
+        return experiments[0]
 
     def delete_experiment(self, experiment_id):
         experiment = self._get_experiment(experiment_id, ViewType.ACTIVE_ONLY)
@@ -283,17 +300,6 @@ class SqlAlchemyStore(AbstractStore):
                                       'at {}'.format(metric, m.value, m.timestamp),
                                       INVALID_PARAMETER_VALUE)
 
-    def get_metric(self, run_uuid, metric_key):
-        metric = self.session.query(SqlMetric).filter_by(
-            run_uuid=run_uuid, key=metric_key
-        ).order_by(sqlalchemy.desc(SqlMetric.timestamp)).first()
-
-        if metric is None:
-            raise MlflowException('Metric={} does not exist'.format(metric_key),
-                                  RESOURCE_DOES_NOT_EXIST)
-
-        return metric.to_mlflow_entity()
-
     def get_metric_history(self, run_uuid, metric_key):
         metrics = self.session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
         return [metric.to_mlflow_entity() for metric in metrics]
@@ -326,13 +332,6 @@ class SqlAlchemyStore(AbstractStore):
                                                                         run_uuid, param.value),
                                       INVALID_PARAMETER_VALUE)
 
-    def get_param(self, run_uuid, param_name):
-        param = self.session.query(SqlParam).filter_by(run_uuid=run_uuid, key=param_name).first()
-        if param is None:
-            raise MlflowException('Param={} does not exist'.format(param_name),
-                                  RESOURCE_DOES_NOT_EXIST)
-        return param.to_mlflow_entity()
-
     def set_tag(self, run_uuid, tag):
         run = self._get_run(run_uuid)
         self._check_run_is_active(run)
@@ -348,9 +347,6 @@ class SqlAlchemyStore(AbstractStore):
         return [r for r in runs if all([does_run_match_clause(r, s) for s in search_expressions])]
 
     def _list_runs(self, experiment_id, run_view_type):
-        exp = self._list_experiments(experiments=[experiment_id], view_type=ViewType.ALL).first()
+        exp = self._list_experiments(ids=[experiment_id], view_type=ViewType.ALL).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
-
-    def list_run_infos(self, experiment_id, run_view_type):
-        return [r.to_mlflow_entity().info for r in self._list_runs(experiment_id, run_view_type)]

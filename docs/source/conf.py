@@ -53,7 +53,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'MLflow'
-copyright = 'Databricks 2018. All rights reserved'
+copyright = 'Databricks 2019. All rights reserved'
 author = 'Databricks'
 
 # The version info for the project you're documenting, acts as replacement for

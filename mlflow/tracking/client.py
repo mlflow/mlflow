@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-                                    _validate_tag_name, _validate_run_id
+    _validate_tag_name, _validate_run_id, _validate_experiment_name
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 
@@ -96,6 +96,7 @@ class MlflowClient(object):
                                   If not provided, the server picks an appropriate default.
         :return: Integer ID of the created experiment.
         """
+        _validate_experiment_name(name)
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,

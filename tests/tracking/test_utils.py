@@ -213,8 +213,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     with mock.patch.dict(os.environ, env):
         plugin_file_store = mlflow.tracking.utils._get_store()
         assert isinstance(plugin_file_store, PluginFileStore)
-        assert os.path.abspath(plugin_file_store.root_directory) == os.path.abspath("test-path")
-        assert os.path.abspath(plugin_file_store.artifact_root_uri) == os.path.abspath("test-path")
+        assert plugin_file_store.is_plugin
 
 
 def test_plugin_registration():
@@ -267,6 +266,15 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
 
     mock_entrypoint.load.assert_called_once()
     mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
+
+
+def test_get_store_for_unregistered_scheme():
+
+    tracking_store = TrackingStoreRegistry()
+
+    with pytest.raises(mlflow.exceptions.MlflowException,
+                       match="Could not find a registered tracking store"):
+        tracking_store.get_store("unknown-scheme://")
 
 
 def test_get_db_profile_from_uri_casing():

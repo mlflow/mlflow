@@ -27,6 +27,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
+_EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _AUTODETECT_EXPERIMENT = "MLFLOW_AUTODETECT_EXPERIMENT_ID"
 _active_run_stack = []
@@ -297,9 +298,17 @@ def _get_source_type():
     return SourceType.LOCAL
 
 
+def _get_experiment_id_from_env():
+    experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
+    if experiment_name:
+        exp = MlflowClient().get_experiment_by_name(experiment_name)
+        return exp.experiment_id if exp else None
+    return env.get_env(_EXPERIMENT_ID_ENV_VAR)
+
+
 def _get_experiment_id():
     return int(_active_experiment_id or
-               env.get_env(_EXPERIMENT_ID_ENV_VAR) or
+               _get_experiment_id_from_env() or
                (env.get_env(_AUTODETECT_EXPERIMENT) and
                 is_in_databricks_notebook() and get_notebook_id()) or
                Experiment.DEFAULT_EXPERIMENT_ID)
