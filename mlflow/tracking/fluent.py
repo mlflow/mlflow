@@ -212,6 +212,39 @@ def log_metric(key, value):
     run_id = _get_or_start_run().info.run_uuid
     MlflowClient().log_metric(run_id, key, value, int(time.time()))
 
+def log_metrics(metrics):
+    """
+    Log multiple metrics for the current run, starting a run if no runs are active. `metrics` is a
+    dictionary of metric_name: String -> value: Float
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    timestamp = int(time.time())
+    metrics_arr = [Metric(key, value, timestamp) for key, value in metrics.items()]
+    MlflowClient().log_metrics(run_id, metrics_arr)
+
+def log_params(params):
+    """
+    Log a batch of params for the current run, starting a run if no runs
+    are active. `params` is a dictionary of
+    param_name: String -> value: String
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    params_arr = [Param(key, value) for key, value in params.items()]
+    MlflowClient().log_params(run_id, params_arr)
+
+def set_tags(tags):
+    """
+    Log a batch of tags for the current run, starting a run if no runs are
+    active. `tags` is a dictionary of
+    tag_name: String -> value: String
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    tags_arr = [RunTag(key, value) for key, value in tags.items()]
+    MlflowClient().set_tags(run_id, tags_arr)
+
 
 def log_artifact(local_path, artifact_path=None):
     """

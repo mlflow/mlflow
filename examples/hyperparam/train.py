@@ -71,8 +71,7 @@ class MLflowCheckpoint(Callback):
         """
         if not self._best_model:
             raise Exception("Failed to build any model")
-        mlflow.log_metric(self.train_loss, self._best_train_loss)
-        mlflow.log_metric(self.val_loss, self._best_val_loss)
+        mlflow.log_metrics({self.train_loss: self._best_train_loss, self.val_loss: self._best_val_loss})
         mlflow.keras.log_model(self._best_model, "model")
 
     def on_epoch_end(self, epoch, logs=None):
@@ -84,8 +83,7 @@ class MLflowCheckpoint(Callback):
             return
         train_loss = logs["loss"]
         val_loss = logs["val_loss"]
-        mlflow.log_metric(self.train_loss, train_loss)
-        mlflow.log_metric(self.val_loss, val_loss)
+        mlflow.log_metrics({self.train_loss: train_loss, self.val_loss: val_loss}, step=epoch)
 
         if val_loss < self._best_val_loss:
             # The result improved in the validation set.

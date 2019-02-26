@@ -16,6 +16,8 @@ from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.search_utils import does_run_match_clause
+from mlflow.utils.validation import _validate_batch_log_limits
+from mlflow.protos.service_pb2 import BatchLogFailure
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -350,3 +352,28 @@ class SqlAlchemyStore(AbstractStore):
         exp = self._list_experiments(ids=[experiment_id], view_type=ViewType.ALL).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
+
+
+    def log_batch(self, run_uuid, metrics, params, tags):
+        _validate_batch_log_limits(metrics, params, tags)
+        failed_metrics = []
+        failed_params = []
+        failed_tags = []
+        def try_req_and_maybe_add_batch_log_failure(fn, index, failures_arr):
+            """Helper function for attempting to log a metric/param/tag & recording failures"""
+            try:
+                fn()
+            except MlflowException as e:
+                failures_arr.append(
+                    BatchLogFailure(error_code=e.error_code, index=index, message=e.message))
+        # TODO: do these in a single transaction/commit?
+        for i, metric in enumerate(metrics):
+            try_req_and_maybe_add_batch_log_failure(
+                lambda: self.log_metric(run_uuid=run_uuid, metric=metric), i, failed_metrics)
+        for i, param in enumerate(params):
+            try_req_and_maybe_add_batch_log_failure(
+                lambda: self.log_param(run_uuid=run_uuid, param=param), i, failed_params)
+        for i, tag in enumerate(tags):
+            try_req_and_maybe_add_batch_log_failure(
+                lambda: self.set_tag(run_uuid=run_uuid, tag=tag), i, failed_tags)
+        return failed_metrics, failed_params, failed_tags

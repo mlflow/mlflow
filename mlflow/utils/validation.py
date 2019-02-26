@@ -17,6 +17,10 @@ _BAD_CHARACTERS_MESSAGE = (
     " spaces ( ), and slashes (/)."
 )
 
+MAX_PARAMS_TAGS_PER_BATCH = 100
+MAX_METRICS_PER_BATCH = 1000
+MAX_ENTITIES_PER_BATCH = 1000
+MAX_BATCH_LOG_REQUEST_SIZE = int(1e7)
 
 def bad_path_message(name):
     return (
@@ -69,6 +73,30 @@ def _validate_experiment_id(exp_id):
         raise MlflowException("Invalid experiment ID: '%s'" % exp_id,
                               error_code=INVALID_PARAMETER_VALUE)
 
+
+def _validate_batch_limit(entity_name, limit, length):
+    if length > limit:
+        error_msg = ("A batch logging request can contain at most {limit} {name}. "
+                     "Got {count} {name}. Please split up {name} across multiple requests and try "
+                     "again.").format(name=entity_name, count=length, limit=limit)
+        raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_batch_log_limits(metrics, params, tags):
+    """Validate that the provided batched logging arguments are within expected limits."""
+    _validate_batch_limit(entity_name="metrics", limit=MAX_METRICS_PER_BATCH, length=len(metrics))
+    _validate_batch_limit(entity_name="params", limit=MAX_METRICS_PER_BATCH, length=len(params))
+    _validate_batch_limit(entity_name="tags", limit=MAX_METRICS_PER_BATCH, length=len(tags))
+    total_length = len(metrics) + len(params) + len(tags)
+    _validate_batch_limit(entity_name="metrics, params, and tags",
+                          limit=MAX_ENTITIES_PER_BATCH, length=total_length)
+
+def _validate_batch_log_api_req(json_req):
+    if len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE:
+        error_msg = ("Batched logging API requests must be at most {limit} bytes, got "
+                     "request of size {size}.").format(
+            limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
+        raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""

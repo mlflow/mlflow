@@ -2,7 +2,7 @@
 
 set -ex
 PROTOC_VERSION="$(protoc --version)"
-if [ "$PROTOC_VERSION" != "libprotoc 3.6.0" ]; then
+if [ "$PROTOC_VERSION" != "libprotoc 3.6.1" ]; then
 	echo "Must have libprotoc version 3.6.0."
 	echo "We found: $PROTOC_VERSION"
 	exit 1

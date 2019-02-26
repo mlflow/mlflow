@@ -10,10 +10,11 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
+from mlflow.protos.service_pb2 import BatchLogFailure
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
-                                    _validate_tag_name, _validate_experiment_id
+                                    _validate_tag_name, _validate_experiment_id, _validate_batch_log_limits
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
@@ -537,3 +538,28 @@ class FileStore(AbstractStore):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         run_info_dict = _make_persisted_run_info_dict(run_info)
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
+
+
+    def log_batch(self, run_uuid, metrics, params, tags):
+        _validate_run_id(run_uuid)
+        _validate_batch_log_limits(metrics, params, tags)
+        failed_metrics = []
+        failed_params = []
+        failed_tags = []
+        def try_req_and_maybe_add_batch_log_failure(fn, index, failures_arr):
+            """Helper function for attempting to log a metric/param/tag & recording failures"""
+            try:
+                fn()
+            except MlflowException as e:
+                failures_arr.append(
+                    BatchLogFailure(error_code=e.error_code, index=index, message=e.message))
+        for i, metric in enumerate(metrics):
+            try_req_and_maybe_add_batch_log_failure(
+                lambda: self.log_metric(run_uuid=run_uuid, metric=metric), i, failed_metrics)
+        for i, param in enumerate(params):
+            try_req_and_maybe_add_batch_log_failure(
+                lambda: self.log_param(run_uuid=run_uuid, param=param), i, failed_params)
+        for i, tag in enumerate(tags):
+            try_req_and_maybe_add_batch_log_failure(
+                lambda: self.set_tag(run_uuid=run_uuid, tag=tag), i, failed_tags)
+        return failed_metrics, failed_params, failed_tags
