@@ -300,7 +300,7 @@ def _get_source_type():
 
 def _get_experiment_id_from_env():
     experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
-    if experiment_name:
+    if experiment_name is not None:
         exp = MlflowClient().get_experiment_by_name(experiment_name)
         return exp.experiment_id if exp else None
     return env.get_env(_EXPERIMENT_ID_ENV_VAR)
@@ -309,7 +309,7 @@ def _get_experiment_id_from_env():
 def _get_experiment_id():
     return int(_active_experiment_id or
                _get_experiment_id_from_env() or
-               (env.get_env(_AUTODETECT_EXPERIMENT) and
+               (env.get_env(_AUTODETECT_EXPERIMENT, True) and
                 is_in_databricks_notebook() and get_notebook_id()) or
                Experiment.DEFAULT_EXPERIMENT_ID)
 
