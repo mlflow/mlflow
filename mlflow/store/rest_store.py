@@ -244,7 +244,8 @@ class RestStore(AbstractStore):
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(
-            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos))
+            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos,
+                     run_uuid=run_uuid))
         response_proto = self._call_endpoint(LogBatch, req_body)
         # Add a new entity type to wrap this? Would that make sense? Like BatchLogsResponse?
         # Then the server can convert that back into an actual response

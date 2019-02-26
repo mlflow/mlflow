@@ -44944,7 +44944,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> 
           getUnprocessedMetricsList();
@@ -44953,7 +44953,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedMetrics(int index);
       /**
@@ -44961,7 +44961,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       int getUnprocessedMetricsCount();
       /**
@@ -44969,7 +44969,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
           getUnprocessedMetricsOrBuilderList();
@@ -44978,7 +44978,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedMetricsOrBuilder(
           int index);
@@ -44988,7 +44988,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> 
           getUnprocessedParamsList();
@@ -44997,7 +44997,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedParams(int index);
       /**
@@ -45005,7 +45005,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       int getUnprocessedParamsCount();
       /**
@@ -45013,7 +45013,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
           getUnprocessedParamsOrBuilderList();
@@ -45022,7 +45022,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedParamsOrBuilder(
           int index);
@@ -45032,7 +45032,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> 
           getUnprocessedTagsList();
@@ -45041,7 +45041,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedTags(int index);
       /**
@@ -45049,7 +45049,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       int getUnprocessedTagsCount();
       /**
@@ -45057,7 +45057,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
           getUnprocessedTagsOrBuilderList();
@@ -45066,7 +45066,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedTagsOrBuilder(
           int index);
@@ -45181,14 +45181,14 @@ public final class Service {
                 org.mlflow.api.proto.Service.LogBatch.Response.class, org.mlflow.api.proto.Service.LogBatch.Response.Builder.class);
       }
 
-      public static final int UNPROCESSEDMETRICS_FIELD_NUMBER = 1;
+      public static final int UNPROCESSED_METRICS_FIELD_NUMBER = 1;
       private java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> unprocessedMetrics_;
       /**
        * <pre>
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> getUnprocessedMetricsList() {
         return unprocessedMetrics_;
@@ -45198,7 +45198,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       public java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
           getUnprocessedMetricsOrBuilderList() {
@@ -45209,7 +45209,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       public int getUnprocessedMetricsCount() {
         return unprocessedMetrics_.size();
@@ -45219,7 +45219,7 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       public org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedMetrics(int index) {
         return unprocessedMetrics_.get(index);
@@ -45229,21 +45229,21 @@ public final class Service {
        * List of failure protos corresponding to metrics that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
        */
       public org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedMetricsOrBuilder(
           int index) {
         return unprocessedMetrics_.get(index);
       }
 
-      public static final int UNPROCESSEDPARAMS_FIELD_NUMBER = 2;
+      public static final int UNPROCESSED_PARAMS_FIELD_NUMBER = 2;
       private java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> unprocessedParams_;
       /**
        * <pre>
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> getUnprocessedParamsList() {
         return unprocessedParams_;
@@ -45253,7 +45253,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       public java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
           getUnprocessedParamsOrBuilderList() {
@@ -45264,7 +45264,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       public int getUnprocessedParamsCount() {
         return unprocessedParams_.size();
@@ -45274,7 +45274,7 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       public org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedParams(int index) {
         return unprocessedParams_.get(index);
@@ -45284,21 +45284,21 @@ public final class Service {
        * List of failure protos corresponding to params that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
        */
       public org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedParamsOrBuilder(
           int index) {
         return unprocessedParams_.get(index);
       }
 
-      public static final int UNPROCESSEDTAGS_FIELD_NUMBER = 3;
+      public static final int UNPROCESSED_TAGS_FIELD_NUMBER = 3;
       private java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> unprocessedTags_;
       /**
        * <pre>
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> getUnprocessedTagsList() {
         return unprocessedTags_;
@@ -45308,7 +45308,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       public java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
           getUnprocessedTagsOrBuilderList() {
@@ -45319,7 +45319,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       public int getUnprocessedTagsCount() {
         return unprocessedTags_.size();
@@ -45329,7 +45329,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       public org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedTags(int index) {
         return unprocessedTags_.get(index);
@@ -45339,7 +45339,7 @@ public final class Service {
        * List of failure protos corresponding to tags that could not be logged
        * </pre>
        *
-       * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+       * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
        */
       public org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedTagsOrBuilder(
           int index) {
@@ -45424,15 +45424,15 @@ public final class Service {
         int hash = 41;
         hash = (19 * hash) + getDescriptor().hashCode();
         if (getUnprocessedMetricsCount() > 0) {
-          hash = (37 * hash) + UNPROCESSEDMETRICS_FIELD_NUMBER;
+          hash = (37 * hash) + UNPROCESSED_METRICS_FIELD_NUMBER;
           hash = (53 * hash) + getUnprocessedMetricsList().hashCode();
         }
         if (getUnprocessedParamsCount() > 0) {
-          hash = (37 * hash) + UNPROCESSEDPARAMS_FIELD_NUMBER;
+          hash = (37 * hash) + UNPROCESSED_PARAMS_FIELD_NUMBER;
           hash = (53 * hash) + getUnprocessedParamsList().hashCode();
         }
         if (getUnprocessedTagsCount() > 0) {
-          hash = (37 * hash) + UNPROCESSEDTAGS_FIELD_NUMBER;
+          hash = (37 * hash) + UNPROCESSED_TAGS_FIELD_NUMBER;
           hash = (53 * hash) + getUnprocessedTagsList().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
@@ -45816,7 +45816,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> getUnprocessedMetricsList() {
           if (unprocessedMetricsBuilder_ == null) {
@@ -45830,7 +45830,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public int getUnprocessedMetricsCount() {
           if (unprocessedMetricsBuilder_ == null) {
@@ -45844,7 +45844,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedMetrics(int index) {
           if (unprocessedMetricsBuilder_ == null) {
@@ -45858,7 +45858,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder setUnprocessedMetrics(
             int index, org.mlflow.api.proto.Service.BatchLogFailure value) {
@@ -45879,7 +45879,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder setUnprocessedMetrics(
             int index, org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -45897,7 +45897,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder addUnprocessedMetrics(org.mlflow.api.proto.Service.BatchLogFailure value) {
           if (unprocessedMetricsBuilder_ == null) {
@@ -45917,7 +45917,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder addUnprocessedMetrics(
             int index, org.mlflow.api.proto.Service.BatchLogFailure value) {
@@ -45938,7 +45938,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder addUnprocessedMetrics(
             org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -45956,7 +45956,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder addUnprocessedMetrics(
             int index, org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -45974,7 +45974,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder addAllUnprocessedMetrics(
             java.lang.Iterable<? extends org.mlflow.api.proto.Service.BatchLogFailure> values) {
@@ -45993,7 +45993,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder clearUnprocessedMetrics() {
           if (unprocessedMetricsBuilder_ == null) {
@@ -46010,7 +46010,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public Builder removeUnprocessedMetrics(int index) {
           if (unprocessedMetricsBuilder_ == null) {
@@ -46027,7 +46027,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder getUnprocessedMetricsBuilder(
             int index) {
@@ -46038,7 +46038,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedMetricsOrBuilder(
             int index) {
@@ -46052,7 +46052,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
              getUnprocessedMetricsOrBuilderList() {
@@ -46067,7 +46067,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder addUnprocessedMetricsBuilder() {
           return getUnprocessedMetricsFieldBuilder().addBuilder(
@@ -46078,7 +46078,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder addUnprocessedMetricsBuilder(
             int index) {
@@ -46090,7 +46090,7 @@ public final class Service {
          * List of failure protos corresponding to metrics that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedMetrics = 1;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
          */
         public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure.Builder> 
              getUnprocessedMetricsBuilderList() {
@@ -46128,7 +46128,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> getUnprocessedParamsList() {
           if (unprocessedParamsBuilder_ == null) {
@@ -46142,7 +46142,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public int getUnprocessedParamsCount() {
           if (unprocessedParamsBuilder_ == null) {
@@ -46156,7 +46156,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedParams(int index) {
           if (unprocessedParamsBuilder_ == null) {
@@ -46170,7 +46170,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder setUnprocessedParams(
             int index, org.mlflow.api.proto.Service.BatchLogFailure value) {
@@ -46191,7 +46191,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder setUnprocessedParams(
             int index, org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -46209,7 +46209,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder addUnprocessedParams(org.mlflow.api.proto.Service.BatchLogFailure value) {
           if (unprocessedParamsBuilder_ == null) {
@@ -46229,7 +46229,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder addUnprocessedParams(
             int index, org.mlflow.api.proto.Service.BatchLogFailure value) {
@@ -46250,7 +46250,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder addUnprocessedParams(
             org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -46268,7 +46268,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder addUnprocessedParams(
             int index, org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -46286,7 +46286,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder addAllUnprocessedParams(
             java.lang.Iterable<? extends org.mlflow.api.proto.Service.BatchLogFailure> values) {
@@ -46305,7 +46305,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder clearUnprocessedParams() {
           if (unprocessedParamsBuilder_ == null) {
@@ -46322,7 +46322,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public Builder removeUnprocessedParams(int index) {
           if (unprocessedParamsBuilder_ == null) {
@@ -46339,7 +46339,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder getUnprocessedParamsBuilder(
             int index) {
@@ -46350,7 +46350,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedParamsOrBuilder(
             int index) {
@@ -46364,7 +46364,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
              getUnprocessedParamsOrBuilderList() {
@@ -46379,7 +46379,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder addUnprocessedParamsBuilder() {
           return getUnprocessedParamsFieldBuilder().addBuilder(
@@ -46390,7 +46390,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder addUnprocessedParamsBuilder(
             int index) {
@@ -46402,7 +46402,7 @@ public final class Service {
          * List of failure protos corresponding to params that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedParams = 2;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
          */
         public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure.Builder> 
              getUnprocessedParamsBuilderList() {
@@ -46440,7 +46440,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> getUnprocessedTagsList() {
           if (unprocessedTagsBuilder_ == null) {
@@ -46454,7 +46454,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public int getUnprocessedTagsCount() {
           if (unprocessedTagsBuilder_ == null) {
@@ -46468,7 +46468,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedTags(int index) {
           if (unprocessedTagsBuilder_ == null) {
@@ -46482,7 +46482,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder setUnprocessedTags(
             int index, org.mlflow.api.proto.Service.BatchLogFailure value) {
@@ -46503,7 +46503,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder setUnprocessedTags(
             int index, org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -46521,7 +46521,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder addUnprocessedTags(org.mlflow.api.proto.Service.BatchLogFailure value) {
           if (unprocessedTagsBuilder_ == null) {
@@ -46541,7 +46541,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder addUnprocessedTags(
             int index, org.mlflow.api.proto.Service.BatchLogFailure value) {
@@ -46562,7 +46562,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder addUnprocessedTags(
             org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -46580,7 +46580,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder addUnprocessedTags(
             int index, org.mlflow.api.proto.Service.BatchLogFailure.Builder builderForValue) {
@@ -46598,7 +46598,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder addAllUnprocessedTags(
             java.lang.Iterable<? extends org.mlflow.api.proto.Service.BatchLogFailure> values) {
@@ -46617,7 +46617,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder clearUnprocessedTags() {
           if (unprocessedTagsBuilder_ == null) {
@@ -46634,7 +46634,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public Builder removeUnprocessedTags(int index) {
           if (unprocessedTagsBuilder_ == null) {
@@ -46651,7 +46651,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder getUnprocessedTagsBuilder(
             int index) {
@@ -46662,7 +46662,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailureOrBuilder getUnprocessedTagsOrBuilder(
             int index) {
@@ -46676,7 +46676,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public java.util.List<? extends org.mlflow.api.proto.Service.BatchLogFailureOrBuilder> 
              getUnprocessedTagsOrBuilderList() {
@@ -46691,7 +46691,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder addUnprocessedTagsBuilder() {
           return getUnprocessedTagsFieldBuilder().addBuilder(
@@ -46702,7 +46702,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public org.mlflow.api.proto.Service.BatchLogFailure.Builder addUnprocessedTagsBuilder(
             int index) {
@@ -46714,7 +46714,7 @@ public final class Service {
          * List of failure protos corresponding to tags that could not be logged
          * </pre>
          *
-         * <code>repeated .mlflow.BatchLogFailure unprocessedTags = 3;</code>
+         * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
          */
         public java.util.List<org.mlflow.api.proto.Service.BatchLogFailure.Builder> 
              getUnprocessedTagsBuilderList() {
@@ -48955,82 +48955,82 @@ public final class Service {
       "Metric:+\342?(\n&com.databricks.rpc.RPC[$thi" +
       "s.Response]\"Q\n\017BatchLogFailure\022\r\n\005index\030" +
       "\001 \001(\003\022\036\n\nerror_code\030\002 \001(\0162\n.ErrorCode\022\017\n" +
-      "\007message\030\003 \001(\t\"\242\002\n\010LogBatch\022\020\n\010run_uuid\030" +
+      "\007message\030\003 \001(\t\"\245\002\n\010LogBatch\022\020\n\010run_uuid\030" +
       "\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflow.Metric\022\035" +
       "\n\006params\030\003 \003(\0132\r.mlflow.Param\022\034\n\004tags\030\004 " +
-      "\003(\0132\016.mlflow.RunTag\032\245\001\n\010Response\0223\n\022unpr" +
-      "ocessedMetrics\030\001 \003(\0132\027.mlflow.BatchLogFa" +
-      "ilure\0222\n\021unprocessedParams\030\002 \003(\0132\027.mlflo" +
-      "w.BatchLogFailure\0220\n\017unprocessedTags\030\003 \003" +
-      "(\0132\027.mlflow.BatchLogFailure*6\n\010ViewType\022" +
-      "\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003AL" +
-      "L\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002" +
-      "\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M" +
-      "\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022" +
-      "\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\246\023" +
-      "\n\rMlflowService\022\234\001\n\020createExperiment\022\030.m" +
-      "lflow.CreateExperiment\032!.mlflow.CreateEx" +
-      "periment.Response\"K\202\265\030G\n0\n\004POST\022\"/previe" +
-      "w/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Cre" +
-      "ate Experiment\022\225\001\n\017listExperiments\022\027.mlf" +
-      "low.ListExperiments\032 .mlflow.ListExperim" +
-      "ents.Response\"G\202\265\030C\n-\n\003GET\022 /preview/mlf" +
-      "low/experiments/list\032\004\010\002\020\000\020\001*\020List Exper" +
-      "iments\022\214\001\n\rgetExperiment\022\025.mlflow.GetExp" +
-      "eriment\032\036.mlflow.GetExperiment.Response\"" +
-      "D\202\265\030@\n,\n\003GET\022\037/preview/mlflow/experiment" +
-      "s/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\234\001\n\020delete" +
-      "Experiment\022\030.mlflow.DeleteExperiment\032!.m" +
-      "lflow.DeleteExperiment.Response\"K\202\265\030G\n0\n" +
-      "\004POST\022\"/preview/mlflow/experiments/delet" +
-      "e\032\004\010\002\020\000\020\001*\021Delete Experiment\022\241\001\n\021restore" +
-      "Experiment\022\031.mlflow.RestoreExperiment\032\"." +
-      "mlflow.RestoreExperiment.Response\"M\202\265\030I\n" +
-      "1\n\004POST\022#/preview/mlflow/experiments/res" +
-      "tore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\234\001\n\020upd" +
-      "ateExperiment\022\030.mlflow.UpdateExperiment\032" +
-      "!.mlflow.UpdateExperiment.Response\"K\202\265\030G" +
-      "\n0\n\004POST\022\"/preview/mlflow/experiments/up" +
-      "date\032\004\010\002\020\000\020\001*\021Update Experiment\022y\n\tcreat" +
-      "eRun\022\021.mlflow.CreateRun\032\032.mlflow.CreateR" +
-      "un.Response\"=\202\265\0309\n)\n\004POST\022\033/preview/mlfl" +
-      "ow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tup" +
-      "dateRun\022\021.mlflow.UpdateRun\032\032.mlflow.Upda" +
+      "\003(\0132\016.mlflow.RunTag\032\250\001\n\010Response\0224\n\023unpr" +
+      "ocessed_metrics\030\001 \003(\0132\027.mlflow.BatchLogF" +
+      "ailure\0223\n\022unprocessed_params\030\002 \003(\0132\027.mlf" +
+      "low.BatchLogFailure\0221\n\020unprocessed_tags\030" +
+      "\003 \003(\0132\027.mlflow.BatchLogFailure*6\n\010ViewTy" +
+      "pe\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n" +
+      "\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JO" +
+      "B\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350" +
+      "\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED" +
+      "\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005" +
+      "2\246\023\n\rMlflowService\022\234\001\n\020createExperiment\022" +
+      "\030.mlflow.CreateExperiment\032!.mlflow.Creat" +
+      "eExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/pre" +
+      "view/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021" +
+      "Create Experiment\022\225\001\n\017listExperiments\022\027." +
+      "mlflow.ListExperiments\032 .mlflow.ListExpe" +
+      "riments.Response\"G\202\265\030C\n-\n\003GET\022 /preview/" +
+      "mlflow/experiments/list\032\004\010\002\020\000\020\001*\020List Ex" +
+      "periments\022\214\001\n\rgetExperiment\022\025.mlflow.Get" +
+      "Experiment\032\036.mlflow.GetExperiment.Respon" +
+      "se\"D\202\265\030@\n,\n\003GET\022\037/preview/mlflow/experim" +
+      "ents/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\234\001\n\020del" +
+      "eteExperiment\022\030.mlflow.DeleteExperiment\032" +
+      "!.mlflow.DeleteExperiment.Response\"K\202\265\030G" +
+      "\n0\n\004POST\022\"/preview/mlflow/experiments/de" +
+      "lete\032\004\010\002\020\000\020\001*\021Delete Experiment\022\241\001\n\021rest" +
+      "oreExperiment\022\031.mlflow.RestoreExperiment" +
+      "\032\".mlflow.RestoreExperiment.Response\"M\202\265" +
+      "\030I\n1\n\004POST\022#/preview/mlflow/experiments/" +
+      "restore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\234\001\n\020" +
+      "updateExperiment\022\030.mlflow.UpdateExperime" +
+      "nt\032!.mlflow.UpdateExperiment.Response\"K\202" +
+      "\265\030G\n0\n\004POST\022\"/preview/mlflow/experiments" +
+      "/update\032\004\010\002\020\000\020\001*\021Update Experiment\022y\n\tcr" +
+      "eateRun\022\021.mlflow.CreateRun\032\032.mlflow.Crea" +
       "teRun.Response\"=\202\265\0309\n)\n\004POST\022\033/preview/m" +
-      "lflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n" +
-      "\tdeleteRun\022\021.mlflow.DeleteRun\032\032.mlflow.D" +
-      "eleteRun.Response\"1\202\265\030-\n)\n\004POST\022\033/previe" +
-      "w/mlflow/runs/delete\032\004\010\002\020\000\020\001\022q\n\nrestoreR" +
-      "un\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreR" +
-      "un.Response\"2\202\265\030.\n*\n\004POST\022\034/preview/mlfl" +
-      "ow/runs/restore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.m" +
-      "lflow.LogMetric\032\032.mlflow.LogMetric.Respo" +
-      "nse\"A\202\265\030=\n-\n\004POST\022\037/preview/mlflow/runs/" +
-      "log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022|\n\010logPar" +
-      "am\022\020.mlflow.LogParam\032\031.mlflow.LogParam.R" +
-      "esponse\"C\202\265\030?\n0\n\004POST\022\"/preview/mlflow/r" +
-      "uns/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006" +
-      "setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTag.R" +
-      "esponse\";\202\265\0307\n*\n\004POST\022\034/preview/mlflow/r" +
-      "uns/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016" +
-      ".mlflow.GetRun\032\027.mlflow.GetRun.Response\"" +
-      "6\202\265\0302\n%\n\003GET\022\030/preview/mlflow/runs/get\032\004" +
-      "\010\002\020\000\020\001*\007Get Run\022\247\001\n\nsearchRuns\022\022.mlflow." +
-      "SearchRuns\032\033.mlflow.SearchRuns.Response\"" +
-      "h\202\265\030d\n)\n\004POST\022\033/preview/mlflow/runs/sear" +
-      "ch\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs/se" +
-      "arch\032\004\010\002\020\000\020\001*\013Search Runs\022\213\001\n\rlistArtifa" +
-      "cts\022\025.mlflow.ListArtifacts\032\036.mlflow.List" +
-      "Artifacts.Response\"C\202\265\030?\n+\n\003GET\022\036/previe" +
-      "w/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Ar" +
-      "tifacts\022\235\001\n\020getMetricHistory\022\030.mlflow.Ge" +
-      "tMetricHistory\032!.mlflow.GetMetricHistory" +
-      ".Response\"L\202\265\030H\n0\n\003GET\022#/preview/mlflow/" +
-      "metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric " +
-      "History\022e\n\010logBatch\022\020.mlflow.LogBatch\032\031." +
-      "mlflow.LogBatch.Response\",\202\265\030(\n&\n\004POST\022\036" +
-      "/preview/mlflow/runs/log-batchB\036\n\024org.ml" +
-      "flow.api.proto\220\001\001\342?\002\020\001"
+      "lflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022y\n" +
+      "\tupdateRun\022\021.mlflow.UpdateRun\032\032.mlflow.U" +
+      "pdateRun.Response\"=\202\265\0309\n)\n\004POST\022\033/previe" +
+      "w/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run" +
+      "\022m\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.mlflo" +
+      "w.DeleteRun.Response\"1\202\265\030-\n)\n\004POST\022\033/pre" +
+      "view/mlflow/runs/delete\032\004\010\002\020\000\020\001\022q\n\nresto" +
+      "reRun\022\022.mlflow.RestoreRun\032\033.mlflow.Resto" +
+      "reRun.Response\"2\202\265\030.\n*\n\004POST\022\034/preview/m" +
+      "lflow/runs/restore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022" +
+      "\021.mlflow.LogMetric\032\032.mlflow.LogMetric.Re" +
+      "sponse\"A\202\265\030=\n-\n\004POST\022\037/preview/mlflow/ru" +
+      "ns/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022|\n\010log" +
+      "Param\022\020.mlflow.LogParam\032\031.mlflow.LogPara" +
+      "m.Response\"C\202\265\030?\n0\n\004POST\022\"/preview/mlflo" +
+      "w/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022" +
+      "n\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTa" +
+      "g.Response\";\202\265\0307\n*\n\004POST\022\034/preview/mlflo" +
+      "w/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRu" +
+      "n\022\016.mlflow.GetRun\032\027.mlflow.GetRun.Respon" +
+      "se\"6\202\265\0302\n%\n\003GET\022\030/preview/mlflow/runs/ge" +
+      "t\032\004\010\002\020\000\020\001*\007Get Run\022\247\001\n\nsearchRuns\022\022.mlfl" +
+      "ow.SearchRuns\032\033.mlflow.SearchRuns.Respon" +
+      "se\"h\202\265\030d\n)\n\004POST\022\033/preview/mlflow/runs/s" +
+      "earch\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs" +
+      "/search\032\004\010\002\020\000\020\001*\013Search Runs\022\213\001\n\rlistArt" +
+      "ifacts\022\025.mlflow.ListArtifacts\032\036.mlflow.L" +
+      "istArtifacts.Response\"C\202\265\030?\n+\n\003GET\022\036/pre" +
+      "view/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List" +
+      " Artifacts\022\235\001\n\020getMetricHistory\022\030.mlflow" +
+      ".GetMetricHistory\032!.mlflow.GetMetricHist" +
+      "ory.Response\"L\202\265\030H\n0\n\003GET\022#/preview/mlfl" +
+      "ow/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metr" +
+      "ic History\022e\n\010logBatch\022\020.mlflow.LogBatch" +
+      "\032\031.mlflow.LogBatch.Response\",\202\265\030(\n&\n\004POS" +
+      "T\022\036/preview/mlflow/runs/log-batchB\036\n\024org" +
+      ".mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

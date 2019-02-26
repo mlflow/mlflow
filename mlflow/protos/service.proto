@@ -828,10 +828,10 @@ message LogBatch {
   repeated RunTag tags = 4;
   message Response {
     // List of failure protos corresponding to metrics that could not be logged
-    repeated BatchLogFailure unprocessedMetrics = 1;
+    repeated BatchLogFailure unprocessed_metrics = 1;
     // List of failure protos corresponding to params that could not be logged
-    repeated BatchLogFailure unprocessedParams = 2;
+    repeated BatchLogFailure unprocessed_params = 2;
     // List of failure protos corresponding to tags that could not be logged
-    repeated BatchLogFailure unprocessedTags = 3;
+    repeated BatchLogFailure unprocessed_tags = 3;
   }
 }
