@@ -26,7 +26,8 @@ from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
 
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
+    LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME
 from mlflow.utils.mlflow_tags import MLFLOW_ENV, MLFLOW_CONDA, MLFLOW_DOCKER
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils import databricks_utils, file_utils
@@ -83,11 +84,13 @@ def _run(uri, entry_point="main", version=None, parameters=None,
 
     repo_url = _get_git_repo_url(work_dir)
     if repo_url is not None:
-        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL, repo_url)
+        for tag in [MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_REPO_URL]:
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, tag, repo_url)
 
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
-        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
+        for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, tag, version)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
