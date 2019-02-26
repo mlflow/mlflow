@@ -69,13 +69,13 @@ class S3ArtifactRepository(ArtifactRepository):
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
-                subdir = obj.get("Prefix")[len(artifact_path)+1:]
+                subdir = self.get_path_module().relpath(path=obj.get("Prefix"), start=artifact_path)
                 if subdir.endswith("/"):
                     subdir = subdir[:-1]
                 infos.append(FileInfo(subdir, True, None))
             # Objects listed directly will be files
             for obj in result.get('Contents', []):
-                name = obj.get("Key")[len(artifact_path)+1:]
+                name = self.get_path_module().relpath(path=obj.get("Key"), start=artifact_path)
                 size = int(obj.get('Size'))
                 infos.append(FileInfo(name, False, size))
         return sorted(infos, key=lambda f: f.path)
