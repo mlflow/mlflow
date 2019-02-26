@@ -263,7 +263,8 @@ def test_start_run_overrides(empty_active_run_stack):
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
-        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
+        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name
     }
 
     with databricks_notebook_patch, create_run_patch:
@@ -314,6 +315,7 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_notebook_path,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
         mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url
@@ -360,7 +362,8 @@ def test_start_run_with_parent():
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
-        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
+        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name
     }
 
     with databricks_notebook_patch, create_run_patch, active_run_stack_patch:

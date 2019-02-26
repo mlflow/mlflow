@@ -23,7 +23,7 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_noteboo
     get_notebook_path, get_webapp_url
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
     MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_GIT_COMMIT, \
-    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME
+    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -130,6 +130,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         source_version = source_version or _get_source_version()
         if source_version is not None:
             tags[MLFLOW_GIT_COMMIT] = source_version
+        if entry_point_name is not None:
+            tags[MLFLOW_PROJECT_ENTRY_POINT] = entry_point_name
 
         if is_in_databricks_notebook():
             notebook_id = get_notebook_id()
