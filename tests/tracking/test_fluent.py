@@ -171,6 +171,8 @@ def test_start_run_defaults(empty_active_run_stack):
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
     expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
     }
 
@@ -217,6 +219,8 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
     )
 
     expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_notebook_path,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
@@ -257,6 +261,8 @@ def test_start_run_overrides(empty_active_run_stack):
     mock_run_name = mock.Mock()
 
     expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
     }
 
@@ -305,6 +311,8 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
     mock_run_name = mock.Mock()
 
     expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_notebook_path,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
@@ -350,6 +358,8 @@ def test_start_run_with_parent():
     mock_run_name = mock.Mock()
 
     expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
     }
 

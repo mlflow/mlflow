@@ -1,6 +1,7 @@
 """
 File containing all of the run tags in the mlflow. namespace.
 """
+
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
 MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"
@@ -9,6 +10,8 @@ MLFLOW_DATABRICKS_SHELL_JOB_ID = "mlflow.databricks.shellJobID"
 MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
 
 MLFLOW_RUN_NAME = "mlflow.runName"
+MLFLOW_SOURCE_TYPE = "mlflow.source.type"
+MLFLOW_SOURCE_NAME = "mlflow.source.name"
 MLFLOW_GIT_COMMIT = "mlflow.source.git.commit"
 MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
 MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL"

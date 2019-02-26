@@ -22,7 +22,8 @@ from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
-    MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_GIT_COMMIT
+    MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_GIT_COMMIT, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -145,6 +146,9 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         else:
             source_name = source_name or _get_source_name()
             source_type = source_type or _get_source_type()
+
+        tags[MLFLOW_SOURCE_NAME] = source_name
+        tags[MLFLOW_SOURCE_TYPE] = source_type
 
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
