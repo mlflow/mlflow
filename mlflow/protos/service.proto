@@ -818,6 +818,8 @@ message BatchLogFailure {
 }
 
 message LogBatch {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
   // ID of the run to log under
   optional string run_uuid = 1;
   // Metrics to log

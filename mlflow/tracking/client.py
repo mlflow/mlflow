@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-    _validate_tag_name, _validate_run_id, _validate_experiment_name
+    _validate_tag_name, _validate_run_id, _validate_experiment_name, _validate_batch_log_limits
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repo import ArtifactRepository
 
@@ -162,12 +162,13 @@ class MlflowClient(object):
         Raises an MlflowException if any errors occur.
         :returns: None
         """
+        _validate_batch_log_limits(metrics=metrics, params=params, tags=tags)
         for metric in metrics:
             _validate_metric_name(metric.key)
         for param in params:
-            _validate_metric_name(param.key)
+            _validate_param_name(param.key)
         for tag in tags:
-            _validate_metric_name(tag.key)
+            _validate_tag_name(tag.key)
         self.store.log_batch(run_uuid=run_id, metrics=metrics, params=params, tags=tags)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):

@@ -355,25 +355,12 @@ class SqlAlchemyStore(AbstractStore):
 
 
     def log_batch(self, run_uuid, metrics, params, tags):
+        # Note that the SQLAlchemy log_batch implementation is all-or-nothing (we either log the
+        # whole batch or none of it)
         _validate_batch_log_limits(metrics, params, tags)
-        failed_metrics = []
-        failed_params = []
-        failed_tags = []
-        def try_req_and_maybe_add_batch_log_failure(fn, index, failures_arr):
-            """Helper function for attempting to log a metric/param/tag & recording failures"""
-            try:
-                fn()
-            except MlflowException as e:
-                failures_arr.append(
-                    BatchLogFailure(error_code=e.error_code, index=index, message=e.message))
-        # TODO: do these in a single transaction/commit?
-        for i, metric in enumerate(metrics):
-            try_req_and_maybe_add_batch_log_failure(
-                lambda: self.log_metric(run_uuid=run_uuid, metric=metric), i, failed_metrics)
-        for i, param in enumerate(params):
-            try_req_and_maybe_add_batch_log_failure(
-                lambda: self.log_param(run_uuid=run_uuid, param=param), i, failed_params)
-        for i, tag in enumerate(tags):
-            try_req_and_maybe_add_batch_log_failure(
-                lambda: self.set_tag(run_uuid=run_uuid, tag=tag), i, failed_tags)
-        return failed_metrics, failed_params, failed_tags
+        entities = [SqlMetric(key=metric.key, value=metric.value, timestamp=metric.timestamp,
+                              run_uuid=run_uuid) for metric in metrics]
+        entities.extend([SqlParam(key=param.key, value=param.value, run_uuid=run_uuid)
+                         for param in params])
+        entities.extend([SqlTag(key=tag.key, value=tag.value, run_uuid=run_uuid) for tag in tags])
+        self._save_to_db(entities)

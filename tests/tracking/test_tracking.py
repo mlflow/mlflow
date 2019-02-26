@@ -1,3 +1,4 @@
+import copy
 import filecmp
 import os
 import random
@@ -207,6 +208,52 @@ def test_log_metrics(tracking_uri_mock):
     assert len(finished_run.data.metrics) == 3
     for metric in finished_run.data.metrics:
         assert expected_metrics[metric.key] == metric.value
+
+@pytest.fixture
+def get_store_mock(tmpdir):
+    with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
+        yield _get_store_mock
+
+def test_log_batch_validations(tracking_uri_mock, get_store_mock):
+    # Log same param with different values, verify error before we hit the store
+    # Log metric/param/tag with bad keys, verify error before we hit the store
+    # TODO: Do we want to validate on long keys in the client? Would be a breaking behavior change
+    metrics_with_bad_key = [Metric("good-metric-key", 1.0, 0), Metric("super-long-bad-key" * 1000, 4.0, 0)]
+    params_with_bad_key = [Param("good-param-key", "hi"), Param("super-long-bad-key" * 1000, "but-good-val")]
+    params_with_bad_val = [Param("good-param-key", "hi"), Param("another-good-key", "but-bad-val" * 1000)]
+    tags_with_bad_key = [RunTag("good-tag-key", "hi"), RunTag("super-long-bad-key" * 1000, "but-good-val")]
+    tags_with_bad_val = [RunTag("good-tag-key", "hi"), RunTag("another-good-key", "but-bad-val" * 1000)]
+
+    too_many_metrics = [Metric("a", 1, 0) for _ in range(1001)]
+    too_many_params = [Param("a", "b") for _ in range(101)]
+    too_many_tags = [RunTag("a", "b") for _ in range(101)]
+
+    good_kwargs = {"metrics": [], "params": [], "tags": []}
+    bad_kwargs = {
+        "metrics": [metrics_with_bad_key, too_many_metrics],
+        "params": [params_with_bad_key, params_with_bad_val, too_many_params],
+        "tags": [tags_with_bad_key, tags_with_bad_val, too_many_tags],
+    }
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
+        for arg_name, arg_values in bad_kwargs.items():
+            for arg_value in arg_values:
+                final_kwargs = copy.deepcopy(good_kwargs)
+                final_kwargs[arg_name] = arg_value
+                with pytest.raises(MlflowException):
+                    mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, **final_kwargs)
+                assert get_store_mock.not_called()
+        # Test the case where there are too many entities in aggregate
+        too_many_entities = {
+            "metrics": too_many_metrics[:900],
+            "tags": too_many_tags[:50],
+            "params": too_many_params[:51],
+        }
+        with pytest.raises(MlflowException):
+            mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, **too_many_entities)
+            assert get_store_mock.not_called()
+
 
 
 def test_set_tags(tracking_uri_mock):

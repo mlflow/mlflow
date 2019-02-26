@@ -56,6 +56,9 @@ def test_can_parse_get_json_with_unknown_fields():
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
 
+def test_enforces_batch_logging_limits():
+    pass
+
 
 # Previous versions of the client sent a doubly string encoded JSON blob,
 # so this test ensures continued compliance with such clients.
