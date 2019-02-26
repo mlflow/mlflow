@@ -215,12 +215,11 @@ def test_run_local_git_repo(local_git_repo,
         assert metric.value == expected_metrics[metric.key]
     # Validate the branch name tag is logged
     if version == "master":
-        expected_tags = {MLFLOW_GIT_BRANCH: "master",
-                         LEGACY_MLFLOW_GIT_BRANCH_NAME: "master",
-                         MLFLOW_GIT_REPO_URL: local_git_repo_uri,
-                         LEGACY_MLFLOW_GIT_REPO_URL: local_git_repo_uri}
-        for tag in run.data.tags:
-            assert tag.value == expected_tags[tag.key]
+        tags = {tag.key: tag.value for tag in run.data.tags}
+        assert tags[MLFLOW_GIT_BRANCH] == "master"
+        assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
+        assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
+        assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri,
