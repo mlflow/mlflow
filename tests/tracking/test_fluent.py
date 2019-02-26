@@ -67,10 +67,9 @@ def test_get_experiment_id_from_env():
         assert _get_experiment_id_from_env() == exp_id
 
 
-def test_get_experiment_id():
-    # When no experiment is active should return default
-    assert _get_experiment_id() == Experiment.DEFAULT_EXPERIMENT_ID
-
+def test_get_experiment_id_with_active_experiment_returns_active_experiment_id(
+        reset_experiment_id):
+    # pylint: disable=unused-argument
     # Create a new experiment and set that as active experiment
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
@@ -78,6 +77,13 @@ def test_get_experiment_id():
         assert exp_id is not None
         mlflow.set_experiment(name)
         assert _get_experiment_id() == exp_id
+
+
+def test_get_experiment_id_with_no_active_experiments_returns_default_experiment_id(
+        reset_experiment_id):
+    # pylint: disable=unused-argument
+    assert _get_experiment_id() == Experiment.DEFAULT_EXPERIMENT_ID
+
 
 
 def test_get_experiment_id_in_databricks_detects_notebook_id_by_default(reset_experiment_id):
