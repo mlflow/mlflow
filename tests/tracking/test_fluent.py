@@ -85,7 +85,6 @@ def test_get_experiment_id_with_no_active_experiments_returns_default_experiment
     assert _get_experiment_id() == Experiment.DEFAULT_EXPERIMENT_ID
 
 
-
 def test_get_experiment_id_in_databricks_detects_notebook_id_by_default(reset_experiment_id):
     # pylint: disable=unused-argument
     notebook_id = 768
@@ -97,7 +96,8 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default(reset_ex
         assert _get_experiment_id() == notebook_id
 
 
-def test_get_experiment_id_in_databricks_does_not_detect_notebook_id_if_autodetect_disabled(reset_experiment_id):
+def test_get_experiment_id_in_databricks_does_not_detect_notebook_id_if_autodetect_disabled(
+        reset_experiment_id):
     # pylint: disable=unused-argument
     notebook_id = 768
 
