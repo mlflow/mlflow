@@ -5,9 +5,10 @@ import random
 import pytest
 
 import mlflow
+import mlflow.tracking.fluent
 from mlflow.entities import Experiment
 from mlflow.tracking.fluent import _get_experiment_id, _get_experiment_id_from_env, \
-    _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _AUTODETECT_EXPERIMENT_ENV_VAR
+    _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR
 from mlflow.utils.file_utils import TempDir
 
 
@@ -33,7 +34,7 @@ class HelperEnv:
 @pytest.fixture
 def reset_experiment_id():
     HelperEnv.set_values()
-    mlflow.set_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
+    mlflow.tracking.fluent._active_experiment_id = None
 
 
 def test_get_experiment_id_from_env():
@@ -94,24 +95,6 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default(reset_ex
         notebook_detection_mock.side_effect = lambda *args, **kwargs: True
         notebook_id_mock.side_effect = lambda *args, **kwargs: notebook_id
         assert _get_experiment_id() == notebook_id
-
-
-def test_get_experiment_id_in_databricks_does_not_detect_notebook_id_if_autodetect_disabled(
-        reset_experiment_id):
-    # pylint: disable=unused-argument
-    notebook_id = 768
-
-    try:
-        os.environ[_AUTODETECT_EXPERIMENT_ENV_VAR] = "False"
-        with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook")\
-                as notebook_detection_mock,\
-                mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
-            notebook_detection_mock.side_effect = lambda *args, **kwargs: True
-            notebook_id_mock.side_effect = lambda *args, **kwargs: notebook_id
-            assert _get_experiment_id() != notebook_id
-            assert _get_experiment_id() == Experiment.DEFAULT_EXPERIMENT_ID
-    finally:
-        del os.environ[_AUTODETECT_EXPERIMENT_ENV_VAR]
 
 
 def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id(
