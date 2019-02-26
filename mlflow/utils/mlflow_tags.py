@@ -9,6 +9,7 @@ MLFLOW_DATABRICKS_SHELL_JOB_ID = "mlflow.databricks.shellJobID"
 MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
 
 MLFLOW_RUN_NAME = "mlflow.runName"
+MLFLOW_GIT_COMMIT = "mlflow.source.git.commit"
 MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
 MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
