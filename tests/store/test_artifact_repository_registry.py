@@ -54,7 +54,7 @@ def test_plugin_registration_via_installed_package():
     plugin_repo = mlflow.store.artifact_repository_registry.get_artifact_repository(test_uri)
 
     assert isinstance(plugin_repo, PluginLocalArtifactRepository)
-    assert plugin_repo.artifact_uri == test_uri
+    assert plugin_repo.is_plugin
 
 
 def test_plugin_registration():
