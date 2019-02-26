@@ -14,6 +14,7 @@ from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 DB_URI = 'sqlite://'
 ARTIFACT_URI = 'artifact_folder'
@@ -307,7 +308,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.start_time, expected["start_time"])
         self.assertEqual(len(actual.data.tags), 3)
 
-        name_tag = models.SqlTag(key='mlflow.runName', value='booyya').to_mlflow_entity()
+        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value='booyya').to_mlflow_entity()
         self.assertListEqual(actual.data.tags, tags + [name_tag])
 
     def test_create_run_with_parent_id(self):
@@ -332,8 +333,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.start_time, expected["start_time"])
         self.assertEqual(len(actual.data.tags), 4)
 
-        name_tag = models.SqlTag(key='mlflow.runName', value='booyya').to_mlflow_entity()
-        parent_id_tag = models.SqlTag(key='mlflow.parentRunId',
+        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value='booyya').to_mlflow_entity()
+        parent_id_tag = models.SqlTag(key=MLFLOW_PARENT_RUN_ID,
                                       value='parent_uuid_5').to_mlflow_entity()
         self.assertListEqual(actual.data.tags, tags + [parent_id_tag, name_tag])
 
