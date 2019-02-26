@@ -14,7 +14,7 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, SourceType, RunStatus
+from mlflow.entities import Experiment, Run, SourceType, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -221,7 +221,7 @@ def log_metrics(metrics):
     run_id = _get_or_start_run().info.run_uuid
     timestamp = int(time.time())
     metrics_arr = [Metric(key, value, timestamp) for key, value in metrics.items()]
-    MlflowClient().log_metrics(run_id, metrics_arr)
+    MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
 def log_params(params):
     """
@@ -232,7 +232,7 @@ def log_params(params):
     """
     run_id = _get_or_start_run().info.run_uuid
     params_arr = [Param(key, value) for key, value in params.items()]
-    MlflowClient().log_params(run_id, params_arr)
+    MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 def set_tags(tags):
     """
@@ -243,7 +243,7 @@ def set_tags(tags):
     """
     run_id = _get_or_start_run().info.run_uuid
     tags_arr = [RunTag(key, value) for key, value in tags.items()]
-    MlflowClient().set_tags(run_id, tags_arr)
+    MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
 def log_artifact(local_path, artifact_path=None):

@@ -152,34 +152,23 @@ class MlflowClient(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
-    def log_metrics(self, run_id, metrics):
+    def log_batch(self, run_id, metrics, params, tags):
         """
-        Log multiple metrics. `metrics` is a list of Metric(key, value, timestamp) instances.
+        Log multiple metrics, params, and/or tags.
+        :param `metrics` is a list of Metric(key, value, timestamp) instances.
+        :param `params` is a list of Param(key, value) instances.
+        :param `tags` is a list of RunTag(key, value) instances.
+
         Raises an MlflowException if any errors occur.
         :returns: None
         """
         for metric in metrics:
             _validate_metric_name(metric.key)
-        self.store.log_metrics(run_id, metrics)
-
-    def log_params(self, run_id, params):
-        """
-        Log multiple params. `params` is a list of Param(key, value) instances.
-        :returns: None
-        """
         for param in params:
             _validate_metric_name(param.key)
-        self.store.log_params(run_id, params)
-
-    def set_tags(self, run_id,  tags):
-        """
-        Log multiple tags. `tags` is a list of RunTag(key, value) instances
-        :returns: None
-        """
         for tag in tags:
             _validate_metric_name(tag.key)
-        self.store.set_tags(run_id, tags)
-
+        self.store.log_batch(run_uuid=run_id, metrics=metrics, params=params, tags=tags)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
