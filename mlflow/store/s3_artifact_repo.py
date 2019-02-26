@@ -69,15 +69,29 @@ class S3ArtifactRepository(ArtifactRepository):
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
-                subdir = self.get_path_module().relpath(path=obj.get("Prefix"), start=artifact_path)
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
-                infos.append(FileInfo(subdir, True, None))
+                subdir_path = obj.get("Prefix")
+                if not subdir_path.startswith(artifact_path):
+                    raise ValueError(
+                        "The path of the listed S3 directory does not begin with the specified"
+                        " artifact path. Artifact path: {artifact_path}. Subdirectory path:"
+                        " {subdir_path}.".format(
+                            artifact_path=artifact_path, subdir_path=subdir_path))
+                subdir_rel_path = self.get_path_module().relpath(
+                    path=subdir_path, start=artifact_path)
+                if subdir_rel_path.endswith("/"):
+                    subdir_rel_path = subdir_rel_path[:-1]
+                infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
             for obj in result.get('Contents', []):
-                name = self.get_path_module().relpath(path=obj.get("Key"), start=artifact_path)
-                size = int(obj.get('Size'))
-                infos.append(FileInfo(name, False, size))
+                file_path = obj.get("Key")
+                if not file_path.startswith(artifact_path):
+                    raise ValueError(
+                        "The path of the listed S3 file does not begin with the specified"
+                        " artifact path. Artifact path: {artifact_path}. File path:"
+                        " {file_path}.".format(artifact_path=artifact_path, file_path=file_path))
+                file_rel_path = self.get_path_module().relpath(path=file_path, start=artifact_path)
+                file_size = int(obj.get('Size'))
+                infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
