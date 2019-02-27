@@ -92,8 +92,8 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
 
     with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
             mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
-        notebook_detection_mock.side_effect = lambda *args, **kwargs: True
-        notebook_id_mock.side_effect = lambda *args, **kwargs: notebook_id
+        notebook_detection_mock.return_value = True
+        notebook_id_mock.return_value = notebook_id
         assert _get_experiment_id() == notebook_id
 
 
@@ -106,8 +106,8 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
 
     with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
             mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
-        notebook_detection_mock.side_effect = lambda *args, **kwargs: True
-        notebook_id_mock.side_effect = lambda *args, **kwargs: notebook_id
+        notebook_detection_mock.return_value = True
+        notebook_id_mock.return_value = notebook_id
 
         assert _get_experiment_id() != notebook_id
         assert _get_experiment_id() == exp_id
