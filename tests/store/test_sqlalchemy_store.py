@@ -1,3 +1,4 @@
+import shutil
 import unittest
 import warnings
 
@@ -16,7 +17,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 
 DB_URI = 'sqlite://'
-ARTIFACT_URI = 'file://fake file'
+ARTIFACT_URI = 'artifact_folder'
 
 
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
@@ -34,6 +35,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def tearDown(self):
         if self.store:
             models.Base.metadata.drop_all(self.store.engine)
+        shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
         if type(names) is list:
