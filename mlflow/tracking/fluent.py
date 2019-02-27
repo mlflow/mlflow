@@ -9,7 +9,6 @@ import numbers
 import os
 
 import atexit
-import sys
 import time
 import logging
 
@@ -18,6 +17,7 @@ from mlflow.entities import Experiment, Run, SourceType, RunStatus
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking import context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
@@ -127,7 +127,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
 
         tags = {}
 
-        source_version = source_version or _get_source_version()
+        source_version = source_version or context._get_source_version()
         if source_version is not None:
             tags[MLFLOW_GIT_COMMIT] = source_version
         if entry_point_name is not None:
@@ -146,8 +146,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
             source_name = notebook_path
             source_type = SourceType.NOTEBOOK
         else:
-            source_name = source_name or _get_source_name()
-            source_type = source_type or _get_source_type()
+            source_name = source_name or context._get_source_name()
+            source_type = source_type or context._get_source_type()
 
         tags[MLFLOW_SOURCE_NAME] = source_name
         tags[MLFLOW_SOURCE_TYPE] = source_type
@@ -282,30 +282,6 @@ def _get_or_start_run():
     return start_run()
 
 
-def _get_main_file():
-    if len(sys.argv) > 0:
-        return sys.argv[0]
-    return None
-
-
-def _get_source_name():
-    main_file = _get_main_file()
-    if main_file is not None:
-        return main_file
-    return "<console>"
-
-
-def _get_source_version():
-    main_file = _get_main_file()
-    if main_file is not None:
-        return _get_git_commit(main_file)
-    return None
-
-
-def _get_source_type():
-    return SourceType.LOCAL
-
-
 def _get_experiment_id_from_env():
     experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
     if experiment_name is not None:
@@ -319,21 +295,3 @@ def _get_experiment_id():
                _get_experiment_id_from_env() or
                (is_in_databricks_notebook() and get_notebook_id()) or
                Experiment.DEFAULT_EXPERIMENT_ID)
-
-
-def _get_git_commit(path):
-    try:
-        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
-    except ImportError as e:
-        _logger.warning(
-            "Failed to import Git (the Git executable is probably not on your PATH),"
-            " so Git SHA is not available. Error: %s", e)
-        return None
-    try:
-        if os.path.isfile(path):
-            path = os.path.dirname(path)
-        repo = Repo(path, search_parent_directories=True)
-        commit = repo.head.commit.hexsha
-        return commit
-    except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
-        return None

@@ -157,15 +157,15 @@ def test_start_run_defaults(empty_active_run_stack):
     )
     mock_source_name = mock.Mock()
     source_name_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_name", return_value=mock_source_name
+        "mlflow.tracking.context._get_source_name", return_value=mock_source_name
     )
     mock_source_type = mock.Mock()
     source_type_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_type", return_value=mock_source_type
+        "mlflow.tracking.context._get_source_type", return_value=mock_source_type
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context._get_source_version", return_value=mock_source_version
     )
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
@@ -203,7 +203,7 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context._get_source_version", return_value=mock_source_version
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
