@@ -4,7 +4,7 @@ import pytest
 
 from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobService
 
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
 
@@ -45,7 +45,7 @@ def test_artifact_uri_factory(mock_client):
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
     # We do need to set up a fake access key for the code to run though
     os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
-    repo = ArtifactRepository.from_artifact_uri(TEST_URI, mock.Mock())
+    repo = get_artifact_repository(TEST_URI, mock.Mock())
     assert isinstance(repo, AzureBlobArtifactRepository)
     del os.environ['AZURE_STORAGE_ACCESS_KEY']
 
