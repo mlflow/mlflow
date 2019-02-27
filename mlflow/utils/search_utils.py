@@ -38,7 +38,15 @@ class SearchFilter(object):
         return self._search_expressions
 
     @classmethod
+    def _trim_backticks(cls, entity_type):
+        if entity_type.startswith("`"):
+            assert entity_type.endswith("`")
+            return entity_type[1:-1]
+        return entity_type
+
+    @classmethod
     def _valid_entity_type(cls, entity_type):
+        entity_type = cls._trim_backticks(entity_type)
         if entity_type not in cls.VALID_KEY_TYPE:
             raise MlflowException("Invalid search expression type '%s'. "
                                   "Valid values are '%s" % (entity_type, cls.VALID_KEY_TYPE))

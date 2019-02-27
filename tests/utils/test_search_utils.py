@@ -61,7 +61,12 @@ def test_anded_expression_2():
     ("metrics.rmse < 1 and params.model_class = 'LR'", [
         {'comparator': '<', 'key': 'rmse', 'type': 'metric', 'value': '1'},
         {'comparator': '=', 'key': 'model_class', 'type': 'parameter', 'value': "'LR'"}
-    ])
+    ]),
+    ("`metric`.a >= 0.1", [{'comparator': '>=', 'key': 'a', 'type': 'metric', 'value': '0.1'}]),
+    ("`params`.model >= 'LR'", [{'comparator': '>=',
+                                 'key': 'model',
+                                 'type': 'parameter',
+                                 'value': "'LR'"}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(SearchRuns(filter=filter_string))._parse() == parsed_filter
@@ -70,14 +75,18 @@ def test_filter(filter_string, parsed_filter):
 @pytest.mark.parametrize("filter_string, error_message", [
     ("metric.acc >= 0.94; metrics.rmse < 1", "Multiple expression in filter"),
     ("m.acc >= 0.94", "Invalid search expression type"),
-    ("acc >= 0.94", "Invalid search expression type"),
+    ("acc >= 0.94", "Invalid filter string"),
     ("p.model >= 'LR'", "Invalid search expression type"),
-    ("model >= 'LR'", "Invalid search expression type"),
+    ("model >= 'LR'", "Invalid filter string"),
     ("metrics.A > 0.1 OR params.B = 'LR'", "Invalid clause(s) in filter string"),
     ("metrics.A > 0.1 NAND params.B = 'LR'", "Invalid clause(s) in filter string"),
     ("metrics.A > 0.1 AND (params.B = 'LR')", "Invalid clause(s) in filter string"),
+    ("`metrics.A > 0.1", "Invalid clause(s) in filter string"),
+    ("param`.A > 0.1", "Invalid clause(s) in filter string"),
+    ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
+    ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
 ])
-def test_error_filters(filter_string, error_message):
+def test_error_filter(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchFilter(SearchRuns(filter=filter_string))._parse()
-        assert e.message.contains(error_message)
+    assert error_message in e.value.message
