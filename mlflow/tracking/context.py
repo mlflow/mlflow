@@ -88,7 +88,7 @@ class ContextProvider:
 
         :return: dict of tags
         """
-        return {}
+        pass
 
 
 class DefaultContext(ContextProvider):
