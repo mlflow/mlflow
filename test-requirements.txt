@@ -25,7 +25,7 @@ torchvision
 pysftp
 keras
 attrdict==2.0.0
-azureml-sdk==1.0.15.1; python_version >= "3.0"
+azureml-sdk; python_version >= "3.0"
 cloudpickle
 pytest-localserver
 sqlalchemy
