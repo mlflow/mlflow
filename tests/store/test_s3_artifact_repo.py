@@ -1,6 +1,5 @@
 import os
 import posixpath
-import unittest
 from mock import Mock
 
 import boto3
@@ -8,8 +7,6 @@ import pytest
 from moto import mock_s3
 
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.store.s3_artifact_repo import S3ArtifactRepository
-from mlflow.utils.file_utils import TempDir
 
 
 @pytest.fixture(scope='session', autouse=True)
