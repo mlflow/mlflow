@@ -6,7 +6,7 @@ import boto3
 import pytest
 from moto import mock_s3
 
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -26,9 +26,6 @@ def s3_artifact_root():
 
 
 def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
-    repo = ArtifactRepository.from_artifact_uri(
-        posixpath.join(s3_artifact_root, "some/path"), Mock())
-
     file_name = "test.txt"
     file_path = os.path.join(str(tmpdir), file_name)
     file_text = "Hello world!"
@@ -36,8 +33,7 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, t
     with open(file_path, "w") as f:
         f.write(file_text)
 
-    repo = ArtifactRepository.from_artifact_uri(
-        posixpath.join(s3_artifact_root, "some/path"), Mock())
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"), Mock())
     repo.log_artifact(file_path)
     downloaded_text = open(repo.download_artifacts(file_name)).read()
     assert downloaded_text == file_text
@@ -55,8 +51,7 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
     with open(os.path.join(nested_path, "c.txt"), "w") as f:
         f.write("C")
 
-    repo = ArtifactRepository.from_artifact_uri(
-        posixpath.join(s3_artifact_root, "some/path"), Mock())
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"), Mock())
     repo.log_artifacts(subdir_path)
 
     # Download individual files and verify correctness of their contents
@@ -94,8 +89,7 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     with open(os.path.join(nested_path, "c.txt"), "w") as f:
         f.write("C")
 
-    repo = ArtifactRepository.from_artifact_uri(
-        posixpath.join(s3_artifact_root, "some/path"), Mock())
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"), Mock())
     repo.log_artifacts(subdir_path)
 
     root_artifacts_listing = sorted(
@@ -121,7 +115,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
     with open(os.path.join(nested_path, file_a_name), "w") as f:
         f.write(file_a_text)
 
-    repo = ArtifactRepository.from_artifact_uri(s3_artifact_root, Mock())
+    repo = get_artifact_repository(s3_artifact_root, Mock())
     repo.log_artifacts(subdir_path)
 
     downloaded_dir_path = repo.download_artifacts("nested")
@@ -138,7 +132,7 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
     with open(file_a_path, "w") as f:
         f.write(file_a_text)
 
-    repo = ArtifactRepository.from_artifact_uri(s3_artifact_root, Mock())
+    repo = get_artifact_repository(s3_artifact_root, Mock())
     repo.log_artifact(file_a_path)
 
     downloaded_file_path = repo.download_artifacts(file_a_name)

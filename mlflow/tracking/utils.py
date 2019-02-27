@@ -10,10 +10,10 @@ from six.moves import urllib
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
@@ -105,7 +105,7 @@ def get_artifact_uri(run_id, artifact_path=None):
         # joining the run's artifact root directory with the artifact's relative path, we use the
         # path module defined by the appropriate artifact repository
         artifact_path_module =\
-            ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store).get_path_module()
+            get_artifact_repository(run.info.artifact_uri, store).get_path_module()
         return artifact_path_module.join(run.info.artifact_uri, artifact_path)
 
 
@@ -117,10 +117,10 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     store = _get_store(artifact_uri=artifact_uri)
     artifact_path_module =\
-        ArtifactRepository.from_artifact_uri(artifact_uri, store).get_path_module()
+        get_artifact_repository(artifact_uri, store).get_path_module()
     artifact_src_dir = artifact_path_module.dirname(artifact_uri)
     artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
-    artifact_repo = ArtifactRepository.from_artifact_uri(
+    artifact_repo = get_artifact_repository(
             artifact_uri=artifact_src_dir, store=store)
     return artifact_repo.download_artifacts(
             artifact_path=artifact_src_relative_path, dst_path=output_path)
@@ -277,7 +277,7 @@ def _get_model_log_dir(model_name, run_id):
         raise Exception("Must specify a run_id to get logging directory for a model.")
     store = _get_store()
     run = store.get_run(run_id)
-    artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
+    artifact_repo = get_artifact_repository(run.info.artifact_uri, store)
     return artifact_repo.download_artifacts(model_name)
 
 
