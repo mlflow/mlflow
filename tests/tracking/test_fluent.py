@@ -33,6 +33,11 @@ class HelperEnv:
 
 @pytest.fixture(autouse=True)
 def reset_experiment_id():
+    """
+    This fixture resets the active experiment id *after* the execution of the test case in which
+    its included
+    """
+    yield
     HelperEnv.set_values()
     mlflow.tracking.fluent._active_experiment_id = None
 
