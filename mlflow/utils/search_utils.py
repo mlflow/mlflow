@@ -79,7 +79,23 @@ class SearchFilter(object):
         return comp
 
     @classmethod
+    def _invalid_statement_token(cls, token):
+        if isinstance(token, Comparison):
+            return False
+        elif token.is_whitespace:
+            return False
+        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
+            return False
+        else:
+            return True
+
+    @classmethod
     def _process_statement(cls, statement):
+        # check validity
+        invalids = list(filter(cls._invalid_statement_token, statement.tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join("'%s'" % token for token in invalids)
+            raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses)
         return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
 
     @classmethod

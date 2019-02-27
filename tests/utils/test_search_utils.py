@@ -73,6 +73,9 @@ def test_filter(filter_string, parsed_filter):
     ("acc >= 0.94", "Invalid search expression type"),
     ("p.model >= 'LR'", "Invalid search expression type"),
     ("model >= 'LR'", "Invalid search expression type"),
+    ("metrics.A > 0.1 OR params.B = 'LR'", "Invalid clause(s) in filter string"),
+    ("metrics.A > 0.1 NAND params.B = 'LR'", "Invalid clause(s) in filter string"),
+    ("metrics.A > 0.1 AND (params.B = 'LR')", "Invalid clause(s) in filter string"),
 ])
 def test_error_filters(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
