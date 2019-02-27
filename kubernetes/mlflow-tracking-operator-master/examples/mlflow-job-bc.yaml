@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Template
+
+labels:
+  application: mlflow-job-bc
+
+metadata:
+  name: mlflow-job-bc
+  annotations:
+    description: "Open Data Hub - MLFlow Job Build Config "
+    tags: "mlflow,aicoe,datahub,mljob"
+
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+  spec:
+    dockerImageRepository: ${APPLICATION_NAME}
+    tags:
+    - name: latest
+
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+  spec:
+    resources:
+      limits:
+        memory: 1Gi
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    source:
+      git:
+        uri: ${GIT_URI}
+      type: Git
+    strategy:
+      type: Source
+      sourceStrategy:
+        env:
+        - name: GIT_SSL_NO_VERIFY
+          value: 'true'
+        forcePull: true
+        from:
+          kind: DockerImage
+          name: 'docker.io/centos/python-36-centos7:latest'
+    triggers:
+    - imageChange: {}
+      type: ImageChange
+    - type: ConfigChange
+
+parameters:
+- name: APPLICATION_NAME
+  required: true
+- name: GIT_URI
+  required: true

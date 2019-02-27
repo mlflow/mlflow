@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Template
+labels:
+  application: mlflow-job
+
+metadata:
+  name: mlflow-job
+  annotations:
+    description: "Open Data Hub - MLFlow Job "
+    tags: "mlflow,aicoe,datahub,mljob"
+
+objects:
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: ${APPLICATION_NAME}
+    labels:
+      app: ${APPLICATION_NAME}
+  spec:
+    parallelism: 1
+    completions: 1
+    template:
+      metadata:
+        name: ${APPLICATION_NAME}
+      spec:
+        containers:
+        - image: ${IMAGE_URI}
+          name: ${APPLICATION_NAME}
+          imagePullPolicy: Always
+          envFrom:
+          - secretRef:
+              name: ${SECRET_KEY}
+          env:
+            - name:  MLFLOW_EXPERIMENT_ID
+              value: "${MLFLOW_EXPERIMENT_ID}"
+            - name:  MLFLOW_TRACKING_URI
+              value: "${MLFLOW_TRACKING_URI}"
+            - name: MLFLOW_S3_ENDPOINT_URL
+              value: "${MLFLOW_S3_ENDPOINT_URL}"
+        restartPolicy: Never
+
+parameters:
+- name: APPLICATION_NAME
+  required: true
+- name: IMAGE_URI
+  required: true
+- name: MLFLOW_S3_ENDPOINT_URL
+- name: SECRET_KEY
+- name: MLFLOW_TRACKING_URI
+  required: true
+- name: MLFLOW_EXPERIMENT_ID

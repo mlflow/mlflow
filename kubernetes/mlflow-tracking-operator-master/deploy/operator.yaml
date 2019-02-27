@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-tracking-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: mlflow-tracking-operator
+  template:
+    metadata:
+      labels:
+        name: mlflow-tracking-operator
+    spec:
+      serviceAccountName: mlflow-tracking-operator
+      containers:
+        - name: mlflow-tracking-operator
+          # Replace this with the built image name
+          image: quay.io/zmhassan/mlflow-tracking-operator
+          command:
+          - mlflow-tracking-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "mlflow-tracking-operator"

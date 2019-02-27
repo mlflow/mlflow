@@ -1,0 +1,8 @@
+apiVersion: ai.mlflow.org/v1alpha1
+kind: TrackingServer
+metadata:
+  name: zak-tracking-server
+spec:
+  # Add fields here
+  size: 2
+  Image: "quay.io/zmhassan/mlflow:0.8.2"
