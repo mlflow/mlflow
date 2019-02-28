@@ -178,7 +178,8 @@ def test_context_provider_registry_with_installed_plugin(tmp_wkdir):
     from mlflow_test_plugin import PluginContextProvider
     assert PluginContextProvider in _currently_registered_context_provider_classes()
 
-    assert resolve_tags()["context-provider"] == "plugin"
+    with mock.patch.object(PluginContextProvider, "tags", return_value={"test": "tag"}):
+        assert resolve_tags()["test"] == "tag"
 
 
 @pytest.fixture

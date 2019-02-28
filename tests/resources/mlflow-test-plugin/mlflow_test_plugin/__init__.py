@@ -26,4 +26,4 @@ class PluginContextProvider(ContextProvider):
         return True
 
     def tags(self):
-        return {"context-provider": "plugin"}
+        return {}
