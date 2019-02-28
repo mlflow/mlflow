@@ -178,12 +178,10 @@ class Utils {
     } else if (run.source_type === "NOTEBOOK") {
       const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
       const notebookIdTag = 'mlflow.databricks.notebookID';
-      const webappUrlTag = 'mlflow.databricks.webappURL';
       const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
-      const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
-      if (notebookId && webappUrl) {
-        let url = `${webappUrl}/#notebook/${notebookId}`;
+      if (notebookId) {
+        let url = `../#notebook/${notebookId}`;
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }

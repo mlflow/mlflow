@@ -757,10 +757,10 @@ const mapStateToProps = (state, ownProps) => {
 
 const styles = {
   lifecycleButtonLabel: {
-    width: '60px'
+    width: '32px'
   },
   lifecycleButtonFilterWrapper: {
-    marginLeft: '60px',
+    marginLeft: '48px',
   },
   tableToggleButtonGroup: {
     marginLeft: '16px',

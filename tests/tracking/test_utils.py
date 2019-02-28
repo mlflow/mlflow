@@ -1,6 +1,7 @@
 import mock
 import os
 import pytest
+from six.moves import reload_module as reload
 
 import mlflow
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
@@ -9,7 +10,7 @@ from mlflow.store.rest_store import RestStore
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
-    get_db_profile_from_uri, _download_artifact_from_uri
+    get_db_profile_from_uri, _download_artifact_from_uri, TrackingStoreRegistry
 
 
 def test_get_store_file_store(tmp_wkdir):
@@ -166,6 +167,114 @@ def test_get_store_databricks_profile():
         with pytest.raises(Exception) as e_info:
             store.get_host_creds()
         assert 'mycoolprofile' in str(e_info.value)
+
+
+def test_standard_store_registry_with_mocked_entrypoint():
+    mock_entrypoint = mock.Mock()
+    mock_entrypoint.name = "mock-scheme"
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ):
+        # Entrypoints are registered at import time, so we need to reload the
+        # module to register the entrypoint given by the mocked
+        # extrypoints.get_group_all
+        reload(mlflow.tracking.utils)
+
+        expected_standard_registry = {
+            '',
+            'file',
+            'http',
+            'https',
+            'postgresql',
+            'mysql',
+            'sqlite',
+            'mssql',
+            'databricks',
+            'mock-scheme'
+        }
+        assert expected_standard_registry.issubset(
+            mlflow.tracking.utils._tracking_store_registry._registry.keys()
+        )
+
+
+@pytest.mark.large
+def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+
+    reload(mlflow.tracking.utils)
+    assert "file-plugin" in mlflow.tracking.utils._tracking_store_registry._registry.keys()
+
+    from mlflow_test_plugin import PluginFileStore
+
+    env = {
+        _TRACKING_URI_ENV_VAR: "file-plugin:test-path",
+    }
+    with mock.patch.dict(os.environ, env):
+        plugin_file_store = mlflow.tracking.utils._get_store()
+        assert isinstance(plugin_file_store, PluginFileStore)
+        assert plugin_file_store.is_plugin
+
+
+def test_plugin_registration():
+    tracking_store = TrackingStoreRegistry()
+
+    test_uri = "mock-scheme://fake-host/fake-path"
+    test_scheme = "mock-scheme"
+
+    mock_plugin = mock.Mock()
+    tracking_store.register(test_scheme, mock_plugin)
+    assert test_scheme in tracking_store._registry
+    assert tracking_store.get_store(test_uri) == mock_plugin.return_value
+    mock_plugin.assert_called_once_with(store_uri=test_uri, artifact_uri=None)
+
+
+def test_plugin_registration_via_entrypoints():
+    mock_plugin_function = mock.Mock()
+    mock_entrypoint = mock.Mock(load=mock.Mock(return_value=mock_plugin_function))
+    mock_entrypoint.name = "mock-scheme"
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+
+        tracking_store = TrackingStoreRegistry()
+        tracking_store.register_entrypoints()
+
+    assert tracking_store.get_store("mock-scheme://") == mock_plugin_function.return_value
+
+    mock_plugin_function.assert_called_once_with(store_uri="mock-scheme://", artifact_uri=None)
+    mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
+
+
+@pytest.mark.parametrize("exception",
+                         [AttributeError("test exception"),
+                          ImportError("test exception")])
+def test_handle_plugin_registration_failure_via_entrypoints(exception):
+    mock_entrypoint = mock.Mock(load=mock.Mock(side_effect=exception))
+    mock_entrypoint.name = "mock-scheme"
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+
+        tracking_store = TrackingStoreRegistry()
+
+        # Check that the raised warning contains the message from the original exception
+        with pytest.warns(UserWarning, match="test exception"):
+            tracking_store.register_entrypoints()
+
+    mock_entrypoint.load.assert_called_once()
+    mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
+
+
+def test_get_store_for_unregistered_scheme():
+
+    tracking_store = TrackingStoreRegistry()
+
+    with pytest.raises(mlflow.exceptions.MlflowException,
+                       match="Could not find a registered tracking store"):
+        tracking_store.get_store("unknown-scheme://")
 
 
 def test_get_db_profile_from_uri_casing():

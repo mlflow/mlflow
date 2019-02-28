@@ -4,7 +4,8 @@ import pytest
 
 from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobService
 
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.exceptions import MlflowException
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
 
@@ -45,7 +46,7 @@ def test_artifact_uri_factory(mock_client):
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
     # We do need to set up a fake access key for the code to run though
     os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
-    repo = ArtifactRepository.from_artifact_uri(TEST_URI, mock.Mock())
+    repo = get_artifact_repository(TEST_URI, mock.Mock())
     assert isinstance(repo, AzureBlobArtifactRepository)
     del os.environ['AZURE_STORAGE_ACCESS_KEY']
 
@@ -281,7 +282,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
 
     mock_client.list_blobs.side_effect = get_mock_listing
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(MlflowException) as exc:
         repo.download_artifacts("")
 
     assert "Azure blob does not begin with the specified artifact path" in str(exc)
