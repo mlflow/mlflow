@@ -4,6 +4,7 @@ import pytest
 
 from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobService
 
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
@@ -281,7 +282,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
 
     mock_client.list_blobs.side_effect = get_mock_listing
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(MlflowException) as exc:
         repo.download_artifacts("")
 
     assert "Azure blob does not begin with the specified artifact path" in str(exc)

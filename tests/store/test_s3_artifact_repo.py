@@ -1,81 +1,140 @@
 import os
-import unittest
+import posixpath
+from mock import Mock
 
 import boto3
-from mock import Mock
+import pytest
 from moto import mock_s3
 
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-from mlflow.store.s3_artifact_repo import S3ArtifactRepository
-from mlflow.utils.file_utils import TempDir
 
 
-class TestS3ArtifactRepo(unittest.TestCase):
-    @mock_s3
-    def test_basic_functions(self):
-        with TempDir() as tmp:
-            # Create a mock S3 bucket in moto
-            # Note that we must set these as environment variables in case users
-            # so that boto does not attempt to assume credentials from the ~/.aws/config
-            # or IAM role. moto does not correctly pass the arguments to boto3.client().
-            os.environ["AWS_ACCESS_KEY_ID"] = "a"
-            os.environ["AWS_SECRET_ACCESS_KEY"] = "b"
-            s3 = boto3.client("s3")
-            s3.create_bucket(Bucket="test_bucket")
+@pytest.fixture(scope='session', autouse=True)
+def set_boto_credentials():
+    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
+    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
 
-            repo = get_artifact_repository("s3://test_bucket/some/path", Mock())
-            self.assertIsInstance(repo, S3ArtifactRepository)
-            self.assertListEqual(repo.list_artifacts(), [])
-            with self.assertRaises(Exception):
-                open(repo.download_artifacts("test.txt")).read()
 
-            # Create and log a test.txt file directly
-            with open(tmp.path("test.txt"), "w") as f:
-                f.write("Hello world!")
-            repo.log_artifact(tmp.path("test.txt"))
-            text = open(repo.download_artifacts("test.txt")).read()
-            self.assertEqual(text, "Hello world!")
-            # Check that it actually made it to S3
-            obj = s3.get_object(Bucket="test_bucket", Key="some/path/test.txt")
-            text = obj["Body"].read().decode('utf-8')
-            self.assertEqual(text, "Hello world!")
+@pytest.fixture
+def s3_artifact_root():
+    with mock_s3():
+        bucket_name = "test-bucket"
+        s3_client = boto3.client("s3")
+        s3_client.create_bucket(Bucket=bucket_name)
+        yield "s3://{bucket_name}".format(bucket_name=bucket_name)
 
-            # Create a subdirectory for log_artifacts
-            os.mkdir(tmp.path("subdir"))
-            os.mkdir(tmp.path("subdir", "nested"))
-            with open(tmp.path("subdir", "a.txt"), "w") as f:
-                f.write("A")
-            with open(tmp.path("subdir", "b.txt"), "w") as f:
-                f.write("B")
-            with open(tmp.path("subdir", "nested", "c.txt"), "w") as f:
-                f.write("C")
-            repo.log_artifacts(tmp.path("subdir"))
-            text = open(repo.download_artifacts("a.txt")).read()
-            self.assertEqual(text, "A")
-            text = open(repo.download_artifacts("b.txt")).read()
-            self.assertEqual(text, "B")
-            text = open(repo.download_artifacts("nested/c.txt")).read()
-            self.assertEqual(text, "C")
-            infos = sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts()])
-            self.assertListEqual(infos, [
-                ("a.txt", False, 1),
-                ("b.txt", False, 1),
-                ("nested", True, None),
-                ("test.txt", False, 12)
-            ])
-            infos = sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts("nested")])
-            self.assertListEqual(infos, [("nested/c.txt", False, 1)])
 
-            # Download a subdirectory
-            downloaded_dir = repo.download_artifacts("nested")
-            self.assertEqual(os.path.basename(downloaded_dir), "nested")
-            text = open(os.path.join(downloaded_dir, "c.txt")).read()
-            self.assertEqual(text, "C")
+def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
+    file_name = "test.txt"
+    file_path = os.path.join(str(tmpdir), file_name)
+    file_text = "Hello world!"
 
-            # Download the root directory
-            downloaded_dir = repo.download_artifacts("")
-            dir_contents = os.listdir(downloaded_dir)
-            assert "nested" in dir_contents
-            assert os.path.isdir(os.path.join(downloaded_dir, "nested"))
-            assert "a.txt" in dir_contents
-            assert "b.txt" in dir_contents
+    with open(file_path, "w") as f:
+        f.write(file_text)
+
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"), Mock())
+    repo.log_artifact(file_path)
+    downloaded_text = open(repo.download_artifacts(file_name)).read()
+    assert downloaded_text == file_text
+
+
+def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(
+        s3_artifact_root, tmpdir):
+    subdir_path = str(tmpdir.mkdir("subdir"))
+    nested_path = os.path.join(subdir_path, "nested")
+    os.makedirs(nested_path)
+    with open(os.path.join(subdir_path, "a.txt"), "w") as f:
+        f.write("A")
+    with open(os.path.join(subdir_path, "b.txt"), "w") as f:
+        f.write("B")
+    with open(os.path.join(nested_path, "c.txt"), "w") as f:
+        f.write("C")
+
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"), Mock())
+    repo.log_artifacts(subdir_path)
+
+    # Download individual files and verify correctness of their contents
+    downloaded_file_a_text = open(repo.download_artifacts("a.txt")).read()
+    assert downloaded_file_a_text == "A"
+    downloaded_file_b_text = open(repo.download_artifacts("b.txt")).read()
+    assert downloaded_file_b_text == "B"
+    downloaded_file_c_text = open(repo.download_artifacts("nested/c.txt")).read()
+    assert downloaded_file_c_text == "C"
+
+    # Download the nested directory and verify correctness of its contents
+    downloaded_dir = repo.download_artifacts("nested")
+    assert os.path.basename(downloaded_dir) == "nested"
+    text = open(os.path.join(downloaded_dir, "c.txt")).read()
+    assert text == "C"
+
+    # Download the root directory and verify correctness of its contents
+    downloaded_dir = repo.download_artifacts("")
+    dir_contents = os.listdir(downloaded_dir)
+    assert "nested" in dir_contents
+    assert os.path.isdir(os.path.join(downloaded_dir, "nested"))
+    assert "a.txt" in dir_contents
+    assert "b.txt" in dir_contents
+
+
+def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_batch(
+        s3_artifact_root, tmpdir):
+    subdir_path = str(tmpdir.mkdir("subdir"))
+    nested_path = os.path.join(subdir_path, "nested")
+    os.makedirs(nested_path)
+    with open(os.path.join(subdir_path, "a.txt"), "w") as f:
+        f.write("A")
+    with open(os.path.join(subdir_path, "b.txt"), "w") as f:
+        f.write("B")
+    with open(os.path.join(nested_path, "c.txt"), "w") as f:
+        f.write("C")
+
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"), Mock())
+    repo.log_artifacts(subdir_path)
+
+    root_artifacts_listing = sorted(
+        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts()])
+    assert root_artifacts_listing == [
+        ("a.txt", False, 1),
+        ("b.txt", False, 1),
+        ("nested", True, None),
+    ]
+
+    nested_artifacts_listing = sorted(
+        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts("nested")])
+    assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
+
+
+def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
+        s3_artifact_root, tmpdir):
+    file_a_name = "a.txt"
+    file_a_text = "A"
+    subdir_path = str(tmpdir.mkdir("subdir"))
+    nested_path = os.path.join(subdir_path, "nested")
+    os.makedirs(nested_path)
+    with open(os.path.join(nested_path, file_a_name), "w") as f:
+        f.write(file_a_text)
+
+    repo = get_artifact_repository(s3_artifact_root, Mock())
+    repo.log_artifacts(subdir_path)
+
+    downloaded_dir_path = repo.download_artifacts("nested")
+    assert file_a_name in os.listdir(downloaded_dir_path)
+    with open(os.path.join(downloaded_dir_path, file_a_name), "r") as f:
+        assert f.read() == file_a_text
+
+
+def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
+        s3_artifact_root, tmpdir):
+    file_a_name = "a.txt"
+    file_a_text = "A"
+    file_a_path = os.path.join(str(tmpdir), file_a_name)
+    with open(file_a_path, "w") as f:
+        f.write(file_a_text)
+
+    repo = get_artifact_repository(s3_artifact_root, Mock())
+    repo.log_artifact(file_a_path)
+
+    downloaded_file_path = repo.download_artifacts(file_a_name)
+    with open(downloaded_file_path, "r") as f:
+        assert f.read() == file_a_text
