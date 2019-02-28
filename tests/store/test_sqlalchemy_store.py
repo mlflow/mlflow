@@ -881,3 +881,29 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run = self.store.get_run(run_uuid)
         metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
         assert set(metrics) == set(metric_tuples)
+
+    def test_log_batch_limits_exceeded(self):
+        pass
+
+    def test_log_batch_param_overwrite_disallowed(self):
+        # Test that attempting to overwrite a param via log_batch results in an exception and that
+        # no partial data is logged
+        run = self._run_factory()
+        self.session.commit()
+        tkey = 'my-param'
+        param = entities.Param(tkey, 'orig-val')
+        self.store.log_param(run.run_uuid, param)
+
+        overwrite_param = entities.Param(tkey, 'newval')
+        tag = entities.RunTag("tag-key", "tag-val")
+        metric = entities.Metric("metric-key", 3.0, 12345)
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_batch(run.run_uuid, metrics=[metric], params=[overwrite_param],
+                                 tags=[tag])
+        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        logged_run = self.store.get_run(run.run_uuid)
+        assert len(logged_run.data.metrics) == 0
+        assert len(logged_run.data.params) == 1
+
+    def test_log_batch_internal_error(self):
+        pass

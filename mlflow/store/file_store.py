@@ -14,7 +14,8 @@ from mlflow.protos.service_pb2 import BatchLogFailure
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
-                                    _validate_tag_name, _validate_experiment_id, _validate_batch_log_limits
+                                    _validate_tag_name, _validate_experiment_id,\
+                                    _validate_batch_log_limits, _validate_batch_log_data
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
@@ -542,7 +543,10 @@ class FileStore(AbstractStore):
 
     def log_batch(self, run_uuid, metrics, params, tags):
         _validate_run_id(run_uuid)
+        run = self.get_run(run_uuid)
+        check_run_is_active(run.info)
         _validate_batch_log_limits(metrics, params, tags)
+        _validate_batch_log_data(metrics, params, tags)
         failed_metrics = []
         failed_params = []
         failed_tags = []
@@ -551,8 +555,14 @@ class FileStore(AbstractStore):
             try:
                 fn()
             except MlflowException as e:
-                failures_arr.append(
-                    BatchLogFailure(error_code=e.error_code, index=index, message=e.message))
+                if e.error_code == databricks_pb2.INTERNAL_ERROR:
+                    failures_arr.append(BatchLogFailure(error_code=e.error_code, index=index,
+                                                        message=e.message))
+                else:
+                    raise e
+            except Exception as e:
+                failures_arr.append(BatchLogFailure(error_code=databricks_pb2.INTERNAL_ERROR,
+                                                    index=index, message=e.message))
         for i, metric in enumerate(metrics):
             try_req_and_maybe_add_batch_log_failure(
                 lambda: self.log_metric(run_uuid=run_uuid, metric=metric), i, failed_metrics)

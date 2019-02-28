@@ -155,6 +155,8 @@ class MlflowClient(object):
     def log_batch(self, run_id, metrics, params, tags):
         """
         Log multiple metrics, params, and/or tags.
+
+        List("key" -> "metric-name",
         :param `metrics` is a list of Metric(key, value, timestamp) instances.
         :param `params` is a list of Param(key, value) instances.
         :param `tags` is a list of RunTag(key, value) instances.

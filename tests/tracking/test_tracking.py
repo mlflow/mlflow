@@ -224,14 +224,17 @@ def test_log_batch_validations(tracking_uri_mock, get_store_mock):
     tags_with_bad_key = [RunTag("good-tag-key", "hi"), RunTag("super-long-bad-key" * 1000, "but-good-val")]
     tags_with_bad_val = [RunTag("good-tag-key", "hi"), RunTag("another-good-key", "but-bad-val" * 1000)]
 
-    too_many_metrics = [Metric("a", 1, 0) for _ in range(1001)]
-    too_many_params = [Param("a", "b") for _ in range(101)]
-    too_many_tags = [RunTag("a", "b") for _ in range(101)]
+
+    too_many_metrics = [Metric("metric-key-%s" % i, 1, 0) for i in range(1001)]
+    too_many_params = [Param("param-key-%s" % i, "b") for i in range(101)]
+    too_many_tags = [RunTag("tag-key-%s" % i, "b") for i in range(101)]
+
+    overwriting_param = [Param("key", "val"), Param("key", "different-val")]
 
     good_kwargs = {"metrics": [], "params": [], "tags": []}
     bad_kwargs = {
         "metrics": [metrics_with_bad_key, too_many_metrics],
-        "params": [params_with_bad_key, params_with_bad_val, too_many_params],
+        "params": [params_with_bad_key, params_with_bad_val, too_many_params, overwriting_param],
         "tags": [tags_with_bad_key, tags_with_bad_val, too_many_tags],
     }
     active_run = start_run()

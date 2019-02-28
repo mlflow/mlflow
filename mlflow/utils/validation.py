@@ -91,6 +91,26 @@ def _validate_batch_log_limits(metrics, params, tags):
     _validate_batch_limit(entity_name="metrics, params, and tags",
                           limit=MAX_ENTITIES_PER_BATCH, length=total_length)
 
+def _validate_batch_log_data(metrics, params, tags):
+    for metric in metrics:
+        _validate_metric_name(metric.key)
+    for param in params:
+        # TODO should we also validate length limits in the client? Kinda weird to do it per store
+        _validate_param_name(param.key)
+    for tag in tags:
+        _validate_tag_name(tag.key)
+    # Verify upfront that the user isn't attempting to overwrite any params within their
+    # batched logging request
+    param_map = {}
+    for param in params:
+        if param.key not in param_map:
+            param_map[param.key] = param.value
+        elif param.key in param_map and param_map[param.key] != param.value:
+            raise MlflowException("Param %s had existing value %s, refusing to overwrite with "
+                                  "new value %s. Please log the new param value under a different "
+                                  "param name." % (param.key, param_map[param.key], param.value))
+
+
 def _validate_batch_log_api_req(json_req):
     if len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE:
         error_msg = ("Batched logging API requests must be at most {limit} bytes, got "
