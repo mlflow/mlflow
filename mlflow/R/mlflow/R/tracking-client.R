@@ -1,33 +1,77 @@
-new_mlflow_client <- function(tracking_uri, server_url = NULL) {
+
+new_mlflow_client <- function(scheme, tracking_uri) {
+  UseMethod("new_mlflow_client")
+}
+
+new_mlflow_client_impl <- function(get_host_creds, cli_env = list, clazz = c()) {
   structure(
-    list(
-      tracking_uri = tracking_uri,
-      server_url = server_url %||% tracking_uri
+    list(get_host_creds = get_host_creds,
+         cli_env = cli_env
     ),
-    class = "mlflow_client"
+    class = c(clazz, "mlflow_client")
   )
 }
 
-#' Initialize an MLflow Client
-#'
-#' Initializes an MLflow client.
-#'
-#' @param tracking_uri The tracking URI. If not provided, defaults to the service
-#'  set by `mlflow_set_tracking_uri()`.
-#' @keywords internal
-mlflow_client <- function(tracking_uri = NULL) {
-  tracking_uri <- tracking_uri %||% mlflow_get_tracking_uri()
-  server_url <- if (startsWith(tracking_uri, "http")) {
-    tracking_uri
-  } else if (!is.null(mlflow_local_server(tracking_uri)$server_url)) {
+new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, token = NA,
+                                   insecure = "False") {
+  list(host = host, username = username, password = password, token = token, insecure = insecure)
+}
+
+new_mlflow_client.default <- function(scheme, tracking_uri) {
+  server_url <- if (!is.null(mlflow_local_server(tracking_uri)$server_url)) {
     mlflow_local_server(tracking_uri)$server_url
   } else {
     local_server <- mlflow_server(file_store = tracking_uri, port = mlflow_connect_port())
     mlflow_register_local_server(tracking_uri = tracking_uri, local_server = local_server)
     local_server$server_url
   }
+  new_mlflow_client_impl(get_host_creds = function () {
+    new_mlflow_host_creds(host = server_url)
+  })
+}
 
-  new_mlflow_client(tracking_uri, server_url = server_url)
+basic_http_client <- function(tracking_uri) {
+  get_host_creds <- function () {
+    new_mlflow_host_creds(
+      host = tracking_uri,
+      username = Sys.getenv("MLFLOW_USERNAME", NA),
+      password = Sys.getenv("MLFLOW_PASSWORD", NA),
+      token = Sys.getenv("MLFLOW_TOKEN", NA),
+      insecure = Sys.getenv("MLFLOW_INSECURE", NA)
+    )
+  }
+  cli_env <- function() {
+    res <- list(
+      MLFLOW_USERNAME = Sys.getenv("MLFLOW_USERNAME", NA),
+      MLFLOW_PASSWORD = Sys.getenv("MLFLOW_PASSWORD", NA),
+      MLFLOW_TOKEN = Sys.getenv("MLFLOW_TOKEN", NA),
+      MLFLOW_INSECURE = Sys.getenv("MLFLOW_INSECURE", NA)
+    )
+    res[!is.na(res)]
+  }
+  new_mlflow_client_impl(get_host_creds, cli_env)
+}
+
+new_mlflow_client.http <- function(scheme, tracking_uri) {
+  basic_http_client(tracking_uri)
+}
+
+new_mlflow_client.https <- function(scheme, tracking_uri) {
+  basic_http_client(tracking_uri)
+}
+
+#' Initialize an MLflow Client
+#'
+#' @param tracking_uri The tracking URI. If not provided, defaults to the service
+#'  set by `mlflow_set_tracking_uri()`.
+#' @keywords internal
+mlflow_client <- function(tracking_uri = NULL) {
+  tracking_uri <- tracking_uri %||% mlflow_get_tracking_uri()
+  scheme <- strsplit(tracking_uri, "://") [[1]][1]
+  class(scheme) <- scheme
+  client <- new_mlflow_client(scheme, tracking_uri)
+  mlflow_validate_server(client)
+  client
 }
 
 #' Create Experiment - Tracking Client
@@ -77,8 +121,7 @@ mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", 
 #' @template roxlate-client
 mlflow_client_get_experiment <- function(client, experiment_id) {
   mlflow_rest(
-    "experiments", "get", client = client,
-    query = list(experiment_id = experiment_id)
+    "experiments", "get", client = client, query = list(experiment_id = experiment_id)
   )
 }
 
@@ -140,7 +183,7 @@ mlflow_client_create_run <- function(
 }
 
 mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
-  mlflow_rest("runs", "update", client = client, verb = "POST", data = list(
+  mlflow_rest("runs", "update", verb = "POST", client = client, data = list(
     run_uuid = run_uuid,
     status = status,
     end_time = end_time
@@ -156,7 +199,7 @@ mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
 #' @template roxlate-client
 mlflow_client_delete_experiment <- function(client, experiment_id) {
   mlflow_rest(
-    "experiments", "delete", client = client, verb = "POST",
+    "experiments", "delete", verb = "POST", client = client,
     data = list(experiment_id = experiment_id),
   )
 }
@@ -351,7 +394,8 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
              artifact_param,
              artifact_path,
              "--run-id",
-             run_id)
+             run_id,
+             env = client$cli_env())
 
   invisible(NULL)
 }
@@ -394,8 +438,8 @@ mlflow_client_download_artifacts <- function(client, run_id, path) {
           gsub("(.|\n)*(?=FileNotFoundError)", "", x, perl = TRUE),
           call. = FALSE
         )
-    }
+    },
+    env = client$cli_env()
   )
-
   gsub("\n", "", result$stdout)
 }
