@@ -1,12 +1,14 @@
 import mock
 import pytest
 import git
+from six.moves import reload_module as reload
 
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
+import mlflow.tracking.context
 from mlflow.tracking.context import DefaultContext, GitContext, DatabricksNotebookContext, \
-    resolve_tags
+    ContextProviderRegistry, resolve_tags
 
 
 MOCK_SCRIPT_NAME = "/path/to/script.py"
@@ -89,6 +91,94 @@ def test_databricks_notebook_tags_nones():
             MLFLOW_SOURCE_NAME: None,
             MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
         }
+
+
+def test_context_provider_registry_register():
+    provider_class = mock.Mock()
+
+    registry = ContextProviderRegistry()
+    registry.register(provider_class)
+
+    assert set(registry) == {provider_class.return_value}
+
+
+def test_context_provider_registry_register_entrypoints():
+    provider_class = mock.Mock()
+    mock_entrypoint = mock.Mock()
+    mock_entrypoint.load.return_value = provider_class
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+        registry = ContextProviderRegistry()
+        registry.register_entrypoints()
+
+    assert set(registry) == {provider_class.return_value}
+    mock_entrypoint.load.assert_called_once_with()
+    mock_get_group_all.assert_called_once_with("mlflow.context_provider")
+
+
+@pytest.mark.parametrize("exception",
+                         [AttributeError("test exception"), ImportError("test exception")])
+def test_context_provider_registry_register_entrypoints_handles_exception(exception):
+    mock_entrypoint = mock.Mock()
+    mock_entrypoint.load.side_effect = exception
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+        registry = ContextProviderRegistry()
+        # Check that the raised warning contains the message from the original exception
+        with pytest.warns(UserWarning, match="test exception"):
+            registry.register_entrypoints()
+
+    mock_entrypoint.load.assert_called_once_with()
+    mock_get_group_all.assert_called_once_with("mlflow.context_provider")
+
+
+def _currently_registered_context_provider_classes():
+    return {
+        provider.__class__
+        for provider in mlflow.tracking.context._context_provider_registry
+    }
+
+
+def test_registry_instance_defaults():
+    expected_context_provider_classes = {DefaultContext, GitContext, DatabricksNotebookContext}
+    assert expected_context_provider_classes.issubset(
+        _currently_registered_context_provider_classes()
+    )
+
+
+def test_registry_instance_loads_entrypoints():
+
+    class MockContext(object):
+        pass
+
+    mock_entrypoint = mock.Mock()
+    mock_entrypoint.load.return_value = MockContext
+
+    with mock.patch(
+        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+    ) as mock_get_group_all:
+        # Entrypoints are registered at import time, so we need to reload the module to register th
+        # entrypoint given by the mocked extrypoints.get_group_all
+        reload(mlflow.tracking.context)
+
+    assert MockContext in _currently_registered_context_provider_classes()
+    mock_get_group_all.assert_called_once_with("mlflow.context_provider")
+
+
+@pytest.mark.large
+def test_context_provider_registry_with_installed_plugin(tmp_wkdir):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+
+    reload(mlflow.tracking.utils)
+
+    from mlflow_test_plugin import PluginContextProvider
+    assert PluginContextProvider in _currently_registered_context_provider_classes()
+
+    assert resolve_tags()["context-provider"] == "plugin"
 
 
 @pytest.fixture
