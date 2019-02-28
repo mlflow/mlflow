@@ -5,7 +5,8 @@ import git
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
-from mlflow.tracking.context import DefaultContext, GitContext, DatabricksNotebookContext
+from mlflow.tracking.context import DefaultContext, GitContext, DatabricksNotebookContext, \
+    resolve_tags
 
 
 MOCK_SCRIPT_NAME = "/path/to/script.py"
@@ -88,3 +89,44 @@ def test_databricks_notebook_tags_nones():
             MLFLOW_SOURCE_NAME: None,
             MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
         }
+
+
+@pytest.fixture
+def mock_context_providers():
+    base_provider = mock.Mock()
+    base_provider.in_context.return_value = True
+    base_provider.tags.return_value = {"one": "one-val", "two": "two-val", "three": "three-val"}
+
+    skipped_provider = mock.Mock()
+    skipped_provider.in_context.return_value = False
+
+    override_provider = mock.Mock()
+    override_provider.in_context.return_value = True
+    override_provider.tags.return_value = {"one": "override", "new": "new-val"}
+
+    providers = [base_provider, skipped_provider, override_provider]
+
+    with mock.patch("mlflow.tracking.context._context_provider_registry", providers):
+        yield
+
+    skipped_provider.tags.assert_not_called()
+
+
+def test_resolve_tags(mock_context_providers):
+    tags_arg = {"two": "arg-override", "arg": "arg-val"}
+    assert resolve_tags(tags_arg) == {
+        "one": "override",
+        "two": "arg-override",
+        "three": "three-val",
+        "new": "new-val",
+        "arg": "arg-val"
+    }
+
+
+def test_resolve_tags_no_arg(mock_context_providers):
+    assert resolve_tags() == {
+        "one": "override",
+        "two": "two-val",
+        "three": "three-val",
+        "new": "new-val"
+    }
