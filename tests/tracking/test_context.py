@@ -173,7 +173,7 @@ def test_registry_instance_loads_entrypoints():
 def test_context_provider_registry_with_installed_plugin(tmp_wkdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    reload(mlflow.tracking.utils)
+    reload(mlflow.tracking.context)
 
     from mlflow_test_plugin import PluginContextProvider
     assert PluginContextProvider in _currently_registered_context_provider_classes()
