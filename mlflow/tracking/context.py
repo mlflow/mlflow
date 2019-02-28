@@ -9,10 +9,7 @@ import entrypoints
 from six.moves import reduce
 
 from mlflow.entities import SourceType
-from mlflow.utils.databricks_utils import (
-    is_in_databricks_notebook, get_notebook_id, get_notebook_path,
-    get_webapp_url
-)
+from mlflow.utils import databricks_utils
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_SOURCE_NAME,
@@ -41,7 +38,7 @@ def _get_source_name():
 
 def _get_git_commit(path):
     try:
-        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
+        import git
     except ImportError as e:
         _logger.warning(
             "Failed to import Git (the Git executable is probably not on your PATH),"
@@ -50,10 +47,10 @@ def _get_git_commit(path):
     try:
         if os.path.isfile(path):
             path = os.path.dirname(path)
-        repo = Repo(path, search_parent_directories=True)
+        repo = git.Repo(path, search_parent_directories=True)
         commit = repo.head.commit.hexsha
         return commit
-    except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
+    except (git.InvalidGitRepositoryError, git.GitCommandNotFound, ValueError, git.NoSuchPathError):
         return None
 
 
@@ -114,12 +111,12 @@ class GitContext(ContextProvider):
 
 class DatabricksNotebookContext(ContextProvider):
     def in_context(self):
-        return is_in_databricks_notebook()
+        return databricks_utils.is_in_databricks_notebook()
 
     def tags(self):
-        notebook_id = get_notebook_id()
-        notebook_path = get_notebook_path()
-        webapp_url = get_webapp_url()
+        notebook_id = databricks_utils.get_notebook_id()
+        notebook_path = databricks_utils.get_notebook_path()
+        webapp_url = databricks_utils.get_webapp_url()
         tags = {
             MLFLOW_SOURCE_NAME: notebook_path,
             MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK
