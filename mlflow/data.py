@@ -28,5 +28,5 @@ def download(uri, output_path):
     specified URI.
     """
     if output_path is None:
-        output_path = os.path.basename(uri)
+        output_path = os.getcwd()
     download_uri(uri, output_path)
