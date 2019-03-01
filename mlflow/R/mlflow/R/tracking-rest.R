@@ -25,7 +25,7 @@ mlflow_rest_timeout <- function() {
   timeout(getOption("mlflow.rest.timeout", 60))
 }
 
-#' @importFrom caTools base64encode
+#' @importFrom base64enc base64encode
 get_rest_config <- function(config) {
   headers <- list()
   auth_header <- if (!is.na(config$username) && !is.na(config$password)) {
