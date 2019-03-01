@@ -218,3 +218,17 @@ Required:
    S3_ENDPOINT_URL: "http://0.0.0.0:9090"
    
  ```
+
+
+## Development
+
+If you are looking to build the operator you can generate the vendor directory via the following command:
+
+
+```
+
+dep ensure -vendor-only
+
+```
+
+
