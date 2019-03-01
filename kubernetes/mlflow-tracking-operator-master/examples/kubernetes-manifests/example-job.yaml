@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mlflow-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: mlflow
+        image: quay.io/zmhassan/mlflow-example:0.0.1-rc1
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: "http://zak-tracking-server-svc:5000"
+      restartPolicy: Never
+  backoffLimit: 4

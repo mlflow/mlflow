@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-example-deployment
+  labels:
+    app: mlflow-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow-example
+  template:
+    metadata:
+      labels:
+        app: mlflow-example
+    spec:
+      containers:
+      - name: mlflow-example
+        image: quay.io/zmhassan/mlflow-example
+        env:
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: "http://10.110.217.77:5000"
