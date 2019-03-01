@@ -4,6 +4,7 @@ import re
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 
 
@@ -96,7 +97,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             results = self.client.list_blobs(container, prefix=prefix, delimiter='/', marker=marker)
             for r in results:
                 if not r.name.startswith(artifact_path):
-                    raise ValueError(
+                    raise MlflowException(
                         "The name of the listed Azure blob does not begin with the specified"
                         " artifact path. Artifact path: {artifact_path}. Blob name:"
                         " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))

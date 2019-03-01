@@ -4,6 +4,7 @@ import boto3
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 
 
@@ -68,16 +69,32 @@ class S3ArtifactRepository(ArtifactRepository):
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
-                subdir = obj.get("Prefix")[len(artifact_path)+1:]
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
-                infos.append(FileInfo(subdir, True, None))
+                subdir_path = obj.get("Prefix")
+                self._verify_listed_object_contains_artifact_path_prefix(
+                    listed_object_path=subdir_path, artifact_path=artifact_path)
+                subdir_rel_path = self.get_path_module().relpath(
+                    path=subdir_path, start=artifact_path)
+                if subdir_rel_path.endswith("/"):
+                    subdir_rel_path = subdir_rel_path[:-1]
+                infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
             for obj in result.get('Contents', []):
-                name = obj.get("Key")[len(artifact_path)+1:]
-                size = int(obj.get('Size'))
-                infos.append(FileInfo(name, False, size))
+                file_path = obj.get("Key")
+                self._verify_listed_object_contains_artifact_path_prefix(
+                    listed_object_path=file_path, artifact_path=artifact_path)
+                file_rel_path = self.get_path_module().relpath(path=file_path, start=artifact_path)
+                file_size = int(obj.get('Size'))
+                infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
+
+    @staticmethod
+    def _verify_listed_object_contains_artifact_path_prefix(listed_object_path, artifact_path):
+        if not listed_object_path.startswith(artifact_path):
+            raise MlflowException(
+                "The path of the listed S3 object does not begin with the specified"
+                " artifact path. Artifact path: {artifact_path}. Object path:"
+                " {object_path}.".format(
+                    artifact_path=artifact_path, object_path=listed_object_path))
 
     def _download_file(self, remote_file_path, local_path):
         (bucket, s3_root_path) = self.parse_s3_uri(self.artifact_uri)

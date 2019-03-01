@@ -4,7 +4,6 @@ from abc import abstractmethod, ABCMeta
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.rest_store import RestStore
 from mlflow.utils.file_utils import build_path
 
 
@@ -119,36 +118,3 @@ class ArtifactRepository:
         :param local_path: The path to which to save the downloaded file.
         """
         pass
-
-    @staticmethod
-    def from_artifact_uri(artifact_uri, store):
-        """
-        Given an artifact URI for an Experiment Run (e.g., /local/file/path or s3://my/bucket),
-        returns an ArtifactReposistory instance capable of logging and downloading artifacts
-        on behalf of this URI.
-        :param store: An instance of AbstractStore which the artifacts are registered in.
-        """
-        if artifact_uri.startswith("s3:/"):
-            # Import these locally to avoid creating a circular import loop
-            from mlflow.store.s3_artifact_repo import S3ArtifactRepository
-            return S3ArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("gs:/"):
-            from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
-            return GCSArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("wasbs:/"):
-            from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
-            return AzureBlobArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("ftp:/"):
-            from mlflow.store.ftp_artifact_repo import FTPArtifactRepository
-            return FTPArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("sftp:/"):
-            from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
-            return SFTPArtifactRepository(artifact_uri)
-        elif artifact_uri.startswith("dbfs:/"):
-            from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
-            if not isinstance(store, RestStore):
-                raise MlflowException('`store` must be an instance of RestStore.')
-            return DbfsArtifactRepository(artifact_uri, store.get_host_creds)
-        else:
-            from mlflow.store.local_artifact_repo import LocalArtifactRepository
-            return LocalArtifactRepository(artifact_uri)
