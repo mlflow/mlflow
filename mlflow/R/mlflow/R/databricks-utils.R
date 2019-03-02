@@ -1,11 +1,7 @@
 # Utils for databricks authentication
 
-new_mlflow_client.databricks <- function(scheme, tracking_uri) {
-  parts <- strsplit(tracking_uri, "://")
-  if (scheme != "databricks" || parts[[1]][1] != "databricks") {
-    stop(paste("Unexpected tracking uri '", tracking_uri, "' for scheme '", scheme, "'", sep = ""))
-  }
-  profile <- parts[[1]][2]
+new_mlflow_client.databricks <- function(tracking_uri) {
+  profile <- tracking_uri$path
   # make sure we can read the config
   config <- get_databricks_config(profile)
   new_mlflow_client_impl(
@@ -15,7 +11,7 @@ new_mlflow_client.databricks <- function(scheme, tracking_uri) {
     cli_env = function() {
       databricks_config_as_env(get_databricks_config(profile))
     },
-    clazz = class(scheme)
+    clazz = "mlflow_databricks_client"
   )
 }
 

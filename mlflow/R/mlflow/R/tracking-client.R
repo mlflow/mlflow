@@ -1,6 +1,14 @@
 
-new_mlflow_client <- function(scheme, tracking_uri) {
+new_mlflow_client <- function(tracking_uri) {
   UseMethod("new_mlflow_client")
+}
+
+new_mlflow_uri <- function(raw_uri) {
+  parts <- strsplit(raw_uri, "://")
+  structure(
+    list(scheme = parts[[1]][1], path = parts[[1]][2]),
+    class = c(parts[[1]][1], "mlflow_uri")
+  )
 }
 
 new_mlflow_client_impl <- function(get_host_creds, cli_env = list, clazz = c()) {
@@ -17,12 +25,13 @@ new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, toke
   list(host = host, username = username, password = password, token = token, insecure = insecure)
 }
 
-new_mlflow_client.default <- function(scheme, tracking_uri) {
-  server_url <- if (!is.null(mlflow_local_server(tracking_uri)$server_url)) {
-    mlflow_local_server(tracking_uri)$server_url
+new_mlflow_client.file <- function(tracking_uri) {
+  path <- tracking_uri$path
+  server_url <- if (!is.null(mlflow_local_server(path)$server_url)) {
+    mlflow_local_server(path)$server_url
   } else {
-    local_server <- mlflow_server(file_store = tracking_uri, port = mlflow_connect_port())
-    mlflow_register_local_server(tracking_uri = tracking_uri, local_server = local_server)
+    local_server <- mlflow_server(file_store = path, port = mlflow_connect_port())
+    mlflow_register_local_server(tracking_uri = path, local_server = local_server)
     local_server$server_url
   }
   new_mlflow_client_impl(get_host_creds = function () {
@@ -30,10 +39,15 @@ new_mlflow_client.default <- function(scheme, tracking_uri) {
   })
 }
 
+new_mlflow_client.default <- function(tracking_uri) {
+  stop(paste("Unsupported scheme: '", tracking_uri$scheme, "'", sep = ""))
+}
+
 basic_http_client <- function(tracking_uri) {
+  host <- paste(tracking_uri$scheme, tracking_uri$path, sep = "://")
   get_host_creds <- function () {
     new_mlflow_host_creds(
-      host = tracking_uri,
+      host = host,
       username = Sys.getenv("MLFLOW_USERNAME", NA),
       password = Sys.getenv("MLFLOW_PASSWORD", NA),
       token = Sys.getenv("MLFLOW_TOKEN", NA),
@@ -52,11 +66,11 @@ basic_http_client <- function(tracking_uri) {
   new_mlflow_client_impl(get_host_creds, cli_env)
 }
 
-new_mlflow_client.http <- function(scheme, tracking_uri) {
+new_mlflow_client.http <- function(tracking_uri) {
   basic_http_client(tracking_uri)
 }
 
-new_mlflow_client.https <- function(scheme, tracking_uri) {
+new_mlflow_client.https <- function(tracking_uri) {
   basic_http_client(tracking_uri)
 }
 
@@ -66,10 +80,8 @@ new_mlflow_client.https <- function(scheme, tracking_uri) {
 #'  set by `mlflow_set_tracking_uri()`.
 #' @keywords internal
 mlflow_client <- function(tracking_uri = NULL) {
-  tracking_uri <- tracking_uri %||% mlflow_get_tracking_uri()
-  scheme <- strsplit(tracking_uri, "://") [[1]][1]
-  class(scheme) <- scheme
-  client <- new_mlflow_client(scheme, tracking_uri)
+  tracking_uri <- new_mlflow_uri(tracking_uri %||% mlflow_get_tracking_uri())
+  client <- new_mlflow_client(tracking_uri)
   mlflow_validate_server(client)
   client
 }
