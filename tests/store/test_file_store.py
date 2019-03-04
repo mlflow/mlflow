@@ -520,3 +520,24 @@ class TestFileStore(unittest.TestCase):
         for rid in all_run_ids:
             if rid != bad_run_id:
                 fs.get_run(rid)
+
+    def test_log_batch(self):
+        fs = FileStore(self.test_root)
+        run = fs.create_run(
+            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
+            source_type='source_type', source_name='source_name',
+            entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
+            parent_run_id=None)
+        run_uuid = run.info.run_uuid
+        metric_entities = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+        param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
+        tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
+        fs.log_batch(
+            run_uuid=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
+        run = fs.get_run(run_uuid)
+        tags = [(t.key, t.value) for t in run.data.tags]
+        metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
+        params = [(p.key, p.value) for p in run.data.params]
+        assert set(tags) == set([("t1", "t1val"), ("t2", "t2val")])
+        assert set(metrics) == set([("m1", 0.87, 12345), ("m2", 0.49, 12345)])
+        assert set(params) == set([("p1", "p1val"), ("p2", "p2val")])
