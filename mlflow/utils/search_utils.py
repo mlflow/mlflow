@@ -64,7 +64,10 @@ class SearchFilter(object):
         try:
             entity_type, key = identifier.split(".")
         except ValueError:
-            raise MlflowException("Invalid filter string '%s'" % identifier)
+            raise MlflowException("Invalid filter string '%s'. Filter comparison is expected as "
+                                  "'metric.<key> <comparator> <value>' or"
+                                  "'params.<key> <comparator> <value>'." % identifier,
+                                  error_code=INVALID_PARAMETER_VALUE)
         return {"type": cls._valid_entity_type(entity_type), "key": key}
 
     @classmethod
@@ -141,12 +144,18 @@ class SearchFilter(object):
 
     def _parse(self):
         if self._filter_string:
-            parsed = sqlparse.parse(self._filter_string)
+            try:
+                parsed = sqlparse.parse(self._filter_string)
+            except Exception:
+                raise MlflowException("Error on parsing filter '%s'" % self._filter_string,
+                                      error_code=INVALID_PARAMETER_VALUE)
             if len(parsed) == 0 or not isinstance(parsed[0], Statement):
-                raise MlflowException("Invalid filter '%s'" % self._filter_string)
+                raise MlflowException("Invalid filter '%s'. Could not be parsed." %
+                                      self._filter_string, error_code=INVALID_PARAMETER_VALUE)
             elif len(parsed) > 1:
-                raise MlflowException("Multiple expression in filter '%s'. "
-                                      "Provide AND-ed expression list." % self._filter_string)
+                raise MlflowException("Search filter contained multiple expression '%s'. "
+                                      "Provide AND-ed expression list." % self._filter_string,
+                                      error_code=INVALID_PARAMETER_VALUE)
             return self._process_statement(parsed[0])
         elif self._search_expressions:
             return [self.search_expression_to_dict(se) for se in self._search_expressions]

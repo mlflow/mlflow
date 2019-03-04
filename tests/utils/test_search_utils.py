@@ -53,6 +53,10 @@ def test_anded_expression_2():
 
 @pytest.mark.parametrize("filter_string, parsed_filter", [
     ("metric.acc >= 0.94", [{'comparator': '>=', 'key': 'acc', 'type': 'metric', 'value': '0.94'}]),
+    ('metric."legit name" >= 0.243', [{'comparator': '>=',
+                                       'key': '"legit name"',
+                                       'type': 'metric',
+                                       'value': '0.243'}]),
     ("metrics.XYZ = 3", [{'comparator': '=', 'key': 'XYZ', 'type': 'metric', 'value': '3'}]),
     ("params.model = 'LinearRegression'", [{'comparator': '=',
                                             'key': 'model',
@@ -73,7 +77,7 @@ def test_filter(filter_string, parsed_filter):
 
 
 @pytest.mark.parametrize("filter_string, error_message", [
-    ("metric.acc >= 0.94; metrics.rmse < 1", "Multiple expression in filter"),
+    ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
     ("m.acc >= 0.94", "Invalid search expression type"),
     ("acc >= 0.94", "Invalid filter string"),
     ("p.model >= 'LR'", "Invalid search expression type"),
@@ -85,6 +89,7 @@ def test_filter(filter_string, parsed_filter):
     ("param`.A > 0.1", "Invalid clause(s) in filter string"),
     ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
     ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
+    ("metrics.crazy.name > 0.1", "Invalid filter string"),
 ])
 def test_error_filter(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
