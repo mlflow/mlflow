@@ -112,10 +112,11 @@ class SqlAlchemyStore(AbstractStore):
     def _get_artifact_location(self, experiment_id):
         return build_path(self.artifact_root_uri, str(experiment_id))
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, experiment_id=None):
         if name is None or name == '':
             raise MlflowException('Invalid experiment name', INVALID_PARAMETER_VALUE)
-
+        if experiment_id is not None:
+            raise NotImplementedError("Parameter `experiment_id` not implemented")
         new_session = self.SessionMaker()
         try:
             experiment = SqlExperiment(

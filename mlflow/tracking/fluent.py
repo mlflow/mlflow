@@ -234,16 +234,17 @@ def log_artifacts(local_dir, artifact_path=None):
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def create_experiment(name, artifact_location=None):
+def create_experiment(name, artifact_location=None, experiment_id=None):
     """
     Create an experiment.
 
     :param name: The experiment name. Must be unique.
     :param artifact_location: The location to store run artifacts.
                               If not provided, the server picks an appropriate default.
+    :param experiment_id: Experiment id to be assigned for the experiment. Must be unique.
     :return: Integer ID of the created experiment.
     """
-    return MlflowClient().create_experiment(name, artifact_location)
+    return MlflowClient().create_experiment(name, artifact_location, experiment_id)
 
 
 def get_artifact_uri(artifact_path=None):

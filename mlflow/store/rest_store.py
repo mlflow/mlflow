@@ -75,14 +75,16 @@ class RestStore(AbstractStore):
         return [Experiment.from_proto(experiment_proto)
                 for experiment_proto in response_proto.experiments]
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, experiment_id=None):
         """
         Creates a new experiment.
-        If an experiment with the given name already exists, throws exception.
+        If an experiment with the given name or id already exists, throws exception.
 
         :param name: Desired name for an experiment
         :return: experiment_id (integer) for the newly created experiment if successful, else None
         """
+        if experiment_id is not None:
+            raise NotImplementedError("Parameter `experiment_id` not implemented.")
         req_body = message_to_json(CreateExperiment(
             name=name, artifact_location=artifact_location))
         response_proto = self._call_endpoint(CreateExperiment, req_body)

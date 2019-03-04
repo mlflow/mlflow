@@ -161,7 +161,7 @@ class FileStore(AbstractStore):
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, experiment_id=None):
         self._check_root_dir()
         if name is None or name == "":
             raise MlflowException("Invalid experiment name '%s'" % name,
@@ -181,7 +181,13 @@ class FileStore(AbstractStore):
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [e.experiment_id for e in self.list_experiments(ViewType.ALL)]
-        experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
+        if experiment_id is not None:
+            if experiment_id in experiments_ids:
+                raise MlflowException(
+                    "Experiment with experiment id '%s' already exists" % str(experiment_id),
+                    databricks_pb2.RESOURCE_ALREADY_EXISTS)
+        else:
+            experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
         return self._create_experiment_with_id(name, experiment_id, artifact_location)
 
     def _has_experiment(self, experiment_id):
