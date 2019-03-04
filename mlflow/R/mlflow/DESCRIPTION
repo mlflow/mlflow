@@ -24,11 +24,13 @@ Depends:
   R (>= 3.1.2)
 Imports:
   aws.s3,
+  base64enc,
   forge,
   fs,
   git2r,
   httpuv,
   httr,
+  ini,
   jsonlite,
   openssl,
   processx,
