@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from mlflow.utils import get_unique_resource_id
