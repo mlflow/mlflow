@@ -45,6 +45,6 @@ mlflow_set_tracking_uri <- function(uri) {
 mlflow_get_tracking_uri <- function() {
   .globals$tracking_uri %||% {
     env_uri <- Sys.getenv("MLFLOW_TRACKING_URI")
-    if (nchar(env_uri)) env_uri else fs::path_abs("mlruns")
+    if (nchar(env_uri)) env_uri else paste("file://", fs::path_abs("mlruns"), sep = "")
   }
 }

@@ -15,9 +15,10 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.search_utils import SearchFilter
 
 _store = None
 
@@ -275,7 +276,7 @@ def _search_runs():
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
     run_entities = _get_store().search_runs(request_message.experiment_ids,
-                                            request_message.anded_expressions,
+                                            SearchFilter(request_message),
                                             run_view_type)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
@@ -326,7 +327,7 @@ def _list_experiments():
 @catch_mlflow_exception
 def _get_artifact_repo(run):
     store = _get_store()
-    return ArtifactRepository.from_artifact_uri(run.info.artifact_uri, store)
+    return get_artifact_repository(run.info.artifact_uri, store)
 
 
 def _get_paths(base_path):

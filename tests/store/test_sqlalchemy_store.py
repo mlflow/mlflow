@@ -1,3 +1,4 @@
+import shutil
 import unittest
 import warnings
 
@@ -7,15 +8,16 @@ import mlflow
 import uuid
 
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus
-from mlflow.protos.service_pb2 import SearchExpression
+from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.search_utils import SearchFilter
 
 DB_URI = 'sqlite://'
-ARTIFACT_URI = 'file://fake file'
+ARTIFACT_URI = 'artifact_folder'
 
 
 class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
@@ -33,6 +35,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def tearDown(self):
         if self.store:
             models.Base.metadata.drop_all(self.store.engine)
+        shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
         if type(names) is list:
@@ -646,9 +649,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     # Tests for Search API
     def _search(self, experiment_id, metrics_expressions=None, param_expressions=None,
                 run_view_type=ViewType.ALL):
-        conditions = (metrics_expressions or []) + (param_expressions or [])
+        search_runs = SearchRuns()
+        search_runs.anded_expressions.extend(metrics_expressions or [])
+        search_runs.anded_expressions.extend(param_expressions or [])
+        search_filter = SearchFilter(search_runs)
         return [r.info.run_uuid
-                for r in self.store.search_runs([experiment_id], conditions, run_view_type)]
+                for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
 
     def _param_expression(self, key, comparator, val):
         expr = SearchExpression()

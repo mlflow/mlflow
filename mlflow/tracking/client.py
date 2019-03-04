@@ -12,7 +12,7 @@ from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
     _validate_tag_name, _validate_run_id, _validate_experiment_name
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 
 _DEFAULT_USER_ID = "unknown"
 
@@ -160,7 +160,7 @@ class MlflowClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
-        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, self.store)
+        artifact_repo = get_artifact_repository(run.info.artifact_uri, self.store)
         artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
@@ -171,7 +171,7 @@ class MlflowClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
-        artifact_repo = ArtifactRepository.from_artifact_uri(run.info.artifact_uri, self.store)
+        artifact_repo = get_artifact_repository(run.info.artifact_uri, self.store)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
@@ -185,7 +185,7 @@ class MlflowClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
-        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_root, self.store)
+        artifact_repo = get_artifact_repository(artifact_root, self.store)
         return artifact_repo.list_artifacts(path)
 
     def download_artifacts(self, run_id, path):
@@ -199,7 +199,7 @@ class MlflowClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
-        artifact_repo = ArtifactRepository.from_artifact_uri(artifact_root, self.store)
+        artifact_repo = get_artifact_repository(artifact_root, self.store)
         return artifact_repo.download_artifacts(path)
 
     def set_terminated(self, run_id, status=None, end_time=None):

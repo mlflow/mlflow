@@ -35883,7 +35883,9 @@ public final class Service {
 
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -35892,7 +35894,9 @@ public final class Service {
         getAndedExpressionsList();
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -35900,7 +35904,9 @@ public final class Service {
     org.mlflow.api.proto.Service.SearchExpression getAndedExpressions(int index);
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -35908,7 +35914,9 @@ public final class Service {
     int getAndedExpressionsCount();
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -35917,7 +35925,9 @@ public final class Service {
         getAndedExpressionsOrBuilderList();
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -35926,10 +35936,79 @@ public final class Service {
         int index);
 
     /**
+     * <pre>
+     * A filter expression over params, metrics, and tags, allowing returning a subset of
+     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+     * between a param/metric/tag and a constant.
+     * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+     * You can also select columns with spaces by using backticks or double quotes:
+     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * error will be returned if both are specified.
+     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+     * will be returned.
+     * </pre>
+     *
+     * <code>optional string filter = 4;</code>
+     */
+    boolean hasFilter();
+    /**
+     * <pre>
+     * A filter expression over params, metrics, and tags, allowing returning a subset of
+     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+     * between a param/metric/tag and a constant.
+     * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+     * You can also select columns with spaces by using backticks or double quotes:
+     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * error will be returned if both are specified.
+     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+     * will be returned.
+     * </pre>
+     *
+     * <code>optional string filter = 4;</code>
+     */
+    java.lang.String getFilter();
+    /**
+     * <pre>
+     * A filter expression over params, metrics, and tags, allowing returning a subset of
+     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+     * between a param/metric/tag and a constant.
+     * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+     * You can also select columns with spaces by using backticks or double quotes:
+     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * error will be returned if both are specified.
+     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+     * will be returned.
+     * </pre>
+     *
+     * <code>optional string filter = 4;</code>
+     */
+    com.google.protobuf.ByteString
+        getFilterBytes();
+
+    /**
+     * <pre>
+     * Whether to display only active, only deleted, or all runs.
+     * Defaults to only active runs.
+     * </pre>
+     *
      * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
      */
     boolean hasRunViewType();
     /**
+     * <pre>
+     * Whether to display only active, only deleted, or all runs.
+     * Defaults to only active runs.
+     * </pre>
+     *
      * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
      */
     org.mlflow.api.proto.Service.ViewType getRunViewType();
@@ -35949,6 +36028,7 @@ public final class Service {
     private SearchRuns() {
       experimentIds_ = java.util.Collections.emptyList();
       andedExpressions_ = java.util.Collections.emptyList();
+      filter_ = "";
       runViewType_ = 1;
     }
 
@@ -36013,9 +36093,15 @@ public final class Service {
               if (value == null) {
                 unknownFields.mergeVarintField(3, rawValue);
               } else {
-                bitField0_ |= 0x00000001;
+                bitField0_ |= 0x00000002;
                 runViewType_ = rawValue;
               }
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              filter_ = bs;
               break;
             }
             default: {
@@ -36989,7 +37075,9 @@ public final class Service {
     private java.util.List<org.mlflow.api.proto.Service.SearchExpression> andedExpressions_;
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -36999,7 +37087,9 @@ public final class Service {
     }
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37010,7 +37100,9 @@ public final class Service {
     }
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37020,7 +37112,9 @@ public final class Service {
     }
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37030,7 +37124,9 @@ public final class Service {
     }
     /**
      * <pre>
+     * This field is deprecated and will be removed in MLflow 1.0.
      * Expressions describing runs (AND-ed together when filtering runs).
+     * See 'filter' for a simpler on-the-wire representation of these expressions.
      * </pre>
      *
      * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37040,15 +37136,112 @@ public final class Service {
       return andedExpressions_.get(index);
     }
 
-    public static final int RUN_VIEW_TYPE_FIELD_NUMBER = 3;
-    private int runViewType_;
+    public static final int FILTER_FIELD_NUMBER = 4;
+    private volatile java.lang.Object filter_;
     /**
-     * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
+     * <pre>
+     * A filter expression over params, metrics, and tags, allowing returning a subset of
+     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+     * between a param/metric/tag and a constant.
+     * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+     * You can also select columns with spaces by using backticks or double quotes:
+     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * error will be returned if both are specified.
+     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+     * will be returned.
+     * </pre>
+     *
+     * <code>optional string filter = 4;</code>
      */
-    public boolean hasRunViewType() {
+    public boolean hasFilter() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
+     * <pre>
+     * A filter expression over params, metrics, and tags, allowing returning a subset of
+     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+     * between a param/metric/tag and a constant.
+     * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+     * You can also select columns with spaces by using backticks or double quotes:
+     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * error will be returned if both are specified.
+     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+     * will be returned.
+     * </pre>
+     *
+     * <code>optional string filter = 4;</code>
+     */
+    public java.lang.String getFilter() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          filter_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * A filter expression over params, metrics, and tags, allowing returning a subset of
+     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+     * between a param/metric/tag and a constant.
+     * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+     * You can also select columns with spaces by using backticks or double quotes:
+     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * error will be returned if both are specified.
+     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+     * will be returned.
+     * </pre>
+     *
+     * <code>optional string filter = 4;</code>
+     */
+    public com.google.protobuf.ByteString
+        getFilterBytes() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        filter_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_VIEW_TYPE_FIELD_NUMBER = 3;
+    private int runViewType_;
+    /**
+     * <pre>
+     * Whether to display only active, only deleted, or all runs.
+     * Defaults to only active runs.
+     * </pre>
+     *
+     * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
+     */
+    public boolean hasRunViewType() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * Whether to display only active, only deleted, or all runs.
+     * Defaults to only active runs.
+     * </pre>
+     *
      * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
      */
     public org.mlflow.api.proto.Service.ViewType getRunViewType() {
@@ -37077,8 +37270,11 @@ public final class Service {
       for (int i = 0; i < andedExpressions_.size(); i++) {
         output.writeMessage(2, andedExpressions_.get(i));
       }
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         output.writeEnum(3, runViewType_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, filter_);
       }
       unknownFields.writeTo(output);
     }
@@ -37102,9 +37298,12 @@ public final class Service {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(2, andedExpressions_.get(i));
       }
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.CodedOutputStream
           .computeEnumSize(3, runViewType_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, filter_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -37126,6 +37325,11 @@ public final class Service {
           .equals(other.getExperimentIdsList());
       result = result && getAndedExpressionsList()
           .equals(other.getAndedExpressionsList());
+      result = result && (hasFilter() == other.hasFilter());
+      if (hasFilter()) {
+        result = result && getFilter()
+            .equals(other.getFilter());
+      }
       result = result && (hasRunViewType() == other.hasRunViewType());
       if (hasRunViewType()) {
         result = result && runViewType_ == other.runViewType_;
@@ -37148,6 +37352,10 @@ public final class Service {
       if (getAndedExpressionsCount() > 0) {
         hash = (37 * hash) + ANDED_EXPRESSIONS_FIELD_NUMBER;
         hash = (53 * hash) + getAndedExpressionsList().hashCode();
+      }
+      if (hasFilter()) {
+        hash = (37 * hash) + FILTER_FIELD_NUMBER;
+        hash = (53 * hash) + getFilter().hashCode();
       }
       if (hasRunViewType()) {
         hash = (37 * hash) + RUN_VIEW_TYPE_FIELD_NUMBER;
@@ -37295,8 +37503,10 @@ public final class Service {
         } else {
           andedExpressionsBuilder_.clear();
         }
-        runViewType_ = 1;
+        filter_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        runViewType_ = 1;
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -37341,6 +37551,10 @@ public final class Service {
         }
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000001;
+        }
+        result.filter_ = filter_;
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+          to_bitField0_ |= 0x00000002;
         }
         result.runViewType_ = runViewType_;
         result.bitField0_ = to_bitField0_;
@@ -37427,6 +37641,11 @@ public final class Service {
               andedExpressionsBuilder_.addAllMessages(other.andedExpressions_);
             }
           }
+        }
+        if (other.hasFilter()) {
+          bitField0_ |= 0x00000004;
+          filter_ = other.filter_;
+          onChanged();
         }
         if (other.hasRunViewType()) {
           setRunViewType(other.getRunViewType());
@@ -37569,7 +37788,9 @@ public final class Service {
 
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37583,7 +37804,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37597,7 +37820,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37611,7 +37836,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37632,7 +37859,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37650,7 +37879,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37670,7 +37901,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37691,7 +37924,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37709,7 +37944,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37727,7 +37964,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37746,7 +37985,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37763,7 +38004,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37780,7 +38023,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37791,7 +38036,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37805,7 +38052,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37820,7 +38069,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37831,7 +38082,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37843,7 +38096,9 @@ public final class Service {
       }
       /**
        * <pre>
+       * This field is deprecated and will be removed in MLflow 1.0.
        * Expressions describing runs (AND-ed together when filtering runs).
+       * See 'filter' for a simpler on-the-wire representation of these expressions.
        * </pre>
        *
        * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
@@ -37867,14 +38122,190 @@ public final class Service {
         return andedExpressionsBuilder_;
       }
 
-      private int runViewType_ = 1;
+      private java.lang.Object filter_ = "";
       /**
-       * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
+       * <pre>
+       * A filter expression over params, metrics, and tags, allowing returning a subset of
+       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+       * between a param/metric/tag and a constant.
+       * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+       * You can also select columns with spaces by using backticks or double quotes:
+       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * error will be returned if both are specified.
+       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+       * will be returned.
+       * </pre>
+       *
+       * <code>optional string filter = 4;</code>
        */
-      public boolean hasRunViewType() {
+      public boolean hasFilter() {
         return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
+       * <pre>
+       * A filter expression over params, metrics, and tags, allowing returning a subset of
+       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+       * between a param/metric/tag and a constant.
+       * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+       * You can also select columns with spaces by using backticks or double quotes:
+       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * error will be returned if both are specified.
+       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+       * will be returned.
+       * </pre>
+       *
+       * <code>optional string filter = 4;</code>
+       */
+      public java.lang.String getFilter() {
+        java.lang.Object ref = filter_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            filter_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * A filter expression over params, metrics, and tags, allowing returning a subset of
+       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+       * between a param/metric/tag and a constant.
+       * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+       * You can also select columns with spaces by using backticks or double quotes:
+       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * error will be returned if both are specified.
+       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+       * will be returned.
+       * </pre>
+       *
+       * <code>optional string filter = 4;</code>
+       */
+      public com.google.protobuf.ByteString
+          getFilterBytes() {
+        java.lang.Object ref = filter_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          filter_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * A filter expression over params, metrics, and tags, allowing returning a subset of
+       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+       * between a param/metric/tag and a constant.
+       * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+       * You can also select columns with spaces by using backticks or double quotes:
+       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * error will be returned if both are specified.
+       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+       * will be returned.
+       * </pre>
+       *
+       * <code>optional string filter = 4;</code>
+       */
+      public Builder setFilter(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * A filter expression over params, metrics, and tags, allowing returning a subset of
+       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+       * between a param/metric/tag and a constant.
+       * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+       * You can also select columns with spaces by using backticks or double quotes:
+       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * error will be returned if both are specified.
+       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+       * will be returned.
+       * </pre>
+       *
+       * <code>optional string filter = 4;</code>
+       */
+      public Builder clearFilter() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        filter_ = getDefaultInstance().getFilter();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * A filter expression over params, metrics, and tags, allowing returning a subset of
+       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+       * between a param/metric/tag and a constant.
+       * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
+       * You can also select columns with spaces by using backticks or double quotes:
+       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
+       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
+       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * error will be returned if both are specified.
+       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+       * will be returned.
+       * </pre>
+       *
+       * <code>optional string filter = 4;</code>
+       */
+      public Builder setFilterBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+
+      private int runViewType_ = 1;
+      /**
+       * <pre>
+       * Whether to display only active, only deleted, or all runs.
+       * Defaults to only active runs.
+       * </pre>
+       *
+       * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
+       */
+      public boolean hasRunViewType() {
+        return ((bitField0_ & 0x00000008) == 0x00000008);
+      }
+      /**
+       * <pre>
+       * Whether to display only active, only deleted, or all runs.
+       * Defaults to only active runs.
+       * </pre>
+       *
        * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
        */
       public org.mlflow.api.proto.Service.ViewType getRunViewType() {
@@ -37883,22 +38314,32 @@ public final class Service {
         return result == null ? org.mlflow.api.proto.Service.ViewType.ACTIVE_ONLY : result;
       }
       /**
+       * <pre>
+       * Whether to display only active, only deleted, or all runs.
+       * Defaults to only active runs.
+       * </pre>
+       *
        * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
        */
       public Builder setRunViewType(org.mlflow.api.proto.Service.ViewType value) {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000008;
         runViewType_ = value.getNumber();
         onChanged();
         return this;
       }
       /**
+       * <pre>
+       * Whether to display only active, only deleted, or all runs.
+       * Defaults to only active runs.
+       * </pre>
+       *
        * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
        */
       public Builder clearRunViewType() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         runViewType_ = 1;
         onChanged();
         return this;
@@ -44137,90 +44578,90 @@ public final class Service {
       "e\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"0\n\013" +
       "FloatClause\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value" +
       "\030\002 \001(\002\"1\n\014DoubleClause\022\022\n\ncomparator\030\001 \001" +
-      "(\t\022\r\n\005value\030\002 \001(\001\"\343\001\n\nSearchRuns\022\026\n\016expe" +
+      "(\t\022\r\n\005value\030\002 \001(\001\"\363\001\n\nSearchRuns\022\026\n\016expe" +
       "riment_ids\030\001 \003(\003\0223\n\021anded_expressions\030\002 " +
-      "\003(\0132\030.mlflow.SearchExpression\0224\n\rrun_vie" +
-      "w_type\030\003 \001(\0162\020.mlflow.ViewType:\013ACTIVE_O" +
-      "NLY\032%\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow.R" +
-      "un:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\233\001\n\rListArtifacts\022\020\n\010run_uuid\030\001 " +
-      "\001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root_ur" +
-      "i\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_di" +
-      "r\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"f\n\013GetArtifac" +
-      "t\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032\n\n\010Res" +
-      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"\236\001\n\020GetMetricHistory\022\026\n\010run_u" +
-      "uid\030\001 \001(\tB\004\210\265\030\001\022\030\n\nmetric_key\030\002 \001(\tB\004\210\265\030" +
-      "\001\032+\n\010Response\022\037\n\007metrics\030\001 \003(\0132\016.mlflow." +
-      "Metric:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001" +
-      "\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceTyp" +
-      "e\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n" +
-      "\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007R" +
-      "UNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n" +
-      "\006FAILED\020\004\022\n\n\006KILLED\020\0052\277\022\n\rMlflowService\022" +
-      "\234\001\n\020createExperiment\022\030.mlflow.CreateExpe" +
-      "riment\032!.mlflow.CreateExperiment.Respons" +
-      "e\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflow/experim" +
-      "ents/create\032\004\010\002\020\000\020\001*\021Create Experiment\022\225" +
-      "\001\n\017listExperiments\022\027.mlflow.ListExperime" +
-      "nts\032 .mlflow.ListExperiments.Response\"G\202" +
-      "\265\030C\n-\n\003GET\022 /preview/mlflow/experiments/" +
-      "list\032\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\rgetEx" +
-      "periment\022\025.mlflow.GetExperiment\032\036.mlflow" +
-      ".GetExperiment.Response\"D\202\265\030@\n,\n\003GET\022\037/p" +
-      "review/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016G" +
-      "et Experiment\022\234\001\n\020deleteExperiment\022\030.mlf" +
-      "low.DeleteExperiment\032!.mlflow.DeleteExpe" +
-      "riment.Response\"K\202\265\030G\n0\n\004POST\022\"/preview/" +
-      "mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Delet" +
-      "e Experiment\022\241\001\n\021restoreExperiment\022\031.mlf" +
-      "low.RestoreExperiment\032\".mlflow.RestoreEx" +
-      "periment.Response\"M\202\265\030I\n1\n\004POST\022#/previe" +
-      "w/mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022Re" +
-      "store Experiment\022\234\001\n\020updateExperiment\022\030." +
-      "mlflow.UpdateExperiment\032!.mlflow.UpdateE" +
-      "xperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/previ" +
-      "ew/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Up" +
-      "date Experiment\022y\n\tcreateRun\022\021.mlflow.Cr" +
-      "eateRun\032\032.mlflow.CreateRun.Response\"=\202\265\030" +
-      "9\n)\n\004POST\022\033/preview/mlflow/runs/create\032\004" +
-      "\010\002\020\000\020\001*\nCreate Run\022y\n\tupdateRun\022\021.mlflow" +
-      ".UpdateRun\032\032.mlflow.UpdateRun.Response\"=" +
-      "\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/updat" +
-      "e\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022\021.mlf" +
-      "low.DeleteRun\032\032.mlflow.DeleteRun.Respons" +
-      "e\"1\202\265\030-\n)\n\004POST\022\033/preview/mlflow/runs/de" +
-      "lete\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow.Rest" +
-      "oreRun\032\033.mlflow.RestoreRun.Response\"2\202\265\030" +
-      ".\n*\n\004POST\022\034/preview/mlflow/runs/restore\032" +
-      "\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.mlflow.LogMetric\032" +
-      "\032.mlflow.LogMetric.Response\"A\202\265\030=\n-\n\004POS" +
-      "T\022\037/preview/mlflow/runs/log-metric\032\004\010\002\020\000" +
-      "\020\001*\nLog Metric\022|\n\010logParam\022\020.mlflow.LogP" +
-      "aram\032\031.mlflow.LogParam.Response\"C\202\265\030?\n0\n" +
-      "\004POST\022\"/preview/mlflow/runs/log-paramete" +
-      "r\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.mlflow." +
-      "SetTag\032\027.mlflow.SetTag.Response\";\202\265\0307\n*\n" +
-      "\004POST\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020" +
-      "\000\020\001*\007Set Tag\022i\n\006getRun\022\016.mlflow.GetRun\032\027" +
-      ".mlflow.GetRun.Response\"6\202\265\0302\n%\n\003GET\022\030/p" +
-      "review/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022" +
-      "\247\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033.mlf" +
-      "low.SearchRuns.Response\"h\202\265\030d\n)\n\004POST\022\033/" +
-      "preview/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022" +
-      "\033/preview/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Se" +
-      "arch Runs\022\213\001\n\rlistArtifacts\022\025.mlflow.Lis" +
-      "tArtifacts\032\036.mlflow.ListArtifacts.Respon" +
-      "se\"C\202\265\030?\n+\n\003GET\022\036/preview/mlflow/artifac" +
-      "ts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n\020getM" +
-      "etricHistory\022\030.mlflow.GetMetricHistory\032!" +
-      ".mlflow.GetMetricHistory.Response\"L\202\265\030H\n" +
-      "0\n\003GET\022#/preview/mlflow/metrics/get-hist" +
-      "ory\032\004\010\002\020\000\020\001*\022Get Metric HistoryB\036\n\024org.m" +
-      "lflow.api.proto\220\001\001\342?\002\020\001"
+      "\003(\0132\030.mlflow.SearchExpression\022\016\n\006filter\030" +
+      "\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.mlflow.Vi" +
+      "ewType:\013ACTIVE_ONLY\032%\n\010Response\022\031\n\004runs\030" +
+      "\001 \003(\0132\013.mlflow.Run:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"\233\001\n\rListArtifact" +
+      "s\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Res" +
+      "ponse\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020" +
+      ".mlflow.FileInfo:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\";\n\010FileInfo\022\014\n\004pat" +
+      "h\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001" +
+      "(\003\"f\n\013GetArtifact\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004p" +
+      "ath\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\236\001\n\020GetMetric" +
+      "History\022\026\n\010run_uuid\030\001 \001(\tB\004\210\265\030\001\022\030\n\nmetri" +
+      "c_key\030\002 \001(\tB\004\210\265\030\001\032+\n\010Response\022\037\n\007metrics" +
+      "\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.databri" +
+      "cks.rpc.RPC[$this.Response]*6\n\010ViewType\022" +
+      "\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003AL" +
+      "L\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002" +
+      "\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M" +
+      "\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022" +
+      "\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\277\022" +
+      "\n\rMlflowService\022\234\001\n\020createExperiment\022\030.m" +
+      "lflow.CreateExperiment\032!.mlflow.CreateEx" +
+      "periment.Response\"K\202\265\030G\n0\n\004POST\022\"/previe" +
+      "w/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Cre" +
+      "ate Experiment\022\225\001\n\017listExperiments\022\027.mlf" +
+      "low.ListExperiments\032 .mlflow.ListExperim" +
+      "ents.Response\"G\202\265\030C\n-\n\003GET\022 /preview/mlf" +
+      "low/experiments/list\032\004\010\002\020\000\020\001*\020List Exper" +
+      "iments\022\214\001\n\rgetExperiment\022\025.mlflow.GetExp" +
+      "eriment\032\036.mlflow.GetExperiment.Response\"" +
+      "D\202\265\030@\n,\n\003GET\022\037/preview/mlflow/experiment" +
+      "s/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\234\001\n\020delete" +
+      "Experiment\022\030.mlflow.DeleteExperiment\032!.m" +
+      "lflow.DeleteExperiment.Response\"K\202\265\030G\n0\n" +
+      "\004POST\022\"/preview/mlflow/experiments/delet" +
+      "e\032\004\010\002\020\000\020\001*\021Delete Experiment\022\241\001\n\021restore" +
+      "Experiment\022\031.mlflow.RestoreExperiment\032\"." +
+      "mlflow.RestoreExperiment.Response\"M\202\265\030I\n" +
+      "1\n\004POST\022#/preview/mlflow/experiments/res" +
+      "tore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\234\001\n\020upd" +
+      "ateExperiment\022\030.mlflow.UpdateExperiment\032" +
+      "!.mlflow.UpdateExperiment.Response\"K\202\265\030G" +
+      "\n0\n\004POST\022\"/preview/mlflow/experiments/up" +
+      "date\032\004\010\002\020\000\020\001*\021Update Experiment\022y\n\tcreat" +
+      "eRun\022\021.mlflow.CreateRun\032\032.mlflow.CreateR" +
+      "un.Response\"=\202\265\0309\n)\n\004POST\022\033/preview/mlfl" +
+      "ow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tup" +
+      "dateRun\022\021.mlflow.UpdateRun\032\032.mlflow.Upda" +
+      "teRun.Response\"=\202\265\0309\n)\n\004POST\022\033/preview/m" +
+      "lflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n" +
+      "\tdeleteRun\022\021.mlflow.DeleteRun\032\032.mlflow.D" +
+      "eleteRun.Response\"1\202\265\030-\n)\n\004POST\022\033/previe" +
+      "w/mlflow/runs/delete\032\004\010\002\020\000\020\001\022q\n\nrestoreR" +
+      "un\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreR" +
+      "un.Response\"2\202\265\030.\n*\n\004POST\022\034/preview/mlfl" +
+      "ow/runs/restore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.m" +
+      "lflow.LogMetric\032\032.mlflow.LogMetric.Respo" +
+      "nse\"A\202\265\030=\n-\n\004POST\022\037/preview/mlflow/runs/" +
+      "log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022|\n\010logPar" +
+      "am\022\020.mlflow.LogParam\032\031.mlflow.LogParam.R" +
+      "esponse\"C\202\265\030?\n0\n\004POST\022\"/preview/mlflow/r" +
+      "uns/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006" +
+      "setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTag.R" +
+      "esponse\";\202\265\0307\n*\n\004POST\022\034/preview/mlflow/r" +
+      "uns/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016" +
+      ".mlflow.GetRun\032\027.mlflow.GetRun.Response\"" +
+      "6\202\265\0302\n%\n\003GET\022\030/preview/mlflow/runs/get\032\004" +
+      "\010\002\020\000\020\001*\007Get Run\022\247\001\n\nsearchRuns\022\022.mlflow." +
+      "SearchRuns\032\033.mlflow.SearchRuns.Response\"" +
+      "h\202\265\030d\n)\n\004POST\022\033/preview/mlflow/runs/sear" +
+      "ch\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs/se" +
+      "arch\032\004\010\002\020\000\020\001*\013Search Runs\022\213\001\n\rlistArtifa" +
+      "cts\022\025.mlflow.ListArtifacts\032\036.mlflow.List" +
+      "Artifacts.Response\"C\202\265\030?\n+\n\003GET\022\036/previe" +
+      "w/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Ar" +
+      "tifacts\022\235\001\n\020getMetricHistory\022\030.mlflow.Ge" +
+      "tMetricHistory\032!.mlflow.GetMetricHistory" +
+      ".Response\"L\202\265\030H\n0\n\003GET\022#/preview/mlflow/" +
+      "metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric " +
+      "HistoryB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -44487,7 +44928,7 @@ public final class Service {
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
-        new java.lang.String[] { "ExperimentIds", "AndedExpressions", "RunViewType", });
+        new java.lang.String[] { "ExperimentIds", "AndedExpressions", "Filter", "RunViewType", });
     internal_static_mlflow_SearchRuns_Response_descriptor =
       internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SearchRuns_Response_fieldAccessorTable = new
