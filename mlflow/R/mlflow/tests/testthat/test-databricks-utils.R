@@ -3,8 +3,12 @@ context("databricks-utils")
 library(withr)
 
 test_that("mlflow creates databricks client when scheme is databricks", {
-  with_mock(.env = "mlflow", get_databricks_config = function(profile) list(
-    host = "databricks-host", token = "databricks", profile = profile), {
+  with_mock(.env = "mlflow", get_databricks_config = function(profile) {
+      config_vars <- list(host = "databricks-host", token = "databricks")
+      config <- new_databricks_config( config_source = "env", config_vars = config_vars)
+      config$profile <- profile
+      config
+  }, {
     with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
       args <- list(...)
       expect_true(paste(args, collapse = "/") == "experiments/list")
@@ -15,6 +19,9 @@ test_that("mlflow creates databricks client when scheme is databricks", {
       expect_true(creds1$host == "databricks-host")
       expect_true(creds1$token == "databricks")
       expect_true(is.na(creds1$profile))
+      env1 <- client1$get_cli_env()
+      expect_true(env1$DATABRICKS_HOST == "databricks-host")
+      expect_true(env1$DATABRICKS_TOKEN == "databricks")
       client2 <- mlflow:::mlflow_client("databricks://dbprofile")
       creds2 <- client2$get_host_creds()
       expect_true(creds2$host == "databricks-host")
@@ -139,6 +146,7 @@ test_that("mlflow can read databricks env congfig", {
       expect_true(envprofile$password == "envpassword")
       expect_true(envprofile$insecure == "True")
       expect_true(mlflow:::databricks_config_is_valid(envprofile))
+
       extracted_env <- mlflow:::databricks_config_as_env(envprofile)
       expect_true(paste(env, collapse = "|") == paste(extracted_env, collapse = "|"))
       expect_true(length(setdiff(extracted_env, env)) == 0)

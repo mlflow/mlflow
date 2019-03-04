@@ -28,7 +28,7 @@ test_that("http(s) clients work as expected", {
         config <- client2$get_host_creds()
         expect_true(config$host == https_host)
         env_str <- paste(env, collapse = "|")
-        env_str_2 <- paste(client2$cli_env(), collapse = "|")
+        env_str_2 <- paste(client2$get_cli_env(), collapse = "|")
         expect_true(env_str == env_str_2)
       })
       with_mock(.env = "mlflow", mlflow_server = function(...) list(server_url = "local_server"), {

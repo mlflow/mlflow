@@ -1,6 +1,6 @@
 # Utils for databricks authentication
 
-new_mlflow_client.databricks <- function(tracking_uri) {
+new_mlflow_client.mlflow_databricks <- function(tracking_uri) {
   profile <- tracking_uri$path
   # make sure we can read the config
   config <- get_databricks_config(profile)
@@ -8,7 +8,7 @@ new_mlflow_client.databricks <- function(tracking_uri) {
     get_host_creds = function() {
       get_databricks_config(profile)
     },
-    cli_env = function() {
+    get_cli_env = function() {
       databricks_config_as_env(get_databricks_config(profile))
     },
     clazz = "mlflow_databricks_client"

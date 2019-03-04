@@ -2,7 +2,10 @@
 
 S3method(mlflow_load_flavor,crate)
 S3method(mlflow_load_flavor,keras)
-S3method(new_mlflow_client, databricks)
+S3method(new_mlflow_client, mlflow_databricks)
+S3method(new_mlflow_client, mlflow_file)
+S3method(new_mlflow_client, mlflow_http)
+S3method(new_mlflow_client, mlflow_https)
 S3method(mlflow_predict_flavor,crate)
 S3method(mlflow_predict_flavor,keras.engine.training.Model)
 S3method(mlflow_save_flavor,crate)

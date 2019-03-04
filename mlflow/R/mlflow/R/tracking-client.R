@@ -4,17 +4,17 @@ new_mlflow_client <- function(tracking_uri) {
 }
 
 new_mlflow_uri <- function(raw_uri) {
-  parts <- strsplit(raw_uri, "://")
+  parts <- strsplit(raw_uri, "://")[[1]]
   structure(
-    list(scheme = parts[[1]][1], path = parts[[1]][2]),
-    class = c(parts[[1]][1], "mlflow_uri")
+    list(scheme = parts[1], path = parts[2]),
+    class = c(paste("mlflow_", parts[1], sep = ""), "mlflow_uri")
   )
 }
 
-new_mlflow_client_impl <- function(get_host_creds, cli_env = list, clazz = c()) {
+new_mlflow_client_impl <- function(get_host_creds, get_cli_env = list, clazz = character()) {
   structure(
     list(get_host_creds = get_host_creds,
-         cli_env = cli_env
+         get_cli_env = get_cli_env
     ),
     class = c(clazz, "mlflow_client")
   )
@@ -25,7 +25,7 @@ new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, toke
   list(host = host, username = username, password = password, token = token, insecure = insecure)
 }
 
-new_mlflow_client.file <- function(tracking_uri) {
+new_mlflow_client.mlflow_file <- function(tracking_uri) {
   path <- tracking_uri$path
   server_url <- if (!is.null(mlflow_local_server(path)$server_url)) {
     mlflow_local_server(path)$server_url
@@ -66,11 +66,11 @@ basic_http_client <- function(tracking_uri) {
   new_mlflow_client_impl(get_host_creds, cli_env)
 }
 
-new_mlflow_client.http <- function(tracking_uri) {
+new_mlflow_client.mlflow_http <- function(tracking_uri) {
   basic_http_client(tracking_uri)
 }
 
-new_mlflow_client.https <- function(tracking_uri) {
+new_mlflow_client.mlflow_https <- function(tracking_uri) {
   basic_http_client(tracking_uri)
 }
 
