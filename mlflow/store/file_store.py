@@ -23,7 +23,6 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
-from mlflow.utils.search_utils import does_run_match_clause
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -489,15 +488,12 @@ class FileStore(AbstractStore):
                                 exc_info=True)
         return run_infos
 
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         runs = []
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_uuid) for r in run_infos)
-        if len(search_expressions) == 0:
-            return runs
-        return [run for run in runs if
-                all([does_run_match_clause(run, s) for s in search_expressions])]
+        return [run for run in runs if not search_filter or search_filter.filter(run)]
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)

@@ -91,14 +91,12 @@ new_mlflow_server <- function(server_url, handle, ...) {
     ),
     class = "mlflow_server"
   )
-
-  mlflow_validate_server(ms)
   ms
 }
 
-mlflow_validate_server <- function(ms) {
+mlflow_validate_server <- function(client) {
   wait_for(
-    function() mlflow_rest(client = ms, "experiments", "list"),
+    function() mlflow_rest("experiments", "list", client = client),
     getOption("mlflow.connect.wait", 10),
     getOption("mlflow.connect.sleep", 1)
   )
