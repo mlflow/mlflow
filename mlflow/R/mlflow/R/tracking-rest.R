@@ -49,7 +49,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
       do.call(add_headers, headers)),
     POST = POST(
       api_url,
-      body = data,
+      body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
       encode = "json",
       mlflow_rest_timeout(),
       config = config,
