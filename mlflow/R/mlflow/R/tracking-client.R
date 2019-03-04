@@ -11,12 +11,12 @@ new_mlflow_uri <- function(raw_uri) {
   )
 }
 
-new_mlflow_client_impl <- function(get_host_creds, get_cli_env = list, clazz = character()) {
+new_mlflow_client_impl <- function(get_host_creds, get_cli_env = list, class = character()) {
   structure(
     list(get_host_creds = get_host_creds,
          get_cli_env = get_cli_env
     ),
-    class = c(clazz, "mlflow_client")
+    class = c(class, "mlflow_client")
   )
 }
 

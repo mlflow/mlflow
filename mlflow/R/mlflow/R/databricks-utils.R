@@ -11,7 +11,7 @@ new_mlflow_client.mlflow_databricks <- function(tracking_uri) {
     get_cli_env = function() {
       databricks_config_as_env(get_databricks_config(profile))
     },
-    clazz = "mlflow_databricks_client"
+    class = "mlflow_databricks_client"
   )
 }
 
