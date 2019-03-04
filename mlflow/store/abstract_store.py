@@ -184,13 +184,15 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         """
         Returns runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
 
         :param experiment_ids: List of experiment ids to scope the search
-        :param search_expression: list of search expressions
+        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
+            search expression or filter string.
+        :param run_view_type: ACTIVE, DELETED, or ALL runs.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
@@ -206,5 +208,5 @@ class AbstractStore:
         :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
             search expressions
         """
-        runs = self.search_runs([experiment_id], [], run_view_type)
+        runs = self.search_runs([experiment_id], None, run_view_type)
         return [run.info for run in runs]

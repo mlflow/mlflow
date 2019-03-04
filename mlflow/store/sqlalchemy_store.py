@@ -15,7 +15,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.search_utils import does_run_match_clause
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -338,13 +337,11 @@ class SqlAlchemyStore(AbstractStore):
         new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
         self._save_to_db(new_tag)
 
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         runs = [run.to_mlflow_entity()
                 for exp in experiment_ids
                 for run in self._list_runs(exp, run_view_type)]
-        if len(search_expressions) == 0:
-            return runs
-        return [r for r in runs if all([does_run_match_clause(r, s) for s in search_expressions])]
+        return [run for run in runs if not search_filter or search_filter.filter(run)]
 
     def _list_runs(self, experiment_id, run_view_type):
         exp = self._list_experiments(ids=[experiment_id], view_type=ViewType.ALL).first()
