@@ -65,7 +65,7 @@ def _get_source_type():
     return SourceType.LOCAL
 
 
-class ContextProvider:
+class ContextProvider(object):
 
     __metaclass__ = ABCMeta
 
