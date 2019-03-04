@@ -18,6 +18,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.search_utils import SearchFilter
 
 _store = None
 
@@ -275,7 +276,7 @@ def _search_runs():
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
     run_entities = _get_store().search_runs(request_message.experiment_ids,
-                                            request_message.anded_expressions,
+                                            SearchFilter(request_message),
                                             run_view_type)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')

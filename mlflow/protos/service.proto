@@ -720,9 +720,31 @@ message SearchRuns {
   // List of experiment IDs to search over.
   repeated int64 experiment_ids = 1;
 
+  // This field is deprecated and will be removed in MLflow 1.0.
   // Expressions describing runs (AND-ed together when filtering runs).
+  // See 'filter' for a simpler on-the-wire representation of these expressions.
   repeated SearchExpression anded_expressions = 2;
 
+  // A filter expression over params, metrics, and tags, allowing returning a subset of
+  // runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+  // between a param/metric/tag and a constant.
+  //
+  // Example: ``metrics.rmse < 1 and params.model_class = 'LogisticRegression'``
+  //
+  // You can also select columns with spaces by using backticks or double quotes:
+  // ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+  //
+  // Supported operators are =, !=, >, >=, <, <=, and LIKE.
+  // LIKE syntax: ``params.model_class LIKE 'Linear%'``
+  //
+  // 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+  // error will be returned if both are specified.
+  // If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+  // will be returned.
+  optional string filter = 4;
+
+  // Whether to display only active, only deleted, or all runs.
+  // Defaults to only active runs.
   optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
   message Response {
