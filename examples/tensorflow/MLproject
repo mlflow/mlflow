@@ -1,0 +1,15 @@
+name: tensorflow_tutorial
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      hidden_units: {type: string, default: "50 20"}
+      steps: {type: int, default: 1000}
+      tag_constants: {type: string, default: "serve"}
+    command: |
+          python train_predict.py \
+            --hidden_units {hidden_units} \
+            --steps {steps} \
+            --tag_constants {tag_constants}
